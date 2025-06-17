@@ -19,7 +19,7 @@ import uuid
 
 
 class NotebookGenerator:
-    """Class to generate notebooks and orchestrators for lakehouses."""
+    """Class to generate notebooks and orchestrators for Lakehouses or Warehouses."""
 
     class GenerationMode(str, Enum):
         warehouse = "Warehouse"
@@ -41,17 +41,27 @@ class NotebookGenerator:
         self.console = Console()
         self.fabric_workspace_repo_dir = Path(fabric_workspace_repo_dir).resolve()
         self.templates_dir = Path(templates_dir).resolve()
-        self.lakehouses_dir = self.fabric_workspace_repo_dir / "ddl_scripts" / "Lakehouses"
+
+        # Determine folder names based on generation mode
+        self.entity_type = self.generation_mode.value
+        self.entities_folder = f"{self.entity_type}s"
+
+        self.entities_dir = self.fabric_workspace_repo_dir / "ddl_scripts" / self.entities_folder
 
         if self.output_mode == NotebookGenerator.OutputMode.fabric_workspace_repo:
             self.output_dir = (
-                self.fabric_workspace_repo_dir                
+                self.fabric_workspace_repo_dir
                 / "fabric_workspace_items"
                 / "ddl_scripts"
-                / "Lakehouses"
+                / self.entities_folder
             ).resolve()
         elif self.output_mode == NotebookGenerator.OutputMode.local:
-            self.output_dir = self.fabric_workspace_repo_dir / "ddl_scripts" / "output" / "Lakehouses"
+            self.output_dir = (
+                self.fabric_workspace_repo_dir
+                / "ddl_scripts"
+                / "output"
+                / self.entities_folder
+            )
         else:
             raise ValueError(
                 "Invalid output mode. Choose 'fabric_workspace_repo' or 'local'."
@@ -67,7 +77,9 @@ class NotebookGenerator:
         self.base_dir = Path(__file__).resolve().parent
         self.console.print(f"[bold blue]Fabric Workspace Dir:[/bold blue] {self.fabric_workspace_repo_dir}")
         self.console.print(f"[bold blue]Templates Directory:[/bold blue] {self.templates_dir}")
-        self.console.print(f"[bold blue]Lakehouses or Warehouses Directory:[/bold blue] {self.lakehouses_dir}")
+        self.console.print(
+            f"[bold blue]Lakehouses or Warehouses Directory:[/bold blue] {self.entities_dir}"
+        )
         self.console.print(f"[bold blue]Output Directory:[/bold blue] {self.output_dir}")
 
         # Jinja2 Environment
@@ -182,7 +194,7 @@ class NotebookGenerator:
         progress=None,
         parent_task=None,
     ):
-        """Generate a notebook and its .platform file for a specific lakehouse configuration."""
+        """Generate a notebook and its .platform file for a specific entity configuration."""
         notebook_template = self.load_template("notebook_content.py.jinja")
         platform_template = self.load_template("platform.json.jinja")
         cells = []
@@ -221,7 +233,7 @@ class NotebookGenerator:
                 content = f.read()
 
             # Generate GUID based on relative path
-            relative_path = file_path.relative_to(self.lakehouses_dir)
+            relative_path = file_path.relative_to(self.entities_dir)
             script_guid = self.generate_guid(str(relative_path))
 
             # Render cell template
@@ -232,7 +244,12 @@ class NotebookGenerator:
                 script_guid=script_guid,
                 script_name=file_path.stem,
                 target_workspace_id="example-workspace-id",
-                target_lakehouse_id="example-lakehouse-id",
+                target_lakehouse_id=(
+                    "example-lakehouse-id" if self.generation_mode == NotebookGenerator.GenerationMode.lakehouse else None
+                ),
+                target_warehouse_id=(
+                    "example-warehouse-id" if self.generation_mode == NotebookGenerator.GenerationMode.warehouse else None
+                ),
             )
 
             # Add cell to the list
@@ -253,7 +270,7 @@ class NotebookGenerator:
             f.write(rendered_notebook)
 
         # Render the .platform file using the platform.json.jinja template
-        relative_path = config_folder.relative_to(self.lakehouses_dir)
+        relative_path = config_folder.relative_to(self.entities_dir)
         import uuid
 
         platform_metadata = platform_template.render(
@@ -275,9 +292,9 @@ class NotebookGenerator:
             )
 
     def generate_orchestrator_notebook(
-        self, lakehouse_name, notebook_names, output_folder
+        self, entity_name, notebook_names, output_folder
     ):
-        """Generate an orchestrator notebook that runs all notebooks for a lakehouse in sequence."""
+        """Generate an orchestrator notebook that runs all notebooks for an entity in sequence."""
 
         # Load the orchestrator template
         orchestrator_template = self.load_template("orchestrator_notebook.py.jinja")
@@ -292,13 +309,13 @@ class NotebookGenerator:
 
         # Render the orchestrator notebook
         orchestrator_content = orchestrator_template.render(
-            lakehouse_name=lakehouse_name,
+            lakehouse_name=entity_name,
             notebooks=notebooks,
             total_notebooks=len(notebook_names),
         )
 
         # Save the orchestrator notebook
-        orchestrator_path = output_folder / f"0_orchestrator_{lakehouse_name}.Notebook"
+        orchestrator_path = output_folder / f"0_orchestrator_{entity_name}.Notebook"
         orchestrator_path.mkdir(parents=True, exist_ok=True)
 
         notebook_file = orchestrator_path / "notebook-content.py"
@@ -307,9 +324,9 @@ class NotebookGenerator:
 
         # Create .platform file for orchestrator
         platform_metadata = platform_template.render(
-            notebook_name=f"0_orchestrator_{lakehouse_name}_Lakehouses_ddl_scripts",
+            notebook_name=f"0_orchestrator_{entity_name}_{self.entities_folder}_ddl_scripts",
             guid=uuid.uuid4(),
-            relative_path=f"{lakehouse_name}/0_orchestrator_{lakehouse_name}",
+            relative_path=f"{entity_name}/0_orchestrator_{entity_name}",
         )
 
         platform_path = orchestrator_path / ".platform"
@@ -320,8 +337,8 @@ class NotebookGenerator:
 
         return orchestrator_path
 
-    def generate_all_lakehouses_orchestrator(self, lakehouse_names, output_dir):
-        """Generate a master orchestrator notebook that runs all lakehouse orchestrators in parallel."""
+    def generate_all_entities_orchestrator(self, entity_names, output_dir):
+        """Generate a master orchestrator notebook that runs all entity orchestrators in parallel."""
 
         # Load the template
         all_lakehouses_template = self.load_template(
@@ -331,12 +348,9 @@ class NotebookGenerator:
 
         # Prepare lakehouse data
         lakehouses = []
-        for lakehouse_name in lakehouse_names:
+        for name in entity_names:
             lakehouses.append(
-                {
-                    "name": lakehouse_name,
-                    "orchestrator_name": f"0_orchestrator_{lakehouse_name}",
-                }
+                {"name": name, "orchestrator_name": f"0_orchestrator_{name}"}
             )
 
         # Render the all lakehouses orchestrator notebook
@@ -345,7 +359,7 @@ class NotebookGenerator:
         )
 
         # Save the orchestrator notebook
-        orchestrator_path = output_dir / "00_all_lakehouses_orchestrator.Notebook"
+        orchestrator_path = output_dir / f"00_all_{self.entities_folder.lower()}_orchestrator.Notebook"
         orchestrator_path.mkdir(parents=True, exist_ok=True)
 
         notebook_file = orchestrator_path / "notebook-content.py"
@@ -356,9 +370,9 @@ class NotebookGenerator:
         import uuid
 
         platform_metadata = platform_template.render(
-            notebook_name="00_all_lakehouses_orchestrator_ddl_scripts",
+            notebook_name=f"00_all_{self.entities_folder.lower()}_orchestrator_ddl_scripts",
             guid=uuid.uuid4(),
-            relative_path="00_all_lakehouses_orchestrator",
+            relative_path=f"00_all_{self.entities_folder.lower()}_orchestrator",
         )
 
         platform_path = orchestrator_path / ".platform"
@@ -379,22 +393,20 @@ class NotebookGenerator:
         )
         self.console.print()
 
-        # Get sorted lakehouse directories
-        lakehouse_dirs = [
-            path for path in self.lakehouses_dir.iterdir() if path.is_dir()
-        ]
+        # Get sorted entity directories
+        entity_dirs = [path for path in self.entities_dir.iterdir() if path.is_dir()]
 
         # Count total tasks and cells
         total_tasks = 0
         total_cells = 0
-        lakehouse_configs = {}  # Store config info for orchestrator generation
-        lakehouse_names = []  # Track lakehouse names for all_lakehouses_orchestrator
+        entity_configs = {}  # Store config info for orchestrator generation
+        entity_names = []  # Track entity names for master orchestrator
 
-        for lakehouse_path in lakehouse_dirs:
-            config_dirs = self.get_sorted_directories(lakehouse_path)
+        for entity_path in entity_dirs:
+            config_dirs = self.get_sorted_directories(entity_path)
             total_tasks += len(config_dirs)
-            lakehouse_configs[lakehouse_path] = config_dirs
-            lakehouse_names.append(lakehouse_path.name)
+            entity_configs[entity_path] = config_dirs
+            entity_names.append(entity_path.name)
 
             for config_path in config_dirs:
                 cell_files = self.get_sorted_files(
@@ -406,10 +418,10 @@ class NotebookGenerator:
         summary_table = Table(title="[bold]Generation Summary[/bold]")
         summary_table.add_column("Metric", style="cyan")
         summary_table.add_column("Value", style="green")
-        summary_table.add_row("Lakehouses Found", str(len(lakehouse_dirs)))
+        summary_table.add_row(f"{self.entities_folder} Found", str(len(entity_dirs)))
         summary_table.add_row("Total Notebooks to Generate", str(total_tasks))
         summary_table.add_row(
-            "Lakehouse Orchestrators to Generate", str(len(lakehouse_dirs))
+            f"{self.entity_type} Orchestrators to Generate", str(len(entity_dirs))
         )
         summary_table.add_row("Master Orchestrator", "1")
         summary_table.add_row("Total Cells to Process", str(total_cells))
@@ -434,28 +446,26 @@ class NotebookGenerator:
 
             # Add extra tasks for orchestrators + 1 for all_lakehouses_orchestrator
             main_task = progress.add_task(
-                "[cyan]Processing lakehouses...",
-                total=total_tasks + len(lakehouse_dirs) + 1,
+                f"[cyan]Processing {self.entities_folder.lower()}...",
+                total=total_tasks + len(entity_dirs) + 1,
             )
 
-            for lakehouse_path, config_dirs in lakehouse_configs.items():
+            for entity_path, config_dirs in entity_configs.items():
                 notebook_names = []  # Collect notebook names for orchestrator
 
                 # Generate individual notebooks
                 for config_path in config_dirs:
                     task_description = (
-                        f"[yellow]{lakehouse_path.name}/{config_path.name}[/yellow]"
+                        f"[yellow]{entity_path.name}/{config_path.name}[/yellow]"
                     )
                     progress.update(
                         main_task, description=f"Processing {task_description}"
                     )
 
                     output_path = (
-                        self.output_dir
-                        / lakehouse_path.name
-                        / f"{config_path.name}.Notebook"
+                        self.output_dir / entity_path.name / f"{config_path.name}.Notebook"
                     )
-                    notebook_display_name = f"{config_path.name}_{lakehouse_path.name}_Lakehouses_ddl_scripts"
+                    notebook_display_name = f"{config_path.name}_{entity_path.name}_{self.entities_folder}_ddl_scripts"
                     notebook_names.append(f"{notebook_display_name}")
 
                     try:
@@ -480,25 +490,25 @@ class NotebookGenerator:
 
                     progress.advance(main_task)
 
-                # Generate orchestrator notebook for this lakehouse
+                # Generate orchestrator notebook for this entity
                 try:
                     progress.update(
                         main_task,
-                        description=f"Generating orchestrator for [yellow]{lakehouse_path.name}[/yellow]",
+                        description=f"Generating orchestrator for [yellow]{entity_path.name}[/yellow]",
                     )
                     orchestrator_path = self.generate_orchestrator_notebook(
-                        lakehouse_path.name,
+                        entity_path.name,
                         notebook_names,
-                        self.output_dir / lakehouse_path.name,
+                        self.output_dir / entity_path.name,
                     )
                     orchestrator_count += 1
                     progress.console.print(
-                        f"[green]✓[/green] Generated orchestrator for {lakehouse_path.name}"
+                        f"[green]✓[/green] Generated orchestrator for {entity_path.name}"
                     )
                     progress.advance(main_task)
                 except Exception as e:
                     progress.console.print(
-                        f"[red]✗[/red] Error generating orchestrator for {lakehouse_path.name}: {str(e)}"
+                        f"[red]✗[/red] Error generating orchestrator for {entity_path.name}: {str(e)}"
                     )
                     progress.advance(main_task)
 
@@ -506,13 +516,13 @@ class NotebookGenerator:
             try:
                 progress.update(
                     main_task,
-                    description="Generating master orchestrator for all lakehouses",
+                    description=f"Generating master orchestrator for all {self.entities_folder.lower()}",
                 )
-                all_lakehouses_path = self.generate_all_lakehouses_orchestrator(
-                    lakehouse_names, self.output_dir
+                all_lakehouses_path = self.generate_all_entities_orchestrator(
+                    entity_names, self.output_dir
                 )
                 progress.console.print(
-                    f"[green]✓[/green] Generated master orchestrator for all lakehouses"
+                    f"[green]✓[/green] Generated master orchestrator for all {self.entities_folder.lower()}"
                 )
                 progress.advance(main_task)
             except Exception as e:
@@ -526,7 +536,7 @@ class NotebookGenerator:
         self.console.print(
             Panel.fit(
                 f"[bold green]✓ Successfully generated {success_count} notebooks[/bold green]\n"
-                f"[bold green]✓ Successfully generated {orchestrator_count} lakehouse orchestrators[/bold green]\n"
+                f"[bold green]✓ Successfully generated {orchestrator_count} {self.entity_type.lower()} orchestrators[/bold green]\n"
                 f"[bold green]✓ Generated 1 master orchestrator[/bold green]\n"
                 f"[bold red]✗ Failed to generate {error_count} notebooks[/bold red]",
                 title="[bold]Generation Complete[/bold]",
