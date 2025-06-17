@@ -1,0 +1,11 @@
+{
+  "$schema": "https://developer.microsoft.com/json-schemas/fabric/gitIntegration/platformProperties/2.0.0/schema.json",
+  "metadata": {
+    "type": "DataPipeline",
+    "displayName": "extract_pipeline_from_synapse_v2"
+  },
+  "config": {
+    "version": "2.0",
+    "logicalId": "31eab115-c0c6-97da-4e07-8ff1ad1d8296"
+  }
+}

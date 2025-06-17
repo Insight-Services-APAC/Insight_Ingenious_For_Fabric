@@ -1,0 +1,11 @@
+{
+  "$schema": "https://developer.microsoft.com/json-schemas/fabric/gitIntegration/platformProperties/2.0.0/schema.json",
+  "metadata": {
+    "type": "UserDataFunction",
+    "displayName": "insert_log_message"
+  },
+  "config": {
+    "version": "2.0",
+    "logicalId": "7db70cf7-e621-bae2-4121-fc550cbdcaf4"
+  }
+}

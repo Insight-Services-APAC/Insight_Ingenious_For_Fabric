@@ -1,0 +1,86 @@
+{
+  "properties": {
+    "activities": [
+      {
+        "name": "Delete data",
+        "type": "Delete",
+        "dependsOn": [],
+        "policy": {
+          "timeout": "0.12:00:00",
+          "retry": 0,
+          "retryIntervalInSeconds": 30,
+          "secureOutput": false,
+          "secureInput": false
+        },
+        "typeProperties": {
+          "datasetSettings": {
+            "annotations": [],
+            "type": "Binary",
+            "typeProperties": {
+              "location": {
+                "type": "AzureBlobFSLocation",
+                "folderPath": {
+                  "value": "@concat('exports/',pipeline().parameters.table_schema_and_name)",
+                  "type": "Expression"
+                },
+                "fileSystem": "sansdaisynstorage"
+              }
+            },
+            "externalReferences": {
+              "connection": "0fe0bc3a-2213-4261-b13c-5dbb14e5a4bb"
+            }
+          },
+          "enableLogging": false,
+          "storeSettings": {
+            "type": "AzureBlobFSReadSettings",
+            "recursive": true,
+            "enablePartitionDiscovery": false
+          }
+        }
+      },
+      {
+        "name": "Execute Script",
+        "type": "Script",
+        "dependsOn": [
+          {
+            "activity": "Delete data",
+            "dependencyConditions": [
+              "Completed"
+            ]
+          }
+        ],
+        "policy": {
+          "timeout": "0.12:00:00",
+          "retry": 0,
+          "retryIntervalInSeconds": 30,
+          "secureOutput": false,
+          "secureInput": false
+        },
+        "typeProperties": {
+          "scripts": [
+            {
+              "type": "Query",
+              "text": {
+                "value": "@{pipeline().parameters.script_content}",
+                "type": "Expression"
+              }
+            }
+          ],
+          "scriptBlockExecutionTimeout": "02:00:00",
+          "database": "test"
+        },
+        "externalReferences": {
+          "connection": "b6a70ed9-b5ac-4f7d-b187-98a82c7f11f0"
+        }
+      }
+    ],
+    "parameters": {
+      "script_content": {
+        "type": "string"
+      },
+      "table_schema_and_name": {
+        "type": "string"
+      }
+    }
+  }
+}

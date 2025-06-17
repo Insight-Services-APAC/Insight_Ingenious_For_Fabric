@@ -1,0 +1,71 @@
+{%- import 'macros.py.jinja' as macros -%}
+{{ macros.python_cell_with_heading("Parquet Load Utils - Spark") }}
+
+from dataclasses import dataclass
+from pyspark.sql import Window
+from pyspark.sql.functions import col, row_number, lower
+
+class parquet_load_utils: 
+    def __init__(self, lu: lakehouse_utils):
+        self.config_table_uri = f"{lu_config.lakehouse_tables_uri()}config_parquet_loads"
+        self.log_table_uri = f"{lu_config.lakehouse_tables_uri()}log_parquet_loads"
+
+
+    @dataclass
+    class ParquetLoadConfig:
+        cfg_target_lakehouse_workspace_id: str
+        cfg_target_lakehouse_id: str
+        target_partition_columns: str
+        target_sort_columns: str
+        target_replace_where: str
+
+        cfg_source_lakehouse_workspace_id: str
+        cfg_source_lakehouse_id: str
+        cfg_source_file_path: str
+        source_file_path: str
+        source_file_name: str
+
+        cfg_legacy_synapse_connection_name: str
+        synapse_source_schema_name: str
+        synapse_source_table_name: str
+        synapse_partition_clause: str
+
+        execution_group: int
+        active_yn: str
+
+    @dataclass
+    class ExecutionLog:
+        execution_id: str
+        cfg_target_lakehouse_workspace_id: str
+        cfg_target_lakehouse_id: str
+        partition_clause: Optional[str]
+        status: str
+        error_messages: Optional[str]
+        start_date: datetime
+        finish_date: datetime
+        update_date: datetime
+
+    
+    def get_config_items_as_object(self):
+        df = spark.read.format("delta").load(self.config_table_uri)    
+        active_df = df.filter(lower(col("active_yn")) == "y")            
+        return [parquet_load_utils.ParquetLoadConfig(**row.asDict()) for row in active_df.collect()]
+
+    def get_log_items_as_object(self, status_filter = None):
+        df = spark.read.format("delta").load(self.log_table_uri)
+        
+        if status_filter:
+            df = df.filter(lower(col("status")) == status_filter)  # optional, adjust if needed
+
+        # Define window to get max update_date per unique combination
+        window_spec = Window.partitionBy(
+            "execution_id"
+        ).orderBy(col("update_date").desc())
+
+        # Assign row number and filter to only the latest record per group
+        df_latest = df.withColumn("row_num", row_number().over(window_spec)) \
+                    .filter(col("row_num") == 1) \
+                    .drop("row_num")   
+
+        return [parquet_load_utils.ExecutionLog(**row.asDict()) for row in df.collect()]
+    

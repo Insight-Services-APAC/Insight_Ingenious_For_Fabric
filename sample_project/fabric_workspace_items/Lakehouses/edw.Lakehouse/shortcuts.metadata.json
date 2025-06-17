@@ -1,0 +1,14 @@
+[
+  {
+    "name": "exports",
+    "path": "/Files",
+    "target": {
+      "type": "AdlsGen2",
+      "adlsGen2": {
+        "connectionId": "0fe0bc3a-2213-4261-b13c-5dbb14e5a4bb",
+        "location": "https://sansdaisynstorage.dfs.core.windows.net",
+        "subpath": "/sansdaisynstorage/exports"
+      }
+    }
+  }
+]

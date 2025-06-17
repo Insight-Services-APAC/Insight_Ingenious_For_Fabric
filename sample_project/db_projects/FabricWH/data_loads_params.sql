@@ -1,0 +1,10 @@
+DECLARE @Configuration_Workspace_Id VARCHAR(300) = '50fbcab0-7d56-46f7-90f6-80ceb00ac86d', 
+        @Configuration_Warehouse_Id VARCHAR(300) = '8a26f137-fd0b-47f6-92e1-e4551593c751', 
+        @Configuration_Warehouse_Name VARCHAR(300) = 'WH',
+        @EDW_Warehouse_Workspace_Id VARCHAR(300) = '50fbcab0-7d56-46f7-90f6-80ceb00ac86d',
+        @EDW_Warehouse_Id VARCHAR(300) = '8a26f137-fd0b-47f6-92e1-e4551593c751',
+        @EDW_Warehouse_Name VARCHAR(300) = 'WH',
+        @EDW_Lakehouse_Workspace_Id VARCHAR(300) = '50fbcab0-7d56-46f7-90f6-80ceb00ac86d',
+        @EDW_Lakehouse_Id VARCHAR(300) = '8a26f137-fd0b-47f6-92e1-e4551593c751',
+        @EDW_Lakehouse_Name VARCHAR(300) = 'LH',
+        @Synapse_Export_Shortcut_Path_In_Onelake VARCHAR(300) = 'exports/';

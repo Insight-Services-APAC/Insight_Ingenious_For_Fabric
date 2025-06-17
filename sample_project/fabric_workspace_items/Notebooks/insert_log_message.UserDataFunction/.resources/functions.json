@@ -1,0 +1,30 @@
+{
+  "Runtime": "PYTHON",
+  "FunctionsMetadata": [
+    {
+      "Name": "insert_log_message",
+      "ScriptFile": "function_app.py",
+      "Bindings": [
+        {
+          "Methods": [
+            "POST"
+          ],
+          "Route": "",
+          "AuthLevel": "Anonymous",
+          "Name": "req",
+          "Direction": "In",
+          "Type": "HttpTrigger"
+        }
+      ],
+      "FabricProperties": {
+        "fabricFunctionParameters": [
+          {
+            "dataType": "str",
+            "name": "warehousename"
+          }
+        ],
+        "fabricFunctionReturnType": "str"
+      }
+    }
+  ]
+}

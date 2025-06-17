@@ -1,0 +1,170 @@
+{
+  "properties": {
+    "activities": [
+      {
+        "type": "TridentNotebook",
+        "typeProperties": {
+          "notebookId": "2f2cbf75-a44f-4cf6-afa2-b036dc140d86",
+          "workspaceId": "00000000-0000-0000-0000-000000000000",
+          "parameters": {
+            "synapse_source_sql_connection": {
+              "value": {
+                "value": "@pipeline().libraryVariables.synapse_source_sql_connection",
+                "type": "Expression"
+              },
+              "type": "string"
+            },
+            "synapse_source_database_1": {
+              "value": {
+                "value": "@pipeline().libraryVariables.synapse_source_database_1",
+                "type": "Expression"
+              },
+              "type": "string"
+            },
+            "config_lakehouse_name": {
+              "value": {
+                "value": "@pipeline().libraryVariables.config_lakehouse_name",
+                "type": "Expression"
+              },
+              "type": "string"
+            },
+            "config_workspace_id": {
+              "value": {
+                "value": "@pipeline().libraryVariables.config_workspace_id",
+                "type": "Expression"
+              },
+              "type": "string"
+            },
+            "config_lakehouse_id": {
+              "value": {
+                "value": "@pipeline().libraryVariables.config_lakehouse_id",
+                "type": "Expression"
+              },
+              "type": "string"
+            },
+            "edw_workspace_id": {
+              "value": {
+                "value": "@pipeline().libraryVariables.edw_workspace_id",
+                "type": "Expression"
+              },
+              "type": "string"
+            },
+            "edw_warehouse_id": {
+              "value": {
+                "value": "@pipeline().libraryVariables.edw_warehouse_id",
+                "type": "Expression"
+              },
+              "type": "string"
+            },
+            "edw_warehouse_name": {
+              "value": {
+                "value": "@pipeline().libraryVariables.edw_warehouse_name",
+                "type": "Expression"
+              },
+              "type": "string"
+            },
+            "edw_lakehouse_id": {
+              "value": {
+                "value": "@pipeline().libraryVariables.edw_lakehouse_id",
+                "type": "Expression"
+              },
+              "type": "string"
+            },
+            "edw_lakehouse_name": {
+              "value": {
+                "value": "@pipeline().libraryVariables.edw_lakehouse_name",
+                "type": "Expression"
+              },
+              "type": "string"
+            },
+            "legacy_synapse_connection_name": {
+              "value": {
+                "value": "@pipeline().libraryVariables.legacy_synapse_connection_name",
+                "type": "Expression"
+              },
+              "type": "string"
+            },
+            "synapse_export_shortcut_path_in_onelake": {
+              "value": {
+                "value": "@pipeline().libraryVariables.synapse_export_shortcut_path_in_onelake",
+                "type": "Expression"
+              },
+              "type": "string"
+            }
+          }
+        },
+        "policy": {
+          "timeout": "0.12:00:00",
+          "retry": 0,
+          "retryIntervalInSeconds": 30,
+          "secureInput": false,
+          "secureOutput": false
+        },
+        "name": "Run Primary DDL Orchestrator",
+        "dependsOn": []
+      }
+    ],
+    "libraryVariables": {
+      "synapse_source_sql_connection": {
+        "type": "String",
+        "variableName": "synapse_source_sql_connection",
+        "libraryName": "var_lib"
+      },
+      "synapse_source_database_1": {
+        "type": "String",
+        "variableName": "synapse_source_database_1",
+        "libraryName": "var_lib"
+      },
+      "config_lakehouse_name": {
+        "type": "String",
+        "variableName": "config_lakehouse_name",
+        "libraryName": "var_lib"
+      },
+      "config_workspace_id": {
+        "type": "String",
+        "variableName": "config_workspace_id",
+        "libraryName": "var_lib"
+      },
+      "config_lakehouse_id": {
+        "type": "String",
+        "variableName": "config_lakehouse_id",
+        "libraryName": "var_lib"
+      },
+      "edw_workspace_id": {
+        "type": "String",
+        "variableName": "edw_workspace_id",
+        "libraryName": "var_lib"
+      },
+      "edw_warehouse_id": {
+        "type": "String",
+        "variableName": "edw_warehouse_id",
+        "libraryName": "var_lib"
+      },
+      "edw_warehouse_name": {
+        "type": "String",
+        "variableName": "edw_warehouse_name",
+        "libraryName": "var_lib"
+      },
+      "edw_lakehouse_id": {
+        "type": "String",
+        "variableName": "edw_lakehouse_id",
+        "libraryName": "var_lib"
+      },
+      "edw_lakehouse_name": {
+        "type": "String",
+        "variableName": "edw_lakehouse_name",
+        "libraryName": "var_lib"
+      },
+      "legacy_synapse_connection_name": {
+        "type": "String",
+        "variableName": "legacy_synapse_connection_name",
+        "libraryName": "var_lib"
+      },
+      "synapse_export_shortcut_path_in_onelake": {
+        "type": "String",
+        "variableName": "synapse_export_shortcut_path_in_onelake",
+        "libraryName": "var_lib"
+      }
+    }
+  }
+}

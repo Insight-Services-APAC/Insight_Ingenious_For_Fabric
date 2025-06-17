@@ -1,0 +1,18 @@
+CREATE TABLE [dbo].[FOOD_DW_FCT_FOOD_SALES_BUDGET_V] (
+
+	[CATEGORY_MANAGER_CODE] varchar(8) NULL, 
+	[MSC_CATEGORY_CD] varchar(8) NULL, 
+	[BRANCH_SK] bigint NULL, 
+	[BRANCH_CODE] varchar(15) NULL, 
+	[BRANCH_BUS_PILLAR_CODE] varchar(8) NULL, 
+	[SOURCE_SYSTEM_CD] int NULL, 
+	[INTERNAL_SALES_IND] varchar(10) NULL, 
+	[FRESH_FLAG] varchar(15) NULL, 
+	[TOBACCO_FLAG] varchar(15) NULL, 
+	[BUDGET_PLAN_TYP] varchar(8) NULL, 
+	[PRIVATELABEL_TYPE] varchar(50) NULL, 
+	[PDM_CD] varchar(10) NULL, 
+	[FISC_WK_END_DT] int NULL, 
+	[BUDGET_AMT] float NULL, 
+	[cb] bigint NULL
+);

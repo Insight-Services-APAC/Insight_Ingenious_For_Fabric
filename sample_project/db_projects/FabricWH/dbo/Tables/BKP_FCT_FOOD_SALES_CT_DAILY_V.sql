@@ -1,0 +1,26 @@
+CREATE TABLE [dbo].[BKP_FCT_FOOD_SALES_CT_DAILY_V] (
+
+	[TRANS_TYPE] varchar(2) NOT NULL, 
+	[branch_sk] bigint NULL, 
+	[supplier_sk] bigint NULL, 
+	[customer_sk] bigint NULL, 
+	[SUPP_CODE_PAY_TO] varchar(10) NULL, 
+	[SUPP_CODE_BUY_FROM] varchar(10) NULL, 
+	[SUPP_BUS_PILLAR_CODE] varchar(10) NULL, 
+	[SUPP_PILLAR_STATE_CODE] varchar(3) NULL, 
+	[CUST_CODE] varchar(13) NULL, 
+	[CUST_BUS_PILLAR_CODE] varchar(8) NULL, 
+	[BRANCH_CODE] varchar(15) NULL, 
+	[BRANCH_BUS_PILLAR_CODE] varchar(8) NULL, 
+	[DATE_SK] bigint NULL, 
+	[Fiscal_WeekEnd_Date_Num] bigint NULL, 
+	[Category_Manager_Code] varchar(8) NULL, 
+	[PDM_Manager_Code] varchar(8) NULL, 
+	[ReAligned_Tobacco_Flag] varchar(2) NOT NULL, 
+	[CT_SALES_CM] float NULL, 
+	[CT_SALES_PDM] float NULL, 
+	[CT_COGS_CM] float NULL, 
+	[CT_COGS_PDM] float NULL, 
+	[CP_KEY_MANAGER] varchar(33) NOT NULL, 
+	[CP_KEY_PDM_MANAGER] varchar(33) NOT NULL
+);
