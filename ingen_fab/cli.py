@@ -1,11 +1,17 @@
 
 from typing import Optional
-
-from .ddl_scripts.notebook_generator import NotebookGenerator
+import sys
+from pathlib import Path
+# Add current file's directory to Python path
+current_dir = Path(__file__).parent
+sys.path.insert(0, str(current_dir))
+from ddl_scripts.notebook_generator import NotebookGenerator
 import typer
 from rich.console import Console
 from rich.theme import Theme
 from typing_extensions import Annotated
+import sys
+from pathlib import Path
 
 
 app = typer.Typer(no_args_is_help=True, pretty_exceptions_show_locals=False)

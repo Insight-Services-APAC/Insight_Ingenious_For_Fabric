@@ -44,10 +44,10 @@ requires = ["setuptools>=61.0"]
 build-backend = "setuptools.build_meta"
 
 [tool.setuptools.packages.find]
-where = ["src"]
+where = ["ingen_fab"]
 
 [project.scripts]
-ingen = "ingen_fab.cli:app"
+ingen_fab = "ingen_fab.cli:app"
 
 [tool.ruff.lint]
 extend-select = ["I"]
