@@ -220,8 +220,3 @@ class NotebookGenerator:
             border_style="green" if error_count == 0 else "red"
         ))
 
-
-NotebookGenerator = NotebookGenerator(
-    mode="lakehouse",
-    output_mode="local"
-)

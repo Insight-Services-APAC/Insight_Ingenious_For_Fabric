@@ -42,7 +42,7 @@ def compile_ddl_notebooks(
         help="Where to write the generated notebooks fabric_workspace_repo or local"
     ),
     generation_mode: NotebookGenerator.GenerationMode = typer.Option(
-        NotebookGenerator.GenerationMode.lakehouse,
+        NotebookGenerator.GenerationMode.warehouse,
         "--generation-mode", "-g",
         help="What to generate  lakehouse or warehouse"
     ),
