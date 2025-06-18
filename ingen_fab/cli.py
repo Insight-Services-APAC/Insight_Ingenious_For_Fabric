@@ -1,14 +1,13 @@
-
 import sys
 from pathlib import Path
+import typer
 
 # Add current file's directory to Python path
 current_dir = Path(__file__).parent
 sys.path.insert(0, str(current_dir))
 
-import typer
 from ddl_scripts.notebook_generator import NotebookGenerator
-from notebook_utils import NotebookContentFinder
+from notebook_utils.notebook_block_injector import NotebookContentFinder
 from rich.console import Console
 from rich.table import Table
 from rich.theme import Theme
@@ -105,6 +104,20 @@ def find_notebook_content_files(
         table.add_row(nb["notebook_name"], nb["relative_path"], nb.get("lakehouse") or "")
 
     console.print(table)
+
+
+@app.command()
+def scan_notebook_blocks(
+    base_dir: Path = typer.Option(
+        Path("fabric_workspace_items"),
+        "--base-dir",
+        "-b",
+        help="Directory to scan for notebook-content.py files",
+    ),
+):
+    """Scan for notebook-content.py files and display content block summary."""
+    finder = NotebookContentFinder(base_dir)
+    finder.scan_and_display_blocks()
 
 
 if __name__ == "__cli__":
