@@ -1,14 +1,11 @@
 
-import sys
-import os
 from typing import Optional
-sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-from ddl_scripts.notebook_generator import NotebookGenerator
+
+from .ddl_scripts.notebook_generator import NotebookGenerator
 import typer
 from rich.console import Console
 from rich.theme import Theme
 from typing_extensions import Annotated
-from pathlib import Path
 
 
 app = typer.Typer(no_args_is_help=True, pretty_exceptions_show_locals=False)
