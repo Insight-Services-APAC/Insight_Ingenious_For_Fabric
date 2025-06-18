@@ -40,7 +40,7 @@ class NotebookGenerator:
         self.output_mode = output_mode
         self.console = Console()
         if templates_dir is None:
-            templates_dir = Path(__file__).resolve().parent / "_templates"
+            templates_dir = Path(__file__).resolve().parent / "_templates" / generation_mode.value.lower()
         if fabric_workspace_repo_dir is None:
             fabric_workspace_repo_dir = (
                 Path(__file__).resolve().parents[2] / "sample_project"
