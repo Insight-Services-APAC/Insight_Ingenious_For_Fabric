@@ -33,12 +33,19 @@ class NotebookGenerator:
         self,
         generation_mode: GenerationMode = GenerationMode.lakehouse,
         output_mode: OutputMode = OutputMode.fabric_workspace_repo,
-        templates_dir: str = "./ddl_scripts/_templates",
-        fabric_workspace_repo_dir: str = "./sample_project",
+        templates_dir: str | None = None,
+        fabric_workspace_repo_dir: str | None = None,
     ):
         self.generation_mode = generation_mode
         self.output_mode = output_mode
         self.console = Console()
+        if templates_dir is None:
+            templates_dir = Path(__file__).resolve().parent / "_templates"
+        if fabric_workspace_repo_dir is None:
+            fabric_workspace_repo_dir = (
+                Path(__file__).resolve().parents[2] / "sample_project"
+            )
+
         self.fabric_workspace_repo_dir = Path(fabric_workspace_repo_dir).resolve()
         self.templates_dir = Path(templates_dir).resolve()
 
