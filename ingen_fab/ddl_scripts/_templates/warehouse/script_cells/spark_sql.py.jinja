@@ -11,6 +11,14 @@
 
 # CELL ********************
 
-%%sql 
+guid = "{{script_guid}}"
+def work():
+    sql = """
 
-{{ content}}
+{{ content }}
+
+    """
+
+    wu.execute_query(wu.get_connection(), sql)
+
+du.run_once(work,"{{script_name}}", guid)
