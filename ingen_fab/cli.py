@@ -9,12 +9,29 @@ sys.path.insert(0, str(current_dir))
 from ddl_scripts.notebook_generator import NotebookGenerator
 from notebook_utils.notebook_block_injector import NotebookContentFinder
 from python_libs.python.promotion_utils import promotion_utils
+from project_config import load_project_config
 from rich.console import Console
 from rich.table import Table
 from rich.theme import Theme
 from typing_extensions import Annotated
 
 app = typer.Typer(no_args_is_help=True, pretty_exceptions_show_locals=False)
+
+
+@app.callback()
+def main(
+    ctx: typer.Context,
+    config_dir: Annotated[
+        Path | None,
+        typer.Option(
+            "--config-dir",
+            "-c",
+            help="Directory containing project.yml configuration",
+        ),
+    ] = None,
+):
+    """Load project configuration and store in context."""
+    ctx.obj = {"config": load_project_config(config_dir)}
 
 custom_theme = Theme(
     {
@@ -39,6 +56,7 @@ def log_levels():
 
 @app.command()
 def compile_ddl_notebooks(
+    ctx: typer.Context,
     output_mode: NotebookGenerator.OutputMode = typer.Option(
         NotebookGenerator.OutputMode.local,
         "--output-mode", "-o",
@@ -58,9 +76,13 @@ def compile_ddl_notebooks(
     """
     compile_ddl_notebooks compiles the DDL notebooks in the specified project directory.
     """
+    project_cfg = ctx.obj.get("config", {}) if ctx.obj else {}
+    repo_dir = project_cfg.get("fabric_workspace_repo_dir")
+
     nbg = NotebookGenerator(
         generation_mode=generation_mode,
         output_mode=output_mode,
+        fabric_workspace_repo_dir=repo_dir,
     )
     nbg.run_all()
 
