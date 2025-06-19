@@ -39,6 +39,7 @@ class NotebookGenerator:
         self.generation_mode = generation_mode
         self.output_mode = output_mode
         self.console = Console()
+        self.base_dir = Path.cwd()
         if templates_dir is None:
             templates_dir = Path(__file__).resolve().parent / "_templates" / generation_mode.value.lower()
         if fabric_workspace_repo_dir is None:
@@ -64,9 +65,9 @@ class NotebookGenerator:
             ).resolve()
         elif self.output_mode == NotebookGenerator.OutputMode.local:
             self.output_dir = (
-                self.fabric_workspace_repo_dir
-                / "ddl_scripts"
+                self.base_dir
                 / "output"
+                / "ddl_scripts"
                 / self.entities_folder
             )
         else:
