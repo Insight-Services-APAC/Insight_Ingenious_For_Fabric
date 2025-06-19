@@ -1,0 +1,2 @@
+[console_scripts]
+ingen_fab = ingen_fab.cli:app

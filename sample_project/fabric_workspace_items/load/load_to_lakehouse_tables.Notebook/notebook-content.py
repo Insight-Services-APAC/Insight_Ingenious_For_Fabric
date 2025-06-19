@@ -307,7 +307,7 @@ class lakehouse_utils:
 
 # MARKDOWN ********************
 
-# _blockstart:parquet_load_utils_
+# _blockstart:pyspark_parquet_load_utils_
 # ### Parquet Load Utils
 
 # CELL ********************
@@ -389,7 +389,7 @@ class parquet_load_utils:
 
 # MARKDOWN ********************
 
-# blockend:parquet_load_utils_
+# blockend:pyspark_parquet_load_utils_
 
 # MARKDOWN ********************
 
