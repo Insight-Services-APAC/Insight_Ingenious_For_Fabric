@@ -17,124 +17,92 @@ class NotebookContentFinder:
     def find_content_blocks(self, file_path: Path) -> List[Dict[str, Any]]:
         """
         Find all content blocks in a file marked with # _blockstart: and # _blockend:
-
+        
         Args:
             file_path: Path to the notebook-content.py file
-
+            
         Returns:
             List of dictionaries containing block information
         """
         blocks = []
-
+        
         with file_path.open("r", encoding="utf-8") as f:
             content = f.read()
             lines = content.splitlines()
-
+        
         i = 0
         while i < len(lines):
             line = lines[i]
-
+            
             # Check for block start
-            start_match = re.match(r"#\s*_blockstart:\s*(\w+)", line)
+            start_match = re.match(r'#\s*_blockstart:\s*(\w+)', line)
             if start_match:
                 block_name = start_match.group(1)
-                start_line = i
-
+                start_line_idx = i # 0-based index of _blockstart line
+                
                 # Find the corresponding block end
                 j = i + 1
-                block_content_lines = []
-                end_line = None
-
+                block_content_lines_with_idx = [] # Stores (original_line_num_0_based, line_content)
+                end_line_idx = None # 0-based index of _blockend line
+                
                 while j < len(lines):
                     # Check for block end with matching name
-                    end_match = re.match(rf"#\s*_?blockend:\s*{block_name}", lines[j])
+                    end_match = re.match(rf'#\s*_?blockend:\s*{block_name}', lines[j])
                     if end_match:
-                        end_line = j
+                        end_line_idx = j
                         break
-                    block_content_lines.append(
-                        (j, lines[j])
-                    )  # Store line number with content
+                    block_content_lines_with_idx.append((j, lines[j]))  # Store 0-based original line number with content
                     j += 1
+                
+                if end_line_idx is not None:
+                    replacement_start_idx_in_block_content = 0 
+                    replacement_end_idx_in_block_content = len(block_content_lines_with_idx) 
 
-                if end_line:
-                    # Find the actual content to be replaced
-                    replacement_start_idx = None
-                    replacement_end_idx = len(block_content_lines)
-
-                    # Prefer to start after the first CELL marker
-                    for idx, (line_num, content_line) in enumerate(block_content_lines):
-                        if "# CELL ********************" in content_line:
-                            replacement_start_idx = idx + 1
+                    # Find where the content ends: BEFORE the last '# METADATA ********************' section.
+                    for idx in range(len(block_content_lines_with_idx) - 1, -1, -1):
+                        if '# METADATA ********************' in block_content_lines_with_idx[idx][1]:
+                            # --- MODIFIED LINE HERE ---
+                            replacement_end_idx_in_block_content = idx # Original line, included METADATA line index for slicing
+                            if replacement_end_idx_in_block_content > 0: # Ensure we don't go negative
+                                replacement_end_idx_in_block_content -= 1 # Exclude the empty line before METADATA
                             break
-
-                    # If no CELL marker, fall back to the first MARKDOWN section
-                    if replacement_start_idx is None:
-                        for idx, (line_num, content_line) in enumerate(
-                            block_content_lines
-                        ):
-                            if "# MARKDOWN ********************" in content_line:
-                                replacement_start_idx = idx + 1
-                                break
-
-                    # Find where the content ends (before the last METADATA section)
-                    # Work backwards to find the last METADATA section
-                    for idx in range(len(block_content_lines) - 1, -1, -1):
-                        if (
-                            "# METADATA ********************"
-                            in block_content_lines[idx][1]
-                        ):
-                            replacement_end_idx = idx
-                            break
-
-                    # Extract replacement content and line numbers
-                    if replacement_start_idx is None:
-                        replacement_start_idx = 0
-
-                    if replacement_start_idx >= replacement_end_idx:
-                        replacement_end_idx = len(block_content_lines)
-
-                    replacement_lines = block_content_lines[
-                        replacement_start_idx:replacement_end_idx
-                    ]
-
-                    if replacement_lines:
-                        actual_start_line = (
-                            replacement_lines[0][0] + 1
-                        )  # Convert to 1-based
-                        actual_end_line = (
-                            replacement_lines[-1][0] + 1
-                        )  # Convert to 1-based
-                        replacement_content = "\n".join(
-                            [line[1] for line in replacement_lines]
-                        ).strip()
+                    
+                    replacement_lines_data = []
+                    if replacement_start_idx_in_block_content < replacement_end_idx_in_block_content:
+                        replacement_lines_data = block_content_lines_with_idx[
+                            replacement_start_idx_in_block_content : replacement_end_idx_in_block_content
+                        ]
+                    
+                    if replacement_lines_data:
+                        actual_start_line = replacement_lines_data[0][0] + 1  
+                        actual_end_line = replacement_lines_data[-1][0] + 1   
+                        replacement_content = '\n'.join([line_tuple[1] for line_tuple in replacement_lines_data]).strip()
                     else:
-                        actual_start_line = start_line + 2
-                        actual_end_line = start_line + 2
-                        replacement_content = ""
+                        actual_start_line = start_line_idx + 2 
+                        actual_end_line = end_line_idx 
+                        replacement_content = "" 
 
-                    blocks.append(
-                        {
-                            "block_name": block_name,
-                            "start_line": start_line + 1,  # 1-based line numbers
-                            "end_line": end_line + 1,
-                            "total_lines": end_line - start_line + 1,
-                            "replacement_content": replacement_content,
-                            "replacement_start_line": actual_start_line,
-                            "replacement_end_line": actual_end_line,
-                            "file_path": str(file_path),
-                        }
-                    )
-
-                    i = end_line + 1
+                    blocks.append({
+                        'block_name': block_name,
+                        'start_line': start_line_idx + 1,  
+                        'end_line': end_line_idx + 1,
+                        'total_lines': end_line_idx - start_line_idx + 1,
+                        'replacement_content': replacement_content,
+                        'replacement_start_line': actual_start_line,
+                        'replacement_end_line': actual_end_line,
+                        'file_path': str(file_path)
+                    })
+                    
+                    i = end_line_idx + 1 
                 else:
                     self.console.print(
                         f"[yellow]Warning: No matching blockend found for block '"
-                        f"{block_name}' at line {start_line + 1}[/yellow]"
+                        f"{block_name}' at line {start_line_idx + 1}[/yellow]"
                     )
-                    i += 1
+                    i += 1 
             else:
-                i += 1
-
+                i += 1 
+        
         return blocks
 
     def find_notebook_content_files(
