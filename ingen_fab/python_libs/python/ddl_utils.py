@@ -1,4 +1,4 @@
-## Note relies on warehouse utils to be inserted before it.
+# { "depends_on": "warehouse_utils" }
 
 from datetime import datetime
 from typing import List, Callable, Optional
