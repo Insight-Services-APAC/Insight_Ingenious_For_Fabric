@@ -65,6 +65,11 @@ The `sample_project` directory contains a fabricated workspace with example DDL 
 | Folder | Purpose |
 | ------ | ------- |
 | `ingen_fab` | Source code for the CLI and supporting utilities |
+| `&nbsp;&nbsp;ddl_scripts` | Jinja templates used to generate DDL notebooks |
+| `&nbsp;&nbsp;notebook_utils` | Notebook scanning and injection helpers |
+| `&nbsp;&nbsp;python_libs` | Shared Python libraries |
+| `&nbsp;&nbsp;&nbsp;&nbsp;python` | Utilities for Python based SQL generation |
+| `&nbsp;&nbsp;&nbsp;&nbsp;pyspark` | Utilities for Spark based SQL generation |
 | `sample_project` | Example workspace with configuration files and generated notebooks |
 | `scripts` | Helper shell scripts such as environment setup |
 | `tests` | Unit tests for the project |
