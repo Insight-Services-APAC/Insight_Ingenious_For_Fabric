@@ -82,6 +82,11 @@ See [sample_project/README.md](sample_project/README.md) for a tour of the examp
 | `scripts` | Helper scripts such as SQL Server setup |
 | `tests` | Unit tests |
 
+Additional documentation is available in the subdirectories:
+
+- [ingen_fab/python_libs/README.md](ingen_fab/python_libs/README.md) – details of the helper libraries.
+- [ingen_fab/ddl_scripts/README.md](ingen_fab/ddl_scripts/README.md) – how DDL notebooks are generated.
+
 ## Environment setup
 
 Run `scripts/install_sql_server.sh` to install SQL Server on Ubuntu. Set the `MSSQL_SA_PASSWORD` environment variable before running the script:
