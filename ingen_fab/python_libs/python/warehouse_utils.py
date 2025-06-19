@@ -1,25 +1,62 @@
 import logging
+from typing import Optional
+
 import notebookutils  # type: ignore # noqa: F401
+import pandas as pd
+import pyodbc
+
+from .sql_templates import SQLTemplates
 
 
 class warehouse_utils:
-    def __init__(self, target_workspace_id, target_warehouse_id):
+    """Utilities for interacting with Fabric or local SQL Server warehouses."""
+
+    def __init__(
+        self,
+        target_workspace_id: Optional[str] = None,
+        target_warehouse_id: Optional[str] = None,
+        *,
+        dialect: str = "fabric",
+        connection_string: Optional[str] = None,
+    ):
         self.target_workspace_id = target_workspace_id
         self.target_warehouse_id = target_warehouse_id
+        self.dialect = dialect
+        self.connection_string = connection_string
+        self.sql = SQLTemplates(dialect)
 
     def get_connection(self):
+        """Return a connection object depending on the configured dialect."""
         try:
-            return notebookutils.data.connect_to_artifact(self.target_warehouse_id, self.target_workspace_id)
+            if self.dialect == "fabric":
+                return notebookutils.data.connect_to_artifact(
+                    self.target_warehouse_id, self.target_workspace_id
+                )
+            return pyodbc.connect(self.connection_string)  # type: ignore
         except Exception as e:
-            logging.error(f"Failed to connect to artifact: {e}")
+            logging.error(f"Failed to connect to warehouse: {e}")
             raise
 
     def execute_query(self, conn, query: str):
+        """Execute a query and return results as a DataFrame when possible."""
         try:
             logging.info(f"Executing query: {query}")
-            result = conn.query(query)
+            if self.dialect == "fabric":
+                result = conn.query(query)
+                logging.info("Query executed successfully.")
+                return result
+
+            cursor = conn.cursor()
+            cursor.execute(query)
+            if cursor.description:
+                rows = cursor.fetchall()
+                columns = [d[0] for d in cursor.description]
+                df = pd.DataFrame.from_records(rows, columns=columns)
+            else:
+                conn.commit()
+                df = None
             logging.info("Query executed successfully.")
-            return result
+            return df
         except Exception as e:
             logging.error(f"Error executing query: {query}. Error: {e}")
             raise
@@ -27,7 +64,7 @@ class warehouse_utils:
     def check_if_table_exists(self, table_name):
         try:
             conn = self.get_connection()
-            query = f"SELECT TOP 1 * FROM {table_name}"
+            query = self.sql.render("check_table_exists", table_name=table_name)
             self.execute_query(conn, query)
             return True
         except Exception as e:
@@ -44,11 +81,11 @@ class warehouse_utils:
         try:
             conn = self.get_connection()
             pandas_df = df
-        
+
             # Handle different write modes
             if mode == "overwrite":
                 # Drop table if exists
-                drop_query = f"DROP TABLE IF EXISTS {table_name}"
+                drop_query = self.sql.render("drop_table", table_name=table_name)
                 self.execute_query(conn, drop_query)
                 
                 # Create table from dataframe using SELECT INTO syntax
@@ -61,14 +98,25 @@ class warehouse_utils:
                 column_names = ', '.join(pandas_df.columns)
                 values_clause = ', '.join(values)
                 
-                create_query = f"SELECT * INTO {table_name} FROM (VALUES {values_clause}) AS v({column_names})"
+                create_query = self.sql.render(
+                    "create_table_from_values",
+                    table_name=table_name,
+                    column_names=column_names,
+                    values_clause=values_clause,
+                )
                 self.execute_query(conn, create_query)
             
             elif mode == "append":
                 # Insert data into existing table
                 for _, row in pandas_df.iterrows():
-                    row_values = ', '.join([f"'{v}'" if isinstance(v, str) else str(v) for v in row])
-                    insert_query = f"INSERT INTO {table_name} VALUES ({row_values})"
+                    row_values = ', '.join([
+                        f"'{v}'" if isinstance(v, str) else str(v) for v in row
+                    ])
+                    insert_query = self.sql.render(
+                        "insert_row",
+                        table_name=table_name,
+                        row_values=row_values,
+                    )
                     self.execute_query(conn, insert_query)
             
             elif mode == "error" or mode == "errorifexists":
@@ -78,14 +126,21 @@ class warehouse_utils:
                 # Create table from dataframe using SELECT INTO syntax
                 values = []
                 for _, row in pandas_df.iterrows():
-                    row_values = ', '.join([f"'{v}'" if isinstance(v, str) else str(v) for v in row])
+                    row_values = ', '.join([
+                        f"'{v}'" if isinstance(v, str) else str(v) for v in row
+                    ])
                     values.append(f"({row_values})")
                 
                 # Get column names from DataFrame
                 column_names = ', '.join(pandas_df.columns)
                 values_clause = ', '.join(values)
                 
-                create_query = f"SELECT * INTO {table_name} FROM (VALUES {values_clause}) AS v({column_names})"
+                create_query = self.sql.render(
+                    "create_table_from_values",
+                    table_name=table_name,
+                    column_names=column_names,
+                    values_clause=values_clause,
+                )
                 self.execute_query(conn, create_query)
             
             elif mode == "ignore":
@@ -93,14 +148,21 @@ class warehouse_utils:
                 if not self.check_if_table_exists(table_name):
                     values = []
                     for _, row in pandas_df.iterrows():
-                        row_values = ', '.join([f"'{v}'" if isinstance(v, str) else str(v) for v in row])
+                        row_values = ', '.join([
+                            f"'{v}'" if isinstance(v, str) else str(v) for v in row
+                        ])
                         values.append(f"({row_values})")
-                    
+
                     # Get column names from DataFrame
                     column_names = ', '.join(pandas_df.columns)
                     values_clause = ', '.join(values)
-                    
-                    create_query = f"SELECT * INTO {table_name} FROM (VALUES {values_clause}) AS v({column_names})"
+
+                    create_query = self.sql.render(
+                        "create_table_from_values",
+                        table_name=table_name,
+                        column_names=column_names,
+                        values_clause=values_clause,
+                    )
                     self.execute_query(conn, create_query)
         except Exception as e:
             logging.error(f"Error writing to table {table_name} with mode {mode}: {e}")
@@ -109,13 +171,13 @@ class warehouse_utils:
     def drop_all_tables(self, table_prefix=None):
         try:
             conn = self.get_connection()
-            query = f"SHOW TABLES LIKE '{table_prefix}%'" if table_prefix else "SHOW TABLES"
+            query = self.sql.render("list_tables", prefix=table_prefix)
             tables = self.execute_query(conn, query)
 
-            for table in tables:
+            for table in tables or []:
                 table_name = table["name"] if isinstance(table, dict) else table[0]
                 try:
-                    drop_query = f"DROP TABLE {table_name}"
+                    drop_query = self.sql.render("drop_table", table_name=table_name)
                     self.execute_query(conn, drop_query)
                     logging.info(f"✔ Dropped table: {table_name}")
                 except Exception as e:
