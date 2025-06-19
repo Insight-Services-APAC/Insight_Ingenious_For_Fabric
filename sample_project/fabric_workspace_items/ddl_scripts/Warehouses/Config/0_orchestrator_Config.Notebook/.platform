@@ -2,11 +2,11 @@
   "$schema": "https://developer.microsoft.com/json-schemas/fabric/gitIntegration/platformProperties/2.0.0/schema.json",
   "metadata": {
     "type": "Notebook",
-    "displayName": "00_all_warehouses_orchestrator_ddl_scripts",
+    "displayName": "0_orchestrator_Config_Warehouses_ddl_scripts",
     "description": "Executes a set of DDL cells in the target Lakehouse."
   },
   "config": {
     "version": "2.0",
-    "logicalId": "4b975ccc-e4e0-4b1a-af07-5639d25000ec"
+    "logicalId": "a8448cf8-d19d-4f59-bbd1-c0b359bc8d10"
   }
 }
