@@ -15,8 +15,15 @@ sudo apt-get install -y wget curl gnupg2 software-properties-common
 # Import the public repository GPG keys
 curl https://packages.microsoft.com/keys/microsoft.asc | sudo apt-key add -
 # Register the Microsoft SQL Server Ubuntu repository
-curl https://packages.microsoft.com/config/ubuntu/$(lsb_release -rs)/mssql-server-2019.list \
-  | sudo tee /etc/apt/sources.list.d/mssql-server.list
+UBUNTU_VERSION=$(lsb_release -rs)
+if [ "$UBUNTU_VERSION" = "24.04" ]; then
+  echo "Ubuntu 24.04 detected, falling back to SQL Server 2022 repository for 22.04"
+  curl https://packages.microsoft.com/config/ubuntu/22.04/mssql-server-2022.list \
+    | sudo tee /etc/apt/sources.list.d/mssql-server.list
+else
+  curl https://packages.microsoft.com/config/ubuntu/${UBUNTU_VERSION}/mssql-server-2019.list \
+    | sudo tee /etc/apt/sources.list.d/mssql-server.list
+fi
 
 sudo apt-get update
 sudo apt-get install -y mssql-server
