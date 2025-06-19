@@ -8,6 +8,7 @@ sys.path.insert(0, str(current_dir))
 
 from ddl_scripts.notebook_generator import NotebookGenerator
 from notebook_utils.notebook_block_injector import NotebookContentFinder
+from python_libs.python.promotion_utils import promotion_utils
 from rich.console import Console
 from rich.table import Table
 from rich.theme import Theme
@@ -118,6 +119,23 @@ def scan_notebook_blocks(
     """Scan for notebook-content.py files and display content block summary."""
     finder = NotebookContentFinder(base_dir)
     finder.scan_and_display_blocks()
+
+
+@app.command()
+def promote_items(
+    workspace_id: Annotated[str, typer.Option("--workspace-id", "-w", help="Target workspace ID")],
+    repo_dir: Annotated[Path, typer.Option("--repo-dir", "-r", help="Path to fabric workspace items")] = Path("fabric_workspace_items"),
+    environment: Annotated[str, typer.Option("--environment", "-e", help="Target environment name")] = "N/A",
+    unpublish_orphans: Annotated[bool, typer.Option("--unpublish-orphans", help="Remove items not present in repository")] = False,
+):
+    """Publish Fabric items from repository to a workspace."""
+
+    promoter = promotion_utils(
+        workspace_id=workspace_id,
+        repository_directory=repo_dir,
+        environment=environment,
+    )
+    promoter.promote(delete_orphans=unpublish_orphans)
 
 
 if __name__ == "__cli__":

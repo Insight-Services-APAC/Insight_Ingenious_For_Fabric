@@ -5,8 +5,9 @@ description = "Accelerator for building Microsoft Fabric Applications"
 readme = "README.md"
 requires-python = ">=3.12"
 dependencies = [
-    "jinja2",    
+    "jinja2",
     "typer>=0.15.4",
+    "fabric-cicd>=0.1.20",
 ]
 
 [dependency-groups]
