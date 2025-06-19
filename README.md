@@ -60,6 +60,15 @@ ingen_fab scan-notebook-blocks --base-dir path/to/workspace
 
 The `sample_project` directory contains a fabricated workspace with example DDL scripts, generated notebooks and supporting utilities. It can be used as a reference when structuring your own Fabric projects.
 
+## Environment setup
+
+Run `scripts/install_sql_server.sh` during environment provisioning to install SQL Server on Ubuntu. The script requires the `SA_PASSWORD` environment variable to be set:
+
+```bash
+export SA_PASSWORD='<YourStrongPassword>'
+./scripts/install_sql_server.sh
+```
+
 ## License
 
 This project is provided for demonstration purposes and has no specific license.
