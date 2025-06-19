@@ -76,10 +76,14 @@ The `sample_project` directory contains a fabricated workspace with example DDL 
 
 ## Environment setup
 
-Run `scripts/install_sql_server.sh` during environment provisioning to install SQL Server on Ubuntu. The script requires the `SA_PASSWORD` environment variable to be set:
+Run `scripts/install_sql_server.sh` during environment provisioning to install SQL Server on Ubuntu. The script requires the `MSSQL_SA_PASSWORD` environment variable to be set:
 
 ```bash
-export SA_PASSWORD='<YourStrongPassword>'
+export MSSQL_SA_PASSWORD='<YourStrong!Passw0rd>'
+# Optional customisation
+# export MSSQL_PID='developer'
+# export SQL_ENABLE_AGENT='y'
+# export SQL_INSTALL_FULLTEXT='n'
 ./scripts/install_sql_server.sh
 ```
 
