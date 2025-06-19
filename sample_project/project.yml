@@ -1,0 +1,4 @@
+fabric_workspace_repo_dir: sample_project
+workspace_id: Example.Workspace
+lakehouse_id: ExampleLakehouse
+warehouse_id: ExampleWarehouse
