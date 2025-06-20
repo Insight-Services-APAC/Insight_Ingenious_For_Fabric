@@ -1,8 +1,46 @@
 from __future__ import annotations
 import os
 from pathlib import Path
-from typing import Any, Dict, Optional
+from typing import Any, Dict, List, Optional
 import yaml
+from dataclasses import dataclass
+
+
+@dataclass
+class Workspace:
+    workspace_name: str
+    environment_name: str
+
+
+@dataclass
+class FunctionalTests:
+    target_workspace_name: str
+    target_warehouse_name: str
+
+
+@dataclass
+class ProjectConfig:
+    workspaces: List[Workspace]
+    functional_tests: FunctionalTests
+
+    @classmethod
+    def from_dict(cls, data: Dict[str, Any]) -> 'ProjectConfig':
+        """Create ProjectConfig from dictionary loaded from YAML."""
+        workspaces = [
+            Workspace(
+                workspace_name=w['workspace_name'],
+                environment_name=w['environment_name']
+            )
+            for w in data.get('workspaces', [])
+        ]
+
+        functional_tests_data = data.get('functional_tests', {})
+        functional_tests = FunctionalTests(
+            target_workspace_name=functional_tests_data.get('target_workspace_name', ''),
+            target_warehouse_name=functional_tests_data.get('target_warehouse_name', '')
+        )
+
+        return cls(workspaces=workspaces, functional_tests=functional_tests)
 
 
 def load_project_config(config_dir: Optional[Path] = None) -> Dict[str, Any]:
@@ -30,3 +68,9 @@ def load_project_config(config_dir: Optional[Path] = None) -> Dict[str, Any]:
             with config_file.open("r", encoding="utf-8") as f:
                 return yaml.safe_load(f) or {}
     return {}
+
+
+def load_project_config_object(config_dir: Optional[Path] = None) -> ProjectConfig:
+    """Load project configuration as a typed Python object."""
+    config_dict = load_project_config(config_dir)
+    return ProjectConfig.from_dict(config_dict)
