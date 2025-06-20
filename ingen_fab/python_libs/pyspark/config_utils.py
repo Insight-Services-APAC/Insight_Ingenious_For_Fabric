@@ -32,10 +32,12 @@ class config_utils:
                 raise AttributeError(f"FabricConfig has no attribute '{attr_name}'")
     
     
-    def __init__(self, config_workspace_id, config_lakehouse_id):
-        self.fabric_environments_table_uri = f"abfss://{config_workspace_id}@onelake.dfs.fabric.microsoft.com/" \
+    def __init__(self, config_workspace_id: str, config_lakehouse_id: str) -> None:
+        self.fabric_environments_table_uri = (
+            f"abfss://{config_workspace_id}@onelake.dfs.fabric.microsoft.com/"
             f"{config_lakehouse_id}/Tables/config_fabric_environments"
-        self._configs: dict[string,any] = {}
+        )
+        self._configs: dict[string, any] = {}
 
     @staticmethod
     def config_schema() -> StructType:
@@ -82,7 +84,9 @@ class config_utils:
         data = [tuple(asdict(config).values())]
         
         
-        df = spark.createDataFrame(data, config_utils.config_schema())
+        df = spark.createDataFrame(
+            data=data, schema=config_utils.config_schema()
+        )
 
         if(lakehouse_utils.check_if_table_exists(self.fabric_environments_table_uri) == False):
             print('creating fabric environments table') 

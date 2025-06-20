@@ -4,7 +4,7 @@ import typer
 import re
 import html
 import time
-
+from rich.panel import Panel
 # Add current file's directory to Python path
 current_dir = Path(__file__).parent
 sys.path.insert(0, str(current_dir))
@@ -210,10 +210,28 @@ def scan_notebook_blocks(
         "-b",
         help="Directory to scan for notebook-content.py files",
     ),
+  
+    apply_replacements: bool = typer.Option(
+        False, # Default to False, so it doesn't modify files by default
+        "--apply-replacements",
+        "-a",
+        help="Apply content block replacements from python_libs to notebook-content.py files."
+    )
 ):
-    """Scan for notebook-content.py files and display content block summary."""
+    """Scan for notebook-content.py files and display content block summary.
+    Optionally applies replacements from python_libs.""" # Updated help text
     finder = NotebookContentFinder(base_dir)
-    finder.scan_and_display_blocks()
+    all_blocks = finder.scan_and_display_blocks() # Store the returned blocks
+
+    if apply_replacements and all_blocks:
+        console.print(Panel.fit("[bold cyan]Initiating Block Replacements Process... [/bold cyan]",
+                border_style="cyan",
+            ))
+        finder.apply_replacements(all_blocks)
+    elif apply_replacements and not all_blocks:
+        console.print("[red]No content blocks found to apply replacements to.[/red]")
+
+
 
 
 @app.command()
