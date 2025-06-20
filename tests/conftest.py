@@ -22,13 +22,20 @@ sys.modules.setdefault("jinja2", jinja2)
 
 # Minimal notebookutils substitute
 notebookutils = types.ModuleType("notebookutils")
+
 class DummySession:
-    def query(self, _):
+    def query(self, *_, **__):
         return types.SimpleNamespace(collect=lambda: [])
-    def execute(self, _):
+
+    def execute(self, *_, **__):
         pass
-notebookutils.mssparkutils = types.SimpleNamespace(session=DummySession(), notebook=types.SimpleNamespace(exit=lambda x: None))
-notebookutils.data = types.SimpleNamespace(connect_to_artifact=lambda *_: None)
+
+notebookutils.mssparkutils = types.SimpleNamespace(
+    session=DummySession(), notebook=types.SimpleNamespace(exit=lambda x: None)
+)
+notebookutils.data = types.SimpleNamespace(
+    connect_to_artifact=lambda *_, **__: None
+)
 sys.modules.setdefault("notebookutils", notebookutils)
 
 # Minimal pandas substitute
