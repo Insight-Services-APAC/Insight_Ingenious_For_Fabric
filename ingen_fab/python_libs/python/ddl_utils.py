@@ -1,19 +1,27 @@
 # { "depends_on": "warehouse_utils" }
 
 from datetime import datetime
-from typing import List, Callable, Optional
-import inspect, hashlib
+from typing import Callable, Optional
+import inspect
+import hashlib
 from dataclasses import dataclass, asdict
 import notebookutils  # type: ignore # noqa: F401
 
+from .warehouse_utils import warehouse_utils
+
 
 class ddl_utils:
-    def __init__(self, target_workspace_id, target_warehouse_id):
+    """Run DDL scripts once and track execution in a warehouse table."""
+
+    def __init__(self, target_workspace_id: str, target_warehouse_id: str) -> None:
         self.target_workspace_id = target_workspace_id
         self.target_warehouse_id = target_warehouse_id
         self.execution_log_table_schema = "log"
         self.execution_log_table_name = "ddl_script_executions"
-        self.warehouse_utils = warehouse_utils(target_workspace_id, target_warehouse_id)
+        self.warehouse_utils = warehouse_utils(
+            target_workspace_id=target_workspace_id,
+            target_warehouse_id=target_warehouse_id,
+        )
         self.initialise_ddl_script_executions_table()
         
 
@@ -23,7 +31,7 @@ class ddl_utils:
     def print_log(self):
         conn = self.warehouse_utils.get_connection()
         query = f"SELECT * FROM [{self.execution_log_table_schema}].[{self.execution_log_table_name}]"
-        df = self.warehouse_utils.execute_query(conn, query)
+        df = self.warehouse_utils.execute_query(conn=conn, query=query)
         display(df)
 
     def check_if_script_has_run(self, script_id) -> bool:
@@ -34,7 +42,7 @@ class ddl_utils:
         WHERE script_id = '{script_id}'
         AND execution_status = 'success'
         """
-        df = self.warehouse_utils.execute_query(conn, query)
+        df = self.warehouse_utils.execute_query(conn=conn, query=query)
         
         if df:
             if len(df) == 0:
@@ -59,7 +67,7 @@ class ddl_utils:
         (script_id, script_name, execution_status, update_date)
         VALUES ('{object_guid}', '{object_name}', '{script_status}', '{current_timestamp}')
         """
-        self.warehouse_utils.execute_query(conn, insert_query)
+        self.warehouse_utils.execute_query(conn=conn, query=insert_query)
 
     def run_once(
         self,
@@ -83,7 +91,7 @@ class ddl_utils:
             print(f"Derived guid={guid} from work_fn source")
 
         # 2. Check execution
-        if not self.check_if_script_has_run(guid):
+        if not self.check_if_script_has_run(script_id=guid):
             try:
                 work_fn()
                 self.write_to_execution_log(object_guid=guid,
@@ -98,7 +106,7 @@ class ddl_utils:
                                             )
                 raise
         else:
-            self.print_skipped_script_execution(guid, object_name)
+            self.print_skipped_script_execution(guid=guid, object_name=object_name)
 
     def initialise_ddl_script_executions_table(self):
         guid = "b8c83c87-36d2-46a8-9686-ced38363e169"
@@ -114,7 +122,7 @@ class ddl_utils:
         AND TABLE_NAME = '{self.execution_log_table_name}'
         """
         
-        result = self.warehouse_utils.execute_query(conn, check_query)
+        result = self.warehouse_utils.execute_query(conn=conn, query=check_query)
         table_exists = result.iloc[0]['count'] > 0
         
         if not table_exists:
@@ -127,7 +135,7 @@ class ddl_utils:
             update_date DATETIME2(0) NOT NULL
             )
             """
-            self.warehouse_utils.execute_query(conn, create_table_query)
+            self.warehouse_utils.execute_query(conn=conn, query=create_table_query)
             self.write_to_execution_log(object_guid=guid, object_name=object_name, script_status="Success")
         else:
             print(f"Skipping {object_name} as it already exists")

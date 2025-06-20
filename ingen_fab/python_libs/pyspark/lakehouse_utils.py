@@ -9,7 +9,9 @@ from dataclasses import dataclass, asdict
 from notebookutils import mssparkutils
 
 class lakehouse_utils:
-    def __init__(self, target_workspace_id, target_lakehouse_id):
+    """Utility helpers for interacting with a Spark lakehouse."""
+
+    def __init__(self, target_workspace_id: str, target_lakehouse_id: str) -> None:
         self.target_workspace_id = target_workspace_id
         self.target_lakehouse_id = target_lakehouse_id
 

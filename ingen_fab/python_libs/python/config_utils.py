@@ -5,6 +5,7 @@ from notebookutils import mssparkutils  # type: ignore # noqa: F401
 
 
 class config_utils:
+    """Helper utilities for reading and updating configuration tables."""
     @dataclass
     class FabricConfig:
         fabric_environment: str
@@ -27,8 +28,12 @@ class config_utils:
             else:
                 raise AttributeError(f"FabricConfig has no attribute '{attr_name}'")
 
-    def __init__(self, config_workspace_id, config_lakehouse_id):
-        self.fabric_environments_table = f"{config_workspace_id}.{config_lakehouse_id}.config_fabric_environments"
+    def __init__(self, config_workspace_id: str, config_lakehouse_id: str) -> None:
+        """Create a new ``config_utils`` instance."""
+
+        self.fabric_environments_table = (
+            f"{config_workspace_id}.{config_lakehouse_id}.config_fabric_environments"
+        )
         self._configs: dict[str, Any] = {}
     
     
@@ -51,7 +56,7 @@ class config_utils:
 
     def get_configs_as_dict(self, fabric_environment: str):
         query = f"SELECT * FROM {self.fabric_environments_table} WHERE fabric_environment = '{fabric_environment}'"
-        df = mssparkutils.session.query(query)
+        df = mssparkutils.session.query(query=query)
         configs = df.collect()
         return configs[0].asDict() if configs else None
 
@@ -78,6 +83,6 @@ class config_utils:
             f"WHEN MATCHED THEN UPDATE SET * "
             f"WHEN NOT MATCHED THEN INSERT *"
         )
-        mssparkutils.session.execute(query)
+        mssparkutils.session.execute(query=query)
         print('Merged fabric environments table')
 
