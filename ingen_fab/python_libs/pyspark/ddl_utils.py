@@ -54,7 +54,9 @@ class ddl_utils:
 
     def write_to_execution_log(self, object_guid, object_name, script_status):
         data = [(object_guid, object_name, script_status, datetime.now())]
-        new_df = spark.createDataFrame(data, ddl_utils.execution_log_schema())
+        new_df = spark.createDataFrame(
+            data=data, schema=ddl_utils.execution_log_schema()
+        )
         new_df.write \
         .format("delta") \
         .mode("append") \
@@ -83,7 +85,7 @@ class ddl_utils:
             print(f"Derived guid={guid} from work_fn source")
 
         # 2. Check execution
-        if not self.check_if_script_has_run(guid):
+        if not self.check_if_script_has_run(script_id=guid):
             try:
                 work_fn()
                 self.write_to_execution_log(object_guid=guid,
@@ -96,13 +98,15 @@ class ddl_utils:
                                     script_status="Failure")                
                 mssparkutils.notebook.exit(f"Script {object_name} with guid {guid} failed with error: {e}")
         else:
-            self.print_skipped_script_execution(guid, object_name)
+            self.print_skipped_script_execution(guid=guid, object_name=object_name)
 
     def initialise_ddl_script_executions_table(self):
         guid="b8c83c87-36d2-46a8-9686-ced38363e169"
         object_name = "ddl_script_executions"        
         if(lakehouse_utils.check_if_table_exists(self.execution_log_table_path) == False):
-            empty_df = spark.createDataFrame([], ddl_utils.execution_log_schema())
+            empty_df = spark.createDataFrame(
+                data=[], schema=ddl_utils.execution_log_schema()
+            )
             (
                 empty_df.write
                 .format("delta")
