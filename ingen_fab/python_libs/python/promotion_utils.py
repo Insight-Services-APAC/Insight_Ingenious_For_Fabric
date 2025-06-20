@@ -40,12 +40,12 @@ class promotion_utils:
     def publish_all(self) -> None:
         """Publish all items from the repository to the workspace."""
         ws = self._workspace()
-        publish_all_items(ws)
+        publish_all_items(fabric_workspace_obj=ws)
 
     def unpublish_orphans(self) -> None:
         """Remove items from the workspace that are not present in the repository."""
         ws = self._workspace()
-        unpublish_all_orphan_items(ws)
+        unpublish_all_orphan_items(fabric_workspace_obj=ws)
 
     def promote(self, *, delete_orphans: bool = False) -> None:
         """Publish repository items and optionally unpublish orphans."""
