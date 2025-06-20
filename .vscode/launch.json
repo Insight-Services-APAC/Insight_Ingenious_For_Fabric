@@ -6,14 +6,26 @@
     "configurations": [
 
         {
-            "name": "Python Debugger: Typer CLI",
+            "name": "compile-ddl-notebooks",
             "type": "debugpy",
             "request": "launch",
             "module": "typer",
             "args": [
-            "cli.py",
+            "ingen_fab/cli.py",
             "run",
             "compile-ddl-notebooks"
+            ],
+            "console": "integratedTerminal"
+        },
+        {
+            "name": "Run Simple Notebook",
+            "type": "debugpy",
+            "request": "launch",
+            "module": "typer",
+            "args": [
+            "ingen_fab/cli.py",
+            "run",
+            "run-simple-notebook"
             ],
             "console": "integratedTerminal"
         }
