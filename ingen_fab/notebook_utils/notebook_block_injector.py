@@ -1,6 +1,6 @@
-from __future__ import annotations
 import os
 import re
+import shutil
 from pathlib import Path
 from typing import List, Dict, Any
 from rich.console import Console
@@ -13,6 +13,11 @@ class NotebookContentFinder:
     def __init__(self, base_dir: Path | None = None) -> None:
         self.console = Console()
         self.base_dir = base_dir or (Path.cwd() / "fabric_workspace_items")
+
+        self.script_path = Path(__file__).resolve()
+        self.script_dir = self.script_path.parent 
+        self.project_root_dir = self.script_dir.parent
+        self.python_libs_dir = self.project_root_dir / "python_libs" 
 
     def find_content_blocks(self, file_path: Path) -> List[Dict[str, Any]]:
         """
@@ -75,7 +80,7 @@ class NotebookContentFinder:
                     
                     if replacement_lines_data:
                         actual_start_line = replacement_lines_data[0][0] + 1  
-                        actual_end_line = replacement_lines_data[-1][0] + 1   
+                        actual_end_line = replacement_lines_data[-1][0] + 1  
                         replacement_content = '\n'.join([line_tuple[1] for line_tuple in replacement_lines_data]).strip()
                     else:
                         actual_start_line = start_line_idx + 2 
@@ -272,10 +277,146 @@ class NotebookContentFinder:
             traceback.print_exc()
             return {}
 
+    def replace_content_block(self, block_name: str) -> str | None:
+        """
+        Finds and returns the content of a file within the python_libs directory
+        based on the provided block_name, which is in 'subdirectory_filename' format.
 
-def main() -> dict[str, list[dict[str, Any]]]:
+        Args:
+            block_name: The name of the block to replace, e.g., 'pyspark_dd_utils'.
+                        This will be mapped to a file like 'python_libs/pyspark/dd_utils.py'.
+
+        Returns:
+            The content of the file if found, otherwise None.
+        """
+        parts = block_name.split('_', 1)
+
+        if len(parts) < 2:
+            self.console.print(
+                f"[yellow]Warning: Block name '{block_name}' does not match expected 'subdirectory_filename' format.[/yellow]"
+            )
+            return None
+
+        subdirectory = parts[0]
+        filename_base = parts[1]
+
+        if filename_base.endswith('_'):
+            filename_base = filename_base[:-1]
+
+        replacement_file_path = self.python_libs_dir / subdirectory / f"{filename_base}.py"
+
+        self.console.print (f"\n[bold blue]Looking for replacement file: {replacement_file_path}...[/bold blue]")
+
+        if not replacement_file_path.exists():
+            self.console.print(
+                f"[red]Error: Replacement file not found for block '{block_name}': {replacement_file_path}[/red]"
+            )
+            return None
+
+        try:
+            with replacement_file_path.open("r", encoding="utf-8") as f:
+                content = f.read()
+
+            self.console.print(
+                f"[green]Successfully loaded replacement content for block '{block_name}' from {replacement_file_path}[/green]"
+            )
+            return content
+        except Exception as e:
+            self.console.print(
+                f"[red]Error reading replacement file {replacement_file_path}: {str(e)}[/red]"
+            )
+            return None
+
+    def apply_replacements(self, all_blocks: Dict[str, List[Dict[str, Any]]]) -> None:
+        """
+        Applies the replacement of content blocks in the notebook-content.py files.
+
+        Args:
+            all_blocks: A dictionary where keys are file paths and values are
+                        lists of block information found in those files.
+        """
+
+        for file_path_str, blocks in all_blocks.items():
+            file_path = Path(file_path_str)
+            if not file_path.exists():
+                self.console.print(f"[red]Skipping {file_path_str}: File not found.[/red]")
+                continue
+
+            # --- CRITICAL: Create a backup before modifying the file ---
+            self.console.print(f"\n[bold blue]Creating backup for {file_path.name}...[/bold blue]")
+            backup_file_path = file_path.with_suffix(file_path.suffix + ".bak")
+            try:
+                shutil.copyfile(file_path, backup_file_path)
+                self.console.print(f"[green]Backup created: {backup_file_path}[/green]")
+            except Exception as e:
+                self.console.print(f"[red]Error creating backup for {file_path.name}: {str(e)}. Skipping replacement for this file.[/red]")
+                continue
+            # --- End of Backup Block ---
+
+            original_lines = file_path.open("r", encoding="utf-8").readlines()
+            new_lines = list(original_lines) # Create a mutable copy
+
+            # Track if any actual changes were made to this file
+            file_was_modified = False
+
+            # Sort blocks by their start line in reverse order to avoid index shifting issues
+            blocks_to_process = sorted(blocks, key=lambda b: b['replacement_start_line'], reverse=True)
+
+            for block in blocks_to_process:
+                block_name = block['block_name']
+                replacement_content = self.replace_content_block(block_name)
+
+                if replacement_content is None:
+                    self.console.print(f"[yellow]Skipping replacement for block '{block_name}' in {file_path.name} due to missing or unreadable replacement content.[/yellow]")
+                    continue # Move to the next block
+
+                # If we got here, we have valid replacement content, so this file will be modified
+                file_was_modified = True
+
+                # Adjust for 0-based indexing for Python list manipulation
+                start_replace_idx = block['replacement_start_line'] - 1
+                end_replace_idx = block['replacement_end_line'] - 1
+
+                if start_replace_idx > end_replace_idx:
+                    self.console.print(f"[dim]Block '{block_name}' in {file_path.name} had empty or minimal content. Inserting new content.[/dim]")
+                    end_replace_idx = start_replace_idx - 1
+
+                replacement_lines = [line + '\n' for line in replacement_content.splitlines()]
+                if replacement_lines and not original_lines[-1].endswith('\n') and start_replace_idx + len(replacement_lines) >= len(original_lines):
+                    replacement_lines[-1] = replacement_lines[-1].rstrip('\n')
+
+                if not replacement_lines:
+                    replacement_lines = ['\n']
+
+                # Perform the replacement: delete old lines and insert new ones
+                del new_lines[start_replace_idx : end_replace_idx + 1]
+                for k, line_to_insert in enumerate(replacement_lines):
+                    new_lines.insert(start_replace_idx + k, line_to_insert)
+
+                self.console.print(
+                    f"[green]Successfully replaced content for block '{block_name}' in {file_path.name}.[/green]" # <-- Log success for individual block here
+                )
+
+            # --- Write the modified content back to the file ONLY IF CHANGES WERE MADE ---
+            if file_was_modified:
+                try:
+                    with file_path.open("w", encoding="utf-8") as f:
+                        f.writelines(new_lines)
+                    self.console.print(f"[green]\nFile update complete: {file_path.name} has been modified.[/green]\n")
+                except Exception as e:
+                    self.console.print(f"[red]Error writing to {file_path.name}: {str(e)}[/red]")
+            else:
+                self.console.print(f"[yellow]\nNo blocks were successfully replaced in {file_path.name}. File remains unchanged.[/yellow]\n")
+
+
+def main(apply_replacements: bool = False) -> Dict[str, List[Dict[str, Any]]]:
     finder = NotebookContentFinder()
-    return finder.scan_and_display_blocks()
+    all_blocks = finder.scan_and_display_blocks()
+
+    if apply_replacements and all_blocks:
+        finder.apply_replacements(all_blocks)
+
+    return all_blocks
 
 
 if __name__ == "__main__":
