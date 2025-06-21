@@ -6,10 +6,10 @@ import html
 import time
 from rich.panel import Panel
 # Add current file's directory to Python path
-current_dir = Path(__file__).parent
+current_dir = Path.cwd().resolve()
 sys.path.insert(0, str(current_dir))
 
-from notebook_utils.fabric_cli_notebook import FabricCLINotebook, FabricLivyNotebook
+from ingen_fab.notebook_utils.fabric_cli_notebook import FabricCLINotebook, FabricLivyNotebook
 from ddl_scripts.notebook_generator import NotebookGenerator
 from notebook_utils.notebook_block_injector import NotebookContentFinder
 from python_libs.python.promotion_utils import promotion_utils

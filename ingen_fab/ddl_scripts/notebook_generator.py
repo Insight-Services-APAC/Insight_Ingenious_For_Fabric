@@ -1,5 +1,7 @@
 import hashlib
 import time
+import ast
+import re
 from pathlib import Path
 from jinja2 import Environment, FileSystemLoader
 from rich.console import Console
@@ -13,10 +15,11 @@ from rich.progress import (
 )
 from rich.table import Table
 from rich.panel import Panel
-from rich import print as rprint
 from enum import Enum
 import uuid
+from typing import List, Set
 
+from ingen_fab.python_libs.gather_python_libs import GatherPythonLibs
 
 class NotebookGenerator:
     """Class to generate notebooks and orchestrators for Lakehouses or Warehouses."""
@@ -74,7 +77,10 @@ class NotebookGenerator:
             raise ValueError(
                 "Invalid output mode. Choose 'fabric_workspace_repo' or 'local'."
             )
-
+        
+        # Inject python libs into lib.py.jinja
+        self.inject_python_libs_into_template()
+        
         # Jinja2 Environment
         self.env = Environment(loader=FileSystemLoader(str(self.templates_dir)))
 
@@ -128,16 +134,15 @@ class NotebookGenerator:
                         f"Directory '{path.name}' doesn't have a valid numeric prefix"
                     )
                 except Exception as e:
-                    errors.append(f"Error processing directory '{path.name}': {str(e)}")
-
-        # Alert about any errors
+                    errors.append(f"Error processing directory '{path.name}': {str(e)}")        # Alert about any errors
         if errors:
-            console.print(
-                "\n[bold yellow]⚠️  WARNING: The following directories don't match the expected naming convention:[/bold yellow]"
+            self.console.print(
+                "\n[bold yellow]⚠️  WARNING: The following directories don't "
+                "match the expected naming convention:[/bold yellow]"
             )
             for error in errors:
-                console.print(f"  [red]✗[/red] {error}")
-            console.print()
+                self.console.print(f"  [red]✗[/red] {error}")
+            self.console.print()
 
         # Sort by numeric prefix and return just the paths
         sorted_dirs = sorted(directories, key=lambda x: x[0])
@@ -179,15 +184,14 @@ class NotebookGenerator:
                         f"File '{path.name}' doesn't have a valid numeric prefix"
                     )
                 except Exception as e:
-                    errors.append(f"Error processing file '{path.name}': {str(e)}")
-
-        # Alert about any errors
+                    errors.append(f"Error processing file '{path.name}': {str(e)}")        # Alert about any errors
         if errors:
             self.console.print(
-                "\n[bold yellow]⚠️  WARNING: The following files don't match the expected naming convention:[/bold yellow]"
+                "\n[bold yellow]⚠️  WARNING: The following files don't "
+                "match the expected naming convention:[/bold yellow]"
             )
             for error in errors:
-                console.print(f"  [red]✗[/red] {error}")
+                self.console.print(f"  [red]✗[/red] {error}")
             self.console.print()
 
         # Sort by numeric prefix and return just the paths
@@ -216,7 +220,7 @@ class NotebookGenerator:
         # Create subtask for processing cells if progress tracking is enabled
         if progress and parent_task is not None:
             cell_task = progress.add_task(
-                f"[dim]Processing cells...[/dim]",
+                "[dim]Processing cells...[/dim]",
                 total=len(sorted_files),
                 parent=parent_task,
             )
@@ -251,12 +255,15 @@ class NotebookGenerator:
                 content=content,
                 script_guid=script_guid,
                 script_name=file_path.stem,
-                target_workspace_id="example-workspace-id",
-                target_lakehouse_id=(
-                    "example-lakehouse-id" if self.generation_mode == NotebookGenerator.GenerationMode.lakehouse else None
+                target_workspace_id="example-workspace-id",                target_lakehouse_id=(
+                    "example-lakehouse-id"
+                    if self.generation_mode == NotebookGenerator.GenerationMode.lakehouse
+                    else None
                 ),
                 target_warehouse_id=(
-                    "example-warehouse-id" if self.generation_mode == NotebookGenerator.GenerationMode.warehouse else None
+                    "example-warehouse-id"
+                    if self.generation_mode == NotebookGenerator.GenerationMode.warehouse
+                    else None
                 ),
             )
 
@@ -391,6 +398,37 @@ class NotebookGenerator:
 
         return orchestrator_path
 
+    def inject_python_libs_into_template(self):
+        """
+        Analyze python_libs files, sort by dependencies, and inject into lib.py.jinja.
+        """
+        
+        # Gather Python libraries and their dependencies
+        if self.generation_mode == NotebookGenerator.GenerationMode.lakehouse:
+            lib_path = "pyspark"
+            libs_to_include = ["lakehouse_utils", "ddl_utils", "config_utils"]
+        else:
+            lib_path = "python"
+            libs_to_include = ["sql_templates", "warehouse_utils", "lakehouse_utils", "ddl_utils", "config_utils"]
+
+        gpl = GatherPythonLibs(console=self.console)  # Replace with actual console instance
+        combined_content = gpl.gather_files(lib_path, libs_to_include)  # Call the method to gather and process files
+        # Write to lib.py.jinja template
+        lib_template_path = self.templates_dir / "lib.py.jinja"
+        
+        try:
+            with lib_template_path.open('w', encoding='utf-8') as f:
+                f.write('\n'.join(combined_content))
+            
+            self.console.print(
+                f"\n[green]✓ Successfully injected libs into {lib_template_path}[/green]"
+            )
+            
+        except Exception as e:
+            self.console.print(
+                f"[red]Error writing to {lib_template_path}: {e}[/red]"
+            )
+
     def run_all(self):
         """Main function to generate notebooks and .platform files."""
         # Print header
@@ -504,7 +542,7 @@ class NotebookGenerator:
                         main_task,
                         description=f"Generating orchestrator for [yellow]{entity_path.name}[/yellow]",
                     )
-                    orchestrator_path = self.generate_orchestrator_notebook(
+                    self.generate_orchestrator_notebook(
                         entity_path.name,
                         notebook_names,
                         self.output_dir / entity_path.name,
@@ -524,9 +562,8 @@ class NotebookGenerator:
             try:
                 progress.update(
                     main_task,
-                    description=f"Generating master orchestrator for all {self.entities_folder.lower()}",
-                )
-                all_lakehouses_path = self.generate_all_entities_orchestrator(
+                    description=f"Generating master orchestrator for all {self.entities_folder.lower()}",                )
+                self.generate_all_entities_orchestrator(
                     entity_names, self.output_dir
                 )
                 progress.console.print(
@@ -544,7 +581,8 @@ class NotebookGenerator:
         self.console.print(
             Panel.fit(
                 f"[bold green]✓ Successfully generated {success_count} notebooks[/bold green]\n"
-                f"[bold green]✓ Successfully generated {orchestrator_count} {self.entity_type.lower()} orchestrators[/bold green]\n"
+                f"[bold green]✓ Successfully generated {orchestrator_count} "
+                f"{self.entity_type.lower()} orchestrators[/bold green]\n"
                 f"[bold green]✓ Generated 1 master orchestrator[/bold green]\n"
                 f"[bold red]✗ Failed to generate {error_count} notebooks[/bold red]",
                 title="[bold]Generation Complete[/bold]",

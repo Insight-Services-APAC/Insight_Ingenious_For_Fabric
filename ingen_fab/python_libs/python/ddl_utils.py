@@ -111,21 +111,16 @@ class ddl_utils:
     def initialise_ddl_script_executions_table(self):
         guid = "b8c83c87-36d2-46a8-9686-ced38363e169"
         object_name = "ddl_script_executions"
-        
-        conn = self.warehouse_utils.get_connection()
-        
-        # Check if table exists
-        check_query = f"""
-        SELECT COUNT(*) as count
-        FROM INFORMATION_SCHEMA.TABLES
-        WHERE TABLE_SCHEMA = '{self.execution_log_table_schema}'
-        AND TABLE_NAME = '{self.execution_log_table_name}'
-        """
-        
-        result = self.warehouse_utils.execute_query(conn=conn, query=check_query)
-        table_exists = result.iloc[0]['count'] > 0
+        conn = self.warehouse_utils.get_connection()        
+        table_exists = self.warehouse_utils.check_if_table_exists(
+            table_name=self.execution_log_table_name,
+            schema_name=self.execution_log_table_schema
+        )
         
         if not table_exists:
+            self.warehouse_utils.create_schema_if_not_exists(
+                schema_name=self.execution_log_table_schema
+            )
             # Create the table
             create_table_query = f"""
             CREATE TABLE [{self.execution_log_table_schema}].[{self.execution_log_table_name}] (

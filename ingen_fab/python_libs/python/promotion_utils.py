@@ -1,5 +1,5 @@
 from pathlib import Path
-from typing import Iterable, Optional
+from typing import Iterable, Optional, List
 
 from fabric_cicd import (
     FabricWorkspace,
