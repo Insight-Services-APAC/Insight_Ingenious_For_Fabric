@@ -6,23 +6,29 @@ class SQLTemplates:
 
     TEMPLATES = {
         "check_table_exists": {
-            "fabric": "SELECT TOP 1 * FROM {{ table_name }}",
-            "sqlserver": "SELECT TOP 1 * FROM {{ table_name }}",
+            "fabric":   """
+                            SELECT 1 FROM INFORMATION_SCHEMA.TABLES
+                            WHERE TABLE_SCHEMA = '{{ schema_name }}' AND TABLE_NAME = '{{ table_name }}'
+                        """,
+            "sqlserver":   """
+                            SELECT 1 FROM INFORMATION_SCHEMA.TABLES
+                            WHERE TABLE_SCHEMA = '{{ schema_name }}' AND TABLE_NAME = '{{ table_name }}'
+                        """,
         },
         "drop_table": {
-            "fabric": "DROP TABLE IF EXISTS {{ table_name }}",
-            "sqlserver": "IF OBJECT_ID('{{ table_name }}', 'U') IS NOT NULL DROP TABLE {{ table_name }}",
+            "fabric": "DROP TABLE IF EXISTS {{ schema_name }}.{{ table_name }}",
+            "sqlserver": "DROP TABLE IF EXISTS {{ schema_name }}.{{ table_name }}'",
         },
         "create_table_from_values": {
-            "fabric": "SELECT * INTO {{ table_name }} FROM (VALUES {{ values_clause }}) AS v({{ column_names }})",
-            "sqlserver": "SELECT * INTO {{ table_name }} FROM (VALUES {{ values_clause }}) AS v({{ column_names }})",
+            "fabric": "SELECT * INTO {{ schema_name }}.{{ table_name }} FROM (VALUES {{ values_clause }}) AS v({{ column_names }})",
+            "sqlserver": "SELECT * INTO {{ schema_name }}.{{ table_name }} FROM (VALUES {{ values_clause }}) AS v({{ column_names }})",
         },
         "insert_row": {
-            "fabric": "INSERT INTO {{ table_name }} VALUES ({{ row_values }})",
-            "sqlserver": "INSERT INTO {{ table_name }} VALUES ({{ row_values }})",
+            "fabric": "INSERT INTO {{ schema_name }}.{{ table_name }} VALUES ({{ row_values }})",
+            "sqlserver": "INSERT INTO {{ schema_name }}.{{ table_name }} VALUES ({{ row_values }})",
         },
         "list_tables": {
-            "fabric": "SHOW TABLES{% if prefix %} LIKE '{{ prefix }}%'{% endif %}",
+            "fabric": "SELECT TABLE_SCHEMA + '.' + TABLE_NAME AS name FROM INFORMATION_SCHEMA.TABLES{% if prefix %} WHERE TABLE_NAME LIKE '{{ prefix }}%'{% endif %}",
             "sqlserver": "SELECT TABLE_SCHEMA + '.' + TABLE_NAME AS name FROM INFORMATION_SCHEMA.TABLES{% if prefix %} WHERE TABLE_NAME LIKE '{{ prefix }}%'{% endif %}",
         },
     }
