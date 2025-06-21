@@ -60,3 +60,5 @@ print(f"Client ID: {sp_app_id}")
 print(f"Client Secret: {client_secret}")
 print(f"Tenant ID: {app['publisherDomain']} (or use 'az account show --query tenantId')")
 print("======================================")
+
+
