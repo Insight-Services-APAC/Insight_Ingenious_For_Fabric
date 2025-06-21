@@ -1,0 +1,13 @@
+workspaces:
+  - workspace_name: Metcash_Test        
+    environment_name: development
+  - workspace_name: UAT
+    environment_name: uat
+  - workspace_name: Prod
+    environment_name: production
+functional_tests:
+  target_workspace_name: Metcash_Test
+  target_warehouse_name: WH
+      
+
+

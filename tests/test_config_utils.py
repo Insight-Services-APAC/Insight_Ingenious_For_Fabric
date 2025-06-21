@@ -43,8 +43,11 @@ def test_get_configs_as_object():
 def test_merge_config_record_executes_query():
     cu = config_utils.config_utils("ws", "lh")
     cfg = config_utils.config_utils.FabricConfig(**sample_config_dict())
-    with mock.patch("ingen_fab.python_libs.python.config_utils.mssparkutils.session.execute") as exec_mock:
+    with mock.patch(
+        "ingen_fab.python_libs.python.config_utils.mssparkutils.session.execute"
+    ) as exec_mock:
         cu.merge_config_record(cfg)
         exec_mock.assert_called_once()
-        assert "MERGE INTO" in exec_mock.call_args[0][0]
+        called_query = exec_mock.call_args.kwargs.get("query")
+        assert called_query and "MERGE INTO" in called_query
 

@@ -1,0 +1,24 @@
+# Fabric notebook source
+
+# METADATA ********************
+
+# META {
+# META   "kernel_info": {
+# META     "name": "jupyter",
+# META     "jupyter_kernel_name": "python3.11"
+# META   }
+# META }
+
+# CELL ********************
+
+import traceback
+from notebookutils import mssparkutils
+
+try:
+    {{content}}
+except Exception as e:
+    # Get full stack trace
+    error_message = f"Error occurred: {str(e)}\n\nFull stack trace:\n{traceback.format_exc()}"
+    print(error_message)
+    # Exit notebook with error details
+    mssparkutils.notebook.exit(error_message)
