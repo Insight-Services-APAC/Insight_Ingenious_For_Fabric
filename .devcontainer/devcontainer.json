@@ -1,0 +1,10 @@
+{
+  "image": "ghcr.io/openai/codex-universal:latest",
+
+  "customizations": {
+    "vscode": {
+      "extensions": ["streetsidesoftware.code-spell-checker"]
+    }
+  },
+  "forwardPorts": [3000]
+}
