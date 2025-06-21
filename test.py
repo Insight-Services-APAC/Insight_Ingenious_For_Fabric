@@ -7,10 +7,10 @@ livy_notebook = FabricLivyNotebook(
 )
 
 # Option 1: Run simple code
-result = livy_notebook.run_notebook_code("print('Hello from Livy!')")
+result = livy_notebook.run_notebook_code("print('Hello from Livy!)")
 
 # Option 2: Run with template error handling
-result = livy_notebook.run_template_notebook("print('Hello with error handling!')")
+#result = livy_notebook.run_template_notebook("print('Hello with error handling!')")
 
 # Check results
 print("Result:", result)
