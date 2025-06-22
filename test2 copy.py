@@ -28,3 +28,33 @@ vlu = VariableLibraryUtils(
 
 vlu.inject_variables_into_template()
 
+workspace_id = "3a4fc13c-f7c5-463e-a9de-57c4754699ff"
+lakehouse_id = "352eb28d-d085-4767-a985-28b03d0829ae"
+
+pu = promotion_utils(
+    workspace_id=workspace_id,
+    repository_directory="./sample_project/fabric_workspace_items",
+    item_type_in_scope=[
+        "VariableLibrary",
+        "DataPipeline",
+        "Environment",
+        "Notebook",
+        "Report",
+        "SemanticModel",
+        "Lakehouse",
+        "MirroredDatabase", 
+        "CopyJob",
+        "Eventhouse",
+        "KQLDatabase",
+        "KQLQueryset",
+        "Reflex",
+        "Eventstream",
+        "Warehouse",
+        "SQLDatabase",
+        "KQLDashboard",
+        "Dataflow",
+    ],
+    environment="development",
+)
+
+pu.publish_all()

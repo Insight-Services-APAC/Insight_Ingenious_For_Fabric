@@ -10,10 +10,10 @@ current_dir = Path.cwd().resolve()
 sys.path.insert(0, str(current_dir))
 
 from ingen_fab.notebook_utils.fabric_cli_notebook import FabricCLINotebook, FabricLivyNotebook
-from ddl_scripts.notebook_generator import NotebookGenerator
-from notebook_utils.notebook_block_injector import NotebookContentFinder
-from python_libs.python.promotion_utils import promotion_utils
-from project_config import load_project_config
+from ingen_fab.ddl_scripts.notebook_generator import NotebookGenerator
+from ingen_fab.notebook_utils.notebook_block_injector import NotebookContentFinder
+from ingen_fab.python_libs.python.promotion_utils import promotion_utils
+from ingen_fab.project_config import load_project_config
 from rich.console import Console
 from rich.table import Table
 from rich.theme import Theme
@@ -25,17 +25,17 @@ app = typer.Typer(no_args_is_help=True, pretty_exceptions_show_locals=False)
 @app.callback()
 def main(
     ctx: typer.Context,
-    config_dir: Annotated[
+    fabric_workspace_repo_dir: Annotated[
         Path | None,
         typer.Option(
-            "--config-dir",
-            "-c",
-            help="Directory containing project.yml configuration",
+            "--fabric-workspace-repo-dir",
+            "-fwd",
+            help="Directory containing fabric workspace repository files"
         ),
-    ] = None,
+    ] = Path("sample_project")
 ):
     """Load project configuration and store in context."""
-    ctx.obj = {"config": load_project_config(config_dir)}
+    ctx.obj = {"fabric_workspace_repo_dir": fabric_workspace_repo_dir}
 
 custom_theme = Theme(
     {
@@ -80,13 +80,12 @@ def compile_ddl_notebooks(
     """
     compile_ddl_notebooks compiles the DDL notebooks in the specified project directory.
     """
-    project_cfg = ctx.obj.get("config", {}) if ctx.obj else {}
-    repo_dir = project_cfg.get("fabric_workspace_repo_dir")
+    fabric_workspace_repo_dir = ctx.obj.get("fabric_workspace_repo_dir", None) if ctx.obj else None
 
     nbg = NotebookGenerator(
         generation_mode=generation_mode,
         output_mode=output_mode,
-        fabric_workspace_repo_dir=repo_dir,
+        fabric_workspace_repo_dir=fabric_workspace_repo_dir,
     )
     nbg.run_all()
 

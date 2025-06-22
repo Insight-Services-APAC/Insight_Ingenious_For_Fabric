@@ -6,12 +6,9 @@ helper scripts.
 
 ```
 sample_project/
-├── db_projects              # Example SQL projects for warehouses
-├── ddl_scripts              # Jinja templates and generation config
+├── ddl_scripts              # ddl scripts for creating, tables, stored procedures and inserting master and configuration data
 ├── diagrams                 # Architecture diagrams (draw.io format)
-├── fabric_workspace_items   # Generated notebooks and pipelines
-├── notebook_partials        # Reusable notebook code blocks
-└── python_libs              # Helper utilities used by the samples
+├── fabric_workspace_items   # Artifacts that are part of the Fabric workspace
 ```
 
 Use these files as a reference when building your own Fabric workspace
