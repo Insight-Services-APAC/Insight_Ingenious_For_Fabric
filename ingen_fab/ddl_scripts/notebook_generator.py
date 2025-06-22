@@ -21,6 +21,7 @@ from typing import List, Set
 
 from ingen_fab.python_libs.gather_python_libs import GatherPythonLibs
 
+
 class NotebookGenerator:
     """Class to generate notebooks and orchestrators for Lakehouses or Warehouses."""
 
@@ -428,7 +429,7 @@ class NotebookGenerator:
             self.console.print(
                 f"[red]Error writing to {lib_template_path}: {e}[/red]"
             )
-
+    
     def run_all(self):
         """Main function to generate notebooks and .platform files."""
         # Print header

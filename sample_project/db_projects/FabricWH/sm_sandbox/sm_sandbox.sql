@@ -1,1 +1,0 @@
-CREATE SCHEMA sm_sandbox;
