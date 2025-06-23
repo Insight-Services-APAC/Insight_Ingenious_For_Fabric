@@ -51,7 +51,7 @@ class VariableLibraryUtils:
 
     def get_config_block(self, template_path: Path, variables: dict[str, str]) -> str:
         """Update the config.jinja template with values from the variable library."""
-        with open(template_path, 'r') as f:
+        with open(template_path, 'r', encoding="utf-8") as f:
             content = f.read()
         
         # Define the variable mappings (template variable name -> varlib variable name)
@@ -85,7 +85,7 @@ class VariableLibraryUtils:
         # Process each notebook file
         updated_files = []
         for notebook_file in notebook_files:
-            with open(notebook_file, 'r') as f:
+            with open(notebook_file, 'r', encoding='utf-8') as f:
                 content = f.read()
             
             # Pattern to find the injection blocks
@@ -105,6 +105,11 @@ class VariableLibraryUtils:
                     else:
                         new_lines.append(f'{var_name} = {var_value}')
                 
+                # Also inject the entire variables dict
+                new_lines.append('')  # Add blank line for readability
+                new_lines.append('# All variables as a dictionary')
+                new_lines.append(f'configs_dict = {repr(variables)}')
+                
                 # Join with newlines and add markers
                 new_content = start_marker + '\n'.join(new_lines) + '\n' + end_marker
                 return new_content
@@ -119,7 +124,7 @@ class VariableLibraryUtils:
             
             # Write the updated content back to the file
             if re.search(pattern, content, re.DOTALL):
-                with open(notebook_file, 'w') as f:
+                with open(notebook_file, 'w', encoding='utf-8') as f:
                     f.write(updated_content)
                 updated_files.append(notebook_file)
         

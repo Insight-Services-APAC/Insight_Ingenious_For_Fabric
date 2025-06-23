@@ -44,6 +44,7 @@ full_reset = False # ⚠️ Full reset -- DESTRUCTIVE - will drop all tables
 
 
 
+
 # Auto-generated library code from python_libs
 # Files are ordered based on dependency analysis
 
@@ -53,6 +54,7 @@ full_reset = False # ⚠️ Full reset -- DESTRUCTIVE - will drop all tables
 from datetime import datetime
 from typing import List, Optional, Any
 from dataclasses import dataclass, asdict
+import pandas as pd
 import notebookutils 
 
 
@@ -217,54 +219,14 @@ class config_utils:
         else:
             print("Updated fabric environments record")
 
+    def overwrite_configs(self, configs: dict):
+        df = pd.DataFrame([configs])
+        self.warehouse_utils.write_to_warehouse_table(
+            df, self.fabric_environments_table_name, self.fabric_environments_table_schema, "overwrite"
+        )
 
 
 
-
-
-
-# === sql_templates.py ===
-from jinja2 import Template
-
-
-class SQLTemplates:
-    """Render SQL templates for different dialects."""
-
-    TEMPLATES = {
-        "check_table_exists": {
-            "fabric":   """
-                            SELECT 1 FROM INFORMATION_SCHEMA.TABLES
-                            WHERE TABLE_SCHEMA = '' AND TABLE_NAME = ''
-                        """,
-            "sqlserver":   """
-                            SELECT 1 FROM INFORMATION_SCHEMA.TABLES
-                            WHERE TABLE_SCHEMA = '' AND TABLE_NAME = ''
-                        """,
-        },
-        "drop_table": {
-            "fabric": "DROP TABLE IF EXISTS .",
-            "sqlserver": "DROP TABLE IF EXISTS .'",
-        },
-        "create_table_from_values": {
-            "fabric": "SELECT * INTO . FROM (VALUES ) AS v()",
-            "sqlserver": "SELECT * INTO . FROM (VALUES ) AS v()",
-        },
-        "insert_row": {
-            "fabric": "INSERT INTO . VALUES ()",
-            "sqlserver": "INSERT INTO . VALUES ()",
-        },
-        "list_tables": {
-            "fabric": "SELECT TABLE_SCHEMA + '.' + TABLE_NAME AS name FROM INFORMATION_SCHEMA.TABLES",
-            "sqlserver": "SELECT TABLE_SCHEMA + '.' + TABLE_NAME AS name FROM INFORMATION_SCHEMA.TABLES",
-        },
-    }
-
-    def __init__(self, dialect: str = "fabric"):
-        self.dialect = dialect
-
-    def render(self, template_name: str, **kwargs) -> str:
-        template_str = self.TEMPLATES[template_name][self.dialect]
-        return Template(template_str).render(**kwargs)
 
 
 # === warehouse_utils.py ===
@@ -341,7 +303,7 @@ class warehouse_utils:
             conn = self.get_connection()
             schema_check_sql = """
             SELECT 1 FROM INFORMATION_SCHEMA.SCHEMATA
-            WHERE SCHEMA_NAME = ''
+            WHERE SCHEMA_NAME = '{{ schema_name }}'
             """
             schema_result = self.execute_query(conn, schema_check_sql)
             schema_exists = len(schema_result) > 0 if schema_result is not None else False
@@ -383,7 +345,7 @@ class warehouse_utils:
             # Handle different write modes
             if mode == "overwrite":
                 # Drop table if exists
-                drop_query = self.sql.render("drop_table", table_name=table_name)
+                drop_query = self.sql.render("drop_table", table_name=table_name, schema_name=schema_name)
                 self.execute_query(conn, drop_query)
                 
                 # Create table from dataframe using SELECT INTO syntax
@@ -399,6 +361,7 @@ class warehouse_utils:
                 create_query = self.sql.render(
                     "create_table_from_values",
                     table_name=table_name,
+                    schema_name=schema_name
                     column_names=column_names,
                     values_clause=values_clause,
                 )
@@ -413,6 +376,7 @@ class warehouse_utils:
                     insert_query = self.sql.render(
                         "insert_row",
                         table_name=table_name,
+                        schema_name=schema_name
                         row_values=row_values,
                     )
                     self.execute_query(conn, insert_query)
@@ -436,6 +400,7 @@ class warehouse_utils:
                 create_query = self.sql.render(
                     "create_table_from_values",
                     table_name=table_name,
+                    schema_name=schema_name,
                     column_names=column_names,
                     values_clause=values_clause,
                 )
@@ -458,6 +423,7 @@ class warehouse_utils:
                     create_query = self.sql.render(
                         "create_table_from_values",
                         table_name=table_name,
+                        schema_name=schema_name,
                         column_names=column_names,
                         values_clause=values_clause,
                     )
@@ -485,7 +451,6 @@ class warehouse_utils:
         except Exception as e:
             logging.error(f"Error dropping tables with prefix {table_prefix}: {e}")
             raise
-
 
 # === ddl_utils.py ===
 # { "depends_on": "warehouse_utils" }
@@ -637,6 +602,52 @@ class lakehouse_utils:
     def __init__(self, target_workspace_id, target_warehouse_id):
         self.target_workspace_id = target_workspace_id
         self.target_warehouse_id = target_warehouse_id
+
+
+
+# === sql_templates.py ===
+from jinja2 import Template
+
+
+class SQLTemplates:
+    """Render SQL templates for different dialects."""
+
+    TEMPLATES = {
+        "check_table_exists": {
+            "fabric":   """
+                            SELECT 1 FROM INFORMATION_SCHEMA.TABLES
+                            WHERE TABLE_SCHEMA = '{{ schema_name }}' AND TABLE_NAME = '{{ table_name }}'
+                        """,
+            "sqlserver":   """
+                            SELECT 1 FROM INFORMATION_SCHEMA.TABLES
+                            WHERE TABLE_SCHEMA = '{{ schema_name }}' AND TABLE_NAME = '{{ table_name }}'
+                        """,
+        },
+        "drop_table": {
+            "fabric": "DROP TABLE IF EXISTS {{ schema_name }}.{{ table_name }}",
+            "sqlserver": "DROP TABLE IF EXISTS {{ schema_name }}.{{ table_name }}'",
+        },
+        "create_table_from_values": {
+            "fabric": "SELECT * INTO {{ schema_name }}.{{ table_name }} FROM (VALUES {{ values_clause }}) AS v({{ column_names }})",
+            "sqlserver": "SELECT * INTO {{ schema_name }}.{{ table_name }} FROM (VALUES {{ values_clause }}) AS v({{ column_names }})",
+        },
+        "insert_row": {
+            "fabric": "INSERT INTO {{ schema_name }}.{{ table_name }} VALUES ({{ row_values }})",
+            "sqlserver": "INSERT INTO {{ schema_name }}.{{ table_name }} VALUES ({{ row_values }})",
+        },
+        "list_tables": {
+            "fabric": "SELECT TABLE_SCHEMA + '.' + TABLE_NAME AS name FROM INFORMATION_SCHEMA.TABLES{% if prefix %} WHERE TABLE_NAME LIKE '{{ prefix }}%'{% endif %}",
+            "sqlserver": "SELECT TABLE_SCHEMA + '.' + TABLE_NAME AS name FROM INFORMATION_SCHEMA.TABLES{% if prefix %} WHERE TABLE_NAME LIKE '{{ prefix }}%'{% endif %}",
+        },
+    }
+
+    def __init__(self, dialect: str = "fabric"):
+        self.dialect = dialect
+
+    def render(self, template_name: str, **kwargs) -> str:
+        template_str = self.TEMPLATES[template_name][self.dialect]
+        return Template(template_str).render(**kwargs)
+
 
 
 

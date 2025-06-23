@@ -1,10 +1,10 @@
 {
   "$schema": "https://developer.microsoft.com/json-schemas/fabric/item/variableLibrary/definition/valueSet/1.0.0/schema.json",
-  "name": "development",
+  "name": "sandbox",
   "variableOverrides": [
     {
       "name": "fabric_environment",
-      "value": "development"
+      "value": "sandbox"
     },
     {
       "name": "synapse_source_database_1",
@@ -12,7 +12,7 @@
     },
     {
       "name": "config_workspace_id",
-      "value": "3a4fc13c-f7c5-463e-a9de-57c4754699ff"
+      "value": "50fbcab0-7d56-46f7-90f6-80ceb00ac86d"
     },
     {
       "name": "synapse_source_sql_connection",
@@ -28,7 +28,7 @@
     },
     {
       "name": "config_lakehouse_id",
-      "value": "2629d4cc-685c-458a-866b-b4705dde71a7"
+      "value": "23ba8378-7884-4ac7-bab5-10e11af43d6c"
     },
     {
       "name": "edw_workspace_id",

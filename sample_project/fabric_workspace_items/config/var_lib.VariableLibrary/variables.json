@@ -2,6 +2,12 @@
   "$schema": "https://developer.microsoft.com/json-schemas/fabric/item/variableLibrary/definition/variables/1.0.0/schema.json",
   "variables": [
     {
+      "name": "fabric_environment",
+      "note": "",
+      "type": "String",
+      "value": ""
+    },
+    {
       "name": "synapse_source_sql_connection",
       "note": "",
       "type": "String",

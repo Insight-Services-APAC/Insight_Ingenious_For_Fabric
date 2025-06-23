@@ -2,6 +2,7 @@
 from datetime import datetime
 from typing import List, Optional, Any
 from dataclasses import dataclass, asdict
+import pandas as pd
 import notebookutils 
 from . import warehouse_utils  # Assuming warehouse_utils is in the same package
 
@@ -167,7 +168,11 @@ class config_utils:
         else:
             print("Updated fabric environments record")
 
-
+    def overwrite_configs(self, configs: dict):
+        df = pd.DataFrame([configs])
+        self.warehouse_utils.write_to_warehouse_table(
+            df, self.fabric_environments_table_name, self.fabric_environments_table_schema, "overwrite"
+        )
 
 
 

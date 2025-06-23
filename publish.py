@@ -45,16 +45,14 @@ pu = promotion_utils(
         "MirroredDatabase", 
         "CopyJob",
         "Eventhouse",
-        "KQLDatabase",
-        "KQLQueryset",
         "Reflex",
         "Eventstream",
         "Warehouse",
-        "SQLDatabase",
-        "KQLDashboard",
-        "Dataflow",
+        "SQLDatabase"
     ],
     environment="development",
 )
 
+pu.unpublish_orphans()
 pu.publish_all()
+

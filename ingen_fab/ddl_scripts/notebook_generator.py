@@ -199,6 +199,19 @@ class NotebookGenerator:
         sorted_files = sorted(files, key=lambda x: x[0])
         return [path for _, path in sorted_files]
 
+    def generate_config_notebook(self, output_dir):
+        """Generate a configuration notebook for the current entity."""
+        # Load the configuration template
+        config_template = self.load_template("config.py.jinja")        # Render the configuration notebook
+        rendered_config = config_template.render()
+
+        notebook_name = f"00_all_{self.entities_folder.lower()}_config_notebook"
+        return self.create_notebook_with_platform(
+            notebook_name=notebook_name,
+            rendered_content=rendered_config,
+            output_dir=output_dir
+        )
+
     def generate_notebook(
         self,
         config_folder,
@@ -209,7 +222,6 @@ class NotebookGenerator:
     ):
         """Generate a notebook and its .platform file for a specific entity configuration."""
         notebook_template = self.load_template("notebook_content.py.jinja")
-        platform_template = self.load_template("platform.json.jinja")
         cells = []
 
         config_folder = Path(config_folder)
@@ -279,26 +291,13 @@ class NotebookGenerator:
         # Render the notebook template with the cells
         rendered_notebook = notebook_template.render(cells=cells)
 
-        # Ensure output directory exists
-        output_folder.mkdir(parents=True, exist_ok=True)
-        notebook_path = output_folder / "notebook-content.py"
-        with notebook_path.open("w", encoding="utf-8") as f:
-            f.write(rendered_notebook)
-
-        # Render the .platform file using the platform.json.jinja template
+        # Create notebook with platform file
         relative_path = config_folder.relative_to(self.entities_dir)
-        import uuid
-
-        platform_metadata = platform_template.render(
+        self.create_notebook_with_platform(
             notebook_name=notebook_display_name,
-            guid=uuid.uuid4(),
-            relative_path=relative_path,
+            rendered_content=rendered_notebook,
+            output_dir=output_folder.parent
         )
-        platform_path = output_folder / ".platform"
-        # Only create .platform if it does not exist
-        if not platform_path.exists():
-            with platform_path.open("w", encoding="utf-8") as f:
-                f.write(platform_metadata)
 
         # Mark cell task as complete
         if progress and parent_task is not None:
@@ -314,44 +313,26 @@ class NotebookGenerator:
 
         # Load the orchestrator template
         orchestrator_template = self.load_template("orchestrator_notebook.py.jinja")
-        platform_template = self.load_template("platform.json.jinja")
 
         # Prepare notebook execution data
         notebooks = []
         for i, notebook_name in enumerate(notebook_names, 1):
             notebooks.append(
                 {"index": i, "name": notebook_name, "total": len(notebook_names)}
-            )
-
-        # Render the orchestrator notebook
+            )        # Render the orchestrator notebook
         orchestrator_content = orchestrator_template.render(
             lakehouse_name=entity_name,
             notebooks=notebooks,
             total_notebooks=len(notebook_names),
         )
 
-        # Save the orchestrator notebook
-        orchestrator_path = output_folder / f"0_orchestrator_{entity_name}.Notebook"
-        orchestrator_path.mkdir(parents=True, exist_ok=True)
-
-        notebook_file = orchestrator_path / "notebook-content.py"
-        with notebook_file.open("w", encoding="utf-8") as f:
-            f.write(orchestrator_content)
-
-        # Create .platform file for orchestrator
-        platform_metadata = platform_template.render(
-            notebook_name=f"0_orchestrator_{entity_name}_{self.entities_folder}_ddl_scripts",
-            guid=uuid.uuid4(),
-            relative_path=f"{entity_name}/0_orchestrator_{entity_name}",
+        # Create notebook with platform file
+        notebook_name = f"0_orchestrator_{entity_name}"
+        return self.create_notebook_with_platform(
+            notebook_name=notebook_name,
+            rendered_content=orchestrator_content,
+            output_dir=output_folder
         )
-
-        platform_path = orchestrator_path / ".platform"
-        # Only create .platform if it does not exist
-        if not platform_path.exists():
-            with platform_path.open("w", encoding="utf-8") as f:
-                f.write(platform_metadata)
-
-        return orchestrator_path
 
     def generate_all_entities_orchestrator(self, entity_names, output_dir):
         """Generate a master orchestrator notebook that runs all entity orchestrators in parallel."""
@@ -360,44 +341,24 @@ class NotebookGenerator:
         all_lakehouses_template = self.load_template(
             "orchestrator_notebook_all_lakehouses.py.jinja"
         )
-        platform_template = self.load_template("platform.json.jinja")
 
         # Prepare lakehouse data
         lakehouses = []
         for name in entity_names:
             lakehouses.append(
                 {"name": name, "orchestrator_name": f"0_orchestrator_{name}"}
-            )
-
-        # Render the all lakehouses orchestrator notebook
+            )        # Render the all lakehouses orchestrator notebook
         orchestrator_content = all_lakehouses_template.render(
             lakehouses=lakehouses, total_lakehouses=len(lakehouses)
         )
 
-        # Save the orchestrator notebook
-        orchestrator_path = output_dir / f"00_all_{self.entities_folder.lower()}_orchestrator.Notebook"
-        orchestrator_path.mkdir(parents=True, exist_ok=True)
-
-        notebook_file = orchestrator_path / "notebook-content.py"
-        with notebook_file.open("w", encoding="utf-8") as f:
-            f.write(orchestrator_content)
-
-        # Create .platform file for orchestrator
-        import uuid
-
-        platform_metadata = platform_template.render(
-            notebook_name=f"00_all_{self.entities_folder.lower()}_orchestrator_ddl_scripts",
-            guid=uuid.uuid4(),
-            relative_path=f"00_all_{self.entities_folder.lower()}_orchestrator",
+        # Create notebook with platform file
+        notebook_name = f"00_all_{self.entities_folder.lower()}_orchestrator"
+        return self.create_notebook_with_platform(
+            notebook_name=notebook_name,
+            rendered_content=orchestrator_content,
+            output_dir=output_dir
         )
-
-        platform_path = orchestrator_path / ".platform"
-        # Only create .platform if it does not exist
-        if not platform_path.exists():
-            with platform_path.open("w", encoding="utf-8") as f:
-                f.write(platform_metadata)
-
-        return orchestrator_path
 
     def inject_python_libs_into_template(self):
         """
@@ -510,14 +471,14 @@ class NotebookGenerator:
                     )
 
                     output_path = (
-                        self.output_dir / entity_path.name / f"{config_path.name}.Notebook"
+                        self.output_dir / entity_path.name / f"{config_path.name}"
                     )
-                    notebook_display_name = f"{config_path.name}_{entity_path.name}_{self.entities_folder}_ddl_scripts"
+                    notebook_display_name = f"{config_path.name}_{entity_path.name}_{self.entities_folder}"
                     notebook_names.append(f"{notebook_display_name}")
 
                     try:
                         # Ensure directory structure exists before generating
-                        output_path.mkdir(parents=True, exist_ok=True)
+                        # output_path.mkdir(parents=True, exist_ok=True)
                         self.generate_notebook(
                             config_path,
                             output_path,
@@ -563,10 +524,13 @@ class NotebookGenerator:
             try:
                 progress.update(
                     main_task,
-                    description=f"Generating master orchestrator for all {self.entities_folder.lower()}",                )
+                    description=f"Generating master orchestrator for all "
+                    f"{self.entities_folder.lower()}",
+                )
                 self.generate_all_entities_orchestrator(
                     entity_names, self.output_dir
                 )
+                self.generate_config_notebook(self.output_dir)
                 progress.console.print(
                     f"[green]✓[/green] Generated master orchestrator for all {self.entities_folder.lower()}"
                 )
@@ -590,3 +554,44 @@ class NotebookGenerator:
                 border_style="green" if error_count == 0 else "yellow",
             )
         )
+
+    def create_notebook_with_platform(
+        self,
+        notebook_name: str,
+        rendered_content: str,
+        output_dir: Path,
+    ) -> Path:
+        """
+        Create a notebook with its .platform file.
+        
+        Args:
+            notebook_name: The name of the notebook (without extension)
+            rendered_content: The rendered notebook content
+            output_dir: The directory where the notebook should be created
+            
+        Returns:
+            Path to the created notebook directory
+        """
+        # Create output path
+        output_path = output_dir / f"{notebook_name}.Notebook"
+        output_path.mkdir(parents=True, exist_ok=True)
+
+        # Write notebook content
+        notebook_file = output_path / "notebook-content.py"
+        with notebook_file.open("w", encoding="utf-8") as f:
+            f.write(rendered_content)
+
+        # Create .platform file
+        platform_template = self.load_template("platform.json.jinja")
+        platform_metadata = platform_template.render(
+            notebook_name=f"{notebook_name}_ddl_scripts",
+            guid=uuid.uuid4()
+        )
+
+        platform_path = output_path / ".platform"
+        # Only create .platform if it does not exist
+        if not platform_path.exists():
+            with platform_path.open("w", encoding="utf-8") as f:
+                f.write(platform_metadata)
+
+        return output_path
