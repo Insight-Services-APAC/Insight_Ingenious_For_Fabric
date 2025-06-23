@@ -12,6 +12,13 @@
             "console": "integratedTerminal"
         },
         {
+            "name": "publish",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "publish.py",
+            "console": "integratedTerminal"
+        },
+        {
             "name": "compile-ddl-notebooks",
             "type": "debugpy",
             "request": "launch",

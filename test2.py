@@ -13,7 +13,7 @@
 # Call the test_code method with the code to be tested
 # tester.test_code(code_to_test)
 
-from ingen_fab.python_libs.python.promotion_utils import promotion_utils
+from ingen_fab.fabric_cicd.promotion_utils import promotion_utils
 from ingen_fab.config_utils.variable_lib import VariableLibraryUtils
 
 

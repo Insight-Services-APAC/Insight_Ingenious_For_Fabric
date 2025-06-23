@@ -1,45 +1,139 @@
-2025-06-22 19:44:32,238 - INFO - fabric_cicd._common._fabric_endpoint - Executing as Application Id '04b07795-8ddb-461a-bbee-02f9e1bf7b46'
-2025-06-22 19:44:32,238 - INFO - fabric_cicd._common._validate_input - Relative directory path 'sample_project\fabric_workspace_items' resolved as 'C:\Users\jramp\source\gitjr\fabric-admin\ingen_fab\sample_project\fabric_workspace_items'
-2025-06-22 19:44:32,251 - WARNING - fabric_cicd._parameter._parameter - Parameter file not found with path: C:\Users\jramp\source\gitjr\fabric-admin\ingen_fab\sample_project\fabric_workspace_items\parameter.yml
-2025-06-22 19:44:32,251 - WARNING - fabric_cicd._parameter._parameter - Validation terminated: not found
-2025-06-22 19:44:33,635 - INFO - fabric_cicd.fabric_workspace - Unpublishing SemanticModel 'config'
-2025-06-22 19:44:34,158 - WARNING - fabric_cicd.fabric_workspace - Failed to unpublish SemanticModel 'config'.  Raw exception: Unhandled error occurred calling DELETE on 'https://api.powerbi.com/v1/workspaces/3a4fc13c-f7c5-463e-a9de-57c4754699ff/items/bcdd70c7-1e84-47ce-ba08-a18dbf0c14f1'. Message: An error occured.  []
-2025-06-22 19:44:34,159 - INFO - fabric_cicd.fabric_workspace - Unpublishing SemanticModel 'EDW'
-2025-06-22 19:44:34,695 - WARNING - fabric_cicd.fabric_workspace - Failed to unpublish SemanticModel 'EDW'.  Raw exception: Unhandled error occurred calling DELETE on 'https://api.powerbi.com/v1/workspaces/3a4fc13c-f7c5-463e-a9de-57c4754699ff/items/2d8b6c33-4803-4a94-ad33-430059de7d2b'. Message: An error occured.  []
-2025-06-22 19:44:36,837 - INFO - fabric_cicd._common._fabric_endpoint - Executing as Application Id '04b07795-8ddb-461a-bbee-02f9e1bf7b46'
-2025-06-22 19:44:36,837 - INFO - fabric_cicd._common._validate_input - Relative directory path 'sample_project\fabric_workspace_items' resolved as 'C:\Users\jramp\source\gitjr\fabric-admin\ingen_fab\sample_project\fabric_workspace_items'
-2025-06-22 19:44:36,838 - WARNING - fabric_cicd._parameter._parameter - Parameter file not found with path: C:\Users\jramp\source\gitjr\fabric-admin\ingen_fab\sample_project\fabric_workspace_items\parameter.yml
-2025-06-22 19:44:36,838 - WARNING - fabric_cicd._parameter._parameter - Validation terminated: not found
-2025-06-22 19:44:37,340 - INFO - fabric_cicd.fabric_workspace - Publishing Workspace Folders
-2025-06-22 19:44:37,340 - INFO - fabric_cicd.fabric_workspace - ->Published
-2025-06-22 19:44:38,490 - INFO - fabric_cicd.fabric_workspace - Publishing VariableLibrary 'var_lib'
-2025-06-22 19:44:41,088 - INFO - fabric_cicd._common._fabric_endpoint - ->->Operation in progress. Checking again in 1 second (Attempt 1/7)...
-2025-06-22 19:44:42,673 - INFO - fabric_cicd.fabric_workspace - ->Published
-2025-06-22 19:44:45,215 - INFO - fabric_cicd._items._variablelibrary - ->Active value set changed to 'development'
-2025-06-22 19:44:45,217 - INFO - fabric_cicd.fabric_workspace - Publishing Warehouse 'EDW'
-2025-06-22 19:44:45,750 - INFO - fabric_cicd._items._warehouse - ->Published
-2025-06-22 19:44:45,751 - INFO - fabric_cicd.fabric_workspace - Publishing Lakehouse 'config'
-2025-06-22 19:44:49,013 - INFO - fabric_cicd._items._lakehouse - ->Published
-2025-06-22 19:44:49,013 - INFO - fabric_cicd._items._environment - Checking Environment Publish State for []
-2025-06-22 19:44:49,318 - INFO - fabric_cicd.fabric_workspace - Publishing Notebook '00_all_warehouses_config_notebook_ddl_scripts'
-2025-06-22 19:44:51,651 - INFO - fabric_cicd.fabric_workspace - ->Published
-2025-06-22 19:44:51,654 - INFO - fabric_cicd.fabric_workspace - Publishing Notebook '00_all_warehouses_orchestrator_ddl_scripts'
-2025-06-22 19:44:53,846 - INFO - fabric_cicd.fabric_workspace - ->Published
-2025-06-22 19:44:53,850 - INFO - fabric_cicd.fabric_workspace - Publishing Notebook '001_Initial_Creation_Config_Warehouses_ddl_scripts'
-2025-06-22 19:44:56,260 - INFO - fabric_cicd.fabric_workspace - ->Published
-2025-06-22 19:44:56,263 - INFO - fabric_cicd.fabric_workspace - Publishing Notebook '0_orchestrator_Config_ddl_scripts'
-2025-06-22 19:44:58,375 - INFO - fabric_cicd.fabric_workspace - ->Published
-2025-06-22 19:44:58,384 - INFO - fabric_cicd.fabric_workspace - Publishing Notebook 'extract_from_synapse'
-2025-06-22 19:45:01,160 - INFO - fabric_cicd.fabric_workspace - ->Published
-2025-06-22 19:45:01,173 - INFO - fabric_cicd.fabric_workspace - Publishing Notebook 'jw_extract_from_synapse'
-2025-06-22 19:45:03,787 - INFO - fabric_cicd.fabric_workspace - ->Published
-2025-06-22 19:45:03,801 - INFO - fabric_cicd.fabric_workspace - Publishing Notebook 'sm_extract_from_synapse'
-2025-06-22 19:45:06,487 - INFO - fabric_cicd.fabric_workspace - ->Published
-2025-06-22 19:45:06,498 - INFO - fabric_cicd.fabric_workspace - Publishing Notebook 'load_to_lakehouse_tables'
-2025-06-22 19:45:09,169 - INFO - fabric_cicd.fabric_workspace - ->Published
-2025-06-22 19:45:10,048 - INFO - fabric_cicd.fabric_workspace - Publishing DataPipeline 'extract_from_synapse'
-2025-06-22 19:45:15,717 - INFO - fabric_cicd.fabric_workspace - ->Published
-2025-06-22 19:45:15,721 - INFO - fabric_cicd.fabric_workspace - Publishing DataPipeline 'extract_pipeline_from_synapse_v2'
-2025-06-22 19:45:20,725 - INFO - fabric_cicd.fabric_workspace - ->Published
-2025-06-22 19:45:20,726 - INFO - fabric_cicd._items._environment - Checking Environment Publish State for []
-2025-06-22 19:45:21,275 - INFO - fabric_cicd._items._environment - ->Published.
+2025-06-23 23:58:32,277 - INFO - fabric_cicd._common._fabric_endpoint - Executing as Application Id '7ca469d6-2266-4611-a022-8af7505df6b8'
+2025-06-23 23:58:32,277 - INFO - fabric_cicd._common._validate_input - Relative directory path 'temp-publish' resolved as '/Users/johnrampono/source/ingen_fab/temp-publish'
+2025-06-23 23:58:32,314 - WARNING - fabric_cicd._parameter._parameter - Parameter file not found with path: /Users/johnrampono/source/ingen_fab/temp-publish/parameter.yml
+2025-06-23 23:58:32,314 - WARNING - fabric_cicd._parameter._parameter - Validation terminated: not found
+2025-06-23 23:58:33,080 - INFO - fabric_cicd.fabric_workspace - Publishing Workspace Folders
+2025-06-23 23:58:33,080 - INFO - fabric_cicd.fabric_workspace - ->Published
+2025-06-23 23:58:34,726 - INFO - fabric_cicd.fabric_workspace - Publishing Warehouse 'EDW'
+2025-06-23 23:58:35,386 - INFO - fabric_cicd._items._warehouse - ->Published
+2025-06-23 23:58:35,387 - INFO - fabric_cicd._items._environment - Checking Environment Publish State for []
+2025-06-23 23:58:38,346 - INFO - fabric_cicd._items._environment - Checking Environment Publish State for []
+2025-06-23 23:58:39,165 - INFO - fabric_cicd._items._environment - ->Published.
+2025-06-23 23:58:39,587 - INFO - fabric_cicd._common._fabric_endpoint - Executing as Application Id '7ca469d6-2266-4611-a022-8af7505df6b8'
+2025-06-23 23:58:39,587 - INFO - fabric_cicd._common._validate_input - Relative directory path 'temp-publish' resolved as '/Users/johnrampono/source/ingen_fab/temp-publish'
+2025-06-23 23:58:39,587 - WARNING - fabric_cicd._parameter._parameter - Parameter file not found with path: /Users/johnrampono/source/ingen_fab/temp-publish/parameter.yml
+2025-06-23 23:58:39,587 - WARNING - fabric_cicd._parameter._parameter - Validation terminated: not found
+2025-06-23 23:58:40,262 - INFO - fabric_cicd.fabric_workspace - Publishing Workspace Folders
+2025-06-23 23:58:40,262 - INFO - fabric_cicd.fabric_workspace - ->Published
+2025-06-23 23:58:41,545 - INFO - fabric_cicd._items._environment - Checking Environment Publish State for []
+2025-06-23 23:58:42,345 - INFO - fabric_cicd.fabric_workspace - Publishing Notebook '00_all_warehouses_orchestrator_ddl_scripts'
+2025-06-23 23:58:46,947 - INFO - fabric_cicd.fabric_workspace - ->Published
+2025-06-23 23:58:48,176 - INFO - fabric_cicd._items._environment - Checking Environment Publish State for []
+2025-06-23 23:58:48,617 - INFO - fabric_cicd._items._environment - ->Published.
+2025-06-23 23:58:49,007 - INFO - fabric_cicd._common._fabric_endpoint - Executing as Application Id '7ca469d6-2266-4611-a022-8af7505df6b8'
+2025-06-23 23:58:49,007 - INFO - fabric_cicd._common._validate_input - Relative directory path 'temp-publish' resolved as '/Users/johnrampono/source/ingen_fab/temp-publish'
+2025-06-23 23:58:49,007 - WARNING - fabric_cicd._parameter._parameter - Parameter file not found with path: /Users/johnrampono/source/ingen_fab/temp-publish/parameter.yml
+2025-06-23 23:58:49,007 - WARNING - fabric_cicd._parameter._parameter - Validation terminated: not found
+2025-06-23 23:58:49,978 - INFO - fabric_cicd.fabric_workspace - Publishing Workspace Folders
+2025-06-23 23:58:49,979 - INFO - fabric_cicd.fabric_workspace - ->Published
+2025-06-23 23:58:51,786 - INFO - fabric_cicd._items._environment - Checking Environment Publish State for []
+2025-06-23 23:58:52,582 - INFO - fabric_cicd.fabric_workspace - Publishing Notebook '00_all_warehouses_config_notebook_ddl_scripts'
+2025-06-23 23:58:57,393 - INFO - fabric_cicd.fabric_workspace - ->Published
+2025-06-23 23:58:58,829 - INFO - fabric_cicd._items._environment - Checking Environment Publish State for []
+2025-06-23 23:58:59,254 - INFO - fabric_cicd._items._environment - ->Published.
+2025-06-23 23:58:59,670 - INFO - fabric_cicd._common._fabric_endpoint - Executing as Application Id '7ca469d6-2266-4611-a022-8af7505df6b8'
+2025-06-23 23:58:59,670 - INFO - fabric_cicd._common._validate_input - Relative directory path 'temp-publish' resolved as '/Users/johnrampono/source/ingen_fab/temp-publish'
+2025-06-23 23:58:59,671 - WARNING - fabric_cicd._parameter._parameter - Parameter file not found with path: /Users/johnrampono/source/ingen_fab/temp-publish/parameter.yml
+2025-06-23 23:58:59,671 - WARNING - fabric_cicd._parameter._parameter - Validation terminated: not found
+2025-06-23 23:59:00,359 - INFO - fabric_cicd.fabric_workspace - Publishing Workspace Folders
+2025-06-23 23:59:00,359 - INFO - fabric_cicd.fabric_workspace - ->Published
+2025-06-23 23:59:01,800 - INFO - fabric_cicd._items._environment - Checking Environment Publish State for []
+2025-06-23 23:59:02,182 - INFO - fabric_cicd.fabric_workspace - Publishing Notebook '0_orchestrator_Config_ddl_scripts'
+2025-06-23 23:59:06,609 - INFO - fabric_cicd.fabric_workspace - ->Published
+2025-06-23 23:59:07,735 - INFO - fabric_cicd._items._environment - Checking Environment Publish State for []
+2025-06-23 23:59:08,146 - INFO - fabric_cicd._items._environment - ->Published.
+2025-06-23 23:59:08,533 - INFO - fabric_cicd._common._fabric_endpoint - Executing as Application Id '7ca469d6-2266-4611-a022-8af7505df6b8'
+2025-06-23 23:59:08,533 - INFO - fabric_cicd._common._validate_input - Relative directory path 'temp-publish' resolved as '/Users/johnrampono/source/ingen_fab/temp-publish'
+2025-06-23 23:59:08,533 - WARNING - fabric_cicd._parameter._parameter - Parameter file not found with path: /Users/johnrampono/source/ingen_fab/temp-publish/parameter.yml
+2025-06-23 23:59:08,533 - WARNING - fabric_cicd._parameter._parameter - Validation terminated: not found
+2025-06-23 23:59:08,918 - INFO - fabric_cicd.fabric_workspace - Publishing Workspace Folders
+2025-06-23 23:59:08,918 - INFO - fabric_cicd.fabric_workspace - ->Published
+2025-06-23 23:59:09,994 - INFO - fabric_cicd._items._environment - Checking Environment Publish State for []
+2025-06-23 23:59:10,422 - INFO - fabric_cicd.fabric_workspace - Publishing Notebook '001_Initial_Creation_Config_Warehouses_ddl_scripts'
+2025-06-23 23:59:14,800 - INFO - fabric_cicd.fabric_workspace - ->Published
+2025-06-23 23:59:15,689 - INFO - fabric_cicd._items._environment - Checking Environment Publish State for []
+2025-06-23 23:59:16,072 - INFO - fabric_cicd._items._environment - ->Published.
+2025-06-23 23:59:16,502 - INFO - fabric_cicd._common._fabric_endpoint - Executing as Application Id '7ca469d6-2266-4611-a022-8af7505df6b8'
+2025-06-23 23:59:16,503 - INFO - fabric_cicd._common._validate_input - Relative directory path 'temp-publish' resolved as '/Users/johnrampono/source/ingen_fab/temp-publish'
+2025-06-23 23:59:16,503 - WARNING - fabric_cicd._parameter._parameter - Parameter file not found with path: /Users/johnrampono/source/ingen_fab/temp-publish/parameter.yml
+2025-06-23 23:59:16,503 - WARNING - fabric_cicd._parameter._parameter - Validation terminated: not found
+2025-06-23 23:59:16,891 - INFO - fabric_cicd.fabric_workspace - Publishing Workspace Folders
+2025-06-23 23:59:16,891 - INFO - fabric_cicd.fabric_workspace - ->Published
+2025-06-23 23:59:18,501 - INFO - fabric_cicd.fabric_workspace - Publishing VariableLibrary 'var_lib'
+2025-06-23 23:59:22,764 - INFO - fabric_cicd._common._fabric_endpoint - ->->Operation in progress. Checking again in 1 second (Attempt 1/7)...
+2025-06-23 23:59:26,019 - INFO - fabric_cicd.fabric_workspace - ->Published
+2025-06-23 23:59:27,230 - INFO - fabric_cicd._items._variablelibrary - ->Active value set changed to 'development'
+2025-06-23 23:59:27,231 - INFO - fabric_cicd._items._environment - Checking Environment Publish State for []
+2025-06-23 23:59:29,239 - INFO - fabric_cicd._items._environment - Checking Environment Publish State for []
+2025-06-23 23:59:29,671 - INFO - fabric_cicd._items._environment - ->Published.
+2025-06-23 23:59:32,554 - INFO - fabric_cicd._common._fabric_endpoint - Executing as Application Id '7ca469d6-2266-4611-a022-8af7505df6b8'
+2025-06-23 23:59:32,554 - INFO - fabric_cicd._common._validate_input - Relative directory path 'temp-publish' resolved as '/Users/johnrampono/source/ingen_fab/temp-publish'
+2025-06-23 23:59:32,554 - WARNING - fabric_cicd._parameter._parameter - Parameter file not found with path: /Users/johnrampono/source/ingen_fab/temp-publish/parameter.yml
+2025-06-23 23:59:32,554 - WARNING - fabric_cicd._parameter._parameter - Validation terminated: not found
+2025-06-23 23:59:33,617 - INFO - fabric_cicd.fabric_workspace - Publishing Workspace Folders
+2025-06-23 23:59:33,618 - INFO - fabric_cicd.fabric_workspace - ->Published
+2025-06-23 23:59:34,981 - INFO - fabric_cicd.fabric_workspace - Publishing Lakehouse 'config'
+2025-06-23 23:59:37,636 - INFO - fabric_cicd._items._lakehouse - ->Published
+2025-06-23 23:59:37,637 - INFO - fabric_cicd._items._environment - Checking Environment Publish State for []
+2025-06-23 23:59:39,274 - INFO - fabric_cicd._items._environment - Checking Environment Publish State for []
+2025-06-23 23:59:39,704 - INFO - fabric_cicd._items._environment - ->Published.
+2025-06-23 23:59:40,129 - INFO - fabric_cicd._common._fabric_endpoint - Executing as Application Id '7ca469d6-2266-4611-a022-8af7505df6b8'
+2025-06-23 23:59:40,129 - INFO - fabric_cicd._common._validate_input - Relative directory path 'temp-publish' resolved as '/Users/johnrampono/source/ingen_fab/temp-publish'
+2025-06-23 23:59:40,130 - WARNING - fabric_cicd._parameter._parameter - Parameter file not found with path: /Users/johnrampono/source/ingen_fab/temp-publish/parameter.yml
+2025-06-23 23:59:40,130 - WARNING - fabric_cicd._parameter._parameter - Validation terminated: not found
+2025-06-23 23:59:40,488 - INFO - fabric_cicd.fabric_workspace - Publishing Workspace Folders
+2025-06-23 23:59:40,488 - INFO - fabric_cicd.fabric_workspace - ->Published
+2025-06-23 23:59:41,322 - INFO - fabric_cicd._items._environment - Checking Environment Publish State for []
+2025-06-23 23:59:41,705 - INFO - fabric_cicd.fabric_workspace - Publishing Notebook 'load_to_lakehouse_tables'
+2025-06-23 23:59:45,367 - INFO - fabric_cicd.fabric_workspace - ->Published
+2025-06-23 23:59:47,425 - INFO - fabric_cicd._items._environment - Checking Environment Publish State for []
+2025-06-23 23:59:48,187 - INFO - fabric_cicd._items._environment - ->Published.
+2025-06-23 23:59:48,617 - INFO - fabric_cicd._common._fabric_endpoint - Executing as Application Id '7ca469d6-2266-4611-a022-8af7505df6b8'
+2025-06-23 23:59:48,618 - INFO - fabric_cicd._common._validate_input - Relative directory path 'temp-publish' resolved as '/Users/johnrampono/source/ingen_fab/temp-publish'
+2025-06-23 23:59:48,618 - WARNING - fabric_cicd._parameter._parameter - Parameter file not found with path: /Users/johnrampono/source/ingen_fab/temp-publish/parameter.yml
+2025-06-23 23:59:48,618 - WARNING - fabric_cicd._parameter._parameter - Validation terminated: not found
+2025-06-23 23:59:49,055 - INFO - fabric_cicd.fabric_workspace - Publishing Workspace Folders
+2025-06-23 23:59:49,056 - INFO - fabric_cicd.fabric_workspace - ->Published
+2025-06-23 23:59:50,643 - INFO - fabric_cicd._items._environment - Checking Environment Publish State for []
+2025-06-23 23:59:52,385 - INFO - fabric_cicd.fabric_workspace - Publishing DataPipeline 'extract_pipeline_from_synapse_v2'
+2025-06-23 23:59:56,151 - INFO - fabric_cicd._common._fabric_endpoint - Executing as Application Id '7ca469d6-2266-4611-a022-8af7505df6b8'
+2025-06-23 23:59:56,152 - INFO - fabric_cicd._common._validate_input - Relative directory path 'temp-publish' resolved as '/Users/johnrampono/source/ingen_fab/temp-publish'
+2025-06-23 23:59:56,152 - WARNING - fabric_cicd._parameter._parameter - Parameter file not found with path: /Users/johnrampono/source/ingen_fab/temp-publish/parameter.yml
+2025-06-23 23:59:56,152 - WARNING - fabric_cicd._parameter._parameter - Validation terminated: not found
+2025-06-23 23:59:56,764 - INFO - fabric_cicd.fabric_workspace - Publishing Workspace Folders
+2025-06-23 23:59:56,764 - INFO - fabric_cicd.fabric_workspace - ->Published
+2025-06-23 23:59:58,020 - INFO - fabric_cicd._items._environment - Checking Environment Publish State for []
+2025-06-23 23:59:58,430 - INFO - fabric_cicd.fabric_workspace - Publishing Notebook 'jw_extract_from_synapse'
+2025-06-24 00:00:03,645 - INFO - fabric_cicd.fabric_workspace - ->Published
+2025-06-24 00:00:04,874 - INFO - fabric_cicd._items._environment - Checking Environment Publish State for []
+2025-06-24 00:00:05,693 - INFO - fabric_cicd._items._environment - ->Published.
+2025-06-24 00:00:06,071 - INFO - fabric_cicd._common._fabric_endpoint - Executing as Application Id '7ca469d6-2266-4611-a022-8af7505df6b8'
+2025-06-24 00:00:06,072 - INFO - fabric_cicd._common._validate_input - Relative directory path 'temp-publish' resolved as '/Users/johnrampono/source/ingen_fab/temp-publish'
+2025-06-24 00:00:06,072 - WARNING - fabric_cicd._parameter._parameter - Parameter file not found with path: /Users/johnrampono/source/ingen_fab/temp-publish/parameter.yml
+2025-06-24 00:00:06,072 - WARNING - fabric_cicd._parameter._parameter - Validation terminated: not found
+2025-06-24 00:00:06,751 - INFO - fabric_cicd.fabric_workspace - Publishing Workspace Folders
+2025-06-24 00:00:06,751 - INFO - fabric_cicd.fabric_workspace - ->Published
+2025-06-24 00:00:08,874 - INFO - fabric_cicd._items._environment - Checking Environment Publish State for []
+2025-06-24 00:00:09,493 - INFO - fabric_cicd.fabric_workspace - Publishing Notebook 'extract_from_synapse'
+2025-06-24 00:00:15,230 - INFO - fabric_cicd.fabric_workspace - ->Published
+2025-06-24 00:00:16,855 - INFO - fabric_cicd._items._environment - Checking Environment Publish State for []
+2025-06-24 00:00:17,305 - INFO - fabric_cicd._items._environment - ->Published.
+2025-06-24 00:00:17,741 - INFO - fabric_cicd._common._fabric_endpoint - Executing as Application Id '7ca469d6-2266-4611-a022-8af7505df6b8'
+2025-06-24 00:00:17,742 - INFO - fabric_cicd._common._validate_input - Relative directory path 'temp-publish' resolved as '/Users/johnrampono/source/ingen_fab/temp-publish'
+2025-06-24 00:00:17,742 - WARNING - fabric_cicd._parameter._parameter - Parameter file not found with path: /Users/johnrampono/source/ingen_fab/temp-publish/parameter.yml
+2025-06-24 00:00:17,742 - WARNING - fabric_cicd._parameter._parameter - Validation terminated: not found
+2025-06-24 00:00:18,365 - INFO - fabric_cicd.fabric_workspace - Publishing Workspace Folders
+2025-06-24 00:00:18,365 - INFO - fabric_cicd.fabric_workspace - ->Published
+2025-06-24 00:00:19,385 - INFO - fabric_cicd._items._environment - Checking Environment Publish State for []
+2025-06-24 00:00:21,363 - INFO - fabric_cicd.fabric_workspace - Publishing DataPipeline 'extract_from_synapse'
+2025-06-24 00:00:24,973 - INFO - fabric_cicd._common._fabric_endpoint - Executing as Application Id '7ca469d6-2266-4611-a022-8af7505df6b8'
+2025-06-24 00:00:24,974 - INFO - fabric_cicd._common._validate_input - Relative directory path 'temp-publish' resolved as '/Users/johnrampono/source/ingen_fab/temp-publish'
+2025-06-24 00:00:24,974 - WARNING - fabric_cicd._parameter._parameter - Parameter file not found with path: /Users/johnrampono/source/ingen_fab/temp-publish/parameter.yml
+2025-06-24 00:00:24,974 - WARNING - fabric_cicd._parameter._parameter - Validation terminated: not found
+2025-06-24 00:00:25,665 - INFO - fabric_cicd.fabric_workspace - Publishing Workspace Folders
+2025-06-24 00:00:25,665 - INFO - fabric_cicd.fabric_workspace - ->Published
+2025-06-24 00:00:26,590 - INFO - fabric_cicd._items._environment - Checking Environment Publish State for []
+2025-06-24 00:00:27,310 - INFO - fabric_cicd.fabric_workspace - Publishing Notebook 'sm_extract_from_synapse'
+2025-06-24 00:00:32,664 - INFO - fabric_cicd.fabric_workspace - ->Published
+2025-06-24 00:00:33,722 - INFO - fabric_cicd._items._environment - Checking Environment Publish State for []
+2025-06-24 00:00:34,364 - INFO - fabric_cicd._items._environment - ->Published.

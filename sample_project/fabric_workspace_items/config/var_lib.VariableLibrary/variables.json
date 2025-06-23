@@ -8,6 +8,12 @@
       "value": ""
     },
     {
+      "name": "fabric_deployment_workspace_id",
+      "note": "The id of the workspace that this solution will be deployed to.",
+      "type": "String",
+      "value": ""
+    },
+    {
       "name": "synapse_source_sql_connection",
       "note": "",
       "type": "String",

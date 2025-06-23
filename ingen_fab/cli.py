@@ -12,7 +12,7 @@ sys.path.insert(0, str(current_dir))
 from ingen_fab.notebook_utils.fabric_cli_notebook import FabricCLINotebook, FabricLivyNotebook
 from ingen_fab.ddl_scripts.notebook_generator import NotebookGenerator
 from ingen_fab.notebook_utils.notebook_block_injector import NotebookContentFinder
-from ingen_fab.python_libs.python.promotion_utils import promotion_utils
+from ingen_fab.fabric_cicd.promotion_utils import SyncToFabricEnvionment
 from ingen_fab.project_config import load_project_config
 from rich.console import Console
 from rich.table import Table
@@ -32,10 +32,22 @@ def main(
             "-fwd",
             help="Directory containing fabric workspace repository files"
         ),
-    ] = Path("sample_project")
+    ] = Path("sample_project"),
+    fabric_environment: Annotated[
+        Path | None,
+        typer.Option(
+            "--fabric-environment",
+            "-fe",
+            help="The name of your fabric environment (e.g., development, production). This must match one of the valuesets in your variable library."
+        ),
+    ] = "development"
 ):
     """Load project configuration and store in context."""
-    ctx.obj = {"fabric_workspace_repo_dir": fabric_workspace_repo_dir}
+    ctx.obj = {
+        "fabric_workspace_repo_dir": fabric_workspace_repo_dir,
+        "fabric_environment": fabric_environment
+    }
+
 
 custom_theme = Theme(
     {
@@ -231,23 +243,25 @@ def scan_notebook_blocks(
         console.print("[red]No content blocks found to apply replacements to.[/red]")
 
 
-
-
 @app.command()
-def promote_items(
-    workspace_id: Annotated[str, typer.Option("--workspace-id", "-w", help="Target workspace ID")],
-    repo_dir: Annotated[Path, typer.Option("--repo-dir", "-r", help="Path to fabric workspace items")] = Path("fabric_workspace_items"),
-    environment: Annotated[str, typer.Option("--environment", "-e", help="Target environment name")] = "N/A",
-    unpublish_orphans: Annotated[bool, typer.Option("--unpublish-orphans", help="Remove items not present in repository")] = False,
+def deploy_to_environment(
+    ctx: typer.Context
 ):
     """Publish Fabric items from repository to a workspace."""
+    if ctx.obj.get("fabric_workspace_repo_dir") is None:
+        console.print("[error]Fabric workspace repository directory not set. Use --fabric-workspace-repo-dir directly after ingen_fab to specify it.[/error]")
+        raise typer.Exit(code=1)
+    
+    if ctx.obj.get("fabric_environment") is None:
+        console.print("[error]Fabric environment not set. Use --fabric-environment directly after ingen_fab to specify it.[/error]")
+        raise typer.Exit(code=1)
 
-    promoter = promotion_utils(
-        workspace_id=workspace_id,
-        repository_directory=repo_dir,
-        environment=environment,
+    stf = SyncToFabricEnvionment(
+        project_path=ctx.obj.get("fabric_workspace_repo_dir"),
+        environment=ctx.obj.get("fabric_environment"),
     )
-    promoter.promote(delete_orphans=unpublish_orphans)
+    
+    stf.sync_environment()
 
 
 def parse_status_response(status_text: str) -> dict | None:
