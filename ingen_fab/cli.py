@@ -389,6 +389,115 @@ def run_livy_notebook(
         import traceback
         console.print(f"[debug]Traceback: {traceback.format_exc()}[/debug]")
 
+@app.command()
+def init_solution(
+    project_name: str = typer.Option(..., help="Name of the project"),
+    path: Path = typer.Option(".", help="Path to create the project structure")
+):
+    """Initialize a new Fabric solution with the standard directory structure."""
+    project_path = Path(path)
+    
+    # Create directory structure
+    directories = [
+        "ddl_scripts/Lakehouses",
+        "ddl_scripts/Warehouses", 
+        "fabric_workspace_items",
+        "var_lib",
+        "diagrams"
+    ]
+    
+    for dir_path in directories:
+        (project_path / dir_path).mkdir(parents=True, exist_ok=True)
+    
+    # Create initial variable files
+    dev_vars = {
+        "fabric_environment": "development",
+        "project_name": project_name,
+        "config_workspace_id": "YOUR-WORKSPACE-ID",
+        "config_lakehouse_id": "YOUR-LAKEHOUSE-ID",
+        "# Add your lakehouse and warehouse IDs below": None,
+        "edw_lakehouse_id": "YOUR-EDW-LAKEHOUSE-ID",
+        "edw_warehouse_id": "YOUR-EDW-WAREHOUSE-ID"
+    }
+    
+    prod_vars = {
+        "fabric_environment": "production",
+        "project_name": project_name,
+        "config_workspace_id": "YOUR-WORKSPACE-ID",
+        "config_lakehouse_id": "YOUR-LAKEHOUSE-ID",
+        "# Add your lakehouse and warehouse IDs below": None,
+        "edw_lakehouse_id": "YOUR-EDW-LAKEHOUSE-ID", 
+        "edw_warehouse_id": "YOUR-EDW-WAREHOUSE-ID"
+    }
+    
+    # Write variable files
+    import yaml
+    with open(project_path / "var_lib" / "development.yml", "w") as f:
+        yaml.dump(dev_vars, f, default_flow_style=False)
+    
+    with open(project_path / "var_lib" / "production.yml", "w") as f:
+        yaml.dump(prod_vars, f, default_flow_style=False)
+    
+    # Create .gitignore
+    gitignore_content = """
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+env/
+venv/
+.venv
+
+# IDE
+.vscode/
+.idea/
+
+# Fabric
+*.pbix
+*.pbit
+
+# Environment files
+.env
+.env.*
+
+# Generated files
+fabric_workspace_items/ddl_scripts/
+"""
+    
+    with open(project_path / ".gitignore", "w") as f:
+        f.write(gitignore_content.strip())
+    
+    # Create README
+    readme_content = f"""
+# {project_name}
+
+Microsoft Fabric workspace project.
+
+## Structure
+
+- `ddl_scripts/` - DDL scripts for creating tables and loading configuration data
+- `fabric_workspace_items/` - Fabric artifacts (notebooks, pipelines, etc.)
+- `var_lib/` - Environment-specific configuration
+- `diagrams/` - Architecture diagrams
+
+## Setup
+
+1. Update variable files in `var_lib/` with your workspace and lakehouse IDs
+2. Create DDL scripts in `ddl_scripts/`
+3. Generate DDL notebooks: `ingen_fab compile-ddl-notebooks --output-mode fabric --generation-mode warehouse`
+4. Deploy: `ingen_fab deploy-to-environment --fabric-workspace-repo-dir . --fabric-environment development`
+"""
+    
+    with open(project_path / "README.md", "w") as f:
+        f.write(readme_content.strip())
+    
+    console.print(f"[green]✓ Initialized Fabric solution '{project_name}' at {project_path}[/green]")
+    console.print("\nNext steps:")
+    console.print("1. Update var_lib/*.yml files with your workspace IDs")
+    console.print("2. Create DDL scripts in ddl_scripts/")
+    console.print("3. Run: ingen_fab compile-ddl-notebooks --output-mode fabric --generation-mode warehouse")
 
 if __name__ == "__cli__":
     app()
