@@ -250,6 +250,7 @@ class GatherPythonLibs:
         
         # Read and combine file contents
         combined_content = []
+        combined_content.append("{% raw %}")
         combined_content.append("# Auto-generated library code from python_libs")
         combined_content.append(
             "# Files are ordered based on dependency analysis\n"
@@ -274,10 +275,11 @@ class GatherPythonLibs:
                 combined_content.append(f"\n# === {file_path.name} ===")
                 combined_content.append('\n'.join(filtered_lines))
                 
+                
             except Exception as e:
                 self.console.print(
                     f"[red]Error reading {file_path.name}: {e}[/red]"
                 )
-        
+        combined_content.append("{% endraw %}")
         return combined_content
 

@@ -3,6 +3,7 @@
   "valueSetsOrder": [
     "production",
     "test",
-    "development"
+    "development",
+    "sandbox"
   ]
 }

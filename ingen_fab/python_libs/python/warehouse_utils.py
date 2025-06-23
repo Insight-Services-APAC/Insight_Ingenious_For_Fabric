@@ -114,7 +114,7 @@ class warehouse_utils:
             # Handle different write modes
             if mode == "overwrite":
                 # Drop table if exists
-                drop_query = self.sql.render("drop_table", table_name=table_name)
+                drop_query = self.sql.render("drop_table", table_name=table_name, schema_name=schema_name)
                 self.execute_query(conn, drop_query)
                 
                 # Create table from dataframe using SELECT INTO syntax
@@ -130,6 +130,7 @@ class warehouse_utils:
                 create_query = self.sql.render(
                     "create_table_from_values",
                     table_name=table_name,
+                    schema_name=schema_name
                     column_names=column_names,
                     values_clause=values_clause,
                 )
@@ -144,6 +145,7 @@ class warehouse_utils:
                     insert_query = self.sql.render(
                         "insert_row",
                         table_name=table_name,
+                        schema_name=schema_name
                         row_values=row_values,
                     )
                     self.execute_query(conn, insert_query)
@@ -167,6 +169,7 @@ class warehouse_utils:
                 create_query = self.sql.render(
                     "create_table_from_values",
                     table_name=table_name,
+                    schema_name=schema_name,
                     column_names=column_names,
                     values_clause=values_clause,
                 )
@@ -189,6 +192,7 @@ class warehouse_utils:
                     create_query = self.sql.render(
                         "create_table_from_values",
                         table_name=table_name,
+                        schema_name=schema_name,
                         column_names=column_names,
                         values_clause=values_clause,
                     )

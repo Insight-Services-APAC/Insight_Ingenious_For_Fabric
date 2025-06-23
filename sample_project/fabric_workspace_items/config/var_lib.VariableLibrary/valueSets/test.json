@@ -1,5 +1,10 @@
 {
   "$schema": "https://developer.microsoft.com/json-schemas/fabric/item/variableLibrary/definition/valueSet/1.0.0/schema.json",
   "name": "test",
-  "variableOverrides": []
+  "variableOverrides": [
+    {
+      "name": "fabric_environment",
+      "value": "test"
+    }
+  ]
 }

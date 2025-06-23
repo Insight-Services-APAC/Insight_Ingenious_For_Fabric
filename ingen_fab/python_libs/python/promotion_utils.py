@@ -15,13 +15,13 @@ class promotion_utils:
     def __init__(
         self,
         workspace_id: str,
-        repository_directory: str | Path = "fabric_workspace_items",
+        repository_directory: str | str = "fabric_workspace_items",
         *,
         item_type_in_scope: Optional[Iterable[str]] = None,
         environment: str = "N/A",
     ) -> None:
         self.workspace_id = workspace_id
-        self.repository_directory = Path(repository_directory)
+        self.repository_directory = repository_directory
         self.environment = environment
         if item_type_in_scope is None:
             self.item_type_in_scope = list(constants.ACCEPTED_ITEM_TYPES_UPN)
