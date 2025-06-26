@@ -1,5 +1,3 @@
-
-
 def testing_code_replacement():
     """
     This function is a placeholder for testing code replacement.

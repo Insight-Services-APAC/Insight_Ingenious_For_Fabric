@@ -24,20 +24,24 @@ class ProjectConfig:
     functional_tests: FunctionalTests
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> 'ProjectConfig':
+    def from_dict(cls, data: Dict[str, Any]) -> "ProjectConfig":
         """Create ProjectConfig from dictionary loaded from YAML."""
         workspaces = [
             Workspace(
-                workspace_name=w['workspace_name'],
-                environment_name=w['environment_name']
+                workspace_name=w["workspace_name"],
+                environment_name=w["environment_name"],
             )
-            for w in data.get('workspaces', [])
+            for w in data.get("workspaces", [])
         ]
 
-        functional_tests_data = data.get('functional_tests', {})
+        functional_tests_data = data.get("functional_tests", {})
         functional_tests = FunctionalTests(
-            target_workspace_name=functional_tests_data.get('target_workspace_name', ''),
-            target_warehouse_name=functional_tests_data.get('target_warehouse_name', '')
+            target_workspace_name=functional_tests_data.get(
+                "target_workspace_name", ""
+            ),
+            target_warehouse_name=functional_tests_data.get(
+                "target_warehouse_name", ""
+            ),
         )
 
         return cls(workspaces=workspaces, functional_tests=functional_tests)

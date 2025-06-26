@@ -1,13 +1,15 @@
 {%- import 'nb_macros.py.jinja' as macros -%}
 {%- include "nb_header.py.jinja" %}
 
-# THESE SHOULD BE SET BY THE SCHEDULER 
-fabric_environment = "development"  # fabric environment, e.g. development, test, production
-config_workspace_id = "50fbcab0-7d56-46f7-90f6-80ceb00ac86d"
-config_lakehouse_id = "f0121783-34cc-4e64-bfb5-6b44b1a7f04b"
+# THESE ARE RUNTIME SET VARIABLES AND SHOULD BE SET BY CALLING NOTEBOOK OR PIPELIE 
 target_lakehouse_config_prefix = "{{ target_lakehouse_config_prefix | lower }}"
-# ONLY USE THIS IN DEV
-full_reset = False # ⚠️ Full reset -- DESTRUCTIVE - will drop all tables
+
+
+{{macros.python_cell_with_heading("## Inject Configurations from Variable Library")}}
+# This section is automatically generated from the variable library JSON files. DO NOT ALTER
+# variableLibraryInjectionStart: var_lib
+# variableLibraryInjectionEnd: var_lib
+
 
 {{macros.python_cell_with_heading("## 📦 Inject Reusable Classes and Functions")}}
 
@@ -15,11 +17,12 @@ full_reset = False # ⚠️ Full reset -- DESTRUCTIVE - will drop all tables
 
 {{macros.python_cell_with_heading("## Instantiate the Helper Classes")}}
 
-cu = config_utils(config_workspace_id,config_lakehouse_id)
+cu = config_utils(configs_object.config_workspace_id,configs_object.config_lakehouse_id)
+cu.overwrite_configs(configs_dict)
 configs = cu.get_configs_as_object(fabric_environment)
 target_workspace_id = configs.get_attribute(f"{target_lakehouse_config_prefix.lower()}_workspace_id")
 target_lakehouse_id = configs.get_attribute(f"{target_lakehouse_config_prefix.lower()}_lakehouse_id")
-lu = lakehouse_utils(target_workspace_id, target_lakehouse_id)
+lu = warehouse_utils(target_workspace_id, target_lakehouse_id)
 du = ddl_utils(target_workspace_id, target_lakehouse_id)
 
 

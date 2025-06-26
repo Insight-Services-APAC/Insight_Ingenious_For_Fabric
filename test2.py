@@ -22,9 +22,8 @@ vlu = VariableLibraryUtils(
     environment="development",
     template_path="ingen_fab/ddl_scripts/_templates/warehouse/config.py.jinja",
     output=None,
-    in_place=False
+    in_place=False,
 )
 
 
 vlu.inject_variables_into_template()
-

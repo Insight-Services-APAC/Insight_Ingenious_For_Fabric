@@ -1,0 +1,89 @@
+{
+  "$schema": "https://developer.microsoft.com/json-schemas/fabric/item/variableLibrary/definition/variables/1.0.0/schema.json",
+  "variables": [
+    {
+      "name": "fabric_environment",
+      "note": "",
+      "type": "String",
+      "value": ""
+    },
+    {
+      "name": "fabric_deployment_workspace_id",
+      "note": "The id of the workspace that this solution will be deployed to.",
+      "type": "String",
+      "value": ""
+    },
+    {
+      "name": "synapse_source_sql_connection",
+      "note": "",
+      "type": "String",
+      "value": ""
+    },
+    {
+      "name": "synapse_source_database_1",
+      "note": "",
+      "type": "String",
+      "value": ""
+    },
+    {
+      "name": "config_lakehouse_name",
+      "note": "",
+      "type": "String",
+      "value": ""
+    },
+    {
+      "name": "config_workspace_id",
+      "note": "",
+      "type": "String",
+      "value": ""
+    },
+    {
+      "name": "config_lakehouse_id",
+      "note": "",
+      "type": "String",
+      "value": ""
+    },
+    {
+      "name": "edw_workspace_id",
+      "note": "",
+      "type": "String",
+      "value": ""
+    },
+    {
+      "name": "edw_warehouse_id",
+      "note": "",
+      "type": "String",
+      "value": ""
+    },
+    {
+      "name": "edw_warehouse_name",
+      "note": "",
+      "type": "String",
+      "value": ""
+    },
+    {
+      "name": "edw_lakehouse_id",
+      "note": "",
+      "type": "String",
+      "value": ""
+    },
+    {
+      "name": "edw_lakehouse_name",
+      "note": "",
+      "type": "String",
+      "value": ""
+    },
+    {
+      "name": "legacy_synapse_connection_name",
+      "note": "",
+      "type": "String",
+      "value": ""
+    },
+    {
+      "name": "synapse_export_shortcut_path_in_onelake",
+      "note": "",
+      "type": "String",
+      "value": ""
+    }
+  ]
+}

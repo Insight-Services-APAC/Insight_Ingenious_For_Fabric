@@ -14,6 +14,7 @@ def test_create_run_job():
         post.return_value.status_code = 201
         post.return_value.json.return_value = {"id": "nb1"}
         post.return_value.headers = {"Location": "https://api/nb/jobs/job1"}
+
         # Mock run notebook response for second call
         def post_side_effect(*args, **kwargs):
             if "jobs" in args[0]:
@@ -22,6 +23,7 @@ def test_create_run_job():
                 resp.json.return_value = {}
                 return resp
             return post.return_value
+
         post.side_effect = post_side_effect
 
         # Mock status polling

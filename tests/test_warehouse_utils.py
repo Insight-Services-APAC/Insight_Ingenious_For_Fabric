@@ -59,7 +59,10 @@ def test_get_connection_fabric():
 def test_get_connection_sqlserver():
     wu = warehouse_utils(None, None, dialect="sqlserver", connection_string="dsn")
     mock_conn = object()
-    with mock.patch("ingen_fab.python_libs.python.warehouse_utils.pyodbc.connect", return_value=mock_conn):
+    with mock.patch(
+        "ingen_fab.python_libs.python.warehouse_utils.pyodbc.connect",
+        return_value=mock_conn,
+    ):
         assert wu.get_connection() is mock_conn
 
 
@@ -82,22 +85,28 @@ def test_execute_query_sqlserver():
 
 def test_check_if_table_exists_success():
     wu = warehouse_utils("ws", "wh")
-    with mock.patch.object(wu, "get_connection", return_value="conn"), \
-         mock.patch.object(wu, "execute_query", return_value=None):
+    with (
+        mock.patch.object(wu, "get_connection", return_value="conn"),
+        mock.patch.object(wu, "execute_query", return_value=None),
+    ):
         assert wu.check_if_table_exists("table") is True
 
 
 def test_check_if_table_exists_failure():
     wu = warehouse_utils("ws", "wh")
-    with mock.patch.object(wu, "get_connection", return_value="conn"), \
-         mock.patch.object(wu, "execute_query", side_effect=Exception("boom")):
+    with (
+        mock.patch.object(wu, "get_connection", return_value="conn"),
+        mock.patch.object(wu, "execute_query", side_effect=Exception("boom")),
+    ):
         assert wu.check_if_table_exists("table") is False
 
 
 def test_drop_all_tables():
     wu = warehouse_utils("ws", "wh")
-    with mock.patch.object(wu, "get_connection", return_value="conn"), \
-         mock.patch.object(wu, "execute_query") as exec_mock, \
-         mock.patch.object(wu.sql, "render", side_effect=["LIST", "DROP"]):
+    with (
+        mock.patch.object(wu, "get_connection", return_value="conn"),
+        mock.patch.object(wu, "execute_query") as exec_mock,
+        mock.patch.object(wu.sql, "render", side_effect=["LIST", "DROP"]),
+    ):
         wu.drop_all_tables()
         assert exec_mock.call_count >= 1

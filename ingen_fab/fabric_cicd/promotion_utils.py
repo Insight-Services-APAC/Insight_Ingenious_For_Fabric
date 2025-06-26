@@ -1,15 +1,21 @@
-import hashlib
-from pathlib import Path
-import shutil
-from typing import Iterable, Optional, List
-import yaml
+from __future__ import annotations
 
+import hashlib
+import json
+import shutil
+from dataclasses import dataclass
+from datetime import datetime
+from pathlib import Path
+from typing import Iterable, List, Optional
+
+import yaml
 from fabric_cicd import (
     FabricWorkspace,
+    constants,
     publish_all_items,
     unpublish_all_orphan_items,
-    constants,
 )
+from fabric_cicd.fabric_workspace import PublishLogEntry
 
 from ingen_fab.config_utils.variable_lib import VariableLibraryUtils
 
@@ -19,19 +25,15 @@ class promotion_utils:
 
     def __init__(
         self,
-        workspace_id: str,
-        repository_directory: str | str = "fabric_workspace_items",
-        *,
-        item_type_in_scope: Optional[Iterable[str]] = None,
-        environment: str = "N/A",
+        FabricWorkspace: FabricWorkspace
     ) -> None:
-        self.workspace_id = workspace_id
-        self.repository_directory = repository_directory
-        self.environment = environment
-        if item_type_in_scope is None:
+        self.workspace_id = FabricWorkspace.workspace_id
+        self.repository_directory = FabricWorkspace.repository_directory
+        self.environment = FabricWorkspace.environment
+        if FabricWorkspace.item_type_in_scope is None:
             self.item_type_in_scope = list(constants.ACCEPTED_ITEM_TYPES_UPN)
         else:
-            self.item_type_in_scope = list(item_type_in_scope)
+            self.item_type_in_scope = list(FabricWorkspace.item_type_in_scope)
 
     def _workspace(self) -> FabricWorkspace:
         """Create a FabricWorkspace instance for the configured workspace."""
@@ -39,6 +41,7 @@ class promotion_utils:
             workspace_id=self.workspace_id,
             repository_directory=str(self.repository_directory),
             item_type_in_scope=self.item_type_in_scope,
+            items_to_include=self.items_to_include,
             environment=self.environment,
         )
 
@@ -59,97 +62,174 @@ class promotion_utils:
             self.unpublish_orphans()
 
 
-class SyncToFabricEnvionment:
+class SyncToFabricEnvironment:
     """Class to synchronize environment variables and platform folders with Fabric."""
-
     def __init__(self, project_path: str, environment: str = "development"):
         self.project_path = Path(project_path)
         self.environment = environment
         self.target_workspace_id = None
+    
+    @dataclass
+    class manifest_item:
+        """Data class to represent a platform folder item in the manifest."""
+        name: str
+        path: str
+        hash: str
+        status: str
+        environment: str
+
+    
+    @dataclass
+    class manifest:
+        """Data class to represent the platform folders manifest."""
+        platform_folders: list[SyncToFabricEnvironment.manifest_item]
+        generated_at: str
+        version: str
+
+
 
     def calculate_folder_hash(self, folder_path: Path) -> str:
         """Calculate SHA256 hash of all files in a folder."""
         hasher = hashlib.sha256()
-        
+
         # Sort files for consistent hashing
         for file_path in sorted(folder_path.rglob("*")):
             if file_path.is_file():
                 # Include relative path in hash for structure changes
                 relative_path = file_path.relative_to(folder_path)
                 hasher.update(str(relative_path).encode())
-                
+
                 # Include file content
                 with open(file_path, "rb") as f:
                     for chunk in iter(lambda: f.read(65536), b""):
                         hasher.update(chunk)
-        
+
         return hasher.hexdigest()
 
-    def find_platform_folders(self, base_path: Path) -> list[dict[str, str]]:
+    def find_platform_folders(self, base_path: Path) -> list[SyncToFabricEnvironment.manifest_item]:
         """Find all folders containing platform files and calculate their hashes."""
-        platform_folders = []
-        
+        platform_folders: list[SyncToFabricEnvironment.manifest_item] = []
+
         # Recursively search for .platform files
         for platform_file in base_path.rglob(".platform"):
             if platform_file.is_file():
                 # Get the folder containing this .platform file
                 folder = platform_file.parent
                 folder_hash = self.calculate_folder_hash(folder)
-                platform_folders.append({
-                    "name": folder.name,
-                    "path": str(folder.relative_to(base_path.parent)),
-                    "hash": folder_hash,
-                    "status": "new",
-                    "environment": self.environment
-                })
-        
+                # read the platform file to get the name
+                with open(platform_file, "r", encoding="utf-8") as f:
+                    platform_json = json.loads(f.read())
+                    # Get the name from the platform file
+                    display_name = platform_json.get("metadata").get("displayName")
+                    item_type = platform_json.get("metadata").get("type")
+                    platform_folders.append(
+                        SyncToFabricEnvironment.manifest_item(
+                            name=f"{display_name}.{item_type}",
+                            path=str(folder),
+                            hash=folder_hash,
+                            status="new",  # Default status for new folders
+                            environment=self.environment
+                        )
+                    )
+
         return platform_folders
 
-    def save_platform_manifest(self, folders: list[dict[str, str]], output_path: Path) -> None:
+    def read_platform_manifest(self, manifest_path: Path) -> Optional[SyncToFabricEnvironment.manifest]:
+        """Read the platform folders manifest from a YAML file."""
+        print(Path.cwd())
+        print(f"Reading manifest from: {manifest_path}")
+        if manifest_path.exists():
+            with open(manifest_path, "r", encoding="utf-8") as f:
+                try:
+                    data = f.read()
+                    if data.strip() == "":
+                        print("Manifest file is empty.")
+                        return SyncToFabricEnvironment.manifest(
+                            platform_folders=[],
+                            generated_at=str(Path.cwd()),
+                            version="1.0"
+                        )
+                    else:
+                        manifest_data = yaml.safe_load(data)
+                        return SyncToFabricEnvironment.manifest(
+                            platform_folders=[
+                                SyncToFabricEnvironment.manifest_item(**item) for item in manifest_data.get("platform_folders", [])
+                            ],
+                            generated_at=manifest_data.get("generated_at"),
+                            version=manifest_data.get("version")
+                        )
+                except yaml.YAMLError as e:
+                    print(f"Error reading manifest: {e}")
+                    return None
+        else:
+            print(f"Manifest file not found: {manifest_path}")
+            return None
+
+    def save_platform_manifest(
+        self, in_memory_manifest_items: list[manifest_item], output_path: Path, perform_hash_check: bool = True
+    ) -> None:
         """Save the platform folders manifest to a YAML file."""
         # Load existing manifest if it exists
-        existing_folders = {}
-        if output_path.exists():
-            with open(output_path, "r") as f:
-                existing_manifest = yaml.safe_load(f)
-                if existing_manifest and "platform_folders" in existing_manifest:
-                    # Create a lookup dict by path
-                    existing_folders = {folder["path"]: folder for folder in existing_manifest["platform_folders"]}
-        
+        on_disk_manifest_items: list[SyncToFabricEnvironment.manifest_item] = []
+        existing_manifest = self.read_platform_manifest(manifest_path=output_path)
+        if existing_manifest and existing_manifest.platform_folders:
+            on_disk_manifest_items = existing_manifest.platform_folders
+
         # Update statuses based on comparison
-        current_paths = set()
-        for folder in folders:
-            path = folder["path"]
-            current_paths.add(path)
-            
-            if path in existing_folders:
-                existing_folder = existing_folders[path]
-                if folder["hash"] == existing_folder["hash"]:
-                    # Hashes match - preserve all existing attributes
-                    folder.update(existing_folder)
+        merged_manifest_items: list[SyncToFabricEnvironment.manifest_item] = []
+        for in_mem_item in in_memory_manifest_items:
+            # Check if this folder exists in the existing manifest
+            existing_item = next(
+                (f for f in on_disk_manifest_items if f.path.lower() == in_mem_item.path.lower()), None
+            )
+
+            if existing_item:
+                # If it exists, compare hashes
+                if perform_hash_check and existing_item.hash != in_mem_item.hash:
+                    # If hashes differ, mark as updated
+                    in_mem_item.status = "updated"
                 else:
-                    # Hash changed - mark as updated
-                    folder["status"] = "updated"
+                    if perform_hash_check:
+                        # If hashes are the same, keep existing status
+                        in_mem_item.status = existing_item.status
+                    else:
+                        pass # If hash check is not performed, keep the status as is in memory item
+            
+            # If it doesn't exist, mark as new
             else:
-                # New folder - already marked as "new"
-                pass
+                in_mem_item.status = "new"
+
+            # Find items that are in the exiting manifest but not in the new one
+            merged_manifest_items.append(in_mem_item)
         
-        # Add deleted folders
-        for path, existing_folder in existing_folders.items():
-            if path not in current_paths:
-                deleted_folder = existing_folder.copy()
-                deleted_folder["status"] = "deleted"
-                folders.append(deleted_folder)
-        
-        manifest = {
-            "platform_folders": folders,
-            "generated_at": str(Path.cwd()),
-            "version": "1.0"
-        }
-        
+        # Add deleted items 
+        for on_disk_item in on_disk_manifest_items:
+            _match = False
+            for in_mem_item in in_memory_manifest_items:
+                if on_disk_item.path == in_mem_item.path:
+                    _match = True
+                    break
+            if not _match:
+                # If the item is not in the new manifest, mark it as deleted
+                existing_folder = SyncToFabricEnvironment.manifest_item(
+                    name=on_disk_item.name,
+                    path=on_disk_item.path,
+                    hash=on_disk_item.hash,
+                    status="deleted",
+                    environment=self.environment
+                )
+                merged_manifest_items.append(existing_folder)
+            
+
+        manifest = SyncToFabricEnvironment.manifest(
+            platform_folders = [f.__dict__ for f in merged_manifest_items],
+            generated_at = str(Path.cwd()),
+            version=1.0,
+        )
+
         output_path.parent.mkdir(parents=True, exist_ok=True)
-        with open(output_path, "w") as f:
-            yaml.dump(manifest, f, default_flow_style=False, sort_keys=False)
+        with open(output_path, "w", encoding="utf-8") as f:
+            yaml.safe_dump(manifest.__dict__, f, default_flow_style=False, sort_keys=False)
 
     def sync_environment(self):
         """Synchronize environment variables and platform folders. Upload to Fabric."""
@@ -157,40 +237,119 @@ class SyncToFabricEnvionment:
         vlu = VariableLibraryUtils(
             project_path=self.project_path,
             environment=self.environment,
-            template_path="ingen_fab/ddl_scripts/_templates/warehouse/config.py.jinja",
+            template_path= Path("ingen_fab/ddl_scripts/_templates/warehouse/config.py.jinja"),
             output=None,
-            in_place=False
+            in_place=False,
         )
 
-        varlib_data = vlu.load_variable_library(self.project_path, self.environment)
-        # Extract variables
-        variables = vlu.extract_variables(varlib_data)
         # Get the target workspace ID from the variables
-        self.target_workspace_id = variables.get("fabric_deployment_workspace_id", self.target_workspace_id)
+        self.target_workspace_id = vlu.get_workspace_id()
 
         print("Injecting variables into template...")
         vlu.inject_variables_into_template()
-        
+
         # 2) Find folders with platform files and generate hashes
         fabric_items_path = Path("./sample_project/fabric_workspace_items")
         print(f"\nScanning for platform folders in: {fabric_items_path}")
-        
+
         platform_folders = self.find_platform_folders(fabric_items_path)
-        
+        manifest_path = Path(f"{self.project_path}/platform_manifest.yml")
         if platform_folders:
             print(f"Found {len(platform_folders)} folders with platform files:")
             for folder in platform_folders:
-                print(f"  - {folder['name']}: {folder['hash'][:16]}...")
-            
+                print(f"  - {folder.name}: {folder.hash[:16]}...")
+
             # Save manifest
-            manifest_path = Path("./sample_project/platform_manifest.yml")
-            self.save_platform_manifest(platform_folders, manifest_path)
+            self.save_platform_manifest(platform_folders, manifest_path, perform_hash_check=True)
             print(f"\nSaved platform manifest to: {manifest_path}")
         else:
             print("No folders with platform files found.")
         
-        print("\nInitializing promotion utilities...")
+        manifest_items: list[SyncToFabricEnvironment.manifest_item] = []
+        if manifest_path.exists():
+            print("\nLoading platform manifest...")
+            manifest: SyncToFabricEnvironment.manifest = self.read_platform_manifest(manifest_path)
+            manifest_items: list[SyncToFabricEnvironment.manifest_item] = manifest.platform_folders
+
+            manifest_items_new_updated: list[SyncToFabricEnvironment.manifest_item] = [
+                f for f in manifest_items if f.status in ["new", "updated"]
+            ]
+
+            if manifest_items_new_updated:
+                print(f"Found {len(manifest_items_new_updated)} folders to publish")
+
+                # add the name of items to publish to List[str]
+                items_to_publish = [
+                    f"{item.name}"
+                    for item in manifest_items_new_updated
+                ]
+
+                print('Items to publish:', items_to_publish)
+
+                status_entries: list[PublishLogEntry]
+                # After copying all folders, attempt to publish
+                print("\nPublishing items...")
+                try:
+                    pu = FabricWorkspace(
+                        workspace_id=self.target_workspace_id,
+                        repository_directory=str(self.project_path),
+                        items_to_include=items_to_publish,
+                        item_type_in_scope=[
+                            "VariableLibrary",
+                            "DataPipeline",
+                            "Environment",
+                            "Notebook",
+                            "Report",
+                            "SemanticModel",
+                            "Lakehouse",
+                            "MirroredDatabase",
+                            "CopyJob",
+                            "Eventhouse",
+                            "Reflex",
+                            "Eventstream",
+                            "Warehouse",
+                            "SQLDatabase",
+                        ],
+                        environment="development",
+                    )
+
+                    status_entries: list[PublishLogEntry] = publish_all_items(pu)
+                    
+                    print("\nPublishing succeeded. Updating manifest...")
+
+                except Exception as e:
+                    # If failed, update status to "failed"
+                    print(f"\nPublishing failed with error: {e}")
+                finally:
+                    # Update status in manifest
+                    for item in manifest_items:
+                        for entry in status_entries:
+                            print (f"Checking status for {entry.name}...")
+                            if f"{entry.name}.{entry.item_type}".lower() == item.name.lower():
+                                if entry.success:
+                                    item.status = "deployed"
+                                    print(f"Item {item.name} deployed successfully")
+                                break
+                    # Save updated manifest    
+                    self.save_platform_manifest(
+                        manifest_items, manifest_path, perform_hash_check=False
+                    )
+                    print("Manifest updated with deployed status")
+
+                
+            else:
+                print("No folders with new/updated status to publish")
+        else:
+            print("Platform manifest not found")
+
+        print("Promotion utilities initialized successfully.")
+
+    def clear_environment(self):
+        # make an empty temp dir
         temp_publish_path = Path("./temp-publish")
+        if temp_publish_path.exists():
+            shutil.rmtree(temp_publish_path)
+        temp_publish_path.mkdir(parents=True, exist_ok=True)
         pu = promotion_utils(
             workspace_id=self.target_workspace_id,
             repository_directory=temp_publish_path,
@@ -201,76 +360,15 @@ class SyncToFabricEnvionment:
                 "Notebook",
                 "Report",
                 "SemanticModel",
-                "Lakehouse",
-                "MirroredDatabase", 
+                "MirroredDatabase",
                 "CopyJob",
                 "Eventhouse",
                 "Reflex",
                 "Eventstream",
-                "Warehouse",
-                "SQLDatabase"
+                "SQLDatabase",
             ],
-            environment="development",
+            environment=self.environment,
         )
 
-
-        # 3) Load platform manifest and copy updated/new folders
-        manifest_path = Path(f"{self.project_path}/platform_manifest.yml")
-
-        if manifest_path.exists():
-            print("\nLoading platform manifest...")
-            with open(manifest_path, "r", encoding="utf-8") as f:
-                manifest = yaml.safe_load(f)
-            
-            platform_folders = manifest.get("platform_folders", [])
-            folders_to_publish = [f for f in platform_folders if f["status"] in ["new", "updated"]]
-            
-            if folders_to_publish:
-                print(f"Found {len(folders_to_publish)} folders to publish")
-                
-                # Clear temp-publish directory if it exists
-                if temp_publish_path.exists():
-                    shutil.rmtree(temp_publish_path)
-                temp_publish_path.mkdir(parents=True, exist_ok=True)
-                
-                # Copy folders with new/updated status
-                for folder in platform_folders:
-                    source_path = Path(self.project_path) / Path(folder["path"])
-                    dest_path = temp_publish_path / source_path.name
-                    
-                    print(f"  - Copying {folder['name']} ({folder['status']}) to temp-publish/")
-                    shutil.copytree(source_path, dest_path)
-                    
-                    # After copying all folders, attempt to publish
-                    print("\nPublishing items...")
-                    try:
-                        pu.publish_all()
-                        
-                        # If successful, update status to "deployed"
-                        print("\nPublishing succeeded. Updating manifest...")
-                        folder["status"] = "deployed"
-                        
-                    except Exception as e:
-                        # If failed, update status to "failed"
-                        print(f"\nPublishing failed with error: {e}")
-                        folder["status"] = "failed"
-                        print("Manifest updated with failed status")
-                    finally:
-                        # remove temp-publish directory
-                        if temp_publish_path.exists():
-                            shutil.rmtree(temp_publish_path)
-
-                manifest_path.parent.mkdir(parents=True, exist_ok=True)
-                with open(manifest_path, "w") as f:
-                    yaml.dump(manifest, f, default_flow_style=False, sort_keys=False)
-                    
-                print("Manifest updated with deployed status")
-            else:
-                print("No folders with new/updated status to publish")
-        else:
-            print("Platform manifest not found")
-        
-        
-        
-        print("Promotion utilities initialized successfully.")
-            
+        print("Unpublishing all orphan items...")
+        pu.unpublish_orphans()

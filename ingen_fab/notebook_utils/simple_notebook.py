@@ -10,7 +10,9 @@ from azure.identity import DefaultAzureCredential
 class SimpleFabricNotebook:
     """Create and run a simple Fabric notebook via REST API."""
 
-    def __init__(self, workspace_id: str, *, credential: Optional[DefaultAzureCredential] = None) -> None:
+    def __init__(
+        self, workspace_id: str, *, credential: Optional[DefaultAzureCredential] = None
+    ) -> None:
         self.workspace_id = workspace_id
         self.credential = credential or DefaultAzureCredential()
         self.base_url = "https://api.fabric.microsoft.com/v1/workspaces"
@@ -74,7 +76,9 @@ class SimpleFabricNotebook:
         response.raise_for_status()
         return response.json().get("status")
 
-    def run_and_wait(self, display_name: str, code: str, poll_interval: int = 30, timeout: int = 600) -> str:
+    def run_and_wait(
+        self, display_name: str, code: str, poll_interval: int = 30, timeout: int = 600
+    ) -> str:
         notebook_id = self.create_notebook(display_name, code)
         job_id = self.run_notebook(notebook_id)
         if not job_id:

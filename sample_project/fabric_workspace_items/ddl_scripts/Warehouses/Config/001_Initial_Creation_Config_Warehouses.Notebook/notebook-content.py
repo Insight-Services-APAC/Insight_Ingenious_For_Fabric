@@ -49,184 +49,48 @@ full_reset = False # ⚠️ Full reset -- DESTRUCTIVE - will drop all tables
 # Files are ordered based on dependency analysis
 
 
-# === config_utils.py ===
-
-from datetime import datetime
-from typing import List, Optional, Any
-from dataclasses import dataclass, asdict
-import pandas as pd
-import notebookutils 
+# === sql_templates.py ===
+from jinja2 import Template
 
 
-class config_utils:
-    @dataclass
-    class FabricConfig:
-        fabric_environment: str
-        config_workspace_id: str
-        config_lakehouse_id: str
-        edw_workspace_id: str
-        edw_warehouse_id: str
-        edw_warehouse_name: str
-        edw_lakehouse_id: str
-        edw_lakehouse_name: str
-        legacy_synapse_connection_name: str
-        synapse_export_shortcut_path_in_onelake: str
-        full_reset: bool
-        update_date: Optional[datetime] = None  # If you're tracking timestamps
+class SQLTemplates:
+    """Render SQL templates for different dialects."""
 
-        def get_attribute(self, attr_name: str) -> Any:
-            """Get attribute value by string name with error handling."""
-            if hasattr(self, attr_name):
-                return getattr(self, attr_name)
-            else:
-                raise AttributeError(f"FabricConfig has no attribute '{attr_name}'")
+    TEMPLATES = {
+        "check_table_exists": {
+            "fabric": """
+                            SELECT 1 FROM INFORMATION_SCHEMA.TABLES
+                            WHERE TABLE_SCHEMA = '{{ schema_name }}' AND TABLE_NAME = '{{ table_name }}'
+                        """,
+            "sqlserver": """
+                            SELECT 1 FROM INFORMATION_SCHEMA.TABLES
+                            WHERE TABLE_SCHEMA = '{{ schema_name }}' AND TABLE_NAME = '{{ table_name }}'
+                        """,
+        },
+        "drop_table": {
+            "fabric": "DROP TABLE IF EXISTS {{ schema_name }}.{{ table_name }}",
+            "sqlserver": "DROP TABLE IF EXISTS {{ schema_name }}.{{ table_name }}'",
+        },
+        "create_table_from_values": {
+            "fabric": "SELECT * INTO {{ schema_name }}.{{ table_name }} FROM (VALUES {{ values_clause }}) AS v({{ column_names }})",
+            "sqlserver": "SELECT * INTO {{ schema_name }}.{{ table_name }} FROM (VALUES {{ values_clause }}) AS v({{ column_names }})",
+        },
+        "insert_row": {
+            "fabric": "INSERT INTO {{ schema_name }}.{{ table_name }} VALUES ({{ row_values }})",
+            "sqlserver": "INSERT INTO {{ schema_name }}.{{ table_name }} VALUES ({{ row_values }})",
+        },
+        "list_tables": {
+            "fabric": "SELECT TABLE_SCHEMA + '.' + TABLE_NAME AS name FROM INFORMATION_SCHEMA.TABLES{% if prefix %} WHERE TABLE_NAME LIKE '{{ prefix }}%'{% endif %}",
+            "sqlserver": "SELECT TABLE_SCHEMA + '.' + TABLE_NAME AS name FROM INFORMATION_SCHEMA.TABLES{% if prefix %} WHERE TABLE_NAME LIKE '{{ prefix }}%'{% endif %}",
+        },
+    }
 
-    def __init__(self, config_workspace_id, config_warehouse_id):
-        self.fabric_environments_table_name = f"fabric_environments"
-        self.fabric_environments_table_schema = "config"
-        self.fabric_environments_table = f"{self.fabric_environments_table_schema}.{self.fabric_environments_table_name}"
-        self._configs: dict[str, Any] = {}
-        self.warehouse_utils = warehouse_utils(config_workspace_id, config_warehouse_id)
-    
-    
-    @staticmethod
-    def config_schema() -> List[dict]:
-        return [
-            {"name": "fabric_environment", "type": str, "nullable": False},
-            {"name": "config_workspace_id", "type": str, "nullable": False},
-            {"name": "config_lakehouse_id", "type": str, "nullable": False},
-            {"name": "edw_workspace_id", "type": str, "nullable": False},
-            {"name": "edw_warehouse_id", "type": str, "nullable": False},
-            {"name": "edw_warehouse_name", "type": str, "nullable": False},
-            {"name": "edw_lakehouse_id", "type": str, "nullable": False},
-            {"name": "edw_lakehouse_name", "type": str, "nullable": False},
-            {"name": "legacy_synapse_connection_name", "type": str, "nullable": False},
-            {"name": "synapse_export_shortcut_path_in_onelake", "type": str, "nullable": False},
-            {"name": "full_reset", "type": bool, "nullable": False},
-            {"name": "update_date", "type": datetime, "nullable": False}
-        ]
+    def __init__(self, dialect: str = "fabric"):
+        self.dialect = dialect
 
-    def get_configs_as_dict(self, fabric_environment: str):
-        query = f"SELECT * FROM {self.fabric_environments_table} WHERE fabric_environment = '{fabric_environment}'"
-        df = self.warehouse_utils.execute_query(self.warehouse_utils.get_connection(), query)
-        if df is not None and not df.empty:
-            return df.iloc[0].to_dict()
-        return None
-
-    def get_configs_as_object(self, fabric_environment: str):
-        config_dict = self.get_configs_as_dict(fabric_environment)
-        if not config_dict:
-            return None
-        return config_utils.FabricConfig(**config_dict)
-
-    def merge_config_record(self, config: 'config_utils.FabricConfig'):
-        # 1. Check if table exists
-        table_exists = self.warehouse_utils.check_if_table_exists(
-            table_name=self.fabric_environments_table_name,
-            schema_name=self.fabric_environments_table_schema
-        )
-
-        # 2. If table doesn't exist, create it
-        if not table_exists:
-            # Build CREATE TABLE statement from schema
-            field_map = {
-                str: "VARCHAR(300)",
-                bool: "BIT",
-                datetime: "DATETIME2(6)",
-            }
-            cols_sql = []
-            for col in self.config_schema():
-                col_sql = f"{col['name']} {field_map[col['type']]}"
-                if not col['nullable']:
-                    col_sql += " NOT NULL"
-                cols_sql.append(col_sql)
-            # Primary key constraint for fabric_environment
-            # cols_sql.append("CONSTRAINT PK_fabric_env PRIMARY KEY (fabric_environment)")
-            # Check if schema exists
-            self.warehouse_utils.create_schema_if_not_exists(
-                schema_name=self.fabric_environments_table_schema
-            )
-
-            # Create table
-            create_table_sql = (
-                f"CREATE TABLE {self.fabric_environments_table} (\n    " +
-                ",\n    ".join(cols_sql) +
-                "\n);"
-            )
-            self.warehouse_utils.execute_query(conn, create_table_sql)
-            print("Created table config.fabric_environments.")
-
-        #Prepare update and insert logic 
-        if config.update_date is None:
-            config.update_date = datetime.now()
-
-        new_config = asdict(config)
-
-        # Prepare update values
-        update_set = []
-        for col, v in new_config.items():
-            if col == "fabric_environment":
-                continue  # Don't update the primary key
-            if isinstance(v, str):
-                update_set.append(f"{col} = '{v}'")
-            elif isinstance(v, bool):
-                update_set.append(f"{col} = {1 if v else 0}")
-            elif isinstance(v, datetime):
-                update_set.append(f"{col} = CAST('{v.strftime('%Y-%m-%d %H:%M:%S.%f')}' AS DATETIME2)")
-            elif v is None:
-                update_set.append(f"{col} = NULL")
-            else:
-                update_set.append(f"{col} = {v}")
-
-        update_set_clause = ", ".join(update_set)
-        # The primary key for lookup
-        where_clause = f"fabric_environment = '{new_config['fabric_environment']}'"
-
-        # UPDATE statement
-        update_sql = (
-            f"UPDATE {self.fabric_environments_table} SET {update_set_clause} "
-            f"WHERE {where_clause};"
-        )
-
-        conn = self.warehouse_utils.get_connection()
-        result = self.warehouse_utils.execute_query(conn, update_sql)
-
-        # Check if any rows were updated (fabric warehouse_utils should return affected rows)
-        rows_affected = getattr(result, 'rowcount', None)
-        needs_insert = rows_affected == 0 if rows_affected is not None else True
-
-        # If no row updated, do an INSERT
-        if needs_insert:
-            cols = ", ".join(new_config.keys())
-            vals = []
-            for v in new_config.values():
-                if isinstance(v, str):
-                    vals.append(f"'{v}'")
-                elif isinstance(v, bool):
-                    vals.append(f"{1 if v else 0}")
-                elif isinstance(v, datetime):
-                    vals.append(f"CAST('{v.strftime('%Y-%m-%d %H:%M:%S.%f')}' AS DATETIME2)")
-                elif v is None:
-                    vals.append("NULL")
-                else:
-                    vals.append(str(v))
-            vals_clause = ", ".join(vals)
-            insert_sql = (
-                f"INSERT INTO {self.fabric_environments_table} ({cols}) VALUES ({vals_clause});"
-            )
-            self.warehouse_utils.execute_query(conn, insert_sql)
-            print("Inserted fabric environments record")
-        else:
-            print("Updated fabric environments record")
-
-    def overwrite_configs(self, configs: dict):
-        df = pd.DataFrame([configs])
-        self.warehouse_utils.write_to_warehouse_table(
-            df, self.fabric_environments_table_name, self.fabric_environments_table_schema, "overwrite"
-        )
-
-
-
+    def render(self, template_name: str, **kwargs) -> str:
+        template_str = self.TEMPLATES[template_name][self.dialect]
+        return Template(template_str).render(**kwargs)
 
 
 # === warehouse_utils.py ===
@@ -361,7 +225,7 @@ class warehouse_utils:
                 create_query = self.sql.render(
                     "create_table_from_values",
                     table_name=table_name,
-                    schema_name=schema_name
+                    schema_name=schema_name,
                     column_names=column_names,
                     values_clause=values_clause,
                 )
@@ -376,7 +240,7 @@ class warehouse_utils:
                     insert_query = self.sql.render(
                         "insert_row",
                         table_name=table_name,
-                        schema_name=schema_name
+                        schema_name=schema_name,
                         row_values=row_values,
                     )
                     self.execute_query(conn, insert_query)
@@ -477,7 +341,6 @@ class ddl_utils:
             target_warehouse_id=target_warehouse_id,
         )
         self.initialise_ddl_script_executions_table()
-        
 
     def execution_log_schema():
         pass
@@ -497,25 +360,25 @@ class ddl_utils:
         AND execution_status = 'success'
         """
         df = self.warehouse_utils.execute_query(conn=conn, query=query)
-        
+
         if df:
             if len(df) == 0:
                 # print("matched:", matched)
                 return False
             else:
                 return True
-        else: 
+        else:
             return False
 
     def print_skipped_script_execution(self, guid, object_name):
         print(
-            f"skipping {guid}:{object_name} as the script has already run on workspace_id:" \
+            f"skipping {guid}:{object_name} as the script has already run on workspace_id:"
             f"{self.target_workspace_id} | warehouse_id {self.target_warehouse_id}"
         )
 
     def write_to_execution_log(self, object_guid, object_name, script_status):
         conn = self.warehouse_utils.get_connection()
-        current_timestamp = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+        current_timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
         insert_query = f"""
         INSERT INTO [{self.execution_log_table_schema}].[{self.execution_log_table_name}]
         (script_id, script_name, execution_status, update_date)
@@ -523,12 +386,7 @@ class ddl_utils:
         """
         self.warehouse_utils.execute_query(conn=conn, query=insert_query)
 
-    def run_once(
-        self,
-        work_fn: callable,
-        object_name: str,
-        guid: str 
-    ):
+    def run_once(self, work_fn: callable, object_name: str, guid: str):
         """
         Runs `work_fn()` exactly once, keyed by `guid`. If `guid` is None,
         it's computed by hashing the source code of `work_fn`.
@@ -538,7 +396,9 @@ class ddl_utils:
             try:
                 src = inspect.getsource(work_fn)
             except (OSError, TypeError):
-                raise ValueError("work_fn must be a named function defined at top-level")
+                raise ValueError(
+                    "work_fn must be a named function defined at top-level"
+                )
             # compute SHA256 and take first 12 hex chars
             digest = hashlib.sha256(src.encode("utf-8")).hexdigest()
             guid = digest
@@ -548,16 +408,14 @@ class ddl_utils:
         if not self.check_if_script_has_run(script_id=guid):
             try:
                 work_fn()
-                self.write_to_execution_log(object_guid=guid,
-                                            object_name=object_name,
-                                            script_status="Success"
-                                            )
+                self.write_to_execution_log(
+                    object_guid=guid, object_name=object_name, script_status="Success"
+                )
             except Exception as e:
                 print(f"Error in work_fn for {guid}: {e}")
-                self.write_to_execution_log(object_guid=guid,
-                                            object_name=object_name,
-                                            script_status="Failure"
-                                            )
+                self.write_to_execution_log(
+                    object_guid=guid, object_name=object_name, script_status="Failure"
+                )
                 raise
         else:
             self.print_skipped_script_execution(guid=guid, object_name=object_name)
@@ -565,12 +423,12 @@ class ddl_utils:
     def initialise_ddl_script_executions_table(self):
         guid = "b8c83c87-36d2-46a8-9686-ced38363e169"
         object_name = "ddl_script_executions"
-        conn = self.warehouse_utils.get_connection()        
+        conn = self.warehouse_utils.get_connection()
         table_exists = self.warehouse_utils.check_if_table_exists(
             table_name=self.execution_log_table_name,
-            schema_name=self.execution_log_table_schema
+            schema_name=self.execution_log_table_schema,
         )
-        
+
         if not table_exists:
             self.warehouse_utils.create_schema_if_not_exists(
                 schema_name=self.execution_log_table_schema
@@ -585,7 +443,9 @@ class ddl_utils:
             )
             """
             self.warehouse_utils.execute_query(conn=conn, query=create_table_query)
-            self.write_to_execution_log(object_guid=guid, object_name=object_name, script_status="Success")
+            self.write_to_execution_log(
+                object_guid=guid, object_name=object_name, script_status="Success"
+            )
         else:
             print(f"Skipping {object_name} as it already exists")
 
@@ -595,7 +455,9 @@ import notebookutils  # type: ignore # noqa: F401\
 import logging
 
 # Configure logging
-logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
+logging.basicConfig(
+    level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s"
+)
 
 
 class lakehouse_utils:
@@ -604,49 +466,190 @@ class lakehouse_utils:
         self.target_warehouse_id = target_warehouse_id
 
 
+# === config_utils.py ===
+from datetime import datetime
+from typing import List, Optional, Any
+from dataclasses import dataclass, asdict
+import pandas as pd
+import notebookutils
 
-# === sql_templates.py ===
-from jinja2 import Template
 
+class config_utils:
+    @dataclass
+    class FabricConfig:
+        fabric_environment: str
+        config_workspace_id: str
+        config_lakehouse_id: str
+        edw_workspace_id: str
+        edw_warehouse_id: str
+        edw_warehouse_name: str
+        edw_lakehouse_id: str
+        edw_lakehouse_name: str
+        legacy_synapse_connection_name: str
+        synapse_export_shortcut_path_in_onelake: str
+        full_reset: bool
+        update_date: Optional[datetime] = None  # If you're tracking timestamps
 
-class SQLTemplates:
-    """Render SQL templates for different dialects."""
+        def get_attribute(self, attr_name: str) -> Any:
+            """Get attribute value by string name with error handling."""
+            if hasattr(self, attr_name):
+                return getattr(self, attr_name)
+            else:
+                raise AttributeError(f"FabricConfig has no attribute '{attr_name}'")
 
-    TEMPLATES = {
-        "check_table_exists": {
-            "fabric":   """
-                            SELECT 1 FROM INFORMATION_SCHEMA.TABLES
-                            WHERE TABLE_SCHEMA = '{{ schema_name }}' AND TABLE_NAME = '{{ table_name }}'
-                        """,
-            "sqlserver":   """
-                            SELECT 1 FROM INFORMATION_SCHEMA.TABLES
-                            WHERE TABLE_SCHEMA = '{{ schema_name }}' AND TABLE_NAME = '{{ table_name }}'
-                        """,
-        },
-        "drop_table": {
-            "fabric": "DROP TABLE IF EXISTS {{ schema_name }}.{{ table_name }}",
-            "sqlserver": "DROP TABLE IF EXISTS {{ schema_name }}.{{ table_name }}'",
-        },
-        "create_table_from_values": {
-            "fabric": "SELECT * INTO {{ schema_name }}.{{ table_name }} FROM (VALUES {{ values_clause }}) AS v({{ column_names }})",
-            "sqlserver": "SELECT * INTO {{ schema_name }}.{{ table_name }} FROM (VALUES {{ values_clause }}) AS v({{ column_names }})",
-        },
-        "insert_row": {
-            "fabric": "INSERT INTO {{ schema_name }}.{{ table_name }} VALUES ({{ row_values }})",
-            "sqlserver": "INSERT INTO {{ schema_name }}.{{ table_name }} VALUES ({{ row_values }})",
-        },
-        "list_tables": {
-            "fabric": "SELECT TABLE_SCHEMA + '.' + TABLE_NAME AS name FROM INFORMATION_SCHEMA.TABLES{% if prefix %} WHERE TABLE_NAME LIKE '{{ prefix }}%'{% endif %}",
-            "sqlserver": "SELECT TABLE_SCHEMA + '.' + TABLE_NAME AS name FROM INFORMATION_SCHEMA.TABLES{% if prefix %} WHERE TABLE_NAME LIKE '{{ prefix }}%'{% endif %}",
-        },
-    }
+    def __init__(self, config_workspace_id, config_warehouse_id):
+        self.fabric_environments_table_name = f"fabric_environments"
+        self.fabric_environments_table_schema = "config"
+        self.fabric_environments_table = f"{self.fabric_environments_table_schema}.{self.fabric_environments_table_name}"
+        self._configs: dict[str, Any] = {}
+        self.warehouse_utils = warehouse_utils(config_workspace_id, config_warehouse_id)
 
-    def __init__(self, dialect: str = "fabric"):
-        self.dialect = dialect
+    @staticmethod
+    def config_schema() -> List[dict]:
+        return [
+            {"name": "fabric_environment", "type": str, "nullable": False},
+            {"name": "config_workspace_id", "type": str, "nullable": False},
+            {"name": "config_lakehouse_id", "type": str, "nullable": False},
+            {"name": "edw_workspace_id", "type": str, "nullable": False},
+            {"name": "edw_warehouse_id", "type": str, "nullable": False},
+            {"name": "edw_warehouse_name", "type": str, "nullable": False},
+            {"name": "edw_lakehouse_id", "type": str, "nullable": False},
+            {"name": "edw_lakehouse_name", "type": str, "nullable": False},
+            {"name": "legacy_synapse_connection_name", "type": str, "nullable": False},
+            {
+                "name": "synapse_export_shortcut_path_in_onelake",
+                "type": str,
+                "nullable": False,
+            },
+            {"name": "full_reset", "type": bool, "nullable": False},
+            {"name": "update_date", "type": datetime, "nullable": False},
+        ]
 
-    def render(self, template_name: str, **kwargs) -> str:
-        template_str = self.TEMPLATES[template_name][self.dialect]
-        return Template(template_str).render(**kwargs)
+    def get_configs_as_dict(self, fabric_environment: str):
+        query = f"SELECT * FROM {self.fabric_environments_table} WHERE fabric_environment = '{fabric_environment}'"
+        df = self.warehouse_utils.execute_query(
+            self.warehouse_utils.get_connection(), query
+        )
+        if df is not None and not df.empty:
+            return df.iloc[0].to_dict()
+        return None
+
+    def get_configs_as_object(self, fabric_environment: str):
+        config_dict = self.get_configs_as_dict(fabric_environment)
+        if not config_dict:
+            return None
+        return config_utils.FabricConfig(**config_dict)
+
+    def merge_config_record(self, config: "config_utils.FabricConfig"):
+        # 1. Check if table exists
+        table_exists = self.warehouse_utils.check_if_table_exists(
+            table_name=self.fabric_environments_table_name,
+            schema_name=self.fabric_environments_table_schema,
+        )
+
+        # 2. If table doesn't exist, create it
+        if not table_exists:
+            # Build CREATE TABLE statement from schema
+            field_map = {
+                str: "VARCHAR(300)",
+                bool: "BIT",
+                datetime: "DATETIME2(6)",
+            }
+            cols_sql = []
+            for col in self.config_schema():
+                col_sql = f"{col['name']} {field_map[col['type']]}"
+                if not col["nullable"]:
+                    col_sql += " NOT NULL"
+                cols_sql.append(col_sql)
+            # Primary key constraint for fabric_environment
+            # cols_sql.append("CONSTRAINT PK_fabric_env PRIMARY KEY (fabric_environment)")
+            # Check if schema exists
+            self.warehouse_utils.create_schema_if_not_exists(
+                schema_name=self.fabric_environments_table_schema
+            )
+
+            # Create table
+            create_table_sql = (
+                f"CREATE TABLE {self.fabric_environments_table} (\n    "
+                + ",\n    ".join(cols_sql)
+                + "\n);"
+            )
+            self.warehouse_utils.execute_query(conn, create_table_sql)
+            print("Created table config.fabric_environments.")
+
+        # Prepare update and insert logic
+        if config.update_date is None:
+            config.update_date = datetime.now()
+
+        new_config = asdict(config)
+
+        # Prepare update values
+        update_set = []
+        for col, v in new_config.items():
+            if col == "fabric_environment":
+                continue  # Don't update the primary key
+            if isinstance(v, str):
+                update_set.append(f"{col} = '{v}'")
+            elif isinstance(v, bool):
+                update_set.append(f"{col} = {1 if v else 0}")
+            elif isinstance(v, datetime):
+                update_set.append(
+                    f"{col} = CAST('{v.strftime('%Y-%m-%d %H:%M:%S.%f')}' AS DATETIME2)"
+                )
+            elif v is None:
+                update_set.append(f"{col} = NULL")
+            else:
+                update_set.append(f"{col} = {v}")
+
+        update_set_clause = ", ".join(update_set)
+        # The primary key for lookup
+        where_clause = f"fabric_environment = '{new_config['fabric_environment']}'"
+
+        # UPDATE statement
+        update_sql = (
+            f"UPDATE {self.fabric_environments_table} SET {update_set_clause} "
+            f"WHERE {where_clause};"
+        )
+
+        conn = self.warehouse_utils.get_connection()
+        result = self.warehouse_utils.execute_query(conn, update_sql)
+
+        # Check if any rows were updated (fabric warehouse_utils should return affected rows)
+        rows_affected = getattr(result, "rowcount", None)
+        needs_insert = rows_affected == 0 if rows_affected is not None else True
+
+        # If no row updated, do an INSERT
+        if needs_insert:
+            cols = ", ".join(new_config.keys())
+            vals = []
+            for v in new_config.values():
+                if isinstance(v, str):
+                    vals.append(f"'{v}'")
+                elif isinstance(v, bool):
+                    vals.append(f"{1 if v else 0}")
+                elif isinstance(v, datetime):
+                    vals.append(
+                        f"CAST('{v.strftime('%Y-%m-%d %H:%M:%S.%f')}' AS DATETIME2)"
+                    )
+                elif v is None:
+                    vals.append("NULL")
+                else:
+                    vals.append(str(v))
+            vals_clause = ", ".join(vals)
+            insert_sql = f"INSERT INTO {self.fabric_environments_table} ({cols}) VALUES ({vals_clause});"
+            self.warehouse_utils.execute_query(conn, insert_sql)
+            print("Inserted fabric environments record")
+        else:
+            print("Updated fabric environments record")
+
+    def overwrite_configs(self, configs: dict):
+        df = pd.DataFrame([configs])
+        self.warehouse_utils.write_to_warehouse_table(
+            df,
+            self.fabric_environments_table_name,
+            self.fabric_environments_table_schema,
+            "overwrite",
+        )
 
 
 
@@ -691,7 +694,7 @@ du = ddl_utils(target_workspace_id, target_lakehouse_id)
 
 # CELL ********************
 
-guid = "0b361c46b4ee"
+guid = "6937eb26c16c"
 def work():
     sql = """
 
@@ -737,7 +740,7 @@ du.run_once(work,"001_config_parquet_loads_create", guid)
 
 # CELL ********************
 
-guid = "675aaf866f62"
+guid = "bc17803f3701"
 def work():
     sql = """
 
@@ -773,7 +776,7 @@ du.run_once(work,"002_config_synapse_loads_create", guid)
 
 # CELL ********************
 
-guid = "54dd7dd16032"
+guid = "0a6390965eba"
 def work():
     sql = """
 
@@ -812,7 +815,7 @@ du.run_once(work,"003_log_parquet_loads_create", guid)
 
 # CELL ********************
 
-guid = "2e611f14380a"
+guid = "755109da42d0"
 def work():
     sql = """
 
@@ -853,7 +856,7 @@ du.run_once(work,"004_log_synapse_loads_create", guid)
 
 # CELL ********************
 
-guid = "154c5a6e778c"
+guid = "7461d6d52cd5"
 def work():
     sql = """
 
@@ -892,7 +895,7 @@ du.run_once(work,"005_config_synapse_loads_insert", guid)
 
 # CELL ********************
 
-guid = "1206015b9567"
+guid = "6f95f2886b11"
 def work():
     sql = """
 

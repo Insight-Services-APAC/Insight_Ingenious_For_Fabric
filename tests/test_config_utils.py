@@ -34,7 +34,9 @@ def test_get_attribute():
 
 def test_get_configs_as_object():
     cu = config_utils.config_utils("ws", "lh")
-    with mock.patch.object(cu, "get_configs_as_dict", return_value=sample_config_dict()):
+    with mock.patch.object(
+        cu, "get_configs_as_dict", return_value=sample_config_dict()
+    ):
         obj = cu.get_configs_as_object("dev")
     assert isinstance(obj, config_utils.config_utils.FabricConfig)
     assert obj.edw_warehouse_id == "wh"
@@ -50,4 +52,3 @@ def test_merge_config_record_executes_query():
         exec_mock.assert_called_once()
         called_query = exec_mock.call_args.kwargs.get("query")
         assert called_query and "MERGE INTO" in called_query
-
