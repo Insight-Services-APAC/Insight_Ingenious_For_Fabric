@@ -130,7 +130,7 @@ class warehouse_utils:
                 create_query = self.sql.render(
                     "create_table_from_values",
                     table_name=table_name,
-                    schema_name=schema_name
+                    schema_name=schema_name,
                     column_names=column_names,
                     values_clause=values_clause,
                 )
@@ -145,7 +145,7 @@ class warehouse_utils:
                     insert_query = self.sql.render(
                         "insert_row",
                         table_name=table_name,
-                        schema_name=schema_name
+                        schema_name=schema_name,
                         row_values=row_values,
                     )
                     self.execute_query(conn, insert_query)

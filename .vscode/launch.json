@@ -15,7 +15,14 @@
             "name": "publish",
             "type": "debugpy",
             "request": "launch",
-            "program": "publish.py",
+            "module": "typer",
+            "args": [
+                "ingen_fab/cli.py",
+                "run",
+                "--fabric-environment",
+                "development",
+                "deploy-to-environment"
+            ],
             "console": "integratedTerminal"
         },
         {

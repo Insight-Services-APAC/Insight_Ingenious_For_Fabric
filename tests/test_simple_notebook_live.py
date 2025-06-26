@@ -14,6 +14,7 @@ REQUIRED_ENV_VARS = [
     "AZURE_CLIENT_SECRET",
 ]
 
+
 @pytest.mark.e2e
 def test_run_notebook_live():
     missing = [var for var in REQUIRED_ENV_VARS if not os.environ.get(var)]

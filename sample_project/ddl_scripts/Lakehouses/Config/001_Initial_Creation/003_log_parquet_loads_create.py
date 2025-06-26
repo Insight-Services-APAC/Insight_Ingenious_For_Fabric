@@ -8,7 +8,7 @@ schema = StructType(
         StructField("error_messages", StringType(), nullable=True),
         StructField("start_date", LongType(), nullable=False),
         StructField("finish_date", LongType(), nullable=False),
-        StructField("update_date", LongType(), nullable=False)
+        StructField("update_date", LongType(), nullable=False),
     ]
 )
 

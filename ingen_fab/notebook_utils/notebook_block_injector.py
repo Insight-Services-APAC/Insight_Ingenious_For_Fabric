@@ -15,99 +15,117 @@ class NotebookContentFinder:
         self.base_dir = base_dir or (Path.cwd() / "fabric_workspace_items")
 
         self.script_path = Path(__file__).resolve()
-        self.script_dir = self.script_path.parent 
+        self.script_dir = self.script_path.parent
         self.project_root_dir = self.script_dir.parent
-        self.python_libs_dir = self.project_root_dir / "python_libs" 
+        self.python_libs_dir = self.project_root_dir / "python_libs"
 
     def find_content_blocks(self, file_path: Path) -> List[Dict[str, Any]]:
         """
         Find all content blocks in a file marked with # _blockstart: and # _blockend:
-        
+
         Args:
             file_path: Path to the notebook-content.py file
-            
+
         Returns:
             List of dictionaries containing block information
         """
         blocks = []
-        
+
         with file_path.open("r", encoding="utf-8") as f:
             content = f.read()
             lines = content.splitlines()
-        
+
         i = 0
         while i < len(lines):
             line = lines[i]
-            
+
             # Check for block start
-            start_match = re.match(r'#\s*_blockstart:\s*(\w+)', line)
+            start_match = re.match(r"#\s*_blockstart:\s*(\w+)", line)
             if start_match:
                 block_name = start_match.group(1)
-                start_line_idx = i # 0-based index of _blockstart line
-                
+                start_line_idx = i  # 0-based index of _blockstart line
+
                 # Find the corresponding block end
                 j = i + 1
-                block_content_lines_with_idx = [] # Stores (original_line_num_0_based, line_content)
-                end_line_idx = None # 0-based index of _blockend line
-                
+                block_content_lines_with_idx = []  # Stores (original_line_num_0_based, line_content)
+                end_line_idx = None  # 0-based index of _blockend line
+
                 while j < len(lines):
                     # Check for block end with matching name
-                    end_match = re.match(rf'#\s*_?blockend:\s*{block_name}', lines[j])
+                    end_match = re.match(rf"#\s*_?blockend:\s*{block_name}", lines[j])
                     if end_match:
                         end_line_idx = j
                         break
-                    block_content_lines_with_idx.append((j, lines[j]))  # Store 0-based original line number with content
+                    block_content_lines_with_idx.append(
+                        (j, lines[j])
+                    )  # Store 0-based original line number with content
                     j += 1
-                
+
                 if end_line_idx is not None:
-                    replacement_start_idx_in_block_content = 0 
-                    replacement_end_idx_in_block_content = len(block_content_lines_with_idx) 
+                    replacement_start_idx_in_block_content = 0
+                    replacement_end_idx_in_block_content = len(
+                        block_content_lines_with_idx
+                    )
 
                     # Find where the content ends: BEFORE the last '# METADATA ********************' section.
                     for idx in range(len(block_content_lines_with_idx) - 1, -1, -1):
-                        if '# METADATA ********************' in block_content_lines_with_idx[idx][1]:
+                        if (
+                            "# METADATA ********************"
+                            in block_content_lines_with_idx[idx][1]
+                        ):
                             # --- MODIFIED LINE HERE ---
-                            replacement_end_idx_in_block_content = idx # Original line, included METADATA line index for slicing
-                            if replacement_end_idx_in_block_content > 0: # Ensure we don't go negative
-                                replacement_end_idx_in_block_content -= 1 # Exclude the empty line before METADATA
+                            replacement_end_idx_in_block_content = idx  # Original line, included METADATA line index for slicing
+                            if (
+                                replacement_end_idx_in_block_content > 0
+                            ):  # Ensure we don't go negative
+                                replacement_end_idx_in_block_content -= (
+                                    1  # Exclude the empty line before METADATA
+                                )
                             break
-                    
-                    replacement_lines_data = []
-                    if replacement_start_idx_in_block_content < replacement_end_idx_in_block_content:
-                        replacement_lines_data = block_content_lines_with_idx[
-                            replacement_start_idx_in_block_content : replacement_end_idx_in_block_content
-                        ]
-                    
-                    if replacement_lines_data:
-                        actual_start_line = replacement_lines_data[0][0] + 1  
-                        actual_end_line = replacement_lines_data[-1][0] + 1  
-                        replacement_content = '\n'.join([line_tuple[1] for line_tuple in replacement_lines_data]).strip()
-                    else:
-                        actual_start_line = start_line_idx + 2 
-                        actual_end_line = end_line_idx 
-                        replacement_content = "" 
 
-                    blocks.append({
-                        'block_name': block_name,
-                        'start_line': start_line_idx + 1,  
-                        'end_line': end_line_idx + 1,
-                        'total_lines': end_line_idx - start_line_idx + 1,
-                        'replacement_content': replacement_content,
-                        'replacement_start_line': actual_start_line,
-                        'replacement_end_line': actual_end_line,
-                        'file_path': str(file_path)
-                    })
-                    
-                    i = end_line_idx + 1 
+                    replacement_lines_data = []
+                    if (
+                        replacement_start_idx_in_block_content
+                        < replacement_end_idx_in_block_content
+                    ):
+                        replacement_lines_data = block_content_lines_with_idx[
+                            replacement_start_idx_in_block_content:replacement_end_idx_in_block_content
+                        ]
+
+                    if replacement_lines_data:
+                        actual_start_line = replacement_lines_data[0][0] + 1
+                        actual_end_line = replacement_lines_data[-1][0] + 1
+                        replacement_content = "\n".join(
+                            [line_tuple[1] for line_tuple in replacement_lines_data]
+                        ).strip()
+                    else:
+                        actual_start_line = start_line_idx + 2
+                        actual_end_line = end_line_idx
+                        replacement_content = ""
+
+                    blocks.append(
+                        {
+                            "block_name": block_name,
+                            "start_line": start_line_idx + 1,
+                            "end_line": end_line_idx + 1,
+                            "total_lines": end_line_idx - start_line_idx + 1,
+                            "replacement_content": replacement_content,
+                            "replacement_start_line": actual_start_line,
+                            "replacement_end_line": actual_end_line,
+                            "file_path": str(file_path),
+                        }
+                    )
+
+                    i = end_line_idx + 1
                 else:
                     self.console.print(
                         f"[yellow]Warning: No matching blockend found for block '"
                         f"{block_name}' at line {start_line_idx + 1}[/yellow]"
                     )
-                    i += 1 
+                    i += 1
             else:
-                i += 1 
-        
+                i += 1
+
         return blocks
 
     def find_notebook_content_files(
@@ -289,7 +307,7 @@ class NotebookContentFinder:
         Returns:
             The content of the file if found, otherwise None.
         """
-        parts = block_name.split('_', 1)
+        parts = block_name.split("_", 1)
 
         if len(parts) < 2:
             self.console.print(
@@ -300,12 +318,16 @@ class NotebookContentFinder:
         subdirectory = parts[0]
         filename_base = parts[1]
 
-        if filename_base.endswith('_'):
+        if filename_base.endswith("_"):
             filename_base = filename_base[:-1]
 
-        replacement_file_path = self.python_libs_dir / subdirectory / f"{filename_base}.py"
+        replacement_file_path = (
+            self.python_libs_dir / subdirectory / f"{filename_base}.py"
+        )
 
-        self.console.print (f"\n[bold blue]Looking for replacement file: {replacement_file_path}...[/bold blue]")
+        self.console.print(
+            f"\n[bold blue]Looking for replacement file: {replacement_file_path}...[/bold blue]"
+        )
 
         if not replacement_file_path.exists():
             self.console.print(
@@ -339,54 +361,73 @@ class NotebookContentFinder:
         for file_path_str, blocks in all_blocks.items():
             file_path = Path(file_path_str)
             if not file_path.exists():
-                self.console.print(f"[red]Skipping {file_path_str}: File not found.[/red]")
+                self.console.print(
+                    f"[red]Skipping {file_path_str}: File not found.[/red]"
+                )
                 continue
 
             # --- CRITICAL: Create a backup before modifying the file ---
-            self.console.print(f"\n[bold blue]Creating backup for {file_path.name}...[/bold blue]")
+            self.console.print(
+                f"\n[bold blue]Creating backup for {file_path.name}...[/bold blue]"
+            )
             backup_file_path = file_path.with_suffix(file_path.suffix + ".bak")
             try:
                 shutil.copyfile(file_path, backup_file_path)
                 self.console.print(f"[green]Backup created: {backup_file_path}[/green]")
             except Exception as e:
-                self.console.print(f"[red]Error creating backup for {file_path.name}: {str(e)}. Skipping replacement for this file.[/red]")
+                self.console.print(
+                    f"[red]Error creating backup for {file_path.name}: {str(e)}. Skipping replacement for this file.[/red]"
+                )
                 continue
             # --- End of Backup Block ---
 
             original_lines = file_path.open("r", encoding="utf-8").readlines()
-            new_lines = list(original_lines) # Create a mutable copy
+            new_lines = list(original_lines)  # Create a mutable copy
 
             # Track if any actual changes were made to this file
             file_was_modified = False
 
             # Sort blocks by their start line in reverse order to avoid index shifting issues
-            blocks_to_process = sorted(blocks, key=lambda b: b['replacement_start_line'], reverse=True)
+            blocks_to_process = sorted(
+                blocks, key=lambda b: b["replacement_start_line"], reverse=True
+            )
 
             for block in blocks_to_process:
-                block_name = block['block_name']
+                block_name = block["block_name"]
                 replacement_content = self.replace_content_block(block_name)
 
                 if replacement_content is None:
-                    self.console.print(f"[yellow]Skipping replacement for block '{block_name}' in {file_path.name} due to missing or unreadable replacement content.[/yellow]")
-                    continue # Move to the next block
+                    self.console.print(
+                        f"[yellow]Skipping replacement for block '{block_name}' in {file_path.name} due to missing or unreadable replacement content.[/yellow]"
+                    )
+                    continue  # Move to the next block
 
                 # If we got here, we have valid replacement content, so this file will be modified
                 file_was_modified = True
 
                 # Adjust for 0-based indexing for Python list manipulation
-                start_replace_idx = block['replacement_start_line'] - 1
-                end_replace_idx = block['replacement_end_line'] - 1
+                start_replace_idx = block["replacement_start_line"] - 1
+                end_replace_idx = block["replacement_end_line"] - 1
 
                 if start_replace_idx > end_replace_idx:
-                    self.console.print(f"[dim]Block '{block_name}' in {file_path.name} had empty or minimal content. Inserting new content.[/dim]")
+                    self.console.print(
+                        f"[dim]Block '{block_name}' in {file_path.name} had empty or minimal content. Inserting new content.[/dim]"
+                    )
                     end_replace_idx = start_replace_idx - 1
 
-                replacement_lines = [line + '\n' for line in replacement_content.splitlines()]
-                if replacement_lines and not original_lines[-1].endswith('\n') and start_replace_idx + len(replacement_lines) >= len(original_lines):
-                    replacement_lines[-1] = replacement_lines[-1].rstrip('\n')
+                replacement_lines = [
+                    line + "\n" for line in replacement_content.splitlines()
+                ]
+                if (
+                    replacement_lines
+                    and not original_lines[-1].endswith("\n")
+                    and start_replace_idx + len(replacement_lines)
+                    >= len(original_lines)
+                ):
+                    replacement_lines[-1] = replacement_lines[-1].rstrip("\n")
 
                 if not replacement_lines:
-                    replacement_lines = ['\n']
+                    replacement_lines = ["\n"]
 
                 # Perform the replacement: delete old lines and insert new ones
                 del new_lines[start_replace_idx : end_replace_idx + 1]
@@ -394,7 +435,7 @@ class NotebookContentFinder:
                     new_lines.insert(start_replace_idx + k, line_to_insert)
 
                 self.console.print(
-                    f"[green]Successfully replaced content for block '{block_name}' in {file_path.name}.[/green]" # <-- Log success for individual block here
+                    f"[green]Successfully replaced content for block '{block_name}' in {file_path.name}.[/green]"  # <-- Log success for individual block here
                 )
 
             # --- Write the modified content back to the file ONLY IF CHANGES WERE MADE ---
@@ -402,11 +443,17 @@ class NotebookContentFinder:
                 try:
                     with file_path.open("w", encoding="utf-8") as f:
                         f.writelines(new_lines)
-                    self.console.print(f"[green]\nFile update complete: {file_path.name} has been modified.[/green]\n")
+                    self.console.print(
+                        f"[green]\nFile update complete: {file_path.name} has been modified.[/green]\n"
+                    )
                 except Exception as e:
-                    self.console.print(f"[red]Error writing to {file_path.name}: {str(e)}[/red]")
+                    self.console.print(
+                        f"[red]Error writing to {file_path.name}: {str(e)}[/red]"
+                    )
             else:
-                self.console.print(f"[yellow]\nNo blocks were successfully replaced in {file_path.name}. File remains unchanged.[/yellow]\n")
+                self.console.print(
+                    f"[yellow]\nNo blocks were successfully replaced in {file_path.name}. File remains unchanged.[/yellow]\n"
+                )
 
 
 def main(apply_replacements: bool = False) -> Dict[str, List[Dict[str, Any]]]:

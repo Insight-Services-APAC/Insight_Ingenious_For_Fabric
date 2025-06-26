@@ -6,11 +6,11 @@ class SQLTemplates:
 
     TEMPLATES = {
         "check_table_exists": {
-            "fabric":   """
+            "fabric": """
                             SELECT 1 FROM INFORMATION_SCHEMA.TABLES
                             WHERE TABLE_SCHEMA = '{{ schema_name }}' AND TABLE_NAME = '{{ table_name }}'
                         """,
-            "sqlserver":   """
+            "sqlserver": """
                             SELECT 1 FROM INFORMATION_SCHEMA.TABLES
                             WHERE TABLE_SCHEMA = '{{ schema_name }}' AND TABLE_NAME = '{{ table_name }}'
                         """,

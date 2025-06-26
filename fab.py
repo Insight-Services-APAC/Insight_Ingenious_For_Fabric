@@ -12,7 +12,7 @@ logging.basicConfig(
     level=logging.INFO,
     format="%(message)s",
     datefmt="[%X]",
-    handlers=[RichHandler(console=console)]
+    handlers=[RichHandler(console=console)],
 )
 log = logging.getLogger("rich")
 
@@ -70,7 +70,9 @@ for lakehouse in lakehouses:
     if len(tables) > 0:
         max_threads = 5  # Limit the number of threads
         with concurrent.futures.ThreadPoolExecutor(max_threads) as executor:
-            futures = {executor.submit(fetch_table_schema, table): table for table in tables}
+            futures = {
+                executor.submit(fetch_table_schema, table): table for table in tables
+            }
             for future in concurrent.futures.as_completed(futures):
                 try:
                     table, output = future.result()
@@ -81,6 +83,7 @@ for lakehouse in lakehouses:
                 except Exception as e:
                     log.error(f"Error processing table: {e}")
 
+
 # Step 4: Parse schema result
 def parse_schema_result(output):
     log.info("Parsing schema result...")
@@ -90,14 +93,14 @@ def parse_schema_result(output):
         log.warning("No data returned from the command.")
         exit()
 
-    if not re.match(r'\* Schema extracted successfully', lines[1]):
+    if not re.match(r"\* Schema extracted successfully", lines[1]):
         log.error("Schema extraction failed or unexpected output.")
         exit()
 
     data_lines = lines[4:]
     table = []
     for line in data_lines:
-        columns = re.split(r'\s{2,}', line.strip())
+        columns = re.split(r"\s{2,}", line.strip())
         if len(columns) == 2:
             table.append({"Name": columns[0], "Type": columns[1]})
 
