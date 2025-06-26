@@ -1,31 +1,6 @@
 import sys
 import types
-import re
 
-# Minimal jinja2 substitute
-jinja2 = types.ModuleType("jinja2")
-
-
-class Template:
-    def __init__(self, s: str):
-        self.s = s
-
-    def render(self, **kwargs):
-        result = self.s
-
-        def repl_cond(match):
-            var = match.group(1).strip()
-            content = match.group(2)
-            return content if kwargs.get(var) else ""
-
-        result = re.sub(r"{% if ([^%]+)%}(.*?){% endif %}", repl_cond, result)
-        for k, v in kwargs.items():
-            result = result.replace(f"{{{{ {k} }}}}", str(v))
-        return result
-
-
-jinja2.Template = Template
-sys.modules.setdefault("jinja2", jinja2)
 
 # Minimal notebookutils substitute
 notebookutils = types.ModuleType("notebookutils")

@@ -48,6 +48,11 @@ This project uses uv for Python package and environment management.
 
 - **Use `from __future__ import annotations`** for forward references and cleaner code.
 
+
+# python linting
+- **Use `ruff` for linting, code checking etc**
+
+
 # Flask Best Practices
 
 ## Response Handling

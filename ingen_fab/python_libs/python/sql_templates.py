@@ -1,41 +1,29 @@
-from jinja2 import Template
+from __future__ import annotations
+
+from pathlib import Path
+
+from jinja2 import Environment, FileSystemLoader, StrictUndefined
 
 
 class SQLTemplates:
     """Render SQL templates for different dialects."""
 
-    TEMPLATES = {
-        "check_table_exists": {
-            "fabric": """
-                            SELECT 1 FROM INFORMATION_SCHEMA.TABLES
-                            WHERE TABLE_SCHEMA = '{{ schema_name }}' AND TABLE_NAME = '{{ table_name }}'
-                        """,
-            "sqlserver": """
-                            SELECT 1 FROM INFORMATION_SCHEMA.TABLES
-                            WHERE TABLE_SCHEMA = '{{ schema_name }}' AND TABLE_NAME = '{{ table_name }}'
-                        """,
-        },
-        "drop_table": {
-            "fabric": "DROP TABLE IF EXISTS {{ schema_name }}.{{ table_name }}",
-            "sqlserver": "DROP TABLE IF EXISTS {{ schema_name }}.{{ table_name }}'",
-        },
-        "create_table_from_values": {
-            "fabric": "SELECT * INTO {{ schema_name }}.{{ table_name }} FROM (VALUES {{ values_clause }}) AS v({{ column_names }})",
-            "sqlserver": "SELECT * INTO {{ schema_name }}.{{ table_name }} FROM (VALUES {{ values_clause }}) AS v({{ column_names }})",
-        },
-        "insert_row": {
-            "fabric": "INSERT INTO {{ schema_name }}.{{ table_name }} VALUES ({{ row_values }})",
-            "sqlserver": "INSERT INTO {{ schema_name }}.{{ table_name }} VALUES ({{ row_values }})",
-        },
-        "list_tables": {
-            "fabric": "SELECT TABLE_SCHEMA + '.' + TABLE_NAME AS name FROM INFORMATION_SCHEMA.TABLES{% if prefix %} WHERE TABLE_NAME LIKE '{{ prefix }}%'{% endif %}",
-            "sqlserver": "SELECT TABLE_SCHEMA + '.' + TABLE_NAME AS name FROM INFORMATION_SCHEMA.TABLES{% if prefix %} WHERE TABLE_NAME LIKE '{{ prefix }}%'{% endif %}",
-        },
-    }
-
-    def __init__(self, dialect: str = "fabric"):
+    def __init__(self, dialect: str = "fabric") -> None:
+        if dialect not in ("fabric", "sqlserver"):
+            raise ValueError("Invalid SQL dialect")
         self.dialect = dialect
+        self.templates_dir = Path(__file__).parent / "sql_templates" / dialect
+        self.jinja_environment = Environment(
+            loader=FileSystemLoader(self.templates_dir),
+            # undefined=StrictUndefined
+        )
 
     def render(self, template_name: str, **kwargs) -> str:
-        template_str = self.TEMPLATES[template_name][self.dialect]
-        return Template(template_str).render(**kwargs)
+        """Render a SQL template with the given parameters."""
+        template_path = f"{template_name}.sql.jinja"
+        try:
+            self.jinja_environment.get_template(template_path)
+        except Exception as e:
+            raise FileNotFoundError(f"Template not found: {template_path}") from e
+        
+        return self.jinja_environment.get_template(template_path).render(**kwargs)
