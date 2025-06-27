@@ -205,18 +205,25 @@ class warehouse_utils:
         try:
             conn = self.get_connection()
             query = self.sql.render("list_tables", prefix=table_prefix)
-            tables = self.execute_query(conn, query)
+            tables = self.execute_query(conn, query)  # tables is a pandas DataFrame
 
-            for table in tables or []:
-                table_name = table["name"] if isinstance(table, dict) else table[0]
+            # You can use .itertuples() for efficient row access
+            for row in tables.itertuples(index=False):
+                # Adjust attribute names to match DataFrame columns
+                schema_name = getattr(row, 'table_schema', None) or getattr(row, 'SCHEMA_NAME', None)
+                table_name = getattr(row, 'table_name', None) or getattr(row, 'TABLE_NAME', None)
+
+                if not schema_name or not table_name:
+                    logging.warning(f"Skipping row with missing schema/table: {row}")
+                    continue
+
                 try:
-                    drop_query = self.sql.render("drop_table", table_name=table_name)
+                    drop_query = self.sql.render("drop_table", schema_name=schema_name, table_name=table_name)
                     self.execute_query(conn, drop_query)
-                    logging.info(f"✔ Dropped table: {table_name}")
+                    logging.info(f"✔ Dropped table: {schema_name}.{table_name}")
                 except Exception as e:
-                    logging.error(f"⚠ Error dropping table {table_name}: {e}")
+                    logging.error(f"⚠ Error dropping table {schema_name}.{table_name}: {e}")
 
             logging.info("✅ All eligible tables have been dropped.")
         except Exception as e:
             logging.error(f"Error dropping tables with prefix {table_prefix}: {e}")
-            raise
