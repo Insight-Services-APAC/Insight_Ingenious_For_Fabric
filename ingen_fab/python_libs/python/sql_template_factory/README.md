@@ -87,4 +87,4 @@ Lists tables in the database.
 
 1. Create the `.sql.jinja` file in both `fabric/` and `sqlserver/` directories
 2. Use Jinja2 syntax for parameter substitution: `{{ parameter_name }}`
-3. Test the template by updating `test_sql_templates.py`
+3. Run generate_templates.py to update the SQLTemplates class with the new templates

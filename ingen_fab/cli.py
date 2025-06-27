@@ -20,6 +20,7 @@ from ingen_fab.notebook_utils.fabric_cli_notebook import (
 )
 from ingen_fab.notebook_utils.notebook_block_injector import NotebookContentFinder
 from ingen_fab.fabric_api.utils import FabricApiUtils
+from ingen_fab.notebook_utils.fabric_code_tester import FabricCodeTester
 
 app = typer.Typer(no_args_is_help=True, pretty_exceptions_show_locals=False)
 
@@ -104,6 +105,19 @@ def compile_ddl_notebooks(
         fabric_workspace_repo_dir=fabric_workspace_repo_dir,
     )
     nbg.run_all()
+
+
+@app.command()
+def test_python_block():
+
+    # Read he code from ingen_fab\python_libs\python\config_utils.py
+    with open(Path(__file__).parent / "python_libs" / "python" / "config_utils.py", "r") as f:
+        code = f.read()
+
+    fct = FabricCodeTester()
+    fct.test_code(
+        code=code,
+    )
 
 
 @app.command()
