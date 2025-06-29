@@ -1,8 +1,9 @@
+from __future__ import annotations
+
 import hashlib
 import inspect
 from datetime import datetime
 
-from notebookutils import mssparkutils  # type: ignore # noqa: F401
 from pyspark.sql import SparkSession  # type: ignore # noqa: F401
 from pyspark.sql.types import (
     StringType,
@@ -11,16 +12,22 @@ from pyspark.sql.types import (
     TimestampType,
 )
 
+from ..interfaces.ddl_utils_interface import DDLUtilsInterface
+from .lakehouse_utils import lakehouse_utils
 
-class ddl_utils:
-    def __init__(self, target_workspace_id, target_lakehouse_id):
+
+class ddl_utils(DDLUtilsInterface):    
+    def __init__(self, target_workspace_id: str, target_lakehouse_id: str) -> None:
+        """
+        Initializes the DDLUtils class with the target workspace and lakehouse IDs.
+        """
+        super().__init__(target_lakehouse_id=target_lakehouse_id, target_workspace_id=target_workspace_id)
         self.target_workspace_id = target_workspace_id
         self.target_lakehouse_id = target_lakehouse_id
-        self.execution_log_table_path = (
-            f"abfss://{target_workspace_id}@onelake.dfs.fabric.microsoft.com/"
-            f"{target_lakehouse_id}/Tables/ddl_script_executions"
-        )
+        self.lakehouse_utils = lakehouse_utils(target_workspace_id, target_lakehouse_id)
+        self.execution_log_table_name="ddl_script_executions"
         self.initialise_ddl_script_executions_table()
+
 
     @staticmethod
     def execution_log_schema() -> StructType:
@@ -33,14 +40,17 @@ class ddl_utils:
             ]
         )
 
-    def print_log(self):
-        df = spark.read.format("delta").load(self.execution_log_table_path)
-        display(df)
+    def print_log(self) -> None:
+        df = self.lakehouse_utils.spark.read.format("delta").load(f"{self.lakehouse_utils.lakehouse_tables_uri()}{self.execution_log_table_name}")
+        if self.lakehouse_utils.spark_version == 'local':
+            df.show()
+        else: 
+            display(df)  # type: ignore # noqa: F821
 
-    def check_if_script_has_run(self, script_id) -> bool:
+    def check_if_script_has_run(self, script_id: str) -> bool:
         from pyspark.sql.functions import col
 
-        df = spark.read.format("delta").load(self.execution_log_table_path)
+        df = self.lakehouse_utils.spark.read.format("delta").load(f"{self.lakehouse_utils.lakehouse_tables_uri()}{self.execution_log_table_name}")
         # display(df)
         # Build filter condition
         cond = col("script_id") == script_id
@@ -54,20 +64,20 @@ class ddl_utils:
         else:
             return True
 
-    def print_skipped_script_execution(self, guid, object_name):
+    def print_skipped_script_execution(self, guid: str, object_name: str) -> None:
         print(
             f"skipping {guid}:{object_name} as the script has already run on workspace_id:"
             f"{self.target_workspace_id} | lakehouse_id {self.target_lakehouse_id}"
         )
 
-    def write_to_execution_log(self, object_guid, object_name, script_status):
+    def write_to_execution_log(self, object_guid: str, object_name: str, script_status: str) -> None:
         data = [(object_guid, object_name, script_status, datetime.now())]
-        new_df = spark.createDataFrame(
+        new_df = self.lakehouse_utils.spark.createDataFrame(
             data=data, schema=ddl_utils.execution_log_schema()
         )
-        new_df.write.format("delta").mode("append").save(self.execution_log_table_path)
+        new_df.write.format("delta").mode("append").save(f"{self.lakehouse_utils.lakehouse_tables_uri()}{self.execution_log_table_name}")
 
-    def run_once(self, work_fn: callable, object_name: str, guid: str):
+    def run_once(self, work_fn, object_name: str, guid: str | None = None) -> None:
         """
         Runs `work_fn()` exactly once, keyed by `guid`. If `guid` is None,
         it's computed by hashing the source code of `work_fn`.
@@ -97,20 +107,18 @@ class ddl_utils:
                 self.write_to_execution_log(
                     object_guid=guid, object_name=object_name, script_status="Failure"
                 )
-                mssparkutils.notebook.exit(
-                    f"Script {object_name} with guid {guid} failed with error: {e}"
-                )
+                raise e
         else:
             self.print_skipped_script_execution(guid=guid, object_name=object_name)
 
-    def initialise_ddl_script_executions_table(self):
+    def initialise_ddl_script_executions_table(self) -> None:
         guid = "b8c83c87-36d2-46a8-9686-ced38363e169"
         object_name = "ddl_script_executions"
-        if (
-            lakehouse_utils.check_if_table_exists(self.execution_log_table_path)
-            == False
-        ):
-            empty_df = spark.createDataFrame(
+        # Check if the execution log table exists
+        table_exists = self.lakehouse_utils.check_if_table_exists(self.execution_log_table_name) 
+        if not table_exists:
+            print(f"Creating execution log table at {self.lakehouse_utils.lakehouse_tables_uri()}{self.execution_log_table_name}")
+            empty_df = self.lakehouse_utils.spark.createDataFrame(
                 data=[], schema=ddl_utils.execution_log_schema()
             )
             (
@@ -119,7 +127,7 @@ class ddl_utils:
                 .mode(
                     "errorIfExists"
                 )  # will error if table exists; change to "overwrite" to replace.
-                .save(self.execution_log_table_path)
+                .save(f"{self.lakehouse_utils.lakehouse_tables_uri()}{self.execution_log_table_name}")
             )
             self.write_to_execution_log(
                 object_guid=guid, object_name=object_name, script_status="Success"

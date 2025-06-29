@@ -1,5 +1,8 @@
 # Base image with Python 3.11 on Debian Bookworm
-FROM bitnami/spark:3.5-debian-12
+FROM bitnami/spark:4.0-debian-12
+
+
+
 
 # (Optional) Install common PySpark dependencies
 RUN pip install pyspark==4.0.0
@@ -7,7 +10,6 @@ RUN pip install delta-spark==4.0.0
 RUN pip install jupyterlab 
 RUN pip install pandas 
 RUN pip install matplotlib 
-RUN pip install uvicorn
 
 
 # Set environment variables

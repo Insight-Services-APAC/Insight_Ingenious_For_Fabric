@@ -106,5 +106,46 @@ class FabricApiUtils:
             "total_deleted": sum(deleted_counts.values())
         }
 
+    def get_warehouse_sql_endpoint(self, workspace_id: str, warehouse_id: str) -> str:
+        """
+        Get the SQL endpoint for a given warehouse.
+        
+        Args:
+            warehouse_id: The ID of the warehouse.
+        
+        Returns:
+            The SQL endpoint URL for the warehouse.
+        """
+        headers = {
+            "Authorization": f"Bearer {self._get_token()}",
+            "Content-Type": "application/json"
+        }
 
+        # List all warehouse items in the workspace
+        url = f"https://api.fabric.microsoft.com/v1/workspaces/{workspace_id}/items?type=warehouse"
+        response = requests.get(url, headers=headers)
+        response.raise_for_status()
+        warehouses = response.json().get('value', [])
 
+        # Find the warehouse and get the endpoint
+        warehouse = next((w for w in warehouses if w["id"] == warehouse_id), None)
+        if not warehouse:
+            raise Exception("Warehouse not found in workspace.")
+
+        # (Optionally, call GET on warehouse details endpoint for more info)
+        detail_url = f"https://api.fabric.microsoft.com/v1/workspaces/{workspace_id}/items/{warehouse_id}"
+        detail_response = requests.get(detail_url, headers=headers)
+        detail_response.raise_for_status()
+        warehouse_details = detail_response.json()
+
+        # Extract SQL endpoint
+        # This can vary depending on the API. Look for properties like 'sqlEndpoint', 'connectivityEndpoints', or similar.
+        sql_endpoint = (
+            warehouse_details.get("connectivityEndpoints", {}).get("sql") or
+            warehouse_details.get("properties", {}).get("sqlEndpoint") or
+            warehouse_details.get("webUrl")  # fallback; webUrl may contain it, parse if needed
+        )
+
+        print(f"SQL Endpoint: {sql_endpoint}")
+
+        return sql_endpoint
