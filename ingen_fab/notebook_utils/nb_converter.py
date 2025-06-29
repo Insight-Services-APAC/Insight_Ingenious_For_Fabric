@@ -1,7 +1,7 @@
-import nbformat
 import json
-from typing import List
-from nbformat.v4 import new_notebook, new_code_cell, new_markdown_cell
+
+import nbformat
+from nbformat.v4 import new_code_cell, new_markdown_cell, new_notebook
 
 
 class FabricNotebookConverter:

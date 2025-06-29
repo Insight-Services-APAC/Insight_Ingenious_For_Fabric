@@ -1,10 +1,7 @@
-from ingen_fab.fabric_cicd import fabric_cicd_log
 
 from fabric_cicd import (
     FabricWorkspace,
     publish_all_items,
-    unpublish_all_orphan_items,
-    constants,
 )
 
 pu = FabricWorkspace(

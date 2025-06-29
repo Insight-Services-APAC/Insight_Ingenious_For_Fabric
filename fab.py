@@ -1,10 +1,11 @@
-import subprocess
+import concurrent.futures
+import logging
 import re
+import subprocess
+
 import pandas as pd
 from rich.console import Console
 from rich.logging import RichHandler
-import logging
-import concurrent.futures
 
 # Set up rich logging
 console = Console()

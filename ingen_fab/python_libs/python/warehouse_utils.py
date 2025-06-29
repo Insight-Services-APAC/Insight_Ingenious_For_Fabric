@@ -4,7 +4,10 @@ from typing import Optional
 import notebookutils  # type: ignore # noqa: F401
 import pandas as pd
 import pyodbc
-from .sql_templates import SQLTemplates  # Assuming this is a custom module for SQL templates
+
+from .sql_templates import (
+    SQLTemplates,  # Assuming this is a custom module for SQL templates
+)
 
 
 class warehouse_utils:

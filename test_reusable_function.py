@@ -4,6 +4,7 @@ Test script to verify the refactored notebook creation functionality.
 """
 
 from pathlib import Path
+
 from ingen_fab.ddl_scripts.notebook_generator import NotebookGenerator
 
 

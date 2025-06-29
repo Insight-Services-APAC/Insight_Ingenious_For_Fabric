@@ -11,7 +11,7 @@ platform_folders:
   environment: development
 - name: 00_all_warehouses_config_notebook_ddl_scripts.Notebook
   path: sample_project/fabric_workspace_items/ddl_scripts/Warehouses/00_all_warehouses_config_notebook.Notebook
-  hash: 6c11325905bb8b3c9b7f2fcb7cba96c4afdc34fdf98ea3c3f3dfd1aa150a68d4
+  hash: 974575ac56d0f7a9d0b4b66b25e638d07f85c7b8168d714434b9bd5e4f1d1c87
   status: deployed
   environment: development
 - name: 0_orchestrator_Config_ddl_scripts.Notebook
@@ -72,7 +72,7 @@ platform_folders:
 - name: sm_extract_from_synapse.Notebook
   path: sample_project/fabric_workspace_items/extract/sm_extract_from_synapse.Notebook
   hash: 30e0351aa4bb813daaf256c9c51c96abb3c0cf3a13cbae843b245b9e1644ba60
-  status: deployed
+  status: new
   environment: development
 - name: extract_from_synapse.DataPipeline
   path: sample_project/fabric_workspace_items/extract/extract_from_synapse.DataPipeline

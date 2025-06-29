@@ -4,9 +4,8 @@ import hashlib
 import json
 import shutil
 from dataclasses import dataclass
-from datetime import datetime
 from pathlib import Path
-from typing import Iterable, List, Optional
+from typing import Optional
 
 import yaml
 from fabric_cicd import (
@@ -15,8 +14,8 @@ from fabric_cicd import (
     publish_all_items,
     unpublish_all_orphan_items,
 )
-from fabric_cicd.fabric_workspace import PublishLogEntry
 
+# from fabric_cicd.fabric_workspace import PublishLogEntry
 from ingen_fab.config_utils.variable_lib import VariableLibraryUtils
 
 
@@ -27,6 +26,9 @@ class promotion_utils:
         self,
         FabricWorkspace: FabricWorkspace
     ) -> None:
+        import logging
+        # Set the logging level to DEBUG
+        logging.basicConfig(level=logging.DEBUG)
         self.workspace_id = FabricWorkspace.workspace_id
         self.repository_directory = FabricWorkspace.repository_directory
         self.environment = FabricWorkspace.environment
@@ -278,7 +280,7 @@ class SyncToFabricEnvironment:
             if manifest_items_new_updated:
                 print(f"Found {len(manifest_items_new_updated)} folders to publish")
 
-                # add the name of items to publish to List[str]
+                # add the name of items to publish to list[str]
                 items_to_publish = [
                     f"{item.name}"
                     for item in manifest_items_new_updated
@@ -286,14 +288,14 @@ class SyncToFabricEnvironment:
 
                 print('Items to publish:', items_to_publish)
 
-                status_entries: list[PublishLogEntry]
+                # status_entries: list[PublishLogEntry]
+                status_entries = None
                 # After copying all folders, attempt to publish
                 print("\nPublishing items...")
                 try:
-                    pu = FabricWorkspace(
+                    fw = FabricWorkspace(
                         workspace_id=self.target_workspace_id,
                         repository_directory=str(self.project_path),
-                        items_to_include=items_to_publish,
                         item_type_in_scope=[
                             "VariableLibrary",
                             "DataPipeline",
@@ -313,23 +315,28 @@ class SyncToFabricEnvironment:
                         environment="development",
                     )
 
-                    status_entries: list[PublishLogEntry] = publish_all_items(pu)
+                    # status_entries: list[PublishLogEntry] = publish_all_items(pu)
+                    publish_all_items(fabric_workspace_obj=fw, items_to_include= items_to_publish)
                     
                     print("\nPublishing succeeded. Updating manifest...")
-
+                
                 except Exception as e:
                     # If failed, update status to "failed"
                     print(f"\nPublishing failed with error: {e}")
                 finally:
                     # Update status in manifest
                     for item in manifest_items:
-                        for entry in status_entries:
-                            print (f"Checking status for {entry.name}...")
-                            if f"{entry.name}.{entry.item_type}".lower() == item.name.lower():
-                                if entry.success:
-                                    item.status = "deployed"
-                                    print(f"Item {item.name} deployed successfully")
-                                break
+                        if status_entries is None:
+                            print("Warining no status entries found.")
+                            break
+                        else:
+                            for entry in status_entries:
+                                print (f"Checking status for {entry.name}...")
+                                if f"{entry.name}.{entry.item_type}".lower() == item.name.lower():
+                                    if entry.success:
+                                        item.status = "deployed"
+                                        print(f"Item {item.name} deployed successfully")
+                                    break
                     # Save updated manifest    
                     self.save_platform_manifest(
                         manifest_items, manifest_path, perform_hash_check=False

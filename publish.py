@@ -1,14 +1,13 @@
 from __future__ import annotations
 
 import hashlib
-import json
+import shutil
 from pathlib import Path
 
 import yaml
 
 from ingen_fab.config_utils.variable_lib import VariableLibraryUtils
 from ingen_fab.fabric_cicd.promotion_utils import promotion_utils
-import shutil
 
 project_path = "./sample_project"
 environment = "development"

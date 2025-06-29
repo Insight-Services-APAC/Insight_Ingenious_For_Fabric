@@ -1,0 +1,26 @@
+2025-06-28 13:07:00,615 - INFO - fabric_cicd._common._fabric_endpoint - Executing as Application Id '7ca469d6-2266-4611-a022-8af7505df6b8'
+2025-06-28 13:07:00,616 - INFO - fabric_cicd._common._validate_input - Relative directory path 'sample_project' resolved as '/Users/johnrampono/source/ingen_fab/sample_project'
+2025-06-28 13:07:00,624 - WARNING - fabric_cicd._parameter._parameter - Parameter file not found with path: /Users/johnrampono/source/ingen_fab/sample_project/parameter.yml
+2025-06-28 13:07:00,624 - WARNING - fabric_cicd._parameter._parameter - Validation terminated: not found
+2025-06-28 13:07:01,215 - INFO - fabric_cicd.fabric_workspace - Publishing Workspace Folders
+2025-06-28 13:07:01,215 - INFO - fabric_cicd.fabric_workspace - ->Published
+2025-06-28 13:07:02,457 - WARNING - fabric_cicd.publish - Using items_to_include is risky as it can prevent needed dependencies from being deployed.  Use at your own risk.
+2025-06-28 13:07:02,458 - INFO - fabric_cicd.fabric_workspace - Skipping publishing var_lib.VariableLibrary as it is not in the items to include list.
+2025-06-28 13:07:02,458 - INFO - fabric_cicd.fabric_workspace - Skipping publishing EDW.Warehouse as it is not in the items to include list.
+2025-06-28 13:07:02,458 - INFO - fabric_cicd.fabric_workspace - Skipping publishing config.Lakehouse as it is not in the items to include list.
+2025-06-28 13:07:02,458 - INFO - fabric_cicd._items._environment - Checking Environment Publish State for []
+2025-06-28 13:07:02,976 - INFO - fabric_cicd.fabric_workspace - Skipping publishing 00_all_warehouses_orchestrator_ddl_scripts.Notebook as it is not in the items to include list.
+2025-06-28 13:07:02,976 - INFO - fabric_cicd.fabric_workspace - Skipping publishing 0_orchestrator_Config_ddl_scripts.Notebook as it is not in the items to include list.
+2025-06-28 13:07:02,976 - INFO - fabric_cicd.fabric_workspace - Skipping publishing 001_Initial_Creation_Config_Warehouses_ddl_scripts.Notebook as it is not in the items to include list.
+2025-06-28 13:07:02,976 - INFO - fabric_cicd.fabric_workspace - Skipping publishing 002_Parquet_Load_Update_Config_Warehouses_ddl_scripts.Notebook as it is not in the items to include list.
+2025-06-28 13:07:02,976 - INFO - fabric_cicd.fabric_workspace - Skipping publishing 00_all_warehouses_config_notebook_ddl_scripts.Notebook as it is not in the items to include list.
+2025-06-28 13:07:02,977 - INFO - fabric_cicd.fabric_workspace - Skipping publishing 00_all_lakehouses_orchestrator_ddl_scripts.Notebook as it is not in the items to include list.
+2025-06-28 13:07:02,977 - INFO - fabric_cicd.fabric_workspace - Skipping publishing 001_Initial_Creation_Config_Lakehouses_ddl_scripts.Notebook as it is not in the items to include list.
+2025-06-28 13:07:02,977 - INFO - fabric_cicd.fabric_workspace - Skipping publishing load_to_lakehouse_tables.Notebook as it is not in the items to include list.
+2025-06-28 13:07:02,977 - INFO - fabric_cicd.fabric_workspace - Skipping publishing jw_extract_from_synapse.Notebook as it is not in the items to include list.
+2025-06-28 13:07:02,977 - INFO - fabric_cicd.fabric_workspace - Skipping publishing extract_from_synapse.Notebook as it is not in the items to include list.
+2025-06-28 13:07:02,978 - INFO - fabric_cicd.fabric_workspace - Publishing sm_extract_from_synapse.Notebook as it is in the items to include list.
+2025-06-28 13:07:02,990 - INFO - fabric_cicd.fabric_workspace - Publishing Notebook 'sm_extract_from_synapse'
+2025-06-28 13:07:06,761 - INFO - fabric_cicd.fabric_workspace - ->Published
+2025-06-28 13:07:07,937 - INFO - fabric_cicd._items._environment - Checking Environment Publish State for []
+2025-06-28 13:07:08,473 - INFO - fabric_cicd._items._environment - ->Published.

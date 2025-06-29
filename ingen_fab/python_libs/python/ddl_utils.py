@@ -1,10 +1,9 @@
 # { "depends_on": "warehouse_utils" }
 
-from datetime import datetime
-from typing import Callable, Optional
-import inspect
 import hashlib
-from dataclasses import dataclass, asdict
+import inspect
+from datetime import datetime
+
 import notebookutils  # type: ignore # noqa: F401
 
 from .warehouse_utils import warehouse_utils

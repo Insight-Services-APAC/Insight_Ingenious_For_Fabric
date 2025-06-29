@@ -1,20 +1,15 @@
-from delta.tables import DeltaTable
-from pyspark.sql.types import (
-    StructType,
-    StructField,
-    StringType,
-    BooleanType,
-    TimestampType,
-    IntegerType,
-    LongType,
-)
+import hashlib
+import inspect
 from datetime import datetime
-from pyspark.sql import SparkSession  # type: ignore # noqa: F401
-from pyspark.sql.types import StructType  # type: ignore # noqa: F401
-from typing import List, Callable, Optional
-import inspect, hashlib
-from dataclasses import dataclass, asdict
+
 from notebookutils import mssparkutils  # type: ignore # noqa: F401
+from pyspark.sql import SparkSession  # type: ignore # noqa: F401
+from pyspark.sql.types import (
+    StringType,
+    StructField,
+    StructType,
+    TimestampType,
+)
 
 
 class ddl_utils:

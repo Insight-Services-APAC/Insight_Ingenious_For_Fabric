@@ -1,6 +1,5 @@
 import html
 import re
-import sys
 import time
 from pathlib import Path
 
@@ -13,14 +12,14 @@ from typing_extensions import Annotated
 
 from ingen_fab.config_utils.variable_lib import VariableLibraryUtils
 from ingen_fab.ddl_scripts.notebook_generator import NotebookGenerator
+from ingen_fab.fabric_api.utils import FabricApiUtils
 from ingen_fab.fabric_cicd.promotion_utils import SyncToFabricEnvironment
 from ingen_fab.notebook_utils.fabric_cli_notebook import (
     FabricCLINotebook,
     FabricLivyNotebook,
 )
-from ingen_fab.notebook_utils.notebook_block_injector import NotebookContentFinder
-from ingen_fab.fabric_api.utils import FabricApiUtils
 from ingen_fab.notebook_utils.fabric_code_tester import FabricCodeTester
+from ingen_fab.notebook_utils.notebook_block_injector import NotebookContentFinder
 
 app = typer.Typer(no_args_is_help=True, pretty_exceptions_show_locals=False)
 
@@ -35,7 +34,7 @@ def main(
             "-fwd",
             help="Directory containing fabric workspace repository files",
         ),
-    ] = Path("./sample_project/fabric_workspace_items"),
+    ] = Path("./sample_project"),
     fabric_environment: Annotated[
         Path | None,
         typer.Option(
