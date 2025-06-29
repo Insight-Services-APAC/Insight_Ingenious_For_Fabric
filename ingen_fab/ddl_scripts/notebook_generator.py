@@ -1,23 +1,21 @@
 import hashlib
 import time
-import ast
-import re
+import uuid
+from enum import Enum
 from pathlib import Path
+
 from jinja2 import Environment, FileSystemLoader
 from rich.console import Console
+from rich.panel import Panel
 from rich.progress import (
+    BarColumn,
     Progress,
     SpinnerColumn,
-    TextColumn,
-    BarColumn,
     TaskProgressColumn,
+    TextColumn,
     TimeRemainingColumn,
 )
 from rich.table import Table
-from rich.panel import Panel
-from enum import Enum
-import uuid
-from typing import List, Set
 
 from ingen_fab.python_libs.gather_python_libs import GatherPythonLibs
 

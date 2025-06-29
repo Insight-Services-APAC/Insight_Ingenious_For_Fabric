@@ -1,5 +1,5 @@
-import json
 from unittest import mock
+
 from ingen_fab.notebook_utils.simple_notebook import SimpleFabricNotebook
 
 

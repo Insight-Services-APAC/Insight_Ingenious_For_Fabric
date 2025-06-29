@@ -1,5 +1,5 @@
-import subprocess
 import json
+import subprocess
 
 # === CONFIGURATION ===
 app_name = "fabric-sp-app"

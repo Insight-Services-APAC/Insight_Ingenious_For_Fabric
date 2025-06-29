@@ -1,13 +1,15 @@
-from datetime import datetime
 import pathlib
 import sys
-from unittest import mock
-import pytest
 import unittest
+from datetime import datetime
+from unittest import mock
+
+import pytest
 
 sys.path.insert(0, str(pathlib.Path(__file__).resolve().parents[1]))
 
 from ingen_fab.python_libs.python import config_utils  # Move import to the top
+
 
 def sample_config_dict():
     return {

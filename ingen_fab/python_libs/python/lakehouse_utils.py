@@ -1,4 +1,3 @@
-import notebookutils  # type: ignore # noqa: F401\
 import logging
 
 # Configure logging

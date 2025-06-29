@@ -2,11 +2,12 @@ import os
 import re
 import shutil
 from pathlib import Path
-from typing import List, Dict, Any
+from typing import Any, Dict, List
+
 from rich.console import Console
-from rich.table import Table
 from rich.panel import Panel
 from rich.syntax import Syntax
+from rich.table import Table
 
 
 class NotebookContentFinder:

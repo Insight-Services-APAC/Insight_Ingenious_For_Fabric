@@ -1,6 +1,7 @@
-from azure.identity import DefaultAzureCredential
-import requests
 import json
+
+import requests
+from azure.identity import DefaultAzureCredential
 
 
 class FabricCodeTester:

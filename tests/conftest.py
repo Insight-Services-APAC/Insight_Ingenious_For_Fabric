@@ -1,7 +1,6 @@
 import sys
 import types
 
-
 # Minimal notebookutils substitute
 notebookutils = types.ModuleType("notebookutils")
 

@@ -3,6 +3,7 @@ Script to populate Fabric Configurations in config.jinja template from variable 
 """
 
 from __future__ import annotations
+
 import json
 import re
 from pathlib import Path

@@ -1,0 +1,21 @@
+{
+  "name": "Bitnami Spark Dev Container",
+  "build": {
+    "dockerfile": "spark.dockerfile",
+    "context": "."
+  },
+  "customizations": {
+    "vscode": {
+      "settings": {
+        "terminal.integrated.shell.linux": "/bin/bash"
+      },
+      "extensions": [
+        "ms-python.python",
+        "ms-python.vscode-pylance",
+        "ms-python.debugpy",
+        "charliermarsh.ruff"
+      ]
+  }
+},
+"remoteUser": "root"
+}

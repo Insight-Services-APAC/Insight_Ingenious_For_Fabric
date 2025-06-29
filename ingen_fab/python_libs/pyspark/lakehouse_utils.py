@@ -1,20 +1,8 @@
+
+from __future__ import annotations
+
 from delta.tables import DeltaTable
-from pyspark.sql.types import (
-    StructType,
-    StructField,
-    StringType,
-    BooleanType,
-    TimestampType,
-    IntegerType,
-    LongType,
-)
-from datetime import datetime
 from pyspark.sql import SparkSession
-from pyspark.sql.types import StructType
-from typing import List, Callable, Optional
-import inspect, hashlib
-from dataclasses import dataclass, asdict
-from notebookutils import mssparkutils
 
 
 class lakehouse_utils:
@@ -23,31 +11,49 @@ class lakehouse_utils:
     def __init__(self, target_workspace_id: str, target_lakehouse_id: str) -> None:
         self.target_workspace_id = target_workspace_id
         self.target_lakehouse_id = target_lakehouse_id
+        self.spark = self._get_or_create_spark_session()
 
-    @staticmethod
-    def check_if_table_exists(table_path):
+    def _get_or_create_spark_session(self) -> SparkSession:
+        """Get existing Spark session or create a new one."""
+        try:
+            # Try to get existing Spark session
+            return SparkSession.getActiveSession() or SparkSession.builder.getOrCreate()
+        except Exception:
+            import delta
+            # Create new Spark session if none exists
+            spark = SparkSession.builder \
+                .config("spark.sql.extensions", "io.delta.sql.DeltaSparkSessionExtension") \
+                .config("spark.sql.catalog.spark_catalog", "org.apache.spark.sql.delta.catalog.DeltaCatalog")
+
+            return spark.getOrCreate()
+
+    def check_if_table_exists(self, table_path: str) -> bool:
+        """Check if a Delta table exists at the given path."""
         table_exists = False
         try:
-            if DeltaTable.isDeltaTable(spark, table_path):
+            if DeltaTable.isDeltaTable(self.spark, table_path):  
                 table_exists = True
                 # print(f"Delta table already exists at path: {table_path}, skipping creation.")
-        except Exception as e:
+        except Exception:
             # If the path does not exist or is inaccessible, isDeltaTable returns False or may throw.
             # Treat exceptions as "table does not exist".
             # print(f"Could not verify Delta table existence at {table_path} (exception: {e}); assuming it does not exist.")
             table_exists = False
         return table_exists
 
-    def lakehouse_tables_uri(self):
+    def lakehouse_tables_uri(self) -> str:
+        """Get the ABFSS URI for the lakehouse Tables directory."""
         return f"abfss://{self.target_workspace_id}@onelake.dfs.fabric.microsoft.com/{self.target_lakehouse_id}/Tables/"
 
     def write_to_lakehouse_table(
+        self,
         df,
         table_name: str,
         format: str = "delta",
         mode: str = "overwrite",
-        options: dict = None,
-    ):
+        options: dict | None = None,
+    ) -> None:
+        """Write a DataFrame to a lakehouse table."""
         writer = df.write.format(format).mode(mode)
 
         if options:
@@ -56,7 +62,8 @@ class lakehouse_utils:
 
         writer.save(f"{self.lakehouse_tables_uri()}{table_name}")
 
-    def drop_all_tables(self):
+    def drop_all_tables(self) -> None:
+        """Drop all Delta tables in the lakehouse."""
         # Base ABFSS endpoint and the ‘Tables’ root
         lakehouse_root = (
             f"abfss://{self.target_workspace_id}"
@@ -67,7 +74,7 @@ class lakehouse_utils:
 
         # 2. START spark and get Hadoop FS handle
         # ──────────────────────────────────────────────────────────────────────────────
-        spark = SparkSession.builder.getOrCreate()
+        spark = self.spark
 
         # Access Hadoop’s FileSystem via the JVM gateway
         hadoop_conf = spark._jsc.hadoopConfiguration()

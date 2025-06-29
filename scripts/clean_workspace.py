@@ -3,10 +3,10 @@
 Clean a Fabric workspace by deleting all objects except lakehouses and warehouses.
 """
 import argparse
-import subprocess
 import json
+import subprocess
 import sys
-from typing import List, Dict, Any
+from typing import Any, Dict, List
 
 
 def run_fabric_command(cmd: List[str]) -> tuple[bool, str]:

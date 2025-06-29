@@ -1,4 +1,5 @@
 from typing import Optional
+
 import requests
 from azure.identity import DefaultAzureCredential
 

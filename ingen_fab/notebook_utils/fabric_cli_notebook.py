@@ -1,14 +1,12 @@
-import re
 import subprocess
-from pathlib import Path
-from typing import Optional
+import time
 import uuid
+from pathlib import Path
+from typing import Any, Dict, Optional
+
 import jinja2
 import requests
-import json
-import time
 from azure.identity import DefaultAzureCredential
-from typing import Dict, Any
 
 
 class FabricCLINotebook:
