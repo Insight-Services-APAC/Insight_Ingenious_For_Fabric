@@ -1,1 +1,1 @@
-INSERT INTO {{ schema_name }}.{{ table_name }} VALUES ({{ row_values }})
+INSERT INTO {{ schema_name | required }}.{{ table_name | required }} VALUES ({{ row_values | required }})

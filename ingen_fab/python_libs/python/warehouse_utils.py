@@ -1,14 +1,19 @@
 import logging
+import os
 from typing import Optional
 
 import notebookutils  # type: ignore # noqa: F401
 import pandas as pd
-import pyodbc
+import pyodbc  # type: ignore # noqa: F401
+from sqlparse import format
+
+from ingen_fab.fabric_api.utils import FabricApiUtils
 
 from .sql_templates import (
     SQLTemplates,  # Assuming this is a custom module for SQL templates
 )
 
+logger = logging.getLogger(__name__)
 
 class warehouse_utils:
     """Utilities for interacting with Fabric or local SQL Server warehouses."""
@@ -21,40 +26,66 @@ class warehouse_utils:
         dialect: str = "fabric",
         connection_string: Optional[str] = None,
     ):
-        self.target_workspace_id = target_workspace_id
-        self.target_warehouse_id = target_warehouse_id
+        self._target_workspace_id = target_workspace_id
+        self._target_warehouse_id = target_warehouse_id
         self.dialect = dialect
         self.connection_string = connection_string
         self.sql = SQLTemplates(dialect)
+
+    @property
+    def target_workspace_id(self) -> str:
+        """Get the target workspace ID."""
+        if self._target_workspace_id is None:
+            raise ValueError("target_workspace_id is not set")
+        return self._target_workspace_id
+
+    @property
+    def target_store_id(self) -> str:
+        """Get the target warehouse ID."""
+        if self._target_warehouse_id is None:
+            raise ValueError("target_warehouse_id is not set")
+        return self._target_warehouse_id
 
     def get_connection(self):
         """Return a connection object depending on the configured dialect."""
         try:
             if self.dialect == "fabric":
-                print("Connection to Fabric Warehouse")
+                logger.debug("Connection to Fabric Warehouse")
                 conn = notebookutils.data.connect_to_artifact(
                     self.target_warehouse_id, self.target_workspace_id
                 )
-                print(conn)
+                logger.debug(f"Connection established: {conn}")
                 return conn
             else:
+                logger.debug("Connection to SQL Server Warehouse")
                 return pyodbc.connect(self.connection_string)  # type: ignore
         except Exception as e:
-            logging.error(f"Failed to connect to warehouse: {e}")
+            logger.error(f"Failed to connect to warehouse: {e}")
             raise
-
+    
+    def _connect_to_local_sql_server():
+        try:            
+            password = os.getenv('SQL_SERVER_PASSWORD', 'default_password')
+            connection_string = "DRIVER={ODBC Driver 18 for SQL Server};SERVER=localhost,1433;UID=sa;" + f"PWD={password};TrustServerCertificate=yes;"
+            conn = pyodbc.connect(connection_string)
+            logger.debug("Connected to local SQL Server instance.")
+            return conn
+        except Exception as e:
+            logger.error(f"Error connecting to local SQL Server instance: {e}")
+            return None
+    
     def execute_query(self, conn, query: str):
         """Execute a query and return results as a DataFrame when possible."""
-        print(conn)
+        logger.debug(conn)
         try:
             logging.info(f"Executing query: {query}")
-            if self.dialect == "fabric":
-                print(query)
+            if self.dialect == "fabric":               
                 result = conn.query(query)
-                logging.info("Query executed successfully.")
+                logging.debug("Query executed successfully.")
                 return result
             else:
                 cursor = conn.cursor()
+                logger.debug(f"Executing query: {query}")
                 cursor.execute(query)
                 if cursor.description:
                     rows = cursor.fetchall()
@@ -63,28 +94,30 @@ class warehouse_utils:
                 else:
                     conn.commit()
                     df = None
-                logging.info("Query executed successfully.")
+                logging.debug("Query executed successfully.")
             return df
         except Exception as e:
+            
+            #pretty print query 
+            formatted_query = format(query, reindent=True, keyword_case='upper')
+            logger.info(f"Executing query:\n{formatted_query}")
             logging.error(f"Error executing query: {query}. Error: {e}")
+            
             raise
 
     def create_schema_if_not_exists(self, schema_name: str):
         """Create a schema if it does not already exist."""
         try:
             conn = self.get_connection()
-            schema_check_sql = """
-            SELECT 1 FROM INFORMATION_SCHEMA.SCHEMATA
-            WHERE SCHEMA_NAME = '{{ schema_name }}'
-            """
-            schema_result = self.execute_query(conn, schema_check_sql)
-            schema_exists = len(schema_result) > 0 if schema_result is not None else False
+            query = self.sql.render("check_schema_exists", schema_name=schema_name)
+            result = self.execute_query(conn, query)
+            schema_exists = len(result) > 0 if result is not None else False
 
             # Create schema if it doesn't exist
             if not schema_exists:
                 create_schema_sql = f"CREATE SCHEMA {schema_name};"
                 self.execute_query(conn, create_schema_sql)
-                print(f"Created schema '{schema_name}'.")
+                logging.info(f"Created schema '{schema_name}'.")
             
             logging.info(f"Schema {schema_name} created or already exists.")
         except Exception as e:
@@ -102,6 +135,18 @@ class warehouse_utils:
             logging.error(f"Error checking if table {table_name} exists: {e}")
             return False
         
+    def write_to_table(
+        self,
+        df,
+        table_name: str,
+        schema_name: str = "dbo",
+        mode: str = "overwrite",
+        options: dict[str, str] | None = None
+    ) -> None:
+        """Write a DataFrame to a warehouse table."""
+        # Call the existing method for backward compatibility
+        self.write_to_warehouse_table(df, table_name, schema_name, mode, options or {})
+
     def write_to_warehouse_table(
         self,
         df,
@@ -204,7 +249,7 @@ class warehouse_utils:
             logging.error(f"Error writing to table {table_name} with mode {mode}: {e}")
             raise
 
-    def drop_all_tables(self, table_prefix=None):
+    def drop_all_tables(self, schema_name: str | None = None, table_prefix: str | None = None) -> None:
         try:
             conn = self.get_connection()
             query = self.sql.render("list_tables", prefix=table_prefix)
@@ -213,7 +258,7 @@ class warehouse_utils:
             # You can use .itertuples() for efficient row access
             for row in tables.itertuples(index=False):
                 # Adjust attribute names to match DataFrame columns
-                schema_name = getattr(row, 'table_schema', None) or getattr(row, 'SCHEMA_NAME', None)
+                schema_name = getattr(row, 'table_schema', None) or getattr(row, 'TABLE_SCHEMA', None)
                 table_name = getattr(row, 'table_name', None) or getattr(row, 'TABLE_NAME', None)
 
                 if not schema_name or not table_name:

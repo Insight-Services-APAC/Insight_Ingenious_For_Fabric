@@ -13,6 +13,7 @@ class ddl_utils:
     """Run DDL scripts once and track execution in a warehouse table."""
 
     def __init__(self, target_workspace_id: str, target_warehouse_id: str) -> None:
+        super().__init__()
         self.target_workspace_id = target_workspace_id
         self.target_warehouse_id = target_warehouse_id
         self.execution_log_table_schema = "log"

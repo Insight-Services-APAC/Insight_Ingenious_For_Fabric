@@ -7,6 +7,7 @@ in a typical Microsoft Fabric environment.
 
 from __future__ import annotations
 
+import traceback
 from datetime import datetime
 
 from pyspark.sql.types import (
@@ -31,6 +32,8 @@ def example_usage():
     lakehouse_id = "your-lakehouse-id-here"  # Replace with actual lakehouse ID
     
     utils = lakehouse_utils(workspace_id, lakehouse_id)
+    print(f"✅ {utils.spark_version} Spark session initialized.")
+    print(utils.spark)
     print(f"✅ Initialized for workspace: {workspace_id}")
     print(f"✅ Target lakehouse: {lakehouse_id}")
     
@@ -48,16 +51,16 @@ def example_usage():
         StructField("product_name", StringType(), True),
         StructField("customer_name", StringType(), True),
         StructField("amount", IntegerType(), True),
-        StructField("sale_date", TimestampType(), True)
+        StructField("sale_date", StringType(), True)
     ])
     
     # Sample data
     sales_data = [
-        (1, "Laptop", "John Doe", 1200, datetime(2024, 6, 1, 10, 0)),
-        (2, "Mouse", "Jane Smith", 25, datetime(2024, 6, 2, 14, 30)),
-        (3, "Keyboard", "Bob Johnson", 75, datetime(2024, 6, 3, 9, 15)),
-        (4, "Monitor", "Alice Brown", 300, datetime(2024, 6, 4, 16, 45)),
-        (5, "Headphones", "Carol Wilson", 150, datetime(2024, 6, 5, 11, 20))
+        (1, "Laptop", "John Doe", 1200, "2024-06-01 10:00:00"),
+        (2, "Mouse", "Jane Smith", 25, "2024-06-02 14:30:00"),
+        (3, "Keyboard", "Bob Johnson", 75, "2024-06-03 09:15:00"),
+        (4, "Monitor", "Alice Brown", 300, "2024-06-04 16:45:00"),
+        (5, "Headphones", "Carol Wilson", 150, "2024-06-05 11:20:00"),
     ]
     
     # Create DataFrame
@@ -81,8 +84,13 @@ def example_usage():
     print("   This will create/overwrite the table in your lakehouse.")
     
     # Uncomment the following line in a real Fabric environment:
-    utils.write_to_lakehouse_table(sales_df, table_name)
-    
+    utils.write_to_table(sales_df, table_name)
+
+    if utils.check_if_table_exists(table_name):
+        print("✅ Table exists after write.")
+    else:
+        print("❌ Table does not exist after write.")
+
     # Step 6: Write with custom options (example)
     print("\n⚙️  Step 6: Write with custom options (example)")
     custom_options = {
@@ -93,12 +101,11 @@ def example_usage():
     for key, value in custom_options.items():
         print(f"   {key}: {value}")
     
-    print("⚠️  In a real environment:")
-    print(f"   utils.write_to_lakehouse_table(sales_df, '{table_name}', options=custom_options)")
-    
     # Uncomment in real environment:
-    utils.write_to_lakehouse_table(sales_df, table_name, options=custom_options)
-    
+    utils.write_to_table(sales_df, table_name, options=custom_options)
+
+    print("✅ Custom options applied.")
+
     # Step 7: Append mode example
     print("\n➕ Step 7: Append mode example")
     additional_data = [
@@ -107,28 +114,23 @@ def example_usage():
     additional_df = utils.spark.createDataFrame(additional_data, sales_schema)
     print(f"✅ Created additional DataFrame with {additional_df.count()} rows")
     
-    print("⚠️  To append data:")
-    print(f"   utils.write_to_lakehouse_table(additional_df, '{table_name}', mode='append')")
-    
     # Uncomment in real environment:
-    # utils.write_to_lakehouse_table(additional_df, table_name, mode="append")
-    
+    utils.write_to_table(additional_df, table_name, mode="append")
+
+    if utils.check_if_table_exists(table_name):
+        print("✅ Append succeeded")
+    else:
+        print("❌ Table does not exist after append.")
+
     # Step 8: Read data back (example)
     print("\n📖 Step 8: Read data back (example)")
-    print("⚠️  To read the data back:")
-    print(f"   df = spark.read.format('delta').load('{table_path}')")
-    print("   df.show()")
-    
-    # In real environment:
-    # read_df = utils.spark.read.format("delta").load(table_path)
-    # read_df.show()
+    read_df = utils.spark.read.format("delta").load(table_path)
+    read_df.show()
+    print(utils.list_tables())
     
     print("\n" + "=" * 50)
     print("✅ Example completed!")
-    print("\nTo use in a real Fabric environment:")
-    print("1. Replace workspace_id and lakehouse_id with actual values")
-    print("2. Uncomment the write operations")
-    print("3. Run in a Fabric notebook with Delta Lake configured")
+
 
 
 def advanced_example():
@@ -137,66 +139,138 @@ def advanced_example():
     print("=" * 50)
     
     print("\n1. 📝 Multiple table management:")
-    print("""
+    
     # Initialize once, use for multiple tables
     utils = lakehouse_utils("workspace-id", "lakehouse-id")
     
     # Write different tables
-    utils.write_to_lakehouse_table(customers_df, "customers")
-    utils.write_to_lakehouse_table(orders_df, "orders") 
-    utils.write_to_lakehouse_table(products_df, "products")
-    """)
+    # Create sample DataFrames for customers, orders, and products
+
+    # Customers DataFrame
+    customers_schema = StructType([
+        StructField("customer_id", IntegerType(), True),
+        StructField("customer_name", StringType(), True),
+        StructField("email", StringType(), True),
+        StructField("signup_date", TimestampType(), True)
+    ])
+    customers_data = [
+        (1, "John Doe", "john.doe@example.com", datetime(2023, 1, 15, 10, 0)),
+        (2, "Jane Smith", "jane.smith@example.com", datetime(2023, 2, 20, 14, 30)),
+        (3, "Alice Brown", "alice.brown@example.com", datetime(2023, 3, 25, 9, 15))
+    ]
+    customers_df = utils.spark.createDataFrame(customers_data, customers_schema)
+
+    # Orders DataFrame
+    orders_schema = StructType([
+        StructField("order_id", IntegerType(), True),
+        StructField("customer_id", IntegerType(), True),
+        StructField("order_date", TimestampType(), True),
+        StructField("total_amount", IntegerType(), True)
+    ])
+    orders_data = [
+        (101, 1, datetime(2023, 4, 10, 11, 0), 1200),
+        (102, 2, datetime(2023, 4, 15, 16, 45), 300),
+        (103, 3, datetime(2023, 4, 20, 13, 20), 450)
+    ]
+    orders_df = utils.spark.createDataFrame(orders_data, orders_schema)
+
+    # Products DataFrame
+    products_schema = StructType([
+        StructField("product_id", IntegerType(), True),
+        StructField("product_name", StringType(), True),
+        StructField("category", StringType(), True),
+        StructField("price", IntegerType(), True)
+    ])
+    products_data = [
+        (1, "Laptop", "Electronics", 1200),
+        (2, "Mouse", "Accessories", 25),
+        (3, "Keyboard", "Accessories", 75)
+    ]
+    products_df = utils.spark.createDataFrame(products_data, products_schema)
+
+    # Write the DataFrames to lakehouse tables
+    utils.write_to_table(customers_df, "customers")
+    utils.write_to_table(orders_df, "orders")
+    utils.write_to_table(products_df, "products")
+    
     
     print("\n2. 🔄 Different write modes:")
-    print("""
+    
     # Overwrite (default)
-    utils.write_to_lakehouse_table(df, "table_name", mode="overwrite")
-    
+    sp_df = utils.execute_query("SELECT COUNT(*) FROM customers")
+    row_count_pre = sp_df.collect()[0][0]    
+    utils.write_to_table(customers_df, "customers", mode="overwrite")
+    sp_df = utils.execute_query("SELECT COUNT(*) FROM customers")
+    row_count_post = sp_df.collect()[0][0]
+    if row_count_post != row_count_pre:
+        print(f"❌ Overwrite test failed. Expected: {row_count_pre}, Got: {row_count_post}")
+    else:
+        print("✅ Overwrite test passed.")
+
     # Append new data
-    utils.write_to_lakehouse_table(df, "table_name", mode="append")
-    
+    sp_df = utils.execute_query("SELECT COUNT(*) FROM customers")
+    row_count_pre = sp_df.collect()[0][0]
+    utils.write_to_table(customers_df, "customers", mode="append")
+    sp_df = utils.execute_query("SELECT COUNT(*) FROM customers")
+    row_count_post = sp_df.collect()[0][0]
+    if row_count_post != row_count_pre + 3:
+        print(f"❌ Append test failed. Expected: {row_count_pre + 3}, Got: {row_count_post}")
+    else:
+        print("✅ Append test passed.")
     # Error if exists
-    utils.write_to_lakehouse_table(df, "table_name", mode="error")
-    """)
+    error_occured = False
+    try:
+        utils.write_to_table(customers_df, "customers", mode="error")
+    except Exception:
+        error_occured = True
     
+    if not error_occured:
+        print("❌ Error test failed.")
+    else:
+        print("✅ Error test passed.")
+
+
     print("\n3. ⚙️  Custom write options:")
-    print("""
+    
+
     options = {
         "mergeSchema": "true",           # Merge schemas when writing
         "overwriteSchema": "true",       # Allow schema evolution
         "maxRecordsPerFile": "10000",    # Control file sizes
         "replaceWhere": "date >= '2024-01-01'"  # Conditional overwrite
     }
-    utils.write_to_lakehouse_table(df, "table_name", options=options)
-    """)
+    utils.write_to_table(customers_df, "customers", options=options)
+    
     
     print("\n4. 🔍 Table existence checking:")
-    print("""
-    table_path = utils.lakehouse_tables_uri() + "my_table"
+    
+    table_path = utils.lakehouse_tables_uri() + "customers"
     if not utils.check_if_table_exists(table_path):
         # Create table
-        utils.write_to_lakehouse_table(df, "my_table")
+        utils.write_to_table(customers_df, "customers")
     else:
         # Append to existing table
-        utils.write_to_lakehouse_table(df, "my_table", mode="append")
-    """)
+        utils.write_to_table(customers_df, "customers", mode="append")
+    
+    
     
     print("\n5. ⚠️  Cleanup operations:")
-    print("""
+    
     # WARNING: This drops ALL tables in the lakehouse!
     # Only use in test environments
     utils.drop_all_tables()
-    """)
+    
 
 
 def main():
     """Main function to run examples."""
     try:
         example_usage()
-        advanced_example()
+        # advanced_example()
         
     except Exception as e:
         print(f"\n❌ Example failed: {e}")
+        traceback.print_exc()
         print("\nNote: Some operations require a real Fabric environment with Delta Lake configured.")
 
 
