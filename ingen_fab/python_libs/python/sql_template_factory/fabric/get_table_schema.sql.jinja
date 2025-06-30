@@ -1,0 +1,5 @@
+SELECT COLUMN_NAME, DATA_TYPE
+FROM INFORMATION_SCHEMA.COLUMNS
+WHERE TABLE_SCHEMA = '{{ schema_name | required }}'
+  AND TABLE_NAME = '{{ table_name | required }}'
+;

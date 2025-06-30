@@ -104,3 +104,175 @@ class DataStoreInterface(ABC):
             Query result (type varies by implementation)
         """
         pass
+
+    @abstractmethod
+    def get_table_schema(self, table_name: str, schema_name: str | None = None) -> dict[str, Any]:
+        """
+        Get the schema/column definitions for a table.
+
+        Args:
+            table_name: Name of the table
+            schema_name: Schema name (optional)
+
+        Returns:
+            Dictionary describing the table schema
+        """
+        pass
+
+    @abstractmethod
+    def read_table(
+        self,
+        table_name: str,
+        schema_name: str | None = None,
+        columns: list[str] | None = None,
+        limit: int | None = None,
+        filters: dict[str, Any] | None = None,
+    ) -> Any:
+        """
+        Read data from a table, optionally filtering columns, rows, or limiting results.
+
+        Args:
+            table_name: Name of the table
+            schema_name: Schema name (optional)
+            columns: List of columns to select (optional)
+            limit: Maximum number of rows to return (optional)
+            filters: Dictionary of filters to apply (optional)
+
+        Returns:
+            DataFrame or result set (type varies by implementation)
+        """
+        pass
+
+    @abstractmethod
+    def delete_from_table(
+        self,
+        table_name: str,
+        schema_name: str | None = None,
+        filters: dict[str, Any] | None = None,
+    ) -> int:
+        """
+        Delete rows from a table matching filters.
+
+        Args:
+            table_name: Name of the table
+            schema_name: Schema name (optional)
+            filters: Dictionary of filters to apply (optional)
+
+        Returns:
+            Number of rows deleted
+        """
+        pass
+
+    @abstractmethod
+    def rename_table(
+        self,
+        old_table_name: str,
+        new_table_name: str,
+        schema_name: str | None = None,
+    ) -> None:
+        """
+        Rename a table.
+
+        Args:
+            old_table_name: Current table name
+            new_table_name: New table name
+            schema_name: Schema name (optional)
+        """
+        pass
+
+    @abstractmethod
+    def create_table(
+        self,
+        table_name: str,
+        schema_name: str | None = None,
+        schema: dict[str, Any] | None = None,
+        options: dict[str, Any] | None = None,
+    ) -> None:
+        """
+        Create a new table with a given schema.
+
+        Args:
+            table_name: Name of the new table
+            schema_name: Schema name (optional)
+            schema: Dictionary describing the table schema (optional)
+            options: Additional options for table creation (optional)
+        """
+        pass
+
+    @abstractmethod
+    def drop_table(
+        self,
+        table_name: str,
+        schema_name: str | None = None,
+    ) -> None:
+        """
+        Drop a single table.
+
+        Args:
+            table_name: Name of the table to drop
+            schema_name: Schema name (optional)
+        """
+        pass
+
+    @abstractmethod
+    def list_schemas(self) -> list[str]:
+        """
+        List all schemas/namespaces in the data store.
+
+        Returns:
+            List of schema names
+        """
+        pass
+
+    @abstractmethod
+    def get_table_row_count(
+        self,
+        table_name: str,
+        schema_name: str | None = None,
+    ) -> int:
+        """
+        Get the number of rows in a table.
+
+        Args:
+            table_name: Name of the table
+            schema_name: Schema name (optional)
+
+        Returns:
+            Number of rows in the table
+        """
+        pass
+
+    @abstractmethod
+    def get_table_metadata(
+        self,
+        table_name: str,
+        schema_name: str | None = None,
+    ) -> dict[str, Any]:
+        """
+        Get metadata for a table (creation time, size, etc.).
+
+        Args:
+            table_name: Name of the table
+            schema_name: Schema name (optional)
+
+        Returns:
+            Dictionary of table metadata
+        """
+        pass
+
+    @abstractmethod
+    def vacuum_table(
+        self,
+        table_name: str,
+        schema_name: str | None = None,
+        retention_hours: int = 168,
+    ) -> None:
+        """
+        Perform cleanup/compaction on a table (for systems like Delta Lake).
+
+        Args:
+            table_name: Name of the table
+            schema_name: Schema name (optional)
+            retention_hours: Retention period in hours (default: 168)
+        """
+        pass
