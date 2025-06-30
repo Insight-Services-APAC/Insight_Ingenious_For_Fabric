@@ -9,3 +9,5 @@ temp-publish
 fabric_cicd.error.log
 /temp
 /tmp
+/.ruff_cache
+/.pytest_cache
