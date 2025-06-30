@@ -13,7 +13,8 @@
         "ms-python.python",
         "ms-python.vscode-pylance",
         "ms-python.debugpy",
-        "charliermarsh.ruff"
+        "charliermarsh.ruff",
+        "ms-python.vscode-python-envs"
       ]
   }
 },

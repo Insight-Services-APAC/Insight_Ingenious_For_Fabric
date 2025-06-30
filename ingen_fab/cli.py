@@ -1,5 +1,7 @@
 import html
+import os
 import re
+import sys
 import time
 from pathlib import Path
 
@@ -9,6 +11,8 @@ from rich.panel import Panel
 from rich.table import Table
 from rich.theme import Theme
 from typing_extensions import Annotated
+
+sys.path.insert(0, str(Path.cwd()))
 
 from ingen_fab.config_utils.variable_lib import VariableLibraryUtils
 from ingen_fab.ddl_scripts.notebook_generator import NotebookGenerator
@@ -45,6 +49,10 @@ def main(
     ] = Path("development"),
 ):
     """Load project configuration and store in context."""
+    # Try to get the fabric environment and workspace repo directory from the environment variables and override if provided
+    os.environ.get("FABRIC_WORKSPACE_REPO_DIR", fabric_workspace_repo_dir)
+    os.environ.get("FABRIC_ENVIRONMENT", fabric_environment)
+
     ctx.obj = {
         "fabric_workspace_repo_dir": fabric_workspace_repo_dir,
         "fabric_environment": fabric_environment,
@@ -577,6 +585,5 @@ def delete_workspace_items(
         console.print(f"\n[red]Error: {str(e)}[/red]")
         raise typer.Exit(1)
 
-
-if __name__ == "__cli__":
+if __name__ == "__main__":
     app()

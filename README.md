@@ -72,29 +72,39 @@ See [sample_project/README.md](sample_project/README.md) for a tour of the examp
 
 ## Folder structure
 
-| Folder | Purpose |
-| ------ | ------- |
-| `ingen_fab` | Source code for the CLI and utilities |
-| `&nbsp;&nbsp;ddl_scripts` | Jinja templates used to generate DDL notebooks |
-| `&nbsp;&nbsp;notebook_utils` | Notebook scanning and injection helpers |
-| `&nbsp;&nbsp;python_libs` | Shared Python libraries |
-| `sample_project` | Example workspace with config and generated notebooks |
-| `scripts` | Helper scripts such as SQL Server setup |
-| `tests` | Unit tests |
+```
+ingen_fab/
+├── ddl_scripts/          # Jinja templates used to generate DDL notebooks
+├── notebook_utils/       # Notebook scanning and injection helpers
+├── python_libs/          # Shared Python libraries
+sample_project/           # Example workspace with config and generated notebooks
+scripts/                  # Helper scripts such as SQL Server setup
+tests/                    # Unit tests
+```
 
 Additional documentation is available in the subdirectories:
 
 - [ingen_fab/python_libs/README.md](ingen_fab/python_libs/README.md) – details of the helper libraries.
 - [ingen_fab/ddl_scripts/README.md](ingen_fab/ddl_scripts/README.md) – how DDL notebooks are generated.
 
-## Environment setup
+### Example Usage
 
-Run `scripts/install_sql_server.sh` to install SQL Server on Ubuntu. Set the `MSSQL_SA_PASSWORD` environment variable before running the script:
+``` pwsh 
+# Set up environment variables for your project location and fabric environment
+# Note: You can set these on each cli invocation or set them in the environment variables.
 
-```bash
-export MSSQL_SA_PASSWORD='<YourStrong!Passw0rd>'
-./scripts/install_sql_server.sh
+$env:FABRIC_WORKSPACE_REPO_DIR="sample_project"
+$env:FABRIC_ENVIRONMENT="development"
+
+# Compile DDL notebooks for Warehouse
+typer ./ingen_fab/cli.py run compile-ddl-notebooks --output-mode fabric_workspace_repo --generation-mode Warehouse
+
+# Compile DDL notebooks for Lakehouse
+typer ./ingen_fab/cli.py run compile-ddl-notebooks --output-mode fabric_workspace_repo --generation-mode Lakehouse
+
+
 ```
+
 
 ## License
 

@@ -11,3 +11,4 @@ fabric_cicd.error.log
 /tmp
 /.ruff_cache
 /.pytest_cache
+/fabric_cicd.error.log
