@@ -23,3 +23,5 @@ $scriptblock = {
     $Env:_TYPER_COMPLETE_WORD_TO_COMPLETE = ""
 }
 Register-ArgumentCompleter -Native -CommandName typer -ScriptBlock $scriptblock
+
+oh-my-posh init pwsh | Invoke-Expression

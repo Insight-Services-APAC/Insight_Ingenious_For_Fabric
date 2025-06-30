@@ -1,5 +1,5 @@
 {
     "terminal.integrated.fontFamily": "CaskaydiaCove Nerd Font, monospace",
-    "editor.fontFamily": "Hack Nerd Font Mono",
+    "editor.fontFamily": "CaskaydiaCove Nerd Font, monospace",
     "terminal.integrated.fontLigatures.enabled": true
 }

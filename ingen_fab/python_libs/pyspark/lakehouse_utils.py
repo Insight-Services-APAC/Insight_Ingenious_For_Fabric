@@ -3,6 +3,7 @@ from __future__ import annotations
 from typing import Any
 
 from delta.tables import DeltaTable
+
 from pyspark.sql import SparkSession
 
 from ..interfaces.data_store_interface import DataStoreInterface
@@ -58,13 +59,11 @@ class lakehouse_utils(DataStoreInterface):
         if 'spark' not in locals() and 'spark' not in globals() and self.spark_version == 'fabric':  
             # Create new Spark session if none exists
             self.spark_version = "local"
-            from delta import configure_spark_with_delta_pip
-            
             print("No active Spark session found, creating a new one with Delta support.")
             builder = SparkSession.builder.appName("MyApp") \
             .config("spark.sql.extensions", "io.delta.sql.DeltaSparkSessionExtension") \
             .config("spark.sql.catalog.spark_catalog", "org.apache.spark.sql.delta.catalog.DeltaCatalog")
-
+            from delta import configure_spark_with_delta_pip
             return configure_spark_with_delta_pip(builder).getOrCreate()
         else: 
             print("Using existing spark .. Fabric environment   .")

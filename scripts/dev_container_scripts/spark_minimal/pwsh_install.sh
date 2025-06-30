@@ -11,6 +11,14 @@ apt-get install -y wget
 if [ "$(uname -m)" = "aarch64" ]; then
     # If ARM, install the necessary packages for ARM architecture
     # ARM Version Below:
+    apt install -y \
+        libc6 \
+        libgcc-s1 \
+        libgssapi-krb5-2 \
+        libicu72 \
+        libssl3 \
+        libstdc++6 \
+        zlib1g
     wget https://github.com/PowerShell/PowerShell/releases/download/v7.5.2/powershell-7.5.2-linux-arm64.tar.gz
     mkdir ~/powershell
     tar -xvf powershell-*-linux-arm64.tar.gz -C ~/powershell
