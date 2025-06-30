@@ -1,7 +1,8 @@
 from __future__ import annotations
 
-from delta.tables import DeltaTable
+from typing import Any
 
+from delta.tables import DeltaTable
 from pyspark.sql import SparkSession
 
 from ..interfaces.data_store_interface import DataStoreInterface
@@ -185,3 +186,145 @@ class lakehouse_utils(DataStoreInterface):
         """
         spark = self.spark
         return spark.sql(query)
+
+    def get_table_schema(self, table_name: str, schema_name: str | None = None) -> dict[str, Any]:
+        """
+        Get the schema/column definitions for a table.
+        """
+        df = self.spark.read.format("delta").load(f"{self.lakehouse_tables_uri()}{table_name}")
+        return {field.name: field.dataType.simpleString() for field in df.schema.fields}
+
+    def read_table(
+        self,
+        table_name: str,
+        schema_name: str | None = None,
+        columns: list[str] | None = None,
+        limit: int | None = None,
+        filters: dict[str, Any] | None = None,
+    ) -> Any:
+        """
+        Read data from a table, optionally filtering columns, rows, or limiting results.
+        """
+        df = self.spark.read.format("delta").load(f"{self.lakehouse_tables_uri()}{table_name}")
+        if columns:
+            df = df.select(*columns)
+        if filters:
+            for col, val in filters.items():
+                df = df.filter(f"{col} = '{val}'")
+        if limit:
+            df = df.limit(limit)
+        return df
+
+    def delete_from_table(
+        self,
+        table_name: str,
+        schema_name: str | None = None,
+        filters: dict[str, Any] | None = None,
+    ) -> int:
+        """
+        Delete rows from a table matching filters. Returns number of rows deleted.
+        """
+        table_path = f"{self.lakehouse_tables_uri()}{table_name}"
+        delta_table = DeltaTable.forPath(self.spark, table_path)
+        if filters:
+            condition = " AND ".join([f"{col} = '{val}'" for col, val in filters.items()])
+        else:
+            condition = "true"
+        before_count = delta_table.toDF().count()
+        delta_table.delete(condition)
+        after_count = delta_table.toDF().count()
+        return before_count - after_count
+
+    def rename_table(
+        self,
+        old_table_name: str,
+        new_table_name: str,
+        schema_name: str | None = None,
+    ) -> None:
+        """
+        Rename a table by moving its directory and updating the metastore if local.
+        """
+        import shutil
+        src = f"{self.lakehouse_tables_uri()}{old_table_name}"
+        dst = f"{self.lakehouse_tables_uri()}{new_table_name}"
+        shutil.move(src.replace("file://", ""), dst.replace("file://", ""))
+        if self.spark_version == "local":
+            self.spark.sql(f"ALTER TABLE {old_table_name} RENAME TO {new_table_name}")
+
+    def create_table(
+        self,
+        table_name: str,
+        schema_name: str | None = None,
+        schema: dict[str, Any] | None = None,
+        options: dict[str, Any] | None = None,
+    ) -> None:
+        """
+        Create a new table with a given schema.
+        """
+        if schema is None:
+            raise ValueError("Schema must be provided for table creation.")
+        fields = ", ".join([f"{col} {dtype}" for col, dtype in schema.items()])
+        sql = f"CREATE TABLE {table_name} ({fields}) USING DELTA LOCATION '{self.lakehouse_tables_uri()}{table_name}'"
+        if options:
+            opts = " ".join([f"TBLPROPERTIES ('{k}'='{v}')" for k, v in options.items()])
+            sql += f" {opts}"
+        self.spark.sql(sql)
+
+    def drop_table(
+        self,
+        table_name: str,
+        schema_name: str | None = None,
+    ) -> None:
+        """
+        Drop a single table.
+        """
+        table_path = f"{self.lakehouse_tables_uri()}{table_name}"
+        delta_table = DeltaTable.forPath(self.spark, table_path)
+        delta_table.delete()
+        # Optionally, remove the directory
+        import shutil
+        shutil.rmtree(table_path.replace("file://", ""), ignore_errors=True)
+        if self.spark_version == "local":
+            self.spark.sql(f"DROP TABLE IF EXISTS {table_name}")
+
+    def list_schemas(self) -> list[str]:
+        """
+        List all schemas/namespaces in the lakehouse (returns ['default'] for lakehouse).
+        """
+        return ["default"]
+
+    def get_table_row_count(
+        self,
+        table_name: str,
+        schema_name: str | None = None,
+    ) -> int:
+        """
+        Get the number of rows in a table.
+        """
+        df = self.spark.read.format("delta").load(f"{self.lakehouse_tables_uri()}{table_name}")
+        return df.count()
+
+    def get_table_metadata(
+        self,
+        table_name: str,
+        schema_name: str | None = None,
+    ) -> dict[str, Any]:
+        """
+        Get metadata for a table (creation time, size, etc.).
+        """
+        table_path = f"{self.lakehouse_tables_uri()}{table_name}"
+        delta_table = DeltaTable.forPath(self.spark, table_path)
+        details = delta_table.detail().toPandas().to_dict(orient="records")[0]
+        return details
+
+    def vacuum_table(
+        self,
+        table_name: str,
+        schema_name: str | None = None,
+        retention_hours: int = 168,
+    ) -> None:
+        """
+        Perform cleanup/compaction on a table (for systems like Delta Lake).
+        """
+        table_path = f"{self.lakehouse_tables_uri()}{table_name}"
+        self.spark.sql(f"VACUUM '{table_path}' RETAIN {retention_hours} HOURS")
