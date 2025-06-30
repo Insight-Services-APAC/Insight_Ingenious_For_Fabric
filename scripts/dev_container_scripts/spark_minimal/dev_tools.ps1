@@ -9,6 +9,7 @@ curl -s https://ohmyposh.dev/install.sh | bash -s
 # Add /bin to the PATH environment variable
 $env:PATH += ";/bin"
 
+apt-get install fontconfig
 oh-my-posh font install CascadiaCode 
 
 # Suggest setting font to Cascadia Code NFM in vs code settings
@@ -34,3 +35,4 @@ pip install uv
 uv venv
 ./.venv/bin/activate.ps1
 uv sync
+
