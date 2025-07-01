@@ -1,6 +1,7 @@
 # Python libraries
 
-The `python_libs` package provides helper modules used by the CLI and example notebooks.
+The `python_libs` folder contains python and pyspark libraries that will be injected into Fabric notebooks to provide helper utilities and re-usable code logic..
+
 It is split into two subpackages:
 
 - **`python`** – modules that work with standard CPython or the Fabric runtime.
@@ -19,3 +20,14 @@ It is split into two subpackages:
 
 These modules mirror the Python versions but operate on Spark `DataFrame` objects and Delta tables.
 They implement similar APIs for configuration management, DDL execution and Lakehouse operations.
+
+## Pre-Deployment Development and Testing
+When developing these libraries, you can run tests using `pytest`. There is a separate folder for tests located at `ingen_fab/python_libs_tests`.
+
+Test Examples:
+
+```bash
+ pytest ./ingen_fab/python_libs_tests/pyspark/ddl_utils/ddl_utils_pytest.py -v
+ pytest ./ingen_fab/python_libs_tests/pyspark/lakehouse_utils/test_lakehouse_utils_pytest.py -v
+
+ ```
