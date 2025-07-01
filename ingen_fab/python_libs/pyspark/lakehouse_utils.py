@@ -116,19 +116,14 @@ class lakehouse_utils(DataStoreInterface):
         if self.spark_version == "local":
             self.spark.sql(f"CREATE TABLE IF NOT EXISTS {table_name} USING DELTA LOCATION '{self.lakehouse_tables_uri()}{table_name}'")
 
-    def list_tables(self):
+    def list_tables(self) -> list[str]:
         """List all tables in the lakehouse."""
-        return self.spark.sql("SHOW TABLES").collect()
+        return self.spark.catalog.listTables()
+        #return self.spark.sql("SHOW TABLES").collect()
 
     def drop_all_tables(self, schema_name: str | None = None, table_prefix: str | None = None) -> None:
         """Drop all Delta tables in the lakehouse."""
-        # For lakehouse, schema_name is not used as tables are in the Tables directory
-        # Base ABFSS endpoint and the 'Tables' root
-        lakehouse_root = (
-            f"abfss://{self._target_workspace_id}"
-            f"@onelake.dfs.fabric.microsoft.com/"
-            f"{self._target_lakehouse_id}/Tables"
-        )
+        
         # ──────────────────────────────────────────────────────────────────────────────
 
         # 2. START spark and get Hadoop FS handle
@@ -140,15 +135,17 @@ class lakehouse_utils(DataStoreInterface):
         fs = spark._jvm.org.apache.hadoop.fs.FileSystem.get(hadoop_conf)
 
         # Path object for the Tables/ directory
-        root_path = spark._jvm.org.apache.hadoop.fs.Path(lakehouse_root)
+        root_path = spark._jvm.org.apache.hadoop.fs.Path(self.lakehouse_tables_uri())
 
         # ──────────────────────────────────────────────────────────────────────────────
         # 3. Iterate, detect Delta tables, and delete
         # ──────────────────────────────────────────────────────────────────────────────
 
-        for status in fs.listStatus(root_path):
+        for status in fs.listStatus(root_path):            
             table_path_obj = status.getPath()
+            print(f"— Checking path: {table_path_obj}")
             table_path = table_path_obj.toString()  # e.g. abfss://…/Tables/my_table
+            print(f"— Full path: {table_path}")
 
             # Apply table_prefix filter if provided
             table_name_from_path = table_path.split("/")[-1]

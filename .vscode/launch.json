@@ -48,6 +48,16 @@
                 "run-simple-notebook"
             ],
             "console": "integratedTerminal"
+        },
+        {
+            "name": "Run Pytest",
+            "type": "debugpy",
+            "request": "launch",
+            "module": "pytest",
+            "args": [
+                "./ingen_fab/python_libs_tests/pyspark/lakehouse_utils/test_lakehouse_utils_pytest.py"
+            ],
+            "console": "integratedTerminal"
         }
     ]
 }
