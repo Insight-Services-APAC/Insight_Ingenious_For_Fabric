@@ -276,3 +276,11 @@ class DataStoreInterface(ABC):
             retention_hours: Retention period in hours (default: 168)
         """
         pass
+
+    @abstractmethod
+    def optimise_table(self, table_name: str) -> None:
+        """
+        !!! LAKEHOUSE ONLY !!!
+        Perform optimise on a table to reduce number of parquet files.
+        """
+        pass

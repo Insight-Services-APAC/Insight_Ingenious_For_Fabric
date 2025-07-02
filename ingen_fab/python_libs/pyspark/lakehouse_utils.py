@@ -324,3 +324,10 @@ class lakehouse_utils(DataStoreInterface):
         """
         table_path = f"{self.lakehouse_tables_uri()}{table_name}"
         self.spark.sql(f"VACUUM '{table_path}' RETAIN {retention_hours} HOURS")
+
+    def optimise_table(self, table_name: str) -> None:
+        """
+        Perform optimise on a table to reduce number of parquet files.
+        """
+        table_path = f"{self.lakehouse_tables_uri()}{table_name}"
+        self.spark.sql(f"OPTIMIZE '{table_path}'")

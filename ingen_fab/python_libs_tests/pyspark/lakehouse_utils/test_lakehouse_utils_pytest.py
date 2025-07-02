@@ -1,6 +1,7 @@
 import datetime
 
 import pytest
+
 from pyspark.sql.types import IntegerType, StringType, StructField, StructType, TimestampType
 
 from ingen_fab.python_libs.pyspark.lakehouse_utils import lakehouse_utils
@@ -170,6 +171,19 @@ def test_table_existence_checking(utils, customers_schema, customers_data):
     # Now append
     utils.write_to_table(customers_df, "customers", mode="append")
     assert utils.check_if_table_exists(table_path)
+
+def test_optimise_command(utils, customers_schema, customers_data):
+    customers_df = utils.spark.createDataFrame(customers_data, customers_schema)
+    table_path = "customers"
+    if not utils.check_if_table_exists(table_path):
+        utils.write_to_table(customers_df, "customers")
+    # run optimise command
+    utils.optimise_table(table_path)
+    # mutate the table in such a way that it creates small parquet files
+    for i in range(10):
+        utils.write_to_table(customers_df, "customers")
+    # run optimise command again
+    utils.optimise_table(table_path)
 
 def test_cleanup_drop_all_tables(utils, customers_schema, customers_data):
     customers_df = utils.spark.createDataFrame(customers_data, customers_schema)
