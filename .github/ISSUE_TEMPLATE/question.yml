@@ -1,0 +1,30 @@
+name: "Question"
+description: "Ask a question about the project."
+title: "[QUESTION] <short description>"
+labels: [question]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thank you for your interest in the project! Please check the README and existing issues before submitting a question.
+  - type: input
+    id: summary
+    attributes:
+      label: "Short summary of your question"
+      description: "A concise summary of your question."
+    validations:
+      required: true
+  - type: textarea
+    id: details
+    attributes:
+      label: "Details"
+      description: "Please provide as much detail as possible about your question."
+    validations:
+      required: true
+  - type: textarea
+    id: context
+    attributes:
+      label: "Context (optional)"
+      description: "Add any relevant context, code snippets, or links."
+    validations:
+      required: false
