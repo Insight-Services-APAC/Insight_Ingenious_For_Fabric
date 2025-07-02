@@ -14,7 +14,8 @@
         "ms-python.vscode-pylance",
         "ms-python.debugpy",
         "charliermarsh.ruff",
-        "ms-python.vscode-python-envs"
+        "ms-python.vscode-python-envs",
+        "bierner.emojisense"
       ]
   }
 },
