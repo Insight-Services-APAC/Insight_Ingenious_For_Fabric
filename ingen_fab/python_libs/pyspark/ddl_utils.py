@@ -16,18 +16,20 @@ from ..interfaces.ddl_utils_interface import DDLUtilsInterface
 from .lakehouse_utils import lakehouse_utils
 
 
-class ddl_utils(DDLUtilsInterface):    
+class ddl_utils(DDLUtilsInterface):
     def __init__(self, target_workspace_id: str, target_lakehouse_id: str) -> None:
         """
         Initializes the DDLUtils class with the target workspace and lakehouse IDs.
         """
-        super().__init__(target_lakehouse_id=target_lakehouse_id, target_workspace_id=target_workspace_id)
+        super().__init__(
+            target_lakehouse_id=target_lakehouse_id,
+            target_workspace_id=target_workspace_id,
+        )
         self.target_workspace_id = target_workspace_id
         self.target_lakehouse_id = target_lakehouse_id
         self.lakehouse_utils = lakehouse_utils(target_workspace_id, target_lakehouse_id)
-        self.execution_log_table_name="ddl_script_executions"
+        self.execution_log_table_name = "ddl_script_executions"
         self.initialise_ddl_script_executions_table()
-
 
     @staticmethod
     def execution_log_schema() -> StructType:
@@ -41,16 +43,20 @@ class ddl_utils(DDLUtilsInterface):
         )
 
     def print_log(self) -> None:
-        df = self.lakehouse_utils.spark.read.format("delta").load(f"{self.lakehouse_utils.lakehouse_tables_uri()}{self.execution_log_table_name}")
-        if self.lakehouse_utils.spark_version == 'local':
+        df = self.lakehouse_utils.spark.read.format("delta").load(
+            f"{self.lakehouse_utils.lakehouse_tables_uri()}{self.execution_log_table_name}"
+        )
+        if self.lakehouse_utils.spark_version == "local":
             df.show()
-        else: 
+        else:
             display(df)  # type: ignore # noqa: F821
 
     def check_if_script_has_run(self, script_id: str) -> bool:
         from pyspark.sql.functions import col
 
-        df = self.lakehouse_utils.spark.read.format("delta").load(f"{self.lakehouse_utils.lakehouse_tables_uri()}{self.execution_log_table_name}")
+        df = self.lakehouse_utils.spark.read.format("delta").load(
+            f"{self.lakehouse_utils.lakehouse_tables_uri()}{self.execution_log_table_name}"
+        )
         # display(df)
         # Build filter condition
         cond = col("script_id") == script_id
@@ -70,12 +76,16 @@ class ddl_utils(DDLUtilsInterface):
             f"{self.target_workspace_id} | lakehouse_id {self.target_lakehouse_id}"
         )
 
-    def write_to_execution_log(self, object_guid: str, object_name: str, script_status: str) -> None:
+    def write_to_execution_log(
+        self, object_guid: str, object_name: str, script_status: str
+    ) -> None:
         data = [(object_guid, object_name, script_status, datetime.now())]
         new_df = self.lakehouse_utils.spark.createDataFrame(
             data=data, schema=ddl_utils.execution_log_schema()
         )
-        new_df.write.format("delta").mode("append").save(f"{self.lakehouse_utils.lakehouse_tables_uri()}{self.execution_log_table_name}")
+        new_df.write.format("delta").mode("append").save(
+            f"{self.lakehouse_utils.lakehouse_tables_uri()}{self.execution_log_table_name}"
+        )
 
     def run_once(self, work_fn, object_name: str, guid: str | None = None) -> None:
         """
@@ -115,9 +125,13 @@ class ddl_utils(DDLUtilsInterface):
         guid = "b8c83c87-36d2-46a8-9686-ced38363e169"
         object_name = "ddl_script_executions"
         # Check if the execution log table exists
-        table_exists = self.lakehouse_utils.check_if_table_exists(self.execution_log_table_name) 
+        table_exists = self.lakehouse_utils.check_if_table_exists(
+            self.execution_log_table_name
+        )
         if not table_exists:
-            print(f"Creating execution log table at {self.lakehouse_utils.lakehouse_tables_uri()}{self.execution_log_table_name}")
+            print(
+                f"Creating execution log table at {self.lakehouse_utils.lakehouse_tables_uri()}{self.execution_log_table_name}"
+            )
             empty_df = self.lakehouse_utils.spark.createDataFrame(
                 data=[], schema=ddl_utils.execution_log_schema()
             )
@@ -127,7 +141,9 @@ class ddl_utils(DDLUtilsInterface):
                 .mode(
                     "errorIfExists"
                 )  # will error if table exists; change to "overwrite" to replace.
-                .save(f"{self.lakehouse_utils.lakehouse_tables_uri()}{self.execution_log_table_name}")
+                .save(
+                    f"{self.lakehouse_utils.lakehouse_tables_uri()}{self.execution_log_table_name}"
+                )
             )
             self.write_to_execution_log(
                 object_guid=guid, object_name=object_name, script_status="Success"

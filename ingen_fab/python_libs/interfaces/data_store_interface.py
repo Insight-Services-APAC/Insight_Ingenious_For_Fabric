@@ -27,14 +27,16 @@ class DataStoreInterface(ABC):
         pass
 
     @abstractmethod
-    def check_if_table_exists(self, table_name: str, schema_name: str | None = None) -> bool:
+    def check_if_table_exists(
+        self, table_name: str, schema_name: str | None = None
+    ) -> bool:
         """
         Check if a table exists in the data store.
-        
+
         Args:
             table_name: Name of the table to check
             schema_name: Schema name (optional, mainly for SQL databases)
-            
+
         Returns:
             True if table exists, False otherwise
         """
@@ -51,7 +53,7 @@ class DataStoreInterface(ABC):
     ) -> None:
         """
         Write a DataFrame to a table in the data store.
-        
+
         Args:
             df: DataFrame to write (Spark DataFrame or Pandas DataFrame)
             table_name: Name of the target table
@@ -62,10 +64,12 @@ class DataStoreInterface(ABC):
         pass
 
     @abstractmethod
-    def drop_all_tables(self, schema_name: str | None = None, table_prefix: str | None = None) -> None:
+    def drop_all_tables(
+        self, schema_name: str | None = None, table_prefix: str | None = None
+    ) -> None:
         """
         Drop all tables in the data store.
-        
+
         Args:
             schema_name: Schema to limit drops to (optional, mainly for SQL databases)
             table_prefix: Prefix to filter tables by (optional)
@@ -76,7 +80,7 @@ class DataStoreInterface(ABC):
     def get_connection(self) -> Any:
         """
         Get a connection object for the data store.
-        
+
         Returns:
             Connection object (type varies by implementation)
         """
@@ -106,7 +110,9 @@ class DataStoreInterface(ABC):
         pass
 
     @abstractmethod
-    def get_table_schema(self, table_name: str, schema_name: str | None = None) -> dict[str, Any]:
+    def get_table_schema(
+        self, table_name: str, schema_name: str | None = None
+    ) -> dict[str, Any]:
         """
         Get the schema/column definitions for a table.
 
@@ -276,4 +282,3 @@ class DataStoreInterface(ABC):
             retention_hours: Retention period in hours (default: 168)
         """
         pass
-

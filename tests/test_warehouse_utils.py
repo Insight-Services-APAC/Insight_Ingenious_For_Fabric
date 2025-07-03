@@ -68,13 +68,16 @@ def test_get_connection_sqlserver():
 
 def test_execute_query_fabric():
     wu = warehouse_utils("ws", "wh")
+
     def test_create_schema_if_not_exists_schema_exists():
         wu = warehouse_utils("ws", "wh")
         with (
             mock.patch.object(wu, "get_connection", return_value="conn"),
             mock.patch.object(wu, "execute_query", return_value=[(1,)]),
         ):
-            wu.create_schema_if_not_exists("myschema")  # Should not attempt to create schema if exists
+            wu.create_schema_if_not_exists(
+                "myschema"
+            )  # Should not attempt to create schema if exists
 
     def test_create_schema_if_not_exists_schema_missing():
         wu = warehouse_utils("ws", "wh")
@@ -99,10 +102,14 @@ def test_execute_query_fabric():
 
     def test_write_to_warehouse_table_overwrite():
         wu = warehouse_utils("ws", "wh")
-        df = type("DF", (), {
-            "iterrows": lambda self: iter([(0, ["a", 1])]),
-            "columns": ["col1", "col2"]
-        })()
+        df = type(
+            "DF",
+            (),
+            {
+                "iterrows": lambda self: iter([(0, ["a", 1])]),
+                "columns": ["col1", "col2"],
+            },
+        )()
         with (
             mock.patch.object(wu, "get_connection", return_value="conn"),
             mock.patch.object(wu, "execute_query") as exec_mock,
@@ -113,10 +120,14 @@ def test_execute_query_fabric():
 
     def test_write_to_warehouse_table_append():
         wu = warehouse_utils("ws", "wh")
-        df = type("DF", (), {
-            "iterrows": lambda self: iter([(0, ["a", 1])]),
-            "columns": ["col1", "col2"]
-        })()
+        df = type(
+            "DF",
+            (),
+            {
+                "iterrows": lambda self: iter([(0, ["a", 1])]),
+                "columns": ["col1", "col2"],
+            },
+        )()
         with (
             mock.patch.object(wu, "get_connection", return_value="conn"),
             mock.patch.object(wu, "execute_query") as exec_mock,
@@ -127,10 +138,14 @@ def test_execute_query_fabric():
 
     def test_write_to_warehouse_table_errorifexists_exists():
         wu = warehouse_utils("ws", "wh")
-        df = type("DF", (), {
-            "iterrows": lambda self: iter([(0, ["a", 1])]),
-            "columns": ["col1", "col2"]
-        })()
+        df = type(
+            "DF",
+            (),
+            {
+                "iterrows": lambda self: iter([(0, ["a", 1])]),
+                "columns": ["col1", "col2"],
+            },
+        )()
         with (
             mock.patch.object(wu, "get_connection", return_value="conn"),
             mock.patch.object(wu, "check_if_table_exists", return_value=True),
@@ -142,10 +157,14 @@ def test_execute_query_fabric():
 
     def test_write_to_warehouse_table_errorifexists_not_exists():
         wu = warehouse_utils("ws", "wh")
-        df = type("DF", (), {
-            "iterrows": lambda self: iter([(0, ["a", 1])]),
-            "columns": ["col1", "col2"]
-        })()
+        df = type(
+            "DF",
+            (),
+            {
+                "iterrows": lambda self: iter([(0, ["a", 1])]),
+                "columns": ["col1", "col2"],
+            },
+        )()
         with (
             mock.patch.object(wu, "get_connection", return_value="conn"),
             mock.patch.object(wu, "check_if_table_exists", return_value=False),
@@ -157,10 +176,14 @@ def test_execute_query_fabric():
 
     def test_write_to_warehouse_table_ignore_exists():
         wu = warehouse_utils("ws", "wh")
-        df = type("DF", (), {
-            "iterrows": lambda self: iter([(0, ["a", 1])]),
-            "columns": ["col1", "col2"]
-        })()
+        df = type(
+            "DF",
+            (),
+            {
+                "iterrows": lambda self: iter([(0, ["a", 1])]),
+                "columns": ["col1", "col2"],
+            },
+        )()
         with (
             mock.patch.object(wu, "get_connection", return_value="conn"),
             mock.patch.object(wu, "check_if_table_exists", return_value=True),
@@ -171,10 +194,14 @@ def test_execute_query_fabric():
 
     def test_write_to_warehouse_table_ignore_not_exists():
         wu = warehouse_utils("ws", "wh")
-        df = type("DF", (), {
-            "iterrows": lambda self: iter([(0, ["a", 1])]),
-            "columns": ["col1", "col2"]
-        })()
+        df = type(
+            "DF",
+            (),
+            {
+                "iterrows": lambda self: iter([(0, ["a", 1])]),
+                "columns": ["col1", "col2"],
+            },
+        )()
         with (
             mock.patch.object(wu, "get_connection", return_value="conn"),
             mock.patch.object(wu, "check_if_table_exists", return_value=False),
@@ -197,7 +224,9 @@ def test_execute_query_fabric():
         wu = warehouse_utils("ws", "wh")
         with (
             mock.patch.object(wu, "get_connection", return_value="conn"),
-            mock.patch.object(wu, "execute_query", side_effect=[[{"name": "t1"}], None]),
+            mock.patch.object(
+                wu, "execute_query", side_effect=[[{"name": "t1"}], None]
+            ),
             mock.patch.object(wu.sql, "render", side_effect=["LIST", "DROP"]),
         ):
             wu.drop_all_tables()

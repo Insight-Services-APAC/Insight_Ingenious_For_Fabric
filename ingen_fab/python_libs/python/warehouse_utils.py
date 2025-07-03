@@ -16,6 +16,7 @@ from .sql_templates import (
 
 logger = logging.getLogger(__name__)
 
+
 class warehouse_utils(DataStoreInterface):
     """Utilities for interacting with Fabric or local SQL Server warehouses."""
 
@@ -63,24 +64,27 @@ class warehouse_utils(DataStoreInterface):
         except Exception as e:
             logger.error(f"Failed to connect to warehouse: {e}")
             raise
-    
+
     def _connect_to_local_sql_server():
-        try:            
-            password = os.getenv('SQL_SERVER_PASSWORD', 'default_password')
-            connection_string = "DRIVER={ODBC Driver 18 for SQL Server};SERVER=localhost,1433;UID=sa;" + f"PWD={password};TrustServerCertificate=yes;"
+        try:
+            password = os.getenv("SQL_SERVER_PASSWORD", "default_password")
+            connection_string = (
+                "DRIVER={ODBC Driver 18 for SQL Server};SERVER=localhost,1433;UID=sa;"
+                + f"PWD={password};TrustServerCertificate=yes;"
+            )
             conn = pyodbc.connect(connection_string)
             logger.debug("Connected to local SQL Server instance.")
             return conn
         except Exception as e:
             logger.error(f"Error connecting to local SQL Server instance: {e}")
             return None
-    
+
     def execute_query(self, conn, query: str):
         """Execute a query and return results as a DataFrame when possible."""
         logger.debug(conn)
         try:
             logging.info(f"Executing query: {query}")
-            if self.dialect == "fabric":               
+            if self.dialect == "fabric":
                 result = conn.query(query)
                 logging.debug("Query executed successfully.")
                 return result
@@ -98,12 +102,11 @@ class warehouse_utils(DataStoreInterface):
                 logging.debug("Query executed successfully.")
             return df
         except Exception as e:
-            
-            #pretty print query 
-            formatted_query = format(query, reindent=True, keyword_case='upper')
+            # pretty print query
+            formatted_query = format(query, reindent=True, keyword_case="upper")
             logger.info(f"Executing query:\n{formatted_query}")
             logging.error(f"Error executing query: {query}. Error: {e}")
-            
+
             raise
 
     def create_schema_if_not_exists(self, schema_name: str):
@@ -119,30 +122,32 @@ class warehouse_utils(DataStoreInterface):
                 create_schema_sql = f"CREATE SCHEMA {schema_name};"
                 self.execute_query(conn, create_schema_sql)
                 logging.info(f"Created schema '{schema_name}'.")
-            
+
             logging.info(f"Schema {schema_name} created or already exists.")
         except Exception as e:
             logging.error(f"Error creating schema {schema_name}: {e}")
             raise
-    
+
     def check_if_table_exists(self, table_name, schema_name: str = "dbo") -> bool:
         try:
             conn = self.get_connection()
-            query = self.sql.render("check_table_exists", table_name=table_name, schema_name=schema_name)
+            query = self.sql.render(
+                "check_table_exists", table_name=table_name, schema_name=schema_name
+            )
             result = self.execute_query(conn, query)
             table_exists = len(result) > 0 if result is not None else False
             return table_exists
         except Exception as e:
             logging.error(f"Error checking if table {table_name} exists: {e}")
             return False
-        
+
     def write_to_table(
         self,
         df,
         table_name: str,
         schema_name: str = "dbo",
         mode: str = "overwrite",
-        options: dict[str, str] | None = None
+        options: dict[str, str] | None = None,
     ) -> None:
         """Write a DataFrame to a warehouse table."""
         # Call the existing method for backward compatibility
@@ -154,7 +159,7 @@ class warehouse_utils(DataStoreInterface):
         table_name: str,
         schema_name: str = "dbo",
         mode: str = "overwrite",
-        options: dict = None
+        options: dict = None,
     ):
         try:
             conn = self.get_connection()
@@ -163,19 +168,23 @@ class warehouse_utils(DataStoreInterface):
             # Handle different write modes
             if mode == "overwrite":
                 # Drop table if exists
-                drop_query = self.sql.render("drop_table", table_name=table_name, schema_name=schema_name)
+                drop_query = self.sql.render(
+                    "drop_table", table_name=table_name, schema_name=schema_name
+                )
                 self.execute_query(conn, drop_query)
-                
+
                 # Create table from dataframe using SELECT INTO syntax
                 values = []
                 for _, row in pandas_df.iterrows():
-                    row_values = ', '.join([f"'{v}'" if isinstance(v, str) else str(v) for v in row])
+                    row_values = ", ".join(
+                        [f"'{v}'" if isinstance(v, str) else str(v) for v in row]
+                    )
                     values.append(f"({row_values})")
-                
+
                 # Get column names from DataFrame
-                column_names = ', '.join(pandas_df.columns)
-                values_clause = ', '.join(values)
-                
+                column_names = ", ".join(pandas_df.columns)
+                values_clause = ", ".join(values)
+
                 create_query = self.sql.render(
                     "create_table_from_values",
                     table_name=table_name,
@@ -184,13 +193,13 @@ class warehouse_utils(DataStoreInterface):
                     values_clause=values_clause,
                 )
                 self.execute_query(conn, create_query)
-            
+
             elif mode == "append":
                 # Insert data into existing table
                 for _, row in pandas_df.iterrows():
-                    row_values = ', '.join([
-                        f"'{v}'" if isinstance(v, str) else str(v) for v in row
-                    ])
+                    row_values = ", ".join(
+                        [f"'{v}'" if isinstance(v, str) else str(v) for v in row]
+                    )
                     insert_query = self.sql.render(
                         "insert_row",
                         table_name=table_name,
@@ -198,7 +207,7 @@ class warehouse_utils(DataStoreInterface):
                         row_values=row_values,
                     )
                     self.execute_query(conn, insert_query)
-            
+
             elif mode == "error" or mode == "errorifexists":
                 # Check if table exists
                 if self.check_if_table_exists(table_name, schema_name=schema_name):
@@ -206,15 +215,15 @@ class warehouse_utils(DataStoreInterface):
                 # Create table from dataframe using SELECT INTO syntax
                 values = []
                 for _, row in pandas_df.iterrows():
-                    row_values = ', '.join([
-                        f"'{v}'" if isinstance(v, str) else str(v) for v in row
-                    ])
+                    row_values = ", ".join(
+                        [f"'{v}'" if isinstance(v, str) else str(v) for v in row]
+                    )
                     values.append(f"({row_values})")
-                
+
                 # Get column names from DataFrame
-                column_names = ', '.join(pandas_df.columns)
-                values_clause = ', '.join(values)
-                
+                column_names = ", ".join(pandas_df.columns)
+                values_clause = ", ".join(values)
+
                 create_query = self.sql.render(
                     "create_table_from_values",
                     table_name=table_name,
@@ -223,20 +232,20 @@ class warehouse_utils(DataStoreInterface):
                     values_clause=values_clause,
                 )
                 self.execute_query(conn, create_query)
-            
+
             elif mode == "ignore":
                 # Only write if table doesn't exist
                 if not self.check_if_table_exists(table_name, schema_name=schema_name):
                     values = []
                     for _, row in pandas_df.iterrows():
-                        row_values = ', '.join([
-                            f"'{v}'" if isinstance(v, str) else str(v) for v in row
-                        ])
+                        row_values = ", ".join(
+                            [f"'{v}'" if isinstance(v, str) else str(v) for v in row]
+                        )
                         values.append(f"({row_values})")
 
                     # Get column names from DataFrame
-                    column_names = ', '.join(pandas_df.columns)
-                    values_clause = ', '.join(values)
+                    column_names = ", ".join(pandas_df.columns)
+                    values_clause = ", ".join(values)
 
                     create_query = self.sql.render(
                         "create_table_from_values",
@@ -250,7 +259,9 @@ class warehouse_utils(DataStoreInterface):
             logging.error(f"Error writing to table {table_name} with mode {mode}: {e}")
             raise
 
-    def drop_all_tables(self, schema_name: str | None = None, table_prefix: str | None = None) -> None:
+    def drop_all_tables(
+        self, schema_name: str | None = None, table_prefix: str | None = None
+    ) -> None:
         try:
             conn = self.get_connection()
             query = self.sql.render("list_tables", prefix=table_prefix)
@@ -259,32 +270,46 @@ class warehouse_utils(DataStoreInterface):
             # You can use .itertuples() for efficient row access
             for row in tables.itertuples(index=False):
                 # Adjust attribute names to match DataFrame columns
-                schema_name = getattr(row, 'table_schema', None) or getattr(row, 'TABLE_SCHEMA', None)
-                table_name = getattr(row, 'table_name', None) or getattr(row, 'TABLE_NAME', None)
+                schema_name = getattr(row, "table_schema", None) or getattr(
+                    row, "TABLE_SCHEMA", None
+                )
+                table_name = getattr(row, "table_name", None) or getattr(
+                    row, "TABLE_NAME", None
+                )
 
                 if not schema_name or not table_name:
                     logging.warning(f"Skipping row with missing schema/table: {row}")
                     continue
 
                 try:
-                    drop_query = self.sql.render("drop_table", schema_name=schema_name, table_name=table_name)
+                    drop_query = self.sql.render(
+                        "drop_table", schema_name=schema_name, table_name=table_name
+                    )
                     self.execute_query(conn, drop_query)
                     logging.info(f"✔ Dropped table: {schema_name}.{table_name}")
                 except Exception as e:
-                    logging.error(f"⚠ Error dropping table {schema_name}.{table_name}: {e}")
+                    logging.error(
+                        f"⚠ Error dropping table {schema_name}.{table_name}: {e}"
+                    )
 
             logging.info("✅ All eligible tables have been dropped.")
         except Exception as e:
             logging.error(f"Error dropping tables with prefix {table_prefix}: {e}")
 
     # --- DataStoreInterface required methods ---
-    def get_table_schema(self, table_name: str, schema_name: str | None = None) -> dict[str, object]:
+    def get_table_schema(
+        self, table_name: str, schema_name: str | None = None
+    ) -> dict[str, object]:
         """Implements DataStoreInterface: Get the schema/column definitions for a table."""
         conn = self.get_connection()
-        query = self.sql.render("get_table_schema", table_name=table_name, schema_name=schema_name or "dbo")
+        query = self.sql.render(
+            "get_table_schema", table_name=table_name, schema_name=schema_name or "dbo"
+        )
         result = self.execute_query(conn, query)
         if result is not None:
-            return dict(zip(result.columns, result.values[0])) if not result.empty else {}
+            return (
+                dict(zip(result.columns, result.values[0])) if not result.empty else {}
+            )
         return {}
 
     def read_table(
@@ -323,7 +348,7 @@ class warehouse_utils(DataStoreInterface):
         )
         result = self.execute_query(conn, query)
         # Return number of rows deleted if possible, else -1
-        return getattr(result, 'rowcount', -1) if result is not None else -1
+        return getattr(result, "rowcount", -1) if result is not None else -1
 
     def rename_table(
         self,
@@ -379,7 +404,11 @@ class warehouse_utils(DataStoreInterface):
         query = self.sql.render("list_tables")
         result = self.execute_query(conn, query)
         if result is not None and not result.empty:
-            return result['table_name'].tolist() if 'table_name' in result.columns else result.iloc[:, 0].tolist()
+            return (
+                result["table_name"].tolist()
+                if "table_name" in result.columns
+                else result.iloc[:, 0].tolist()
+            )
         return []
 
     def list_schemas(self) -> list[str]:
@@ -388,7 +417,11 @@ class warehouse_utils(DataStoreInterface):
         query = self.sql.render("list_schemas")
         result = self.execute_query(conn, query)
         if result is not None and not result.empty:
-            return result['schema_name'].tolist() if 'schema_name' in result.columns else result.iloc[:, 0].tolist()
+            return (
+                result["schema_name"].tolist()
+                if "schema_name" in result.columns
+                else result.iloc[:, 0].tolist()
+            )
         return []
 
     def get_table_row_count(

@@ -29,7 +29,9 @@ class VariableLibraryUtils:
         self.template_path = template_path
         self.output = output
         self.in_place = in_place
-        self.variables = self._extract_variables(self._load_variable_library(project_path, environment))
+        self.variables = self._extract_variables(
+            self._load_variable_library(project_path, environment)
+        )
 
     def _load_variable_library(
         self, project_path: Path, environment: str = "development"
@@ -114,10 +116,10 @@ class VariableLibraryUtils:
                 for var_name, var_value in variables.items():
                     # Convert value to appropriate Python literal
                     if isinstance(var_value, str):
-                        #new_lines.append(f'{var_name} = "{var_value}"')
+                        # new_lines.append(f'{var_name} = "{var_value}"')
                         class_definition_lines.append(f"    {var_name}: str ")
                     else:
-                        #new_lines.append(f"{var_name} = {var_value}")
+                        # new_lines.append(f"{var_name} = {var_value}")
                         class_definition_lines.append(f"    {var_name}: Any ")
 
                 # Also inject the entire variables dict
@@ -129,9 +131,9 @@ class VariableLibraryUtils:
                 # Create a object class to hold the variables
                 new_lines.append("# All variables as an object")
                 new_lines.append("\n".join(class_definition_lines))
-                new_lines.append("configs_object: ConfigsObject = ConfigsObject(**configs_dict)")
-
-                
+                new_lines.append(
+                    "configs_object: ConfigsObject = ConfigsObject(**configs_dict)"
+                )
 
                 # Join with newlines and add markers
                 new_content = start_marker + "\n".join(new_lines) + "\n" + end_marker
@@ -165,9 +167,7 @@ class VariableLibraryUtils:
     def get_workspace_id(self) -> str:
         """Get the target workspace ID from the variable library."""
         ret_val = None
-        ret_val = self.variables.get(
-            "fabric_deployment_workspace_id", None
-        )
+        ret_val = self.variables.get("fabric_deployment_workspace_id", None)
         if ret_val is None:
             raise ValueError(
                 "fabric_deployment_workspace_id not found in variable library"

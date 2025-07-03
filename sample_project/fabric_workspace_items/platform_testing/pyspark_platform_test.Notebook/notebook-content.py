@@ -17,25 +17,46 @@
 
 
 
-#lakehouse_name = "LH"  # name of your Lakehouse
-#config_workspace_id = "50fbcab0-7d56-46f7-90f6-80ceb00ac86d"
-#config_lakehouse_id = "a29c9d15-c24e-4779-8344-0c7c237b3990"
 
-# Target for DDL scripts
-target_lakehouse_config_prefix = "config"
+# METADATA ********************
 
-# Fabric Configurations 
-fabric_environment: str = "development" 
-config_lakehouse_name = "LH1"  # name of your Lakehouse
-config_workspace_id = "50fbcab0-7d56-46f7-90f6-80ceb00ac86d"
-config_lakehouse_id = "f0121783-34cc-4e64-bfb5-6b44b1a7f04b"
+# META {
+# META   "language": "python",
+# META   "language_group": "synapse_pyspark"
+# META }
 
+# MARKDOWN ********************
 
-# ONLY USE THIS IN DEV
-full_reset = False # ⚠️ Full reset -- DESTRUCTIVE - will drop all tables
+# ## ⚙️ Configuration Settings
 
 
+# CELL ********************
 
+
+# variableLibraryInjectionStart: var_lib
+
+# All variables as a dictionary
+configs_dict = {'fabric_environment': 'development', 'fabric_deployment_workspace_id': '3a4fc13c-f7c5-463e-a9de-57c4754699ff', 'synapse_source_database_1': 'test1', 'config_workspace_id': '3a4fc13c-f7c5-463e-a9de-57c4754699ff', 'synapse_source_sql_connection': 'sansdaisyn-ondemand.sql.azuresynapse.net', 'config_lakehouse_name': 'config', 'edw_warehouse_name': 'edw', 'config_lakehouse_id': '2629d4cc-685c-458a-866b-b4705dde71a7', 'edw_workspace_id': '50fbcab0-7d56-46f7-90f6-80ceb00ac86d', 'edw_warehouse_id': 's', 'edw_lakehouse_id': '6adb67d6-c8eb-4612-9053-890cae3a55d7', 'edw_lakehouse_name': 'edw', 'legacy_synapse_connection_name': 'synapse_connection', 'synapse_export_shortcut_path_in_onelake': 'exports/'}
+# All variables as an object
+from dataclasses import dataclass
+@dataclass
+class ConfigsObject:
+    fabric_environment: str 
+    fabric_deployment_workspace_id: str 
+    synapse_source_database_1: str 
+    config_workspace_id: str 
+    synapse_source_sql_connection: str 
+    config_lakehouse_name: str 
+    edw_warehouse_name: str 
+    config_lakehouse_id: str 
+    edw_workspace_id: str 
+    edw_warehouse_id: str 
+    edw_lakehouse_id: str 
+    edw_lakehouse_name: str 
+    legacy_synapse_connection_name: str 
+    synapse_export_shortcut_path_in_onelake: str 
+configs_object: ConfigsObject = ConfigsObject(**configs_dict)
+# variableLibraryInjectionEnd: var_lib
 
 
 
@@ -50,10 +71,8 @@ full_reset = False # ⚠️ Full reset -- DESTRUCTIVE - will drop all tables
 
 # ## 📦 Inject Reusable Classes and Functions
 
+
 # CELL ********************
-
-
-
 
 # Auto-generated library code from python_libs
 # Files are ordered based on dependency analysis
@@ -624,6 +643,14 @@ class ddl_utils(DDLUtilsInterface):
             print(f"Skipping {object_name} as it already exists")
 
 
+# === parquet_load_utils.py ===
+def testing_code_replacement():
+    """
+    This function is a placeholder for testing code replacement.
+    It does not perform any operations and is used to ensure that
+    the code structure remains intact during testing.
+    """
+    pass
 
 
 
@@ -637,162 +664,10 @@ class ddl_utils(DDLUtilsInterface):
 
 # MARKDOWN ********************
 
-# ## Instantiate the Helper Classes
+# ## 🧪🧪 Testing Scripts Start
+
 
 # CELL ********************
 
-
-
-cu = config_utils(config_workspace_id,config_lakehouse_id)
-
-
-
-
-
-# METADATA ********************
-
-# META {
-# META   "language": "python",
-# META   "language_group": "synapse_pyspark"
-# META }
-
-# MARKDOWN ********************
-
-# ## Drop all Tables in Target LH
-
-# CELL ********************
-
-
-
-if full_reset == True:
-    from ipywidgets import ToggleButtons, VBox, Label, Button
-    from IPython.display import display as pdisplay
-    from IPython.display import clear_output
-
-    
-    configs = cu.get_configs_as_object(fabric_environment)
-
-    target_workspace_id = configs.get_attribute(f"{target_lakehouse_config_prefix.lower()}_workspace_id")
-    target_lakehouse_id =  configs.get_attribute(f"{target_lakehouse_config_prefix.lower()}_lakehouse_id")
-    
-    # Build the widget
-    prompt = Label("❗ This will drop all tables — do you want to proceed?")
-    yesno = ToggleButtons(options=["No","Yes"], description="Confirm Destructive Action:")
-    go = Button(description="Submit", button_style="warning")
-
-    out = VBox([prompt, yesno, go])
-    pdisplay(out)
-
-    # Define what happens on click
-    def on_click(b):
-        clear_output()  # hide the widget after click
-        if yesno.value == "Yes":
-            print("Dropping tables…")
-            lu = lakehouse_utils(target_workspace_id, target_lakehouse_id)
-            lu.drop_all_tables()
-        else:
-            print("Operation cancelled.")
-
-    go.on_click(on_click)
-
-
-
-
-
-# METADATA ********************
-
-# META {
-# META   "language": "python",
-# META   "language_group": "synapse_pyspark"
-# META }
-
-# MARKDOWN ********************
-
-# ## Run the lakehouse DDL Notebooks
-
-# CELL ********************
-
-
-
-# Import required libraries
-from notebookutils import mssparkutils
-import sys
-from datetime import datetime
-
-# Initialize variables
-workspace_id = mssparkutils.runtime.context.get("currentWorkspaceId")
-success_count = 0
-failed_notebook = None
-start_time = datetime.now()
-
-# Define execution function
-def execute_notebook(notebook_name, index, total, timeout_seconds=3600):
-    """Execute a single notebook and handle success/failure."""
-    global success_count
-    
-    try:
-        
-        print(f"{'='*60}")
-        print(f"Executing notebook {index}/{total}:{notebook_name}")
-        print(f"{'='*60}")
-        params = {
-            "fabric_environment": fabric_environment,
-            "config_workspace_id": config_workspace_id,
-            "config_lakehouse_id": config_lakehouse_id,
-            "target_lakehouse_config_prefix": target_lakehouse_config_prefix,
-            'useRootDefaultLakehouse': True
-        }
-        # Run the notebook
-        result = mssparkutils.notebook.run(
-            notebook_name,
-            timeout_seconds,
-            params
-        )
-        
-        if (result == 'success'):
-            success_count += 1
-        else: 
-            raise Exception({"result": result}) 
-
-        print(f"✓ Successfully executed: {notebook_name}")
-        print(f"Exit value: {result}")
-        return True
-        
-    except Exception as e:
-        print(f"✗ Failed to execute: {notebook_name}")
-        print(f"Error: {str(e)}")
-        
-        # Stop execution on failure
-        error_msg = f"Orchestration stopped due to failure in notebook: {notebook_name}. Error: {str(e)}"
-        mssparkutils.notebook.exit(error_msg)
-        return False
-
-print(f"Starting orchestration for Config lakehouse")
-print(f"Start time: {start_time}")
-print(f"Workspace ID: {workspace_id}")
-print(f"Total notebooks to execute: 1")
-print("="*60)
-execute_notebook("001_Initial_Creation_Config_Lakehouses", 1, 1)
-
-# Final Summary
-end_time = datetime.now()
-duration = end_time - start_time
-
-print(f"{'='*60}")
-print(f"Orchestration Complete!")
-print(f"{'='*60}")
-print(f"End time: {end_time}")
-print(f"Duration: {duration}")
-print(f"Total notebooks: 1")
-print(f"Successfully executed: {success_count}")
-print(f"Failed: 1 - {success_count}")
-
-if success_count == 1:
-    print("✓ All notebooks executed successfully!")
-    mssparkutils.notebook.exit("success")
-else:
-    print(f"✗ Orchestration completed with failures")
-    mssparkutils.notebook.exit(f"Orchestration completed with {success_count}/1 successful executions")
-
-
+adadx
 
