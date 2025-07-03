@@ -1,0 +1,62 @@
+2025-07-03 10:43:35,818 - INFO - fabric_cicd._common._fabric_endpoint - Executing as Application Id '04b07795-8ddb-461a-bbee-02f9e1bf7b46'
+2025-07-03 10:43:35,825 - INFO - fabric_cicd._common._validate_input - Relative directory path 'sample_project/fabric_workspace_items' resolved as '/workspaces/ingen_fab/sample_project/fabric_workspace_items'
+2025-07-03 10:43:36,233 - WARNING - fabric_cicd._parameter._parameter - Parameter file not found with path: /workspaces/ingen_fab/sample_project/fabric_workspace_items/parameter.yml
+2025-07-03 10:43:36,234 - WARNING - fabric_cicd._parameter._parameter - Validation terminated: not found
+2025-07-03 10:43:37,545 - INFO - fabric_cicd.fabric_workspace - Publishing Workspace Folders
+2025-07-03 10:43:37,546 - INFO - fabric_cicd.fabric_workspace - ->Published
+2025-07-03 10:43:39,525 - WARNING - fabric_cicd.publish - Using items_to_include is risky as it can prevent needed dependencies from being deployed.  Use at your own risk.
+2025-07-03 10:43:39,526 - INFO - fabric_cicd.fabric_workspace - Publishing var_lib.VariableLibrary as it is in the items to include list.
+2025-07-03 10:43:39,527 - INFO - fabric_cicd.fabric_workspace - Publishing VariableLibrary 'var_lib'
+2025-07-03 10:43:42,351 - INFO - fabric_cicd._common._fabric_endpoint - ->->Operation in progress. Checking again in 1 second (Attempt 1/7)...
+2025-07-03 10:43:43,603 - INFO - fabric_cicd._common._fabric_endpoint - ->->Operation in progress. Checking again in 2 seconds (Attempt 2/7)...
+2025-07-03 10:43:45,853 - INFO - fabric_cicd._common._fabric_endpoint - ->->Operation in progress. Checking again in 4 seconds (Attempt 3/7)...
+2025-07-03 10:43:50,415 - INFO - fabric_cicd.fabric_workspace - ->Published
+2025-07-03 10:43:53,544 - INFO - fabric_cicd._items._variablelibrary - ->Active value set changed to 'development'
+2025-07-03 10:43:53,544 - INFO - fabric_cicd.fabric_workspace - Publishing EDW.Warehouse as it is in the items to include list.
+2025-07-03 10:43:53,545 - INFO - fabric_cicd.fabric_workspace - Publishing Warehouse 'EDW'
+2025-07-03 10:43:54,082 - INFO - fabric_cicd._items._warehouse - ->Published
+2025-07-03 10:43:54,083 - INFO - fabric_cicd.fabric_workspace - Publishing config.Lakehouse as it is in the items to include list.
+2025-07-03 10:43:54,083 - INFO - fabric_cicd.fabric_workspace - Publishing Lakehouse 'config'
+2025-07-03 10:43:58,365 - INFO - fabric_cicd._items._lakehouse - ->Published
+2025-07-03 10:43:58,366 - INFO - fabric_cicd._items._environment - Checking Environment Publish State for []
+2025-07-03 10:43:58,889 - INFO - fabric_cicd.fabric_workspace - Publishing 00_all_lakehouses_orchestrator_ddl_scripts.Notebook as it is in the items to include list.
+2025-07-03 10:43:58,891 - INFO - fabric_cicd.fabric_workspace - Publishing Notebook '00_all_lakehouses_orchestrator_ddl_scripts'
+2025-07-03 10:44:01,399 - INFO - fabric_cicd.fabric_workspace - ->Published
+2025-07-03 10:44:01,399 - INFO - fabric_cicd.fabric_workspace - Publishing 001_Initial_Creation_Config_Lakehouses_ddl_scripts.Notebook as it is in the items to include list.
+2025-07-03 10:44:01,401 - INFO - fabric_cicd.fabric_workspace - Publishing Notebook '001_Initial_Creation_Config_Lakehouses_ddl_scripts'
+2025-07-03 10:44:03,900 - INFO - fabric_cicd.fabric_workspace - ->Published
+2025-07-03 10:44:03,901 - INFO - fabric_cicd.fabric_workspace - Publishing 0_orchestrator_Config_ddl_scripts.Notebook as it is in the items to include list.
+2025-07-03 10:44:03,903 - INFO - fabric_cicd.fabric_workspace - Publishing Notebook '0_orchestrator_Config_ddl_scripts'
+2025-07-03 10:44:06,310 - INFO - fabric_cicd.fabric_workspace - ->Published
+2025-07-03 10:44:06,311 - INFO - fabric_cicd.fabric_workspace - Publishing 00_all_warehouses_config_notebook_ddl_scripts.Notebook as it is in the items to include list.
+2025-07-03 10:44:06,312 - INFO - fabric_cicd.fabric_workspace - Publishing Notebook '00_all_warehouses_config_notebook_ddl_scripts'
+2025-07-03 10:44:08,772 - INFO - fabric_cicd.fabric_workspace - ->Published
+2025-07-03 10:44:08,772 - INFO - fabric_cicd.fabric_workspace - Publishing 00_all_warehouses_orchestrator_ddl_scripts.Notebook as it is in the items to include list.
+2025-07-03 10:44:08,774 - INFO - fabric_cicd.fabric_workspace - Publishing Notebook '00_all_warehouses_orchestrator_ddl_scripts'
+2025-07-03 10:44:11,188 - INFO - fabric_cicd.fabric_workspace - ->Published
+2025-07-03 10:44:11,189 - INFO - fabric_cicd.fabric_workspace - Publishing 001_Initial_Creation_Config_Warehouses_ddl_scripts.Notebook as it is in the items to include list.
+2025-07-03 10:44:11,191 - INFO - fabric_cicd.fabric_workspace - Publishing Notebook '001_Initial_Creation_Config_Warehouses_ddl_scripts'
+2025-07-03 10:44:13,641 - INFO - fabric_cicd.fabric_workspace - ->Published
+2025-07-03 10:44:13,642 - INFO - fabric_cicd.fabric_workspace - Publishing 002_Parquet_Load_Update_Config_Warehouses_ddl_scripts.Notebook as it is in the items to include list.
+2025-07-03 10:44:13,643 - INFO - fabric_cicd.fabric_workspace - Publishing Notebook '002_Parquet_Load_Update_Config_Warehouses_ddl_scripts'
+2025-07-03 10:44:15,749 - INFO - fabric_cicd.fabric_workspace - ->Published
+2025-07-03 10:44:15,750 - INFO - fabric_cicd.fabric_workspace - Publishing extract_from_synapse.Notebook as it is in the items to include list.
+2025-07-03 10:44:15,756 - INFO - fabric_cicd.fabric_workspace - Publishing Notebook 'extract_from_synapse'
+2025-07-03 10:44:18,765 - INFO - fabric_cicd.fabric_workspace - ->Published
+2025-07-03 10:44:18,766 - INFO - fabric_cicd.fabric_workspace - Publishing jw_extract_from_synapse.Notebook as it is in the items to include list.
+2025-07-03 10:44:18,771 - INFO - fabric_cicd.fabric_workspace - Publishing Notebook 'jw_extract_from_synapse'
+2025-07-03 10:44:22,316 - INFO - fabric_cicd.fabric_workspace - ->Published
+2025-07-03 10:44:22,316 - INFO - fabric_cicd.fabric_workspace - Publishing sm_extract_from_synapse.Notebook as it is in the items to include list.
+2025-07-03 10:44:22,322 - INFO - fabric_cicd.fabric_workspace - Publishing Notebook 'sm_extract_from_synapse'
+2025-07-03 10:44:25,649 - INFO - fabric_cicd.fabric_workspace - ->Published
+2025-07-03 10:44:25,649 - INFO - fabric_cicd.fabric_workspace - Publishing load_to_lakehouse_tables.Notebook as it is in the items to include list.
+2025-07-03 10:44:25,653 - INFO - fabric_cicd.fabric_workspace - Publishing Notebook 'load_to_lakehouse_tables'
+2025-07-03 10:44:28,658 - INFO - fabric_cicd.fabric_workspace - ->Published
+2025-07-03 10:44:28,658 - INFO - fabric_cicd.fabric_workspace - Publishing pyspark_platform_test.Notebook as it is in the items to include list.
+2025-07-03 10:44:28,659 - INFO - fabric_cicd.fabric_workspace - Publishing Notebook 'pyspark_platform_test'
+2025-07-03 10:44:33,942 - INFO - fabric_cicd.fabric_workspace - ->Published
+2025-07-03 10:44:33,943 - INFO - fabric_cicd.fabric_workspace - Publishing python_platform_test.Notebook as it is in the items to include list.
+2025-07-03 10:44:33,944 - INFO - fabric_cicd.fabric_workspace - Publishing Notebook 'python_platform_test'
+2025-07-03 10:44:38,789 - INFO - fabric_cicd.fabric_workspace - ->Published
+2025-07-03 10:44:40,127 - INFO - fabric_cicd._items._environment - Checking Environment Publish State for []
+2025-07-03 10:44:40,631 - INFO - fabric_cicd._items._environment - ->Published.

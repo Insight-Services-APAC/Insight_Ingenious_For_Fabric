@@ -6,8 +6,11 @@
 # META   "kernel_info": {
 # META     "name": "jupyter",
 # META     "jupyter_kernel_name": "python3.11"
-# META   },
+# META   }
 # META }
+
+# CELL ********************
+
 
 # MARKDOWN ********************
 
@@ -18,25 +21,45 @@
 
 
 
-#lakehouse_name = "LH"  # name of your Lakehouse
-#config_workspace_id = "50fbcab0-7d56-46f7-90f6-80ceb00ac86d"
-#config_lakehouse_id = "a29c9d15-c24e-4779-8344-0c7c237b3990"
+# METADATA ********************
 
-# Target for DDL scripts
-target_lakehouse_config_prefix = "config"
+# META {
+# META   "language": "python",
+# META   "language_group": "jupyter_python"
+# META }
 
-# Fabric Configurations 
-fabric_environment: str = "development" 
-config_lakehouse_name = "LH1"  # name of your Lakehouse
-config_workspace_id = "50fbcab0-7d56-46f7-90f6-80ceb00ac86d"
-config_lakehouse_id = "f0121783-34cc-4e64-bfb5-6b44b1a7f04b"
+# MARKDOWN ********************
+
+# ## ⚙️ Configuration Settings
 
 
-# ONLY USE THIS IN DEV
-full_reset = False # ⚠️ Full reset -- DESTRUCTIVE - will drop all tables
+# CELL ********************
 
 
+# variableLibraryInjectionStart: var_lib
 
+# All variables as a dictionary
+configs_dict = {'fabric_environment': 'development', 'fabric_deployment_workspace_id': '3a4fc13c-f7c5-463e-a9de-57c4754699ff', 'synapse_source_database_1': 'test1', 'config_workspace_id': '3a4fc13c-f7c5-463e-a9de-57c4754699ff', 'synapse_source_sql_connection': 'sansdaisyn-ondemand.sql.azuresynapse.net', 'config_lakehouse_name': 'config', 'edw_warehouse_name': 'edw', 'config_lakehouse_id': '2629d4cc-685c-458a-866b-b4705dde71a7', 'edw_workspace_id': '50fbcab0-7d56-46f7-90f6-80ceb00ac86d', 'edw_warehouse_id': 's', 'edw_lakehouse_id': '6adb67d6-c8eb-4612-9053-890cae3a55d7', 'edw_lakehouse_name': 'edw', 'legacy_synapse_connection_name': 'synapse_connection', 'synapse_export_shortcut_path_in_onelake': 'exports/'}
+# All variables as an object
+from dataclasses import dataclass
+@dataclass
+class ConfigsObject:
+    fabric_environment: str 
+    fabric_deployment_workspace_id: str 
+    synapse_source_database_1: str 
+    config_workspace_id: str 
+    synapse_source_sql_connection: str 
+    config_lakehouse_name: str 
+    edw_warehouse_name: str 
+    config_lakehouse_id: str 
+    edw_workspace_id: str 
+    edw_warehouse_id: str 
+    edw_lakehouse_id: str 
+    edw_lakehouse_name: str 
+    legacy_synapse_connection_name: str 
+    synapse_export_shortcut_path_in_onelake: str 
+configs_object: ConfigsObject = ConfigsObject(**configs_dict)
+# variableLibraryInjectionEnd: var_lib
 
 
 
@@ -44,17 +67,15 @@ full_reset = False # ⚠️ Full reset -- DESTRUCTIVE - will drop all tables
 
 # META {
 # META   "language": "python",
-# META   "language_group": "synapse_pyspark"
+# META   "language_group": "jupyter_python"
 # META }
 
 # MARKDOWN ********************
 
 # ## 📦 Inject Reusable Classes and Functions
 
+
 # CELL ********************
-
-
-
 
 # Auto-generated library code from python_libs
 # Files are ordered based on dependency analysis
@@ -107,9 +128,10 @@ configs_object: ConfigsObject = ConfigsObject(**configs_dict)
 # === sql_templates.py ===
 from jinja2 import Template, Environment, exceptions
 
+
 def required_filter(value, var_name=""):
     """Jinja2 filter: raises an error if value is not provided or is falsy."""
-    if value is None or (hasattr(value, '__len__') and len(value) == 0):
+    if value is None or (hasattr(value, "__len__") and len(value) == 0):
         raise exceptions.TemplateRuntimeError(
             f"Required parameter '{var_name or 'unknown'}' was not provided!"
         )
@@ -119,24 +141,105 @@ def required_filter(value, var_name=""):
 class SQLTemplates:
     """Render SQL templates for different dialects."""
 
-    TEMPLATES = [{'dialect': 'fabric', 'file_name': 'check_schema_exists.sql.jinja', 'file_contents': "SELECT 1 \nFROM INFORMATION_SCHEMA.SCHEMATA\nWHERE SCHEMA_NAME = '{{ schema_name | required }}'\n", 'full_path': './fabric/check_schema_exists.sql.jinja'}, {'dialect': 'fabric', 'file_name': 'check_table_exists.sql.jinja', 'file_contents': "SELECT\n    1\nFROM\n    INFORMATION_SCHEMA.TABLES\nWHERE\n    TABLE_SCHEMA = '{{ schema_name | required }}'\n    AND TABLE_NAME = '{{ table_name | required }}'\n", 'full_path': './fabric/check_table_exists.sql.jinja'}, {'dialect': 'fabric', 'file_name': 'create_table_from_values.sql.jinja', 'file_contents': "SELECT\n    * INTO {{ schema_name | required('schema_name') }}.{{ table_name | required('table_name') }}\nFROM\n    (\n        VALUES\n            {{ values_clause | required('values_clause') }}\n    ) AS v(\n        {{ column_names | required('column_names') }}\n    )\n", 'full_path': './fabric/create_table_from_values.sql.jinja'}, {'dialect': 'fabric', 'file_name': 'drop_table.sql.jinja', 'file_contents': 'DROP TABLE IF EXISTS {{ schema_name | required }}.{{ table_name | required }}\n', 'full_path': './fabric/drop_table.sql.jinja'}, {'dialect': 'fabric', 'file_name': 'insert_row.sql.jinja', 'file_contents': 'INSERT INTO {{ schema_name | required }}.{{ table_name | required }} VALUES ({{ row_values | required }})\n', 'full_path': './fabric/insert_row.sql.jinja'}, {'dialect': 'fabric', 'file_name': 'list_tables.sql.jinja', 'file_contents': "SELECT\n    TABLE_SCHEMA, \n    TABLE_NAME\nFROM\n    INFORMATION_SCHEMA.TABLES\n\n    {% if prefix %}\nWHERE\n    TABLE_NAME LIKE '{{ prefix }}%'\n{% endif %}\n", 'full_path': './fabric/list_tables.sql.jinja'}, {'dialect': 'sqlserver', 'file_name': 'check_schema_exists.sql.jinja', 'file_contents': "SELECT 1 \nFROM INFORMATION_SCHEMA.SCHEMATA\nWHERE LOWER(SCHEMA_NAME) = LOWER('{{ schema_name | required }}')\n", 'full_path': './sqlserver/check_schema_exists.sql.jinja'}, {'dialect': 'sqlserver', 'file_name': 'check_table_exists.sql.jinja', 'file_contents': "SELECT\n    1\nFROM\n    INFORMATION_SCHEMA.TABLES\nWHERE\n    TABLE_SCHEMA = '{{ schema_name | required }}'\n    AND TABLE_NAME = '{{ table_name | required }}'\n", 'full_path': './sqlserver/check_table_exists.sql.jinja'}, {'dialect': 'sqlserver', 'file_name': 'create_table_from_values.sql.jinja', 'file_contents': "SELECT\n    * INTO {{ schema_name | required('schema_name') }}.{{ table_name | required('table_name') }}\nFROM\n    (\n        VALUES\n            {{ values_clause | required('values_clause') }}\n    ) AS v(\n        {{ column_names | required('column_names') }}\n    )\n", 'full_path': './sqlserver/create_table_from_values.sql.jinja'}, {'dialect': 'sqlserver', 'file_name': 'drop_table.sql.jinja', 'file_contents': 'DROP TABLE IF EXISTS {{ schema_name | required }}.{{ table_name | required }}\n', 'full_path': './sqlserver/drop_table.sql.jinja'}, {'dialect': 'sqlserver', 'file_name': 'insert_row.sql.jinja', 'file_contents': 'INSERT INTO {{ schema_name | required }}.{{ table_name | required }} VALUES ({{ row_values | required }})\n', 'full_path': './sqlserver/insert_row.sql.jinja'}, {'dialect': 'sqlserver', 'file_name': 'list_tables.sql.jinja', 'file_contents': "SELECT\n    TABLE_SCHEMA, \n    TABLE_NAME\nFROM\n    INFORMATION_SCHEMA.TABLES\n\n    {% if prefix %}\nWHERE\n    TABLE_NAME LIKE '{{ prefix }}%'\n{% endif %}\n", 'full_path': './sqlserver/list_tables.sql.jinja'}]
-
+    TEMPLATES = [
+        {
+            "dialect": "fabric",
+            "file_name": "check_schema_exists.sql.jinja",
+            "file_contents": "SELECT 1 \nFROM INFORMATION_SCHEMA.SCHEMATA\nWHERE SCHEMA_NAME = '{{ schema_name | required }}'\n",
+            "full_path": "./fabric/check_schema_exists.sql.jinja",
+        },
+        {
+            "dialect": "fabric",
+            "file_name": "check_table_exists.sql.jinja",
+            "file_contents": "SELECT\n    1\nFROM\n    INFORMATION_SCHEMA.TABLES\nWHERE\n    TABLE_SCHEMA = '{{ schema_name | required }}'\n    AND TABLE_NAME = '{{ table_name | required }}'\n",
+            "full_path": "./fabric/check_table_exists.sql.jinja",
+        },
+        {
+            "dialect": "fabric",
+            "file_name": "create_table_from_values.sql.jinja",
+            "file_contents": "SELECT\n    * INTO {{ schema_name | required('schema_name') }}.{{ table_name | required('table_name') }}\nFROM\n    (\n        VALUES\n            {{ values_clause | required('values_clause') }}\n    ) AS v(\n        {{ column_names | required('column_names') }}\n    )\n",
+            "full_path": "./fabric/create_table_from_values.sql.jinja",
+        },
+        {
+            "dialect": "fabric",
+            "file_name": "drop_table.sql.jinja",
+            "file_contents": "DROP TABLE IF EXISTS {{ schema_name | required }}.{{ table_name | required }}\n",
+            "full_path": "./fabric/drop_table.sql.jinja",
+        },
+        {
+            "dialect": "fabric",
+            "file_name": "insert_row.sql.jinja",
+            "file_contents": "INSERT INTO {{ schema_name | required }}.{{ table_name | required }} VALUES ({{ row_values | required }})\n",
+            "full_path": "./fabric/insert_row.sql.jinja",
+        },
+        {
+            "dialect": "fabric",
+            "file_name": "list_tables.sql.jinja",
+            "file_contents": "SELECT\n    TABLE_SCHEMA, \n    TABLE_NAME\nFROM\n    INFORMATION_SCHEMA.TABLES\n\n    {% if prefix %}\nWHERE\n    TABLE_NAME LIKE '{{ prefix }}%'\n{% endif %}\n",
+            "full_path": "./fabric/list_tables.sql.jinja",
+        },
+        {
+            "dialect": "sqlserver",
+            "file_name": "check_schema_exists.sql.jinja",
+            "file_contents": "SELECT 1 \nFROM INFORMATION_SCHEMA.SCHEMATA\nWHERE LOWER(SCHEMA_NAME) = LOWER('{{ schema_name | required }}')\n",
+            "full_path": "./sqlserver/check_schema_exists.sql.jinja",
+        },
+        {
+            "dialect": "sqlserver",
+            "file_name": "check_table_exists.sql.jinja",
+            "file_contents": "SELECT\n    1\nFROM\n    INFORMATION_SCHEMA.TABLES\nWHERE\n    TABLE_SCHEMA = '{{ schema_name | required }}'\n    AND TABLE_NAME = '{{ table_name | required }}'\n",
+            "full_path": "./sqlserver/check_table_exists.sql.jinja",
+        },
+        {
+            "dialect": "sqlserver",
+            "file_name": "create_table_from_values.sql.jinja",
+            "file_contents": "SELECT\n    * INTO {{ schema_name | required('schema_name') }}.{{ table_name | required('table_name') }}\nFROM\n    (\n        VALUES\n            {{ values_clause | required('values_clause') }}\n    ) AS v(\n        {{ column_names | required('column_names') }}\n    )\n",
+            "full_path": "./sqlserver/create_table_from_values.sql.jinja",
+        },
+        {
+            "dialect": "sqlserver",
+            "file_name": "drop_table.sql.jinja",
+            "file_contents": "DROP TABLE IF EXISTS {{ schema_name | required }}.{{ table_name | required }}\n",
+            "full_path": "./sqlserver/drop_table.sql.jinja",
+        },
+        {
+            "dialect": "sqlserver",
+            "file_name": "insert_row.sql.jinja",
+            "file_contents": "INSERT INTO {{ schema_name | required }}.{{ table_name | required }} VALUES ({{ row_values | required }})\n",
+            "full_path": "./sqlserver/insert_row.sql.jinja",
+        },
+        {
+            "dialect": "sqlserver",
+            "file_name": "list_tables.sql.jinja",
+            "file_contents": "SELECT\n    TABLE_SCHEMA, \n    TABLE_NAME\nFROM\n    INFORMATION_SCHEMA.TABLES\n\n    {% if prefix %}\nWHERE\n    TABLE_NAME LIKE '{{ prefix }}%'\n{% endif %}\n",
+            "full_path": "./sqlserver/list_tables.sql.jinja",
+        },
+    ]
 
     def __init__(self, dialect: str = "fabric"):
         self.dialect = dialect
         # Use a Jinja2 Environment to add custom filters
         self.env = Environment()
         # Register the 'required' filter
-        self.env.filters["required"] = lambda value, var_name="": required_filter(value, var_name)
+        self.env.filters["required"] = lambda value, var_name="": required_filter(
+            value, var_name
+        )
 
     def get_template(self, template_name: str, dialect: str) -> str:
         """Get the SQL template for the specified dialect."""
         template = next(
-        (t['file_contents'] for t in self.TEMPLATES
-            if t['file_name'] == f"{template_name}.sql.jinja" and t['dialect'] == dialect), None
+            (
+                t["file_contents"]
+                for t in self.TEMPLATES
+                if t["file_name"] == f"{template_name}.sql.jinja"
+                and t["dialect"] == dialect
+            ),
+            None,
         )
         if not template:
-            raise FileNotFoundError(f"Template {template_name} for dialect {dialect} not found.")
+            raise FileNotFoundError(
+                f"Template {template_name} for dialect {dialect} not found."
+            )
         return template
 
     def render(self, template_name: str, **kwargs) -> str:
@@ -147,6 +250,7 @@ class SQLTemplates:
         # Use kwargs for variable names
         params_with_names = {k: v for k, v in kwargs.items()}
         return template.render(**params_with_names)
+
 
 # === warehouse_utils.py ===
 import logging
@@ -165,6 +269,7 @@ from ingen_fab.python_libs.interfaces.data_store_interface import DataStoreInter
 )
 
 logger = logging.getLogger(__name__)
+
 
 class warehouse_utils(DataStoreInterface):
     """Utilities for interacting with Fabric or local SQL Server warehouses."""
@@ -213,24 +318,27 @@ class warehouse_utils(DataStoreInterface):
         except Exception as e:
             logger.error(f"Failed to connect to warehouse: {e}")
             raise
-    
+
     def _connect_to_local_sql_server():
-        try:            
-            password = os.getenv('SQL_SERVER_PASSWORD', 'default_password')
-            connection_string = "DRIVER={ODBC Driver 18 for SQL Server};SERVER=localhost,1433;UID=sa;" + f"PWD={password};TrustServerCertificate=yes;"
+        try:
+            password = os.getenv("SQL_SERVER_PASSWORD", "default_password")
+            connection_string = (
+                "DRIVER={ODBC Driver 18 for SQL Server};SERVER=localhost,1433;UID=sa;"
+                + f"PWD={password};TrustServerCertificate=yes;"
+            )
             conn = pyodbc.connect(connection_string)
             logger.debug("Connected to local SQL Server instance.")
             return conn
         except Exception as e:
             logger.error(f"Error connecting to local SQL Server instance: {e}")
             return None
-    
+
     def execute_query(self, conn, query: str):
         """Execute a query and return results as a DataFrame when possible."""
         logger.debug(conn)
         try:
             logging.info(f"Executing query: {query}")
-            if self.dialect == "fabric":               
+            if self.dialect == "fabric":
                 result = conn.query(query)
                 logging.debug("Query executed successfully.")
                 return result
@@ -248,12 +356,11 @@ class warehouse_utils(DataStoreInterface):
                 logging.debug("Query executed successfully.")
             return df
         except Exception as e:
-            
-            #pretty print query 
-            formatted_query = format(query, reindent=True, keyword_case='upper')
+            # pretty print query
+            formatted_query = format(query, reindent=True, keyword_case="upper")
             logger.info(f"Executing query:\n{formatted_query}")
             logging.error(f"Error executing query: {query}. Error: {e}")
-            
+
             raise
 
     def create_schema_if_not_exists(self, schema_name: str):
@@ -269,30 +376,32 @@ class warehouse_utils(DataStoreInterface):
                 create_schema_sql = f"CREATE SCHEMA {schema_name};"
                 self.execute_query(conn, create_schema_sql)
                 logging.info(f"Created schema '{schema_name}'.")
-            
+
             logging.info(f"Schema {schema_name} created or already exists.")
         except Exception as e:
             logging.error(f"Error creating schema {schema_name}: {e}")
             raise
-    
+
     def check_if_table_exists(self, table_name, schema_name: str = "dbo") -> bool:
         try:
             conn = self.get_connection()
-            query = self.sql.render("check_table_exists", table_name=table_name, schema_name=schema_name)
+            query = self.sql.render(
+                "check_table_exists", table_name=table_name, schema_name=schema_name
+            )
             result = self.execute_query(conn, query)
             table_exists = len(result) > 0 if result is not None else False
             return table_exists
         except Exception as e:
             logging.error(f"Error checking if table {table_name} exists: {e}")
             return False
-        
+
     def write_to_table(
         self,
         df,
         table_name: str,
         schema_name: str = "dbo",
         mode: str = "overwrite",
-        options: dict[str, str] | None = None
+        options: dict[str, str] | None = None,
     ) -> None:
         """Write a DataFrame to a warehouse table."""
         # Call the existing method for backward compatibility
@@ -304,7 +413,7 @@ class warehouse_utils(DataStoreInterface):
         table_name: str,
         schema_name: str = "dbo",
         mode: str = "overwrite",
-        options: dict = None
+        options: dict = None,
     ):
         try:
             conn = self.get_connection()
@@ -313,19 +422,23 @@ class warehouse_utils(DataStoreInterface):
             # Handle different write modes
             if mode == "overwrite":
                 # Drop table if exists
-                drop_query = self.sql.render("drop_table", table_name=table_name, schema_name=schema_name)
+                drop_query = self.sql.render(
+                    "drop_table", table_name=table_name, schema_name=schema_name
+                )
                 self.execute_query(conn, drop_query)
-                
+
                 # Create table from dataframe using SELECT INTO syntax
                 values = []
                 for _, row in pandas_df.iterrows():
-                    row_values = ', '.join([f"'{v}'" if isinstance(v, str) else str(v) for v in row])
+                    row_values = ", ".join(
+                        [f"'{v}'" if isinstance(v, str) else str(v) for v in row]
+                    )
                     values.append(f"({row_values})")
-                
+
                 # Get column names from DataFrame
-                column_names = ', '.join(pandas_df.columns)
-                values_clause = ', '.join(values)
-                
+                column_names = ", ".join(pandas_df.columns)
+                values_clause = ", ".join(values)
+
                 create_query = self.sql.render(
                     "create_table_from_values",
                     table_name=table_name,
@@ -334,13 +447,13 @@ class warehouse_utils(DataStoreInterface):
                     values_clause=values_clause,
                 )
                 self.execute_query(conn, create_query)
-            
+
             elif mode == "append":
                 # Insert data into existing table
                 for _, row in pandas_df.iterrows():
-                    row_values = ', '.join([
-                        f"'{v}'" if isinstance(v, str) else str(v) for v in row
-                    ])
+                    row_values = ", ".join(
+                        [f"'{v}'" if isinstance(v, str) else str(v) for v in row]
+                    )
                     insert_query = self.sql.render(
                         "insert_row",
                         table_name=table_name,
@@ -348,7 +461,7 @@ class warehouse_utils(DataStoreInterface):
                         row_values=row_values,
                     )
                     self.execute_query(conn, insert_query)
-            
+
             elif mode == "error" or mode == "errorifexists":
                 # Check if table exists
                 if self.check_if_table_exists(table_name, schema_name=schema_name):
@@ -356,15 +469,15 @@ class warehouse_utils(DataStoreInterface):
                 # Create table from dataframe using SELECT INTO syntax
                 values = []
                 for _, row in pandas_df.iterrows():
-                    row_values = ', '.join([
-                        f"'{v}'" if isinstance(v, str) else str(v) for v in row
-                    ])
+                    row_values = ", ".join(
+                        [f"'{v}'" if isinstance(v, str) else str(v) for v in row]
+                    )
                     values.append(f"({row_values})")
-                
+
                 # Get column names from DataFrame
-                column_names = ', '.join(pandas_df.columns)
-                values_clause = ', '.join(values)
-                
+                column_names = ", ".join(pandas_df.columns)
+                values_clause = ", ".join(values)
+
                 create_query = self.sql.render(
                     "create_table_from_values",
                     table_name=table_name,
@@ -373,20 +486,20 @@ class warehouse_utils(DataStoreInterface):
                     values_clause=values_clause,
                 )
                 self.execute_query(conn, create_query)
-            
+
             elif mode == "ignore":
                 # Only write if table doesn't exist
                 if not self.check_if_table_exists(table_name, schema_name=schema_name):
                     values = []
                     for _, row in pandas_df.iterrows():
-                        row_values = ', '.join([
-                            f"'{v}'" if isinstance(v, str) else str(v) for v in row
-                        ])
+                        row_values = ", ".join(
+                            [f"'{v}'" if isinstance(v, str) else str(v) for v in row]
+                        )
                         values.append(f"({row_values})")
 
                     # Get column names from DataFrame
-                    column_names = ', '.join(pandas_df.columns)
-                    values_clause = ', '.join(values)
+                    column_names = ", ".join(pandas_df.columns)
+                    values_clause = ", ".join(values)
 
                     create_query = self.sql.render(
                         "create_table_from_values",
@@ -400,7 +513,9 @@ class warehouse_utils(DataStoreInterface):
             logging.error(f"Error writing to table {table_name} with mode {mode}: {e}")
             raise
 
-    def drop_all_tables(self, schema_name: str | None = None, table_prefix: str | None = None) -> None:
+    def drop_all_tables(
+        self, schema_name: str | None = None, table_prefix: str | None = None
+    ) -> None:
         try:
             conn = self.get_connection()
             query = self.sql.render("list_tables", prefix=table_prefix)
@@ -409,32 +524,46 @@ class warehouse_utils(DataStoreInterface):
             # You can use .itertuples() for efficient row access
             for row in tables.itertuples(index=False):
                 # Adjust attribute names to match DataFrame columns
-                schema_name = getattr(row, 'table_schema', None) or getattr(row, 'TABLE_SCHEMA', None)
-                table_name = getattr(row, 'table_name', None) or getattr(row, 'TABLE_NAME', None)
+                schema_name = getattr(row, "table_schema", None) or getattr(
+                    row, "TABLE_SCHEMA", None
+                )
+                table_name = getattr(row, "table_name", None) or getattr(
+                    row, "TABLE_NAME", None
+                )
 
                 if not schema_name or not table_name:
                     logging.warning(f"Skipping row with missing schema/table: {row}")
                     continue
 
                 try:
-                    drop_query = self.sql.render("drop_table", schema_name=schema_name, table_name=table_name)
+                    drop_query = self.sql.render(
+                        "drop_table", schema_name=schema_name, table_name=table_name
+                    )
                     self.execute_query(conn, drop_query)
                     logging.info(f"✔ Dropped table: {schema_name}.{table_name}")
                 except Exception as e:
-                    logging.error(f"⚠ Error dropping table {schema_name}.{table_name}: {e}")
+                    logging.error(
+                        f"⚠ Error dropping table {schema_name}.{table_name}: {e}"
+                    )
 
             logging.info("✅ All eligible tables have been dropped.")
         except Exception as e:
             logging.error(f"Error dropping tables with prefix {table_prefix}: {e}")
 
     # --- DataStoreInterface required methods ---
-    def get_table_schema(self, table_name: str, schema_name: str | None = None) -> dict[str, object]:
+    def get_table_schema(
+        self, table_name: str, schema_name: str | None = None
+    ) -> dict[str, object]:
         """Implements DataStoreInterface: Get the schema/column definitions for a table."""
         conn = self.get_connection()
-        query = self.sql.render("get_table_schema", table_name=table_name, schema_name=schema_name or "dbo")
+        query = self.sql.render(
+            "get_table_schema", table_name=table_name, schema_name=schema_name or "dbo"
+        )
         result = self.execute_query(conn, query)
         if result is not None:
-            return dict(zip(result.columns, result.values[0])) if not result.empty else {}
+            return (
+                dict(zip(result.columns, result.values[0])) if not result.empty else {}
+            )
         return {}
 
     def read_table(
@@ -473,7 +602,7 @@ class warehouse_utils(DataStoreInterface):
         )
         result = self.execute_query(conn, query)
         # Return number of rows deleted if possible, else -1
-        return getattr(result, 'rowcount', -1) if result is not None else -1
+        return getattr(result, "rowcount", -1) if result is not None else -1
 
     def rename_table(
         self,
@@ -529,7 +658,11 @@ class warehouse_utils(DataStoreInterface):
         query = self.sql.render("list_tables")
         result = self.execute_query(conn, query)
         if result is not None and not result.empty:
-            return result['table_name'].tolist() if 'table_name' in result.columns else result.iloc[:, 0].tolist()
+            return (
+                result["table_name"].tolist()
+                if "table_name" in result.columns
+                else result.iloc[:, 0].tolist()
+            )
         return []
 
     def list_schemas(self) -> list[str]:
@@ -538,7 +671,11 @@ class warehouse_utils(DataStoreInterface):
         query = self.sql.render("list_schemas")
         result = self.execute_query(conn, query)
         if result is not None and not result.empty:
-            return result['schema_name'].tolist() if 'schema_name' in result.columns else result.iloc[:, 0].tolist()
+            return (
+                result["schema_name"].tolist()
+                if "schema_name" in result.columns
+                else result.iloc[:, 0].tolist()
+            )
         return []
 
     def get_table_row_count(
@@ -591,6 +728,7 @@ class warehouse_utils(DataStoreInterface):
     # - create_schema_if_not_exists
     # - write_to_warehouse_table
     # - _connect_to_local_sql_server
+
 
 # === ddl_utils.py ===
 # { "depends_on": "warehouse_utils" }
@@ -743,174 +881,24 @@ class lakehouse_utils:
 
 
 
-
-
 # METADATA ********************
 
 # META {
 # META   "language": "python",
-# META   "language_group": "synapse_pyspark"
+# META   "language_group": "jupyter_python"
 # META }
 
 # MARKDOWN ********************
 
-# ## Instantiate the Helper Classes
+# ## 🧪🧪 Testing Scripts Start
+
 
 # CELL ********************
 
-
-
-cu = config_utils(config_workspace_id,config_lakehouse_id)
-
+cu = config_utils()
 
 
 
-
-# METADATA ********************
-
-# META {
-# META   "language": "python",
-# META   "language_group": "synapse_pyspark"
-# META }
-
-# MARKDOWN ********************
-
-# ## Drop all Tables in Target LH
-
-# CELL ********************
-
-
-
-if full_reset == True:
-    from ipywidgets import ToggleButtons, VBox, Label, Button
-    from IPython.display import display as pdisplay
-    from IPython.display import clear_output
-
-    
-    configs = cu.get_configs_as_object(fabric_environment)
-
-    target_workspace_id = configs.get_attribute(f"{target_lakehouse_config_prefix.lower()}_workspace_id")
-    target_lakehouse_id =  configs.get_attribute(f"{target_lakehouse_config_prefix.lower()}_lakehouse_id")
-    
-    # Build the widget
-    prompt = Label("❗ This will drop all tables — do you want to proceed?")
-    yesno = ToggleButtons(options=["No","Yes"], description="Confirm Destructive Action:")
-    go = Button(description="Submit", button_style="warning")
-
-    out = VBox([prompt, yesno, go])
-    pdisplay(out)
-
-    # Define what happens on click
-    def on_click(b):
-        clear_output()  # hide the widget after click
-        if yesno.value == "Yes":
-            print("Dropping tables…")
-            lu = lakehouse_utils(target_workspace_id, target_lakehouse_id)
-            lu.drop_all_tables()
-        else:
-            print("Operation cancelled.")
-
-    go.on_click(on_click)
-
-
-
-
-
-# METADATA ********************
-
-# META {
-# META   "language": "python",
-# META   "language_group": "synapse_pyspark"
-# META }
-
-# MARKDOWN ********************
-
-# ## Run the lakehouse DDL Notebooks
-
-# CELL ********************
-
-
-
-# Import required libraries
-from notebookutils import mssparkutils
-import sys
-from datetime import datetime
-
-# Initialize variables
-workspace_id = mssparkutils.runtime.context.get("currentWorkspaceId")
-success_count = 0
-failed_notebook = None
-start_time = datetime.now()
-
-# Define execution function
-def execute_notebook(notebook_name, index, total, timeout_seconds=3600):
-    """Execute a single notebook and handle success/failure."""
-    global success_count
-    
-    try:
-        
-        print(f"{'='*60}")
-        print(f"Executing notebook {index}/{total}:{notebook_name}")
-        print(f"{'='*60}")
-        params = {
-            "fabric_environment": fabric_environment,
-            "config_workspace_id": config_workspace_id,
-            "config_lakehouse_id": config_lakehouse_id,
-            "target_lakehouse_config_prefix": target_lakehouse_config_prefix,
-            'useRootDefaultLakehouse': True
-        }
-        # Run the notebook
-        result = mssparkutils.notebook.run(
-            notebook_name,
-            timeout_seconds,
-            params
-        )
-        
-        if (result == 'success'):
-            success_count += 1
-        else: 
-            raise Exception({"result": result}) 
-
-        print(f"✓ Successfully executed: {notebook_name}")
-        print(f"Exit value: {result}")
-        return True
-        
-    except Exception as e:
-        print(f"✗ Failed to execute: {notebook_name}")
-        print(f"Error: {str(e)}")
-        
-        # Stop execution on failure
-        error_msg = f"Orchestration stopped due to failure in notebook: {notebook_name}. Error: {str(e)}"
-        mssparkutils.notebook.exit(error_msg)
-        return False
-
-print(f"Starting orchestration for Config lakehouse")
-print(f"Start time: {start_time}")
-print(f"Workspace ID: {workspace_id}")
-print(f"Total notebooks to execute: 2")
-print("="*60)
-execute_notebook("001_Initial_Creation_Config_Warehouses", 1, 2)
-execute_notebook("002_Parquet_Load_Update_Config_Warehouses", 2, 2)
-
-# Final Summary
-end_time = datetime.now()
-duration = end_time - start_time
-
-print(f"{'='*60}")
-print(f"Orchestration Complete!")
-print(f"{'='*60}")
-print(f"End time: {end_time}")
-print(f"Duration: {duration}")
-print(f"Total notebooks: 2")
-print(f"Successfully executed: {success_count}")
-print(f"Failed: 2 - {success_count}")
-
-if success_count == 2:
-    print("✓ All notebooks executed successfully!")
-    mssparkutils.notebook.exit("success")
-else:
-    print(f"✗ Orchestration completed with failures")
-    mssparkutils.notebook.exit(f"Orchestration completed with {success_count}/2 successful executions")
 
 
 

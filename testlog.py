@@ -1,4 +1,3 @@
-
 from fabric_cicd import (
     FabricWorkspace,
     publish_all_items,
@@ -7,7 +6,6 @@ from fabric_cicd import (
 pu = FabricWorkspace(
     workspace_id="3a4fc13c-f7c5-463e-a9de-57c4754699ff",
     repository_directory="sample_project/fabric_workspace_items",
-    items_to_include=["var_lib"],
     item_type_in_scope=[
         "VariableLibrary",
         "DataPipeline",
@@ -27,7 +25,7 @@ pu = FabricWorkspace(
     environment="development",
 )
 
-status_entries = publish_all_items(pu)
+status_entries = publish_all_items(pu, items_to_include=["var_lib.VariableLibrary"])
 
 
 # status_entries = fabric_cicd_log.read_log_status_entries("fabric_cicd.error.log")

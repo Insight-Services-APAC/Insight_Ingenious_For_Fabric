@@ -116,9 +116,10 @@ def compile_ddl_notebooks(
 
 @app.command()
 def test_python_block():
-
     # Read he code from ingen_fab\python_libs\python\config_utils.py
-    with open(Path(__file__).parent / "python_libs" / "python" / "config_utils.py", "r") as f:
+    with open(
+        Path(__file__).parent / "python_libs" / "python" / "config_utils.py", "r"
+    ) as f:
         code = f.read()
 
     fct = FabricCodeTester()
@@ -544,7 +545,9 @@ def delete_workspace_items(
         total_deleted = result["total_deleted"]
 
         if total_deleted > 0:
-            console.print(f"\n[green]Successfully deleted {total_deleted} items:[/green]")
+            console.print(
+                f"\n[green]Successfully deleted {total_deleted} items:[/green]"
+            )
 
             # Create table for deleted items
             table = Table(title="Deleted Items by Type")
@@ -584,6 +587,7 @@ def delete_workspace_items(
     except Exception as e:
         console.print(f"\n[red]Error: {str(e)}[/red]")
         raise typer.Exit(1)
+
 
 if __name__ == "__main__":
     app()
