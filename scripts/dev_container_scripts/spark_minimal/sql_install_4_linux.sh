@@ -1,6 +1,6 @@
 # SQL Server 
-apt-get install gpg
-curl -fsSL https://packages.microsoft.com/keys/microsoft.asc | gpg --dearmor -o /usr/share/keyrings/microsoft-prod.gpg 
+yes | apt-get install gpg
+curl -fsSL https://packages.microsoft.com/keys/microsoft.asc | gpg --batch --yes --dearmor -o /usr/share/keyrings/microsoft-prod.gpg 
 curl -fsSL https://packages.microsoft.com/config/ubuntu/22.04/mssql-server-preview.list | tee /etc/apt/sources.list.d/mssql-server-preview.list 
 apt-get update -y 
 apt-get install -y mssql-server

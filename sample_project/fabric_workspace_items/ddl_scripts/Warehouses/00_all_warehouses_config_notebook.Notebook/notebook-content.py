@@ -179,13 +179,14 @@ import pyodbc  # type: ignore # noqa: F401
 from sqlparse import format
 
 from ingen_fab.fabric_api.utils import FabricApiUtils
+from ingen_fab.python_libs.interfaces.data_store_interface import DataStoreInterface
 
     SQLTemplates,  # Assuming this is a custom module for SQL templates
 )
 
 logger = logging.getLogger(__name__)
 
-class warehouse_utils:
+class warehouse_utils(DataStoreInterface):
     """Utilities for interacting with Fabric or local SQL Server warehouses."""
 
     def __init__(
@@ -445,6 +446,171 @@ class warehouse_utils:
             logging.info("✅ All eligible tables have been dropped.")
         except Exception as e:
             logging.error(f"Error dropping tables with prefix {table_prefix}: {e}")
+
+    # --- DataStoreInterface required methods ---
+    def get_table_schema(self, table_name: str, schema_name: str | None = None) -> dict[str, object]:
+        """Implements DataStoreInterface: Get the schema/column definitions for a table."""
+        conn = self.get_connection()
+        query = self.sql.render("get_table_schema", table_name=table_name, schema_name=schema_name or "dbo")
+        result = self.execute_query(conn, query)
+        if result is not None:
+            return dict(zip(result.columns, result.values[0])) if not result.empty else {}
+        return {}
+
+    def read_table(
+        self,
+        table_name: str,
+        schema_name: str | None = None,
+        columns: list[str] | None = None,
+        limit: int | None = None,
+        filters: dict[str, object] | None = None,
+    ) -> object:
+        """Implements DataStoreInterface: Read data from a table, optionally filtering columns, rows, or limiting results."""
+        conn = self.get_connection()
+        query = self.sql.render(
+            "read_table",
+            table_name=table_name,
+            schema_name=schema_name or "dbo",
+            columns=columns,
+            limit=limit,
+            filters=filters,
+        )
+        return self.execute_query(conn, query)
+
+    def delete_from_table(
+        self,
+        table_name: str,
+        schema_name: str | None = None,
+        filters: dict[str, object] | None = None,
+    ) -> int:
+        """Implements DataStoreInterface: Delete rows from a table matching filters."""
+        conn = self.get_connection()
+        query = self.sql.render(
+            "delete_from_table",
+            table_name=table_name,
+            schema_name=schema_name or "dbo",
+            filters=filters,
+        )
+        result = self.execute_query(conn, query)
+        # Return number of rows deleted if possible, else -1
+        return getattr(result, 'rowcount', -1) if result is not None else -1
+
+    def rename_table(
+        self,
+        old_table_name: str,
+        new_table_name: str,
+        schema_name: str | None = None,
+    ) -> None:
+        """Implements DataStoreInterface: Rename a table."""
+        conn = self.get_connection()
+        query = self.sql.render(
+            "rename_table",
+            old_table_name=old_table_name,
+            new_table_name=new_table_name,
+            schema_name=schema_name or "dbo",
+        )
+        self.execute_query(conn, query)
+
+    def create_table(
+        self,
+        table_name: str,
+        schema_name: str | None = None,
+        schema: dict[str, object] | None = None,
+        options: dict[str, object] | None = None,
+    ) -> None:
+        """Implements DataStoreInterface: Create a new table with a given schema."""
+        conn = self.get_connection()
+        query = self.sql.render(
+            "create_table",
+            table_name=table_name,
+            schema_name=schema_name or "dbo",
+            schema=schema,
+            options=options,
+        )
+        self.execute_query(conn, query)
+
+    def drop_table(
+        self,
+        table_name: str,
+        schema_name: str | None = None,
+    ) -> None:
+        """Implements DataStoreInterface: Drop a single table."""
+        conn = self.get_connection()
+        query = self.sql.render(
+            "drop_table",
+            table_name=table_name,
+            schema_name=schema_name or "dbo",
+        )
+        self.execute_query(conn, query)
+
+    def list_tables(self) -> list[str]:
+        """Implements DataStoreInterface: List all tables in the warehouse."""
+        conn = self.get_connection()
+        query = self.sql.render("list_tables")
+        result = self.execute_query(conn, query)
+        if result is not None and not result.empty:
+            return result['table_name'].tolist() if 'table_name' in result.columns else result.iloc[:, 0].tolist()
+        return []
+
+    def list_schemas(self) -> list[str]:
+        """Implements DataStoreInterface: List all schemas/namespaces in the warehouse."""
+        conn = self.get_connection()
+        query = self.sql.render("list_schemas")
+        result = self.execute_query(conn, query)
+        if result is not None and not result.empty:
+            return result['schema_name'].tolist() if 'schema_name' in result.columns else result.iloc[:, 0].tolist()
+        return []
+
+    def get_table_row_count(
+        self,
+        table_name: str,
+        schema_name: str | None = None,
+    ) -> int:
+        """Implements DataStoreInterface: Get the number of rows in a table."""
+        conn = self.get_connection()
+        query = self.sql.render(
+            "get_table_row_count",
+            table_name=table_name,
+            schema_name=schema_name or "dbo",
+        )
+        result = self.execute_query(conn, query)
+        if result is not None and not result.empty:
+            return int(result.iloc[0, 0])
+        return 0
+
+    def get_table_metadata(
+        self,
+        table_name: str,
+        schema_name: str | None = None,
+    ) -> dict[str, object]:
+        """Implements DataStoreInterface: Get metadata for a table (creation time, size, etc.)."""
+        conn = self.get_connection()
+        query = self.sql.render(
+            "get_table_metadata",
+            table_name=table_name,
+            schema_name=schema_name or "dbo",
+        )
+        result = self.execute_query(conn, query)
+        if result is not None and not result.empty:
+            return result.iloc[0].to_dict()
+        return {}
+
+    def vacuum_table(
+        self,
+        table_name: str,
+        schema_name: str | None = None,
+        retention_hours: int = 168,
+    ) -> None:
+        """Implements DataStoreInterface: Perform cleanup/compaction on a table (no-op for SQL warehouses)."""
+        # Not applicable for SQL warehouses, but required by interface
+        pass
+
+    # --- End DataStoreInterface required methods ---
+
+    # The following methods/properties are not part of DataStoreInterface but are kept for compatibility or utility:
+    # - create_schema_if_not_exists
+    # - write_to_warehouse_table
+    # - _connect_to_local_sql_server
 
 # === ddl_utils.py ===
 # { "depends_on": "warehouse_utils" }
