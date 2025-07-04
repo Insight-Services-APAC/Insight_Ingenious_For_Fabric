@@ -71,12 +71,12 @@ platform_folders:
   environment: development
 - name: pyspark_platform_test.Notebook
   path: sample_project/fabric_workspace_items/platform_testing/pyspark_platform_test.Notebook
-  hash: fdc81bfaa18f9053b861696784be2c569c3403b2a857ebab40ebd74f67859b33
+  hash: 8bb2cb05847c3d7cc00ffda306686ba7ff704eadf5341aea2fb139ab5db61b63
   status: deployed
   environment: development
 - name: python_platform_test.Notebook
   path: sample_project/fabric_workspace_items/platform_testing/python_platform_test.Notebook
-  hash: 96a5cfce49f4f0650ca16e8c6ced611232c789fd0a4473be88154d7afa2ff474
+  hash: 5aaa0bc7cae51e179e665fce525f0381336a00e2a7e3d9b20bd28f460f5e0d6e
   status: deployed
   environment: development
 - name: EDW.Warehouse
