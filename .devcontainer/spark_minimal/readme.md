@@ -40,3 +40,9 @@ At the end of the process above you will get an error "No such file or directory
 ``` pwsh
 /opt/mssql/bin/sqlservr
 ```
+
+For platform testing, install the Azure CLI.
+
+``` bash
+yes | apt-get install azure-cli
+```
