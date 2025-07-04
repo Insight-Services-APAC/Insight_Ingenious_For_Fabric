@@ -6,9 +6,10 @@ from typing import List, Set
 
 
 class GatherPythonLibs:
-    def __init__(self, console):
+    def __init__(self, console, include_jinja_raw_tags: bool = True):
         """ """
         self.console = console
+        self.include_jinja_raw_tags = include_jinja_raw_tags
 
     def analyze_dependencies(self, script_content: str) -> List[str]:
         """
@@ -248,7 +249,8 @@ class GatherPythonLibs:
 
         # Read and combine file contents
         combined_content = []
-        combined_content.append("{% raw %}")
+        if self.include_jinja_raw_tags:
+            combined_content.append("{% raw %}")
         combined_content.append("# Auto-generated library code from python_libs")
         combined_content.append("# Files are ordered based on dependency analysis\n")
 
@@ -274,5 +276,8 @@ class GatherPythonLibs:
 
             except Exception as e:
                 self.console.print(f"[red]Error reading {file_path.name}: {e}[/red]")
-        combined_content.append("{% endraw %}")
+
+        if self.include_jinja_raw_tags:
+            combined_content.append("{% endraw %}")
+
         return combined_content

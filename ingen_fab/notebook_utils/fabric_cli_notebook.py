@@ -102,9 +102,10 @@ class FabricCLINotebook:
         """List all items in the workspace."""
         cmd = ["fab", "list", f"{self.workspace_name}.Workspace", "--output", "json"]
         result = subprocess.run(cmd, check=True, capture_output=True, text=True)
-        
+
         if result.stdout:
             import json
+
             try:
                 return json.loads(result.stdout)
             except json.JSONDecodeError:

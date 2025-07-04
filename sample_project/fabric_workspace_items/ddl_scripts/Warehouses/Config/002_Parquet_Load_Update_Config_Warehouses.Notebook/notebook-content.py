@@ -41,6 +41,28 @@ target_lakehouse_config_prefix = ""
 
 # This section is automatically generated from the variable library JSON files. DO NOT ALTER
 # variableLibraryInjectionStart: var_lib
+
+# All variables as a dictionary
+configs_dict = {'fabric_environment': 'development', 'fabric_deployment_workspace_id': '3a4fc13c-f7c5-463e-a9de-57c4754699ff', 'synapse_source_database_1': 'test1', 'config_workspace_id': '3a4fc13c-f7c5-463e-a9de-57c4754699ff', 'synapse_source_sql_connection': 'sansdaisyn-ondemand.sql.azuresynapse.net', 'config_lakehouse_name': 'config', 'edw_warehouse_name': 'edw', 'config_lakehouse_id': '2629d4cc-685c-458a-866b-b4705dde71a7', 'edw_workspace_id': '50fbcab0-7d56-46f7-90f6-80ceb00ac86d', 'edw_warehouse_id': 's', 'edw_lakehouse_id': '6adb67d6-c8eb-4612-9053-890cae3a55d7', 'edw_lakehouse_name': 'edw', 'legacy_synapse_connection_name': 'synapse_connection', 'synapse_export_shortcut_path_in_onelake': 'exports/'}
+# All variables as an object
+from dataclasses import dataclass
+@dataclass
+class ConfigsObject:
+    fabric_environment: str 
+    fabric_deployment_workspace_id: str 
+    synapse_source_database_1: str 
+    config_workspace_id: str 
+    synapse_source_sql_connection: str 
+    config_lakehouse_name: str 
+    edw_warehouse_name: str 
+    config_lakehouse_id: str 
+    edw_workspace_id: str 
+    edw_warehouse_id: str 
+    edw_lakehouse_id: str 
+    edw_lakehouse_name: str 
+    legacy_synapse_connection_name: str 
+    synapse_export_shortcut_path_in_onelake: str 
+configs_object: ConfigsObject = ConfigsObject(**configs_dict)
 # variableLibraryInjectionEnd: var_lib
 
 
@@ -75,51 +97,28 @@ from typing import Any
 class config_utils:
     # variableLibraryInjectionStart: var_lib
 
-    # All variables as a dictionary
-    configs_dict = {
-        "fabric_environment": "development",
-        "fabric_deployment_workspace_id": "3a4fc13c-f7c5-463e-a9de-57c4754699ff",
-        "synapse_source_database_1": "test1",
-        "config_workspace_id": "3a4fc13c-f7c5-463e-a9de-57c4754699ff",
-        "synapse_source_sql_connection": "sansdaisyn-ondemand.sql.azuresynapse.net",
-        "config_lakehouse_name": "config",
-        "edw_warehouse_name": "edw",
-        "config_lakehouse_id": "2629d4cc-685c-458a-866b-b4705dde71a7",
-        "edw_workspace_id": "50fbcab0-7d56-46f7-90f6-80ceb00ac86d",
-        "edw_warehouse_id": "s",
-        "edw_lakehouse_id": "6adb67d6-c8eb-4612-9053-890cae3a55d7",
-        "edw_lakehouse_name": "edw",
-        "legacy_synapse_connection_name": "synapse_connection",
-        "synapse_export_shortcut_path_in_onelake": "exports/",
-    }
-
-    # All variables as an object
-    @dataclass
-    class ConfigsObject:
-        fabric_environment: str
-        fabric_deployment_workspace_id: str
-        synapse_source_database_1: str
-        config_workspace_id: str
-        synapse_source_sql_connection: str
-        config_lakehouse_name: str
-        edw_warehouse_name: str
-        config_lakehouse_id: str
-        edw_workspace_id: str
-        edw_warehouse_id: str
-        edw_lakehouse_id: str
-        edw_lakehouse_name: str
-        legacy_synapse_connection_name: str
-        synapse_export_shortcut_path_in_onelake: str
-
-        def get_attribute(self, attr_name: str) -> Any:
-            """Get attribute value by string name with error handling."""
-            if hasattr(self, attr_name):
-                return getattr(self, attr_name)
-            else:
-                raise AttributeError(f"ConfigsObject has no attribute '{attr_name}'")
-
-    configs_object: ConfigsObject = ConfigsObject(**configs_dict)
-    # variableLibraryInjectionEnd: var_lib
+# All variables as a dictionary
+configs_dict = {'fabric_environment': 'development', 'fabric_deployment_workspace_id': '3a4fc13c-f7c5-463e-a9de-57c4754699ff', 'synapse_source_database_1': 'test1', 'config_workspace_id': '3a4fc13c-f7c5-463e-a9de-57c4754699ff', 'synapse_source_sql_connection': 'sansdaisyn-ondemand.sql.azuresynapse.net', 'config_lakehouse_name': 'config', 'edw_warehouse_name': 'edw', 'config_lakehouse_id': '2629d4cc-685c-458a-866b-b4705dde71a7', 'edw_workspace_id': '50fbcab0-7d56-46f7-90f6-80ceb00ac86d', 'edw_warehouse_id': 's', 'edw_lakehouse_id': '6adb67d6-c8eb-4612-9053-890cae3a55d7', 'edw_lakehouse_name': 'edw', 'legacy_synapse_connection_name': 'synapse_connection', 'synapse_export_shortcut_path_in_onelake': 'exports/'}
+# All variables as an object
+from dataclasses import dataclass
+@dataclass
+class ConfigsObject:
+    fabric_environment: str 
+    fabric_deployment_workspace_id: str 
+    synapse_source_database_1: str 
+    config_workspace_id: str 
+    synapse_source_sql_connection: str 
+    config_lakehouse_name: str 
+    edw_warehouse_name: str 
+    config_lakehouse_id: str 
+    edw_workspace_id: str 
+    edw_warehouse_id: str 
+    edw_lakehouse_id: str 
+    edw_lakehouse_name: str 
+    legacy_synapse_connection_name: str 
+    synapse_export_shortcut_path_in_onelake: str 
+configs_object: ConfigsObject = ConfigsObject(**configs_dict)
+# variableLibraryInjectionEnd: var_lib
 
     def __init__(self):
         self.fabric_environments_table_name = "fabric_environments"
@@ -189,13 +188,14 @@ import pyodbc  # type: ignore # noqa: F401
 from sqlparse import format
 
 from ingen_fab.fabric_api.utils import FabricApiUtils
+from ingen_fab.python_libs.interfaces.data_store_interface import DataStoreInterface
 
     SQLTemplates,  # Assuming this is a custom module for SQL templates
 )
 
 logger = logging.getLogger(__name__)
 
-class warehouse_utils:
+class warehouse_utils(DataStoreInterface):
     """Utilities for interacting with Fabric or local SQL Server warehouses."""
 
     def __init__(
@@ -455,6 +455,171 @@ class warehouse_utils:
             logging.info("✅ All eligible tables have been dropped.")
         except Exception as e:
             logging.error(f"Error dropping tables with prefix {table_prefix}: {e}")
+
+    # --- DataStoreInterface required methods ---
+    def get_table_schema(self, table_name: str, schema_name: str | None = None) -> dict[str, object]:
+        """Implements DataStoreInterface: Get the schema/column definitions for a table."""
+        conn = self.get_connection()
+        query = self.sql.render("get_table_schema", table_name=table_name, schema_name=schema_name or "dbo")
+        result = self.execute_query(conn, query)
+        if result is not None:
+            return dict(zip(result.columns, result.values[0])) if not result.empty else {}
+        return {}
+
+    def read_table(
+        self,
+        table_name: str,
+        schema_name: str | None = None,
+        columns: list[str] | None = None,
+        limit: int | None = None,
+        filters: dict[str, object] | None = None,
+    ) -> object:
+        """Implements DataStoreInterface: Read data from a table, optionally filtering columns, rows, or limiting results."""
+        conn = self.get_connection()
+        query = self.sql.render(
+            "read_table",
+            table_name=table_name,
+            schema_name=schema_name or "dbo",
+            columns=columns,
+            limit=limit,
+            filters=filters,
+        )
+        return self.execute_query(conn, query)
+
+    def delete_from_table(
+        self,
+        table_name: str,
+        schema_name: str | None = None,
+        filters: dict[str, object] | None = None,
+    ) -> int:
+        """Implements DataStoreInterface: Delete rows from a table matching filters."""
+        conn = self.get_connection()
+        query = self.sql.render(
+            "delete_from_table",
+            table_name=table_name,
+            schema_name=schema_name or "dbo",
+            filters=filters,
+        )
+        result = self.execute_query(conn, query)
+        # Return number of rows deleted if possible, else -1
+        return getattr(result, 'rowcount', -1) if result is not None else -1
+
+    def rename_table(
+        self,
+        old_table_name: str,
+        new_table_name: str,
+        schema_name: str | None = None,
+    ) -> None:
+        """Implements DataStoreInterface: Rename a table."""
+        conn = self.get_connection()
+        query = self.sql.render(
+            "rename_table",
+            old_table_name=old_table_name,
+            new_table_name=new_table_name,
+            schema_name=schema_name or "dbo",
+        )
+        self.execute_query(conn, query)
+
+    def create_table(
+        self,
+        table_name: str,
+        schema_name: str | None = None,
+        schema: dict[str, object] | None = None,
+        options: dict[str, object] | None = None,
+    ) -> None:
+        """Implements DataStoreInterface: Create a new table with a given schema."""
+        conn = self.get_connection()
+        query = self.sql.render(
+            "create_table",
+            table_name=table_name,
+            schema_name=schema_name or "dbo",
+            schema=schema,
+            options=options,
+        )
+        self.execute_query(conn, query)
+
+    def drop_table(
+        self,
+        table_name: str,
+        schema_name: str | None = None,
+    ) -> None:
+        """Implements DataStoreInterface: Drop a single table."""
+        conn = self.get_connection()
+        query = self.sql.render(
+            "drop_table",
+            table_name=table_name,
+            schema_name=schema_name or "dbo",
+        )
+        self.execute_query(conn, query)
+
+    def list_tables(self) -> list[str]:
+        """Implements DataStoreInterface: List all tables in the warehouse."""
+        conn = self.get_connection()
+        query = self.sql.render("list_tables")
+        result = self.execute_query(conn, query)
+        if result is not None and not result.empty:
+            return result['table_name'].tolist() if 'table_name' in result.columns else result.iloc[:, 0].tolist()
+        return []
+
+    def list_schemas(self) -> list[str]:
+        """Implements DataStoreInterface: List all schemas/namespaces in the warehouse."""
+        conn = self.get_connection()
+        query = self.sql.render("list_schemas")
+        result = self.execute_query(conn, query)
+        if result is not None and not result.empty:
+            return result['schema_name'].tolist() if 'schema_name' in result.columns else result.iloc[:, 0].tolist()
+        return []
+
+    def get_table_row_count(
+        self,
+        table_name: str,
+        schema_name: str | None = None,
+    ) -> int:
+        """Implements DataStoreInterface: Get the number of rows in a table."""
+        conn = self.get_connection()
+        query = self.sql.render(
+            "get_table_row_count",
+            table_name=table_name,
+            schema_name=schema_name or "dbo",
+        )
+        result = self.execute_query(conn, query)
+        if result is not None and not result.empty:
+            return int(result.iloc[0, 0])
+        return 0
+
+    def get_table_metadata(
+        self,
+        table_name: str,
+        schema_name: str | None = None,
+    ) -> dict[str, object]:
+        """Implements DataStoreInterface: Get metadata for a table (creation time, size, etc.)."""
+        conn = self.get_connection()
+        query = self.sql.render(
+            "get_table_metadata",
+            table_name=table_name,
+            schema_name=schema_name or "dbo",
+        )
+        result = self.execute_query(conn, query)
+        if result is not None and not result.empty:
+            return result.iloc[0].to_dict()
+        return {}
+
+    def vacuum_table(
+        self,
+        table_name: str,
+        schema_name: str | None = None,
+        retention_hours: int = 168,
+    ) -> None:
+        """Implements DataStoreInterface: Perform cleanup/compaction on a table (no-op for SQL warehouses)."""
+        # Not applicable for SQL warehouses, but required by interface
+        pass
+
+    # --- End DataStoreInterface required methods ---
+
+    # The following methods/properties are not part of DataStoreInterface but are kept for compatibility or utility:
+    # - create_schema_if_not_exists
+    # - write_to_warehouse_table
+    # - _connect_to_local_sql_server
 
 # === ddl_utils.py ===
 # { "depends_on": "warehouse_utils" }
