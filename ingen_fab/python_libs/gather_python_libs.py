@@ -276,7 +276,7 @@ class GatherPythonLibs:
 
             except Exception as e:
                 self.console.print(f"[red]Error reading {file_path.name}: {e}[/red]")
-        
+
         if self.include_jinja_raw_tags:
             combined_content.append("{% endraw %}")
 

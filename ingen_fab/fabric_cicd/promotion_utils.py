@@ -274,7 +274,9 @@ class SyncToFabricEnvironment:
         print(f"\nScanning for platform folders in: {fabric_items_path}")
 
         platform_folders = self.find_platform_folders(fabric_items_path)
-        manifest_path = Path(f"{self.project_path}/platform_manifest_{self.environment}.yml")
+        manifest_path = Path(
+            f"{self.project_path}/platform_manifest_{self.environment}.yml"
+        )
         if platform_folders:
             print(f"Found {len(platform_folders)} folders with platform files:")
             for folder in platform_folders:
@@ -319,7 +321,9 @@ class SyncToFabricEnvironment:
                 try:
                     fw = FabricWorkspace(
                         workspace_id=self.target_workspace_id,
-                        repository_directory=str(self.project_path / "fabric_workspace_items"), 
+                        repository_directory=str(
+                            self.project_path / "fabric_workspace_items"
+                        ),
                         item_type_in_scope=[
                             "VariableLibrary",
                             "DataPipeline",
