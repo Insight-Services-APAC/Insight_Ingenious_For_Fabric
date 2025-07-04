@@ -3,6 +3,8 @@ from pathlib import Path
 from rich.console import Console
 from rich.theme import Theme
 
+from ingen_fab.cli_utils.console_styles import ConsoleStyles
+
 
 def init_solution(project_name: str, path: Path):
     project_path = Path(path)
@@ -28,22 +30,11 @@ def init_solution(project_name: str, path: Path):
         f.write(gitignore_template)
     with open(project_path / "README.md", "w") as f:
         f.write(readme_template.format(project_name=project_name))
-    custom_theme = Theme(
-        {
-            "info": "dim cyan",
-            "warning": "dark_orange",
-            "danger": "bold red",
-            "error": "bold red",
-            "debug": "khaki1",
-        }
+    console = Console()
+    ConsoleStyles.print_success(
+        console, f"✓ Initialized Fabric solution '{project_name}' at {project_path}"
     )
-    console = Console(theme=custom_theme)
-    console.print(
-        f"[green]✓ Initialized Fabric solution '{project_name}' at {project_path}[/green]"
-    )
-    console.print("\nNext steps:")
-    console.print("1. Update var_lib/*.yml files with your workspace IDs")
-    console.print("2. Create DDL scripts in ddl_scripts/")
-    console.print(
-        "3. Run: ingen_fab compile-ddl-notebooks --output-mode fabric --generation-mode warehouse"
-    )
+    ConsoleStyles.print_info(console, "\nNext steps:")
+    ConsoleStyles.print_info(console, "1. Update var_lib/*.yml files with your workspace IDs")
+    ConsoleStyles.print_info(console, "2. Create DDL scripts in ddl_scripts/")
+    ConsoleStyles.print_info(console, "3. Run: ingen_fab compile-ddl-notebooks --output-mode fabric --generation-mode warehouse")

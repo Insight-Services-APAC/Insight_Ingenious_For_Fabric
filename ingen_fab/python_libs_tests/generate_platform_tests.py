@@ -101,6 +101,11 @@ class GeneratePlatformTests:
         )
 
 
-if __name__ == "__main__":
+
+def main() -> None:
     generator = GeneratePlatformTests()
     generator.inject_python_libs_into_template()
+
+
+if __name__ == "__main__":
+    main()
