@@ -66,51 +66,28 @@ from typing import Any
 class config_utils:
     # variableLibraryInjectionStart: var_lib
 
-    # All variables as a dictionary
-    configs_dict = {
-        "fabric_environment": "development",
-        "fabric_deployment_workspace_id": "3a4fc13c-f7c5-463e-a9de-57c4754699ff",
-        "synapse_source_database_1": "test1",
-        "config_workspace_id": "3a4fc13c-f7c5-463e-a9de-57c4754699ff",
-        "synapse_source_sql_connection": "sansdaisyn-ondemand.sql.azuresynapse.net",
-        "config_lakehouse_name": "config",
-        "edw_warehouse_name": "edw",
-        "config_lakehouse_id": "2629d4cc-685c-458a-866b-b4705dde71a7",
-        "edw_workspace_id": "50fbcab0-7d56-46f7-90f6-80ceb00ac86d",
-        "edw_warehouse_id": "s",
-        "edw_lakehouse_id": "6adb67d6-c8eb-4612-9053-890cae3a55d7",
-        "edw_lakehouse_name": "edw",
-        "legacy_synapse_connection_name": "synapse_connection",
-        "synapse_export_shortcut_path_in_onelake": "exports/",
-    }
-
-    # All variables as an object
-    @dataclass
-    class ConfigsObject:
-        fabric_environment: str
-        fabric_deployment_workspace_id: str
-        synapse_source_database_1: str
-        config_workspace_id: str
-        synapse_source_sql_connection: str
-        config_lakehouse_name: str
-        edw_warehouse_name: str
-        config_lakehouse_id: str
-        edw_workspace_id: str
-        edw_warehouse_id: str
-        edw_lakehouse_id: str
-        edw_lakehouse_name: str
-        legacy_synapse_connection_name: str
-        synapse_export_shortcut_path_in_onelake: str
-
-        def get_attribute(self, attr_name: str) -> Any:
-            """Get attribute value by string name with error handling."""
-            if hasattr(self, attr_name):
-                return getattr(self, attr_name)
-            else:
-                raise AttributeError(f"ConfigsObject has no attribute '{attr_name}'")
-
-    configs_object: ConfigsObject = ConfigsObject(**configs_dict)
-    # variableLibraryInjectionEnd: var_lib
+# All variables as a dictionary
+configs_dict = {'fabric_environment': 'development', 'fabric_deployment_workspace_id': '3a4fc13c-f7c5-463e-a9de-57c4754699ff', 'synapse_source_database_1': 'test1', 'config_workspace_id': '3a4fc13c-f7c5-463e-a9de-57c4754699ff', 'synapse_source_sql_connection': 'sansdaisyn-ondemand.sql.azuresynapse.net', 'config_lakehouse_name': 'config', 'edw_warehouse_name': 'edw', 'config_lakehouse_id': '2629d4cc-685c-458a-866b-b4705dde71a7', 'edw_workspace_id': '50fbcab0-7d56-46f7-90f6-80ceb00ac86d', 'edw_warehouse_id': 's', 'edw_lakehouse_id': '6adb67d6-c8eb-4612-9053-890cae3a55d7', 'edw_lakehouse_name': 'edw', 'legacy_synapse_connection_name': 'synapse_connection', 'synapse_export_shortcut_path_in_onelake': 'exports/'}
+# All variables as an object
+from dataclasses import dataclass
+@dataclass
+class ConfigsObject:
+    fabric_environment: str 
+    fabric_deployment_workspace_id: str 
+    synapse_source_database_1: str 
+    config_workspace_id: str 
+    synapse_source_sql_connection: str 
+    config_lakehouse_name: str 
+    edw_warehouse_name: str 
+    config_lakehouse_id: str 
+    edw_workspace_id: str 
+    edw_warehouse_id: str 
+    edw_lakehouse_id: str 
+    edw_lakehouse_name: str 
+    legacy_synapse_connection_name: str 
+    synapse_export_shortcut_path_in_onelake: str 
+configs_object: ConfigsObject = ConfigsObject(**configs_dict)
+# variableLibraryInjectionEnd: var_lib
 
     def __init__(self):
         self.fabric_environments_table_name = "fabric_environments"
@@ -142,7 +119,7 @@ class lakehouse_utils(DataStoreInterface):
     including checking table existence, writing data, listing tables, and dropping tables.
     It supports both local Spark sessions and Fabric environments.
     Attributes:
-        target_workspace_id (str): The ID of the target workspace. 
+        target_workspace_id (str): The ID of the target workspace.
         target_lakehouse_id (str): The ID of the target lakehouse.
         spark_version (str): The Spark version being used, either 'local' or 'fabric'.
         spark (SparkSession): The Spark session instance.
@@ -183,34 +160,54 @@ class lakehouse_utils(DataStoreInterface):
 
     def _get_or_create_spark_session(self) -> SparkSession:
         """Get existing Spark session or create a new one."""
-        if 'spark' not in locals() and 'spark' not in globals() and self.spark_version == 'fabric':  
+        if (
+            "spark" not in locals()
+            and "spark" not in globals()
+            and self.spark_version == "fabric"
+        ):
             # Create new Spark session if none exists
             self.spark_version = "local"
-            print("No active Spark session found, creating a new one with Delta support.")
-            builder = SparkSession.builder.appName("MyApp") \
-            .config("spark.sql.extensions", "io.delta.sql.DeltaSparkSessionExtension") \
-            .config("spark.sql.catalog.spark_catalog", "org.apache.spark.sql.delta.catalog.DeltaCatalog")
+            print(
+                "No active Spark session found, creating a new one with Delta support."
+            )
+            builder = (
+                SparkSession.builder.appName("MyApp")
+                .config(
+                    "spark.sql.extensions", "io.delta.sql.DeltaSparkSessionExtension"
+                )
+                .config(
+                    "spark.sql.catalog.spark_catalog",
+                    "org.apache.spark.sql.delta.catalog.DeltaCatalog",
+                )
+            )
             from delta import configure_spark_with_delta_pip
+
             return configure_spark_with_delta_pip(builder).getOrCreate()
-        else: 
+        else:
             print("Using existing spark .. Fabric environment   .")
-            return spark # type: ignore  # noqa: F821
-        
-    def check_if_table_exists(self, table_name: str, schema_name: str | None = None) -> bool:
+            return spark  # type: ignore  # noqa: F821
+
+    def check_if_table_exists(
+        self, table_name: str, schema_name: str | None = None
+    ) -> bool:
         """Check if a Delta table exists at the given table name."""
         # For lakehouse, schema_name is not used as tables are in the Tables directory
         table_path = f"{self.lakehouse_tables_uri()}{table_name}"
         table_exists = False
         try:
-            if DeltaTable.isDeltaTable(self.spark, table_path):  
+            if DeltaTable.isDeltaTable(self.spark, table_path):
                 table_exists = True
-                print(f"Delta table already exists at path: {table_path}, skipping creation.")
-            else: 
+                print(
+                    f"Delta table already exists at path: {table_path}, skipping creation."
+                )
+            else:
                 print(f"Path {table_path} is not a Delta table.")
         except Exception as e:
             # If the path does not exist or is inaccessible, isDeltaTable returns False or may throw.
             # Treat exceptions as "table does not exist".
-            print(f"Could not verify Delta table existence at {table_path} (exception: {e}); assuming it does not exist.")
+            print(
+                f"Could not verify Delta table existence at {table_path} (exception: {e}); assuming it does not exist."
+            )
             table_exists = False
         return table_exists
 
@@ -241,16 +238,20 @@ class lakehouse_utils(DataStoreInterface):
 
         # Register the table in the Hive catalog - Only needed if local
         if self.spark_version == "local":
-            self.spark.sql(f"CREATE TABLE IF NOT EXISTS {table_name} USING DELTA LOCATION '{self.lakehouse_tables_uri()}{table_name}'")
+            self.spark.sql(
+                f"CREATE TABLE IF NOT EXISTS {table_name} USING DELTA LOCATION '{self.lakehouse_tables_uri()}{table_name}'"
+            )
 
     def list_tables(self) -> list[str]:
         """List all tables in the lakehouse."""
         return self.spark.catalog.listTables()
-        #return self.spark.sql("SHOW TABLES").collect()
+        # return self.spark.sql("SHOW TABLES").collect()
 
-    def drop_all_tables(self, schema_name: str | None = None, table_prefix: str | None = None) -> None:
+    def drop_all_tables(
+        self, schema_name: str | None = None, table_prefix: str | None = None
+    ) -> None:
         """Drop all Delta tables in the lakehouse."""
-        
+
         # ──────────────────────────────────────────────────────────────────────────────
 
         # 2. START spark and get Hadoop FS handle
@@ -268,7 +269,7 @@ class lakehouse_utils(DataStoreInterface):
         # 3. Iterate, detect Delta tables, and delete
         # ──────────────────────────────────────────────────────────────────────────────
 
-        for status in fs.listStatus(root_path):            
+        for status in fs.listStatus(root_path):
             table_path_obj = status.getPath()
             print(f"— Checking path: {table_path_obj}")
             table_path = table_path_obj.toString()  # e.g. abfss://…/Tables/my_table
@@ -277,7 +278,9 @@ class lakehouse_utils(DataStoreInterface):
             # Apply table_prefix filter if provided
             table_name_from_path = table_path.split("/")[-1]
             if table_prefix and not table_name_from_path.startswith(table_prefix):
-                print(f"— Skipping table {table_name_from_path} (doesn't match prefix '{table_prefix}')")
+                print(
+                    f"— Skipping table {table_name_from_path} (doesn't match prefix '{table_prefix}')"
+                )
                 continue
 
             try:
@@ -310,11 +313,15 @@ class lakehouse_utils(DataStoreInterface):
         spark = self.spark
         return spark.sql(query)
 
-    def get_table_schema(self, table_name: str, schema_name: str | None = None) -> dict[str, Any]:
+    def get_table_schema(
+        self, table_name: str, schema_name: str | None = None
+    ) -> dict[str, Any]:
         """
         Get the schema/column definitions for a table.
         """
-        df = self.spark.read.format("delta").load(f"{self.lakehouse_tables_uri()}{table_name}")
+        df = self.spark.read.format("delta").load(
+            f"{self.lakehouse_tables_uri()}{table_name}"
+        )
         return {field.name: field.dataType.simpleString() for field in df.schema.fields}
 
     def read_table(
@@ -328,7 +335,9 @@ class lakehouse_utils(DataStoreInterface):
         """
         Read data from a table, optionally filtering columns, rows, or limiting results.
         """
-        df = self.spark.read.format("delta").load(f"{self.lakehouse_tables_uri()}{table_name}")
+        df = self.spark.read.format("delta").load(
+            f"{self.lakehouse_tables_uri()}{table_name}"
+        )
         if columns:
             df = df.select(*columns)
         if filters:
@@ -350,7 +359,9 @@ class lakehouse_utils(DataStoreInterface):
         table_path = f"{self.lakehouse_tables_uri()}{table_name}"
         delta_table = DeltaTable.forPath(self.spark, table_path)
         if filters:
-            condition = " AND ".join([f"{col} = '{val}'" for col, val in filters.items()])
+            condition = " AND ".join(
+                [f"{col} = '{val}'" for col, val in filters.items()]
+            )
         else:
             condition = "true"
         before_count = delta_table.toDF().count()
@@ -389,7 +400,9 @@ class lakehouse_utils(DataStoreInterface):
         fields = ", ".join([f"{col} {dtype}" for col, dtype in schema.items()])
         sql = f"CREATE TABLE {table_name} ({fields}) USING DELTA LOCATION '{self.lakehouse_tables_uri()}{table_name}'"
         if options:
-            opts = " ".join([f"TBLPROPERTIES ('{k}'='{v}')" for k, v in options.items()])
+            opts = " ".join(
+                [f"TBLPROPERTIES ('{k}'='{v}')" for k, v in options.items()]
+            )
             sql += f" {opts}"
         self.spark.sql(sql)
 
@@ -424,7 +437,9 @@ class lakehouse_utils(DataStoreInterface):
         """
         Get the number of rows in a table.
         """
-        df = self.spark.read.format("delta").load(f"{self.lakehouse_tables_uri()}{table_name}")
+        df = self.spark.read.format("delta").load(
+            f"{self.lakehouse_tables_uri()}{table_name}"
+        )
         return df.count()
 
     def get_table_metadata(
@@ -470,16 +485,19 @@ from pyspark.sql.types import (
 
 
 
-class ddl_utils(DDLUtilsInterface):    
+class ddl_utils(DDLUtilsInterface):
     def __init__(self, target_workspace_id: str, target_lakehouse_id: str) -> None:
         """
         Initializes the DDLUtils class with the target workspace and lakehouse IDs.
         """
-        super().__init__(target_lakehouse_id=target_lakehouse_id, target_workspace_id=target_workspace_id)
+        super().__init__(
+            target_lakehouse_id=target_lakehouse_id,
+            target_workspace_id=target_workspace_id,
+        )
         self.target_workspace_id = target_workspace_id
         self.target_lakehouse_id = target_lakehouse_id
         self.lakehouse_utils = lakehouse_utils(target_workspace_id, target_lakehouse_id)
-        self.execution_log_table_name="ddl_script_executions"
+        self.execution_log_table_name = "ddl_script_executions"
         self.initialise_ddl_script_executions_table()
 
 
@@ -495,16 +513,20 @@ class ddl_utils(DDLUtilsInterface):
         )
 
     def print_log(self) -> None:
-        df = self.lakehouse_utils.spark.read.format("delta").load(f"{self.lakehouse_utils.lakehouse_tables_uri()}{self.execution_log_table_name}")
-        if self.lakehouse_utils.spark_version == 'local':
+        df = self.lakehouse_utils.spark.read.format("delta").load(
+            f"{self.lakehouse_utils.lakehouse_tables_uri()}{self.execution_log_table_name}"
+        )
+        if self.lakehouse_utils.spark_version == "local":
             df.show()
-        else: 
+        else:
             display(df)  # type: ignore # noqa: F821
 
     def check_if_script_has_run(self, script_id: str) -> bool:
         from pyspark.sql.functions import col
 
-        df = self.lakehouse_utils.spark.read.format("delta").load(f"{self.lakehouse_utils.lakehouse_tables_uri()}{self.execution_log_table_name}")
+        df = self.lakehouse_utils.spark.read.format("delta").load(
+            f"{self.lakehouse_utils.lakehouse_tables_uri()}{self.execution_log_table_name}"
+        )
         # display(df)
         # Build filter condition
         cond = col("script_id") == script_id
@@ -524,12 +546,16 @@ class ddl_utils(DDLUtilsInterface):
             f"{self.target_workspace_id} | lakehouse_id {self.target_lakehouse_id}"
         )
 
-    def write_to_execution_log(self, object_guid: str, object_name: str, script_status: str) -> None:
+    def write_to_execution_log(
+        self, object_guid: str, object_name: str, script_status: str
+    ) -> None:
         data = [(object_guid, object_name, script_status, datetime.now())]
         new_df = self.lakehouse_utils.spark.createDataFrame(
             data=data, schema=ddl_utils.execution_log_schema()
         )
-        new_df.write.format("delta").mode("append").save(f"{self.lakehouse_utils.lakehouse_tables_uri()}{self.execution_log_table_name}")
+        new_df.write.format("delta").mode("append").save(
+            f"{self.lakehouse_utils.lakehouse_tables_uri()}{self.execution_log_table_name}"
+        )
 
     def run_once(self, work_fn, object_name: str, guid: str | None = None) -> None:
         """
@@ -569,9 +595,13 @@ class ddl_utils(DDLUtilsInterface):
         guid = "b8c83c87-36d2-46a8-9686-ced38363e169"
         object_name = "ddl_script_executions"
         # Check if the execution log table exists
-        table_exists = self.lakehouse_utils.check_if_table_exists(self.execution_log_table_name) 
+        table_exists = self.lakehouse_utils.check_if_table_exists(
+            self.execution_log_table_name
+        )
         if not table_exists:
-            print(f"Creating execution log table at {self.lakehouse_utils.lakehouse_tables_uri()}{self.execution_log_table_name}")
+            print(
+                f"Creating execution log table at {self.lakehouse_utils.lakehouse_tables_uri()}{self.execution_log_table_name}"
+            )
             empty_df = self.lakehouse_utils.spark.createDataFrame(
                 data=[], schema=ddl_utils.execution_log_schema()
             )
@@ -581,7 +611,9 @@ class ddl_utils(DDLUtilsInterface):
                 .mode(
                     "errorIfExists"
                 )  # will error if table exists; change to "overwrite" to replace.
-                .save(f"{self.lakehouse_utils.lakehouse_tables_uri()}{self.execution_log_table_name}")
+                .save(
+                    f"{self.lakehouse_utils.lakehouse_tables_uri()}{self.execution_log_table_name}"
+                )
             )
             self.write_to_execution_log(
                 object_guid=guid, object_name=object_name, script_status="Success"

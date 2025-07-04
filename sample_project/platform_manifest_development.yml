@@ -1,88 +1,88 @@
 platform_folders:
 - name: var_lib.VariableLibrary
   path: sample_project/fabric_workspace_items/config/var_lib.VariableLibrary
-  hash: e262020d2c56d876b060b70072b43d361a605539738f231a33ebdd82a2ab6edf
-  status: updated
+  hash: 7bdcadfb713bcbcedc3de68ecfb84dc53a81a6c23c324015b3416b9f42458bd0
+  status: deployed
   environment: development
 - name: 00_all_lakehouses_orchestrator_ddl_scripts.Notebook
   path: sample_project/fabric_workspace_items/ddl_scripts/Lakehouses/00_all_lakehouses_orchestrator.Notebook
-  hash: bc4906886843c189787033b1fd46e36b693b47c6b6552ff8ef5d71a69c3d59df
-  status: updated
+  hash: 41d51443587166e0c28a9763bf7645953df8c2c0ea10b6f2720bbcd8eb1521da
+  status: deployed
   environment: development
 - name: 001_Initial_Creation_Config_Lakehouses_ddl_scripts.Notebook
   path: sample_project/fabric_workspace_items/ddl_scripts/Lakehouses/Config/001_Initial_Creation_Config_Lakehouses.Notebook
-  hash: 327b1e09565f725b86d6dfa6ef64a59e6f599a137a5df707fa3de2a0ebb5c32d
-  status: updated
+  hash: 1bce7b71cc9202b77c90789477dcbca3d2ababed31555e105b4d2d81bce39d1e
+  status: deployed
   environment: development
 - name: 0_orchestrator_Config_ddl_scripts.Notebook
   path: sample_project/fabric_workspace_items/ddl_scripts/Lakehouses/Config/0_orchestrator_Config.Notebook
-  hash: 4ee66563c5126a605cf64c2004590352ca059287b6ac3e544f735a4cf59cd5ea
-  status: updated
+  hash: 28ee40328a12efb3236b0b7169d623de451a577547e7bd7c357e73fc23902bcb
+  status: deployed
   environment: development
 - name: 00_all_warehouses_config_notebook_ddl_scripts.Notebook
   path: sample_project/fabric_workspace_items/ddl_scripts/Warehouses/00_all_warehouses_config_notebook.Notebook
-  hash: 7dd8c23bc4b62e7c30a7da7ae8cc2fa480636eb7722957c890118aba4d2b9a6f
-  status: updated
+  hash: 70aa960e053b29133be1016f5aa98d625c797c6b07183056811aa0a5df6aa28a
+  status: deployed
   environment: development
 - name: 00_all_warehouses_orchestrator_ddl_scripts.Notebook
   path: sample_project/fabric_workspace_items/ddl_scripts/Warehouses/00_all_warehouses_orchestrator.Notebook
-  hash: 5198ae9ce5f8516d80023a0ee77616ec83a018efbb7a3cdd7be61b8a3100dec6
-  status: updated
+  hash: 7a946417f803bd95c8c8eb0122a39f721688cd1946b3104517cb73af461fb620
+  status: deployed
   environment: development
 - name: 001_Initial_Creation_Config_Warehouses_ddl_scripts.Notebook
   path: sample_project/fabric_workspace_items/ddl_scripts/Warehouses/Config/001_Initial_Creation_Config_Warehouses.Notebook
-  hash: 4959267c5147b69c2331e9c329a104b9cccb464618f5119362df4785cddf942d
-  status: updated
+  hash: 5e0719bb92c26f56a5a724aa8faa4e0b0c08a257ed5b756222be051608d50f70
+  status: deployed
   environment: development
 - name: 002_Parquet_Load_Update_Config_Warehouses_ddl_scripts.Notebook
   path: sample_project/fabric_workspace_items/ddl_scripts/Warehouses/Config/002_Parquet_Load_Update_Config_Warehouses.Notebook
-  hash: fa7276cebb794288ec6f02074df450e80bbfb2b0ba21f3a102486748fb323031
-  status: updated
+  hash: d878cb666874e11b52e1bac000db6823948bb5200a326a9f33d1b407f084991e
+  status: deployed
   environment: development
 - name: 0_orchestrator_Config_ddl_scripts.Notebook
   path: sample_project/fabric_workspace_items/ddl_scripts/Warehouses/Config/0_orchestrator_Config.Notebook
-  hash: fcf29488ea8f140234b9f25fcf97c24837f6ccb6ef1575033e22a118e0ca6164
-  status: updated
+  hash: 89e578d8900c6b2e94616d9222fc97168584fa952474b8e6596cf6e5cb78b61a
+  status: deployed
   environment: development
 - name: extract_from_synapse.Notebook
   path: sample_project/fabric_workspace_items/extract/extract_from_synapse.Notebook
   hash: 68805b6d96d8bc1805d8a3b2ca6ee04e812ccb70329aad15e05cc0628c8a453e
-  status: updated
+  status: deployed
   environment: development
 - name: jw_extract_from_synapse.Notebook
   path: sample_project/fabric_workspace_items/extract/jw_extract_from_synapse.Notebook
   hash: 963039d8cdfdc9347eedebf922d4e7dd639a005e69ac347d7d86ad907431f05d
-  status: updated
+  status: deployed
   environment: development
 - name: sm_extract_from_synapse.Notebook
   path: sample_project/fabric_workspace_items/extract/sm_extract_from_synapse.Notebook
   hash: 1dbe62ea9fc32c81a8c62563390f104299f95de6a4a5509c1d8e2b1a8a259432
-  status: updated
+  status: deployed
   environment: development
 - name: config.Lakehouse
   path: sample_project/fabric_workspace_items/lakehouses/config.Lakehouse
   hash: d3dde53a0a4d091a82f221fbf1c354567d83e5ae1efed408d0a8c4b5e93d7960
-  status: updated
+  status: deployed
   environment: development
 - name: load_to_lakehouse_tables.Notebook
   path: sample_project/fabric_workspace_items/load/load_to_lakehouse_tables.Notebook
   hash: 84f58b5db93686b7a1c41d14fa7218acab6d4039a7c063efce37fefea934b27c
-  status: updated
+  status: deployed
+  environment: development
+- name: pyspark_platform_test.Notebook
+  path: sample_project/fabric_workspace_items/platform_testing/pyspark_platform_test.Notebook
+  hash: 8bb2cb05847c3d7cc00ffda306686ba7ff704eadf5341aea2fb139ab5db61b63
+  status: deployed
+  environment: development
+- name: python_platform_test.Notebook
+  path: sample_project/fabric_workspace_items/platform_testing/python_platform_test.Notebook
+  hash: 5aaa0bc7cae51e179e665fce525f0381336a00e2a7e3d9b20bd28f460f5e0d6e
+  status: deployed
   environment: development
 - name: EDW.Warehouse
   path: sample_project/fabric_workspace_items/warehouses/EDW.Warehouse
   hash: 8d271b3394a1ce877433b0fef41bf7813f1d393ddc433d73aacb308d6004eb4b
-  status: updated
-  environment: development
-- name: extract_from_synapse.DataPipeline
-  path: sample_project/fabric_workspace_items/extract/extract_from_synapse.DataPipeline
-  hash: 5b9f52d84f8b6d2faf0de9b24a0dc08d3102752cafc14d926ca18512e5b9b499
-  status: deleted
-  environment: development
-- name: extract_pipeline_from_synapse_v2.DataPipeline
-  path: sample_project/fabric_workspace_items/extract/extract_pipeline_from_synapse_v2.DataPipeline
-  hash: 6e9dea0f07ab3769b47f91c1e6e29d1fb8d76833eabb9c2e566978cc13ff449c
-  status: deleted
+  status: deployed
   environment: development
 generated_at: /workspaces/ingen_fab
 version: 1.0

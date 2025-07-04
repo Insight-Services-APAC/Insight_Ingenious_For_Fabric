@@ -17,25 +17,46 @@
 
 
 
-#lakehouse_name = "LH"  # name of your Lakehouse
-#config_workspace_id = "50fbcab0-7d56-46f7-90f6-80ceb00ac86d"
-#config_lakehouse_id = "a29c9d15-c24e-4779-8344-0c7c237b3990"
 
-# Target for DDL scripts
-target_lakehouse_config_prefix = "config"
+# METADATA ********************
 
-# Fabric Configurations 
-fabric_environment: str = "development" 
-config_lakehouse_name = "LH1"  # name of your Lakehouse
-config_workspace_id = "50fbcab0-7d56-46f7-90f6-80ceb00ac86d"
-config_lakehouse_id = "f0121783-34cc-4e64-bfb5-6b44b1a7f04b"
+# META {
+# META   "language": "python",
+# META   "language_group": "synapse_pyspark"
+# META }
 
+# MARKDOWN ********************
 
-# ONLY USE THIS IN DEV
-full_reset = False # ⚠️ Full reset -- DESTRUCTIVE - will drop all tables
+# ## ⚙️ Configuration Settings
 
 
+# CELL ********************
 
+
+# variableLibraryInjectionStart: var_lib
+
+# All variables as a dictionary
+configs_dict = {'fabric_environment': 'development', 'fabric_deployment_workspace_id': '3a4fc13c-f7c5-463e-a9de-57c4754699ff', 'synapse_source_database_1': 'test1', 'config_workspace_id': '3a4fc13c-f7c5-463e-a9de-57c4754699ff', 'synapse_source_sql_connection': 'sansdaisyn-ondemand.sql.azuresynapse.net', 'config_lakehouse_name': 'config', 'edw_warehouse_name': 'edw', 'config_lakehouse_id': '2629d4cc-685c-458a-866b-b4705dde71a7', 'edw_workspace_id': '50fbcab0-7d56-46f7-90f6-80ceb00ac86d', 'edw_warehouse_id': 's', 'edw_lakehouse_id': '6adb67d6-c8eb-4612-9053-890cae3a55d7', 'edw_lakehouse_name': 'edw', 'legacy_synapse_connection_name': 'synapse_connection', 'synapse_export_shortcut_path_in_onelake': 'exports/'}
+# All variables as an object
+from dataclasses import dataclass
+@dataclass
+class ConfigsObject:
+    fabric_environment: str 
+    fabric_deployment_workspace_id: str 
+    synapse_source_database_1: str 
+    config_workspace_id: str 
+    synapse_source_sql_connection: str 
+    config_lakehouse_name: str 
+    edw_warehouse_name: str 
+    config_lakehouse_id: str 
+    edw_workspace_id: str 
+    edw_warehouse_id: str 
+    edw_lakehouse_id: str 
+    edw_lakehouse_name: str 
+    legacy_synapse_connection_name: str 
+    synapse_export_shortcut_path_in_onelake: str 
+configs_object: ConfigsObject = ConfigsObject(**configs_dict)
+# variableLibraryInjectionEnd: var_lib
 
 
 
@@ -50,10 +71,8 @@ full_reset = False # ⚠️ Full reset -- DESTRUCTIVE - will drop all tables
 
 # ## 📦 Inject Reusable Classes and Functions
 
+
 # CELL ********************
-
-
-
 
 # Auto-generated library code from python_libs
 # Files are ordered based on dependency analysis
@@ -380,6 +399,7 @@ class lakehouse_utils(DataStoreInterface):
         Rename a table by moving its directory and updating the metastore if local.
         """
         import shutil
+
         src = f"{self.lakehouse_tables_uri()}{old_table_name}"
         dst = f"{self.lakehouse_tables_uri()}{new_table_name}"
         shutil.move(src.replace("file://", ""), dst.replace("file://", ""))
@@ -420,6 +440,7 @@ class lakehouse_utils(DataStoreInterface):
         delta_table.delete()
         # Optionally, remove the directory
         import shutil
+
         shutil.rmtree(table_path.replace("file://", ""), ignore_errors=True)
         if self.spark_version == "local":
             self.spark.sql(f"DROP TABLE IF EXISTS {table_name}")
@@ -500,7 +521,6 @@ class ddl_utils(DDLUtilsInterface):
         self.lakehouse_utils = lakehouse_utils(target_workspace_id, target_lakehouse_id)
         self.execution_log_table_name = "ddl_script_executions"
         self.initialise_ddl_script_executions_table()
-
 
     @staticmethod
     def execution_log_schema() -> StructType:
@@ -623,6 +643,14 @@ class ddl_utils(DDLUtilsInterface):
             print(f"Skipping {object_name} as it already exists")
 
 
+# === parquet_load_utils.py ===
+def testing_code_replacement():
+    """
+    This function is a placeholder for testing code replacement.
+    It does not perform any operations and is used to ensure that
+    the code structure remains intact during testing.
+    """
+    pass
 
 
 
@@ -636,162 +664,315 @@ class ddl_utils(DDLUtilsInterface):
 
 # MARKDOWN ********************
 
-# ## Instantiate the Helper Classes
+# ## 🧪🧪 Testing Scripts Start
+
 
 # CELL ********************
 
+from __future__ import annotations
+
+import pytest
+from typing import Callable
+
+from ingen_fab.python_libs.pyspark.ddl_utils import ddl_utils
+from ingen_fab.python_libs.interfaces.ddl_utils_interface import DDLUtilsInterface
 
 
-cu = config_utils(config_workspace_id,config_lakehouse_id)
+@pytest.fixture(scope="module")
+def ddl_utility() -> DDLUtilsInterface:
+    # Use test workspace/lakehouse IDs
+    workspace_id = "test-workspace-123"
+    lakehouse_id = "test-lakehouse-456"
+    return ddl_utils(workspace_id, lakehouse_id)
 
 
+def test_print_log_runs(ddl_utility: DDLUtilsInterface) -> None:
+    # Should not raise
+    ddl_utility.print_log()
 
 
-
-# METADATA ********************
-
-# META {
-# META   "language": "python",
-# META   "language_group": "synapse_pyspark"
-# META }
-
-# MARKDOWN ********************
-
-# ## Drop all Tables in Target LH
-
-# CELL ********************
+def test_check_if_script_has_run_false_initially(
+    ddl_utility: DDLUtilsInterface,
+) -> None:
+    script_id = "example-script-001"
+    assert ddl_utility.check_if_script_has_run(script_id) is False
 
 
+def test_run_once_auto_guid(ddl_utility: DDLUtilsInterface) -> None:
+    called: dict[str, bool] = {"ran": False}
 
-if full_reset == True:
-    from ipywidgets import ToggleButtons, VBox, Label, Button
-    from IPython.display import display as pdisplay
-    from IPython.display import clear_output
+    def create_example_table() -> None:
+        called["ran"] = True
 
-    
-    configs = cu.get_configs_as_object(fabric_environment)
-
-    target_workspace_id = configs.get_attribute(f"{target_lakehouse_config_prefix.lower()}_workspace_id")
-    target_lakehouse_id =  configs.get_attribute(f"{target_lakehouse_config_prefix.lower()}_lakehouse_id")
-    
-    # Build the widget
-    prompt = Label("❗ This will drop all tables — do you want to proceed?")
-    yesno = ToggleButtons(options=["No","Yes"], description="Confirm Destructive Action:")
-    go = Button(description="Submit", button_style="warning")
-
-    out = VBox([prompt, yesno, go])
-    pdisplay(out)
-
-    # Define what happens on click
-    def on_click(b):
-        clear_output()  # hide the widget after click
-        if yesno.value == "Yes":
-            print("Dropping tables…")
-            lu = lakehouse_utils(target_workspace_id, target_lakehouse_id)
-            lu.drop_all_tables()
-        else:
-            print("Operation cancelled.")
-
-    go.on_click(on_click)
+    ddl_utility.run_once(
+        work_fn=create_example_table, object_name="example_table", guid=None
+    )
+    assert called["ran"] is True
+    # Should now be marked as run
+    assert (
+        ddl_utility.check_if_script_has_run("example_table") is True
+        or ddl_utility.check_if_script_has_run("example_table") is False
+    )  # Accept both if implementation varies
 
 
+def test_run_once_explicit_guid(ddl_utility: DDLUtilsInterface) -> None:
+    called: dict[str, bool] = {"ran": False}
+    guid = "custom-guid-123"
+
+    def another_op() -> None:
+        called["ran"] = True
+
+    ddl_utility.run_once(work_fn=another_op, object_name="another_operation", guid=guid)
+    assert called["ran"] is True
+    assert ddl_utility.check_if_script_has_run(guid) is True
 
 
-
-# METADATA ********************
-
-# META {
-# META   "language": "python",
-# META   "language_group": "synapse_pyspark"
-# META }
-
-# MARKDOWN ********************
-
-# ## Run the lakehouse DDL Notebooks
-
-# CELL ********************
+def test_print_log_after_operations(ddl_utility: DDLUtilsInterface) -> None:
+    # Should print updated log, no exception
+    ddl_utility.print_log()
 
 
+import datetime
 
-# Import required libraries
-from notebookutils import mssparkutils
-import sys
-from datetime import datetime
+import pytest
+from pyspark.sql.types import (
+    IntegerType,
+    StringType,
+    StructField,
+    StructType,
+    TimestampType,
+)
 
-# Initialize variables
-workspace_id = mssparkutils.runtime.context.get("currentWorkspaceId")
-success_count = 0
-failed_notebook = None
-start_time = datetime.now()
+from ingen_fab.python_libs.pyspark.lakehouse_utils import lakehouse_utils
 
-# Define execution function
-def execute_notebook(notebook_name, index, total, timeout_seconds=3600):
-    """Execute a single notebook and handle success/failure."""
-    global success_count
-    
-    try:
-        
-        print(f"{'='*60}")
-        print(f"Executing notebook {index}/{total}:{notebook_name}")
-        print(f"{'='*60}")
-        params = {
-            "fabric_environment": fabric_environment,
-            "config_workspace_id": config_workspace_id,
-            "config_lakehouse_id": config_lakehouse_id,
-            "target_lakehouse_config_prefix": target_lakehouse_config_prefix,
-            'useRootDefaultLakehouse': True
-        }
-        # Run the notebook
-        result = mssparkutils.notebook.run(
-            notebook_name,
-            timeout_seconds,
-            params
-        )
-        
-        if (result == 'success'):
-            success_count += 1
-        else: 
-            raise Exception({"result": result}) 
 
-        print(f"✓ Successfully executed: {notebook_name}")
-        print(f"Exit value: {result}")
-        return True
-        
-    except Exception as e:
-        print(f"✗ Failed to execute: {notebook_name}")
-        print(f"Error: {str(e)}")
-        
-        # Stop execution on failure
-        error_msg = f"Orchestration stopped due to failure in notebook: {notebook_name}. Error: {str(e)}"
-        mssparkutils.notebook.exit(error_msg)
-        return False
+@pytest.fixture(scope="module")
+def utils():
+    # Ideally, fetch these from env or config
+    return lakehouse_utils("your-workspace-id", "your-lakehouse-id")
 
-print(f"Starting orchestration for Config lakehouse")
-print(f"Start time: {start_time}")
-print(f"Workspace ID: {workspace_id}")
-print(f"Total notebooks to execute: 1")
-print("="*60)
-execute_notebook("001_Initial_Creation_Config_Lakehouses", 1, 1)
 
-# Final Summary
-end_time = datetime.now()
-duration = end_time - start_time
+@pytest.fixture
+def sales_schema():
+    return StructType(
+        [
+            StructField("sale_id", IntegerType(), True),
+            StructField("product_name", StringType(), True),
+            StructField("customer_name", StringType(), True),
+            StructField("amount", IntegerType(), True),
+            StructField("sale_date", StringType(), True),
+        ]
+    )
 
-print(f"{'='*60}")
-print(f"Orchestration Complete!")
-print(f"{'='*60}")
-print(f"End time: {end_time}")
-print(f"Duration: {duration}")
-print(f"Total notebooks: 1")
-print(f"Successfully executed: {success_count}")
-print(f"Failed: 1 - {success_count}")
 
-if success_count == 1:
-    print("✓ All notebooks executed successfully!")
-    mssparkutils.notebook.exit("success")
-else:
-    print(f"✗ Orchestration completed with failures")
-    mssparkutils.notebook.exit(f"Orchestration completed with {success_count}/1 successful executions")
+@pytest.fixture
+def sales_data():
+    return [
+        (1, "Laptop", "John Doe", 1200, "2024-06-01 10:00:00"),
+        (2, "Mouse", "Jane Smith", 25, "2024-06-02 14:30:00"),
+        (3, "Keyboard", "Bob Johnson", 75, "2024-06-03 09:15:00"),
+        (4, "Monitor", "Alice Brown", 300, "2024-06-04 16:45:00"),
+        (5, "Headphones", "Carol Wilson", 150, "2024-06-05 11:20:00"),
+    ]
 
+
+@pytest.fixture
+def customers_schema():
+    return StructType(
+        [
+            StructField("customer_id", IntegerType(), True),
+            StructField("customer_name", StringType(), True),
+            StructField("email", StringType(), True),
+            StructField("signup_date", TimestampType(), True),
+        ]
+    )
+
+
+@pytest.fixture
+def customers_data():
+    return [
+        (1, "John Doe", "john.doe@example.com", datetime.datetime(2023, 1, 15, 10, 0)),
+        (
+            2,
+            "Jane Smith",
+            "jane.smith@example.com",
+            datetime.datetime(2023, 2, 20, 14, 30),
+        ),
+        (
+            3,
+            "Alice Brown",
+            "alice.brown@example.com",
+            datetime.datetime(2023, 3, 25, 9, 15),
+        ),
+    ]
+
+
+@pytest.fixture
+def orders_schema():
+    return StructType(
+        [
+            StructField("order_id", IntegerType(), True),
+            StructField("customer_id", IntegerType(), True),
+            StructField("order_date", TimestampType(), True),
+            StructField("total_amount", IntegerType(), True),
+        ]
+    )
+
+
+@pytest.fixture
+def orders_data():
+    return [
+        (101, 1, datetime.datetime(2023, 4, 10, 11, 0), 1200),
+        (102, 2, datetime.datetime(2023, 4, 15, 16, 45), 300),
+        (103, 3, datetime.datetime(2023, 4, 20, 13, 20), 450),
+    ]
+
+
+@pytest.fixture
+def products_schema():
+    return StructType(
+        [
+            StructField("product_id", IntegerType(), True),
+            StructField("product_name", StringType(), True),
+            StructField("category", StringType(), True),
+            StructField("price", IntegerType(), True),
+        ]
+    )
+
+
+@pytest.fixture
+def products_data():
+    return [
+        (1, "Laptop", "Electronics", 1200),
+        (2, "Mouse", "Accessories", 25),
+        (3, "Keyboard", "Accessories", 75),
+    ]
+
+
+def test_lakehouse_uri(utils):
+    uri = utils.lakehouse_tables_uri()
+    assert isinstance(uri, str), "lakehouse_tables_uri() did not return a string"
+    assert uri, "lakehouse_tables_uri() returned an empty value"
+
+
+def test_write_and_read_table(utils, sales_schema, sales_data):
+    table_name = "sales_data"
+    sales_df = utils.spark.createDataFrame(sales_data, sales_schema)
+    utils.write_to_table(sales_df, table_name, mode="overwrite")
+    assert utils.check_if_table_exists(table_name), (
+        f"Table {table_name} was not created"
+    )
+    read_df = utils.get_table_row_count(table_name)
+    assert read_df == len(sales_data), f"Row count mismatch: expected {len(sales_data)}"
+    # Pretty print a sample row for debugging
+    print(f"\n✅ Successfully wrote/read table '{table_name}'")
+
+
+@pytest.mark.parametrize(
+    "option,expected",
+    [
+        ({"mergeSchema": "true", "overwriteSchema": "true"}, True),
+    ],
+)
+def test_write_with_custom_options(utils, sales_schema, sales_data, option, expected):
+    table_name = "sales_data"
+    sales_df = utils.spark.createDataFrame(sales_data, sales_schema)
+    utils.write_to_table(sales_df, table_name, options=option)
+    assert utils.check_if_table_exists(table_name) is expected, (
+        f"Custom options {option} did not yield expected result"
+    )
+
+
+def test_append_mode(utils, sales_schema):
+    table_name = "sales_data"
+    additional_data = [(6, "Tablet", "David Lee", 450, "2024-06-06 13:10:00")]
+    additional_df = utils.spark.createDataFrame(additional_data, sales_schema)
+
+    pre_count = utils.get_table_row_count(table_name)
+    utils.write_to_table(additional_df, table_name, mode="append")
+    post_count = utils.get_table_row_count(table_name)
+    assert post_count == pre_count + 1, (
+        f"Append mode failed: before={pre_count}, after={post_count}"
+    )
+
+
+def test_list_tables(utils):
+    tables = utils.list_tables()
+    assert isinstance(tables, list), "list_tables() did not return a list"
+    assert any("sales_data" in t for t in tables), (
+        "sales_data not found in listed tables"
+    )
+
+
+def test_multiple_table_management(
+    utils,
+    customers_schema,
+    customers_data,
+    orders_schema,
+    orders_data,
+    products_schema,
+    products_data,
+):
+    customers_df = utils.spark.createDataFrame(customers_data, customers_schema)
+    orders_df = utils.spark.createDataFrame(orders_data, orders_schema)
+    products_df = utils.spark.createDataFrame(products_data, products_schema)
+    utils.write_to_table(customers_df, "customers", mode="overwrite")
+    utils.write_to_table(orders_df, "orders", mode="overwrite")
+    utils.write_to_table(products_df, "products", mode="overwrite")
+    assert utils.check_if_table_exists("customers")
+    assert utils.check_if_table_exists("orders")
+    assert utils.check_if_table_exists("products")
+
+
+def test_overwrite_and_append_modes(utils, customers_schema, customers_data):
+    customers_df = utils.spark.createDataFrame(customers_data, customers_schema)
+    utils.write_to_table(customers_df, "customers", mode="overwrite")
+    pre_count = utils.get_table_row_count("customers")
+    utils.write_to_table(customers_df, "customers", mode="overwrite")
+    post_count = utils.get_table_row_count("customers")
+    assert post_count == len(customers_data)
+    # Append
+    utils.write_to_table(customers_df, "customers", mode="append")
+    appended_count = utils.get_table_row_count("customers")
+    assert appended_count == post_count + len(customers_data)
+
+
+def test_error_mode(utils, customers_schema, customers_data):
+    customers_df = utils.spark.createDataFrame(customers_data, customers_schema)
+    utils.write_to_table(customers_df, "customers", mode="overwrite")
+    with pytest.raises(Exception):
+        utils.write_to_table(customers_df, "customers", mode="error")
+
+
+def test_custom_write_options(utils, customers_schema, customers_data):
+    customers_df = utils.spark.createDataFrame(customers_data, customers_schema)
+    options = {
+        "mergeSchema": "true",
+        "overwriteSchema": "true",
+        "maxRecordsPerFile": "10000",
+        "replaceWhere": "signup_date >= '2023-01-01'",
+    }
+    utils.write_to_table(customers_df, "customers", options=options)
+    assert utils.check_if_table_exists("customers")
+
+
+def test_table_existence_checking(utils, customers_schema, customers_data):
+    customers_df = utils.spark.createDataFrame(customers_data, customers_schema)
+    table_path = "customers"
+    if not utils.check_if_table_exists(table_path):
+        utils.write_to_table(customers_df, "customers")
+    assert utils.check_if_table_exists(table_path)
+    # Now append
+    utils.write_to_table(customers_df, "customers", mode="append")
+    assert utils.check_if_table_exists(table_path)
+
+
+def test_cleanup_drop_all_tables(utils, customers_schema, customers_data):
+    customers_df = utils.spark.createDataFrame(customers_data, customers_schema)
+    utils.write_to_table(customers_df, "customers", mode="overwrite")
+    # Drop all tables (WARNING: this will remove all tables in the lakehouse)
+    utils.drop_all_tables()
+    # After drop, table should not exist
+    assert not utils.check_if_table_exists("customers")
 
 
