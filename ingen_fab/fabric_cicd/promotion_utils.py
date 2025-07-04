@@ -15,6 +15,9 @@ from fabric_cicd import (
     unpublish_all_orphan_items,
 )
 from fabric_cicd.publish_log_entry import PublishLogEntry
+from rich.console import Console
+
+from ingen_fab.cli_utils.console_styles import ConsoleStyles
 
 # from fabric_cicd.fabric_workspace import PublishLogEntry
 from ingen_fab.config_utils.variable_lib import VariableLibraryUtils
@@ -23,11 +26,8 @@ from ingen_fab.config_utils.variable_lib import VariableLibraryUtils
 class promotion_utils:
     """Utility class for promoting Fabric items between workspaces."""
 
-    def __init__(self, FabricWorkspace: FabricWorkspace) -> None:
-        import logging
-
-        # Set the logging level to DEBUG
-        logging.basicConfig(level=logging.DEBUG)
+    def __init__(self, FabricWorkspace: FabricWorkspace, console: Console) -> None:
+        self.console = console
         self.workspace_id = FabricWorkspace.workspace_id
         self.repository_directory = FabricWorkspace.repository_directory
         self.environment = FabricWorkspace.environment
@@ -66,10 +66,11 @@ class promotion_utils:
 class SyncToFabricEnvironment:
     """Class to synchronize environment variables and platform folders with Fabric."""
 
-    def __init__(self, project_path: str, environment: str = "development"):
+    def __init__(self, project_path: str, environment: str = "development", console: Console = None):
         self.project_path = Path(project_path)
         self.environment = environment
         self.target_workspace_id = None
+        self.console = console or Console()
 
     @dataclass
     class manifest_item:
@@ -136,7 +137,7 @@ class SyncToFabricEnvironment:
                             )
                         )
                 except (json.JSONDecodeError, FileNotFoundError) as e:
-                    print(f"Error reading platform file {platform_file}: {e}")
+                    ConsoleStyles.print_error(self.console, f"Error reading platform file {platform_file}: {e}")
                     raise e
 
         return platform_folders
@@ -145,14 +146,14 @@ class SyncToFabricEnvironment:
         self, manifest_path: Path
     ) -> Optional[SyncToFabricEnvironment.manifest]:
         """Read the platform folders manifest from a YAML file."""
-        print(Path.cwd())
-        print(f"Reading manifest from: {manifest_path}")
+        ConsoleStyles.print_info(self.console, str(Path.cwd()))
+        ConsoleStyles.print_info(self.console, f"Reading manifest from: {manifest_path}")
         if manifest_path.exists():
             with open(manifest_path, "r", encoding="utf-8") as f:
                 try:
                     data = f.read()
                     if data.strip() == "":
-                        print("Manifest file is empty.")
+                        ConsoleStyles.print_warning(self.console, "Manifest file is empty.")
                         return SyncToFabricEnvironment.manifest(
                             platform_folders=[],
                             generated_at=str(Path.cwd()),
@@ -169,10 +170,10 @@ class SyncToFabricEnvironment:
                             version=manifest_data.get("version"),
                         )
                 except yaml.YAMLError as e:
-                    print(f"Error reading manifest: {e}")
+                    ConsoleStyles.print_error(self.console, f"Error reading manifest: {e}")
                     return None
         else:
-            print(f"Manifest file not found: {manifest_path}")
+            ConsoleStyles.print_error(self.console, f"Manifest file not found: {manifest_path}")
             return None
 
     def save_platform_manifest(
@@ -266,33 +267,33 @@ class SyncToFabricEnvironment:
         # Get the target workspace ID from the variables
         self.target_workspace_id = vlu.get_workspace_id()
 
-        print("Injecting variables into template...")
+        ConsoleStyles.print_info(self.console, "Injecting variables into template...")
         vlu.inject_variables_into_template()
 
         # 2) Find folders with platform files and generate hashes
         fabric_items_path = Path("./sample_project/fabric_workspace_items")
-        print(f"\nScanning for platform folders in: {fabric_items_path}")
+        ConsoleStyles.print_info(self.console, f"\nScanning for platform folders in: {fabric_items_path}")
 
         platform_folders = self.find_platform_folders(fabric_items_path)
         manifest_path = Path(
             f"{self.project_path}/platform_manifest_{self.environment}.yml"
         )
         if platform_folders:
-            print(f"Found {len(platform_folders)} folders with platform files:")
+            ConsoleStyles.print_success(self.console, f"Found {len(platform_folders)} folders with platform files:")
             for folder in platform_folders:
-                print(f"  - {folder.name}: {folder.hash[:16]}...")
+                ConsoleStyles.print_info(self.console, f"  - {folder.name}: {folder.hash[:16]}...")
 
             # Save manifest
             self.save_platform_manifest(
                 platform_folders, manifest_path, perform_hash_check=True
             )
-            print(f"\nSaved platform manifest to: {manifest_path}")
+            ConsoleStyles.print_success(self.console, f"\nSaved platform manifest to: {manifest_path}")
         else:
-            print("No folders with platform files found.")
+            ConsoleStyles.print_warning(self.console, "No folders with platform files found.")
 
         manifest_items: list[SyncToFabricEnvironment.manifest_item] = []
         if manifest_path.exists():
-            print("\nLoading platform manifest...")
+            ConsoleStyles.print_info(self.console, "\nLoading platform manifest...")
             manifest: SyncToFabricEnvironment.manifest = self.read_platform_manifest(
                 manifest_path
             )
@@ -305,19 +306,19 @@ class SyncToFabricEnvironment:
             ]
 
             if manifest_items_new_updated:
-                print(f"Found {len(manifest_items_new_updated)} folders to publish")
+                ConsoleStyles.print_success(self.console, f"Found {len(manifest_items_new_updated)} folders to publish")
 
                 # add the name of items to publish to list[str]
                 items_to_publish = [
                     f"{item.name}" for item in manifest_items_new_updated
                 ]
 
-                print("Items to publish:", items_to_publish)
+                ConsoleStyles.print_info(self.console, f"Items to publish: {items_to_publish}")
 
                 status_entries: list[PublishLogEntry]
                 status_entries = None
                 # After copying all folders, attempt to publish
-                print("\nPublishing items...")
+                ConsoleStyles.print_info(self.console, "\nPublishing items...")
                 try:
                     fw = FabricWorkspace(
                         workspace_id=self.target_workspace_id,
@@ -347,40 +348,40 @@ class SyncToFabricEnvironment:
                         fabric_workspace_obj=fw, items_to_include=items_to_publish
                     )
 
-                    print("\nPublishing succeeded. Updating manifest...")
+                    ConsoleStyles.print_success(self.console, "\nPublishing succeeded. Updating manifest...")
 
                 except Exception as e:
                     # If failed, update status to "failed"
-                    print(f"\nPublishing failed with error: {e}")
+                    ConsoleStyles.print_error(self.console, f"\nPublishing failed with error: {e}")
                 finally:
                     # Update status in manifest
                     for item in manifest_items:
                         if status_entries is None:
-                            print("Warining no status entries found.")
+                            ConsoleStyles.print_warning(self.console, "Warning: no status entries found.")
                             break
                         else:
                             for entry in status_entries:
-                                print(f"Checking status for {entry.name}...")
+                                ConsoleStyles.print_info(self.console, f"Checking status for {entry.name}...")
                                 if (
                                     f"{entry.name}.{entry.item_type}".lower()
                                     == item.name.lower()
                                 ):
                                     if entry.success:
                                         item.status = "deployed"
-                                        print(f"Item {item.name} deployed successfully")
+                                        ConsoleStyles.print_success(self.console, f"Item {item.name} deployed successfully")
                                     break
                     # Save updated manifest
                     self.save_platform_manifest(
                         manifest_items, manifest_path, perform_hash_check=False
                     )
-                    print("Manifest updated with deployed status")
+                    ConsoleStyles.print_success(self.console, "Manifest updated with deployed status")
 
             else:
-                print("No folders with new/updated status to publish")
+                ConsoleStyles.print_info(self.console, "No folders with new/updated status to publish")
         else:
-            print("Platform manifest not found")
+            ConsoleStyles.print_warning(self.console, "Platform manifest not found")
 
-        print("Promotion utilities initialized successfully.")
+        ConsoleStyles.print_success(self.console, "Promotion utilities initialized successfully.")
 
     def clear_environment(self):
         # make an empty temp dir
@@ -408,5 +409,5 @@ class SyncToFabricEnvironment:
             environment=self.environment,
         )
 
-        print("Unpublishing all orphan items...")
+        ConsoleStyles.print_info(self.console, "Unpublishing all orphan items...")
         pu.unpublish_orphans()

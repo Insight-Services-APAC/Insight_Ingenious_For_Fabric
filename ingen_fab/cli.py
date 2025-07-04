@@ -5,6 +5,7 @@ import os
 from pathlib import Path
 
 import typer
+from rich.console import Console
 from typing_extensions import Annotated
 
 from ingen_fab.cli_utils import (
@@ -13,8 +14,30 @@ from ingen_fab.cli_utils import (
     notebook_commands,
     workspace_commands,
 )
+from ingen_fab.cli_utils.console_styles import ConsoleStyles
 
+console = Console()
+console_styles = ConsoleStyles()
+
+# Create main app and sub-apps
 app = typer.Typer(no_args_is_help=True, pretty_exceptions_show_locals=False)
+deploy_app = typer.Typer()
+init_app = typer.Typer()
+ddl_app = typer.Typer()
+test_app = typer.Typer()
+test_local_app = typer.Typer()
+test_platform_app = typer.Typer()
+notebook_app = typer.Typer()
+
+# Add sub-apps to main app
+test_app.add_typer(test_local_app, name="local", help="Commands for testing libraries and Python blocks locally.")
+test_app.add_typer(test_platform_app, name="platform", help="Commands for testing libraries and notebooks in the Fabric platform.")
+
+app.add_typer(deploy_app, name="deploy", help="Commands for deploying to environments and managing workspace items.")
+app.add_typer(init_app, name="init", help="Commands for initializing solutions and projects.")
+app.add_typer(ddl_app, name="ddl", help="Commands for compiling DDL notebooks.")
+app.add_typer(test_app, name="test", help="Commands for testing notebooks and Python blocks.")
+app.add_typer(notebook_app, name="notebook", help="Commands for managing and scanning notebook content.")
 
 
 @app.callback()
@@ -37,23 +60,28 @@ def main(
         ),
     ] = None
 ):
+    
     if fabric_workspace_repo_dir is None:
         env_val = os.environ.get("FABRIC_WORKSPACE_REPO_DIR")
-        if env_val:
-            typer.echo("Falling back to FABRIC_WORKSPACE_REPO_DIR environment variable.")
+        if env_val:            
+            console_styles.print_warning(console,"Falling back to FABRIC_WORKSPACE_REPO_DIR environment variable.")            
         fabric_workspace_repo_dir = Path(env_val) if env_val else Path("./sample_project")
     if fabric_environment is None:
         env_val = os.environ.get("FABRIC_ENVIRONMENT")
         if env_val:
-            typer.echo("Falling back to FABRIC_ENVIRONMENT environment variable.")
+            console_styles.print_warning(console,"Falling back to FABRIC_ENVIRONMENT environment variable.")           
         fabric_environment = Path(env_val) if env_val else Path("development")
+
+    console_styles.print_info(console, f"Using Fabric workspace repo directory: {fabric_workspace_repo_dir}")
+    console_styles.print_info(console, f"Using Fabric environment: {fabric_environment}")    
     ctx.obj = {
         "fabric_workspace_repo_dir": fabric_workspace_repo_dir,
         "fabric_environment": fabric_environment,
     }
 
+# ddl commands
 
-@app.command()
+@ddl_app.command()
 def compile_ddl_notebooks(
     ctx: typer.Context,
     output_mode: Annotated[str, typer.Option("--output-mode", "-o")] = "local",
@@ -66,48 +94,44 @@ def compile_ddl_notebooks(
     notebook_commands.compile_ddl_notebooks(ctx, output_mode, generation_mode, verbose)
 
 
-@app.command()
+# Initialize commands
+
+@init_app.command()
+def init_solution(
+    project_name: Annotated[str, typer.Option(...)] = "",
+    path: Annotated[Path, typer.Option("--path")] = Path("."),
+):
+    init_commands.init_solution(project_name, path)
+
+# Deploy commands
+
+@deploy_app.command()
+def deploy(ctx: typer.Context):
+    deploy_commands.deploy_to_environment(ctx)
+
+
+@deploy_app.command()
+def delete_all(
+    environment: Annotated[str, typer.Option("--environment", "-e")] = "development",
+    force: Annotated[bool, typer.Option("--force", "-f")] = False,
+):
+    workspace_commands.delete_workspace_items(environment, force)
+
+
+# Test commands
+
+@test_app.command()
 def test_python_block():
     notebook_commands.test_python_block()
 
 
-@app.command()
+@test_app.command()
 def run_simple_notebook(ctx: typer.Context):
     notebook_commands.run_simple_notebook(ctx)
 
 
-@app.command()
-def find_notebook_content_files(
-    base_dir: Annotated[Path, typer.Option("--base-dir", "-b")] = Path(
-        "fabric_workspace_items"
-    ),
-):
-    notebook_commands.find_notebook_content_files(base_dir)
 
-
-@app.command()
-def scan_notebook_blocks(
-    base_dir: Annotated[Path, typer.Option("--base-dir", "-b")] = Path(
-        "fabric_workspace_items"
-    ),
-    apply_replacements: Annotated[
-        bool, typer.Option("--apply-replacements", "-a")
-    ] = False,
-):
-    notebook_commands.scan_notebook_blocks(base_dir, apply_replacements)
-
-
-@app.command()
-def deploy_to_environment(ctx: typer.Context):
-    deploy_commands.deploy_to_environment(ctx)
-
-
-@app.command()
-def perform_code_replacements(ctx: typer.Context):
-    deploy_commands.perform_code_replacements(ctx)
-
-
-@app.command()
+@test_app.command()
 def run_livy_notebook(
     ctx: typer.Context,
     workspace_id: Annotated[str, typer.Option("--workspace-id", "-w")],
@@ -120,21 +144,55 @@ def run_livy_notebook(
     notebook_commands.run_livy_notebook(ctx, workspace_id, lakehouse_id, code, timeout)
 
 
-@app.command()
-def init_solution(
-    project_name: Annotated[str, typer.Option(...)] = "",
-    path: Annotated[Path, typer.Option("--path")] = Path("."),
+# Platform test generation command
+@test_platform_app.command()
+def generate():
+    """Generate platform tests using the script in python_libs_tests."""
+    from ingen_fab.python_libs_tests import generate_platform_tests
+    generate_platform_tests.main()
+
+
+# Pytest execution command for python_libs_tests/pyspark
+@test_local_app.command()
+def pyspark():
+    """Run pytest on ingen_fab/python_libs_tests/pyspark."""
+    import pytest
+    exit_code = pytest.main(["ingen_fab/python_libs_tests/pyspark"])
+    raise typer.Exit(code=exit_code)
+
+@test_local_app.command()
+def python():
+    """Run pytest on ingen_fab/python_libs_tests/python."""
+    import pytest
+    exit_code = pytest.main(["ingen_fab/python_libs_tests/python"])
+    raise typer.Exit(code=exit_code)
+
+
+# Notebook commands
+@notebook_app.command()
+def find_notebook_content_files(
+    base_dir: Annotated[Path, typer.Option("--base-dir", "-b")] = Path(
+        "fabric_workspace_items"
+    ),
 ):
-    init_commands.init_solution(project_name, path)
+    notebook_commands.find_notebook_content_files(base_dir)
 
 
-@app.command()
-def delete_workspace_items(
-    environment: Annotated[str, typer.Option("--environment", "-e")] = "development",
-    force: Annotated[bool, typer.Option("--force", "-f")] = False,
+@notebook_app.command()
+def scan_notebook_blocks(
+    base_dir: Annotated[Path, typer.Option("--base-dir", "-b")] = Path(
+        "fabric_workspace_items"
+    ),
+    apply_replacements: Annotated[
+        bool, typer.Option("--apply-replacements", "-a")
+    ] = False,
 ):
-    workspace_commands.delete_workspace_items(environment, force)
+    notebook_commands.scan_notebook_blocks(base_dir, apply_replacements)
 
+
+@notebook_app.command()
+def perform_code_replacements(ctx: typer.Context):
+    deploy_commands.perform_code_replacements(ctx)
 
 if __name__ == "__main__":
     app()
