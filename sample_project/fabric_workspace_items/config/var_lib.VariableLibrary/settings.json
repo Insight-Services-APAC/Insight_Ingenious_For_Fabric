@@ -4,6 +4,7 @@
     "production",
     "test",
     "development",
+    "development_jr",
     "sandbox"
   ]
 }
