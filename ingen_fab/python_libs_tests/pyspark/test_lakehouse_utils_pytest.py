@@ -200,7 +200,7 @@ def test_overwrite_and_append_modes(utils, customers_schema, customers_data):
     # Append
     utils.write_to_table(customers_df, "customers", mode="append")
     appended_count = utils.get_table_row_count("customers")
-    assert appended_count == post_count + len(customers_data)
+    assert appended_count == post_count + pre_count
 
 
 def test_error_mode(utils, customers_schema, customers_data):
