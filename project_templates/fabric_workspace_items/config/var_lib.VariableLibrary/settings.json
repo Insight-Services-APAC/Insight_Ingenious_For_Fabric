@@ -4,6 +4,7 @@
     "production",
     "test",
     "development",
-    "sandbox"
+    "sandbox",
+    "local"
   ]
 }
