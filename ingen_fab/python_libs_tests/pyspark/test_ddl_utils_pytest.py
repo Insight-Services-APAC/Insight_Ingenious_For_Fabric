@@ -1,10 +1,11 @@
 from __future__ import annotations
 
-import pytest
 from typing import Callable
 
-from ingen_fab.python_libs.pyspark.ddl_utils import ddl_utils
+import pytest
+
 from ingen_fab.python_libs.interfaces.ddl_utils_interface import DDLUtilsInterface
+from ingen_fab.python_libs.pyspark.ddl_utils import ddl_utils
 
 
 @pytest.fixture(scope="module")
@@ -57,5 +58,18 @@ def test_run_once_explicit_guid(ddl_utility: DDLUtilsInterface) -> None:
 
 
 def test_print_log_after_operations(ddl_utility: DDLUtilsInterface) -> None:
+
     # Should print updated log, no exception
     ddl_utility.print_log()
+
+
+def test_cleanup_remove_execution_log_and_all_tables(ddl_utility: DDLUtilsInterface) -> None:
+    """
+    Cleanup test: Remove the ddl_script_executions table and all tables in the lakehouse.
+    """
+    # Remove the script executions table
+    ddl_utility.lakehouse_utils.drop_table(ddl_utility.execution_log_table_name)
+    # Remove all other tables
+    ddl_utility.lakehouse_utils.drop_all_tables()
+    # Confirm the execution log table is gone
+    assert not ddl_utility.lakehouse_utils.check_if_table_exists(ddl_utility.execution_log_table_name)

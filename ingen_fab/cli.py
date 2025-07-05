@@ -153,18 +153,34 @@ def generate():
 
 
 # Pytest execution command for python_libs_tests/pyspark
+
+
 @test_local_app.command()
-def pyspark():
-    """Run pytest on ingen_fab/python_libs_tests/pyspark."""
+def pyspark(
+    lib: Annotated[str | None, typer.Argument(None, help="Optional test file (without _pytest.py) to run, e.g. 'my_utils'")] = None
+):
+    """Run pytest on ingen_fab/python_libs_tests/pyspark or a specific test file if provided."""
     import pytest
-    exit_code = pytest.main(["ingen_fab/python_libs_tests/pyspark"])
+    base = "ingen_fab/python_libs_tests/pyspark"
+    if lib:
+        test_file = f"{base}/{lib}_pytest.py"
+        exit_code = pytest.main([test_file])
+    else:
+        exit_code = pytest.main([base])
     raise typer.Exit(code=exit_code)
 
 @test_local_app.command()
-def python():
-    """Run pytest on ingen_fab/python_libs_tests/python."""
+def python(
+    lib: Annotated[str | None, typer.Argument(None, help="Optional test file (without _pytest.py) to run, e.g. 'ddl_utils'")] = None
+):
+    """Run pytest on ingen_fab/python_libs_tests/python or a specific test file if provided."""
     import pytest
-    exit_code = pytest.main(["ingen_fab/python_libs_tests/python"])
+    base = "ingen_fab/python_libs_tests/python"
+    if lib:
+        test_file = f"{base}/{lib}_pytest.py"
+        exit_code = pytest.main([test_file])
+    else:
+        exit_code = pytest.main([base])
     raise typer.Exit(code=exit_code)
 
 

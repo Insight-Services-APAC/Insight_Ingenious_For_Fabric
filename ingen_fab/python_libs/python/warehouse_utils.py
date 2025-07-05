@@ -2,10 +2,7 @@ import logging
 import os
 from typing import Optional
 
-import notebookutils  # type: ignore # noqa: F401
 import pandas as pd
-import pyodbc  # type: ignore # noqa: F401
-from sqlparse import format
 
 from ingen_fab.fabric_api.utils import FabricApiUtils
 from ingen_fab.python_libs.interfaces.data_store_interface import DataStoreInterface
@@ -18,6 +15,14 @@ logger = logging.getLogger(__name__)
 
 
 class warehouse_utils(DataStoreInterface):
+
+    def _is_notebookutils_available(self) -> bool:
+        """Check if notebookutils is importable (for Fabric dialect)."""
+        try:
+            import notebookutils  # type: ignore # noqa: F401
+            return True
+        except ImportError:
+            return False
     """Utilities for interacting with Fabric or local SQL Server warehouses."""
 
     def __init__(
@@ -26,11 +31,25 @@ class warehouse_utils(DataStoreInterface):
         target_warehouse_id: Optional[str] = None,
         *,
         dialect: str = "fabric",
-        connection_string: Optional[str] = None,
+        connection_string: Optional[str] = f"DRIVER={{ODBC Driver 18 for SQL Server}};SERVER=localhost,1433;UID=sa;PWD={os.getenv('SQL_SERVER_SA_PASSWORD', 'YourStrong!Passw0rd')};TrustServerCertificate=yes;",
     ):
+        
         self._target_workspace_id = target_workspace_id
         self._target_warehouse_id = target_warehouse_id
         self.dialect = dialect
+
+        if dialect not in ["fabric", "sql_server"]:
+            raise ValueError(
+                f"Unsupported dialect: {dialect}. Supported dialects are 'fabric' and 'sql_server'."
+            )
+        
+        # Look for the existence of notebookutils and if not found, assume local SQL Server
+        if dialect == "fabric" and not self._is_notebookutils_available():
+            logger.warning(
+                "notebookutils not found, falling back to local SQL Server connection."
+            )
+            self.dialect = "sql_server"
+
         self.connection_string = connection_string
         self.sql = SQLTemplates(dialect)
 
@@ -53,12 +72,14 @@ class warehouse_utils(DataStoreInterface):
         try:
             if self.dialect == "fabric":
                 logger.debug("Connection to Fabric Warehouse")
+                import notebookutils  # type: ignore # noqa: F401
                 conn = notebookutils.data.connect_to_artifact(
                     self.target_warehouse_id, self.target_workspace_id
                 )
                 logger.debug(f"Connection established: {conn}")
                 return conn
             else:
+                import pyodbc  # type: ignore # noqa: F401
                 logger.debug("Connection to SQL Server Warehouse")
                 return pyodbc.connect(self.connection_string)  # type: ignore
         except Exception as e:
@@ -67,6 +88,7 @@ class warehouse_utils(DataStoreInterface):
 
     def _connect_to_local_sql_server():
         try:
+            import pyodbc  # type: ignore # noqa: F401
             password = os.getenv("SQL_SERVER_PASSWORD", "default_password")
             connection_string = (
                 "DRIVER={ODBC Driver 18 for SQL Server};SERVER=localhost,1433;UID=sa;"
@@ -101,10 +123,7 @@ class warehouse_utils(DataStoreInterface):
                     df = None
                 logging.debug("Query executed successfully.")
             return df
-        except Exception as e:
-            # pretty print query
-            formatted_query = format(query, reindent=True, keyword_case="upper")
-            logger.info(f"Executing query:\n{formatted_query}")
+        except Exception as e:            
             logging.error(f"Error executing query: {query}. Error: {e}")
 
             raise
