@@ -1,4 +1,5 @@
 from typing import Optional
+from pathlib import Path
 
 import requests
 from azure.identity import DefaultAzureCredential
@@ -12,12 +13,14 @@ class FabricApiUtils:
     """
 
     def __init__(
-        self, environment: str, *, credential: Optional[DefaultAzureCredential] = None
+        self, environment: str, project_path: Path, *, credential: Optional[DefaultAzureCredential] = None
     ) -> None:
         self.environment = environment
+        self.project_path = project_path
         self.credential = credential or DefaultAzureCredential()
         self.base_url = "https://api.fabric.microsoft.com/v1/workspaces"
         self.workspace_id = self._get_workspace_id()
+        
 
     def _get_token(self) -> str:
         scope = "https://api.fabric.microsoft.com/.default"
@@ -28,8 +31,73 @@ class FabricApiUtils:
         """
         Set the workspace ID for API requests.
         """
-        vlu = VariableLibraryUtils(environment=self.environment)
+        vlu = VariableLibraryUtils(environment=self.environment, project_path=self.project_path)
         return vlu.get_workspace_id()
+
+    def get_workspace_id_from_name(self, workspace_name: str) -> Optional[str]:
+        
+        headers = {
+            "Authorization": f"Bearer {self._get_token()}",
+            "Content-Type": "application/json",
+        }
+
+        url = "https://api.fabric.microsoft.com/v1/workspaces"
+        response = requests.get(url, headers=headers)
+        
+        if response.status_code == 200:
+            workspaces = response.json()
+            for ws in workspaces.get('value', []):
+                if ws['displayName'] == workspace_name:
+                    return ws['id']
+        return None
+
+    def get_lakehouse_id_from_name(self, workspace_id: str, lakehouse_name: str) -> Optional[str]:
+        headers = {
+            "Authorization": f"Bearer {self._get_token()}",
+            "Content-Type": "application/json",
+        }
+
+        url = f"https://api.fabric.microsoft.com/v1/workspaces/{workspace_id}/items"
+        response = requests.get(url, headers=headers)
+        
+        if response.status_code == 200:
+            items = response.json()
+            for item in items.get('value', []):
+                if item['displayName'] == lakehouse_name and item['type'] == 'Lakehouse':
+                    return item['id']
+        return None
+    
+    def get_lakehouse_name_from_id(self, workspace_id: str, lakehouse_id: str) -> Optional[str]:
+        headers = {
+            "Authorization": f"Bearer {self._get_token()}",
+            "Content-Type": "application/json",
+        }
+
+        url = f"https://api.fabric.microsoft.com/v1/workspaces/{workspace_id}/items/{lakehouse_id}"
+        response = requests.get(url, headers=headers)
+
+        if response.status_code == 200:
+            item = response.json()
+            if item.get('type') == 'Lakehouse':
+                return item.get('displayName')
+        return None 
+    
+    def get_workspace_name_from_id(self, workspace_id: str) -> Optional[str]:
+        """
+        Get the workspace name from its ID.
+        """
+        headers = {
+            "Authorization": f"Bearer {self._get_token()}",
+            "Content-Type": "application/json",
+        }
+
+        url = f"https://api.fabric.microsoft.com/v1/workspaces/{workspace_id}"
+        response = requests.get(url, headers=headers)
+
+        if response.status_code == 200:
+            workspace = response.json()
+            return workspace.get("displayName")
+        return None
 
     def delete_all_items_except_lakehouses_and_warehouses(self) -> dict[str, int]:
         """
@@ -153,3 +221,4 @@ class FabricApiUtils:
         print(f"SQL Endpoint: {sql_endpoint}")
 
         return sql_endpoint
+

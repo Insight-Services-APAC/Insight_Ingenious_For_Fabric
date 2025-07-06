@@ -20,6 +20,15 @@ def deploy_to_environment(ctx):
             "Fabric environment not set. Use --fabric-environment directly after ingen_fab to specify it.",
         )
         raise SystemExit(1)
+    
+    # Check if environment is local. If so raise an error
+    if ctx.obj.get("fabric_environment") == "local":
+        ConsoleStyles.print_error(
+            Console(),
+            "Cannot deploy to local environment. Please specify a different environment.",
+        )
+        raise SystemExit(1)
+
     stf = SyncToFabricEnvironment(
         project_path=Path(ctx.obj.get("fabric_workspace_repo_dir")),
         environment=str(ctx.obj.get("fabric_environment")),

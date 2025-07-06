@@ -15,20 +15,13 @@ class VariableLibraryUtils:
 
     def __init__(
         self,
-        project_path: Path = Path("sample_project"),
-        environment: str = "development",
-        template_path: Path = Path(
-            "ingen_fab/ddl_scripts/_templates/warehouse/config.jinja"
-        ),
-        output: Path | None = None,
-        in_place: bool = False,
+        project_path: Path = None,
+        environment: str = None
     ):
         """Initialize the VariableLibraryUtils class."""
+
         self.project_path = project_path
-        self.environment = environment
-        self.template_path = template_path
-        self.output = output
-        self.in_place = in_place
+        self.environment = environment                        
         self.variables = self._extract_variables(
             self._load_variable_library(project_path, environment)
         )
@@ -171,5 +164,15 @@ class VariableLibraryUtils:
         if ret_val is None:
             raise ValueError(
                 "fabric_deployment_workspace_id not found in variable library"
+            )
+        return ret_val
+
+    def get_variable_value(self, variable_name: str) -> str:
+        """Get the value of a specific variable from the variable library."""
+        ret_val = None
+        ret_val = self.variables.get(variable_name, None)
+        if ret_val is None:
+            raise ValueError(
+                f"{variable_name} not found in variable library"
             )
         return ret_val
