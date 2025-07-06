@@ -257,11 +257,6 @@ class SyncToFabricEnvironment:
         vlu = VariableLibraryUtils(
             project_path=self.project_path,
             environment=self.environment,
-            template_path=Path(
-                "ingen_fab/ddl_scripts/_templates/warehouse/config.py.jinja"
-            ),
-            output=None,
-            in_place=False,
         )
 
         # Get the target workspace ID from the variables
@@ -272,6 +267,11 @@ class SyncToFabricEnvironment:
 
         # 2) Find folders with platform files and generate hashes
         fabric_items_path = Path("./sample_project/fabric_workspace_items")
+        # Before publishig remove all __pycache__ folders
+        for pycache in fabric_items_path.rglob("__pycache__"):
+            if pycache.is_dir():
+                ConsoleStyles.print_dim(self.console, f"Removing __pycache__ folder: {pycache}")
+                shutil.rmtree(pycache)
         ConsoleStyles.print_info(self.console, f"\nScanning for platform folders in: {fabric_items_path}")
 
         platform_folders = self.find_platform_folders(fabric_items_path)

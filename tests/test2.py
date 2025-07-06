@@ -13,14 +13,12 @@
 # Call the test_code method with the code to be tested
 # tester.test_code(code_to_test)
 
+from pathlib import Path
 from ingen_fab.config_utils.variable_lib import VariableLibraryUtils
 
 vlu = VariableLibraryUtils(
-    project_path="./sample_project",
+    project_path=Path("./sample_project"),
     environment="development",
-    template_path="ingen_fab/ddl_scripts/_templates/warehouse/config.py.jinja",
-    output=None,
-    in_place=False,
 )
 
 

@@ -4,7 +4,6 @@ from typing import Optional
 
 import pandas as pd
 
-from ingen_fab.fabric_api.utils import FabricApiUtils
 from ingen_fab.python_libs.interfaces.data_store_interface import DataStoreInterface
 
 from .sql_templates import (
@@ -86,6 +85,7 @@ class warehouse_utils(DataStoreInterface):
             logger.error(f"Failed to connect to warehouse: {e}")
             raise
 
+    @staticmethod
     def _connect_to_local_sql_server():
         try:
             import pyodbc  # type: ignore # noqa: F401
@@ -325,10 +325,9 @@ class warehouse_utils(DataStoreInterface):
             "get_table_schema", table_name=table_name, schema_name=schema_name or "dbo"
         )
         result = self.execute_query(conn, query)
-        if result is not None:
-            return (
-                dict(zip(result.columns, result.values[0])) if not result.empty else {}
-            )
+        if result is not None and not result.empty:
+            # Expect columns: COLUMN_NAME, DATA_TYPE
+            return {row['COLUMN_NAME']: row['DATA_TYPE'] for _, row in result.iterrows()}
         return {}
 
     def read_table(

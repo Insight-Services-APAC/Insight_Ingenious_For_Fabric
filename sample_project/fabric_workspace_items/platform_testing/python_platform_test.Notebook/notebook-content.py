@@ -39,7 +39,7 @@
 # variableLibraryInjectionStart: var_lib
 
 # All variables as a dictionary
-configs_dict = {'fabric_environment': 'development', 'fabric_deployment_workspace_id': '3a4fc13c-f7c5-463e-a9de-57c4754699ff', 'synapse_source_database_1': 'test1', 'config_workspace_id': '3a4fc13c-f7c5-463e-a9de-57c4754699ff', 'synapse_source_sql_connection': 'sansdaisyn-ondemand.sql.azuresynapse.net', 'config_lakehouse_name': 'config', 'edw_warehouse_name': 'edw', 'config_lakehouse_id': '2629d4cc-685c-458a-866b-b4705dde71a7', 'edw_workspace_id': '50fbcab0-7d56-46f7-90f6-80ceb00ac86d', 'edw_warehouse_id': 's', 'edw_lakehouse_id': '6adb67d6-c8eb-4612-9053-890cae3a55d7', 'edw_lakehouse_name': 'edw', 'legacy_synapse_connection_name': 'synapse_connection', 'synapse_export_shortcut_path_in_onelake': 'exports/'}
+configs_dict = {'fabric_environment': 'development_jr', 'fabric_deployment_workspace_id': 'b3fbeaf7-ec67-4622-ba37-8d8bcb7e436a', 'synapse_source_database_1': 'test1', 'config_workspace_id': '#####', 'synapse_source_sql_connection': 'sansdaisyn-ondemand.sql.azuresynapse.net', 'config_lakehouse_name': 'config', 'edw_warehouse_name': 'edw', 'config_lakehouse_id': '2629d4cc-685c-458a-866b-b4705dde71a7', 'edw_workspace_id': '###', 'edw_warehouse_id': '###', 'edw_lakehouse_id': '6adb67d6-c8eb-4612-9053-890cae3a55d7', 'edw_lakehouse_name': 'edw', 'legacy_synapse_connection_name': 'synapse_connection', 'synapse_export_shortcut_path_in_onelake': 'exports/'}
 # All variables as an object
 from dataclasses import dataclass
 @dataclass
@@ -81,57 +81,12 @@ configs_object: ConfigsObject = ConfigsObject(**configs_dict)
 # Files are ordered based on dependency analysis
 
 
-# === config_utils.py ===
-from dataclasses import dataclass
-from typing import Any
-
-
-class config_utils:
-    # variableLibraryInjectionStart: var_lib
-
-# All variables as a dictionary
-configs_dict = {'fabric_environment': 'development', 'fabric_deployment_workspace_id': '3a4fc13c-f7c5-463e-a9de-57c4754699ff', 'synapse_source_database_1': 'test1', 'config_workspace_id': '3a4fc13c-f7c5-463e-a9de-57c4754699ff', 'synapse_source_sql_connection': 'sansdaisyn-ondemand.sql.azuresynapse.net', 'config_lakehouse_name': 'config', 'edw_warehouse_name': 'edw', 'config_lakehouse_id': '2629d4cc-685c-458a-866b-b4705dde71a7', 'edw_workspace_id': '50fbcab0-7d56-46f7-90f6-80ceb00ac86d', 'edw_warehouse_id': 's', 'edw_lakehouse_id': '6adb67d6-c8eb-4612-9053-890cae3a55d7', 'edw_lakehouse_name': 'edw', 'legacy_synapse_connection_name': 'synapse_connection', 'synapse_export_shortcut_path_in_onelake': 'exports/'}
-# All variables as an object
-from dataclasses import dataclass
-@dataclass
-class ConfigsObject:
-    fabric_environment: str 
-    fabric_deployment_workspace_id: str 
-    synapse_source_database_1: str 
-    config_workspace_id: str 
-    synapse_source_sql_connection: str 
-    config_lakehouse_name: str 
-    edw_warehouse_name: str 
-    config_lakehouse_id: str 
-    edw_workspace_id: str 
-    edw_warehouse_id: str 
-    edw_lakehouse_id: str 
-    edw_lakehouse_name: str 
-    legacy_synapse_connection_name: str 
-    synapse_export_shortcut_path_in_onelake: str 
-configs_object: ConfigsObject = ConfigsObject(**configs_dict)
-# variableLibraryInjectionEnd: var_lib
-
-    def __init__(self):
-        self.fabric_environments_table_name = "fabric_environments"
-        self.fabric_environments_table_schema = "config"
-        self.fabric_environments_table = f"{self.fabric_environments_table_schema}.{self.fabric_environments_table_name}"
-        self._configs: dict[str, Any] = {}
-
-    def get_configs_as_dict(self):
-        return config_utils.configs_dict
-
-    def get_configs_as_object(self):
-        return self.configs_object
-
-
-# === sql_templates.py ===
+# === python/sql_templates.py ===
 from jinja2 import Template, Environment, exceptions
-
 
 def required_filter(value, var_name=""):
     """Jinja2 filter: raises an error if value is not provided or is falsy."""
-    if value is None or (hasattr(value, "__len__") and len(value) == 0):
+    if value is None or (hasattr(value, '__len__') and len(value) == 0):
         raise exceptions.TemplateRuntimeError(
             f"Required parameter '{var_name or 'unknown'}' was not provided!"
         )
@@ -141,105 +96,24 @@ def required_filter(value, var_name=""):
 class SQLTemplates:
     """Render SQL templates for different dialects."""
 
-    TEMPLATES = [
-        {
-            "dialect": "fabric",
-            "file_name": "check_schema_exists.sql.jinja",
-            "file_contents": "SELECT 1 \nFROM INFORMATION_SCHEMA.SCHEMATA\nWHERE SCHEMA_NAME = '{{ schema_name | required }}'\n",
-            "full_path": "./fabric/check_schema_exists.sql.jinja",
-        },
-        {
-            "dialect": "fabric",
-            "file_name": "check_table_exists.sql.jinja",
-            "file_contents": "SELECT\n    1\nFROM\n    INFORMATION_SCHEMA.TABLES\nWHERE\n    TABLE_SCHEMA = '{{ schema_name | required }}'\n    AND TABLE_NAME = '{{ table_name | required }}'\n",
-            "full_path": "./fabric/check_table_exists.sql.jinja",
-        },
-        {
-            "dialect": "fabric",
-            "file_name": "create_table_from_values.sql.jinja",
-            "file_contents": "SELECT\n    * INTO {{ schema_name | required('schema_name') }}.{{ table_name | required('table_name') }}\nFROM\n    (\n        VALUES\n            {{ values_clause | required('values_clause') }}\n    ) AS v(\n        {{ column_names | required('column_names') }}\n    )\n",
-            "full_path": "./fabric/create_table_from_values.sql.jinja",
-        },
-        {
-            "dialect": "fabric",
-            "file_name": "drop_table.sql.jinja",
-            "file_contents": "DROP TABLE IF EXISTS {{ schema_name | required }}.{{ table_name | required }}\n",
-            "full_path": "./fabric/drop_table.sql.jinja",
-        },
-        {
-            "dialect": "fabric",
-            "file_name": "insert_row.sql.jinja",
-            "file_contents": "INSERT INTO {{ schema_name | required }}.{{ table_name | required }} VALUES ({{ row_values | required }})\n",
-            "full_path": "./fabric/insert_row.sql.jinja",
-        },
-        {
-            "dialect": "fabric",
-            "file_name": "list_tables.sql.jinja",
-            "file_contents": "SELECT\n    TABLE_SCHEMA, \n    TABLE_NAME\nFROM\n    INFORMATION_SCHEMA.TABLES\n\n    {% if prefix %}\nWHERE\n    TABLE_NAME LIKE '{{ prefix }}%'\n{% endif %}\n",
-            "full_path": "./fabric/list_tables.sql.jinja",
-        },
-        {
-            "dialect": "sqlserver",
-            "file_name": "check_schema_exists.sql.jinja",
-            "file_contents": "SELECT 1 \nFROM INFORMATION_SCHEMA.SCHEMATA\nWHERE LOWER(SCHEMA_NAME) = LOWER('{{ schema_name | required }}')\n",
-            "full_path": "./sqlserver/check_schema_exists.sql.jinja",
-        },
-        {
-            "dialect": "sqlserver",
-            "file_name": "check_table_exists.sql.jinja",
-            "file_contents": "SELECT\n    1\nFROM\n    INFORMATION_SCHEMA.TABLES\nWHERE\n    TABLE_SCHEMA = '{{ schema_name | required }}'\n    AND TABLE_NAME = '{{ table_name | required }}'\n",
-            "full_path": "./sqlserver/check_table_exists.sql.jinja",
-        },
-        {
-            "dialect": "sqlserver",
-            "file_name": "create_table_from_values.sql.jinja",
-            "file_contents": "SELECT\n    * INTO {{ schema_name | required('schema_name') }}.{{ table_name | required('table_name') }}\nFROM\n    (\n        VALUES\n            {{ values_clause | required('values_clause') }}\n    ) AS v(\n        {{ column_names | required('column_names') }}\n    )\n",
-            "full_path": "./sqlserver/create_table_from_values.sql.jinja",
-        },
-        {
-            "dialect": "sqlserver",
-            "file_name": "drop_table.sql.jinja",
-            "file_contents": "DROP TABLE IF EXISTS {{ schema_name | required }}.{{ table_name | required }}\n",
-            "full_path": "./sqlserver/drop_table.sql.jinja",
-        },
-        {
-            "dialect": "sqlserver",
-            "file_name": "insert_row.sql.jinja",
-            "file_contents": "INSERT INTO {{ schema_name | required }}.{{ table_name | required }} VALUES ({{ row_values | required }})\n",
-            "full_path": "./sqlserver/insert_row.sql.jinja",
-        },
-        {
-            "dialect": "sqlserver",
-            "file_name": "list_tables.sql.jinja",
-            "file_contents": "SELECT\n    TABLE_SCHEMA, \n    TABLE_NAME\nFROM\n    INFORMATION_SCHEMA.TABLES\n\n    {% if prefix %}\nWHERE\n    TABLE_NAME LIKE '{{ prefix }}%'\n{% endif %}\n",
-            "full_path": "./sqlserver/list_tables.sql.jinja",
-        },
-    ]
+    TEMPLATES = [{'dialect': 'fabric', 'file_name': 'check_schema_exists.sql.jinja', 'file_contents': "SELECT 1 \nFROM INFORMATION_SCHEMA.SCHEMATA\nWHERE SCHEMA_NAME = '{{ schema_name | required }}'\n", 'full_path': 'ingen_fab/python_libs/python/sql_template_factory/fabric/check_schema_exists.sql.jinja'}, {'dialect': 'fabric', 'file_name': 'check_table_exists.sql.jinja', 'file_contents': "SELECT\n    1\nFROM\n    INFORMATION_SCHEMA.TABLES\nWHERE\n    TABLE_SCHEMA = '{{ schema_name | required }}'\n    AND TABLE_NAME = '{{ table_name | required }}'\n", 'full_path': 'ingen_fab/python_libs/python/sql_template_factory/fabric/check_table_exists.sql.jinja'}, {'dialect': 'fabric', 'file_name': 'create_table.sql.jinja', 'file_contents': "CREATE TABLE {{ schema_name | required }}.{{ table_name | required }} (\n    {%- for col, dtype in schema.items() %}\n        {{ col }} {{ dtype }}{% if not loop.last %}, {% endif %}\n    {%- endfor %}\n)\n{% if options %}\n    {%- for k, v in options.items() %}\n        {{ k }} = '{{ v }}'{% if not loop.last %}, {% endif %}\n    {%- endfor %}\n{% endif %}\n;\n", 'full_path': 'ingen_fab/python_libs/python/sql_template_factory/fabric/create_table.sql.jinja'}, {'dialect': 'fabric', 'file_name': 'create_table_from_values.sql.jinja', 'file_contents': "SELECT\n    * INTO {{ schema_name | required('schema_name') }}.{{ table_name | required('table_name') }}\nFROM\n    (\n        VALUES\n            {{ values_clause | required('values_clause') }}\n    ) AS v(\n        {{ column_names | required('column_names') }}\n    )\n", 'full_path': 'ingen_fab/python_libs/python/sql_template_factory/fabric/create_table_from_values.sql.jinja'}, {'dialect': 'fabric', 'file_name': 'delete_from_table.sql.jinja', 'file_contents': "DELETE FROM {{ schema_name | required }}.{{ table_name | required }}\n{% if filters %}\nWHERE\n    {%- for col, val in filters.items() %}\n        {{ col }} = '{{ val }}'{% if not loop.last %} AND {% endif %}\n    {%- endfor %}\n{% endif %}\n;\n", 'full_path': 'ingen_fab/python_libs/python/sql_template_factory/fabric/delete_from_table.sql.jinja'}, {'dialect': 'fabric', 'file_name': 'drop_table.sql.jinja', 'file_contents': 'DROP TABLE IF EXISTS {{ schema_name | required }}.{{ table_name | required }}\n', 'full_path': 'ingen_fab/python_libs/python/sql_template_factory/fabric/drop_table.sql.jinja'}, {'dialect': 'fabric', 'file_name': 'get_table_metadata.sql.jinja', 'file_contents': "SELECT *\nFROM INFORMATION_SCHEMA.TABLES\nWHERE TABLE_SCHEMA = '{{ schema_name | required }}'\n  AND TABLE_NAME = '{{ table_name | required }}';\n", 'full_path': 'ingen_fab/python_libs/python/sql_template_factory/fabric/get_table_metadata.sql.jinja'}, {'dialect': 'fabric', 'file_name': 'get_table_row_count.sql.jinja', 'file_contents': 'SELECT COUNT(*)\nFROM {{ schema_name | required }}.{{ table_name | required }};\n', 'full_path': 'ingen_fab/python_libs/python/sql_template_factory/fabric/get_table_row_count.sql.jinja'}, {'dialect': 'fabric', 'file_name': 'get_table_schema.sql.jinja', 'file_contents': "SELECT COLUMN_NAME, DATA_TYPE\nFROM INFORMATION_SCHEMA.COLUMNS\nWHERE TABLE_SCHEMA = '{{ schema_name | required }}'\n  AND TABLE_NAME = '{{ table_name | required }}'\n;\n", 'full_path': 'ingen_fab/python_libs/python/sql_template_factory/fabric/get_table_schema.sql.jinja'}, {'dialect': 'fabric', 'file_name': 'insert_row.sql.jinja', 'file_contents': 'INSERT INTO {{ schema_name | required }}.{{ table_name | required }} VALUES ({{ row_values | required }})\n', 'full_path': 'ingen_fab/python_libs/python/sql_template_factory/fabric/insert_row.sql.jinja'}, {'dialect': 'fabric', 'file_name': 'list_schemas.sql.jinja', 'file_contents': 'SELECT SCHEMA_NAME as schema_name\nFROM INFORMATION_SCHEMA.SCHEMATA;\n', 'full_path': 'ingen_fab/python_libs/python/sql_template_factory/fabric/list_schemas.sql.jinja'}, {'dialect': 'fabric', 'file_name': 'list_tables.sql.jinja', 'file_contents': "SELECT\n    TABLE_SCHEMA, \n    TABLE_NAME\nFROM\n    INFORMATION_SCHEMA.TABLES\n\n    {% if prefix %}\nWHERE\n    TABLE_NAME LIKE '{{ prefix }}%'\n{% endif %}\n", 'full_path': 'ingen_fab/python_libs/python/sql_template_factory/fabric/list_tables.sql.jinja'}, {'dialect': 'fabric', 'file_name': 'read_table.sql.jinja', 'file_contents': "SELECT {% if columns %}{{ columns | join(', ') }}{% else %}*{% endif %}\nFROM {{ schema_name | required }}.{{ table_name | required }}\n{% if filters %}\nWHERE\n    {%- for col, val in filters.items() %}\n        {{ col }} = '{{ val }}'{% if not loop.last %} AND {% endif %}\n    {%- endfor %}\n{% endif %}\n{% if limit %}\nLIMIT {{ limit }}\n{% endif %}\n;\n", 'full_path': 'ingen_fab/python_libs/python/sql_template_factory/fabric/read_table.sql.jinja'}, {'dialect': 'fabric', 'file_name': 'rename_table.sql.jinja', 'file_contents': 'ALTER TABLE {{ schema_name | required }}.{{ old_table_name | required }} RENAME TO {{ new_table_name | required }};\n', 'full_path': 'ingen_fab/python_libs/python/sql_template_factory/fabric/rename_table.sql.jinja'}, {'dialect': 'fabric', 'file_name': 'vacuum_table.sql.jinja', 'file_contents': '-- No-op for SQL warehouses. This template is required for interface compatibility.\n-- VACUUM is not supported in standard SQL Server/Fabric warehouses.\n', 'full_path': 'ingen_fab/python_libs/python/sql_template_factory/fabric/vacuum_table.sql.jinja'}, {'dialect': 'sql_server', 'file_name': 'check_schema_exists.sql.jinja', 'file_contents': "SELECT 1 \nFROM INFORMATION_SCHEMA.SCHEMATA\nWHERE LOWER(SCHEMA_NAME) = LOWER('{{ schema_name | required }}')\n", 'full_path': 'ingen_fab/python_libs/python/sql_template_factory/sql_server/check_schema_exists.sql.jinja'}, {'dialect': 'sql_server', 'file_name': 'check_table_exists.sql.jinja', 'file_contents': "SELECT\n    1\nFROM\n    INFORMATION_SCHEMA.TABLES\nWHERE\n    TABLE_SCHEMA = '{{ schema_name | required }}'\n    AND TABLE_NAME = '{{ table_name | required }}'\n", 'full_path': 'ingen_fab/python_libs/python/sql_template_factory/sql_server/check_table_exists.sql.jinja'}, {'dialect': 'sql_server', 'file_name': 'create_table.sql.jinja', 'file_contents': "CREATE TABLE {{ schema_name | required }}.{{ table_name | required }} (\n    {%- for col, dtype in schema.items() %}\n        {{ col }} {{ dtype }}{% if not loop.last %}, {% endif %}\n    {%- endfor %}\n)\n{% if options %}\n    {%- for k, v in options.items() %}\n        {{ k }} = '{{ v }}'{% if not loop.last %}, {% endif %}\n    {%- endfor %}\n{% endif %}\n;\n", 'full_path': 'ingen_fab/python_libs/python/sql_template_factory/sql_server/create_table.sql.jinja'}, {'dialect': 'sql_server', 'file_name': 'create_table_from_values.sql.jinja', 'file_contents': "SELECT\n    * INTO {{ schema_name | required('schema_name') }}.{{ table_name | required('table_name') }}\nFROM\n    (\n        VALUES\n            {{ values_clause | required('values_clause') }}\n    ) AS v(\n        {{ column_names | required('column_names') }}\n    )\n", 'full_path': 'ingen_fab/python_libs/python/sql_template_factory/sql_server/create_table_from_values.sql.jinja'}, {'dialect': 'sql_server', 'file_name': 'delete_from_table.sql.jinja', 'file_contents': "DELETE FROM {{ schema_name | required }}.{{ table_name | required }}\n{% if filters %}\nWHERE\n    {%- for col, val in filters.items() %}\n        {{ col }} = '{{ val }}'{% if not loop.last %} AND {% endif %}\n    {%- endfor %}\n{% endif %}\n;\n", 'full_path': 'ingen_fab/python_libs/python/sql_template_factory/sql_server/delete_from_table.sql.jinja'}, {'dialect': 'sql_server', 'file_name': 'drop_table.sql.jinja', 'file_contents': 'DROP TABLE IF EXISTS {{ schema_name | required }}.{{ table_name | required }}\n', 'full_path': 'ingen_fab/python_libs/python/sql_template_factory/sql_server/drop_table.sql.jinja'}, {'dialect': 'sql_server', 'file_name': 'get_table_metadata.sql.jinja', 'file_contents': "SELECT *\nFROM INFORMATION_SCHEMA.TABLES\nWHERE TABLE_SCHEMA = '{{ schema_name | required }}'\n  AND TABLE_NAME = '{{ table_name | required }}';\n", 'full_path': 'ingen_fab/python_libs/python/sql_template_factory/sql_server/get_table_metadata.sql.jinja'}, {'dialect': 'sql_server', 'file_name': 'get_table_row_count.sql.jinja', 'file_contents': 'SELECT COUNT(*)\nFROM {{ schema_name | required }}.{{ table_name | required }};\n', 'full_path': 'ingen_fab/python_libs/python/sql_template_factory/sql_server/get_table_row_count.sql.jinja'}, {'dialect': 'sql_server', 'file_name': 'get_table_schema.sql.jinja', 'file_contents': "SELECT COLUMN_NAME, DATA_TYPE\nFROM INFORMATION_SCHEMA.COLUMNS\nWHERE TABLE_SCHEMA = '{{ schema_name | required }}'\n  AND TABLE_NAME = '{{ table_name | required }}'\n;\n", 'full_path': 'ingen_fab/python_libs/python/sql_template_factory/sql_server/get_table_schema.sql.jinja'}, {'dialect': 'sql_server', 'file_name': 'insert_row.sql.jinja', 'file_contents': 'INSERT INTO {{ schema_name | required }}.{{ table_name | required }} VALUES ({{ row_values | required }})\n', 'full_path': 'ingen_fab/python_libs/python/sql_template_factory/sql_server/insert_row.sql.jinja'}, {'dialect': 'sql_server', 'file_name': 'list_schemas.sql.jinja', 'file_contents': 'SELECT SCHEMA_NAME as schema_name\nFROM INFORMATION_SCHEMA.SCHEMATA;\n', 'full_path': 'ingen_fab/python_libs/python/sql_template_factory/sql_server/list_schemas.sql.jinja'}, {'dialect': 'sql_server', 'file_name': 'list_tables.sql.jinja', 'file_contents': "SELECT\n    TABLE_SCHEMA, \n    TABLE_NAME\nFROM\n    INFORMATION_SCHEMA.TABLES\n\n    {% if prefix %}\nWHERE\n    TABLE_NAME LIKE '{{ prefix }}%'\n{% endif %}\n", 'full_path': 'ingen_fab/python_libs/python/sql_template_factory/sql_server/list_tables.sql.jinja'}, {'dialect': 'sql_server', 'file_name': 'read_table.sql.jinja', 'file_contents': "SELECT {% if columns %}{{ columns | join(', ') }}{% else %}*{% endif %}\nFROM {{ schema_name | required }}.{{ table_name | required }}\n{% if filters %}\nWHERE\n    {%- for col, val in filters.items() %}\n        {{ col }} = '{{ val }}'{% if not loop.last %} AND {% endif %}\n    {%- endfor %}\n{% endif %}\n{% if limit %}\nLIMIT {{ limit }}\n{% endif %}\n;\n", 'full_path': 'ingen_fab/python_libs/python/sql_template_factory/sql_server/read_table.sql.jinja'}, {'dialect': 'sql_server', 'file_name': 'rename_table.sql.jinja', 'file_contents': "EXEC sp_rename '{{ schema_name | required }}.{{ old_table_name | required }}', '{{ new_table_name | required }}';\n", 'full_path': 'ingen_fab/python_libs/python/sql_template_factory/sql_server/rename_table.sql.jinja'}, {'dialect': 'sql_server', 'file_name': 'vacuum_table.sql.jinja', 'file_contents': '-- No-op for SQL warehouses. This template is required for interface compatibility.\n-- VACUUM is not supported in standard SQL Server/Fabric warehouses.\n', 'full_path': 'ingen_fab/python_libs/python/sql_template_factory/sql_server/vacuum_table.sql.jinja'}]
+
 
     def __init__(self, dialect: str = "fabric"):
         self.dialect = dialect
         # Use a Jinja2 Environment to add custom filters
         self.env = Environment()
         # Register the 'required' filter
-        self.env.filters["required"] = lambda value, var_name="": required_filter(
-            value, var_name
-        )
+        self.env.filters["required"] = lambda value, var_name="": required_filter(value, var_name)
 
     def get_template(self, template_name: str, dialect: str) -> str:
         """Get the SQL template for the specified dialect."""
         template = next(
-            (
-                t["file_contents"]
-                for t in self.TEMPLATES
-                if t["file_name"] == f"{template_name}.sql.jinja"
-                and t["dialect"] == dialect
-            ),
-            None,
+        (t['file_contents'] for t in self.TEMPLATES
+            if t['file_name'] == f"{template_name}.sql.jinja" and t['dialect'] == dialect), None
         )
         if not template:
-            raise FileNotFoundError(
-                f"Template {template_name} for dialect {dialect} not found."
-            )
+            raise FileNotFoundError(f"Template {template_name} for dialect {dialect} not found.")
         return template
 
     def render(self, template_name: str, **kwargs) -> str:
@@ -251,16 +125,12 @@ class SQLTemplates:
         params_with_names = {k: v for k, v in kwargs.items()}
         return template.render(**params_with_names)
 
-
-# === warehouse_utils.py ===
+# === python/warehouse_utils.py ===
 import logging
 import os
 from typing import Optional
 
-import notebookutils  # type: ignore # noqa: F401
 import pandas as pd
-import pyodbc  # type: ignore # noqa: F401
-from sqlparse import format
 
 from ingen_fab.fabric_api.utils import FabricApiUtils
 from ingen_fab.python_libs.interfaces.data_store_interface import DataStoreInterface
@@ -272,6 +142,14 @@ logger = logging.getLogger(__name__)
 
 
 class warehouse_utils(DataStoreInterface):
+
+    def _is_notebookutils_available(self) -> bool:
+        """Check if notebookutils is importable (for Fabric dialect)."""
+        try:
+            import notebookutils  # type: ignore # noqa: F401
+            return True
+        except ImportError:
+            return False
     """Utilities for interacting with Fabric or local SQL Server warehouses."""
 
     def __init__(
@@ -280,11 +158,25 @@ class warehouse_utils(DataStoreInterface):
         target_warehouse_id: Optional[str] = None,
         *,
         dialect: str = "fabric",
-        connection_string: Optional[str] = None,
+        connection_string: Optional[str] = f"DRIVER={{ODBC Driver 18 for SQL Server}};SERVER=localhost,1433;UID=sa;PWD={os.getenv('SQL_SERVER_SA_PASSWORD', 'YourStrong!Passw0rd')};TrustServerCertificate=yes;",
     ):
+        
         self._target_workspace_id = target_workspace_id
         self._target_warehouse_id = target_warehouse_id
         self.dialect = dialect
+
+        if dialect not in ["fabric", "sql_server"]:
+            raise ValueError(
+                f"Unsupported dialect: {dialect}. Supported dialects are 'fabric' and 'sql_server'."
+            )
+        
+        # Look for the existence of notebookutils and if not found, assume local SQL Server
+        if dialect == "fabric" and not self._is_notebookutils_available():
+            logger.warning(
+                "notebookutils not found, falling back to local SQL Server connection."
+            )
+            self.dialect = "sql_server"
+
         self.connection_string = connection_string
         self.sql = SQLTemplates(dialect)
 
@@ -307,20 +199,24 @@ class warehouse_utils(DataStoreInterface):
         try:
             if self.dialect == "fabric":
                 logger.debug("Connection to Fabric Warehouse")
+                import notebookutils  # type: ignore # noqa: F401
                 conn = notebookutils.data.connect_to_artifact(
                     self.target_warehouse_id, self.target_workspace_id
                 )
                 logger.debug(f"Connection established: {conn}")
                 return conn
             else:
+                import pyodbc  # type: ignore # noqa: F401
                 logger.debug("Connection to SQL Server Warehouse")
                 return pyodbc.connect(self.connection_string)  # type: ignore
         except Exception as e:
             logger.error(f"Failed to connect to warehouse: {e}")
             raise
 
+    @staticmethod
     def _connect_to_local_sql_server():
         try:
+            import pyodbc  # type: ignore # noqa: F401
             password = os.getenv("SQL_SERVER_PASSWORD", "default_password")
             connection_string = (
                 "DRIVER={ODBC Driver 18 for SQL Server};SERVER=localhost,1433;UID=sa;"
@@ -355,10 +251,7 @@ class warehouse_utils(DataStoreInterface):
                     df = None
                 logging.debug("Query executed successfully.")
             return df
-        except Exception as e:
-            # pretty print query
-            formatted_query = format(query, reindent=True, keyword_case="upper")
-            logger.info(f"Executing query:\n{formatted_query}")
+        except Exception as e:            
             logging.error(f"Error executing query: {query}. Error: {e}")
 
             raise
@@ -560,10 +453,9 @@ class warehouse_utils(DataStoreInterface):
             "get_table_schema", table_name=table_name, schema_name=schema_name or "dbo"
         )
         result = self.execute_query(conn, query)
-        if result is not None:
-            return (
-                dict(zip(result.columns, result.values[0])) if not result.empty else {}
-            )
+        if result is not None and not result.empty:
+            # Expect columns: COLUMN_NAME, DATA_TYPE
+            return {row['COLUMN_NAME']: row['DATA_TYPE'] for _, row in result.iterrows()}
         return {}
 
     def read_table(
@@ -730,7 +622,7 @@ class warehouse_utils(DataStoreInterface):
     # - _connect_to_local_sql_server
 
 
-# === ddl_utils.py ===
+# === python/ddl_utils.py ===
 # { "depends_on": "warehouse_utils" }
 
 import hashlib
@@ -864,7 +756,7 @@ class ddl_utils:
             print(f"Skipping {object_name} as it already exists")
 
 
-# === lakehouse_utils.py ===
+# === python/lakehouse_utils.py ===
 import logging
 
 # Configure logging
@@ -878,6 +770,241 @@ class lakehouse_utils:
         self.target_workspace_id = target_workspace_id
         self.target_warehouse_id = target_warehouse_id
 
+
+# === python/pipeline_utils.py ===
+import asyncio
+import importlib.util
+from typing import Any, Dict, Optional
+
+import numpy as np
+import requests
+
+
+class PipelineUtils:
+    """
+    Utility class for managing Fabric pipelines with robust error handling and retry logic.
+    Dynamically uses semantic-link if available; otherwise, falls back to REST API using DefaultAzureCredential.
+    """
+
+    def __init__(self):
+        """
+        Initialize the PipelineUtils class.
+        This class does not require any parameters for initialization.
+        """
+        self.client = self._get_pipeline_client()
+
+    def _use_semantic_link(self) -> bool:
+        return importlib.util.find_spec("semantic-link") is not None
+
+    def _get_pipeline_client(self):
+        if self._use_semantic_link():
+            import sempy.fabric as fabric # type: ignore  # noqa: I001
+            return fabric.FabricRestClient()
+        else:
+            from azure.identity import DefaultAzureCredential
+
+            #Create a class that mathes semantic-link's FabricRestClient interface
+            class FabricRestClient:
+                def __init__(self, base_url: str, credential: DefaultAzureCredential):
+                    self.base_url = base_url
+                    self.session = requests.Session()
+                    token = credential.get_token("https://api.fabric.microsoft.com/.default").token
+                    self.session.headers.update({
+                        "Authorization": f"Bearer {token}",
+                        "Content-Type": "application/json"
+                    })
+
+                def post(self, endpoint: str, json: dict) -> requests.Response:
+                    url = f"{self.base_url}/{endpoint}"
+                    return self.session.post(url, json=json)
+
+                def get(self, endpoint: str) -> requests.Response:
+                    url = f"{self.base_url}/{endpoint}"
+                    return self.session.get(url)
+
+            credential = DefaultAzureCredential()
+            return FabricRestClient(base_url="https://api.fabric.microsoft.com", credential=credential)
+
+
+    async def trigger_pipeline(
+        self,
+        workspace_id: str,
+        pipeline_id: str,
+        payload: Dict[str, Any]
+    ) -> str:
+        """
+        Trigger a Fabric pipeline job via REST API with robust retry logic.
+        
+        Args:
+            client: Authenticated Fabric REST client
+            workspace_id: Fabric workspace ID
+            pipeline_id: ID of the pipeline to run
+            payload: Parameters to pass to the pipeline
+            
+        Returns:
+            The job ID of the triggered pipeline
+        """
+        max_retries = 5
+        retry_delay = 2  # Initial delay in seconds
+        backoff_factor = 1.5  # Exponential backoff multiplier
+        
+        for attempt in range(1, max_retries + 1):
+            try:
+                trigger_url = f"v1/workspaces/{workspace_id}/items/{pipeline_id}/jobs/instances?jobType=Pipeline"
+                
+                response = self.client.post(trigger_url, json=payload)
+                
+                # Check for successful response (202 Accepted)
+                if response.status_code == 202:
+                    # Extract job ID from Location header
+                    response_location = response.headers.get('Location', '')
+                    job_id = response_location.rstrip("/").split("/")[-1]    
+                    print(f"✅ Pipeline triggered successfully. Job ID: {job_id}")
+                    return job_id
+                
+                # Handle specific error conditions
+                elif response.status_code >= 500 or response.status_code in [429, 408]:
+                    # Server errors (5xx) or rate limiting (429) or timeout (408) are likely transient
+                    error_msg = f"Transient error (HTTP {response.status_code}): {response.text[:100]}"
+                    print(f"⚠️ Attempt {attempt}/{max_retries}: {error_msg}")
+                else:
+                    # Client errors (4xx) other than rate limits are likely permanent
+                    error_msg = f"Client error (HTTP {response.status_code}): {response.text[:100]}"
+                    if attempt == max_retries:
+                        print(f"❌ Failed after {max_retries} attempts: {error_msg}")
+                        raise Exception(f"Failed to trigger pipeline: {response.status_code}\n{response.text}")
+                    else:
+                        print(f"⚠️ Attempt {attempt}/{max_retries}: {error_msg}")
+            
+            except Exception as e:
+                # Handle connection or other exceptions
+                error_msg = str(e)
+                if "timeout" in error_msg.lower() or "connection" in error_msg.lower():
+                    # Network-related errors are likely transient
+                    print(f"⚠️ Attempt {attempt}/{max_retries}: Network error: {error_msg}")
+                else:
+                    # Re-raise non-network exceptions on the last attempt
+                    if attempt == max_retries:
+                        print(f"❌ Failed after {max_retries} attempts due to unexpected error: {error_msg}")
+                        raise
+                    else:
+                        print(f"⚠️ Attempt {attempt}/{max_retries}: Unexpected error: {error_msg}")
+            
+            # Don't sleep on the last attempt
+            if attempt < max_retries:
+                # Calculate sleep time with exponential backoff and a bit of randomization
+                sleep_time = retry_delay * (backoff_factor ** (attempt - 1))
+                # Add jitter (±20%) to avoid thundering herd problem
+                jitter = 0.8 + (0.4 * np.random.random())
+                sleep_time = sleep_time * jitter
+                
+                print(f"🕒 Retrying in {sleep_time:.2f} seconds...")
+                await asyncio.sleep(sleep_time)
+        
+        # This should only be reached if we exhaust all retries on a non-4xx error
+        raise Exception(f"❌ Failed to trigger pipeline after {max_retries} attempts")
+
+
+    async def check_pipeline(
+        self,
+        table_name: str,
+        workspace_id: str,
+        pipeline_id: str,
+        job_id: str
+    ) -> tuple[Optional[str], str]:
+        """
+        Check the status of a pipeline job with enhanced error handling.
+        
+        Args:
+            client: Authenticated Fabric REST client
+            table_name: Name of the table being processed for display
+            workspace_id: Fabric workspace ID
+            pipeline_id: ID of the pipeline being checked
+            job_id: The job ID to check
+            
+        Returns:
+            Tuple of (status, error_message)
+        """
+        status_url = f"v1/workspaces/{workspace_id}/items/{pipeline_id}/jobs/instances/{job_id}"
+        
+        try:
+            response = self.client.get(status_url)
+            
+            # Handle HTTP error status codes
+            if response.status_code >= 400:
+                if response.status_code == 404:
+                    # Job not found - could be a temporary issue or job is still initializing
+                    print(f"[INFO] Pipeline {job_id} for {table_name}: Job not found (404) - may be initializing")
+                    return None, f"Job not found (404): {job_id}"
+                elif response.status_code >= 500 or response.status_code in [429, 408]:
+                    # Server-side error or rate limiting - likely temporary
+                    print(f"[INFO] Pipeline {job_id} for {table_name}: Server error ({response.status_code})")
+                    return None, f"Server error ({response.status_code}): {response.text[:100]}"
+                else:
+                    # Other client errors (4xx)
+                    print(f"[ERROR] Pipeline {job_id} for {table_name}: API error ({response.status_code})")
+                    return "Error", f"API error ({response.status_code}): {response.text[:100]}"
+            
+            # Parse the JSON response
+            try:
+                data = response.json()
+            except Exception as e:
+                # Invalid JSON in response
+                print(f"[WARNING] Pipeline {job_id} for {table_name}: Invalid response format")
+                return None, f"Invalid response format: {str(e)}"
+            
+            status = data.get("status")
+
+            # Handle specific failure states with more context
+            if status == "Failed" and "failureReason" in data:
+                fr = data["failureReason"]
+                msg = fr.get("message", "")
+                error_code = fr.get("errorCode", "")
+                
+                # Check for specific transient errors
+                if error_code == "RequestExecutionFailed" and "NotFound" in msg:
+                    print(f"[INFO] Pipeline {job_id} for {table_name}: Transient check-failure, retrying: {error_code}")
+                    return None, msg
+                
+                # Resource constraints may be temporary
+                if any(keyword in msg.lower() for keyword in ["quota", "capacity", "throttl", "timeout"]):
+                    print(f"[INFO] Pipeline {job_id} for {table_name}: Resource constraint issue: {error_code}")
+                    return None, msg
+                
+                # Print failure with details
+                print(f"Pipeline {job_id} for {table_name}: ❌ {status} - {error_code}: {msg[:100]}")
+                return status, msg
+
+            # Print status update with appropriate icon
+            status_icons = {
+                "Completed": "✅",
+                "Failed": "❌",
+                "Running": "⏳",
+                "NotStarted": "⏳",
+                "Pending": "⌛",
+                "Queued": "🔄"
+            }
+            icon = status_icons.get(status, "⏳")
+            print(f"Pipeline {job_id} for {table_name}: {icon} {status}")
+
+            return status, ""
+        
+        except Exception as e:
+            error_msg = str(e)
+            
+            # Categorize exceptions
+            if "timeout" in error_msg.lower() or "connection" in error_msg.lower():
+                # Network-related issues are transient
+                print(f"[WARNING] Pipeline {job_id} for {table_name}: Network error: {error_msg[:100]}")
+                return None, f"Network error: {error_msg}"
+            elif "not valid for Guid" in error_msg:
+                # Invalid GUID format - this is likely a client error
+                print(f"[ERROR] Pipeline {job_id} for {table_name}: Invalid job ID format")
+                return "Error", f"Invalid job ID format: {error_msg}"
+            else:
+                # Unexpected exceptions
+                print(f"[ERROR] Failed to check pipeline status for {table_name}: {error_msg[:100]}")
+                return None, error_msg
 
 
 
@@ -955,6 +1082,241 @@ def test_run_once_explicit_guid(ddl_utility: DDLUtilsInterface) -> None:
 def test_print_log_after_operations(ddl_utility: DDLUtilsInterface) -> None:
     # Should print updated log, no exception
     ddl_utility.print_log()
+
+
+
+from __future__ import annotations
+import pytest
+from unittest.mock import patch, MagicMock
+from ingen_fab.python_libs.python.pipeline_utils import PipelineUtils
+
+
+@pytest.fixture
+def pipeline_utils(monkeypatch) -> PipelineUtils:
+    mock_client = MagicMock()
+    monkeypatch.setattr(
+        "ingen_fab.python_libs.python.pipeline_utils.PipelineUtils._get_pipeline_client",
+        lambda self: mock_client
+    )
+    pu = PipelineUtils()
+    return pu
+
+
+@pytest.mark.asyncio
+async def test_trigger_pipeline_success(pipeline_utils):
+    mock_response = MagicMock()
+    mock_response.status_code = 202
+    mock_response.headers = {"Location": "/v1/jobs/instances/12345"}
+    pipeline_utils.client.post.return_value = mock_response
+
+    job_id = await pipeline_utils.trigger_pipeline(
+        workspace_id="wsid",
+        pipeline_id="pid",
+        payload={"param": "value"}
+    )
+    assert job_id == "12345"
+    pipeline_utils.client.post.assert_called_once()
+
+
+@pytest.mark.asyncio
+async def test_trigger_pipeline_retries_on_transient_error(pipeline_utils):
+    # First call: 500, Second call: 202
+    mock_response1 = MagicMock(status_code=500, text="Server error", headers={})
+    mock_response2 = MagicMock(status_code=202, headers={"Location": "/v1/jobs/instances/abcde"})
+    pipeline_utils.client.post.side_effect = [mock_response1, mock_response2]
+
+    job_id = await pipeline_utils.trigger_pipeline(
+        workspace_id="wsid",
+        pipeline_id="pid",
+        payload={}
+    )
+    assert job_id == "abcde"
+    assert pipeline_utils.client.post.call_count == 2
+
+
+@pytest.mark.asyncio
+async def test_trigger_pipeline_fails_on_client_error(pipeline_utils):
+    mock_response = MagicMock(status_code=400, text="Bad request", headers={})
+    pipeline_utils.client.post.return_value = mock_response
+
+    with pytest.raises(Exception) as exc:
+        await pipeline_utils.trigger_pipeline("wsid", "pid", {})
+    assert "Failed to trigger pipeline" in str(exc.value)
+
+
+@pytest.mark.asyncio
+async def test_check_pipeline_status_success(pipeline_utils):
+    mock_response = MagicMock()
+    mock_response.status_code = 200
+    mock_response.json.return_value = {"status": "Completed"}
+    pipeline_utils.client.get.return_value = mock_response
+
+    status, error = await pipeline_utils.check_pipeline(
+        table_name="table1",
+        workspace_id="wsid",
+        pipeline_id="pid",
+        job_id="jid"
+    )
+    assert status == "Completed"
+    assert error == ""
+
+
+@pytest.mark.asyncio
+async def test_check_pipeline_status_failure_reason(pipeline_utils):
+    mock_response = MagicMock()
+    mock_response.status_code = 200
+    mock_response.json.return_value = {
+        "status": "Failed",
+        "failureReason": {"message": "Some error", "errorCode": "RequestExecutionFailed"}
+    }
+    pipeline_utils.client.get.return_value = mock_response
+
+    status, error = await pipeline_utils.check_pipeline(
+        table_name="table1",
+        workspace_id="wsid",
+        pipeline_id="pid",
+        job_id="jid"
+    )
+    # Should return 'Failed' and error message for this failure
+    assert status == "Failed"
+    assert "Some error" in error
+
+
+from __future__ import annotations
+
+import os
+import subprocess
+import time
+import pandas as pd
+
+import pytest
+
+from ingen_fab.python_libs.python.warehouse_utils import warehouse_utils
+
+
+# --- Ensure SQL Server is running before tests ---
+def ensure_sql_server_running() -> None:
+    try:
+        # Check if sqlservr process is running
+        result = subprocess.run(["pgrep", "-x", "sqlservr"], capture_output=True)
+        if result.returncode != 0:
+            print("[pytest] SQL Server not running, attempting to start...")
+            # Try to start sqlservr in the background (no sudo)
+            # The path may need to be adjusted depending on install location
+            sqlservr_path = "/opt/mssql/bin/sqlservr"
+            if os.path.exists(sqlservr_path):
+                subprocess.Popen([sqlservr_path], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+                time.sleep(10)  # Give SQL Server time to start
+            else:
+                print(f"[pytest] SQL Server binary not found at {sqlservr_path}. Please install SQL Server.")
+        else:
+            print("[pytest] SQL Server is already running.")
+    except Exception as e:
+        print(f"[pytest] Could not check/start SQL Server: {e}")
+
+ensure_sql_server_running()
+
+
+
+@pytest.fixture(scope="module")
+def utils():
+    # Replace with actual workspace/lakehouse IDs or config
+    return warehouse_utils("your-workspace-id", "your-lakehouse-id", dialect="sql_server")
+
+@pytest.fixture
+def sample_df():
+    data = {
+        "id": [1, 2, 3],
+        "name": ["Alpha", "Beta", "Gamma"],
+        "value": [100, 200, 300],
+    }
+    return pd.DataFrame(data)
+
+def test_table_creation_and_existence(utils, sample_df):
+    utils.write_to_table(sample_df, "test_table")
+    assert utils.check_if_table_exists("test_table")
+
+def test_table_read(utils, sample_df):
+    utils.write_to_table(sample_df, "test_table_read")
+    result_df = utils.read_table("test_table_read")
+    assert result_df is not None
+    assert len(result_df) == len(sample_df)
+
+def test_table_drop(utils, sample_df):
+    utils.write_to_table(sample_df, "test_table_drop")
+    utils.drop_table("test_table_drop")
+    assert not utils.check_if_table_exists("test_table_drop")
+
+def test_cleanup_drop_all_tables(utils):
+    utils.drop_all_tables()
+    # Optionally, check that no user tables remain
+    assert isinstance(utils.list_tables(), list)
+
+def test_is_notebookutils_available(utils):
+    # Should not raise, returns bool
+    assert isinstance(utils._is_notebookutils_available(), bool)
+
+def test_get_connection(utils):
+    conn = utils.get_connection()
+    assert conn is not None
+
+def test_connect_to_local_sql_server():
+    # Should not raise, returns connection or None
+    utils = warehouse_utils(dialect="sql_server")
+    conn = utils._connect_to_local_sql_server()
+    # Accept None if server is not running
+    assert conn is None or hasattr(conn, 'cursor')
+
+def test_execute_query(utils):
+    conn = utils.get_connection()
+    # Simple query that should always work
+    df = utils.execute_query(conn, "SELECT 1 AS test_col")
+    assert df is not None
+    assert 'test_col' in df.columns
+
+def test_create_schema_if_not_exists(utils):
+    # Should not raise
+    utils.create_schema_if_not_exists("pytest_schema")
+
+def test_get_table_schema(utils, sample_df):
+    utils.write_to_table(sample_df, "test_schema_table")
+    schema = utils.get_table_schema("test_schema_table")
+    assert isinstance(schema, dict)
+    assert "id" in schema
+
+def test_delete_from_table(utils, sample_df):
+    utils.write_to_table(sample_df, "test_delete_table")
+    deleted = utils.delete_from_table("test_delete_table", filters={"id": 1})
+    assert isinstance(deleted, int)
+
+def test_rename_table(utils, sample_df):
+    utils.write_to_table(sample_df, "table_to_rename")
+    utils.rename_table("table_to_rename", "renamed_table")
+    assert utils.check_if_table_exists("renamed_table")
+
+def test_create_table(utils):
+    schema = {"id": "INT", "name": "VARCHAR(50)", "value": "INT"}
+    utils.create_table("created_table", schema=schema)
+    assert utils.check_if_table_exists("created_table")
+
+def test_list_schemas(utils):
+    schemas = utils.list_schemas()
+    assert isinstance(schemas, list)
+
+def test_get_table_row_count(utils, sample_df):
+    utils.write_to_table(sample_df, "row_count_table")
+    count = utils.get_table_row_count("row_count_table")
+    assert count == len(sample_df)
+
+def test_get_table_metadata(utils, sample_df):
+    utils.write_to_table(sample_df, "meta_table")
+    meta = utils.get_table_metadata("meta_table")
+    assert isinstance(meta, dict)
+
+def test_vacuum_table(utils, sample_df):
+    utils.write_to_table(sample_df, "vacuum_table")
+    # Should not raise
+    utils.vacuum_table("vacuum_table")
 
 
 

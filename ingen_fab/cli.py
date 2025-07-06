@@ -146,18 +146,23 @@ def run_livy_notebook(
 
 # Platform test generation command
 @test_platform_app.command()
-def generate():
+def generate(
+     ctx: typer.Context
+):
     """Generate platform tests using the script in python_libs_tests."""
     from ingen_fab.python_libs_tests import generate_platform_tests
-    generate_platform_tests.main()
-
+    gpt = generate_platform_tests.GeneratePlatformTests(
+        environment=ctx.obj["fabric_environment"],
+        project_directory=ctx.obj["fabric_workspace_repo_dir"],
+    )
+    gpt.generate()
 
 # Pytest execution command for python_libs_tests/pyspark
 
 
 @test_local_app.command()
 def pyspark(
-    lib: Annotated[str | None, typer.Argument(None, help="Optional test file (without _pytest.py) to run, e.g. 'my_utils'")] = None
+    lib: Annotated[str, typer.Argument(help="Optional test file (without _pytest.py) to run, e.g. 'my_utils'")] = None
 ):
     """Run pytest on ingen_fab/python_libs_tests/pyspark or a specific test file if provided."""
     import pytest
@@ -171,11 +176,25 @@ def pyspark(
 
 @test_local_app.command()
 def python(
-    lib: Annotated[str | None, typer.Argument(None, help="Optional test file (without _pytest.py) to run, e.g. 'ddl_utils'")] = None
+    lib: Annotated[str | None, typer.Argument(help="Optional test file (without _pytest.py) to run, e.g. 'ddl_utils'")] = None
 ):
     """Run pytest on ingen_fab/python_libs_tests/python or a specific test file if provided."""
     import pytest
     base = "ingen_fab/python_libs_tests/python"
+    if lib:
+        test_file = f"{base}/{lib}_pytest.py"
+        exit_code = pytest.main([test_file])
+    else:
+        exit_code = pytest.main([base])
+    raise typer.Exit(code=exit_code)
+
+@test_local_app.command()
+def common(
+    lib: Annotated[str, typer.Argument(help="Optional test file (without _pytest.py) to run, e.g. 'my_utils'")] = None
+):
+    """Run pytest on ingen_fab/python_libs_tests/common or a specific test file if provided."""
+    import pytest
+    base = "ingen_fab/python_libs_tests/common"
     if lib:
         test_file = f"{base}/{lib}_pytest.py"
         exit_code = pytest.main([test_file])
