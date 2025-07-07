@@ -166,7 +166,7 @@ class warehouse_utils(DataStoreInterface):
     ):
         try:
             conn = self.get_connection()
-            pandas_df = df
+            pandas_df = df.toPandas()
 
             # Handle different write modes
             if mode == "overwrite":
@@ -180,7 +180,8 @@ class warehouse_utils(DataStoreInterface):
                 values = []
                 for _, row in pandas_df.iterrows():
                     row_values = ", ".join(
-                        [f"'{v}'" if isinstance(v, str) else str(v) for v in row]
+                        #[f"'{v}'" if isinstance(v, str) else str(v) for v in row]
+                        [f"'{v}'" for v in row]
                     )
                     values.append(f"({row_values})")
 
@@ -201,7 +202,8 @@ class warehouse_utils(DataStoreInterface):
                 # Insert data into existing table
                 for _, row in pandas_df.iterrows():
                     row_values = ", ".join(
-                        [f"'{v}'" if isinstance(v, str) else str(v) for v in row]
+                        #[f"'{v}'" if isinstance(v, str) else str(v) for v in row]
+                        [f"'{v}'" for v in row]
                     )
                     insert_query = self.sql.render(
                         "insert_row",
@@ -219,7 +221,8 @@ class warehouse_utils(DataStoreInterface):
                 values = []
                 for _, row in pandas_df.iterrows():
                     row_values = ", ".join(
-                        [f"'{v}'" if isinstance(v, str) else str(v) for v in row]
+                        #[f"'{v}'" if isinstance(v, str) else str(v) for v in row]
+                        [f"'{v}'" for v in row]
                     )
                     values.append(f"({row_values})")
 

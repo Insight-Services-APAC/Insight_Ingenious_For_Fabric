@@ -1,9 +1,9 @@
 SELECT
-    * INTO {{ schema_name | required('schema_name') }}.{{ table_name | required('table_name') }}
+    * INTO {{ schema_name | required('schema_name') }}.{{ table_name | required('table_name') }} 
 FROM
     (
         VALUES
             {{ values_clause | required('values_clause') }}
-    ) AS v(
+    ) AS {{ table_name | required('table_name') }}(
         {{ column_names | required('column_names') }}
     )
