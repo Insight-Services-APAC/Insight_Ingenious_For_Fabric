@@ -79,7 +79,7 @@ def test_get_connection(utils):
 def test_connect_to_local_sql_server():
     # Should not raise, returns connection or None
     utils = warehouse_utils(dialect="sql_server")
-    conn = utils._connect_to_local_sql_server()
+    conn = utils.get_connection()
     # Accept None if server is not running
     assert conn is None or hasattr(conn, 'cursor')
 

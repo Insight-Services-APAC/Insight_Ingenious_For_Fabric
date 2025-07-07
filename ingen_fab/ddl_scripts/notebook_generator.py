@@ -4,7 +4,7 @@ import uuid
 from enum import Enum
 from pathlib import Path
 
-from jinja2 import Environment, FileSystemLoader
+from jinja2 import Environment, FileSystemLoader, exceptions
 from rich.console import Console
 from rich.panel import Panel
 from rich.progress import (
@@ -19,6 +19,14 @@ from rich.table import Table
 
 from ingen_fab.python_libs.gather_python_libs import GatherPythonLibs
 
+
+def required_filter(value, var_name=""):
+    """Jinja2 filter: raises an error if value is not provided or is falsy."""
+    if value is None or (hasattr(value, '__len__') and len(value) == 0):
+        raise exceptions.TemplateRuntimeError(
+            f"Required parameter '{var_name or 'unknown'}' was not provided!"
+        )
+    return value
 
 class NotebookGenerator:
     """Class to generate notebooks and orchestrators for Lakehouses or Warehouses."""
@@ -83,9 +91,6 @@ class NotebookGenerator:
         # Inject python libs into lib.py.jinja
         self.inject_python_libs_into_template()
 
-        # Jinja2 Environment
-        self.env = Environment(loader=FileSystemLoader(str(self.templates_dir)))
-
         # Initialize Rich console
         self.console = Console()
 
@@ -106,6 +111,7 @@ class NotebookGenerator:
 
         # Jinja2 Environment
         self.env = Environment(loader=FileSystemLoader(str(self.templates_dir)))
+        self.env.filters["required"] = lambda value, var_name="": required_filter(value, var_name)
 
     def load_template(self, template_name):
         """Load a Jinja template."""
@@ -230,6 +236,7 @@ class NotebookGenerator:
         config_folder,
         output_folder,
         notebook_display_name,
+        target_lakehouse_config_prefix,
         progress=None,
         parent_task=None,
     ):
@@ -305,7 +312,7 @@ class NotebookGenerator:
             time.sleep(0.5)  # Simulate processing time for each cell
 
         # Render the notebook template with the cells
-        rendered_notebook = notebook_template.render(cells=cells)
+        rendered_notebook = notebook_template.render(cells=cells, target_lakehouse_config_prefix=target_lakehouse_config_prefix)
 
         # Create notebook with platform file
         relative_path = config_folder.relative_to(self.entities_dir)
@@ -323,7 +330,7 @@ class NotebookGenerator:
             )
 
     def generate_orchestrator_notebook(
-        self, entity_name, notebook_names, output_folder
+        self, entity_name, notebook_names, output_folder, target_lakehouse_config_prefix
     ):
         """Generate an orchestrator notebook that runs all notebooks for an entity in sequence."""
 
@@ -340,6 +347,7 @@ class NotebookGenerator:
             lakehouse_name=entity_name,
             notebooks=notebooks,
             total_notebooks=len(notebook_names),
+            target_lakehouse_config_prefix=target_lakehouse_config_prefix
         )
 
         # Create notebook with platform file
@@ -505,11 +513,12 @@ class NotebookGenerator:
                         # Ensure directory structure exists before generating
                         # output_path.mkdir(parents=True, exist_ok=True)
                         self.generate_notebook(
-                            config_path,
-                            output_path,
-                            notebook_display_name,
-                            progress,
-                            main_task,
+                            config_folder=config_path,
+                            output_folder=output_path,
+                            notebook_display_name=notebook_display_name,
+                            target_lakehouse_config_prefix=entity_path.name,
+                            progress=progress,
+                            parent_task=main_task,
                         )
                         success_count += 1
                         progress.console.print(
@@ -533,6 +542,7 @@ class NotebookGenerator:
                         entity_path.name,
                         notebook_names,
                         self.output_dir / entity_path.name,
+                        target_lakehouse_config_prefix=entity_path.name,
                     )
                     orchestrator_count += 1
                     progress.console.print(

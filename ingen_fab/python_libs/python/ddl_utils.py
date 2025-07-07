@@ -4,8 +4,7 @@ import hashlib
 import inspect
 from datetime import datetime
 
-import notebookutils  # type: ignore # noqa: F401
-
+from .notebook_utils_abstraction import get_notebook_utils
 from .warehouse_utils import warehouse_utils
 
 
@@ -22,6 +21,7 @@ class ddl_utils:
             target_workspace_id=target_workspace_id,
             target_warehouse_id=target_warehouse_id,
         )
+        self.notebook_utils = get_notebook_utils()
         self.initialise_ddl_script_executions_table()
 
     def execution_log_schema():
@@ -31,26 +31,25 @@ class ddl_utils:
         conn = self.warehouse_utils.get_connection()
         query = f"SELECT * FROM [{self.execution_log_table_schema}].[{self.execution_log_table_name}]"
         df = self.warehouse_utils.execute_query(conn=conn, query=query)
-        display(df)
+        self.notebook_utils.display(df)
 
     def check_if_script_has_run(self, script_id) -> bool:
         conn = self.warehouse_utils.get_connection()
         query = f"""
-        SELECT *
+        SELECT count(*)
         FROM [{self.execution_log_table_schema}].[{self.execution_log_table_name}]
         WHERE script_id = '{script_id}'
         AND execution_status = 'success'
         """
         df = self.warehouse_utils.execute_query(conn=conn, query=query)
-
-        if df:
-            if len(df) == 0:
-                # print("matched:", matched)
-                return False
-            else:
+        if df is not None and not df.empty:
+            if int(df.iloc[0, 0]) > 0:
                 return True
+            else:
+                return False
         else:
             return False
+        
 
     def print_skipped_script_execution(self, guid, object_name):
         print(

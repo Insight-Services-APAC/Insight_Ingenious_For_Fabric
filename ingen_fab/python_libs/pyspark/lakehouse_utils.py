@@ -49,7 +49,8 @@ class lakehouse_utils(DataStoreInterface):
     def target_store_id(self) -> str:
         """Get the target lakehouse ID."""
         return self._target_lakehouse_id
-
+    
+    @property
     def get_connection(self) -> SparkSession:
         """Get the Spark session connection."""
         return self.spark
@@ -123,6 +124,7 @@ class lakehouse_utils(DataStoreInterface):
         options: dict[str, str] | None = None,
     ) -> None:
         """Write a DataFrame to a lakehouse table."""
+
         # For lakehouse, schema_name is not used as tables are in the Tables directory
         writer = df.write.format("delta").mode(mode)
 
@@ -287,6 +289,7 @@ class lakehouse_utils(DataStoreInterface):
         table_name: str,
         schema_name: str | None = None,
         schema: dict[str, Any] | None = None,
+        mode: str = "overwrite",
         options: dict[str, Any] | None = None,
     ) -> None:
         """
@@ -294,14 +297,22 @@ class lakehouse_utils(DataStoreInterface):
         """
         if schema is None:
             raise ValueError("Schema must be provided for table creation.")
-        fields = ", ".join([f"{col} {dtype}" for col, dtype in schema.items()])
-        sql = f"CREATE TABLE {table_name} ({fields}) USING DELTA LOCATION '{self.lakehouse_tables_uri()}{table_name}'"
+        
+        empty_df = self.get_connection.createDataFrame([], schema)
+        writer = empty_df.write.format("delta").mode(mode)
+
         if options:
-            opts = " ".join(
-                [f"TBLPROPERTIES ('{k}'='{v}')" for k, v in options.items()]
+            for k, v in options.items():
+                writer = writer.option(k, v)
+
+        writer.save(f"{self.lakehouse_tables_uri()}{table_name}")
+
+        # Register the table in the Hive catalog - Only needed if local
+        if self.spark_version == "local":
+            self.spark.sql(
+                f"CREATE TABLE IF NOT EXISTS {table_name} USING DELTA LOCATION '{self.lakehouse_tables_uri()}{table_name}'"
             )
-            sql += f" {opts}"
-        self.spark.sql(sql)
+
 
     def drop_table(
         self,

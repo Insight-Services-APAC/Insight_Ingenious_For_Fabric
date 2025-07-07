@@ -1,47 +1,47 @@
 platform_folders:
 - name: var_lib.VariableLibrary
   path: sample_project/fabric_workspace_items/config/var_lib.VariableLibrary
-  hash: 0057dc13441460f4ed056e615f8756fd03eded8ba2d4307958b275571fee6da6
+  hash: 9e35aaa6cc1e1c39aa32b873923db581f605f0a4cec180b40e13d07601a7fa4d
   status: deployed
   environment: development_jr
 - name: 00_all_lakehouses_orchestrator_ddl_scripts.Notebook
   path: sample_project/fabric_workspace_items/ddl_scripts/Lakehouses/00_all_lakehouses_orchestrator.Notebook
-  hash: 43c2715a624ea9054a7173c6a72680606e73dcad054529f5c952f899be7c510e
+  hash: 4b5b560221b38de6281811ad97159410f57960b4ed2ebeedf1759760adae86e9
   status: deployed
   environment: development_jr
 - name: 001_Initial_Creation_Config_Lakehouses_ddl_scripts.Notebook
   path: sample_project/fabric_workspace_items/ddl_scripts/Lakehouses/Config/001_Initial_Creation_Config_Lakehouses.Notebook
-  hash: ebc8a0e34f8148cb4f1a6af982df9a515fc3b890dd36daa963ddc8411531b364
+  hash: c2f161def675d1bbd7af5a0c7e924b8a83c087c2be32a72e2fb79c4336a3f910
   status: deployed
   environment: development_jr
 - name: 0_orchestrator_Config_ddl_scripts.Notebook
   path: sample_project/fabric_workspace_items/ddl_scripts/Lakehouses/Config/0_orchestrator_Config.Notebook
-  hash: 911727f5ab08073c87d8fbb5c0cf7d9dbda9a8626b882c375dfc2b60e53e6f0a
+  hash: 90326ac72e59f3c7203ea9d76216f2a967d97b3517ab55533893ac70827da314
   status: deployed
   environment: development_jr
 - name: 00_all_warehouses_config_notebook_ddl_scripts.Notebook
   path: sample_project/fabric_workspace_items/ddl_scripts/Warehouses/00_all_warehouses_config_notebook.Notebook
-  hash: 88eb35726b902e4441c6c625dc9566b2728700616ed3ebeacde72ab2bbf8d424
+  hash: 20e2123de85056495a31874a0a7683e6829074112d495ae4859714b910170d1d
   status: deployed
   environment: development_jr
 - name: 00_all_warehouses_orchestrator_ddl_scripts.Notebook
   path: sample_project/fabric_workspace_items/ddl_scripts/Warehouses/00_all_warehouses_orchestrator.Notebook
-  hash: 0725791e70805d78241344fce080de240e263f8aed540163a795f762a462f147
+  hash: 77ece7fda9cd6b76a576418b5c9f74ce16058468f141cf9813346c0c6f02dac4
   status: deployed
   environment: development_jr
 - name: 001_Initial_Creation_Config_Warehouses_ddl_scripts.Notebook
   path: sample_project/fabric_workspace_items/ddl_scripts/Warehouses/Config/001_Initial_Creation_Config_Warehouses.Notebook
-  hash: bcac435f50f29eefa067580f17b90917ccf3a4aab429fe63280b41ee17618688
+  hash: a19b48a1ab434dd909c2bb3a9fa26c4b659d6f758d6f570d58cfe87917a1c8aa
   status: deployed
   environment: development_jr
 - name: 002_Parquet_Load_Update_Config_Warehouses_ddl_scripts.Notebook
   path: sample_project/fabric_workspace_items/ddl_scripts/Warehouses/Config/002_Parquet_Load_Update_Config_Warehouses.Notebook
-  hash: d9f135f7eb1905874025bbf9ce28434189cba003bada9b291fd1a9abdf869a03
+  hash: a986ff1abfd0fa3268e28225c8308b327a72ef3479447412e149f5eac56266fe
   status: deployed
   environment: development_jr
 - name: 0_orchestrator_Config_ddl_scripts.Notebook
   path: sample_project/fabric_workspace_items/ddl_scripts/Warehouses/Config/0_orchestrator_Config.Notebook
-  hash: 1bd06cf3c6fdc0a715df3a919f527911153500bd60f9873bf7d3c0eee77dce87
+  hash: 1704a4b8f3a78e2cbea53c6f5caba15d9c4334e2a9c545c22a2f451ac5d46e9f
   status: deployed
   environment: development_jr
 - name: extract_from_synapse.Notebook
@@ -71,12 +71,12 @@ platform_folders:
   environment: development_jr
 - name: pyspark_platform_test_platform_testing.Notebook
   path: sample_project/fabric_workspace_items/platform_testing/pyspark_platform_test.Notebook
-  hash: 8c07179d58d4ce2c862072796ae526e14d0928f11940614cf0e30a41b0edff59
+  hash: 7d252aee91b5139335715fc84f1c50e230ac3f412ee1f3e0908b6ba4e6e04913
   status: deployed
   environment: development_jr
 - name: python_platform_test.Notebook
   path: sample_project/fabric_workspace_items/platform_testing/python_platform_test.Notebook
-  hash: 561598831086816dac49e3cb1f5b1af200bc7693cf6c903f0ae71321d97a0b7d
+  hash: 0afe6d5810497ed4453e2de568e527e368f2b3e444cbd9ef4e12d8be4116d8ad
   status: deployed
   environment: development_jr
 - name: EDW.Warehouse

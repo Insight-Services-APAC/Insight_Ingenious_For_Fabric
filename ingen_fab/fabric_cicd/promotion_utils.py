@@ -266,7 +266,7 @@ class SyncToFabricEnvironment:
         vlu.inject_variables_into_template()
 
         # 2) Find folders with platform files and generate hashes
-        fabric_items_path = Path("./sample_project/fabric_workspace_items")
+        fabric_items_path = self.project_path / "fabric_workspace_items"
         # Before publishig remove all __pycache__ folders
         for pycache in fabric_items_path.rglob("__pycache__"):
             if pycache.is_dir():

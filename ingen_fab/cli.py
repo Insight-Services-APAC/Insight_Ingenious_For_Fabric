@@ -1,4 +1,3 @@
-
 from __future__ import annotations
 
 import os
@@ -30,14 +29,34 @@ test_platform_app = typer.Typer()
 notebook_app = typer.Typer()
 
 # Add sub-apps to main app
-test_app.add_typer(test_local_app, name="local", help="Commands for testing libraries and Python blocks locally.")
-test_app.add_typer(test_platform_app, name="platform", help="Commands for testing libraries and notebooks in the Fabric platform.")
+test_app.add_typer(
+    test_local_app,
+    name="local",
+    help="Commands for testing libraries and Python blocks locally.",
+)
+test_app.add_typer(
+    test_platform_app,
+    name="platform",
+    help="Commands for testing libraries and notebooks in the Fabric platform.",
+)
 
-app.add_typer(deploy_app, name="deploy", help="Commands for deploying to environments and managing workspace items.")
-app.add_typer(init_app, name="init", help="Commands for initializing solutions and projects.")
+app.add_typer(
+    deploy_app,
+    name="deploy",
+    help="Commands for deploying to environments and managing workspace items.",
+)
+app.add_typer(
+    init_app, name="init", help="Commands for initializing solutions and projects."
+)
 app.add_typer(ddl_app, name="ddl", help="Commands for compiling DDL notebooks.")
-app.add_typer(test_app, name="test", help="Commands for testing notebooks and Python blocks.")
-app.add_typer(notebook_app, name="notebook", help="Commands for managing and scanning notebook content.")
+app.add_typer(
+    test_app, name="test", help="Commands for testing notebooks and Python blocks."
+)
+app.add_typer(
+    notebook_app,
+    name="notebook",
+    help="Commands for managing and scanning notebook content.",
+)
 
 
 @app.callback()
@@ -58,36 +77,48 @@ def main(
             "-fe",
             help="The name of your fabric environment (e.g., development, production). This must match one of the valuesets in your variable library.",
         ),
-    ] = None
+    ] = None,
 ):
-    
     if fabric_workspace_repo_dir is None:
         env_val = os.environ.get("FABRIC_WORKSPACE_REPO_DIR")
-        if env_val:            
-            console_styles.print_warning(console,"Falling back to FABRIC_WORKSPACE_REPO_DIR environment variable.")            
-        fabric_workspace_repo_dir = Path(env_val) if env_val else Path("./sample_project")
+        if env_val:
+            console_styles.print_warning(
+                console,
+                "Falling back to FABRIC_WORKSPACE_REPO_DIR environment variable.",
+            )
+        fabric_workspace_repo_dir = (
+            Path(env_val) if env_val else Path("./sample_project")
+        )
     if fabric_environment is None:
         env_val = os.environ.get("FABRIC_ENVIRONMENT")
         if env_val:
-            console_styles.print_warning(console,"Falling back to FABRIC_ENVIRONMENT environment variable.")           
+            console_styles.print_warning(
+                console, "Falling back to FABRIC_ENVIRONMENT environment variable."
+            )
         fabric_environment = Path(env_val) if env_val else Path("development")
 
-    console_styles.print_info(console, f"Using Fabric workspace repo directory: {fabric_workspace_repo_dir}")
-    console_styles.print_info(console, f"Using Fabric environment: {fabric_environment}")    
+    console_styles.print_info(
+        console, f"Using Fabric workspace repo directory: {fabric_workspace_repo_dir}"
+    )
+    console_styles.print_info(
+        console, f"Using Fabric environment: {fabric_environment}"
+    )
     ctx.obj = {
         "fabric_workspace_repo_dir": fabric_workspace_repo_dir,
         "fabric_environment": fabric_environment,
     }
 
+
 # ddl commands
 
+
 @ddl_app.command()
-def compile_ddl_notebooks(
+def compile(
     ctx: typer.Context,
-    output_mode: Annotated[str, typer.Option("--output-mode", "-o")] = "local",
+    output_mode: Annotated[str, typer.Option("--output-mode", "-o")] = None,
     generation_mode: Annotated[
         str, typer.Option("--generation-mode", "-g")
-    ] = "warehouse",
+    ] = None,
     verbose: Annotated[bool, typer.Option("--verbose", "-v")] = False,
 ):
     """Compile the DDL notebooks in the specified project directory."""
@@ -96,6 +127,7 @@ def compile_ddl_notebooks(
 
 # Initialize commands
 
+
 @init_app.command()
 def init_solution(
     project_name: Annotated[str, typer.Option(...)] = "",
@@ -103,7 +135,9 @@ def init_solution(
 ):
     init_commands.init_solution(project_name, path)
 
+
 # Deploy commands
+
 
 @deploy_app.command()
 def deploy(ctx: typer.Context):
@@ -118,8 +152,24 @@ def delete_all(
     workspace_commands.delete_workspace_items(environment, force)
 
 
-# Test commands
+@deploy_app.command()
+def upload_python_libs(
+    environment: Annotated[
+        str, typer.Option("--environment", "-e", help="Fabric environment name")
+    ] = "development_jr",
+    project_path: Annotated[
+        str, typer.Option("--project-path", "-p", help="Project path")
+    ] = "sample_project",
+):
+    """Upload python_libs directory to Fabric config lakehouse using OneLakeUtils."""
+    deploy_commands.upload_python_libs_to_config_lakehouse(
+        environment=environment,
+        project_path=project_path,
+        console=console,
+    )
 
+
+# Test commands
 @test_app.command()
 def test_python_block():
     notebook_commands.test_python_block()
@@ -128,7 +178,6 @@ def test_python_block():
 @test_app.command()
 def run_simple_notebook(ctx: typer.Context):
     notebook_commands.run_simple_notebook(ctx)
-
 
 
 @test_app.command()
@@ -146,26 +195,32 @@ def run_livy_notebook(
 
 # Platform test generation command
 @test_platform_app.command()
-def generate(
-     ctx: typer.Context
-):
+def generate(ctx: typer.Context):
     """Generate platform tests using the script in python_libs_tests."""
     from ingen_fab.python_libs_tests import generate_platform_tests
+
     gpt = generate_platform_tests.GeneratePlatformTests(
         environment=ctx.obj["fabric_environment"],
         project_directory=ctx.obj["fabric_workspace_repo_dir"],
     )
     gpt.generate()
 
+
 # Pytest execution command for python_libs_tests/pyspark
 
 
 @test_local_app.command()
 def pyspark(
-    lib: Annotated[str, typer.Argument(help="Optional test file (without _pytest.py) to run, e.g. 'my_utils'")] = None
+    lib: Annotated[
+        str,
+        typer.Argument(
+            help="Optional test file (without _pytest.py) to run, e.g. 'my_utils'"
+        ),
+    ] = None,
 ):
     """Run pytest on ingen_fab/python_libs_tests/pyspark or a specific test file if provided."""
     import pytest
+
     base = "ingen_fab/python_libs_tests/pyspark"
     if lib:
         test_file = f"{base}/{lib}_pytest.py"
@@ -174,12 +229,19 @@ def pyspark(
         exit_code = pytest.main([base])
     raise typer.Exit(code=exit_code)
 
+
 @test_local_app.command()
 def python(
-    lib: Annotated[str | None, typer.Argument(help="Optional test file (without _pytest.py) to run, e.g. 'ddl_utils'")] = None
+    lib: Annotated[
+        str | None,
+        typer.Argument(
+            help="Optional test file (without _pytest.py) to run, e.g. 'ddl_utils'"
+        ),
+    ] = None,
 ):
     """Run pytest on ingen_fab/python_libs_tests/python or a specific test file if provided."""
     import pytest
+
     base = "ingen_fab/python_libs_tests/python"
     if lib:
         test_file = f"{base}/{lib}_pytest.py"
@@ -188,12 +250,19 @@ def python(
         exit_code = pytest.main([base])
     raise typer.Exit(code=exit_code)
 
+
 @test_local_app.command()
 def common(
-    lib: Annotated[str, typer.Argument(help="Optional test file (without _pytest.py) to run, e.g. 'my_utils'")] = None
+    lib: Annotated[
+        str,
+        typer.Argument(
+            help="Optional test file (without _pytest.py) to run, e.g. 'my_utils'"
+        ),
+    ] = None,
 ):
     """Run pytest on ingen_fab/python_libs_tests/common or a specific test file if provided."""
     import pytest
+
     base = "ingen_fab/python_libs_tests/common"
     if lib:
         test_file = f"{base}/{lib}_pytest.py"
@@ -228,6 +297,7 @@ def scan_notebook_blocks(
 @notebook_app.command()
 def perform_code_replacements(ctx: typer.Context):
     deploy_commands.perform_code_replacements(ctx)
+
 
 if __name__ == "__main__":
     app()

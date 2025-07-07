@@ -30,35 +30,17 @@
 
 # MARKDOWN ********************
 
-# ## ⚙️ Configuration Settings
-
-
-# CELL ********************
-
-
-# variableLibraryInjectionStart: var_lib
-
-
-# variableLibraryInjectionEnd: var_lib
-
-
-
-# METADATA ********************
-
-# META {
-# META   "language": "python",
-# META   "language_group": "jupyter_python"
-# META }
-
-# MARKDOWN ********************
-
 # ## 📦 Inject Reusable Classes and Functions
 
 
 # CELL ********************
 
-{{ library_bundle | required }}
+import sys
+notebookutils.fs.mount("abfss://{{varlib:config_workspace_id}}@onelake.dfs.fabric.microsoft.com/{{varlib:config_workspace_name}}.Lakehouse/Files/", "/config_files")
+new_Path = notebookutils.fs.getMountPath("/config_files")
+sys.path.insert(0, new_Path)
 
+import ingen_fab.python_libs.common.config_utils as cu
 
 
 # METADATA ********************

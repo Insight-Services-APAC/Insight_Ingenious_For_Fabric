@@ -14,12 +14,11 @@ schema = StructType(
     ]
 )
 
-empty_df = spark.createDataFrame([], schema)
-(
-    empty_df.write.format("delta")
-    .option("parquet.vorder.default", "true")
-    .mode("overwrite")  # will error if table exists; change to "overwrite" to replace.
-    .save(
-        f"{lu.lakehouse_tables_uri()}log_synapse_extracts"  # noqa: E501
-    )
+target_lakehouse.create_table(
+        table_name="log_synapse_extracts",
+        schema=schema,
+        mode="overwrite",
+        options={
+            "parquet.vorder.default": "true"  # Ensure Parquet files are written in vorder order
+        },
 )

@@ -1,5 +1,8 @@
 
 
+from typing import Optional
+
+
 class SynapseExtractUtils: 
     """Utility class for Synapse data extraction operations."""
 
