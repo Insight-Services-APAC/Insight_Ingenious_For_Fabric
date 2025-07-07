@@ -97,7 +97,6 @@ class ddl_utils:
                 self.write_to_execution_log(
                     object_guid=guid, object_name=object_name, script_status="Failure"
                 )
-                raise
         else:
             self.print_skipped_script_execution(guid=guid, object_name=object_name)
 
@@ -129,3 +128,10 @@ class ddl_utils:
             )
         else:
             print(f"Skipping {object_name} as it already exists")
+
+    def remove_history(self) -> None:
+        conn = self.warehouse_utils.get_connection()
+        query = f"""
+        TRUNCATE TABLE [{self.execution_log_table_schema}].[{self.execution_log_table_name}];
+        """
+        self.warehouse_utils.execute_query(conn=conn, query=query)

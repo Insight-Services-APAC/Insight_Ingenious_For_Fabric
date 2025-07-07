@@ -19,14 +19,13 @@ def test_print_log_runs(ddl_utility: DDLUtilsInterface) -> None:
     ddl_utility.print_log()
 
 
-def test_check_if_script_has_run_false_initially(
-    ddl_utility: DDLUtilsInterface,
-) -> None:
+def test_check_if_script_has_run_false_initially(ddl_utility: DDLUtilsInterface) -> None:
     script_id = "example-script-001"
     assert ddl_utility.check_if_script_has_run(script_id) is False
 
 
 def test_run_once_auto_guid(ddl_utility: DDLUtilsInterface) -> None:
+    ddl_utility.remove_history()
     called: dict[str, bool] = {"ran": False}
 
     def create_example_table() -> None:
@@ -44,6 +43,7 @@ def test_run_once_auto_guid(ddl_utility: DDLUtilsInterface) -> None:
 
 
 def test_run_once_explicit_guid(ddl_utility: DDLUtilsInterface) -> None:
+    ddl_utility.remove_history()
     called: dict[str, bool] = {"ran": False}
     guid = "custom-guid-123"
 
