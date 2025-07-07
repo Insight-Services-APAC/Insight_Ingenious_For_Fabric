@@ -19,8 +19,7 @@ class ddl_utils:
         self.warehouse_utils = warehouse_utils(
             target_workspace_id=target_workspace_id,
             target_warehouse_id=target_warehouse_id,
-            dialect="sqlserver",
-            connection_string="Driver={ODBC Driver 18 for SQL Server};Server=localhost;Encrypt=no;UID=sa;PWD=tester321!"
+            dialect="sqlserver"
         )
         self.initialise_ddl_script_executions_table()
 

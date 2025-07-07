@@ -5,6 +5,7 @@ from typing import Optional
 import pandas as pd
 import pyodbc  # type: ignore # noqa: F401
 from sqlparse import format
+from dotenv import load_dotenv
 
 from ingen_fab.fabric_api.utils import FabricApiUtils
 from ingen_fab.python_libs.interfaces.data_store_interface import DataStoreInterface
@@ -59,7 +60,7 @@ class warehouse_utils(DataStoreInterface):
                 return conn
             elif self.dialect == "sqlserver":
                 logger.debug("Connection to SQL Server Warehouse")
-                return pyodbc.connect(self.connection_string)  # type: ignore
+                return self._connect_to_local_sql_server() # type: ignore
             else:
                 logger.info("Dialect not found.")
                 raise Exception("Could not find dialect for connection.")
@@ -67,13 +68,13 @@ class warehouse_utils(DataStoreInterface):
             logger.error(f"Failed to connect to warehouse: {e}")
             raise
 
-    def _connect_to_local_sql_server():
+    def _connect_to_local_sql_server(self):
         try:
+            load_dotenv()
             password = os.getenv("SQL_SERVER_PASSWORD", "default_password")
             connection_string = (
-                "DRIVER={ODBC Driver 18 for SQL Server};SERVER=localhost,1433;UID=sa;"
-                + f"PWD={password};TrustServerCertificate=yes;"
-            )
+                f"Driver={{ODBC Driver 18 for SQL Server}};Server=localhost;Encrypt=no;UID=sa;PWD={password};TrustServerCertificate=yes;"
+                )
             conn = pyodbc.connect(connection_string)
             logger.debug("Connected to local SQL Server instance.")
             return conn

@@ -13,3 +13,4 @@ fabric_cicd.error.log
 /.pytest_cache
 /fabric_cicd.error.log
 /.venv_win
+/.env
