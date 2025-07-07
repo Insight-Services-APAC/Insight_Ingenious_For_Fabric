@@ -19,8 +19,8 @@ class ddl_utils:
         self.warehouse_utils = warehouse_utils(
             target_workspace_id=target_workspace_id,
             target_warehouse_id=target_warehouse_id,
-            dialect="not-fabric",
-            connection_string="DRIVER={ODBC Driver 18 for SQL Server}; SERVER=localhost; Encrypt=no; UID=root; PASSWORD=tester321!"
+            dialect="sqlserver",
+            connection_string="Driver={ODBC Driver 18 for SQL Server};Server=localhost;Encrypt=no;UID=sa;PWD=tester321!"
         )
         self.initialise_ddl_script_executions_table()
 
@@ -43,7 +43,7 @@ class ddl_utils:
         """
         df = self.warehouse_utils.execute_query(conn=conn, query=query)
 
-        if df:
+        if df is not None:
             if len(df) == 0:
                 # print("matched:", matched)
                 return False

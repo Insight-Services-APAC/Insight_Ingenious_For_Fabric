@@ -57,9 +57,12 @@ class warehouse_utils(DataStoreInterface):
                 )
                 logger.debug(f"Connection established: {conn}")
                 return conn
-            else:
+            elif self.dialect == "sqlserver":
                 logger.debug("Connection to SQL Server Warehouse")
                 return pyodbc.connect(self.connection_string)  # type: ignore
+            else:
+                logger.info("Dialect not found.")
+                raise Exception("Could not find dialect for connection.")
         except Exception as e:
             logger.error(f"Failed to connect to warehouse: {e}")
             raise
