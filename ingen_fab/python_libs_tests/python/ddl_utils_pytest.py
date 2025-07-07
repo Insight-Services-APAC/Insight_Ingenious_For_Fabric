@@ -23,6 +23,10 @@ def test_check_if_script_has_run_false_initially(ddl_utility: DDLUtilsInterface)
     script_id = "example-script-001"
     assert ddl_utility.check_if_script_has_run(script_id) is False
 
+def test_remove_history(ddl_utility: DDLUtilsInterface) -> None:
+    # shoud not raise -- can test more when other utilities have been added.
+    ddl_utility.remove_history()
+
 
 def test_run_once_auto_guid(ddl_utility: DDLUtilsInterface) -> None:
     ddl_utility.remove_history()
