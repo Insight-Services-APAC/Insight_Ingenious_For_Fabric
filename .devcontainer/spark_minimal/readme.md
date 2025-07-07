@@ -30,7 +30,9 @@ Install SQL Server and SQL Connectivity tools. In the PowerShell terminal, run:
 bash ./scripts/dev_container_scripts/spark_minimal/sql_install_4_linux.sh
 ```
 
-Next setup SQL Server. NOTE that in this step you will need to provide an SA password. Take note of the password as you will need to use it in the future. When asked for a SQL Version select "Enterprise (2)" and "English". In the PowerShell terminal, run:
+Next setup SQL Server. NOTE that in this step you will need to provide an SA password. Take note of the password as you will need to use it in the future. When asked for a SQL Version select "Enterprise (2)" and "English". 
+Please set the password to: tester321!
+In the PowerShell terminal, run:
 
 ``` pwsh
 bash /opt/mssql/bin/mssql-conf setup
@@ -43,6 +45,6 @@ At the end of the process above you will get an error "No such file or directory
 
 For platform testing, install the Azure CLI.
 
-``` bash
-yes | apt-get install azure-cli
+``` pwsh
+bash ./scripts/dev_container_scripts/spark_minimal/az_cli_install.sh
 ```

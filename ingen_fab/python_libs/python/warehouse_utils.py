@@ -2,7 +2,6 @@ import logging
 import os
 from typing import Optional
 
-import notebookutils  # type: ignore # noqa: F401
 import pandas as pd
 import pyodbc  # type: ignore # noqa: F401
 from sqlparse import format
@@ -53,7 +52,7 @@ class warehouse_utils(DataStoreInterface):
         try:
             if self.dialect == "fabric":
                 logger.debug("Connection to Fabric Warehouse")
-                conn = notebookutils.data.connect_to_artifact(
+                conn = FabricApiUtils.data.connect_to_artifact(
                     self.target_warehouse_id, self.target_workspace_id
                 )
                 logger.debug(f"Connection established: {conn}")
@@ -465,6 +464,11 @@ class warehouse_utils(DataStoreInterface):
         retention_hours: int = 168,
     ) -> None:
         """Implements DataStoreInterface: Perform cleanup/compaction on a table (no-op for SQL warehouses)."""
+        # Not applicable for SQL warehouses, but required by interface
+        pass
+
+    def optimise_table(self, table_name: str) -> None:
+        """Implements DataStoreInterface: Perform optimise on a table (no-op for SQL warehouses)."""
         # Not applicable for SQL warehouses, but required by interface
         pass
 

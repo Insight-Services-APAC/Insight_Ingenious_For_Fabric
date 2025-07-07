@@ -4,8 +4,6 @@ import hashlib
 import inspect
 from datetime import datetime
 
-import notebookutils  # type: ignore # noqa: F401
-
 from .warehouse_utils import warehouse_utils
 
 
@@ -21,6 +19,8 @@ class ddl_utils:
         self.warehouse_utils = warehouse_utils(
             target_workspace_id=target_workspace_id,
             target_warehouse_id=target_warehouse_id,
+            dialect="not-fabric",
+            connection_string="DRIVER={ODBC Driver 18 for SQL Server}; SERVER=localhost; Encrypt=no; UID=root; PASSWORD=tester321!"
         )
         self.initialise_ddl_script_executions_table()
 
@@ -31,7 +31,7 @@ class ddl_utils:
         conn = self.warehouse_utils.get_connection()
         query = f"SELECT * FROM [{self.execution_log_table_schema}].[{self.execution_log_table_name}]"
         df = self.warehouse_utils.execute_query(conn=conn, query=query)
-        display(df)
+        print(df)
 
     def check_if_script_has_run(self, script_id) -> bool:
         conn = self.warehouse_utils.get_connection()
