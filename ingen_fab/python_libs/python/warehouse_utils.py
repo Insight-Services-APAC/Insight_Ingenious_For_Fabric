@@ -53,8 +53,10 @@ class warehouse_utils(DataStoreInterface):
         try:
             if self.dialect == "fabric":
                 logger.debug("Connection to Fabric Warehouse")
+                # conn = notebookutils.data.connect_to_artifact(
+                #     self.target_warehouse_id, self.target_workspace_id
                 conn = notebookutils.data.connect_to_artifact(
-                    self.target_warehouse_id, self.target_workspace_id
+                self.target_store_id, self.target_workspace_id  # Use target_store_id instead
                 )
                 logger.debug(f"Connection established: {conn}")
                 return conn

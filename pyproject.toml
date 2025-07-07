@@ -77,3 +77,4 @@ exclude = [
 markers = [
     "e2e: live network integration test (requires SCRAPFLY_API_KEY)",
 ]
+asyncio_default_fixture_loop_scope= "function"
