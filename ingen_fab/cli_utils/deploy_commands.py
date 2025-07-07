@@ -1,10 +1,12 @@
 from pathlib import Path
+import traceback
 
 from rich.console import Console
 
 from ingen_fab.cli_utils.console_styles import ConsoleStyles
 from ingen_fab.config_utils.variable_lib import VariableLibraryUtils
 from ingen_fab.fabric_cicd.promotion_utils import SyncToFabricEnvironment
+from ingen_fab.az_cli.onelake_utils import OneLakeUtils
 
 
 def deploy_to_environment(ctx):
@@ -54,3 +56,41 @@ def perform_code_replacements(ctx):
         project_path=Path(ctx.obj.get("fabric_workspace_repo_dir")),
     )
     vlu.inject_variables_into_template()
+
+
+def upload_python_libs_to_config_lakehouse(environment: str, project_path: str, console: Console = Console()):
+    """Uploads Python libraries to the config lakehouse in OneLake."""
+    try:
+        onelake_utils = OneLakeUtils(environment=environment, project_path=Path(project_path))
+        ConsoleStyles.print_info(console, f"Initialized OneLakeUtils for environment: {environment}")
+        ConsoleStyles.print_info(console, f"Workspace ID: {onelake_utils.workspace_id}")
+
+        config_lakehouse_id = onelake_utils.get_config_lakehouse_id()
+        ConsoleStyles.print_info(console, f"Config lakehouse ID: {config_lakehouse_id}")
+
+        ConsoleStyles.print_info(console, "\nStarting upload of python_libs to config lakehouse...")
+        results = onelake_utils.upload_python_libs_to_config_lakehouse()
+
+        ConsoleStyles.print_success(console, "\nUpload completed!")
+        ConsoleStyles.print_info(console, f"Total files processed: {results['total_files']}")
+        ConsoleStyles.print_info(console, f"Successful uploads: {len(results['successful'])}")
+        ConsoleStyles.print_info(console, f"Failed uploads: {len(results['failed'])}")
+
+        if results['successful']:
+            ConsoleStyles.print_success(console, "\nSuccessful uploads:")
+            for result in results['successful'][:5]:
+                ConsoleStyles.print_success(console, f"  ✓ {result['local_path']} -> {result['remote_path']}")
+            if len(results['successful']) > 5:
+                ConsoleStyles.print_info(console, f"  ... and {len(results['successful']) - 5} more")
+
+        if results['failed']:
+            ConsoleStyles.print_error(console, "\nFailed uploads:")
+            for result in results['failed']:
+                ConsoleStyles.print_error(console, f"  ✗ {result['local_path']}: {result['error']}")
+
+    except Exception as e:
+        ConsoleStyles.print_error(console, f"Error: {str(e)}")
+        ConsoleStyles.print_error(console, "Stack trace:")
+        ConsoleStyles.print_error(console, traceback.format_exc())
+        ConsoleStyles.print_error(console, "Make sure you're authenticated with Azure and have the correct permissions.")
+

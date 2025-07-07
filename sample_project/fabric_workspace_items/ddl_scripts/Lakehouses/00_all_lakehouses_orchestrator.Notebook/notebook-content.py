@@ -54,56 +54,400 @@ full_reset = False
 
 
 
+from __future__ import annotations
+
 # Auto-generated library code from python_libs
 # Files are ordered based on dependency analysis
 
 
-# === config_utils.py ===
-from dataclasses import dataclass
+# === interfaces/ddl_utils_interface.py ===
+
+from typing import Callable, Protocol
+
+from pyspark.sql.types import StructType
+
+
+class DDLUtilsInterface(Protocol):
+    """
+    Interface for DDL utilities providing execution tracking and script management.
+
+    This interface defines the contract for utilities that handle DDL script execution,
+    logging, and preventing duplicate script runs in a lakehouse environment.
+    """
+
+    def __init__(self, target_workspace_id: str, target_lakehouse_id: str) -> None:
+        """
+        Initialize the DDL utilities with workspace and lakehouse identifiers.
+
+        Args:
+            target_workspace_id: The workspace identifier
+            target_lakehouse_id: The lakehouse identifier
+        """
+        ...
+
+    @staticmethod
+    def execution_log_schema() -> StructType:
+        """
+        Return the schema for the execution log table.
+
+        Returns:
+            StructType: Schema definition for the execution log table
+        """
+        ...
+
+    def print_log(self) -> None:
+        """
+        Display the execution log table showing all script executions.
+        """
+        ...
+
+    def check_if_script_has_run(self, script_id: str) -> bool:
+        """
+        Check if a script has already been successfully executed.
+
+        Args:
+            script_id: Unique identifier for the script
+
+        Returns:
+            bool: True if script has been successfully executed, False otherwise
+        """
+        ...
+
+    def print_skipped_script_execution(self, guid: str, object_name: str) -> None:
+        """
+        Print a message indicating that script execution was skipped.
+
+        Args:
+            guid: The script's unique identifier
+            object_name: The name of the database object
+        """
+        ...
+
+    def write_to_execution_log(
+        self, object_guid: str, object_name: str, script_status: str
+    ) -> None:
+        """
+        Write an execution entry to the log table.
+
+        Args:
+            object_guid: Unique identifier for the script
+            object_name: Name of the database object
+            script_status: Status of the execution (Success/Failure)
+        """
+        ...
+
+    def run_once(
+        self, work_fn: Callable[[], None], object_name: str, guid: str | None = None
+    ) -> None:
+        """
+        Execute a function exactly once, tracked by GUID.
+
+        If the script has already been successfully executed, it will be skipped.
+        If no GUID is provided, one will be generated from the function's source code.
+
+        Args:
+            work_fn: The function to execute
+            object_name: Name of the database object being created/modified
+            guid: Optional unique identifier for the script. If None, will be auto-generated
+        """
+        ...
+
+    def initialise_ddl_script_executions_table(self) -> None:
+        """
+        Initialize the execution log table if it doesn't exist.
+
+        Creates the table structure for tracking script executions.
+        """
+        ...
+
+
+# === interfaces/data_store_interface.py ===
+"""
+Standard interface for data store utilities.
+
+This module defines the common interface that both lakehouse_utils and warehouse_utils
+should implement to ensure consistent behavior across different storage systems.
+"""
+
+
+from abc import ABC, abstractmethod
 from typing import Any
 
 
-class config_utils:
-    # variableLibraryInjectionStart: var_lib
+class DataStoreInterface(ABC):
+    """Abstract interface for data store utilities."""
 
-# All variables as a dictionary
-configs_dict = {'fabric_environment': 'development_jr', 'fabric_deployment_workspace_id': 'b3fbeaf7-ec67-4622-ba37-8d8bcb7e436a', 'synapse_source_database_1': 'test1', 'config_workspace_id': '#####', 'synapse_source_sql_connection': 'sansdaisyn-ondemand.sql.azuresynapse.net', 'config_lakehouse_name': 'config', 'edw_warehouse_name': 'edw', 'config_lakehouse_id': '2629d4cc-685c-458a-866b-b4705dde71a7', 'edw_workspace_id': '###', 'edw_warehouse_id': '###', 'edw_lakehouse_id': '6adb67d6-c8eb-4612-9053-890cae3a55d7', 'edw_lakehouse_name': 'edw', 'legacy_synapse_connection_name': 'synapse_connection', 'synapse_export_shortcut_path_in_onelake': 'exports/'}
-# All variables as an object
-from dataclasses import dataclass
-@dataclass
-class ConfigsObject:
-    fabric_environment: str 
-    fabric_deployment_workspace_id: str 
-    synapse_source_database_1: str 
-    config_workspace_id: str 
-    synapse_source_sql_connection: str 
-    config_lakehouse_name: str 
-    edw_warehouse_name: str 
-    config_lakehouse_id: str 
-    edw_workspace_id: str 
-    edw_warehouse_id: str 
-    edw_lakehouse_id: str 
-    edw_lakehouse_name: str 
-    legacy_synapse_connection_name: str 
-    synapse_export_shortcut_path_in_onelake: str 
-configs_object: ConfigsObject = ConfigsObject(**configs_dict)
-# variableLibraryInjectionEnd: var_lib
+    @property
+    @abstractmethod
+    def target_workspace_id(self) -> str:
+        """Get the target workspace ID."""
+        pass
 
-    def __init__(self):
-        self.fabric_environments_table_name = "fabric_environments"
-        self.fabric_environments_table_schema = "config"
-        self.fabric_environments_table = f"{self.fabric_environments_table_schema}.{self.fabric_environments_table_name}"
-        self._configs: dict[str, Any] = {}
+    @property
+    @abstractmethod
+    def target_store_id(self) -> str:
+        """Get the target store ID (lakehouse_id or warehouse_id)."""
+        pass
 
-    def get_configs_as_dict(self):
-        return config_utils.configs_dict
+    @abstractmethod
+    def check_if_table_exists(
+        self, table_name: str, schema_name: str | None = None
+    ) -> bool:
+        """
+        Check if a table exists in the data store.
 
-    def get_configs_as_object(self):
-        return self.configs_object
+        Args:
+            table_name: Name of the table to check
+            schema_name: Schema name (optional, mainly for SQL databases)
+
+        Returns:
+            True if table exists, False otherwise
+        """
+        pass
+
+    @abstractmethod
+    def write_to_table(
+        self,
+        df: Any,
+        table_name: str,
+        schema_name: str | None = None,
+        mode: str = "overwrite",
+        options: dict[str, Any] | None = None,
+    ) -> None:
+        """
+        Write a DataFrame to a table in the data store.
+
+        Args:
+            df: DataFrame to write (Spark DataFrame or Pandas DataFrame)
+            table_name: Name of the target table
+            schema_name: Schema name (optional, mainly for SQL databases)
+            mode: Write mode ("overwrite", "append", "error", "ignore")
+            options: Additional options for writing
+        """
+        pass
+
+    @abstractmethod
+    def drop_all_tables(
+        self, schema_name: str | None = None, table_prefix: str | None = None
+    ) -> None:
+        """
+        Drop all tables in the data store.
+
+        Args:
+            schema_name: Schema to limit drops to (optional, mainly for SQL databases)
+            table_prefix: Prefix to filter tables by (optional)
+        """
+        pass
+
+    @abstractmethod
+    def get_connection(self) -> Any:
+        """
+        Get a connection object for the data store.
+
+        Returns:
+            Connection object (type varies by implementation)
+        """
+        pass
+
+    @abstractmethod
+    def list_tables(self) -> list[str]:
+        """
+        List all tables in the data store.
+
+        Returns:
+            List of table names
+        """
+        pass
+
+    @abstractmethod
+    def execute_query(self, query: str):
+        """
+        Execute a SQL query on the data store.
+
+        Args:
+            query: SQL query to execute
+
+        Returns:
+            Query result (type varies by implementation)
+        """
+        pass
+
+    @abstractmethod
+    def get_table_schema(
+        self, table_name: str, schema_name: str | None = None
+    ) -> dict[str, Any]:
+        """
+        Get the schema/column definitions for a table.
+
+        Args:
+            table_name: Name of the table
+            schema_name: Schema name (optional)
+
+        Returns:
+            Dictionary describing the table schema
+        """
+        pass
+
+    @abstractmethod
+    def read_table(
+        self,
+        table_name: str,
+        schema_name: str | None = None,
+        columns: list[str] | None = None,
+        limit: int | None = None,
+        filters: dict[str, Any] | None = None,
+    ) -> Any:
+        """
+        Read data from a table, optionally filtering columns, rows, or limiting results.
+
+        Args:
+            table_name: Name of the table
+            schema_name: Schema name (optional)
+            columns: List of columns to select (optional)
+            limit: Maximum number of rows to return (optional)
+            filters: Dictionary of filters to apply (optional)
+
+        Returns:
+            DataFrame or result set (type varies by implementation)
+        """
+        pass
+
+    @abstractmethod
+    def delete_from_table(
+        self,
+        table_name: str,
+        schema_name: str | None = None,
+        filters: dict[str, Any] | None = None,
+    ) -> int:
+        """
+        Delete rows from a table matching filters.
+
+        Args:
+            table_name: Name of the table
+            schema_name: Schema name (optional)
+            filters: Dictionary of filters to apply (optional)
+
+        Returns:
+            Number of rows deleted
+        """
+        pass
+
+    @abstractmethod
+    def rename_table(
+        self,
+        old_table_name: str,
+        new_table_name: str,
+        schema_name: str | None = None,
+    ) -> None:
+        """
+        Rename a table.
+
+        Args:
+            old_table_name: Current table name
+            new_table_name: New table name
+            schema_name: Schema name (optional)
+        """
+        pass
+
+    @abstractmethod
+    def create_table(
+        self,
+        table_name: str,
+        schema_name: str | None = None,
+        schema: dict[str, Any] | None = None,
+        options: dict[str, Any] | None = None,
+    ) -> None:
+        """
+        Create a new table with a given schema.
+
+        Args:
+            table_name: Name of the new table
+            schema_name: Schema name (optional)
+            schema: Dictionary describing the table schema (optional)
+            options: Additional options for table creation (optional)
+        """
+        pass
+
+    @abstractmethod
+    def drop_table(
+        self,
+        table_name: str,
+        schema_name: str | None = None,
+    ) -> None:
+        """
+        Drop a single table.
+
+        Args:
+            table_name: Name of the table to drop
+            schema_name: Schema name (optional)
+        """
+        pass
+
+    @abstractmethod
+    def list_schemas(self) -> list[str]:
+        """
+        List all schemas/namespaces in the data store.
+
+        Returns:
+            List of schema names
+        """
+        pass
+
+    @abstractmethod
+    def get_table_row_count(
+        self,
+        table_name: str,
+        schema_name: str | None = None,
+    ) -> int:
+        """
+        Get the number of rows in a table.
+
+        Args:
+            table_name: Name of the table
+            schema_name: Schema name (optional)
+
+        Returns:
+            Number of rows in the table
+        """
+        pass
+
+    @abstractmethod
+    def get_table_metadata(
+        self,
+        table_name: str,
+        schema_name: str | None = None,
+    ) -> dict[str, Any]:
+        """
+        Get metadata for a table (creation time, size, etc.).
+
+        Args:
+            table_name: Name of the table
+            schema_name: Schema name (optional)
+
+        Returns:
+            Dictionary of table metadata
+        """
+        pass
+
+    @abstractmethod
+    def vacuum_table(
+        self,
+        table_name: str,
+        schema_name: str | None = None,
+        retention_hours: int = 168,
+    ) -> None:
+        """
+        Perform cleanup/compaction on a table (for systems like Delta Lake).
+
+        Args:
+            table_name: Name of the table
+            schema_name: Schema name (optional)
+            retention_hours: Retention period in hours (default: 168)
+        """
+        pass
 
 
-# === lakehouse_utils.py ===
-from __future__ import annotations
+# === pyspark/lakehouse_utils.py ===
 
 from typing import Any
 
@@ -153,7 +497,8 @@ class lakehouse_utils(DataStoreInterface):
     def target_store_id(self) -> str:
         """Get the target lakehouse ID."""
         return self._target_lakehouse_id
-
+    
+    @property
     def get_connection(self) -> SparkSession:
         """Get the Spark session connection."""
         return self.spark
@@ -227,6 +572,7 @@ class lakehouse_utils(DataStoreInterface):
         options: dict[str, str] | None = None,
     ) -> None:
         """Write a DataFrame to a lakehouse table."""
+
         # For lakehouse, schema_name is not used as tables are in the Tables directory
         writer = df.write.format("delta").mode(mode)
 
@@ -391,6 +737,7 @@ class lakehouse_utils(DataStoreInterface):
         table_name: str,
         schema_name: str | None = None,
         schema: dict[str, Any] | None = None,
+        mode: str = "overwrite",
         options: dict[str, Any] | None = None,
     ) -> None:
         """
@@ -398,14 +745,22 @@ class lakehouse_utils(DataStoreInterface):
         """
         if schema is None:
             raise ValueError("Schema must be provided for table creation.")
-        fields = ", ".join([f"{col} {dtype}" for col, dtype in schema.items()])
-        sql = f"CREATE TABLE {table_name} ({fields}) USING DELTA LOCATION '{self.lakehouse_tables_uri()}{table_name}'"
+        
+        empty_df = self.get_connection.createDataFrame([], schema)
+        writer = empty_df.write.format("delta").mode(mode)
+
         if options:
-            opts = " ".join(
-                [f"TBLPROPERTIES ('{k}'='{v}')" for k, v in options.items()]
+            for k, v in options.items():
+                writer = writer.option(k, v)
+
+        writer.save(f"{self.lakehouse_tables_uri()}{table_name}")
+
+        # Register the table in the Hive catalog - Only needed if local
+        if self.spark_version == "local":
+            self.spark.sql(
+                f"CREATE TABLE IF NOT EXISTS {table_name} USING DELTA LOCATION '{self.lakehouse_tables_uri()}{table_name}'"
             )
-            sql += f" {opts}"
-        self.spark.sql(sql)
+
 
     def drop_table(
         self,
@@ -470,8 +825,7 @@ class lakehouse_utils(DataStoreInterface):
         self.spark.sql(f"VACUUM '{table_path}' RETAIN {retention_hours} HOURS")
 
 
-# === ddl_utils.py ===
-from __future__ import annotations
+# === pyspark/ddl_utils.py ===
 
 import hashlib
 import inspect

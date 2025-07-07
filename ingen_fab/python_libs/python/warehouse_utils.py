@@ -6,6 +6,7 @@ import pandas as pd
 
 from ingen_fab.python_libs.interfaces.data_store_interface import DataStoreInterface
 
+from .notebook_utils_abstraction import NotebookUtilsFactory
 from .sql_templates import (
     SQLTemplates,  # Assuming this is a custom module for SQL templates
 )
@@ -17,11 +18,7 @@ class warehouse_utils(DataStoreInterface):
 
     def _is_notebookutils_available(self) -> bool:
         """Check if notebookutils is importable (for Fabric dialect)."""
-        try:
-            import notebookutils  # type: ignore # noqa: F401
-            return True
-        except ImportError:
-            return False
+        return NotebookUtilsFactory.create_instance().is_available()
     """Utilities for interacting with Fabric or local SQL Server warehouses."""
 
     def __init__(
@@ -42,8 +39,11 @@ class warehouse_utils(DataStoreInterface):
                 f"Unsupported dialect: {dialect}. Supported dialects are 'fabric' and 'sql_server'."
             )
         
+        # Initialize notebook utils abstraction
+        self.notebook_utils = NotebookUtilsFactory.get_instance()
+        
         # Look for the existence of notebookutils and if not found, assume local SQL Server
-        if dialect == "fabric" and not self._is_notebookutils_available():
+        if dialect == "fabric" and not self.notebook_utils.is_available():
             logger.warning(
                 "notebookutils not found, falling back to local SQL Server connection."
             )
@@ -68,45 +68,18 @@ class warehouse_utils(DataStoreInterface):
 
     def get_connection(self):
         """Return a connection object depending on the configured dialect."""
-        try:
-            if self.dialect == "fabric":
-                logger.debug("Connection to Fabric Warehouse")
-                import notebookutils  # type: ignore # noqa: F401
-                conn = notebookutils.data.connect_to_artifact(
-                    self.target_warehouse_id, self.target_workspace_id
-                )
-                logger.debug(f"Connection established: {conn}")
-                return conn
-            else:
-                import pyodbc  # type: ignore # noqa: F401
-                logger.debug("Connection to SQL Server Warehouse")
-                return pyodbc.connect(self.connection_string)  # type: ignore
-        except Exception as e:
-            logger.error(f"Failed to connect to warehouse: {e}")
-            raise
+        conn = self.notebook_utils.connect_to_artifact(
+            self._target_warehouse_id, self._target_workspace_id
+        )
+        return conn
 
-    @staticmethod
-    def _connect_to_local_sql_server():
-        try:
-            import pyodbc  # type: ignore # noqa: F401
-            password = os.getenv("SQL_SERVER_PASSWORD", "default_password")
-            connection_string = (
-                "DRIVER={ODBC Driver 18 for SQL Server};SERVER=localhost,1433;UID=sa;"
-                + f"PWD={password};TrustServerCertificate=yes;"
-            )
-            conn = pyodbc.connect(connection_string)
-            logger.debug("Connected to local SQL Server instance.")
-            return conn
-        except Exception as e:
-            logger.error(f"Error connecting to local SQL Server instance: {e}")
-            return None
 
     def execute_query(self, conn, query: str):
         """Execute a query and return results as a DataFrame when possible."""
-        logger.debug(conn)
+        # Check if the connection is of type pyodbc.Connection
         try:
             logging.info(f"Executing query: {query}")
-            if self.dialect == "fabric":
+            if hasattr(conn, "query"):
                 result = conn.query(query)
                 logging.debug("Query executed successfully.")
                 return result

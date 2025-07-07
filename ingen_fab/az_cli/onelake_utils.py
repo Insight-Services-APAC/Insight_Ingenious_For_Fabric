@@ -276,10 +276,10 @@ class OneLakeUtils:
         
         # Upload all files with "python_libs" prefix
         return self.upload_directory_to_lakehouse(
-            config_lakehouse_id, 
-            str(python_libs_path), 
-            "ingen_fab",
-            "python_libs"
+            lakehouse_id=config_lakehouse_id,
+            directory_path=str(python_libs_path), 
+            target_prefix="ingen_fab",
+            service_client=self._get_datalake_service_client()
         )
 
     def list_lakehouse_files(

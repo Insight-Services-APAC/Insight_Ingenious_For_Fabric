@@ -67,13 +67,11 @@ class VariableLibraryUtils:
         variable_mappings = {var_name: var_name for var_name in variables.keys()}
 
         return content
-
-    def inject_variables_into_template(self):
-        """Main function to inject variables into the template."""
-        # Extract variables
+      
+    def inject_variables_into_template(self) -> None:
+        """Main function to inject variables into the template and replace variable placeholders."""
         variables = self.variables
 
-        # Output results
         # Find all notebook-content files and update them
         notebook_files = []
         workspace_items_path = self.project_path / Path("fabric_workspace_items")
@@ -86,77 +84,70 @@ class VariableLibraryUtils:
             print(f"No notebook-content files found in {workspace_items_path}")
             return
 
-        # Process each notebook file
+        # Regex to match placeholders like {{varlib:variable_name}}
+        placeholder_pattern = re.compile(r"\{\{varlib:([a-zA-Z0-9_]+)\}\}")
+
         updated_files = []
         for notebook_file in notebook_files:
             with open(notebook_file, "r", encoding="utf-8") as f:
                 content = f.read()
 
-            # Pattern to find the injection blocks
+            # 1. Replace variable placeholders throughout the file
+            def replace_placeholder(match):
+                var_name = match.group(1)
+                if var_name in variables:
+                    return str(variables[var_name])
+                return match.group(0)  # leave unchanged if not found
+
+            content_with_vars = placeholder_pattern.sub(replace_placeholder, content)
+
+            # 2. Replace the content between injection markers (if present)
             pattern = r"(# variableLibraryInjectionStart: var_lib\n)(.*?)(# variableLibraryInjectionEnd: var_lib)"
 
-            # Replace the content between injection markers
             def replace_block(match):
                 start_marker = match.group(1)
                 end_marker = match.group(3)
 
-                # Build the new content with variables
                 new_lines = []
                 class_definition_lines = []
                 class_definition_lines.append("from dataclasses import dataclass")
                 class_definition_lines.append("@dataclass")
                 class_definition_lines.append("class ConfigsObject:")
                 for var_name, var_value in variables.items():
-                    # Convert value to appropriate Python literal
                     if isinstance(var_value, str):
-                        # new_lines.append(f'{var_name} = "{var_value}"')
                         class_definition_lines.append(f"    {var_name}: str ")
                     else:
-                        # new_lines.append(f"{var_name} = {var_value}")
                         class_definition_lines.append(f"    {var_name}: Any ")
 
-                # Also inject the entire variables dict
-                new_lines.append("")  # Add blank line for readability
+                new_lines.append("")
                 new_lines.append("# All variables as a dictionary")
                 new_lines.append(f"configs_dict = {repr(variables)}")
-
-                # Also inject the variables as an object
-                # Create a object class to hold the variables
                 new_lines.append("# All variables as an object")
                 new_lines.append("\n".join(class_definition_lines))
-                new_lines.append(
-                    "configs_object: ConfigsObject = ConfigsObject(**configs_dict)"
-                )
+                new_lines.append("configs_object: ConfigsObject = ConfigsObject(**configs_dict)")
 
-                # Join with newlines and add markers
                 new_content = start_marker + "\n".join(new_lines) + "\n" + end_marker
                 return new_content
 
-            # Check if the pattern exists in the file
-            if re.search(pattern, content, re.DOTALL):
-                updated_content = re.sub(
-                    pattern, replace_block, content, flags=re.DOTALL
-                )
+            if re.search(pattern, content_with_vars, re.DOTALL):
+                updated_content = re.sub(pattern, replace_block, content_with_vars, flags=re.DOTALL)
+            else:
+                updated_content = content_with_vars
 
-            # Write the updated content back to the file
-            if re.search(pattern, content, re.DOTALL):
+            # Write the updated content back to the file if changed
+            if updated_content != content:
                 with open(notebook_file, "w", encoding="utf-8") as f:
                     f.write(updated_content)
                 updated_files.append(notebook_file)
 
         # Report results
         if updated_files:
-            print(
-                f"Updated {len(updated_files)} notebook-content file(s) with values from {self.environment}"
-                " environment:"
-            )
+            print(f"Updated {len(updated_files)} notebook-content file(s) with values from {self.environment} environment:")
             for file in updated_files:
                 print(f"  - {file.relative_to(self.project_path)}")
         else:
-            print(
-                f"No notebook-content files with injection markers found in {workspace_items_path}"
-            )
-
+            print(f"No notebook-content files with injection markers or placeholders found in {workspace_items_path}")
+            
     def get_workspace_id(self) -> str:
         """Get the target workspace ID from the variable library."""
         ret_val = None

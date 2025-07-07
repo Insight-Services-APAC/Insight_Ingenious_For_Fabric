@@ -68,13 +68,19 @@ def parse_status_response(status_text: str) -> dict | None:
 
 def compile_ddl_notebooks(
     ctx: typer.Context,
-    output_mode: NotebookGenerator.OutputMode,
-    generation_mode: NotebookGenerator.GenerationMode,
-    verbose: bool,
+    output_mode: NotebookGenerator.OutputMode = NotebookGenerator.OutputMode.fabric_workspace_repo,
+    generation_mode: NotebookGenerator.GenerationMode = NotebookGenerator.GenerationMode.lakehouse,
+    verbose: bool = False,
 ):
     fabric_workspace_repo_dir = (
         ctx.obj.get("fabric_workspace_repo_dir", None) if ctx.obj else None
     )
+
+    if output_mode is None:
+        output_mode = NotebookGenerator.OutputMode.fabric_workspace_repo
+    if generation_mode is None:
+        generation_mode = NotebookGenerator.GenerationMode.lakehouse
+
     nbg = NotebookGenerator(
         generation_mode=generation_mode,
         output_mode=output_mode,
