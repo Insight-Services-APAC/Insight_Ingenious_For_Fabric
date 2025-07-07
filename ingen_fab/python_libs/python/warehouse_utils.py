@@ -100,8 +100,8 @@ class warehouse_utils(DataStoreInterface):
                     columns = [d[0] for d in cursor.description]
                     df = pd.DataFrame.from_records(rows, columns=columns)
                 else:
-                    conn.commit()
                     df = None
+                conn.commit()
                 logging.debug("Query executed successfully.")
             return df
         except Exception as e:
@@ -408,11 +408,13 @@ class warehouse_utils(DataStoreInterface):
         """Implements DataStoreInterface: List all tables in the warehouse."""
         conn = self.get_connection()
         query = self.sql.render("list_tables")
+        print(query)
         result = self.execute_query(conn, query)
         if result is not None and not result.empty:
+            print(result)
             return (
-                result["table_name"].tolist()
-                if "table_name" in result.columns
+                result["TABLE_NAME"].tolist()
+                if "TABLE_NAME" in result.columns
                 else result.iloc[:, 0].tolist()
             )
         return []
