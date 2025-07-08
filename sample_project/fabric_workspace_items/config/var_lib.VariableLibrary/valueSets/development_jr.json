@@ -19,6 +19,10 @@
       "value": "b3fbeaf7-ec67-4622-ba37-8d8bcb7e436a"
     },
     {
+      "name": "config_workspace_name",
+      "value": "dev_jr"
+    },
+    {
       "name": "synapse_source_sql_connection",
       "value": "sansdaisyn-ondemand.sql.azuresynapse.net"
     },

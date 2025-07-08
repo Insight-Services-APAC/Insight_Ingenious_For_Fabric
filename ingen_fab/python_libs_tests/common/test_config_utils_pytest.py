@@ -5,21 +5,14 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from ingen_fab.python_libs.common.config_utils import config_utils
+from ingen_fab.python_libs.common import config_utils
 
 
-@pytest.fixture
-def config_instance():
-    """Create a config_utils instance for testing."""
-    return config_utils()
-
-
-def test_config_utils_initialization(config_instance):
-    """Test that config_utils initializes correctly."""
-    assert config_instance.fabric_environments_table_name == "fabric_environments"
-    assert config_instance.fabric_environments_table_schema == "config"
-    assert config_instance.fabric_environments_table == "config.fabric_environments"
-    assert isinstance(config_instance._configs, dict)
+def test_config_utils_initialization():
+    """Test that config_utils module constants are set correctly."""
+    assert config_utils.fabric_environments_table_name == "fabric_environments"
+    assert config_utils.fabric_environments_table_schema == "config"
+    assert config_utils.fabric_environments_table == "config.fabric_environments"
 
 
 def test_configs_dict_structure():
@@ -36,7 +29,7 @@ def test_configs_dict_structure():
     assert "edw_warehouse_name" in configs
     
     # Test specific expected values
-    assert configs["fabric_environment"] == "development"
+    assert configs["fabric_environment"] == "local"
     assert configs["config_lakehouse_name"] == "config"
     assert configs["edw_warehouse_name"] == "edw"
     assert configs["edw_lakehouse_name"] == "edw"
@@ -66,7 +59,7 @@ def test_configs_object_get_attribute_success():
     configs_obj = config_utils.configs_object
     
     # Test existing attributes
-    assert configs_obj.get_attribute("fabric_environment") == "development"
+    assert configs_obj.get_attribute("fabric_environment") == "local"
     assert configs_obj.get_attribute("config_lakehouse_name") == "config"
     assert configs_obj.get_attribute("edw_warehouse_name") == "edw"
     assert configs_obj.get_attribute("legacy_synapse_connection_name") == "synapse_connection"
@@ -80,25 +73,25 @@ def test_configs_object_get_attribute_error():
         configs_obj.get_attribute("non_existent_attr")
 
 
-def test_get_configs_as_dict(config_instance):
+def test_get_configs_as_dict():
     """Test that get_configs_as_dict returns the correct dictionary."""
-    result = config_instance.get_configs_as_dict()
+    result = config_utils.get_configs_as_dict()
     
     assert isinstance(result, dict)
     assert result == config_utils.configs_dict
     assert "fabric_environment" in result
     assert "config_lakehouse_name" in result
-    assert result["fabric_environment"] == "development"
+    assert result["fabric_environment"] == "local"
 
 
-def test_get_configs_as_object(config_instance):
+def test_get_configs_as_object():
     """Test that get_configs_as_object returns the correct object."""
-    result = config_instance.get_configs_as_object()
+    result = config_utils.get_configs_as_object()
     
     assert result == config_utils.configs_object
     assert hasattr(result, "fabric_environment")
     assert hasattr(result, "config_lakehouse_name")
-    assert result.fabric_environment == "development"
+    assert result.fabric_environment == "local"
     assert result.config_lakehouse_name == "config"
 
 
@@ -164,17 +157,15 @@ def test_configs_object_attributes_match_dict():
         assert getattr(configs_obj, key) == value, f"ConfigsObject.{key} doesn't match configs_dict['{key}']"
 
 
-def test_instance_attributes_initialization(config_instance):
-    """Test that instance attributes are properly initialized."""
-    assert hasattr(config_instance, '_configs')
-    assert isinstance(config_instance._configs, dict)
-    assert hasattr(config_instance, 'fabric_environments_table_name')
-    assert hasattr(config_instance, 'fabric_environments_table_schema')
-    assert hasattr(config_instance, 'fabric_environments_table')
+def test_module_constants():
+    """Test that module constants are properly set."""
+    assert hasattr(config_utils, 'fabric_environments_table_name')
+    assert hasattr(config_utils, 'fabric_environments_table_schema')
+    assert hasattr(config_utils, 'fabric_environments_table')
 
 
-def test_fabric_environments_table_construction(config_instance):
+def test_fabric_environments_table_construction():
     """Test that fabric_environments_table is constructed correctly."""
-    expected_table = f"{config_instance.fabric_environments_table_schema}.{config_instance.fabric_environments_table_name}"
-    assert config_instance.fabric_environments_table == expected_table
-    assert config_instance.fabric_environments_table == "config.fabric_environments"
+    expected_table = f"{config_utils.fabric_environments_table_schema}.{config_utils.fabric_environments_table_name}"
+    assert config_utils.fabric_environments_table == expected_table
+    assert config_utils.fabric_environments_table == "config.fabric_environments"

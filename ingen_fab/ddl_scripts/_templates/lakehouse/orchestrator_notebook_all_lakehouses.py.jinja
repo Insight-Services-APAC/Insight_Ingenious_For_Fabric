@@ -1,29 +1,28 @@
-{%- import 'nb_macros.py.jinja' as macros -%}
-{%- include "nb_header.py.jinja" %}
+{%- import './common/nb_macros.py.jinja' as macros -%}
+{% if language_group == "synapse_pyspark" %}
+{%- include "/common/nb_header_pyspark.py.jinja" %}
+{% else %}
+{%- include "/common/nb_header_python.py.jinja" %}
+{% endif %}
+
+{% include "/common/nb_cell_mount_lib_path.py.jinja" %}
+
 # Define the lakehouses and their orchestrators
+files_to_load = [
+    "ingen_fab/python_libs/common/config_utils.py",
+    "ingen_fab/python_libs/pyspark/lakehouse_utils.py",
+    "ingen_fab/python_libs/pyspark/ddl_utils.py",
+    "ingen_fab/python_libs/pyspark/notebook_utils_abstraction.py",
+    "ingen_fab/python_libs/pyspark/parquet_load_utils.py"
+]
+
+load_python_modules_from_path(pathPrefix, files_to_load)
+
 lakehouses_to_run = [
 {%- for lakehouse in lakehouses %}
     {'name': '{{ lakehouse.name }}', 'orchestrator': '{{ lakehouse.orchestrator_name }}'},
 {%- endfor %}
 ]
-
-# Fabric Configurations 
-fabric_environment: str = "development" 
-config_lakehouse_name = "LH1"  # name of your Lakehouse
-config_workspace_id = "50fbcab0-7d56-46f7-90f6-80ceb00ac86d"
-config_lakehouse_id = "f0121783-34cc-4e64-bfb5-6b44b1a7f04b"
-edw_workspace_id = '50fbcab0-7d56-46f7-90f6-80ceb00ac86d'
-edw_warehouse_id = '8a26f137-fd0b-47f6-92e1-e4551593c751'
-edw_warehouse_name = 'WH'
-edw_lakehouse_id = '8a26f137-fd0b-47f6-92e1-e4551593c751'
-edw_lakehouse_name = 'LH'
-legacy_synapse_connection_name = 'synapse_connection'
-synapse_export_shortcut_path_in_onelake = 'exports/'
-full_reset = False  
-
-{{macros.python_cell_with_heading("## 📦 Inject Reusable Classes and Functions")}}
-
-{%include "lib.py.jinja" %}
 
 {{macros.python_cell_with_heading("## Insert the Configs Into The Configuration Table")}}
 
@@ -222,4 +221,4 @@ else:
     mssparkutils.notebook.exit(final_message)
     raise Exception(final_message)
 
-{%include "nb_footer.py.jinja" %}
+{%include "./common/nb_footer.py.jinja" %}

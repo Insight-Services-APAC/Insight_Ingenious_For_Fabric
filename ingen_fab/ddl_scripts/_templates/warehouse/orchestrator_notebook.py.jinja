@@ -1,28 +1,12 @@
-{%- import 'nb_macros.py.jinja' as macros -%}
-{%- include "nb_header.py.jinja" %}
-
-#lakehouse_name = "LH"  # name of your Lakehouse
-#config_workspace_id = "50fbcab0-7d56-46f7-90f6-80ceb00ac86d"
-#config_lakehouse_id = "a29c9d15-c24e-4779-8344-0c7c237b3990"
-
-# Target for DDL scripts
-target_lakehouse_config_prefix = "{{ lakehouse_name | lower }}"
-
-# Fabric Configurations 
-fabric_environment: str = "development" 
-config_lakehouse_name = "LH1"  # name of your Lakehouse
-config_workspace_id = "50fbcab0-7d56-46f7-90f6-80ceb00ac86d"
-config_lakehouse_id = "f0121783-34cc-4e64-bfb5-6b44b1a7f04b"
+{%- import './common/nb_macros.py.jinja' as macros -%}
+{% if language_group == "synapse_pyspark" %}
+{%- include "/common/nb_header_pyspark.py.jinja" %}
+{% else %}
+{%- include "/common/nb_header_python.py.jinja" %}
+{% endif %}
 
 
-# ONLY USE THIS IN DEV
-full_reset = False # ⚠️ Full reset -- DESTRUCTIVE - will drop all tables
-
-
-
-{{macros.python_cell_with_heading("## 📦 Inject Reusable Classes and Functions")}}
-
-{%include "lib.py.jinja" %}
+{% include "/common/nb_cell_mount_lib_path.py.jinja" %}
 
 {{macros.python_cell_with_heading("## Instantiate the Helper Classes")}}
 
@@ -148,4 +132,4 @@ else:
     print(f"✗ Orchestration completed with failures")
     mssparkutils.notebook.exit(f"Orchestration completed with {success_count}/{{ total_notebooks }} successful executions")
 
-{%include "nb_footer.py.jinja" %}
+{%include "./common/nb_footer.py.jinja" %}

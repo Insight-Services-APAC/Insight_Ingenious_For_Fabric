@@ -1,37 +1,29 @@
-{%- import 'nb_macros.py.jinja' as macros -%}
-{%- include "nb_header.py.jinja" %}
+{%- import './common/nb_macros.py.jinja' as macros -%}
+{% if language_group == "synapse_pyspark" %}
+{%- include "/common/nb_header_pyspark.py.jinja" %}
+{% else %}
+{%- include "/common/nb_header_python.py.jinja" %}
+{% endif %}
 
-{{macros.python_cell_with_heading("## 📦 Inject Reusable Classes and Functions")}}
 
-import sys
-
-if "notebookutils" in sys.modules:
-    import sys
-    {% raw %}
-    notebookutils.fs.mount("abfss://{{varlib:config_workspace_id}}@onelake.dfs.fabric.microsoft.com/{{varlib:config_workspace_name}}.Lakehouse/Files/", "/config_files")  # type: ignore # noqa: F821
-    new_Path = notebookutils.fs.getMountPath("/config_files")  # type: ignore # noqa: F821
-    {% endraw %}
-    sys.path.insert(0, new_Path)
-else:
-    print("NotebookUtils not available, skipping config files mount.")
-    from ingen_fab.python_libs.pyspark.notebook_utils_abstraction import (
-        NotebookUtilsFactory,
-    )
-    notebookutils = NotebookUtilsFactory.create_instance()
+{% include "/common/nb_cell_mount_lib_path.py.jinja" %}
 
 
 {{macros.python_cell_with_heading("## Instantiate the Helper Classes")}}
 
+files_to_load = [
+    "ingen_fab/python_libs/common/config_utils.py",
+    "ingen_fab/python_libs/pyspark/lakehouse_utils.py",
+    "ingen_fab/python_libs/pyspark/ddl_utils.py",
+    "ingen_fab/python_libs/pyspark/notebook_utils_abstraction.py",
+    "ingen_fab/python_libs/pyspark/parquet_load_utils.py"
+]
 
-
-from ingen_fab.python_libs.common.config_utils import ConfigUtils
-from ingen_fab.python_libs.pyspark.ddl_utils import ddl_utils
-from ingen_fab.python_libs.pyspark.lakehouse_utils import lakehouse_utils
+load_python_modules_from_path(pathPrefix, files_to_load)
 
 target_lakehouse_config_prefix = "{{target_lakehouse_config_prefix | required }}"
 
-config_utils = ConfigUtils()
-configs: ConfigUtils.ConfigsObject = config_utils.get_configs_as_object
+configs: ConfigsObject = get_configs_as_object()
 config_lakehouse = lakehouse_utils(
     target_workspace_id=configs.edw_workspace_id,
     target_lakehouse_id=configs.edw_lakehouse_id
@@ -115,4 +107,4 @@ else:
     print(f"✗ Orchestration completed with failures")
     mssparkutils.notebook.exit(f"Orchestration completed with {success_count}/{{ total_notebooks }} successful executions")
 
-{%include "nb_footer.py.jinja" %}
+{%include "./common/nb_footer.py.jinja" %}

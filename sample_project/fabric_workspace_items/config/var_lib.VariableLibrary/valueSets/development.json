@@ -27,6 +27,10 @@
       "value": "config"
     },
     {
+      "name": "config_workspace_name",
+      "value": "codex_sandpit"
+    },
+    {
       "name": "edw_warehouse_name",
       "value": "edw"
     },

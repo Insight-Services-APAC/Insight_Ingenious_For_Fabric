@@ -1,32 +1,28 @@
-from fabric_cicd import (
-    FabricWorkspace,
-    publish_all_items,
-)
+from pyspark.sql import SparkSession
+from delta import *
 
-pu = FabricWorkspace(
-    workspace_id="3a4fc13c-f7c5-463e-a9de-57c4754699ff",
-    repository_directory="sample_project/fabric_workspace_items",
-    item_type_in_scope=[
-        "VariableLibrary",
-        "DataPipeline",
-        "Environment",
-        "Notebook",
-        "Report",
-        "SemanticModel",
-        "Lakehouse",
-        "MirroredDatabase",
-        "CopyJob",
-        "Eventhouse",
-        "Reflex",
-        "Eventstream",
-        "Warehouse",
-        "SQLDatabase",
-    ],
-    environment="development",
-)
+def main():
+    # Create Spark session with Delta
+    spark = configure_spark_with_delta_pip(
+        SparkSession.builder
+        .appName("ConfigUtilsTest")
+        .master("local[*]")
+    ).getOrCreate()
+    
+    # Add your config module
+    from ingen_fab.python_libs.common.config_utils import get_config_value
+    
+    # Test your ConfigUtils
+    def test_config():
+        
+        return get_config_value("fabric_environment")
+    
+    # Run test
+    rdd = spark.sparkContext.parallelize([1])
+    result = rdd.map(lambda x: test_config()).collect()
+    print("Test result:", result)
+    
+    spark.stop()
 
-status_entries = publish_all_items(pu, items_to_include=["var_lib.VariableLibrary"])
-
-
-# status_entries = fabric_cicd_log.read_log_status_entries("fabric_cicd.error.log")
-# fabric_cicd_log.print_status_summary(status_entries)
+if __name__ == "__main__":
+    main()

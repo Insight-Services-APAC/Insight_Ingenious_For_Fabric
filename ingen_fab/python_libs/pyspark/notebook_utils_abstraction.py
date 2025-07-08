@@ -188,7 +188,7 @@ class LocalNotebookUtils(NotebookUtilsInterface):
                 @staticmethod
                 def exit(value: Any = None) -> None:
                     """Exit method for local development."""
-                    logger.info(f"Local notebook exit requested with value: {value}")                 
+                    return value
                 
                 @staticmethod
                 def run(name: Any = None, timeout: int = 60) -> None:
@@ -205,13 +205,10 @@ class LocalNotebookUtils(NotebookUtilsInterface):
                             # Run the notebook-content.py file
                             notebook_content_path = Path(folder.path) / "notebook-content.py"
                             import importlib.util
-
-
                             spec = importlib.util.spec_from_file_location("notebook_content", notebook_content_path)
                             notebook_content = importlib.util.module_from_spec(spec)
-                            spec.loader.exec_module(notebook_content)
-                            # Exit the loop                         
-                            break
+                            result = spec.loader.exec_module(notebook_content)
+                            return result                          
                             
                         
 

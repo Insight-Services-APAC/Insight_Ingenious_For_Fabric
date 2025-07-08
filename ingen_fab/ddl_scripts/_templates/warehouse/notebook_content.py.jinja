@@ -1,5 +1,9 @@
-{%- import 'nb_macros.py.jinja' as macros -%}
-{%- include "nb_header.py.jinja" %}
+{%- import './common/nb_macros.py.jinja' as macros -%}
+{% if language_group == "synapse_pyspark" %}
+{%- include "/common/nb_header_pyspark.py.jinja" %}
+{% else %}
+{%- include "/common/nb_header_python.py.jinja" %}
+{% endif %}
 
 # THESE ARE RUNTIME SET VARIABLES AND SHOULD BE SET BY CALLING NOTEBOOK OR PIPELIE 
 target_lakehouse_config_prefix = "{{ target_lakehouse_config_prefix | lower }}"
@@ -42,4 +46,4 @@ du.print_log()
 from notebookutils import mssparkutils
 mssparkutils.notebook.exit("success")
 
-{%include "nb_footer.py.jinja" %}
+{%include "./common/nb_footer.py.jinja" %}

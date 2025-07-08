@@ -32,6 +32,12 @@
       "value": ""
     },
     {
+      "name": "config_workspace_name",
+      "note": "",
+      "type": "String",
+      "value": ""
+    },
+    {
       "name": "config_workspace_id",
       "note": "",
       "type": "String",

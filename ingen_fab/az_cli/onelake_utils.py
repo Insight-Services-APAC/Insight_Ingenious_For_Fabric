@@ -38,8 +38,8 @@ class OneLakeUtils:
         self.onelake_base_url = "https://onelake.dfs.fabric.microsoft.com"
         
         # Get workspace ID from variable library
-        vlu = VariableLibraryUtils(environment=self.environment, project_path=self.project_path)
-        self.workspace_id = vlu.get_workspace_id()
+        self.vlu = VariableLibraryUtils(environment=self.environment, project_path=self.project_path)
+        self.workspace_id = self.vlu.get_workspace_id()
         
         # Initialize Fabric API utils for name resolution
         self.fabric_api = FabricApiUtils(environment=self.environment, project_path=self.project_path, credential=self.credential)
@@ -137,12 +137,20 @@ class OneLakeUtils:
             print(f"Uploading {file_path} to OneLake://{self.workspace_id}/{full_target_path}")
             
             # Upload the file
-            with open(file_path_obj, 'rb') as file_data:
-                file_client.upload_data(
-                    data=file_data,
-                    overwrite=True,
-                    length=file_path_obj.stat().st_size
-                )
+            file_data = ""
+            with open(file_path_obj, 'r', encoding='utf-8') as f:
+               file_data = f.read()
+
+            file_data = self.vlu.perform_code_replacements(file_data)
+
+            # Convert to bytes and get correct byte length
+            file_data_bytes = file_data.encode('utf-8')
+            
+            file_client.upload_data(
+                data=file_data_bytes,
+                overwrite=True,
+                length=len(file_data_bytes)
+            )
             
             print(f"Successfully uploaded {file_path} to OneLake")
             return {
@@ -163,27 +171,33 @@ class OneLakeUtils:
             }
 
     def upload_directory_to_lakehouse(
-        self, 
-        lakehouse_id: str, 
-        directory_path: str, 
+        self,
+        lakehouse_id: str,
+        directory_path: str,
         target_prefix: str = "",
         *,
         service_client: Optional[DataLakeServiceClient] = None,
-        file_system_client: Optional[FileSystemClient] = None
+        file_system_client: Optional[FileSystemClient] = None,
+        max_workers: int = 8,
+        max_retries: int = 3,
+        backoff_factor: float = 0.5,
+        include_extensions: Optional[list[str]] = None
     ) -> dict:
         """
-        Upload all files in a directory to a lakehouse's Files section.
+        Upload all files in a directory to a lakehouse's Files section using parallel uploads.
 
         Args:
             lakehouse_id: ID of the target lakehouse
             directory_path: Local directory path to upload
             target_prefix: Prefix for remote paths (optional)
+            max_workers: Number of parallel uploads (default: 8)
 
         Returns:
             Dictionary with upload results
         """
+        from concurrent.futures import ThreadPoolExecutor, as_completed
+
         dir_path = Path(directory_path)
-        
         if not dir_path.exists() or not dir_path.is_dir():
             raise ValueError(f"Directory not found: {directory_path}")
 
@@ -192,58 +206,70 @@ class OneLakeUtils:
             "failed": [],
             "total_files": 0
         }
-        
-        # Find all files recursively, filtering out __ directories
+
+        # Find all files recursively, filtering out __ directories and by extension if specified
         all_files = []
         for file_path in dir_path.rglob("*"):
             if file_path.is_file():
-                # Check if any part of the path contains a directory starting with __
                 path_parts = file_path.relative_to(dir_path).parts
-                if not any(part.startswith("__") for part in path_parts):
-                    all_files.append(file_path)
-        
+                if any(part.startswith("__") for part in path_parts):
+                    continue
+                if include_extensions is not None:
+                    if not any(str(file_path).lower().endswith(ext.lower()) for ext in include_extensions):
+                        continue
+                all_files.append(file_path)
+
         upload_results["total_files"] = len(all_files)
         print(f"Found {len(all_files)} files to upload from {directory_path}")
-        
+
         # Create clients once for efficiency if not provided
         if service_client is None:
             service_client = self._get_datalake_service_client()
         if file_system_client is None:
             workspace_name = self._get_workspace_name()
             file_system_client = service_client.get_file_system_client(workspace_name)
-        
-        for file_path in all_files:
-            try:
-                # Create target path preserving directory structure
-                relative_path = file_path.relative_to(dir_path)
-                if target_prefix:
-                    target_path = f"{target_prefix}/{relative_path}".replace("\\", "/")
-                else:
-                    target_path = str(relative_path).replace("\\", "/")
 
-                # Upload the file (pass clients for efficiency)
-                result = self.upload_file_to_lakehouse(
-                    lakehouse_id, 
-                    str(file_path), 
-                    target_path,
-                    service_client=service_client,
-                    file_system_client=file_system_client
-                )
-                
+        import time
+
+        def upload_one(file_path: Path) -> dict:
+            relative_path = file_path.relative_to(dir_path)
+            if target_prefix:
+                target_path = f"{target_prefix}/{relative_path}".replace("\\", "/")
+            else:
+                target_path = str(relative_path).replace("\\", "/")
+
+            last_exception = None
+            for attempt in range(1, max_retries + 1):
+                try:
+                    return self.upload_file_to_lakehouse(
+                        lakehouse_id,
+                        str(file_path),
+                        target_path,
+                        service_client=service_client,
+                        file_system_client=file_system_client
+                    )
+                except Exception as e:
+                    last_exception = e
+                    if attempt < max_retries:
+                        sleep_time = backoff_factor * (2 ** (attempt - 1))
+                        print(f"Retry {attempt} for {file_path} after error: {e}. Backing off {sleep_time:.2f}s...")
+                        time.sleep(sleep_time)
+            return {
+                "success": False,
+                "local_path": str(file_path),
+                "remote_path": str(relative_path),
+                "error": str(last_exception)
+            }
+
+        with ThreadPoolExecutor(max_workers=max_workers) as executor:
+            future_to_file = {executor.submit(upload_one, file_path): file_path for file_path in all_files}
+            for future in as_completed(future_to_file):
+                result = future.result()
                 if result["success"]:
                     upload_results["successful"].append(result)
                 else:
                     upload_results["failed"].append(result)
-                    
-            except Exception as e:
-                error_result = {
-                    "success": False,
-                    "local_path": str(file_path),
-                    "remote_path": str(relative_path) if 'relative_path' in locals() else "unknown",
-                    "error": str(e)
-                }
-                upload_results["failed"].append(error_result)
-                print(f"Failed to upload {file_path}: {str(e)}")
+                    print(f"Failed to upload {result['local_path']}: {result.get('error')}")
 
         print(f"Upload completed: {len(upload_results['successful'])} successful, {len(upload_results['failed'])} failed")
         return upload_results
@@ -278,8 +304,9 @@ class OneLakeUtils:
         return self.upload_directory_to_lakehouse(
             lakehouse_id=config_lakehouse_id,
             directory_path=str(python_libs_path), 
-            target_prefix="ingen_fab",
-            service_client=self._get_datalake_service_client()
+            target_prefix="ingen_fab/python_libs",
+            service_client=self._get_datalake_service_client(),
+            include_extensions=[".py"]
         )
 
     def list_lakehouse_files(

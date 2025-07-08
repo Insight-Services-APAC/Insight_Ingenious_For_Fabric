@@ -36,7 +36,7 @@
 # CELL ********************
 
 import sys
-notebookutils.fs.mount("abfss://b3fbeaf7-ec67-4622-ba37-8d8bcb7e436a@onelake.dfs.fabric.microsoft.com/{{varlib:config_workspace_name}}.Lakehouse/Files/", "/config_files")
+notebookutils.fs.mount("abfss://b3fbeaf7-ec67-4622-ba37-8d8bcb7e436a@onelake.dfs.fabric.microsoft.com/dev_jr.Lakehouse/Files/", "/config_files")
 new_Path = notebookutils.fs.getMountPath("/config_files")
 sys.path.insert(0, new_Path)
 
