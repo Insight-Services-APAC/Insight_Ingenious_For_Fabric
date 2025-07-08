@@ -84,55 +84,12 @@ class VariableLibraryUtils:
             print(f"No notebook-content files found in {workspace_items_path}")
             return
 
-        # Regex to match placeholders like {{varlib:variable_name}}
-        placeholder_pattern = re.compile(r"\{\{varlib:([a-zA-Z0-9_]+)\}\}")
-
         updated_files = []
         for notebook_file in notebook_files:
             with open(notebook_file, "r", encoding="utf-8") as f:
                 content = f.read()
 
-            # 1. Replace variable placeholders throughout the file
-            def replace_placeholder(match):
-                var_name = match.group(1)
-                if var_name in variables:
-                    return str(variables[var_name])
-                return match.group(0)  # leave unchanged if not found
-
-            content_with_vars = placeholder_pattern.sub(replace_placeholder, content)
-
-            # 2. Replace the content between injection markers (if present)
-            pattern = r"(# variableLibraryInjectionStart: var_lib\n)(.*?)(# variableLibraryInjectionEnd: var_lib)"
-
-            def replace_block(match):
-                start_marker = match.group(1)
-                end_marker = match.group(3)
-
-                new_lines = []
-                class_definition_lines = []
-                class_definition_lines.append("from dataclasses import dataclass")
-                class_definition_lines.append("@dataclass")
-                class_definition_lines.append("class ConfigsObject:")
-                for var_name, var_value in variables.items():
-                    if isinstance(var_value, str):
-                        class_definition_lines.append(f"    {var_name}: str ")
-                    else:
-                        class_definition_lines.append(f"    {var_name}: Any ")
-
-                new_lines.append("")
-                new_lines.append("# All variables as a dictionary")
-                new_lines.append(f"configs_dict = {repr(variables)}")
-                new_lines.append("# All variables as an object")
-                new_lines.append("\n".join(class_definition_lines))
-                new_lines.append("configs_object: ConfigsObject = ConfigsObject(**configs_dict)")
-
-                new_content = start_marker + "\n".join(new_lines) + "\n" + end_marker
-                return new_content
-
-            if re.search(pattern, content_with_vars, re.DOTALL):
-                updated_content = re.sub(pattern, replace_block, content_with_vars, flags=re.DOTALL)
-            else:
-                updated_content = content_with_vars
+            updated_content = self.perform_code_replacements(content)
 
             # Write the updated content back to the file if changed
             if updated_content != content:
@@ -167,3 +124,51 @@ class VariableLibraryUtils:
                 f"{variable_name} not found in variable library"
             )
         return ret_val
+
+    def perform_code_replacements(self, content: str) -> str:
+        """Replace variable placeholders in the content with actual values."""
+        # 1. Replace variable placeholders throughout the file
+        def replace_placeholder(match):
+            var_name = match.group(1)
+            if var_name in self.variables:
+                return str(self.variables[var_name])
+            return match.group(0)  # leave unchanged if not found
+
+        # Regex to match placeholders like {{varlib:variable_name}}
+        placeholder_pattern = re.compile(r"\{\{varlib:([a-zA-Z0-9_]+)\}\}")
+        content_with_vars = placeholder_pattern.sub(replace_placeholder, content)
+
+        # 2. Replace the content between injection markers (if present)
+        pattern = r"(# variableLibraryInjectionStart: var_lib\n)(.*?)(# variableLibraryInjectionEnd: var_lib)"
+
+        def replace_block(match):
+            start_marker = match.group(1)
+            end_marker = match.group(3)
+
+            new_lines = []
+            class_definition_lines = []
+            class_definition_lines.append("from dataclasses import dataclass")
+            class_definition_lines.append("@dataclass")
+            class_definition_lines.append("class ConfigsObject:")
+            for var_name, var_value in self.variables.items():
+                if isinstance(var_value, str):
+                    class_definition_lines.append(f"    {var_name}: str ")
+                else:
+                    class_definition_lines.append(f"    {var_name}: Any ")
+
+            new_lines.append("")
+            new_lines.append("# All variables as a dictionary")
+            new_lines.append(f"configs_dict = {repr(self.variables)}")
+            new_lines.append("# All variables as an object")
+            new_lines.append("\n".join(class_definition_lines))
+            new_lines.append("configs_object: ConfigsObject = ConfigsObject(**configs_dict)")
+
+            new_content = start_marker + "\n".join(new_lines) + "\n" + end_marker
+            return new_content
+
+        if re.search(pattern, content_with_vars, re.DOTALL):
+            updated_content = re.sub(pattern, replace_block, content_with_vars, flags=re.DOTALL)
+        else:
+            updated_content = content_with_vars
+
+        return updated_content

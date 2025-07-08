@@ -1,5 +1,12 @@
-{%- import 'nb_macros.py.jinja' as macros -%}
-{%- include "nb_header.py.jinja" %}
+{%- import './common/nb_macros.py.jinja' as macros -%}
+{% if language_group == "synapse_pyspark" %}
+{%- include "/common/nb_header_pyspark.py.jinja" %}
+{% else %}
+{%- include "/common/nb_header_python.py.jinja" %}
+{% endif %}
+
+{% include "/common/nb_cell_mount_lib_path.py.jinja" %}
+
 # Define the lakehouses and their orchestrators
 lakehouses_to_run = [
 {%- for lakehouse in lakehouses %}
@@ -23,7 +30,7 @@ full_reset = False
 
 {{macros.python_cell_with_heading("## 📦 Inject Reusable Classes and Functions")}}
 
-{%include "lib.py.jinja" %}
+
 
 {{macros.python_cell_with_heading("## Insert the Configs Into The Configuration Table")}}
 
@@ -222,4 +229,4 @@ else:
     mssparkutils.notebook.exit(final_message)
     raise Exception(final_message)
 
-{%include "nb_footer.py.jinja" %}
+{%include "./common/nb_footer.py.jinja" %}

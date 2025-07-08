@@ -64,14 +64,13 @@ else:
 
 # CELL ********************
 
-from ingen_fab.python_libs.common.config_utils import ConfigUtils
+from ingen_fab.python_libs.common.config_utils import get_configs_as_object, ConfigsObject
 from ingen_fab.python_libs.pyspark.ddl_utils import ddl_utils
 from ingen_fab.python_libs.pyspark.lakehouse_utils import lakehouse_utils
 
 target_lakehouse_config_prefix = "EDW"
 
-config_utils = ConfigUtils()
-configs: ConfigUtils.ConfigsObject = config_utils.get_configs_as_object
+configs: ConfigsObject = get_configs_as_object()
 config_lakehouse = lakehouse_utils(
     target_workspace_id=configs.edw_workspace_id,
     target_lakehouse_id=configs.edw_lakehouse_id

@@ -4,7 +4,7 @@ from typing import Any
 
 from deltalake import DeltaTable, write_deltalake
 
-from ingen_fab.python_libs.common.config_utils import ConfigUtils
+from ingen_fab.python_libs.common import config_utils
 
 from ..interfaces.data_store_interface import DataStoreInterface
 
@@ -20,7 +20,6 @@ class lakehouse_utils(DataStoreInterface):
         super().__init__()
         self._target_workspace_id = target_workspace_id
         self._target_lakehouse_id = target_lakehouse_id
-        self.config_utils = ConfigUtils()
 
     @property
     def target_workspace_id(self) -> str:
@@ -39,7 +38,7 @@ class lakehouse_utils(DataStoreInterface):
 
     def lakehouse_tables_uri(self) -> str:
         """Get the ABFSS URI for the lakehouse Tables directory."""
-        if self.config_utils._is_local_environment:
+        if config_utils._is_local_environment():
             # Local environment uses file:// URI
             return f"file:///tmp/{self._target_lakehouse_id}/Tables/"
         else:

@@ -16,967 +16,106 @@
 # PARAMETERS CELL ********************
 
 
-# Define the lakehouses and their orchestrators
-lakehouses_to_run = [
-    {'name': 'Config', 'orchestrator': '0_orchestrator_Config'},
-]
-
-# Fabric Configurations 
-fabric_environment: str = "development" 
-config_lakehouse_name = "LH1"  # name of your Lakehouse
-config_workspace_id = "50fbcab0-7d56-46f7-90f6-80ceb00ac86d"
-config_lakehouse_id = "f0121783-34cc-4e64-bfb5-6b44b1a7f04b"
-edw_workspace_id = '50fbcab0-7d56-46f7-90f6-80ceb00ac86d'
-edw_warehouse_id = '8a26f137-fd0b-47f6-92e1-e4551593c751'
-edw_warehouse_name = 'WH'
-edw_lakehouse_id = '8a26f137-fd0b-47f6-92e1-e4551593c751'
-edw_lakehouse_name = 'LH'
-legacy_synapse_connection_name = 'synapse_connection'
-synapse_export_shortcut_path_in_onelake = 'exports/'
-full_reset = False  
-
-
 
 
 # METADATA ********************
 
 # META {
 # META   "language": "python",
-# META   "language_group": "synapse_pyspark"
+# META   "language_group": "synapse_pyspark",
 # META }
 
 # MARKDOWN ********************
 
 # ## 📦 Inject Reusable Classes and Functions
 
+
 # CELL ********************
 
 
+import sys
 
 
-from __future__ import annotations
-
-# Auto-generated library code from python_libs
-# Files are ordered based on dependency analysis
-
-
-# === interfaces/ddl_utils_interface.py ===
-
-from typing import Callable, Protocol
-
-from pyspark.sql.types import StructType
-
-
-class DDLUtilsInterface(Protocol):
-    """
-    Interface for DDL utilities providing execution tracking and script management.
-
-    This interface defines the contract for utilities that handle DDL script execution,
-    logging, and preventing duplicate script runs in a lakehouse environment.
-    """
-
-    def __init__(self, target_workspace_id: str, target_lakehouse_id: str) -> None:
-        """
-        Initialize the DDL utilities with workspace and lakehouse identifiers.
-
-        Args:
-            target_workspace_id: The workspace identifier
-            target_lakehouse_id: The lakehouse identifier
-        """
-        ...
-
-    @staticmethod
-    def execution_log_schema() -> StructType:
-        """
-        Return the schema for the execution log table.
-
-        Returns:
-            StructType: Schema definition for the execution log table
-        """
-        ...
-
-    def print_log(self) -> None:
-        """
-        Display the execution log table showing all script executions.
-        """
-        ...
-
-    def check_if_script_has_run(self, script_id: str) -> bool:
-        """
-        Check if a script has already been successfully executed.
-
-        Args:
-            script_id: Unique identifier for the script
-
-        Returns:
-            bool: True if script has been successfully executed, False otherwise
-        """
-        ...
-
-    def print_skipped_script_execution(self, guid: str, object_name: str) -> None:
-        """
-        Print a message indicating that script execution was skipped.
-
-        Args:
-            guid: The script's unique identifier
-            object_name: The name of the database object
-        """
-        ...
-
-    def write_to_execution_log(
-        self, object_guid: str, object_name: str, script_status: str
-    ) -> None:
-        """
-        Write an execution entry to the log table.
-
-        Args:
-            object_guid: Unique identifier for the script
-            object_name: Name of the database object
-            script_status: Status of the execution (Success/Failure)
-        """
-        ...
-
-    def run_once(
-        self, work_fn: Callable[[], None], object_name: str, guid: str | None = None
-    ) -> None:
-        """
-        Execute a function exactly once, tracked by GUID.
-
-        If the script has already been successfully executed, it will be skipped.
-        If no GUID is provided, one will be generated from the function's source code.
-
-        Args:
-            work_fn: The function to execute
-            object_name: Name of the database object being created/modified
-            guid: Optional unique identifier for the script. If None, will be auto-generated
-        """
-        ...
-
-    def initialise_ddl_script_executions_table(self) -> None:
-        """
-        Initialize the execution log table if it doesn't exist.
-
-        Creates the table structure for tracking script executions.
-        """
-        ...
-
-
-# === interfaces/data_store_interface.py ===
-"""
-Standard interface for data store utilities.
-
-This module defines the common interface that both lakehouse_utils and warehouse_utils
-should implement to ensure consistent behavior across different storage systems.
-"""
-
-
-from abc import ABC, abstractmethod
-from typing import Any
-
-
-class DataStoreInterface(ABC):
-    """Abstract interface for data store utilities."""
-
-    @property
-    @abstractmethod
-    def target_workspace_id(self) -> str:
-        """Get the target workspace ID."""
-        pass
-
-    @property
-    @abstractmethod
-    def target_store_id(self) -> str:
-        """Get the target store ID (lakehouse_id or warehouse_id)."""
-        pass
-
-    @abstractmethod
-    def check_if_table_exists(
-        self, table_name: str, schema_name: str | None = None
-    ) -> bool:
-        """
-        Check if a table exists in the data store.
-
-        Args:
-            table_name: Name of the table to check
-            schema_name: Schema name (optional, mainly for SQL databases)
-
-        Returns:
-            True if table exists, False otherwise
-        """
-        pass
-
-    @abstractmethod
-    def write_to_table(
-        self,
-        df: Any,
-        table_name: str,
-        schema_name: str | None = None,
-        mode: str = "overwrite",
-        options: dict[str, Any] | None = None,
-    ) -> None:
-        """
-        Write a DataFrame to a table in the data store.
-
-        Args:
-            df: DataFrame to write (Spark DataFrame or Pandas DataFrame)
-            table_name: Name of the target table
-            schema_name: Schema name (optional, mainly for SQL databases)
-            mode: Write mode ("overwrite", "append", "error", "ignore")
-            options: Additional options for writing
-        """
-        pass
-
-    @abstractmethod
-    def drop_all_tables(
-        self, schema_name: str | None = None, table_prefix: str | None = None
-    ) -> None:
-        """
-        Drop all tables in the data store.
-
-        Args:
-            schema_name: Schema to limit drops to (optional, mainly for SQL databases)
-            table_prefix: Prefix to filter tables by (optional)
-        """
-        pass
-
-    @abstractmethod
-    def get_connection(self) -> Any:
-        """
-        Get a connection object for the data store.
-
-        Returns:
-            Connection object (type varies by implementation)
-        """
-        pass
-
-    @abstractmethod
-    def list_tables(self) -> list[str]:
-        """
-        List all tables in the data store.
-
-        Returns:
-            List of table names
-        """
-        pass
-
-    @abstractmethod
-    def execute_query(self, query: str):
-        """
-        Execute a SQL query on the data store.
-
-        Args:
-            query: SQL query to execute
-
-        Returns:
-            Query result (type varies by implementation)
-        """
-        pass
-
-    @abstractmethod
-    def get_table_schema(
-        self, table_name: str, schema_name: str | None = None
-    ) -> dict[str, Any]:
-        """
-        Get the schema/column definitions for a table.
-
-        Args:
-            table_name: Name of the table
-            schema_name: Schema name (optional)
-
-        Returns:
-            Dictionary describing the table schema
-        """
-        pass
-
-    @abstractmethod
-    def read_table(
-        self,
-        table_name: str,
-        schema_name: str | None = None,
-        columns: list[str] | None = None,
-        limit: int | None = None,
-        filters: dict[str, Any] | None = None,
-    ) -> Any:
-        """
-        Read data from a table, optionally filtering columns, rows, or limiting results.
-
-        Args:
-            table_name: Name of the table
-            schema_name: Schema name (optional)
-            columns: List of columns to select (optional)
-            limit: Maximum number of rows to return (optional)
-            filters: Dictionary of filters to apply (optional)
-
-        Returns:
-            DataFrame or result set (type varies by implementation)
-        """
-        pass
-
-    @abstractmethod
-    def delete_from_table(
-        self,
-        table_name: str,
-        schema_name: str | None = None,
-        filters: dict[str, Any] | None = None,
-    ) -> int:
-        """
-        Delete rows from a table matching filters.
-
-        Args:
-            table_name: Name of the table
-            schema_name: Schema name (optional)
-            filters: Dictionary of filters to apply (optional)
-
-        Returns:
-            Number of rows deleted
-        """
-        pass
-
-    @abstractmethod
-    def rename_table(
-        self,
-        old_table_name: str,
-        new_table_name: str,
-        schema_name: str | None = None,
-    ) -> None:
-        """
-        Rename a table.
-
-        Args:
-            old_table_name: Current table name
-            new_table_name: New table name
-            schema_name: Schema name (optional)
-        """
-        pass
-
-    @abstractmethod
-    def create_table(
-        self,
-        table_name: str,
-        schema_name: str | None = None,
-        schema: dict[str, Any] | None = None,
-        options: dict[str, Any] | None = None,
-    ) -> None:
-        """
-        Create a new table with a given schema.
-
-        Args:
-            table_name: Name of the new table
-            schema_name: Schema name (optional)
-            schema: Dictionary describing the table schema (optional)
-            options: Additional options for table creation (optional)
-        """
-        pass
-
-    @abstractmethod
-    def drop_table(
-        self,
-        table_name: str,
-        schema_name: str | None = None,
-    ) -> None:
-        """
-        Drop a single table.
-
-        Args:
-            table_name: Name of the table to drop
-            schema_name: Schema name (optional)
-        """
-        pass
-
-    @abstractmethod
-    def list_schemas(self) -> list[str]:
-        """
-        List all schemas/namespaces in the data store.
-
-        Returns:
-            List of schema names
-        """
-        pass
-
-    @abstractmethod
-    def get_table_row_count(
-        self,
-        table_name: str,
-        schema_name: str | None = None,
-    ) -> int:
-        """
-        Get the number of rows in a table.
-
-        Args:
-            table_name: Name of the table
-            schema_name: Schema name (optional)
-
-        Returns:
-            Number of rows in the table
-        """
-        pass
-
-    @abstractmethod
-    def get_table_metadata(
-        self,
-        table_name: str,
-        schema_name: str | None = None,
-    ) -> dict[str, Any]:
-        """
-        Get metadata for a table (creation time, size, etc.).
-
-        Args:
-            table_name: Name of the table
-            schema_name: Schema name (optional)
-
-        Returns:
-            Dictionary of table metadata
-        """
-        pass
-
-    @abstractmethod
-    def vacuum_table(
-        self,
-        table_name: str,
-        schema_name: str | None = None,
-        retention_hours: int = 168,
-    ) -> None:
-        """
-        Perform cleanup/compaction on a table (for systems like Delta Lake).
-
-        Args:
-            table_name: Name of the table
-            schema_name: Schema name (optional)
-            retention_hours: Retention period in hours (default: 168)
-        """
-        pass
-
-
-# === pyspark/lakehouse_utils.py ===
-
-from typing import Any
-
-from delta.tables import DeltaTable
-
-from pyspark.sql import SparkSession
-
-
-
-class lakehouse_utils(DataStoreInterface):
-    """Utility helpers for interacting with a Spark lakehouse.
-    This class provides methods to manage Delta tables in a lakehouse environment,
-    including checking table existence, writing data, listing tables, and dropping tables.
-    It supports both local Spark sessions and Fabric environments.
-    Attributes:
-        target_workspace_id (str): The ID of the target workspace.
-        target_lakehouse_id (str): The ID of the target lakehouse.
-        spark_version (str): The Spark version being used, either 'local' or 'fabric'.
-        spark (SparkSession): The Spark session instance.
-    Methods:
-        get_connection(): Returns the Spark session connection.
-        check_if_table_exists(table_name: str, schema_name: str | None = None): Checks if a Delta table exists at the given table name.
-        lakehouse_tables_uri(): Returns the ABFSS URI for the lakehouse Tables directory.
-        write_to_table(df, table_name: str, schema_name: str | None = None
-        , mode: str = "overwrite", options: dict[str, str] | None = None): Writes a DataFrame to a lakehouse table.
-        list_tables(): Lists all tables in the lakehouse.
-        drop_all_tables(schema_name: str | None = None, table_prefix: str | None = None): Drops all Delta tables in the lakehouse.
-        execute_query(query): Executes a SQL query on the lakehouse.
-    Usage:
-        lakehouse = lakehouse_utils(target_workspace_id="your_workspace_id", target_lakehouse_id="your_lakehouse_id")
-        spark_session = lakehouse.get_connection()
-    """
-
-    def __init__(self, target_workspace_id: str, target_lakehouse_id: str) -> None:
-        super().__init__()
-        self._target_workspace_id = target_workspace_id
-        self._target_lakehouse_id = target_lakehouse_id
-        self.spark_version = "fabric"
-        self.spark = self._get_or_create_spark_session()
-
-    @property
-    def target_workspace_id(self) -> str:
-        """Get the target workspace ID."""
-        return self._target_workspace_id
-
-    @property
-    def target_store_id(self) -> str:
-        """Get the target lakehouse ID."""
-        return self._target_lakehouse_id
+if "notebookutils" in sys.modules:
+    import sys
     
-    @property
-    def get_connection(self) -> SparkSession:
-        """Get the Spark session connection."""
-        return self.spark
+    notebookutils.fs.mount("abfss://{{varlib:config_workspace_name}}@onelake.dfs.fabric.microsoft.com/{{varlib:config_lakehouse_name}}.Lakehouse/Files/", "/config_files")  # type: ignore # noqa: F821
+    mount_path = notebookutils.fs.getMountPath("/config_files")  # type: ignore # noqa: F821
+    
+    sys.path.insert(0, mount_path)
+else:
+    print("NotebookUtils not available, assumed running in local mode.")
+    from ingen_fab.python_libs.pyspark.notebook_utils_abstraction import (
+        NotebookUtilsFactory,
+    )
+    notebookutils = NotebookUtilsFactory.create_instance()
+    spark = None
+    mount_path = None
 
-    def _get_or_create_spark_session(self) -> SparkSession:
-        """Get existing Spark session or create a new one."""
-        if (
-            "spark" not in locals()
-            and "spark" not in globals()
-            and self.spark_version == "fabric"
-        ):
-            # Create new Spark session if none exists
-            self.spark_version = "local"
-            print(
-                "No active Spark session found, creating a new one with Delta support."
-            )
-            builder = (
-                SparkSession.builder.appName("MyApp")
-                .config(
-                    "spark.sql.extensions", "io.delta.sql.DeltaSparkSessionExtension"
-                )
-                .config(
-                    "spark.sql.catalog.spark_catalog",
-                    "org.apache.spark.sql.delta.catalog.DeltaCatalog",
-                )
-            )
-            from delta import configure_spark_with_delta_pip
 
-            return configure_spark_with_delta_pip(builder).getOrCreate()
-        else:
-            print("Using existing spark .. Fabric environment   .")
-            return spark  # type: ignore  # noqa: F821
+import traceback
 
-    def check_if_table_exists(
-        self, table_name: str, schema_name: str | None = None
-    ) -> bool:
-        """Check if a Delta table exists at the given table name."""
-        # For lakehouse, schema_name is not used as tables are in the Tables directory
-        table_path = f"{self.lakehouse_tables_uri()}{table_name}"
-        table_exists = False
+def load_python_modules_from_path(base_path: str, relative_files: list[str], max_chars: int = 1_000_000_000):
+    """
+    Executes Python files from a Fabric-mounted file path using notebookutils.fs.head.
+    
+    Args:
+        base_path (str): The root directory where modules are located.
+        relative_files (list[str]): List of relative paths to Python files (from base_path).
+        max_chars (int): Max characters to read from each file (default: 1,000,000).
+    """
+    success_files = []
+    failed_files = []
+
+    for relative_path in relative_files:
+        full_path = f"file:{base_path}/{relative_path}"
         try:
-            if DeltaTable.isDeltaTable(self.spark, table_path):
-                table_exists = True
-                print(
-                    f"Delta table already exists at path: {table_path}, skipping creation."
-                )
-            else:
-                print(f"Path {table_path} is not a Delta table.")
+            print(f"🔄 Loading: {full_path}")
+            code = notebookutils.fs.head(full_path, max_chars)
+            exec(code, globals())  # Use globals() to share context across modules
+            success_files.append(relative_path)
         except Exception as e:
-            # If the path does not exist or is inaccessible, isDeltaTable returns False or may throw.
-            # Treat exceptions as "table does not exist".
-            print(
-                f"Could not verify Delta table existence at {table_path} (exception: {e}); assuming it does not exist."
-            )
-            table_exists = False
-        return table_exists
+            failed_files.append(relative_path)
+            print(f"❌ Error loading {relative_path}")
+            #traceback.print_exc()
+            #print(notebookutils.fs.head(full_path, max_chars))
 
-    def lakehouse_tables_uri(self) -> str:
-        """Get the ABFSS URI for the lakehouse Tables directory."""
-        if self.spark_version == "local":
-            return f"file:///tmp/{self._target_lakehouse_id}/Tables/"
-        else:
-            return f"abfss://{self._target_workspace_id}@onelake.dfs.fabric.microsoft.com/{self._target_lakehouse_id}/Tables/"
+    print("\n✅ Successfully loaded:")
+    for f in success_files:
+        print(f" - {f}")
 
-    def write_to_table(
-        self,
-        df,
-        table_name: str,
-        schema_name: str | None = None,
-        mode: str = "overwrite",
-        options: dict[str, str] | None = None,
-    ) -> None:
-        """Write a DataFrame to a lakehouse table."""
+    if failed_files:
+        print("\n⚠️ Failed to load:")
+        for f in failed_files:
+            print(f" - {f}")
 
-        # For lakehouse, schema_name is not used as tables are in the Tables directory
-        writer = df.write.format("delta").mode(mode)
+import sys
 
-        if options:
-            for k, v in options.items():
-                writer = writer.option(k, v)
+def clear_module_cache(prefix: str):
+    for mod in list(sys.modules):
+        if mod.startswith(prefix):
+            print("deleting..." + mod)
+            del sys.modules[mod]
 
-        writer.save(f"{self.lakehouse_tables_uri()}{table_name}")
-
-        # Register the table in the Hive catalog - Only needed if local
-        if self.spark_version == "local":
-            self.spark.sql(
-                f"CREATE TABLE IF NOT EXISTS {table_name} USING DELTA LOCATION '{self.lakehouse_tables_uri()}{table_name}'"
-            )
-
-    def list_tables(self) -> list[str]:
-        """List all tables in the lakehouse."""
-        return self.spark.catalog.listTables()
-        # return self.spark.sql("SHOW TABLES").collect()
-
-    def drop_all_tables(
-        self, schema_name: str | None = None, table_prefix: str | None = None
-    ) -> None:
-        """Drop all Delta tables in the lakehouse."""
-
-        # ──────────────────────────────────────────────────────────────────────────────
-
-        # 2. START spark and get Hadoop FS handle
-        # ──────────────────────────────────────────────────────────────────────────────
-        spark = self.spark
-
-        # Access Hadoop's FileSystem via the JVM gateway
-        hadoop_conf = spark._jsc.hadoopConfiguration()
-        fs = spark._jvm.org.apache.hadoop.fs.FileSystem.get(hadoop_conf)
-
-        # Path object for the Tables/ directory
-        root_path = spark._jvm.org.apache.hadoop.fs.Path(self.lakehouse_tables_uri())
-
-        # ──────────────────────────────────────────────────────────────────────────────
-        # 3. Iterate, detect Delta tables, and delete
-        # ──────────────────────────────────────────────────────────────────────────────
-
-        for status in fs.listStatus(root_path):
-            table_path_obj = status.getPath()
-            print(f"— Checking path: {table_path_obj}")
-            table_path = table_path_obj.toString()  # e.g. abfss://…/Tables/my_table
-            print(f"— Full path: {table_path}")
-
-            # Apply table_prefix filter if provided
-            table_name_from_path = table_path.split("/")[-1]
-            if table_prefix and not table_name_from_path.startswith(table_prefix):
-                print(
-                    f"— Skipping table {table_name_from_path} (doesn't match prefix '{table_prefix}')"
-                )
-                continue
-
-            try:
-                # Check if this directory is a Delta table
-                if DeltaTable.isDeltaTable(spark, table_path):
-                    # Delete the directory (recursive=True)
-                    deleted = fs.delete(table_path_obj, True)
-                    if deleted:
-                        print(f"✔ Dropped Delta table at: {table_path}")
-                    else:
-                        print(f"✖ Failed to delete: {table_path}")
-                else:
-                    print(f"— Skipping non-Delta path: {table_path}")
-            except Exception as e:
-                # e.g. permission issue, or not a Delta table
-                print(f"⚠ Error checking/deleting {table_path}: {e}")
-
-        print("✅ All eligible Delta tables under 'Tables/' have been dropped.")
-
-    def execute_query(self, query):
-        """
-        Execute a SQL query on the lakehouse.
-
-        Args:
-            query: SQL query to execute
-
-        Returns:
-            Query result (type varies by implementation)
-        """
-        spark = self.spark
-        return spark.sql(query)
-
-    def get_table_schema(
-        self, table_name: str, schema_name: str | None = None
-    ) -> dict[str, Any]:
-        """
-        Get the schema/column definitions for a table.
-        """
-        df = self.spark.read.format("delta").load(
-            f"{self.lakehouse_tables_uri()}{table_name}"
-        )
-        return {field.name: field.dataType.simpleString() for field in df.schema.fields}
-
-    def read_table(
-        self,
-        table_name: str,
-        schema_name: str | None = None,
-        columns: list[str] | None = None,
-        limit: int | None = None,
-        filters: dict[str, Any] | None = None,
-    ) -> Any:
-        """
-        Read data from a table, optionally filtering columns, rows, or limiting results.
-        """
-        df = self.spark.read.format("delta").load(
-            f"{self.lakehouse_tables_uri()}{table_name}"
-        )
-        if columns:
-            df = df.select(*columns)
-        if filters:
-            for col, val in filters.items():
-                df = df.filter(f"{col} = '{val}'")
-        if limit:
-            df = df.limit(limit)
-        return df
-
-    def delete_from_table(
-        self,
-        table_name: str,
-        schema_name: str | None = None,
-        filters: dict[str, Any] | None = None,
-    ) -> int:
-        """
-        Delete rows from a table matching filters. Returns number of rows deleted.
-        """
-        table_path = f"{self.lakehouse_tables_uri()}{table_name}"
-        delta_table = DeltaTable.forPath(self.spark, table_path)
-        if filters:
-            condition = " AND ".join(
-                [f"{col} = '{val}'" for col, val in filters.items()]
-            )
-        else:
-            condition = "true"
-        before_count = delta_table.toDF().count()
-        delta_table.delete(condition)
-        after_count = delta_table.toDF().count()
-        return before_count - after_count
-
-    def rename_table(
-        self,
-        old_table_name: str,
-        new_table_name: str,
-        schema_name: str | None = None,
-    ) -> None:
-        """
-        Rename a table by moving its directory and updating the metastore if local.
-        """
-        import shutil
-
-        src = f"{self.lakehouse_tables_uri()}{old_table_name}"
-        dst = f"{self.lakehouse_tables_uri()}{new_table_name}"
-        shutil.move(src.replace("file://", ""), dst.replace("file://", ""))
-        if self.spark_version == "local":
-            self.spark.sql(f"ALTER TABLE {old_table_name} RENAME TO {new_table_name}")
-
-    def create_table(
-        self,
-        table_name: str,
-        schema_name: str | None = None,
-        schema: dict[str, Any] | None = None,
-        mode: str = "overwrite",
-        options: dict[str, Any] | None = None,
-    ) -> None:
-        """
-        Create a new table with a given schema.
-        """
-        if schema is None:
-            raise ValueError("Schema must be provided for table creation.")
-        
-        empty_df = self.get_connection.createDataFrame([], schema)
-        writer = empty_df.write.format("delta").mode(mode)
-
-        if options:
-            for k, v in options.items():
-                writer = writer.option(k, v)
-
-        writer.save(f"{self.lakehouse_tables_uri()}{table_name}")
-
-        # Register the table in the Hive catalog - Only needed if local
-        if self.spark_version == "local":
-            self.spark.sql(
-                f"CREATE TABLE IF NOT EXISTS {table_name} USING DELTA LOCATION '{self.lakehouse_tables_uri()}{table_name}'"
-            )
+# Always clear the module cache - We may remove this once the libs are stable
+clear_module_cache("ingen_fab.python_libs")
+clear_module_cache("ingen_fab")
 
 
-    def drop_table(
-        self,
-        table_name: str,
-        schema_name: str | None = None,
-    ) -> None:
-        """
-        Drop a single table.
-        """
-        table_path = f"{self.lakehouse_tables_uri()}{table_name}"
-        delta_table = DeltaTable.forPath(self.spark, table_path)
-        delta_table.delete()
-        # Optionally, remove the directory
-        import shutil
+# Define the lakehouses and their orchestrators
+files_to_load = [
+    "ingen_fab/python_libs/common/config_utils.py",
+    "ingen_fab/python_libs/pyspark/lakehouse_utils.py",
+    "ingen_fab/python_libs/pyspark/ddl_utils.py",
+    "ingen_fab/python_libs/pyspark/notebook_utils_abstraction.py",
+    "ingen_fab/python_libs/pyspark/parquet_load_utils.py"
+]
 
-        shutil.rmtree(table_path.replace("file://", ""), ignore_errors=True)
-        if self.spark_version == "local":
-            self.spark.sql(f"DROP TABLE IF EXISTS {table_name}")
+load_python_modules_from_path(pathPrefix, files_to_load)
 
-    def list_schemas(self) -> list[str]:
-        """
-        List all schemas/namespaces in the lakehouse (returns ['default'] for lakehouse).
-        """
-        return ["default"]
-
-    def get_table_row_count(
-        self,
-        table_name: str,
-        schema_name: str | None = None,
-    ) -> int:
-        """
-        Get the number of rows in a table.
-        """
-        df = self.spark.read.format("delta").load(
-            f"{self.lakehouse_tables_uri()}{table_name}"
-        )
-        return df.count()
-
-    def get_table_metadata(
-        self,
-        table_name: str,
-        schema_name: str | None = None,
-    ) -> dict[str, Any]:
-        """
-        Get metadata for a table (creation time, size, etc.).
-        """
-        table_path = f"{self.lakehouse_tables_uri()}{table_name}"
-        delta_table = DeltaTable.forPath(self.spark, table_path)
-        details = delta_table.detail().toPandas().to_dict(orient="records")[0]
-        return details
-
-    def vacuum_table(
-        self,
-        table_name: str,
-        schema_name: str | None = None,
-        retention_hours: int = 168,
-    ) -> None:
-        """
-        Perform cleanup/compaction on a table (for systems like Delta Lake).
-        """
-        table_path = f"{self.lakehouse_tables_uri()}{table_name}"
-        self.spark.sql(f"VACUUM '{table_path}' RETAIN {retention_hours} HOURS")
-
-
-# === pyspark/ddl_utils.py ===
-
-import hashlib
-import inspect
-from datetime import datetime
-
-from pyspark.sql import SparkSession  # type: ignore # noqa: F401
-from pyspark.sql.types import (
-    StringType,
-    StructField,
-    StructType,
-    TimestampType,
-)
-
-
-
-class ddl_utils(DDLUtilsInterface):
-    def __init__(self, target_workspace_id: str, target_lakehouse_id: str) -> None:
-        """
-        Initializes the DDLUtils class with the target workspace and lakehouse IDs.
-        """
-        super().__init__(
-            target_lakehouse_id=target_lakehouse_id,
-            target_workspace_id=target_workspace_id,
-        )
-        self.target_workspace_id = target_workspace_id
-        self.target_lakehouse_id = target_lakehouse_id
-        self.lakehouse_utils = lakehouse_utils(target_workspace_id, target_lakehouse_id)
-        self.execution_log_table_name = "ddl_script_executions"
-        self.initialise_ddl_script_executions_table()
-
-    @staticmethod
-    def execution_log_schema() -> StructType:
-        return StructType(
-            [
-                StructField("script_id", StringType(), nullable=False),
-                StructField("script_name", StringType(), nullable=False),
-                StructField("execution_status", StringType(), nullable=False),
-                StructField("update_date", TimestampType(), nullable=False),
-            ]
-        )
-
-    def print_log(self) -> None:
-        df = self.lakehouse_utils.spark.read.format("delta").load(
-            f"{self.lakehouse_utils.lakehouse_tables_uri()}{self.execution_log_table_name}"
-        )
-        if self.lakehouse_utils.spark_version == "local":
-            df.show()
-        else:
-            display(df)  # type: ignore # noqa: F821
-
-    def check_if_script_has_run(self, script_id: str) -> bool:
-        from pyspark.sql.functions import col
-
-        df = self.lakehouse_utils.spark.read.format("delta").load(
-            f"{self.lakehouse_utils.lakehouse_tables_uri()}{self.execution_log_table_name}"
-        )
-        # display(df)
-        # Build filter condition
-        cond = col("script_id") == script_id
-        status = "Success"
-        if status is not None:
-            cond = cond & (col("execution_status") == status)
-        matched = df.filter(cond).limit(1).take(1)
-        if (len(matched)) == 0:
-            # print("matched:", matched)
-            return False
-        else:
-            return True
-
-    def print_skipped_script_execution(self, guid: str, object_name: str) -> None:
-        print(
-            f"skipping {guid}:{object_name} as the script has already run on workspace_id:"
-            f"{self.target_workspace_id} | lakehouse_id {self.target_lakehouse_id}"
-        )
-
-    def write_to_execution_log(
-        self, object_guid: str, object_name: str, script_status: str
-    ) -> None:
-        data = [(object_guid, object_name, script_status, datetime.now())]
-        new_df = self.lakehouse_utils.spark.createDataFrame(
-            data=data, schema=ddl_utils.execution_log_schema()
-        )
-        new_df.write.format("delta").mode("append").save(
-            f"{self.lakehouse_utils.lakehouse_tables_uri()}{self.execution_log_table_name}"
-        )
-
-    def run_once(self, work_fn, object_name: str, guid: str | None = None) -> None:
-        """
-        Runs `work_fn()` exactly once, keyed by `guid`. If `guid` is None,
-        it's computed by hashing the source code of `work_fn`.
-        """
-        # 1. Auto-derive GUID if not provided
-        if guid is None:
-            try:
-                src = inspect.getsource(work_fn)
-            except (OSError, TypeError):
-                raise ValueError(
-                    "work_fn must be a named function defined at top-level"
-                )
-            # compute SHA256 and take first 12 hex chars
-            digest = hashlib.sha256(src.encode("utf-8")).hexdigest()
-            guid = digest
-            print(f"Derived guid={guid} from work_fn source")
-
-        # 2. Check execution
-        if not self.check_if_script_has_run(script_id=guid):
-            try:
-                work_fn()
-                self.write_to_execution_log(
-                    object_guid=guid, object_name=object_name, script_status="Success"
-                )
-            except Exception as e:
-                print(f"Error in work_fn for {guid}: {e}")
-                self.write_to_execution_log(
-                    object_guid=guid, object_name=object_name, script_status="Failure"
-                )
-                raise e
-        else:
-            self.print_skipped_script_execution(guid=guid, object_name=object_name)
-
-    def initialise_ddl_script_executions_table(self) -> None:
-        guid = "b8c83c87-36d2-46a8-9686-ced38363e169"
-        object_name = "ddl_script_executions"
-        # Check if the execution log table exists
-        table_exists = self.lakehouse_utils.check_if_table_exists(
-            self.execution_log_table_name
-        )
-        if not table_exists:
-            print(
-                f"Creating execution log table at {self.lakehouse_utils.lakehouse_tables_uri()}{self.execution_log_table_name}"
-            )
-            empty_df = self.lakehouse_utils.spark.createDataFrame(
-                data=[], schema=ddl_utils.execution_log_schema()
-            )
-            (
-                empty_df.write.format("delta")
-                .option("parquet.vorder.default", "true")
-                .mode(
-                    "errorIfExists"
-                )  # will error if table exists; change to "overwrite" to replace.
-                .save(
-                    f"{self.lakehouse_utils.lakehouse_tables_uri()}{self.execution_log_table_name}"
-                )
-            )
-            self.write_to_execution_log(
-                object_guid=guid, object_name=object_name, script_status="Success"
-            )
-        else:
-            print(f"Skipping {object_name} as it already exists")
-
-
+lakehouses_to_run = [
+    {'name': 'Config', 'orchestrator': '0_orchestrator_Config'},
+]
 
 
 
@@ -985,7 +124,7 @@ class ddl_utils(DDLUtilsInterface):
 
 # META {
 # META   "language": "python",
-# META   "language_group": "synapse_pyspark"
+# META   "language_group": "{language group | required}"
 # META }
 
 # MARKDOWN ********************
@@ -1021,7 +160,7 @@ cu.merge_config_record(cr)
 
 # META {
 # META   "language": "python",
-# META   "language_group": "synapse_pyspark"
+# META   "language_group": "{language group | required}"
 # META }
 
 # MARKDOWN ********************

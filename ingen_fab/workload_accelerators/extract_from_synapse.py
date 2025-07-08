@@ -66,15 +66,14 @@ else:
 
 from rich.console import Console
 
-from ingen_fab.python_libs.common.config_utils import ConfigUtils
+from ingen_fab.python_libs.common.config_utils import get_configs_as_object, ConfigsObject
 from ingen_fab.python_libs.python.lakehouse_utils import lakehouse_utils
 from ingen_fab.python_libs.python.pipeline_utils import PipelineUtils
 
 console = Console()  # Keep for tables but use regular print for most output
 
 
-config_utils = ConfigUtils()
-configs: ConfigUtils.ConfigsObject = config_utils.get_configs_as_object
+configs: ConfigsObject = get_configs_as_object()
 config_lakehouse = lakehouse_utils(
     target_workspace_id=configs.edw_lakehouse_id,
     target_lakehouse_id=configs.edw_lakehouse_id

@@ -1,47 +1,22 @@
 platform_folders:
 - name: var_lib.VariableLibrary
   path: sample_project/fabric_workspace_items/config/var_lib.VariableLibrary
-  hash: 9e35aaa6cc1e1c39aa32b873923db581f605f0a4cec180b40e13d07601a7fa4d
+  hash: c1c88d8f952e7cf2c0cfc94efd6ad5c58d22b15bc258443cb1693346ae11f604
   status: deployed
   environment: development_jr
 - name: 00_all_lakehouses_orchestrator_ddl_scripts.Notebook
   path: sample_project/fabric_workspace_items/ddl_scripts/Lakehouses/00_all_lakehouses_orchestrator.Notebook
-  hash: 4b5b560221b38de6281811ad97159410f57960b4ed2ebeedf1759760adae86e9
+  hash: efbbfbca118cedb3b84733ae78f1afaff10414596168b87e2a5f6b5adb22e65b
   status: deployed
   environment: development_jr
 - name: 001_Initial_Creation_Config_Lakehouses_ddl_scripts.Notebook
   path: sample_project/fabric_workspace_items/ddl_scripts/Lakehouses/Config/001_Initial_Creation_Config_Lakehouses.Notebook
-  hash: c2f161def675d1bbd7af5a0c7e924b8a83c087c2be32a72e2fb79c4336a3f910
+  hash: 79ade2f0587ad518209889090f75967c9b285f05fb24834599665b754cda9556
   status: deployed
   environment: development_jr
 - name: 0_orchestrator_Config_ddl_scripts.Notebook
   path: sample_project/fabric_workspace_items/ddl_scripts/Lakehouses/Config/0_orchestrator_Config.Notebook
-  hash: 90326ac72e59f3c7203ea9d76216f2a967d97b3517ab55533893ac70827da314
-  status: deployed
-  environment: development_jr
-- name: 00_all_warehouses_config_notebook_ddl_scripts.Notebook
-  path: sample_project/fabric_workspace_items/ddl_scripts/Warehouses/00_all_warehouses_config_notebook.Notebook
-  hash: 20e2123de85056495a31874a0a7683e6829074112d495ae4859714b910170d1d
-  status: deployed
-  environment: development_jr
-- name: 00_all_warehouses_orchestrator_ddl_scripts.Notebook
-  path: sample_project/fabric_workspace_items/ddl_scripts/Warehouses/00_all_warehouses_orchestrator.Notebook
-  hash: 77ece7fda9cd6b76a576418b5c9f74ce16058468f141cf9813346c0c6f02dac4
-  status: deployed
-  environment: development_jr
-- name: 001_Initial_Creation_Config_Warehouses_ddl_scripts.Notebook
-  path: sample_project/fabric_workspace_items/ddl_scripts/Warehouses/Config/001_Initial_Creation_Config_Warehouses.Notebook
-  hash: a19b48a1ab434dd909c2bb3a9fa26c4b659d6f758d6f570d58cfe87917a1c8aa
-  status: deployed
-  environment: development_jr
-- name: 002_Parquet_Load_Update_Config_Warehouses_ddl_scripts.Notebook
-  path: sample_project/fabric_workspace_items/ddl_scripts/Warehouses/Config/002_Parquet_Load_Update_Config_Warehouses.Notebook
-  hash: a986ff1abfd0fa3268e28225c8308b327a72ef3479447412e149f5eac56266fe
-  status: deployed
-  environment: development_jr
-- name: 0_orchestrator_Config_ddl_scripts.Notebook
-  path: sample_project/fabric_workspace_items/ddl_scripts/Warehouses/Config/0_orchestrator_Config.Notebook
-  hash: 1704a4b8f3a78e2cbea53c6f5caba15d9c4334e2a9c545c22a2f451ac5d46e9f
+  hash: 416ccdbe31c775f8ed9088456b398c6de908e48045577cab9c42a7bf9ef8930a
   status: deployed
   environment: development_jr
 - name: extract_from_synapse.Notebook
@@ -71,17 +46,42 @@ platform_folders:
   environment: development_jr
 - name: pyspark_platform_test_platform_testing.Notebook
   path: sample_project/fabric_workspace_items/platform_testing/pyspark_platform_test.Notebook
-  hash: 7d252aee91b5139335715fc84f1c50e230ac3f412ee1f3e0908b6ba4e6e04913
+  hash: 8087e158ae1aa76717deddbb26d2c2be0afaf2bbe2576160b7722ebbd6fdb432
   status: deployed
   environment: development_jr
 - name: python_platform_test.Notebook
   path: sample_project/fabric_workspace_items/platform_testing/python_platform_test.Notebook
-  hash: 0afe6d5810497ed4453e2de568e527e368f2b3e444cbd9ef4e12d8be4116d8ad
+  hash: dfc69b2922b680a3c2959a5391c8ec0b1e13c0e1bebf8d859da7f7bba8ff144c
   status: deployed
   environment: development_jr
 - name: EDW.Warehouse
   path: sample_project/fabric_workspace_items/warehouses/EDW.Warehouse
   hash: 8d271b3394a1ce877433b0fef41bf7813f1d393ddc433d73aacb308d6004eb4b
+  status: deployed
+  environment: development_jr
+- name: 00_all_warehouses_config_notebook_ddl_scripts.Notebook
+  path: sample_project/fabric_workspace_items/ddl_scripts/Warehouses/00_all_warehouses_config_notebook.Notebook
+  hash: 20e2123de85056495a31874a0a7683e6829074112d495ae4859714b910170d1d
+  status: deleted
+  environment: development_jr
+- name: 00_all_warehouses_orchestrator_ddl_scripts.Notebook
+  path: sample_project/fabric_workspace_items/ddl_scripts/Warehouses/00_all_warehouses_orchestrator.Notebook
+  hash: 77ece7fda9cd6b76a576418b5c9f74ce16058468f141cf9813346c0c6f02dac4
+  status: deleted
+  environment: development_jr
+- name: 001_Initial_Creation_Config_Warehouses_ddl_scripts.Notebook
+  path: sample_project/fabric_workspace_items/ddl_scripts/Warehouses/Config/001_Initial_Creation_Config_Warehouses.Notebook
+  hash: a19b48a1ab434dd909c2bb3a9fa26c4b659d6f758d6f570d58cfe87917a1c8aa
+  status: deleted
+  environment: development_jr
+- name: 002_Parquet_Load_Update_Config_Warehouses_ddl_scripts.Notebook
+  path: sample_project/fabric_workspace_items/ddl_scripts/Warehouses/Config/002_Parquet_Load_Update_Config_Warehouses.Notebook
+  hash: a986ff1abfd0fa3268e28225c8308b327a72ef3479447412e149f5eac56266fe
+  status: deleted
+  environment: development_jr
+- name: 0_orchestrator_Config_ddl_scripts.Notebook
+  path: sample_project/fabric_workspace_items/ddl_scripts/Warehouses/Config/0_orchestrator_Config.Notebook
+  hash: 1704a4b8f3a78e2cbea53c6f5caba15d9c4334e2a9c545c22a2f451ac5d46e9f
   status: deployed
   environment: development_jr
 generated_at: /workspaces/ingen_fab

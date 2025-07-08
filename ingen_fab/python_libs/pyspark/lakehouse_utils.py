@@ -3,10 +3,10 @@ from __future__ import annotations
 from typing import Any
 
 from delta.tables import DeltaTable
-
 from pyspark.sql import SparkSession
 
-from ..interfaces.data_store_interface import DataStoreInterface
+import ingen_fab.python_libs.common.config_utils as cu
+from ingen_fab.python_libs.interfaces.data_store_interface import DataStoreInterface
 
 
 class lakehouse_utils(DataStoreInterface):
@@ -33,12 +33,18 @@ class lakehouse_utils(DataStoreInterface):
         spark_session = lakehouse.get_connection()
     """
 
-    def __init__(self, target_workspace_id: str, target_lakehouse_id: str) -> None:
+    def __init__(self, target_workspace_id: str, target_lakehouse_id: str, spark: SparkSession = None) -> None:
         super().__init__()
         self._target_workspace_id = target_workspace_id
         self._target_lakehouse_id = target_lakehouse_id
         self.spark_version = "fabric"
-        self.spark = self._get_or_create_spark_session()
+        if spark:
+            # Use the provided Spark session
+            self.spark = spark            
+        else: 
+            # If no Spark session is provided, create a new one
+            self.spark = self._get_or_create_spark_session()
+            
 
     @property
     def target_workspace_id(self) -> str:
@@ -57,11 +63,7 @@ class lakehouse_utils(DataStoreInterface):
 
     def _get_or_create_spark_session(self) -> SparkSession:
         """Get existing Spark session or create a new one."""
-        if (
-            "spark" not in locals()
-            and "spark" not in globals()
-            and self.spark_version == "fabric"
-        ):
+        if (cu.get_configs_as_object().fabric_environment == "local"):
             # Create new Spark session if none exists
             self.spark_version = "local"
             print(
@@ -82,7 +84,7 @@ class lakehouse_utils(DataStoreInterface):
             return configure_spark_with_delta_pip(builder).getOrCreate()
         else:
             print("Using existing spark .. Fabric environment   .")
-            return spark  # type: ignore  # noqa: F821
+            return self.spark  # type: ignore  # noqa: F821
 
     def check_if_table_exists(
         self, table_name: str, schema_name: str | None = None
