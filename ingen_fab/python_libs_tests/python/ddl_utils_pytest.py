@@ -11,7 +11,7 @@ def ddl_utility() -> DDLUtilsInterface:
     # Use test workspace/lakehouse IDs
     workspace_id = "test-workspace-123"
     lakehouse_id = "test-lakehouse-456"
-    return ddl_utils(workspace_id, lakehouse_id)
+    return ddl_utils(workspace_id, lakehouse_id, "sqlserver")
 
 
 def test_print_log_runs(ddl_utility: DDLUtilsInterface) -> None:
