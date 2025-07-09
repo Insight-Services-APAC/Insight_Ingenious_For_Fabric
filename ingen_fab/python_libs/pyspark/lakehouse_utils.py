@@ -370,5 +370,4 @@ class lakehouse_utils(DataStoreInterface):
         """
         Perform optimise on a table to reduce number of parquet files.
         """
-        table_path = f"{self.lakehouse_tables_uri()}{table_name}"
-        self.spark.sql(f"OPTIMIZE '{table_path}'")
+        self.spark.sql(f"OPTIMIZE '{table_name}'")

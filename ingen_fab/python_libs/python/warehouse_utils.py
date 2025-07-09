@@ -3,6 +3,7 @@ import os
 from typing import Optional
 from pyspark.sql.dataframe import DataFrame
 
+import notebookutils
 import pandas as pd
 import pyodbc  # type: ignore # noqa: F401
 from sqlparse import format
@@ -54,7 +55,7 @@ class warehouse_utils(DataStoreInterface):
         try:
             if self.dialect == "fabric":
                 logger.debug("Connection to Fabric Warehouse")
-                conn = FabricApiUtils.data.connect_to_artifact(
+                conn = notebookutils.data.connect_to_artifact(
                     self.target_warehouse_id, self.target_workspace_id
                 )
                 logger.debug(f"Connection established: {conn}")
@@ -109,7 +110,6 @@ class warehouse_utils(DataStoreInterface):
                 logger.debug("Query executed successfully.")
             return df
         except Exception as e:
-            logger.info(f"Executing query:\n{formatted_query}")
             logger.error(f"Error executing query: {formatted_query}. Error: {e}")
             return None
 
