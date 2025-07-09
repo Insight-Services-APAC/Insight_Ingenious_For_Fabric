@@ -4,6 +4,6 @@ FROM
     (
         VALUES
             {{ values_clause | required('values_clause') }}
-    ) AS v(
+    ) AS {{ table_name | required('table_name') }}(
         {{ column_names | required('column_names') }}
     )

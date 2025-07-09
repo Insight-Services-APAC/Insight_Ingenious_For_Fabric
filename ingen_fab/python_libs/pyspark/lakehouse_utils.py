@@ -28,6 +28,7 @@ class lakehouse_utils(DataStoreInterface):
         list_tables(): Lists all tables in the lakehouse.
         drop_all_tables(schema_name: str | None = None, table_prefix: str | None = None): Drops all Delta tables in the lakehouse.
         execute_query(query): Executes a SQL query on the lakehouse.
+        optimise_table(table_name: str)
     Usage:
         lakehouse = lakehouse_utils(target_workspace_id="your_workspace_id", target_lakehouse_id="your_lakehouse_id")
         spark_session = lakehouse.get_connection()
@@ -364,3 +365,9 @@ class lakehouse_utils(DataStoreInterface):
         """
         table_path = f"{self.lakehouse_tables_uri()}{table_name}"
         self.spark.sql(f"VACUUM '{table_path}' RETAIN {retention_hours} HOURS")
+
+    def optimise_table(self, table_name: str) -> None:
+        """
+        Perform optimise on a table to reduce number of parquet files.
+        """
+        self.spark.sql(f"OPTIMIZE '{table_name}'")

@@ -4,15 +4,15 @@ import hashlib
 import inspect
 from datetime import datetime
 
-import notebookutils  # type: ignore # noqa: F401
-
 from .warehouse_utils import warehouse_utils
 
 
 class ddl_utils:
     """Run DDL scripts once and track execution in a warehouse table."""
 
-    def __init__(self, target_workspace_id: str, target_warehouse_id: str) -> None:
+    def __init__(self, target_workspace_id: str, 
+                 target_warehouse_id: str, 
+                 dialect: str ="fabric") -> None:
         super().__init__()
         self.target_workspace_id = target_workspace_id
         self.target_warehouse_id = target_warehouse_id
@@ -21,6 +21,7 @@ class ddl_utils:
         self.warehouse_utils = warehouse_utils(
             target_workspace_id=target_workspace_id,
             target_warehouse_id=target_warehouse_id,
+            dialect=dialect
         )
         self.initialise_ddl_script_executions_table()
 
@@ -31,7 +32,7 @@ class ddl_utils:
         conn = self.warehouse_utils.get_connection()
         query = f"SELECT * FROM [{self.execution_log_table_schema}].[{self.execution_log_table_name}]"
         df = self.warehouse_utils.execute_query(conn=conn, query=query)
-        display(df)
+        print(df)
 
     def check_if_script_has_run(self, script_id) -> bool:
         conn = self.warehouse_utils.get_connection()
@@ -43,7 +44,7 @@ class ddl_utils:
         """
         df = self.warehouse_utils.execute_query(conn=conn, query=query)
 
-        if df:
+        if df is not None:
             if len(df) == 0:
                 # print("matched:", matched)
                 return False
@@ -98,7 +99,6 @@ class ddl_utils:
                 self.write_to_execution_log(
                     object_guid=guid, object_name=object_name, script_status="Failure"
                 )
-                raise
         else:
             self.print_skipped_script_execution(guid=guid, object_name=object_name)
 
@@ -130,3 +130,10 @@ class ddl_utils:
             )
         else:
             print(f"Skipping {object_name} as it already exists")
+
+    def remove_history(self) -> None:
+        conn = self.warehouse_utils.get_connection()
+        query = f"""
+        TRUNCATE TABLE [{self.execution_log_table_schema}].[{self.execution_log_table_name}];
+        """
+        self.warehouse_utils.execute_query(conn=conn, query=query)

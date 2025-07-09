@@ -813,7 +813,7 @@ du = ddl_utils(target_workspace_id, target_lakehouse_id)
 
 # CELL ********************
 
-guid = "6937eb26c16c"
+guid = "0b361c46b4ee"
 def work():
     sql = """
 
@@ -859,7 +859,7 @@ du.run_once(work,"001_config_parquet_loads_create", guid)
 
 # CELL ********************
 
-guid = "bc17803f3701"
+guid = "675aaf866f62"
 def work():
     sql = """
 
@@ -895,7 +895,7 @@ du.run_once(work,"002_config_synapse_loads_create", guid)
 
 # CELL ********************
 
-guid = "0a6390965eba"
+guid = "54dd7dd16032"
 def work():
     sql = """
 
@@ -934,7 +934,7 @@ du.run_once(work,"003_log_parquet_loads_create", guid)
 
 # CELL ********************
 
-guid = "755109da42d0"
+guid = "2e611f14380a"
 def work():
     sql = """
 
@@ -975,7 +975,7 @@ du.run_once(work,"004_log_synapse_loads_create", guid)
 
 # CELL ********************
 
-guid = "7461d6d52cd5"
+guid = "154c5a6e778c"
 def work():
     sql = """
 
@@ -1014,7 +1014,7 @@ du.run_once(work,"005_config_synapse_loads_insert", guid)
 
 # CELL ********************
 
-guid = "6f95f2886b11"
+guid = "1206015b9567"
 def work():
     sql = """
 

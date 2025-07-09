@@ -11,7 +11,7 @@ def ddl_utility() -> DDLUtilsInterface:
     # Use test workspace/lakehouse IDs
     workspace_id = "test-workspace-123"
     lakehouse_id = "test-lakehouse-456"
-    return ddl_utils(workspace_id, lakehouse_id)
+    return ddl_utils(workspace_id, lakehouse_id, "sqlserver")
 
 
 def test_print_log_runs(ddl_utility: DDLUtilsInterface) -> None:
@@ -19,14 +19,17 @@ def test_print_log_runs(ddl_utility: DDLUtilsInterface) -> None:
     ddl_utility.print_log()
 
 
-def test_check_if_script_has_run_false_initially(
-    ddl_utility: DDLUtilsInterface,
-) -> None:
+def test_check_if_script_has_run_false_initially(ddl_utility: DDLUtilsInterface) -> None:
     script_id = "example-script-001"
     assert ddl_utility.check_if_script_has_run(script_id) is False
 
+def test_remove_history(ddl_utility: DDLUtilsInterface) -> None:
+    # shoud not raise -- can test more when other utilities have been added.
+    ddl_utility.remove_history()
+
 
 def test_run_once_auto_guid(ddl_utility: DDLUtilsInterface) -> None:
+    ddl_utility.remove_history()
     called: dict[str, bool] = {"ran": False}
 
     def create_example_table() -> None:
@@ -44,6 +47,7 @@ def test_run_once_auto_guid(ddl_utility: DDLUtilsInterface) -> None:
 
 
 def test_run_once_explicit_guid(ddl_utility: DDLUtilsInterface) -> None:
+    ddl_utility.remove_history()
     called: dict[str, bool] = {"ran": False}
     guid = "custom-guid-123"
 

@@ -1,4 +1,5 @@
 from jinja2 import Template, Environment, exceptions
+from pathlib import Path
 
 
 def required_filter(value, var_name=""):
@@ -99,15 +100,17 @@ class SQLTemplates:
 
     def get_template(self, template_name: str, dialect: str) -> str:
         """Get the SQL template for the specified dialect."""
-        template = next(
-            (
-                t["file_contents"]
-                for t in self.TEMPLATES
-                if t["file_name"] == f"{template_name}.sql.jinja"
-                and t["dialect"] == dialect
-            ),
-            None,
-        )
+        #template = next(
+        #    (
+        #        t["file_contents"] for t in self.TEMPLATES
+        #        if t["file_name"] == f"{template_name}.sql.jinja"
+        #        and t["dialect"] == dialect
+        #    ),
+        #    None,
+        #)
+        with open(f"ingen_fab/python_libs/python/sql_template_factory/{dialect}/{template_name}.sql.jinja",'r', encoding="utf-8") as fp:
+            template = fp.read()
+
         if not template:
             raise FileNotFoundError(
                 f"Template {template_name} for dialect {dialect} not found."

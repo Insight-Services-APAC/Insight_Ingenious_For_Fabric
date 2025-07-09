@@ -813,7 +813,7 @@ du = ddl_utils(target_workspace_id, target_lakehouse_id)
 
 # CELL ********************
 
-guid = "de43b7e48326"
+guid = "a44ea46186c6"
 def work():
     sql = """
 

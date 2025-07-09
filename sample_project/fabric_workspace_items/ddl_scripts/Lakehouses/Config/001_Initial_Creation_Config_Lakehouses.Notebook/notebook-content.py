@@ -369,7 +369,6 @@ class lakehouse_utils(DataStoreInterface):
         Rename a table by moving its directory and updating the metastore if local.
         """
         import shutil
-
         src = f"{self.lakehouse_tables_uri()}{old_table_name}"
         dst = f"{self.lakehouse_tables_uri()}{new_table_name}"
         shutil.move(src.replace("file://", ""), dst.replace("file://", ""))
@@ -410,7 +409,6 @@ class lakehouse_utils(DataStoreInterface):
         delta_table.delete()
         # Optionally, remove the directory
         import shutil
-
         shutil.rmtree(table_path.replace("file://", ""), ignore_errors=True)
         if self.spark_version == "local":
             self.spark.sql(f"DROP TABLE IF EXISTS {table_name}")
@@ -491,6 +489,7 @@ class ddl_utils(DDLUtilsInterface):
         self.lakehouse_utils = lakehouse_utils(target_workspace_id, target_lakehouse_id)
         self.execution_log_table_name = "ddl_script_executions"
         self.initialise_ddl_script_executions_table()
+
 
     @staticmethod
     def execution_log_schema() -> StructType:
@@ -655,7 +654,7 @@ du = ddl_utils(target_workspace_id, target_lakehouse_id)
 
 # CELL ********************
 
-guid="d4a04b9273bf"
+guid="ca546af0b494"
 object_name = "001_config_parquet_loads_create"
 
 def script_to_execute():
@@ -690,7 +689,7 @@ def script_to_execute():
     
     
 
-du.run_once(script_to_execute, "001_config_parquet_loads_create","d4a04b9273bf")
+du.run_once(script_to_execute, "001_config_parquet_loads_create","ca546af0b494")
 
 def script_to_execute():
     print("Script block is empty. No action taken.")
@@ -710,7 +709,7 @@ def script_to_execute():
 
 # CELL ********************
 
-guid="3ae71625bf5b"
+guid="7d3f66491a44"
 object_name = "002_config_synapse_loads_create"
 
 def script_to_execute():
@@ -735,7 +734,7 @@ def script_to_execute():
     
     
 
-du.run_once(script_to_execute, "002_config_synapse_loads_create","3ae71625bf5b")
+du.run_once(script_to_execute, "002_config_synapse_loads_create","7d3f66491a44")
 
 def script_to_execute():
     print("Script block is empty. No action taken.")
@@ -755,7 +754,7 @@ def script_to_execute():
 
 # CELL ********************
 
-guid="60a85cc65151"
+guid="b8e53217c8f3"
 object_name = "003_log_parquet_loads_create"
 
 def script_to_execute():
@@ -785,7 +784,7 @@ def script_to_execute():
     
     
 
-du.run_once(script_to_execute, "003_log_parquet_loads_create","60a85cc65151")
+du.run_once(script_to_execute, "003_log_parquet_loads_create","b8e53217c8f3")
 
 def script_to_execute():
     print("Script block is empty. No action taken.")
@@ -805,7 +804,7 @@ def script_to_execute():
 
 # CELL ********************
 
-guid="9cc7fc5f2097"
+guid="868f738f3ef1"
 object_name = "004_log_synapse_loads_create"
 
 def script_to_execute():
@@ -837,7 +836,7 @@ def script_to_execute():
     
     
 
-du.run_once(script_to_execute, "004_log_synapse_loads_create","9cc7fc5f2097")
+du.run_once(script_to_execute, "004_log_synapse_loads_create","868f738f3ef1")
 
 def script_to_execute():
     print("Script block is empty. No action taken.")
@@ -857,7 +856,7 @@ def script_to_execute():
 
 # CELL ********************
 
-guid="a749c941a925"
+guid="d05729fbe57d"
 object_name = "005_config_synapse_loads_insert"
 
 def script_to_execute():
@@ -893,7 +892,7 @@ def script_to_execute():
     
     
 
-du.run_once(script_to_execute, "005_config_synapse_loads_insert","a749c941a925")
+du.run_once(script_to_execute, "005_config_synapse_loads_insert","d05729fbe57d")
 
 def script_to_execute():
     print("Script block is empty. No action taken.")
@@ -913,7 +912,7 @@ def script_to_execute():
 
 # CELL ********************
 
-guid="2d4914d8bef6"
+guid="28c14007fea4"
 object_name = "006_config_parquet_loads_insert"
 
 def script_to_execute():
@@ -990,7 +989,7 @@ def script_to_execute():
     
     
 
-du.run_once(script_to_execute, "006_config_parquet_loads_insert","2d4914d8bef6")
+du.run_once(script_to_execute, "006_config_parquet_loads_insert","28c14007fea4")
 
 def script_to_execute():
     print("Script block is empty. No action taken.")

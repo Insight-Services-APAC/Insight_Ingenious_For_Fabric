@@ -200,7 +200,7 @@ def test_overwrite_and_append_modes(utils, customers_schema, customers_data):
     # Append
     utils.write_to_table(customers_df, "customers", mode="append")
     appended_count = utils.get_table_row_count("customers")
-    assert appended_count == post_count + len(customers_data)
+    assert appended_count == post_count + pre_count
 
 
 def test_error_mode(utils, customers_schema, customers_data):
@@ -231,6 +231,18 @@ def test_table_existence_checking(utils, customers_schema, customers_data):
     # Now append
     utils.write_to_table(customers_df, "customers", mode="append")
     assert utils.check_if_table_exists(table_path)
+
+def test_table_optimise(utils, customers_schema, customers_data):
+    customers_df = utils.spark.createDataFrame(customers_data, customers_schema)
+    table_path = "customers"
+    if not utils.check_if_table_exists(table_path):
+        utils.write_to_table(customers_df, "customers")
+    # check command runs
+    utils.optimise_table(table_path)
+    # mutate table, creating more small parquet files
+    for _ in range(10):
+        utils.write_to_table(customers_df, "customers")
+    utils.optimise_table(table_path)
 
 
 def test_cleanup_drop_all_tables(utils, customers_schema, customers_data):

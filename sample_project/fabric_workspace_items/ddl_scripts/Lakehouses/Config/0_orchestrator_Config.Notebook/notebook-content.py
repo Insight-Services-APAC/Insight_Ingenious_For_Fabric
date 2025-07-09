@@ -380,7 +380,6 @@ class lakehouse_utils(DataStoreInterface):
         Rename a table by moving its directory and updating the metastore if local.
         """
         import shutil
-
         src = f"{self.lakehouse_tables_uri()}{old_table_name}"
         dst = f"{self.lakehouse_tables_uri()}{new_table_name}"
         shutil.move(src.replace("file://", ""), dst.replace("file://", ""))
@@ -421,7 +420,6 @@ class lakehouse_utils(DataStoreInterface):
         delta_table.delete()
         # Optionally, remove the directory
         import shutil
-
         shutil.rmtree(table_path.replace("file://", ""), ignore_errors=True)
         if self.spark_version == "local":
             self.spark.sql(f"DROP TABLE IF EXISTS {table_name}")
@@ -502,6 +500,7 @@ class ddl_utils(DDLUtilsInterface):
         self.lakehouse_utils = lakehouse_utils(target_workspace_id, target_lakehouse_id)
         self.execution_log_table_name = "ddl_script_executions"
         self.initialise_ddl_script_executions_table()
+
 
     @staticmethod
     def execution_log_schema() -> StructType:
