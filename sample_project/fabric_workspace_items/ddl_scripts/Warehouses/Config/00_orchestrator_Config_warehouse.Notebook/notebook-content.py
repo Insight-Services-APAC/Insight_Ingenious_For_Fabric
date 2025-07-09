@@ -4,8 +4,9 @@
 
 # META {
 # META   "kernel_info": {
-# META     "name": "synapse_pyspark"
-# META   }
+# META     "name": "jupyter",
+# META     "jupyter_kernel_name": "python3.11"
+# META   },
 # META }
 
 # MARKDOWN ********************
@@ -18,12 +19,11 @@
 
 
 
-
 # METADATA ********************
 
 # META {
 # META   "language": "python",
-# META   "language_group": "synapse_pyspark",
+# META   "language_group": "jupyter_python",
 # META }
 
 # MARKDOWN ********************
@@ -40,10 +40,15 @@ import sys
 if "notebookutils" in sys.modules:
     import sys
     
-    notebookutils.fs.mount("abfss://{{varlib:config_workspace_name}}@onelake.dfs.fabric.microsoft.com/{{varlib:config_lakehouse_name}}.Lakehouse/Files/", "/config_files")  # type: ignore # noqa: F821
+    notebookutils.fs.mount("abfss://dev_jr@onelake.dfs.fabric.microsoft.com/config.Lakehouse/Files/", "/config_files")  # type: ignore # noqa: F821
     mount_path = notebookutils.fs.getMountPath("/config_files")  # type: ignore # noqa: F821
     
+    run_mode = "fabric"
     sys.path.insert(0, mount_path)
+
+    
+    spark = None # Assuming Python mode does not require a Spark session
+    
 else:
     print("NotebookUtils not available, assumed running in local mode.")
     from ingen_fab.python_libs.pyspark.notebook_utils_abstraction import (
@@ -52,7 +57,7 @@ else:
     notebookutils = NotebookUtilsFactory.create_instance()
     spark = None
     mount_path = None
-
+    run_mode = "local"
 
 import traceback
 
@@ -116,29 +121,30 @@ clear_module_cache("ingen_fab")
 
 # MARKDOWN ********************
 
-# ## Instantiate the Helper Classes
+# ## 🗂️ Now Load the Custom Python Libraries
 
 # CELL ********************
 
 
 
-files_to_load = [
-    "ingen_fab/python_libs/common/config_utils.py",
-    "ingen_fab/python_libs/pyspark/lakehouse_utils.py",
-    "ingen_fab/python_libs/pyspark/ddl_utils.py",
-    "ingen_fab/python_libs/pyspark/notebook_utils_abstraction.py",
-    "ingen_fab/python_libs/pyspark/parquet_load_utils.py"
-]
-
-load_python_modules_from_path(pathPrefix, files_to_load)
-
-target_lakehouse_config_prefix = "Config"
-
-configs: ConfigsObject = get_configs_as_object()
-config_lakehouse = lakehouse_utils(
-    target_workspace_id=configs.edw_workspace_id,
-    target_lakehouse_id=configs.edw_lakehouse_id
-)
+if run_mode == "local":
+    from ingen_fab.python_libs.common.config_utils.py import *
+    from ingen_fab.python_libs.python.lakehouse_utils import lakehouse_utils
+    from ingen_fab.python_libs.python.ddl_utils import ddl_utils
+    from ingen_fab.python_libs.python.notebook_utils_abstraction import notebookutils
+    from ingen_fab.python_libs.python.sql_templates import sql_templates
+    from ingen_fab.python_libs.python.warehouse_utils import warehouse_utils
+    from ingen_fab.python_libs.python.pipeline_utils import pipeline_utils 
+else:
+    files_to_load = [
+        "ingen_fab/python_libs/common/config_utils.py",
+        "ingen_fab/python_libs/python/lakehouse_utils.py",
+        "ingen_fab/python_libs/python/ddl_utils.py",
+        "ingen_fab/python_libs/python/notebook_utils_abstraction.py",
+        "ingen_fab/python_libs/python/sql_templates.py",
+        "ingen_fab/python_libs/python/warehouse_utils.py",
+        "ingen_fab/python_libs/python/pipeline_utils.py"
+    ]
 
 
 
@@ -152,13 +158,35 @@ config_lakehouse = lakehouse_utils(
 
 # MARKDOWN ********************
 
-# ## Run the lakehouse DDL Notebooks
+# ## 🆕 Instantiate Required Classes 
 
 # CELL ********************
 
 
 
+
+configs: ConfigsObject = get_configs_as_object()
+
+
+
+
+
+# METADATA ********************
+
+# META {
+# META   "language": "python",
+# META   "language_group": "{language group | required}"
+# META }
+
+# MARKDOWN ********************
+
+# ## 🏃‍♂️‍➡️ Run All Lakehouse DDL
+
+# CELL ********************
+
+
 # Import required libraries
+from notebookutils import mssparkutils
 import sys
 from datetime import datetime
 
@@ -178,7 +206,13 @@ def execute_notebook(notebook_name, index, total, timeout_seconds=3600):
         print(f"{'='*60}")
         print(f"Executing notebook {index}/{total}:{notebook_name}")
         print(f"{'='*60}")
-        
+        params = {
+            "fabric_environment": fabric_environment,
+            "config_workspace_id": config_workspace_id,
+            "config_lakehouse_id": config_lakehouse_id,
+            "target_lakehouse_config_prefix": target_lakehouse_config_prefix,
+            'useRootDefaultLakehouse': True
+        }
         # Run the notebook
         result = mssparkutils.notebook.run(
             notebook_name,
@@ -207,9 +241,10 @@ def execute_notebook(notebook_name, index, total, timeout_seconds=3600):
 print(f"Starting orchestration for Config lakehouse")
 print(f"Start time: {start_time}")
 print(f"Workspace ID: {workspace_id}")
-print(f"Total notebooks to execute: 1")
+print(f"Total notebooks to execute: 2")
 print("="*60)
-execute_notebook("001_Initial_Creation_Config_Lakehouses", 1, 1)
+execute_notebook("001_Initial_Creation_Config_Warehouses", 1, 2)
+execute_notebook("002_Parquet_Load_Update_Config_Warehouses", 2, 2)
 
 # Final Summary
 end_time = datetime.now()
@@ -220,16 +255,16 @@ print(f"Orchestration Complete!")
 print(f"{'='*60}")
 print(f"End time: {end_time}")
 print(f"Duration: {duration}")
-print(f"Total notebooks: 1")
+print(f"Total notebooks: 2")
 print(f"Successfully executed: {success_count}")
-print(f"Failed: 1 - {success_count}")
+print(f"Failed: 2 - {success_count}")
 
-if success_count == 1:
+if success_count == 2:
     print("✓ All notebooks executed successfully!")
     mssparkutils.notebook.exit("success")
 else:
     print(f"✗ Orchestration completed with failures")
-    mssparkutils.notebook.exit(f"Orchestration completed with {success_count}/1 successful executions")
+    mssparkutils.notebook.exit(f"Orchestration completed with {success_count}/2 successful executions")
 
 
 

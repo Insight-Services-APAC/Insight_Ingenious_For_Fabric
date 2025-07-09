@@ -5,30 +5,50 @@
 {%- include "/common/nb_header_python.py.jinja" %}
 {% endif %}
 
-# THESE ARE RUNTIME SET VARIABLES AND SHOULD BE SET BY CALLING NOTEBOOK OR PIPELIE 
-target_lakehouse_config_prefix = "{{ target_lakehouse_config_prefix | lower }}"
+
+{% include "/common/nb_cell_mount_lib_path.py.jinja" %}
 
 
-{{macros.python_cell_with_heading("## Inject Configurations from Variable Library")}}
-# This section is automatically generated from the variable library JSON files. DO NOT ALTER
-# variableLibraryInjectionStart: var_lib
-# variableLibraryInjectionEnd: var_lib
+{{macros.python_cell_with_heading("## 🗂️ Now Load the Custom Python Libraries")}}
+
+if run_mode == "local":
+    from ingen_fab.python_libs.common.config_utils.py import *
+    from ingen_fab.python_libs.python.lakehouse_utils import lakehouse_utils
+    from ingen_fab.python_libs.python.ddl_utils import ddl_utils
+    from ingen_fab.python_libs.python.notebook_utils_abstraction import notebookutils
+    from ingen_fab.python_libs.python.sql_templates import sql_templates
+    from ingen_fab.python_libs.python.warehouse_utils import warehouse_utils
+    from ingen_fab.python_libs.python.pipeline_utils import pipeline_utils 
+else:
+    files_to_load = [
+        "ingen_fab/python_libs/common/config_utils.py",
+        "ingen_fab/python_libs/python/lakehouse_utils.py",
+        "ingen_fab/python_libs/python/ddl_utils.py",
+        "ingen_fab/python_libs/python/notebook_utils_abstraction.py",
+        "ingen_fab/python_libs/python/sql_templates.py",
+        "ingen_fab/python_libs/python/warehouse_utils.py",
+        "ingen_fab/python_libs/python/pipeline_utils.py"
+    ]
+
+    load_python_modules_from_path(mount_path, files_to_load)
+
+{{ macros.python_cell_with_heading("## 🆕 Instantiate Required Classes ")}}
+
+target_lakehouse_config_prefix = "{{target_lakehouse_config_prefix | required}}"
+configs: ConfigsObject = get_configs_as_object()
+target_warehouse_id = get_config_value(f"{target_lakehouse_config_prefix.lower()}_warehouse_id")
+target_workspace_id = get_config_value(f"{target_lakehouse_config_prefix.lower()}_workspace_id")
+
+du = ddl_utils(
+    target_workspace_id=target_workspace_id,
+    target_warehouse_id=target_warehouse_id,
+    notebookutils=notebookutils
+)
 
 
-{{macros.python_cell_with_heading("## 📦 Inject Reusable Classes and Functions")}}
+{{ macros.python_cell_with_heading("## 🏃‍♂️‍➡️ Run DDL Cells ")}}
 
-{%include "lib.py.jinja" %}
-
-{{macros.python_cell_with_heading("## Instantiate the Helper Classes")}}
-
-cu = config_utils(configs_object.config_workspace_id,configs_object.config_lakehouse_id)
-cu.overwrite_configs(configs_dict)
-configs = cu.get_configs_as_object(fabric_environment)
-target_workspace_id = configs.get_attribute(f"{target_lakehouse_config_prefix.lower()}_workspace_id")
-target_lakehouse_id = configs.get_attribute(f"{target_lakehouse_config_prefix.lower()}_lakehouse_id")
-lu = warehouse_utils(target_workspace_id, target_lakehouse_id)
-du = ddl_utils(target_workspace_id, target_lakehouse_id)
-
+# DDL cells are injected below:
 
 {% for content in cells %}
 
@@ -43,7 +63,7 @@ du.print_log()
 
 {{macros.python_cell_with_heading("## ✔️ If we make it to the end return a successful result")}}
 
-from notebookutils import mssparkutils
-mssparkutils.notebook.exit("success")
+import sys
+sys.exit("success")
 
 {%include "./common/nb_footer.py.jinja" %}

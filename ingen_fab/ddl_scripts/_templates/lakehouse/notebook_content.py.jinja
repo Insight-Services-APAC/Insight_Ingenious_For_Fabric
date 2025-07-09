@@ -8,10 +8,10 @@
 {% include "/common/nb_cell_mount_lib_path.py.jinja" %}
 
 
-{{macros.python_cell_with_heading(" Now Load the Custom Python Libraries")}}
+{{macros.python_cell_with_heading("## 🗂️ Now Load the Custom Python Libraries")}}
 
 if run_mode == "local":
-    from ingen_fab/python_libs/common/config_utils.py import *
+    import ingen_fab.python_libs.common.config_utils
     from ingen_fab.python_libs.pyspark.lakehouse_utils import lakehouse_utils
     from ingen_fab.python_libs.pyspark.ddl_utils import ddl_utils
     from ingen_fab.python_libs.pyspark.notebook_utils_abstraction import notebookutils
@@ -27,40 +27,22 @@ else:
 
     load_python_modules_from_path(mount_path, files_to_load)
 
-# METADATA ********************
-
-# META {
-# META   "language": "python",
-# META   "language_group": "jupyter_python"
-# META }
-
-# MARKDOWN ********************
-
-# ## 🧪🧪 Run DDL Scripts
-
-
-# CELL ********************
-
+{{ macros.python_cell_with_heading("## 🆕 Instantiate Required Classes ")}}
 
 target_lakehouse_config_prefix = "{{target_lakehouse_config_prefix | required}}"
-
 configs: ConfigsObject = get_configs_as_object()
-config_lakehouse = lakehouse_utils(
-    target_workspace_id=configs.edw_workspace_id,
-    target_lakehouse_id=configs.edw_lakehouse_id,
-    spark=spark  # Pass the Spark session if available
-)
-
+target_lakehouse_id = get_config_value(f"{target_lakehouse_config_prefix.lower()}_lakehouse_id")
+target_workspace_id = get_config_value(f"{target_lakehouse_config_prefix.lower()}_workspace_id")
 
 target_lakehouse = lakehouse_utils(
-    target_workspace_id=config_utils.get_config_value(f"{target_lakehouse_config_prefix.lower()}_workspace_id"),
-    target_lakehouse_id=config_utils.get_config_value(f"{target_lakehouse_config_prefix.lower()}_lakehouse_id"),
+    target_workspace_id=target_workspace_id,
+    target_lakehouse_id=target_lakehouse_id,
     spark=spark  # Pass the Spark session if available
 )
 
 du = ddl_utils(
-    target_workspace_id=target_lakehouse.target_workspace_id,
-    target_lakehouse_id=target_lakehouse.target_store_id,
+    target_workspace_id=target_workspace_id,
+    target_lakehouse_id=target_lakehouse_id,
     spark=spark  # Pass the Spark session if available
 )
 
@@ -74,7 +56,9 @@ from pyspark.sql.types import (
 )
 
 
+{{ macros.python_cell_with_heading("## 🏃‍♂️‍➡️ Run DDL Cells ")}}
 
+# DDL cells are injected below:
 
 {% for content in cells %}
 

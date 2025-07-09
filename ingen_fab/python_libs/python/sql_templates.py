@@ -1,4 +1,5 @@
-from jinja2 import Template, Environment, exceptions
+from jinja2 import Environment, Template, exceptions
+
 
 def required_filter(value, var_name=""):
     """Jinja2 filter: raises an error if value is not provided or is falsy."""

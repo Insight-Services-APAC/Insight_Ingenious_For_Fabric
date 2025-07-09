@@ -3,15 +3,15 @@
 import hashlib
 import inspect
 from datetime import datetime
+from typing import Any, Optional
 
-from .notebook_utils_abstraction import get_notebook_utils
-from .warehouse_utils import warehouse_utils
+from ingen_fab.python_libs.python.warehouse_utils import warehouse_utils
 
 
 class ddl_utils:
     """Run DDL scripts once and track execution in a warehouse table."""
 
-    def __init__(self, target_workspace_id: str, target_warehouse_id: str) -> None:
+    def __init__(self, target_workspace_id: str, target_warehouse_id: str, notebookutils: Optional[Any] = None) -> None:
         super().__init__()
         self.target_workspace_id = target_workspace_id
         self.target_warehouse_id = target_warehouse_id
@@ -20,8 +20,10 @@ class ddl_utils:
         self.warehouse_utils = warehouse_utils(
             target_workspace_id=target_workspace_id,
             target_warehouse_id=target_warehouse_id,
+            notebookutils=notebookutils
         )
-        self.notebook_utils = get_notebook_utils()
+        # Use the same notebook utils instance as warehouse_utils
+        self.notebook_utils = self.warehouse_utils.notebook_utils
         self.initialise_ddl_script_executions_table()
 
     def execution_log_schema():

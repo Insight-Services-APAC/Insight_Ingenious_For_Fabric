@@ -47,14 +47,16 @@ class NotebookGenerator:
         fabric_workspace_repo_dir: str | None = None,
     ):
         self.generation_mode = generation_mode
-        if self.generation_mode == NotebookGenerator.GenerationMode.warehouse:
-            self.language_group == "jupyter_python"
-        else: 
-            self.language_group = "synapse_pyspark"
-        
+        self.language_group = "synapse_pyspark"  # Default language group
         self.output_mode = output_mode
         self.console = Console()
         self.base_dir = Path.cwd()
+
+        if self.generation_mode == NotebookGenerator.GenerationMode.warehouse:            
+            self.language_group = "jupyter_python"
+        else: 
+            self.language_group = "synapse_pyspark"
+
         if templates_dir is None:
             templates_dir = (
                 Path(__file__).resolve().parent
@@ -94,7 +96,7 @@ class NotebookGenerator:
             )
 
         # Inject python libs into lib.py.jinja
-        self.inject_python_libs_into_template()
+        #self.inject_python_libs_into_template()
 
         # Initialize Rich console
         self.console = Console()
@@ -358,7 +360,7 @@ class NotebookGenerator:
         )
 
         # Create notebook with platform file
-        notebook_name = f"0_orchestrator_{entity_name}"
+        notebook_name = f"00_orchestrator_{entity_name}_{self.generation_mode.lower()}"
         return self.create_notebook_with_platform(
             notebook_name=notebook_name,
             rendered_content=orchestrator_content,
@@ -377,7 +379,7 @@ class NotebookGenerator:
         lakehouses = []
         for name in entity_names:
             lakehouses.append(
-                {"name": name, "orchestrator_name": f"0_orchestrator_{name}"}
+                {"name": name, "orchestrator_name": f"0_orchestrator_{name}_{self.generation_mode.lower()}_ddl_scripts"}
             )  # Render the all lakehouses orchestrator notebook
         orchestrator_content = all_lakehouses_template.render(
             lakehouses=lakehouses, total_lakehouses=len(lakehouses), language_group=self.language_group

@@ -22,7 +22,7 @@ class ddl_utils(DDLUtilsInterface):
         Initializes the DDLUtils class with the target workspace and lakehouse IDs.
         """
         super().__init__(
-            target_lakehouse_id=target_lakehouse_id,
+            target_datastore_id=target_lakehouse_id,
             target_workspace_id=target_workspace_id,
         )
         self.target_workspace_id = target_workspace_id

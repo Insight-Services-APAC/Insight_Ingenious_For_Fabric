@@ -22,7 +22,12 @@ if "notebookutils" in sys.modules:
     notebookutils.fs.mount("abfss://{{varlib:config_workspace_name}}@onelake.dfs.fabric.microsoft.com/{{varlib:config_lakehouse_name}}.Lakehouse/Files/", "/config_files")  # type: ignore # noqa: F821
     mount_path = notebookutils.fs.getMountPath("/config_files")  # type: ignore # noqa: F821
     {% endraw %}
+    run_mode = "fabric"
     sys.path.insert(0, mount_path)
+
+    {% if language_group != "synapse_pyspark" %}
+    spark = None # Assuming Python mode does not require a Spark session
+    {% endif %}
 else:
     print("NotebookUtils not available, assumed running in local mode.")
     from ingen_fab.python_libs.pyspark.notebook_utils_abstraction import (
@@ -31,7 +36,7 @@ else:
     notebookutils = NotebookUtilsFactory.create_instance()
     spark = None
     mount_path = None
-
+    run_mode = "local"
 
 import traceback
 

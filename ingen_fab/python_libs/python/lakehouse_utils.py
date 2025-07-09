@@ -5,8 +5,7 @@ from typing import Any
 from deltalake import DeltaTable, write_deltalake
 
 from ingen_fab.python_libs.common import config_utils
-
-from ..interfaces.data_store_interface import DataStoreInterface
+from ingen_fab.python_libs.interfaces.data_store_interface import DataStoreInterface
 
 
 class lakehouse_utils(DataStoreInterface):
@@ -77,9 +76,20 @@ class lakehouse_utils(DataStoreInterface):
 
     def list_tables(self) -> list[str]:
         """List all tables in the lakehouse directory using delta-rs."""
-        # delta-rs does not provide a directory listing, so this is a stub.
-        # You would need to list directories in the Tables/ path using a filesystem API.
-        raise NotImplementedError("delta-rs does not support listing tables directly.")
+        import os
+        tables_path = self.lakehouse_tables_uri().replace('file://', '')
+        if not os.path.exists(tables_path):
+            return []
+        
+        tables = []
+        for item in os.listdir(tables_path):
+            item_path = os.path.join(tables_path, item)
+            if os.path.isdir(item_path):
+                # Check if it's a Delta table by looking for _delta_log directory
+                delta_log_path = os.path.join(item_path, '_delta_log')
+                if os.path.exists(delta_log_path):
+                    tables.append(item)
+        return tables
 
     def drop_all_tables(
         self, schema_name: str | None = None, table_prefix: str | None = None
@@ -124,7 +134,8 @@ class lakehouse_utils(DataStoreInterface):
                 df = df.filter(mask)
         if limit:
             df = df.slice(0, limit)
-        return df
+        # Convert to pandas DataFrame for compatibility with tests
+        return df.to_pandas()
 
     def delete_from_table(
         self,

@@ -7,44 +7,34 @@
 
 {% include "/common/nb_cell_mount_lib_path.py.jinja" %}
 
-# Define the lakehouses and their orchestrators
-files_to_load = [
-    "ingen_fab/python_libs/common/config_utils.py",
-    "ingen_fab/python_libs/pyspark/lakehouse_utils.py",
-    "ingen_fab/python_libs/pyspark/ddl_utils.py",
-    "ingen_fab/python_libs/pyspark/notebook_utils_abstraction.py",
-    "ingen_fab/python_libs/pyspark/parquet_load_utils.py"
-]
 
-load_python_modules_from_path(pathPrefix, files_to_load)
+{{macros.python_cell_with_heading("## 🗂️ Now Load the Custom Python Libraries")}}
 
-lakehouses_to_run = [
-{%- for lakehouse in lakehouses %}
-    {'name': '{{ lakehouse.name }}', 'orchestrator': '{{ lakehouse.orchestrator_name }}'},
-{%- endfor %}
-]
+if run_mode == "local":
+    import ingen_fab.python_libs.common.config_utils
+    from ingen_fab.python_libs.pyspark.lakehouse_utils import lakehouse_utils
+    from ingen_fab.python_libs.pyspark.ddl_utils import ddl_utils
+    from ingen_fab.python_libs.pyspark.notebook_utils_abstraction import notebookutils
+    from ingen_fab.python_libs.pyspark.parquet_load_utils import parquet_load_utils 
+else:
+    files_to_load = [
+        "ingen_fab/python_libs/common/config_utils.py",
+        "ingen_fab/python_libs/pyspark/lakehouse_utils.py",
+        "ingen_fab/python_libs/pyspark/ddl_utils.py",
+        "ingen_fab/python_libs/pyspark/notebook_utils_abstraction.py",
+        "ingen_fab/python_libs/pyspark/parquet_load_utils.py"
+    ]
 
-{{macros.python_cell_with_heading("## Insert the Configs Into The Configuration Table")}}
+    load_python_modules_from_path(mount_path, files_to_load)
 
-cu = config_utils(config_workspace_id,config_lakehouse_id)
+{{ macros.python_cell_with_heading("## 🆕 Instantiate Required Classes ")}}
 
-cr = config_utils.FabricConfig(
-    fabric_environment,
-    config_workspace_id,
-    config_lakehouse_id,
-    edw_workspace_id,
-    edw_warehouse_id,
-    edw_warehouse_name,    
-    edw_lakehouse_id,
-    edw_lakehouse_name,
-    legacy_synapse_connection_name,
-    synapse_export_shortcut_path_in_onelake,
-    full_reset
-)
 
-cu.merge_config_record(cr)
+configs: ConfigsObject = get_configs_as_object()
 
-{{macros.python_cell_with_heading("## Run All Lakehouse Orchestrators in Parallel")}}
+
+
+{{macros.python_cell_with_heading("## 🏃‍♂️‍➡️ Run All Lakehouse Orchestrators in Parallel")}}
 
 
 # Import required libraries
@@ -54,13 +44,11 @@ from datetime import datetime
 import time
 
 # Initialize variables
-workspace_id = mssparkutils.runtime.context.get("currentWorkspaceId")
 start_time = datetime.now()
 results = {}
 
 print(f"Starting parallel orchestration for all lakehouses")
 print(f"Start time: {start_time}")
-print(f"Workspace ID: {workspace_id}")
 print(f"Total lakehouses to process: {{ total_lakehouses }}")
 print("="*60)
 

@@ -57,13 +57,19 @@ class NotebookUtilsInterface(ABC):
 class FabricNotebookUtils(NotebookUtilsInterface):
     """Fabric notebook utilities implementation."""
 
-    def __init__(self):
-        self._notebookutils = None
-        self._mssparkutils = None
+    def __init__(self, notebookutils: Optional[Any] = None, mssparkutils: Optional[Any] = None):
+        self._notebookutils = notebookutils
+        self._mssparkutils = mssparkutils
         self._available = self._check_availability()
 
     def _check_availability(self) -> bool:
         """Check if notebookutils is available."""
+        # If provided in constructor, use those
+        if self._notebookutils is not None and self._mssparkutils is not None:
+            self._notebook = self._mssparkutils.notebook
+            return True
+        
+        # Otherwise try to import them
         try:
             import notebookutils # type: ignore  # noqa: I001
             from notebookutils import mssparkutils # type: ignore
@@ -83,7 +89,7 @@ class FabricNotebookUtils(NotebookUtilsInterface):
         if not self._available:
             raise RuntimeError("notebookutils not available - cannot connect to artifact")
         
-        return self._notebookutils.data.connect_to_artifact(artifact_id, workspace_id)
+        return self._notebookutils.lakehouse.get(artifact_id)
 
     def display(self, obj: Any) -> None:
         """Display an object in the notebook."""
@@ -106,7 +112,7 @@ class FabricNotebookUtils(NotebookUtilsInterface):
     def get_secret(self, secret_name: str, key_vault_name: str) -> str:
         """Get a secret from Azure Key Vault."""
         if not self._available:
-            raise RuntimeError("notebookutils not available - cannot access Key Vault")
+            raise RuntimeError("mssparkutils not available - cannot access Key Vault")
         
         return self._mssparkutils.credentials.getSecret(key_vault_name, secret_name)
 
@@ -120,8 +126,10 @@ class FabricNotebookUtils(NotebookUtilsInterface):
 class LocalNotebookUtils(NotebookUtilsInterface):
     """Local development notebook utilities implementation."""
 
-    def __init__(self, connection_string: Optional[str] = None):
+    def __init__(self, connection_string: Optional[str] = None, spark_session_name: str = "spark"):
         self.connection_string = connection_string or self._get_default_connection_string()
+        self.spark_session_name = spark_session_name
+        self.spark_session = None
         self._secrets = self._load_local_secrets()
 
     def _get_default_connection_string(self) -> str:
@@ -141,20 +149,38 @@ class LocalNotebookUtils(NotebookUtilsInterface):
                 secrets[secret_name] = value
         return secrets
 
-    def connect_to_artifact(self, artifact_id: str, workspace_id: str) -> Any:
-        """Connect to a local SQL Server instead of Fabric artifact."""
+    def _get_spark_session(self):
+        """Get the spark session from globals if available."""
+        return globals().get(self.spark_session_name)
+    
+    def _create_lakehouse_path(self, lakehouse_name: str):
+        """Create a lakehouse path for local development."""
+        from pathlib import Path
+        path = Path(f"/tmp/{lakehouse_name}")
         try:
-            import pyodbc
-            logger.info(f"Connecting to local SQL Server (artifact_id: {artifact_id}, workspace_id: {workspace_id})")
-            return pyodbc.connect(self.connection_string)
-        except ImportError:
-            raise RuntimeError("pyodbc not available - cannot connect to local SQL Server")
+            path.mkdir(parents=True, exist_ok=False)
+        except FileExistsError:
+            pass  # Directory already exists, which is fine
+        return path
+
+    def connect_to_artifact(self, artifact_id: str, workspace_id: str) -> Any:
+        """Connect to a spark session instead of Fabric artifact."""
+        spark_session = self._get_spark_session()
+        if spark_session is None:
+            raise RuntimeError("Spark session not available")
+        logger.info(f"Connecting to spark session (artifact_id: {artifact_id}, workspace_id: {workspace_id})")
+        return spark_session
 
     def display(self, obj: Any) -> None:
-        """Display an object using print."""
-        if hasattr(obj, 'to_string'):
-            print(obj.to_string())
+        """Display an object using appropriate method."""
+        if hasattr(obj, 'show') and hasattr(obj, 'count'):
+            # Spark DataFrame (has both show and count methods)
+            obj.show()
+        elif hasattr(obj, 'head'):
+            # Pandas DataFrame (has head method)
+            print(obj.head())
         else:
+            # Regular object
             print(obj)
 
     def exit_notebook(self, value: Any = None) -> None:
@@ -228,14 +254,24 @@ class NotebookUtilsFactory:
         return cls._instance
     
     @classmethod
-    def create_instance(cls, force_local: bool = False) -> NotebookUtilsInterface:
+    def create_instance(cls, force_local: bool = False, notebookutils: Optional[Any] = None, mssparkutils: Optional[Any] = None) -> NotebookUtilsInterface:
         """Create a new instance of notebook utils."""
         if force_local:
             logger.info("Creating local notebook utils instance (forced)")
             return LocalNotebookUtils()
         
+        # Check if fabric_environment is set to local
+        try:
+            from ingen_fab.python_libs.common.config_utils import get_configs_as_object
+            config = get_configs_as_object()
+            if hasattr(config, 'fabric_environment') and config.fabric_environment == "local":
+                logger.info("Creating local notebook utils instance (fabric_environment is local)")
+                return LocalNotebookUtils()
+        except ImportError:
+            pass  # Continue with normal logic if config not available
+        
         # Try Fabric first
-        fabric_utils = FabricNotebookUtils()
+        fabric_utils = FabricNotebookUtils(notebookutils, mssparkutils)
         if fabric_utils.is_available():
             logger.info("Creating Fabric notebook utils instance")
             return fabric_utils
