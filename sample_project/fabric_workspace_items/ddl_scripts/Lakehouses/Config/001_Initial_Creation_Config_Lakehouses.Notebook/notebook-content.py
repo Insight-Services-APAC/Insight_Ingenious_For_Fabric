@@ -39,10 +39,13 @@ import sys
 if "notebookutils" in sys.modules:
     import sys
     
-    notebookutils.fs.mount("abfss://{{varlib:config_workspace_name}}@onelake.dfs.fabric.microsoft.com/{{varlib:config_lakehouse_name}}.Lakehouse/Files/", "/config_files")  # type: ignore # noqa: F821
+    notebookutils.fs.mount("abfss://dev_jr@onelake.dfs.fabric.microsoft.com/config.Lakehouse/Files/", "/config_files")  # type: ignore # noqa: F821
     mount_path = notebookutils.fs.getMountPath("/config_files")  # type: ignore # noqa: F821
     
+    run_mode = "fabric"
     sys.path.insert(0, mount_path)
+
+    
 else:
     print("NotebookUtils not available, assumed running in local mode.")
     from ingen_fab.python_libs.pyspark.notebook_utils_abstraction import (
@@ -51,7 +54,7 @@ else:
     notebookutils = NotebookUtilsFactory.create_instance()
     spark = None
     mount_path = None
-
+    run_mode = "local"
 
 import traceback
 
@@ -115,14 +118,14 @@ clear_module_cache("ingen_fab")
 
 # MARKDOWN ********************
 
-#  Now Load the Custom Python Libraries
+# ## 🗂️ Now Load the Custom Python Libraries
 
 # CELL ********************
 
 
 
 if run_mode == "local":
-    from ingen_fab/python_libs/common/config_utils.py import *
+    import ingen_fab.python_libs.common.config_utils
     from ingen_fab.python_libs.pyspark.lakehouse_utils import lakehouse_utils
     from ingen_fab.python_libs.pyspark.ddl_utils import ddl_utils
     from ingen_fab.python_libs.pyspark.notebook_utils_abstraction import notebookutils
@@ -138,40 +141,38 @@ else:
 
     load_python_modules_from_path(mount_path, files_to_load)
 
+
+
+
 # METADATA ********************
 
 # META {
 # META   "language": "python",
-# META   "language_group": "jupyter_python"
+# META   "language_group": "{language group | required}"
 # META }
 
 # MARKDOWN ********************
 
-# ## 🧪🧪 Run DDL Scripts
-
+# ## 🆕 Instantiate Required Classes 
 
 # CELL ********************
 
 
+
 target_lakehouse_config_prefix = "Config"
-
 configs: ConfigsObject = get_configs_as_object()
-config_lakehouse = lakehouse_utils(
-    target_workspace_id=configs.edw_workspace_id,
-    target_lakehouse_id=configs.edw_lakehouse_id,
-    spark=spark  # Pass the Spark session if available
-)
-
+target_lakehouse_id = get_config_value(f"{target_lakehouse_config_prefix.lower()}_lakehouse_id")
+target_workspace_id = get_config_value(f"{target_lakehouse_config_prefix.lower()}_workspace_id")
 
 target_lakehouse = lakehouse_utils(
-    target_workspace_id=config_utils.get_config_value(f"{target_lakehouse_config_prefix.lower()}_workspace_id"),
-    target_lakehouse_id=config_utils.get_config_value(f"{target_lakehouse_config_prefix.lower()}_lakehouse_id"),
+    target_workspace_id=target_workspace_id,
+    target_lakehouse_id=target_lakehouse_id,
     spark=spark  # Pass the Spark session if available
 )
 
 du = ddl_utils(
-    target_workspace_id=target_lakehouse.target_workspace_id,
-    target_lakehouse_id=target_lakehouse.target_store_id,
+    target_workspace_id=target_workspace_id,
+    target_lakehouse_id=target_lakehouse_id,
     spark=spark  # Pass the Spark session if available
 )
 
@@ -186,6 +187,24 @@ from pyspark.sql.types import (
 
 
 
+
+
+# METADATA ********************
+
+# META {
+# META   "language": "python",
+# META   "language_group": "{language group | required}"
+# META }
+
+# MARKDOWN ********************
+
+# ## 🏃‍♂️‍➡️ Run DDL Cells 
+
+# CELL ********************
+
+
+
+# DDL cells are injected below:
 
 
 

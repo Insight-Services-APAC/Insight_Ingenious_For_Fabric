@@ -39,12 +39,16 @@
       "value": "b3e5c081-5a1f-4fdd-9232-afc2108c27f1"
     },
     {
+      "name": "config_warehouse_id",
+      "value": "d1786653-8981-4c05-bcb9-7b22410723c5"
+    },
+    {
       "name": "edw_workspace_id",
-      "value": "###"
+      "value": "b3fbeaf7-ec67-4622-ba37-8d8bcb7e436a"
     },
     {
       "name": "edw_warehouse_id",
-      "value": "###"
+      "value": "d1786653-8981-4c05-bcb9-7b22410723c5"
     },
     {
       "name": "edw_lakehouse_id",

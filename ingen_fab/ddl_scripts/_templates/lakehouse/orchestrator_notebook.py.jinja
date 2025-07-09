@@ -5,38 +5,41 @@
 {%- include "/common/nb_header_python.py.jinja" %}
 {% endif %}
 
-
 {% include "/common/nb_cell_mount_lib_path.py.jinja" %}
 
 
-{{macros.python_cell_with_heading("## Instantiate the Helper Classes")}}
+{{macros.python_cell_with_heading("## 🗂️ Now Load the Custom Python Libraries")}}
 
-files_to_load = [
-    "ingen_fab/python_libs/common/config_utils.py",
-    "ingen_fab/python_libs/pyspark/lakehouse_utils.py",
-    "ingen_fab/python_libs/pyspark/ddl_utils.py",
-    "ingen_fab/python_libs/pyspark/notebook_utils_abstraction.py",
-    "ingen_fab/python_libs/pyspark/parquet_load_utils.py"
-]
+if run_mode == "local":
+    import ingen_fab.python_libs.common.config_utils
+    from ingen_fab.python_libs.pyspark.lakehouse_utils import lakehouse_utils
+    from ingen_fab.python_libs.pyspark.ddl_utils import ddl_utils
+    from ingen_fab.python_libs.pyspark.notebook_utils_abstraction import notebookutils
+    from ingen_fab.python_libs.pyspark.parquet_load_utils import parquet_load_utils 
+else:
+    files_to_load = [
+        "ingen_fab/python_libs/common/config_utils.py",
+        "ingen_fab/python_libs/pyspark/lakehouse_utils.py",
+        "ingen_fab/python_libs/pyspark/ddl_utils.py",
+        "ingen_fab/python_libs/pyspark/notebook_utils_abstraction.py",
+        "ingen_fab/python_libs/pyspark/parquet_load_utils.py"
+    ]
 
-load_python_modules_from_path(pathPrefix, files_to_load)
+    load_python_modules_from_path(mount_path, files_to_load)
 
-target_lakehouse_config_prefix = "{{target_lakehouse_config_prefix | required }}"
+{{ macros.python_cell_with_heading("## 🆕 Instantiate Required Classes ")}}
 
 configs: ConfigsObject = get_configs_as_object()
-config_lakehouse = lakehouse_utils(
-    target_workspace_id=configs.edw_workspace_id,
-    target_lakehouse_id=configs.edw_lakehouse_id
-)
 
-{{macros.python_cell_with_heading("## Run the lakehouse DDL Notebooks")}}
+
+
+{{macros.python_cell_with_heading("## 🏃‍♂️‍➡️ Run the lakehouse DDL Notebooks")}}
 
 # Import required libraries
 import sys
 from datetime import datetime
 
 # Initialize variables
-workspace_id = mssparkutils.runtime.context.get("currentWorkspaceId")
 success_count = 0
 failed_notebook = None
 start_time = datetime.now()
@@ -79,7 +82,6 @@ def execute_notebook(notebook_name, index, total, timeout_seconds=3600):
 
 print(f"Starting orchestration for {{ lakehouse_name }} lakehouse")
 print(f"Start time: {start_time}")
-print(f"Workspace ID: {workspace_id}")
 print(f"Total notebooks to execute: {{ total_notebooks }}")
 print("="*60)
 

@@ -5,50 +5,37 @@
 {%- include "/common/nb_header_python.py.jinja" %}
 {% endif %}
 
-
 {% include "/common/nb_cell_mount_lib_path.py.jinja" %}
 
-{{macros.python_cell_with_heading("## Instantiate the Helper Classes")}}
 
-cu = config_utils(config_workspace_id,config_lakehouse_id)
+{{macros.python_cell_with_heading("## 🗂️ Now Load the Custom Python Libraries")}}
 
+if run_mode == "local":
+    from ingen_fab.python_libs.common.config_utils.py import *
+    from ingen_fab.python_libs.python.lakehouse_utils import lakehouse_utils
+    from ingen_fab.python_libs.python.ddl_utils import ddl_utils
+    from ingen_fab.python_libs.python.notebook_utils_abstraction import notebookutils
+    from ingen_fab.python_libs.python.sql_templates import sql_templates
+    from ingen_fab.python_libs.python.warehouse_utils import warehouse_utils
+    from ingen_fab.python_libs.python.pipeline_utils import pipeline_utils 
+else:
+    files_to_load = [
+        "ingen_fab/python_libs/common/config_utils.py",
+        "ingen_fab/python_libs/python/lakehouse_utils.py",
+        "ingen_fab/python_libs/python/ddl_utils.py",
+        "ingen_fab/python_libs/python/notebook_utils_abstraction.py",
+        "ingen_fab/python_libs/python/sql_templates.py",
+        "ingen_fab/python_libs/python/warehouse_utils.py",
+        "ingen_fab/python_libs/python/pipeline_utils.py"
+    ]
 
-{{macros.python_cell_with_heading("## Drop all Tables in Target LH")}}
-
-if full_reset == True:
-    from ipywidgets import ToggleButtons, VBox, Label, Button
-    from IPython.display import display as pdisplay
-    from IPython.display import clear_output
-
-    
-    configs = cu.get_configs_as_object(fabric_environment)
-
-    target_workspace_id = configs.get_attribute(f"{target_lakehouse_config_prefix.lower()}_workspace_id")
-    target_lakehouse_id =  configs.get_attribute(f"{target_lakehouse_config_prefix.lower()}_lakehouse_id")
-    
-    # Build the widget
-    prompt = Label("❗ This will drop all tables — do you want to proceed?")
-    yesno = ToggleButtons(options=["No","Yes"], description="Confirm Destructive Action:")
-    go = Button(description="Submit", button_style="warning")
-
-    out = VBox([prompt, yesno, go])
-    pdisplay(out)
-
-    # Define what happens on click
-    def on_click(b):
-        clear_output()  # hide the widget after click
-        if yesno.value == "Yes":
-            print("Dropping tables…")
-            lu = lakehouse_utils(target_workspace_id, target_lakehouse_id)
-            lu.drop_all_tables()
-        else:
-            print("Operation cancelled.")
-
-    go.on_click(on_click)
+{{ macros.python_cell_with_heading("## 🆕 Instantiate Required Classes ")}}
 
 
-{{macros.python_cell_with_heading("## Run the lakehouse DDL Notebooks")}}
+configs: ConfigsObject = get_configs_as_object()
 
+
+{{macros.python_cell_with_heading("## 🏃‍♂️‍➡️ Run All Lakehouse DDL")}}
 # Import required libraries
 from notebookutils import mssparkutils
 import sys

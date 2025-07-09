@@ -361,7 +361,7 @@ class SyncToFabricEnvironment:
                             break
                         else:
                             for entry in status_entries:
-                                ConsoleStyles.print_info(self.console, f"Checking status for {entry.name}...")
+                                #ConsoleStyles.print_info(self.console, f"Checking status for {entry.name}...")
                                 if (
                                     f"{entry.name}.{entry.item_type}".lower()
                                     == item.name.lower()

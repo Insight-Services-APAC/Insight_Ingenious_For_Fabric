@@ -4,8 +4,9 @@
 
 # META {
 # META   "kernel_info": {
-# META     "name": "synapse_pyspark"
-# META   }
+# META     "name": "jupyter",
+# META     "jupyter_kernel_name": "python3.11"
+# META   },
 # META }
 
 # MARKDOWN ********************
@@ -22,7 +23,7 @@
 
 # META {
 # META   "language": "python",
-# META   "language_group": "synapse_pyspark",
+# META   "language_group": "jupyter_python",
 # META }
 
 # MARKDOWN ********************
@@ -45,6 +46,8 @@ if "notebookutils" in sys.modules:
     run_mode = "fabric"
     sys.path.insert(0, mount_path)
 
+    
+    spark = None # Assuming Python mode does not require a Spark session
     
 else:
     print("NotebookUtils not available, assumed running in local mode.")
@@ -125,21 +128,23 @@ clear_module_cache("ingen_fab")
 
 
 if run_mode == "local":
-    import ingen_fab.python_libs.common.config_utils
-    from ingen_fab.python_libs.pyspark.lakehouse_utils import lakehouse_utils
-    from ingen_fab.python_libs.pyspark.ddl_utils import ddl_utils
-    from ingen_fab.python_libs.pyspark.notebook_utils_abstraction import notebookutils
-    from ingen_fab.python_libs.pyspark.parquet_load_utils import parquet_load_utils 
+    from ingen_fab.python_libs.common.config_utils.py import *
+    from ingen_fab.python_libs.python.lakehouse_utils import lakehouse_utils
+    from ingen_fab.python_libs.python.ddl_utils import ddl_utils
+    from ingen_fab.python_libs.python.notebook_utils_abstraction import notebookutils
+    from ingen_fab.python_libs.python.sql_templates import sql_templates
+    from ingen_fab.python_libs.python.warehouse_utils import warehouse_utils
+    from ingen_fab.python_libs.python.pipeline_utils import pipeline_utils 
 else:
     files_to_load = [
         "ingen_fab/python_libs/common/config_utils.py",
-        "ingen_fab/python_libs/pyspark/lakehouse_utils.py",
-        "ingen_fab/python_libs/pyspark/ddl_utils.py",
-        "ingen_fab/python_libs/pyspark/notebook_utils_abstraction.py",
-        "ingen_fab/python_libs/pyspark/parquet_load_utils.py"
+        "ingen_fab/python_libs/python/lakehouse_utils.py",
+        "ingen_fab/python_libs/python/ddl_utils.py",
+        "ingen_fab/python_libs/python/notebook_utils_abstraction.py",
+        "ingen_fab/python_libs/python/sql_templates.py",
+        "ingen_fab/python_libs/python/warehouse_utils.py",
+        "ingen_fab/python_libs/python/pipeline_utils.py"
     ]
-
-    load_python_modules_from_path(mount_path, files_to_load)
 
 
 
@@ -166,7 +171,6 @@ configs: ConfigsObject = get_configs_as_object()
 
 
 
-
 # METADATA ********************
 
 # META {
@@ -183,6 +187,12 @@ configs: ConfigsObject = get_configs_as_object()
 
 
 
+# Define the lakehouses and their orchestrators
+lakehouses_to_run = [
+    {'name': 'Config', 'orchestrator': '0_orchestrator_Config_warehouse_ddl_scripts'},
+]
+
+
 # Import required libraries
 from notebookutils import mssparkutils
 from concurrent.futures import ThreadPoolExecutor, as_completed
@@ -195,6 +205,7 @@ results = {}
 
 print(f"Starting parallel orchestration for all lakehouses")
 print(f"Start time: {start_time}")
+
 print(f"Total lakehouses to process: 1")
 print("="*60)
 

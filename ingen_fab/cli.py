@@ -220,13 +220,23 @@ def pyspark(
 ):
     """Run pytest on ingen_fab/python_libs_tests/pyspark or a specific test file if provided."""
     import pytest
+    
+    # Check that FABRIC_ENVIRONMENT is set to "local" for local tests
+    fabric_env = os.getenv("FABRIC_ENVIRONMENT")
+    if fabric_env != "local":
+        console.print(
+            f"[red]Error: FABRIC_ENVIRONMENT must be set to 'local' for local tests. "
+            f"Current value: {fabric_env}[/red]"
+        )
+        console.print("[yellow]Please set: FABRIC_ENVIRONMENT=local[/yellow]")
+        raise typer.Exit(code=1)
 
     base = "ingen_fab/python_libs_tests/pyspark"
     if lib:
         test_file = f"{base}/{lib}_pytest.py"
-        exit_code = pytest.main([test_file])
+        exit_code = pytest.main([test_file, "-v"])
     else:
-        exit_code = pytest.main([base])
+        exit_code = pytest.main([base, "-v"])
     raise typer.Exit(code=exit_code)
 
 
@@ -241,6 +251,16 @@ def python(
 ):
     """Run pytest on ingen_fab/python_libs_tests/python or a specific test file if provided."""
     import pytest
+    
+    # Check that FABRIC_ENVIRONMENT is set to "local" for local tests
+    fabric_env = os.getenv("FABRIC_ENVIRONMENT")
+    if fabric_env != "local":
+        console.print(
+            f"[red]Error: FABRIC_ENVIRONMENT must be set to 'local' for local tests. "
+            f"Current value: {fabric_env}[/red]"
+        )
+        console.print("[yellow]Please set: FABRIC_ENVIRONMENT=local[/yellow]")
+        raise typer.Exit(code=1)
 
     base = "ingen_fab/python_libs_tests/python"
     if lib:
@@ -266,9 +286,9 @@ def common(
     base = "ingen_fab/python_libs_tests/common"
     if lib:
         test_file = f"{base}/{lib}_pytest.py"
-        exit_code = pytest.main([test_file])
+        exit_code = pytest.main([test_file, "-v"])
     else:
-        exit_code = pytest.main([base])
+        exit_code = pytest.main([base, "-v"])
     raise typer.Exit(code=exit_code)
 
 

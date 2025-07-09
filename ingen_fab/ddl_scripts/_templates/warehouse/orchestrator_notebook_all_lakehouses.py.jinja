@@ -7,52 +7,43 @@
 
 {% include "/common/nb_cell_mount_lib_path.py.jinja" %}
 
+
+{{macros.python_cell_with_heading("## 🗂️ Now Load the Custom Python Libraries")}}
+
+if run_mode == "local":
+    from ingen_fab.python_libs.common.config_utils.py import *
+    from ingen_fab.python_libs.python.lakehouse_utils import lakehouse_utils
+    from ingen_fab.python_libs.python.ddl_utils import ddl_utils
+    from ingen_fab.python_libs.python.notebook_utils_abstraction import notebookutils
+    from ingen_fab.python_libs.python.sql_templates import sql_templates
+    from ingen_fab.python_libs.python.warehouse_utils import warehouse_utils
+    from ingen_fab.python_libs.python.pipeline_utils import pipeline_utils 
+else:
+    files_to_load = [
+        "ingen_fab/python_libs/common/config_utils.py",
+        "ingen_fab/python_libs/python/lakehouse_utils.py",
+        "ingen_fab/python_libs/python/ddl_utils.py",
+        "ingen_fab/python_libs/python/notebook_utils_abstraction.py",
+        "ingen_fab/python_libs/python/sql_templates.py",
+        "ingen_fab/python_libs/python/warehouse_utils.py",
+        "ingen_fab/python_libs/python/pipeline_utils.py"
+    ]
+
+{{ macros.python_cell_with_heading("## 🆕 Instantiate Required Classes ")}}
+
+
+configs: ConfigsObject = get_configs_as_object()
+
+
+{{macros.python_cell_with_heading("## 🏃‍♂️‍➡️ Run All Lakehouse Orchestrators in Parallel")}}
+
+
 # Define the lakehouses and their orchestrators
 lakehouses_to_run = [
 {%- for lakehouse in lakehouses %}
     {'name': '{{ lakehouse.name }}', 'orchestrator': '{{ lakehouse.orchestrator_name }}'},
 {%- endfor %}
 ]
-
-# Fabric Configurations 
-fabric_environment: str = "development" 
-config_lakehouse_name = "LH1"  # name of your Lakehouse
-config_workspace_id = "50fbcab0-7d56-46f7-90f6-80ceb00ac86d"
-config_lakehouse_id = "f0121783-34cc-4e64-bfb5-6b44b1a7f04b"
-edw_workspace_id = '50fbcab0-7d56-46f7-90f6-80ceb00ac86d'
-edw_warehouse_id = '8a26f137-fd0b-47f6-92e1-e4551593c751'
-edw_warehouse_name = 'WH'
-edw_lakehouse_id = '8a26f137-fd0b-47f6-92e1-e4551593c751'
-edw_lakehouse_name = 'LH'
-legacy_synapse_connection_name = 'synapse_connection'
-synapse_export_shortcut_path_in_onelake = 'exports/'
-full_reset = False  
-
-{{macros.python_cell_with_heading("## 📦 Inject Reusable Classes and Functions")}}
-
-
-
-{{macros.python_cell_with_heading("## Insert the Configs Into The Configuration Table")}}
-
-cu = config_utils(config_workspace_id,config_lakehouse_id)
-
-cr = config_utils.FabricConfig(
-    fabric_environment,
-    config_workspace_id,
-    config_lakehouse_id,
-    edw_workspace_id,
-    edw_warehouse_id,
-    edw_warehouse_name,    
-    edw_lakehouse_id,
-    edw_lakehouse_name,
-    legacy_synapse_connection_name,
-    synapse_export_shortcut_path_in_onelake,
-    full_reset
-)
-
-cu.merge_config_record(cr)
-
-{{macros.python_cell_with_heading("## Run All Lakehouse Orchestrators in Parallel")}}
 
 
 # Import required libraries
@@ -62,13 +53,12 @@ from datetime import datetime
 import time
 
 # Initialize variables
-workspace_id = mssparkutils.runtime.context.get("currentWorkspaceId")
 start_time = datetime.now()
 results = {}
 
 print(f"Starting parallel orchestration for all lakehouses")
 print(f"Start time: {start_time}")
-print(f"Workspace ID: {workspace_id}")
+
 print(f"Total lakehouses to process: {{ total_lakehouses }}")
 print("="*60)
 

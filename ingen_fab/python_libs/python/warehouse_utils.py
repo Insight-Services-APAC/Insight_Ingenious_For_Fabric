@@ -1,13 +1,12 @@
 import logging
 import os
-from typing import Optional
+from typing import Any, Optional
 
 import pandas as pd
 
 from ingen_fab.python_libs.interfaces.data_store_interface import DataStoreInterface
-
-from .notebook_utils_abstraction import NotebookUtilsFactory
-from .sql_templates import (
+from ingen_fab.python_libs.python.notebook_utils_abstraction import NotebookUtilsFactory
+from ingen_fab.python_libs.python.sql_templates import (
     SQLTemplates,  # Assuming this is a custom module for SQL templates
 )
 
@@ -16,9 +15,11 @@ logger = logging.getLogger(__name__)
 
 class warehouse_utils(DataStoreInterface):
 
-    def _is_notebookutils_available(self) -> bool:
+    def _is_notebookutils_available(self, notebookutils: Optional[Any] = None, mssparkutils: Optional[Any] = None) -> bool:
         """Check if notebookutils is importable (for Fabric dialect)."""
-        return NotebookUtilsFactory.create_instance().is_available()
+        return NotebookUtilsFactory.create_instance(
+            notebookutils=notebookutils
+        ).is_available()
     """Utilities for interacting with Fabric or local SQL Server warehouses."""
 
     def __init__(
@@ -28,6 +29,7 @@ class warehouse_utils(DataStoreInterface):
         *,
         dialect: str = "fabric",
         connection_string: Optional[str] = f"DRIVER={{ODBC Driver 18 for SQL Server}};SERVER=localhost,1433;UID=sa;PWD={os.getenv('SQL_SERVER_SA_PASSWORD', 'YourStrong!Passw0rd')};TrustServerCertificate=yes;",
+        notebookutils: Optional[Any] = None
     ):
         
         self._target_workspace_id = target_workspace_id
@@ -40,8 +42,10 @@ class warehouse_utils(DataStoreInterface):
             )
         
         # Initialize notebook utils abstraction
-        self.notebook_utils = NotebookUtilsFactory.get_instance()
-        
+        self.notebook_utils = NotebookUtilsFactory.get_instance(
+            notebookutils=notebookutils
+        )
+
         # Look for the existence of notebookutils and if not found, assume local SQL Server
         if dialect == "fabric" and not self.notebook_utils.is_available():
             logger.warning(
@@ -98,7 +102,7 @@ class warehouse_utils(DataStoreInterface):
             return df
         except Exception as e:            
             logging.error(f"Error executing query: {query}. Error: {e}")
-
+            logging.error("Connection details: %s", conn)
             raise
 
     def create_schema_if_not_exists(self, schema_name: str):
