@@ -5,6 +5,7 @@
     "test",
     "development",
     "development_jr",
-    "sandbox"
+    "sandbox",
+    "local"
   ]
 }

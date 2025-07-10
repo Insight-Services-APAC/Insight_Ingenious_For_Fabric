@@ -3,7 +3,7 @@
   "variables": [
     {
       "name": "fabric_environment",
-      "note": "",
+      "note": "The environment name for Fabric deployment (e.g., dev, prod).",
       "type": "String",
       "value": ""
     },
@@ -15,73 +15,85 @@
     },
     {
       "name": "synapse_source_sql_connection",
-      "note": "",
+      "note": "Connection string or name for the source Synapse SQL database.",
       "type": "String",
       "value": ""
     },
     {
       "name": "synapse_source_database_1",
-      "note": "",
+      "note": "Name of the primary source Synapse database.",
       "type": "String",
       "value": ""
     },
     {
       "name": "config_lakehouse_name",
-      "note": "",
+      "note": "Name of the configuration lakehouse.",
+      "type": "String",
+      "value": ""
+    },
+    {
+      "name": "config_workspace_name",
+      "note": "Name of the workspace used for configuration.",
       "type": "String",
       "value": ""
     },
     {
       "name": "config_workspace_id",
-      "note": "",
+      "note": "ID of the workspace used for configuration.",
       "type": "String",
       "value": ""
     },
     {
       "name": "config_lakehouse_id",
-      "note": "",
+      "note": "ID of the configuration lakehouse.",
+      "type": "String",
+      "value": ""
+    },
+    {
+      "name": "config_warehouse_id",
+      "note": "The id of the warehouse that will store configuration tables. Note, this setting is mutually exclusive with config_lakehouse_id. If config_lakehouse_id is set, this variable will be ignored.",
       "type": "String",
       "value": ""
     },
     {
       "name": "edw_workspace_id",
-      "note": "",
+      "note": "ID of the EDW (Enterprise Data Warehouse) workspace.",
       "type": "String",
       "value": ""
     },
     {
       "name": "edw_warehouse_id",
-      "note": "",
+      "note": "ID of the EDW warehouse.",
       "type": "String",
       "value": ""
     },
     {
       "name": "edw_warehouse_name",
-      "note": "",
+      "note": "Name of the EDW warehouse.",
       "type": "String",
       "value": ""
     },
     {
       "name": "edw_lakehouse_id",
-      "note": "",
+      "note": "ID of the EDW lakehouse.",
       "type": "String",
       "value": ""
     },
     {
       "name": "edw_lakehouse_name",
-      "note": "",
+      "note": "Name of the EDW lakehouse.",
       "type": "String",
       "value": ""
     },
     {
       "name": "legacy_synapse_connection_name",
-      "note": "",
+      "note": "Name of the legacy Synapse connection, if applicable.",
       "type": "String",
       "value": ""
     },
     {
       "name": "synapse_export_shortcut_path_in_onelake",
-      "note": "",
+      "note": "Path in OneLake for Synapse export shortcut.",
       "type": "String",
       "value": ""
     }

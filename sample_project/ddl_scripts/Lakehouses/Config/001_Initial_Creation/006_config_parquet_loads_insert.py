@@ -62,9 +62,10 @@ data = [
     ),
 ]
 
-insert_df = spark.createDataFrame(data, schema)
+insert_df = target_lakehouse.get_connection.createDataFrame(data, schema)
 
-# 3. Append to the existing Delta table
-table_path = f"{lu.lakehouse_tables_uri()}config_parquet_loads"
-
-insert_df.write.format("delta").mode("append").save(table_path)
+target_lakehouse.write_to_table(
+    table_name="config_parquet_loads",
+    df=insert_df,
+    mode="append"
+)

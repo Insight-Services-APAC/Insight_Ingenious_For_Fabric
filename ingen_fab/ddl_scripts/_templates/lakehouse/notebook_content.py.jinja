@@ -1,27 +1,64 @@
-{%- import 'nb_macros.py.jinja' as macros -%}
-{%- include "nb_header.py.jinja" %}
+{%- import './common/nb_macros.py.jinja' as macros -%}
+{% if language_group == "synapse_pyspark" %}
+{%- include "/common/nb_header_pyspark.py.jinja" %}
+{% else %}
+{%- include "/common/nb_header_python.py.jinja" %}
+{% endif %}
 
-# THESE SHOULD BE SET BY THE SCHEDULER 
-fabric_environment = "development"  # fabric environment, e.g. development, test, production
-config_workspace_id = "50fbcab0-7d56-46f7-90f6-80ceb00ac86d"
-config_lakehouse_id = "f0121783-34cc-4e64-bfb5-6b44b1a7f04b"
-target_lakehouse_config_prefix = "{{ target_lakehouse_config_prefix | lower }}"
-# ONLY USE THIS IN DEV
-full_reset = False # ⚠️ Full reset -- DESTRUCTIVE - will drop all tables
+{% include "/common/nb_cell_mount_lib_path.py.jinja" %}
 
-{{macros.python_cell_with_heading("## 📦 Inject Reusable Classes and Functions")}}
 
-{%include "lib.py.jinja" %}
+{{macros.python_cell_with_heading("## 🗂️ Now Load the Custom Python Libraries")}}
 
-{{macros.python_cell_with_heading("## Instantiate the Helper Classes")}}
+if run_mode == "local":
+    import ingen_fab.python_libs.common.config_utils
+    from ingen_fab.python_libs.pyspark.lakehouse_utils import lakehouse_utils
+    from ingen_fab.python_libs.pyspark.ddl_utils import ddl_utils
+    from ingen_fab.python_libs.pyspark.notebook_utils_abstraction import notebookutils
+    from ingen_fab.python_libs.pyspark.parquet_load_utils import parquet_load_utils 
+else:
+    files_to_load = [
+        "ingen_fab/python_libs/common/config_utils.py",
+        "ingen_fab/python_libs/pyspark/lakehouse_utils.py",
+        "ingen_fab/python_libs/pyspark/ddl_utils.py",
+        "ingen_fab/python_libs/pyspark/notebook_utils_abstraction.py",
+        "ingen_fab/python_libs/pyspark/parquet_load_utils.py"
+    ]
 
-cu = config_utils(config_workspace_id,config_lakehouse_id)
-configs = cu.get_configs_as_object(fabric_environment)
-target_workspace_id = configs.get_attribute(f"{target_lakehouse_config_prefix.lower()}_workspace_id")
-target_lakehouse_id = configs.get_attribute(f"{target_lakehouse_config_prefix.lower()}_lakehouse_id")
-lu = lakehouse_utils(target_workspace_id, target_lakehouse_id)
-du = ddl_utils(target_workspace_id, target_lakehouse_id)
+    load_python_modules_from_path(mount_path, files_to_load)
 
+{{ macros.python_cell_with_heading("## 🆕 Instantiate Required Classes ")}}
+
+target_lakehouse_config_prefix = "{{target_lakehouse_config_prefix | required}}"
+configs: ConfigsObject = get_configs_as_object()
+target_lakehouse_id = get_config_value(f"{target_lakehouse_config_prefix.lower()}_lakehouse_id")
+target_workspace_id = get_config_value(f"{target_lakehouse_config_prefix.lower()}_workspace_id")
+
+target_lakehouse = lakehouse_utils(
+    target_workspace_id=target_workspace_id,
+    target_lakehouse_id=target_lakehouse_id,
+    spark=spark  # Pass the Spark session if available
+)
+
+du = ddl_utils(
+    target_workspace_id=target_workspace_id,
+    target_lakehouse_id=target_lakehouse_id,
+    spark=spark  # Pass the Spark session if available
+)
+
+from pyspark.sql.types import (
+    IntegerType,
+    StringType,
+    StructField,
+    StructType,
+    TimestampType,
+    LongType
+)
+
+
+{{ macros.python_cell_with_heading("## 🏃‍♂️‍➡️ Run DDL Cells ")}}
+
+# DDL cells are injected below:
 
 {% for content in cells %}
 
@@ -30,13 +67,46 @@ du = ddl_utils(target_workspace_id, target_lakehouse_id)
 {% endfor %}
 
 
-{{macros.python_cell_with_heading("## 📇 Print the execution log")}}
+
+
+# METADATA ********************
+
+# META {
+# META   "language": "python",
+# META   "language_group": "synapse_pyspark"
+# META }
+
+# MARKDOWN ********************
+
+# ## 📇 Print the execution log
+
+# CELL ********************
+
+
 
 du.print_log() 
 
-{{macros.python_cell_with_heading("## ✔️ If we make it to the end return a successful result")}}
 
-from notebookutils import mssparkutils
-mssparkutils.notebook.exit("success")
 
-{%include "nb_footer.py.jinja" %}
+
+# METADATA ********************
+
+# META {
+# META   "language": "python",
+# META   "language_group": "synapse_pyspark"
+# META }
+
+# MARKDOWN ********************
+
+# ## ✔️ If we make it to the end return a successful result
+
+# CELL ********************
+
+
+
+notebookutils.mssparkutils.notebook.exit("success")
+
+
+
+
+{%include "/common/nb_footer.py.jinja" %}

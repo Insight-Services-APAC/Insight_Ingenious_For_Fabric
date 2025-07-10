@@ -4,7 +4,7 @@ import uuid
 from enum import Enum
 from pathlib import Path
 
-from jinja2 import Environment, FileSystemLoader
+from jinja2 import Environment, FileSystemLoader, exceptions
 from rich.console import Console
 from rich.panel import Panel
 from rich.progress import (
@@ -19,6 +19,14 @@ from rich.table import Table
 
 from ingen_fab.python_libs.gather_python_libs import GatherPythonLibs
 
+
+def required_filter(value, var_name=""):
+    """Jinja2 filter: raises an error if value is not provided or is falsy."""
+    if value is None or (hasattr(value, '__len__') and len(value) == 0):
+        raise exceptions.TemplateRuntimeError(
+            f"Required parameter '{var_name or 'unknown'}' was not provided!"
+        )
+    return value
 
 class NotebookGenerator:
     """Class to generate notebooks and orchestrators for Lakehouses or Warehouses."""
@@ -39,9 +47,16 @@ class NotebookGenerator:
         fabric_workspace_repo_dir: str | None = None,
     ):
         self.generation_mode = generation_mode
+        self.language_group = "synapse_pyspark"  # Default language group
         self.output_mode = output_mode
         self.console = Console()
         self.base_dir = Path.cwd()
+
+        if self.generation_mode == NotebookGenerator.GenerationMode.warehouse:            
+            self.language_group = "jupyter_python"
+        else: 
+            self.language_group = "synapse_pyspark"
+
         if templates_dir is None:
             templates_dir = (
                 Path(__file__).resolve().parent
@@ -81,10 +96,7 @@ class NotebookGenerator:
             )
 
         # Inject python libs into lib.py.jinja
-        self.inject_python_libs_into_template()
-
-        # Jinja2 Environment
-        self.env = Environment(loader=FileSystemLoader(str(self.templates_dir)))
+        #self.inject_python_libs_into_template()
 
         # Initialize Rich console
         self.console = Console()
@@ -105,7 +117,8 @@ class NotebookGenerator:
         )
 
         # Jinja2 Environment
-        self.env = Environment(loader=FileSystemLoader(str(self.templates_dir)))
+        self.env = Environment(loader=FileSystemLoader(str(self.templates_dir.parent)))
+        self.env.filters["required"] = lambda value, var_name="": required_filter(value, var_name)
 
     def load_template(self, template_name):
         """Load a Jinja template."""
@@ -230,11 +243,12 @@ class NotebookGenerator:
         config_folder,
         output_folder,
         notebook_display_name,
+        target_lakehouse_config_prefix,
         progress=None,
         parent_task=None,
     ):
         """Generate a notebook and its .platform file for a specific entity configuration."""
-        notebook_template = self.load_template("notebook_content.py.jinja")
+        notebook_template = self.load_template(f"{self.generation_mode.lower()}/notebook_content.py.jinja")
         cells = []
 
         config_folder = Path(config_folder)
@@ -260,9 +274,9 @@ class NotebookGenerator:
 
             # Determine the template to use based on file extension
             if file_path.suffix == ".py":
-                cell_template = self.load_template("script_cells/pyspark.py.jinja")
+                cell_template = self.load_template("./common/ddl_script_execution_cells/pyspark.py.jinja")
             elif file_path.suffix == ".sql":
-                cell_template = self.load_template("script_cells/spark_sql.py.jinja")
+                cell_template = self.load_template("./common/ddl_script_execution_cells/spark_sql.py.jinja")
             else:
                 continue  # Skip unsupported file types
 
@@ -292,8 +306,9 @@ class NotebookGenerator:
                     "example-warehouse-id"
                     if self.generation_mode
                     == NotebookGenerator.GenerationMode.warehouse
-                    else None
-                ),
+                    else None              
+                ),            
+                language_group=self.language_group  
             )
 
             # Add cell to the list
@@ -302,10 +317,10 @@ class NotebookGenerator:
             if progress and parent_task is not None:
                 progress.advance(cell_task)
 
-            time.sleep(0.5)  # Simulate processing time for each cell
+            #time.sleep(0.5)  # Simulate processing time for each cell
 
         # Render the notebook template with the cells
-        rendered_notebook = notebook_template.render(cells=cells)
+        rendered_notebook = notebook_template.render(cells=cells, target_lakehouse_config_prefix=target_lakehouse_config_prefix, language_group=self.language_group)
 
         # Create notebook with platform file
         relative_path = config_folder.relative_to(self.entities_dir)
@@ -323,12 +338,12 @@ class NotebookGenerator:
             )
 
     def generate_orchestrator_notebook(
-        self, entity_name, notebook_names, output_folder
+        self, entity_name, notebook_names, output_folder, target_lakehouse_config_prefix
     ):
         """Generate an orchestrator notebook that runs all notebooks for an entity in sequence."""
 
         # Load the orchestrator template
-        orchestrator_template = self.load_template("orchestrator_notebook.py.jinja")
+        orchestrator_template = self.load_template(f"{self.generation_mode.lower()}/orchestrator_notebook.py.jinja")
 
         # Prepare notebook execution data
         notebooks = []
@@ -340,10 +355,12 @@ class NotebookGenerator:
             lakehouse_name=entity_name,
             notebooks=notebooks,
             total_notebooks=len(notebook_names),
+            target_lakehouse_config_prefix=target_lakehouse_config_prefix,
+            language_group=self.language_group
         )
 
         # Create notebook with platform file
-        notebook_name = f"0_orchestrator_{entity_name}"
+        notebook_name = f"00_orchestrator_{entity_name}_{self.generation_mode.lower()}"
         return self.create_notebook_with_platform(
             notebook_name=notebook_name,
             rendered_content=orchestrator_content,
@@ -355,17 +372,17 @@ class NotebookGenerator:
 
         # Load the template
         all_lakehouses_template = self.load_template(
-            "orchestrator_notebook_all_lakehouses.py.jinja"
+            f"{self.generation_mode.lower()}/orchestrator_notebook_all_lakehouses.py.jinja"
         )
 
         # Prepare lakehouse data
         lakehouses = []
         for name in entity_names:
             lakehouses.append(
-                {"name": name, "orchestrator_name": f"0_orchestrator_{name}"}
+                {"name": name, "orchestrator_name": f"0_orchestrator_{name}_{self.generation_mode.lower()}_ddl_scripts"}
             )  # Render the all lakehouses orchestrator notebook
         orchestrator_content = all_lakehouses_template.render(
-            lakehouses=lakehouses, total_lakehouses=len(lakehouses)
+            lakehouses=lakehouses, total_lakehouses=len(lakehouses), language_group=self.language_group
         )
 
         # Create notebook with platform file
@@ -505,11 +522,12 @@ class NotebookGenerator:
                         # Ensure directory structure exists before generating
                         # output_path.mkdir(parents=True, exist_ok=True)
                         self.generate_notebook(
-                            config_path,
-                            output_path,
-                            notebook_display_name,
-                            progress,
-                            main_task,
+                            config_folder=config_path,
+                            output_folder=output_path,
+                            notebook_display_name=notebook_display_name,
+                            target_lakehouse_config_prefix=entity_path.name,
+                            progress=progress,
+                            parent_task=main_task,
                         )
                         success_count += 1
                         progress.console.print(
@@ -517,6 +535,7 @@ class NotebookGenerator:
                         )
                     except Exception as e:
                         error_count += 1
+                        progress.console.print_exception()
                         progress.console.print(
                             f"[red]✗[/red] Error generating notebook for {task_description}: {str(e)}"
                         )
@@ -533,6 +552,7 @@ class NotebookGenerator:
                         entity_path.name,
                         notebook_names,
                         self.output_dir / entity_path.name,
+                        target_lakehouse_config_prefix=entity_path.name,
                     )
                     orchestrator_count += 1
                     progress.console.print(
@@ -540,6 +560,7 @@ class NotebookGenerator:
                     )
                     progress.advance(main_task)
                 except Exception as e:
+                    progress.console.print_exception()
                     progress.console.print(
                         f"[red]✗[/red] Error generating orchestrator for {entity_path.name}: {str(e)}"
                     )
@@ -553,12 +574,13 @@ class NotebookGenerator:
                     f"{self.entities_folder.lower()}",
                 )
                 self.generate_all_entities_orchestrator(entity_names, self.output_dir)
-                self.generate_config_notebook(self.output_dir)
+                #self.generate_config_notebook(self.output_dir)
                 progress.console.print(
                     f"[green]✓[/green] Generated master orchestrator for all {self.entities_folder.lower()}"
                 )
                 progress.advance(main_task)
             except Exception as e:
+                progress.console.print_exception()
                 progress.console.print(
                     f"[red]✗[/red] Error generating master orchestrator: {str(e)}"
                 )
@@ -605,7 +627,7 @@ class NotebookGenerator:
             f.write(rendered_content)
 
         # Create .platform file
-        platform_template = self.load_template("platform.json.jinja")
+        platform_template = self.load_template("./common/platform.json.jinja")
         platform_metadata = platform_template.render(
             notebook_name=f"{notebook_name}_ddl_scripts", guid=uuid.uuid4()
         )
