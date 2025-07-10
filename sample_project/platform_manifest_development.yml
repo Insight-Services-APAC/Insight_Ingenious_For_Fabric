@@ -1,7 +1,7 @@
 platform_folders:
 - name: var_lib.VariableLibrary
   path: sample_project/fabric_workspace_items/config/var_lib.VariableLibrary
-  hash: 7bdcadfb713bcbcedc3de68ecfb84dc53a81a6c23c324015b3416b9f42458bd0
+  hash: f082bebb97ebb761f8bc09dd121281a77e39c68ace804419df5f7e9b0f9a307f
   status: deployed
   environment: development
 - name: 00_all_lakehouses_orchestrator_ddl_scripts.Notebook
@@ -69,15 +69,15 @@ platform_folders:
   hash: 84f58b5db93686b7a1c41d14fa7218acab6d4039a7c063efce37fefea934b27c
   status: deployed
   environment: development
-- name: pyspark_platform_test.Notebook
+- name: pyspark_platform_test_platform_testing.Notebook
   path: sample_project/fabric_workspace_items/platform_testing/pyspark_platform_test.Notebook
-  hash: 8bb2cb05847c3d7cc00ffda306686ba7ff704eadf5341aea2fb139ab5db61b63
-  status: deployed
+  hash: 54e1c352351a7b962820d2bc10e3541674d87ca2419a500ef5171426286a6c0b
+  status: updated
   environment: development
 - name: python_platform_test.Notebook
   path: sample_project/fabric_workspace_items/platform_testing/python_platform_test.Notebook
-  hash: 5aaa0bc7cae51e179e665fce525f0381336a00e2a7e3d9b20bd28f460f5e0d6e
-  status: deployed
+  hash: 53376269ee16fe12e6e95c1516a8cfa5f5f8338f8459fbb30bd7c886bf2eb6c7
+  status: new
   environment: development
 - name: EDW.Warehouse
   path: sample_project/fabric_workspace_items/warehouses/EDW.Warehouse

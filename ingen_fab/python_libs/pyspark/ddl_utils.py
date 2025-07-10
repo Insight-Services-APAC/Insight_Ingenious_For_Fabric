@@ -12,22 +12,22 @@ from pyspark.sql.types import (
     TimestampType,
 )
 
-from ..interfaces.ddl_utils_interface import DDLUtilsInterface
-from .lakehouse_utils import lakehouse_utils
+from ingen_fab.python_libs.interfaces.ddl_utils_interface import DDLUtilsInterface
+from ingen_fab.python_libs.pyspark.lakehouse_utils import lakehouse_utils
 
 
 class ddl_utils(DDLUtilsInterface):
-    def __init__(self, target_workspace_id: str, target_lakehouse_id: str) -> None:
+    def __init__(self, target_workspace_id: str, target_lakehouse_id: str, spark: SparkSession = None) -> None:
         """
         Initializes the DDLUtils class with the target workspace and lakehouse IDs.
         """
         super().__init__(
-            target_lakehouse_id=target_lakehouse_id,
+            target_datastore_id=target_lakehouse_id,
             target_workspace_id=target_workspace_id,
         )
         self.target_workspace_id = target_workspace_id
         self.target_lakehouse_id = target_lakehouse_id
-        self.lakehouse_utils = lakehouse_utils(target_workspace_id, target_lakehouse_id)
+        self.lakehouse_utils = lakehouse_utils(target_workspace_id, target_lakehouse_id, spark=spark)
         self.execution_log_table_name = "ddl_script_executions"
         self.initialise_ddl_script_executions_table()
 

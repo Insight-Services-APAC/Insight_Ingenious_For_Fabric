@@ -1,4 +1,5 @@
 import os
+from pathlib import Path
 from typing import List
 
 from jinja2 import Template
@@ -38,8 +39,9 @@ def list_templates(directory: str) -> List[dict[str, str]]:
 
 
 if __name__ == "__main__":
-    # Replace 'your_directory_path' with the path to the folder containing templates
-    templates_directory = "./"
+    script_dir = Path("ingen_fab/python_libs/python/sql_template_factory")
+    project_root = Path(".")
+    templates_directory = script_dir 
     print(f"Scanning directory: {templates_directory}")
 
     templates_list = list_templates(templates_directory)
@@ -48,11 +50,13 @@ if __name__ == "__main__":
     # Print each template found
     for template in templates_list:
         print(f"  - {template['dialect']}/{template['file_name']}")
-    # Inject the list of templates into the SQL template factory
-    output_file = "../sql_templates.py"
+
+    # Output file should be relative to the project root
+    output_file = os.path.join(script_dir, "../sql_templates.py")
     print(f"\nGenerating {output_file}...")
 
-    with open("./module_template.py.jinja", "r", encoding="utf-8") as template_file:
+    module_template_path = os.path.join(script_dir, "module_template.py.jinja")
+    with open(module_template_path, "r", encoding="utf-8") as template_file:
         template_content = template_file.read()
 
     with open(output_file, "w", encoding="utf-8") as f:

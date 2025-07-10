@@ -108,10 +108,17 @@ class GatherPythonLibs:
             for node in ast.walk(tree):
                 if isinstance(node, ast.ImportFrom):
                     # Handle relative imports like "from .module_name import ..."
-                    if node.module and node.level > 0:
-                        # Remove leading dots for relative imports
+                    if node.module and node.level == 1:
+                        # Same directory relative import
                         module_name = node.module
                         dependencies.add(module_name)
+                    # Handle cross-directory imports like "from ..interfaces.module_name import ..."
+                    elif node.module and node.level > 1:
+                        # Extract the module name from paths like "interfaces.data_store_interface"
+                        parts = node.module.split('.')
+                        if len(parts) > 1:
+                            # Add the final module name (e.g., "data_store_interface")
+                            dependencies.add(parts[-1])
                 elif isinstance(node, ast.Import):
                     # Handle direct imports like "import .module_name"
                     for alias in node.names:
@@ -186,31 +193,86 @@ class GatherPythonLibs:
 
         return sorted_files
 
+    def _discover_additional_dependencies(self, target_files: List[Path], base_python_libs_path: Path) -> List[Path]:
+        """
+        Discover additional files from common and interfaces directories that are referenced
+        by the target files or their dependencies.
+        """
+        additional_files = []
+        discovered_dependencies = set()
+        
+        # Get common and interfaces directories
+        common_dir = base_python_libs_path / "common"
+        interfaces_dir = base_python_libs_path / "interfaces"
+        
+        # Get all available files in common and interfaces directories
+        available_files = {}
+        
+        if common_dir.exists():
+            for file_path in common_dir.iterdir():
+                if file_path.is_file() and file_path.suffix == ".py" and not file_path.name.startswith("__"):
+                    available_files[file_path.stem] = file_path
+        
+        if interfaces_dir.exists():
+            for file_path in interfaces_dir.iterdir():
+                if file_path.is_file() and file_path.suffix == ".py" and not file_path.name.startswith("__"):
+                    available_files[file_path.stem] = file_path
+        
+        # Recursively discover dependencies
+        files_to_check = target_files.copy()
+        checked_files = set()
+        
+        while files_to_check:
+            current_file = files_to_check.pop(0)
+            
+            if current_file in checked_files:
+                continue
+                
+            checked_files.add(current_file)
+            
+            # Analyze dependencies of current file
+            deps = self.analyze_file_dependencies(current_file)
+            
+            for dep in deps:
+                if dep in available_files and dep not in discovered_dependencies:
+                    discovered_dependencies.add(dep)
+                    dep_file = available_files[dep]
+                    additional_files.append(dep_file)
+                    files_to_check.append(dep_file)  # Check dependencies of this file too
+        
+        return additional_files
+
     def gather_files(self, python_libs_path: Path, libs_to_include: List[str]) -> []:
         """
         Analyze python_libs files, sort by dependencies, and inject into lib.py.jinja.
+        Includes files from common and interfaces directories when referenced.
         """
         # Try multiple possible paths for python_libs
         possible_paths = [Path(__file__).resolve().parent / python_libs_path]
 
-        python_libs_path = None
+        target_python_libs_path = None
         for path in possible_paths:
             if path.exists():
-                python_libs_path = path
+                target_python_libs_path = path
                 break
 
-        if python_libs_path is None:
+        if target_python_libs_path is None:
             self.console.print(
                 f"[yellow]Warning: Python libs path not found in any of: "
                 f"{[str(p) for p in possible_paths]}[/yellow]"
             )
             return
-        # Get all Python files
+
+        # Get base python_libs directory to access common and interfaces
+        base_python_libs_path = Path(__file__).resolve().parent
+        
+        # Get all Python files from the target directory
+        target_python_files = []
         if libs_to_include:
             # Filter files based on libs_to_include list
-            python_files = [
+            target_python_files = [
                 f
-                for f in python_libs_path.iterdir()
+                for f in target_python_libs_path.iterdir()
                 if f.is_file()
                 and f.suffix == ".py"
                 and not f.name.startswith("__")
@@ -218,39 +280,70 @@ class GatherPythonLibs:
             ]
         else:
             # Include all files if libs_to_include is empty
-            python_files = [
+            target_python_files = [
                 f
-                for f in python_libs_path.iterdir()
+                for f in target_python_libs_path.iterdir()
                 if f.is_file() and f.suffix == ".py" and not f.name.startswith("__")
             ]
 
-        if not python_files:
+        if not target_python_files:
             self.console.print(
-                f"[yellow]Warning: No Python files found in {python_libs_path}[/yellow]"
+                f"[yellow]Warning: No Python files found in {target_python_libs_path}[/yellow]"
             )
             return
 
-        self.console.print(
-            f"[blue]Found {len(python_files)} Python library files[/blue]"
+        # Discover additional files from common and interfaces directories
+        additional_files = self._discover_additional_dependencies(
+            target_python_files, base_python_libs_path
         )
+        
+        # Combine all files
+        all_python_files = target_python_files + additional_files
+
+        self.console.print(
+            f"[blue]Found {len(target_python_files)} Python library files in target directory[/blue]"
+        )
+        if additional_files:
+            self.console.print(
+                f"[blue]Found {len(additional_files)} additional dependency files from common/interfaces[/blue]"
+            )
 
         # Sort files by dependencies
-        sorted_files = self.topological_sort_files(python_files)
+        sorted_files = self.topological_sort_files(all_python_files)
 
         # Display dependency order
         self.console.print("\n[bold]Dependency-sorted file order:[/bold]")
         for i, file_path in enumerate(sorted_files, 1):
             deps = self.analyze_file_dependencies(file_path)
             valid_deps = {
-                dep for dep in deps if any(f.stem == dep for f in python_files)
+                dep for dep in deps if any(f.stem == dep for f in all_python_files)
             }
             dep_str = f" (depends on: {', '.join(valid_deps)})" if valid_deps else ""
-            self.console.print(f"  {i}. {file_path.name}{dep_str}")
+            # Show which directory the file is from
+            relative_path = file_path.relative_to(base_python_libs_path)
+            self.console.print(f"  {i}. {relative_path}{dep_str}")
 
         # Read and combine file contents
         combined_content = []
         if self.include_jinja_raw_tags:
             combined_content.append("{% raw %}")
+        
+        # Check if any file uses from __future__ import annotations
+        has_future_annotations = False
+        for file_path in sorted_files:
+            try:
+                with file_path.open("r", encoding="utf-8") as f:
+                    content = f.read()
+                    if "from __future__ import annotations" in content:
+                        has_future_annotations = True
+                        break
+            except Exception:
+                continue
+        
+        # Add future annotations import at the top if needed
+        if has_future_annotations:
+            combined_content.append("from __future__ import annotations\n")
+        
         combined_content.append("# Auto-generated library code from python_libs")
         combined_content.append("# Files are ordered based on dependency analysis\n")
 
@@ -259,19 +352,23 @@ class GatherPythonLibs:
                 with file_path.open("r", encoding="utf-8") as f:
                     content = f.read()
 
-                # Remove relative imports since we're combining files
+                # Remove relative imports and future annotations since we're combining files
                 lines = content.split("\n")
                 filtered_lines = []
 
-                for line in lines:  # Skip relative import lines
-                    if line.strip().startswith("from .") or line.strip().startswith(
-                        "import ."
-                    ):
+                for line in lines:  # Skip relative import lines and future annotations
+                    stripped_line = line.strip()
+                    if (stripped_line.startswith("from .") or 
+                        stripped_line.startswith("import .") or
+                        stripped_line.startswith("from ..interfaces.") or
+                        stripped_line.startswith("from ..common.") or
+                        stripped_line == "from __future__ import annotations"):
                         continue
                     filtered_lines.append(line)
 
-                # Add file section
-                combined_content.append(f"\n# === {file_path.name} ===")
+                # Add file section with relative path
+                relative_path = file_path.relative_to(base_python_libs_path)
+                combined_content.append(f"\n# === {relative_path} ===")
                 combined_content.append("\n".join(filtered_lines))
 
             except Exception as e:

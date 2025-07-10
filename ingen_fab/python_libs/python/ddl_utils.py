@@ -3,16 +3,15 @@
 import hashlib
 import inspect
 from datetime import datetime
+from typing import Any, Optional
 
-import notebookutils  # type: ignore # noqa: F401
-
-from .warehouse_utils import warehouse_utils
+from ingen_fab.python_libs.python.warehouse_utils import warehouse_utils
 
 
 class ddl_utils:
     """Run DDL scripts once and track execution in a warehouse table."""
 
-    def __init__(self, target_workspace_id: str, target_warehouse_id: str) -> None:
+    def __init__(self, target_workspace_id: str, target_warehouse_id: str, notebookutils: Optional[Any] = None) -> None:
         super().__init__()
         self.target_workspace_id = target_workspace_id
         self.target_warehouse_id = target_warehouse_id
@@ -21,7 +20,10 @@ class ddl_utils:
         self.warehouse_utils = warehouse_utils(
             target_workspace_id=target_workspace_id,
             target_warehouse_id=target_warehouse_id,
+            notebookutils=notebookutils
         )
+        # Use the same notebook utils instance as warehouse_utils
+        self.notebook_utils = self.warehouse_utils.notebook_utils
         self.initialise_ddl_script_executions_table()
 
     def execution_log_schema():
@@ -31,26 +33,25 @@ class ddl_utils:
         conn = self.warehouse_utils.get_connection()
         query = f"SELECT * FROM [{self.execution_log_table_schema}].[{self.execution_log_table_name}]"
         df = self.warehouse_utils.execute_query(conn=conn, query=query)
-        display(df)
+        self.notebook_utils.display(df)
 
     def check_if_script_has_run(self, script_id) -> bool:
         conn = self.warehouse_utils.get_connection()
         query = f"""
-        SELECT *
+        SELECT count(*)
         FROM [{self.execution_log_table_schema}].[{self.execution_log_table_name}]
         WHERE script_id = '{script_id}'
         AND execution_status = 'success'
         """
         df = self.warehouse_utils.execute_query(conn=conn, query=query)
-
-        if df:
-            if len(df) == 0:
-                # print("matched:", matched)
-                return False
-            else:
+        if df is not None and not df.empty:
+            if int(df.iloc[0, 0]) > 0:
                 return True
+            else:
+                return False
         else:
             return False
+        
 
     def print_skipped_script_execution(self, guid, object_name):
         print(

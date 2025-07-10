@@ -1,0 +1,24 @@
+# METADATA ********************
+
+# META {
+# META   "language": "python",
+# META   "language_group": "{{language_group | required}}"
+# META }
+
+# MARKDOWN ********************
+
+# ## 𝄜 {{heading_name}}
+
+# CELL ********************
+
+guid = "{{script_guid}}"
+def work():
+    sql = """
+
+{{ content }}
+
+    """
+
+    wu.execute_query(wu.get_connection(), sql)
+
+du.run_once(work,"{{script_name}}", guid)
