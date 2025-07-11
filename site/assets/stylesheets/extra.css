@@ -7,18 +7,18 @@
   --md-accent-fg-color--transparent: rgba(255, 152, 0, 0.1);
 }
 
-/* Insight color scheme */
 [data-md-color-scheme="insight"] {
-  --md-primary-fg-color: #582873;
-  --md-primary-fg-color--light: #B01C87;
-  --md-primary-fg-color--dark: #4F93D9;
-  --md-accent-fg-color: #ff9800;
-  --md-default-fg-color: #333;
-  --md-default-bg-color: #fff;
-  --md-code-bg-color: #f5f5f5;
-  --md-code-fg-color: #37474f;
-  --md-typeset-color: #333;
-  --md-typeset-a-color: var(--md-primary-fg-color);
+  --md-primary-fg-color: hsla(var(--md-hue),0%,100%,1);
+  --md-primary-fg-color--light: hsla(var(--md-hue),0%,100%,0.7);
+  --md-primary-fg-color--dark: hsla(var(--md-hue),0%,0%,0.07);
+  --md-primary-bg-color: hsla(var(--md-hue),0%,0%,0.87);
+  --md-primary-bg-color--light: hsla(var(--md-hue),0%,0%,0.54);
+  --md-typeset-a-color: #4F93D9;
+  --md-default-fg-color--light: #582873;
+  --md-accent-fg-color: #B01C87;
+  --md-accent-fg-color--transparent: #57B5E6;
+  --md-accent-bg-color: #fff;
+  --md-accent-bg-color--light: #ffffffb3;
 }
 
 /* Dark mode support */
@@ -32,29 +32,17 @@
 
 /* Custom button styling */
 .md-button {
-  background-color: var(--md-primary-fg-color);
-  color: white;
-  border: none;
-  padding: 0.5rem 1rem;
-  border-radius: 0.25rem;
-  transition: all 0.3s ease;
-  text-decoration: none;
-  display: inline-block;
-}
-
-.md-button:hover {
-  background-color: var(--md-primary-fg-color--dark);
-  transform: translateY(-2px);
-  box-shadow: 0 4px 8px rgba(0,0,0,0.2);
+  background-color: var(--md-typeset-a-color);
+  border-color: var(--md-typeset-a-color);
+  color: hsla(var(--md-hue),0%,100%,1);
 }
 
 .md-button--primary {
-  background-color: var(--md-primary-fg-color--light);
+  background-color: var(--md-typeset-a-color);
+  border-color: var(--md-typeset-a-color);
+  color: hsla(var(--md-hue),0%,100%,1);
 }
 
-.md-button--primary:hover {
-  background-color: var(--md-primary-fg-color);
-}
 
 /* Navigation enhancements */
 .md-nav__title {
