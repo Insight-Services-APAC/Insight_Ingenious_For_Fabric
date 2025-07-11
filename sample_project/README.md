@@ -1,227 +1,198 @@
-# Ingenious Fabric Accelerator
+# Sample Project - Ingenious Fabric Accelerator
 
-A command-line tool for managing Microsoft Fabric workspaces with support for:
-- DDL notebook generation from SQL scripts
-- Variable injection into Jinja templates
-- Environment-specific deployments
-- Workspace synchronization
+This sample project demonstrates the complete workflow for managing a Microsoft Fabric workspace using the Ingenious Fabric Accelerator. It includes:
 
-## Installation
+- Complete project structure with DDL scripts, notebooks, and configuration
+- Environment-specific variable management
+- Generated DDL notebooks for both warehouses and lakehouses
+- Example transformation and ingestion notebooks
+- Platform testing notebooks
 
-```bash
-# Clone the repository
-git clone <repository-url>
-cd ingen_fab
+## Project Structure
 
-# Install using uv (recommended)
-uv sync
+```
+sample_project/
+├── ddl_scripts/              # DDL scripts for tables and configuration
+│   ├── Lakehouses/          # Lakehouse DDL scripts
+│   │   └── Config/          # Configuration tables
+│   └── Warehouses/          # Warehouse DDL scripts
+│       └── Config/          # Configuration tables
+├── fabric_workspace_items/   # Generated Fabric artifacts
+│   ├── config/              # Variable library
+│   ├── ddl_scripts/         # Generated DDL notebooks
+│   ├── extract/             # Data extraction notebooks
+│   ├── load/                # Data loading notebooks
+│   ├── lakehouses/          # Lakehouse definitions
+│   ├── platform_testing/    # Platform testing notebooks
+│   └── warehouses/          # Warehouse definitions
+├── diagrams/                # Architecture diagrams
+└── platform_manifest_*.yml  # Environment-specific configurations
 ```
 
-## Workflow
+## Getting Started
 
 ### 1. Create Your Workspace
 First, create a Microsoft Fabric workspace in the Azure portal or Fabric interface.
 
-### 2. Initialize a Solution
-```bash
-# Create a new project directory
-mkdir my_fabric_project
-cd my_fabric_project
-
-# Initialize the solution structure
-ingen_fab init-solution --project-name "My Fabric Project"
-```
-
-This creates the following structure:
-```
-my_fabric_project/
-├── ddl_scripts/           # DDL scripts for tables, stored procedures, and configuration data
-├── fabric_workspace_items/ # Fabric artifacts (notebooks, pipelines, etc.)
-├── var_lib/               # Environment-specific variables
-└── .gitignore
-```
-
-### 3. Configure Variables
-Edit the variable library files in `var_lib/` to define your environment-specific values:
+### 2. Configure Your Environment
+Update the variable library files in `fabric_workspace_items/config/var_lib.VariableLibrary/` to match your Fabric workspace:
 
 ```bash
-# Edit environment variables
-vim var_lib/development.yml
-vim var_lib/production.yml
+# Edit development environment variables
+vim fabric_workspace_items/config/var_lib.VariableLibrary/valueSets/development.json
 ```
 
-Example variable file:
-```yaml
-# var_lib/development.yml
-fabric_environment: development
-config_workspace_id: "your-workspace-guid"
-config_lakehouse_id: "your-lakehouse-guid"
-# Add more variables as needed
+Example configuration:
+```json
+{
+  "fabric_environment": "development",
+  "config_workspace_id": "your-workspace-guid",
+  "config_lakehouse_id": "your-lakehouse-guid",
+  "edw_workspace_id": "your-workspace-guid",
+  "edw_lakehouse_id": "your-lakehouse-guid",
+  "edw_warehouse_id": "your-warehouse-guid"
+}
 ```
 
-### 4. Add Lakehouses and Warehouses
-Create your lakehouses and warehouses in Fabric, then add their IDs to your variable files:
+### 3. Review DDL Scripts
+Examine the DDL scripts in `ddl_scripts/` to understand the data model:
 
-```yaml
-# var_lib/development.yml
-edw_lakehouse_id: "lakehouse-guid"
-edw_warehouse_id: "warehouse-guid"
-edw_workspace_id: "workspace-guid"
-```
+**Lakehouse DDL Scripts** (`ddl_scripts/Lakehouses/Config/`):
+- `001_config_parquet_loads_create.py` - Creates parquet load configuration table
+- `002_config.synapse_extract_objects.py` - Creates Synapse extract objects
+- `003_log_parquet_loads_create.py` - Creates parquet load logging table
+- `004_log_synapse_loads_create.py` - Creates Synapse load logging table
+- `005_config_synapse_loads_insert.py` - Inserts Synapse load configuration
+- `006_config_parquet_loads_insert.py` - Inserts parquet load configuration
 
-### 5. Deploy Initial Solution
-Deploy your solution to the Fabric environment:
+**Warehouse DDL Scripts** (`ddl_scripts/Warehouses/Config/`):
+- Similar structure with SQL scripts for warehouse-specific tables
+
+### 4. Generate DDL Notebooks
+From the root directory, generate DDL notebooks for your environment:
 
 ```bash
-# Deploy to development
-ingen_fab deploy-to-environment \
-    --fabric-workspace-repo-dir . \
-    --fabric-environment development
-```
-
-### 6. Define DDL Scripts
-Create DDL scripts in the `ddl_scripts/` folder following this structure:
-
-```
-ddl_scripts/
-├── Lakehouses/
-│   └── MyLakehouse/
-│       ├── 001_create_tables.sql
-│       └── 002_insert_metadata.py
-└── Warehouses/
-    └── MyWarehouse/
-        ├── 001_create_schemas.sql
-        └── 002_create_tables.sql
-```
-
-Scripts are executed in numerical order and only run once per environment.
-
-### 7. Generate DDL Notebooks
-Compile your DDL scripts into Fabric notebooks:
-
-```bash
-# Generate notebooks for warehouses
-ingen_fab compile-ddl-notebooks \
+# Generate DDL notebooks for warehouses
+ingen_fab ddl compile-notebooks \
+    --fabric-workspace-repo-dir ./sample_project \
+    --fabric-environment development \
     --output-mode fabric \
     --generation-mode warehouse
 
-# Generate notebooks for lakehouses
-ingen_fab compile-ddl-notebooks \
+# Generate DDL notebooks for lakehouses
+ingen_fab ddl compile-notebooks \
+    --fabric-workspace-repo-dir ./sample_project \
+    --fabric-environment development \
     --output-mode fabric \
     --generation-mode lakehouse
 ```
 
-This creates notebooks in `fabric_workspace_items/ddl_scripts/` that:
-- Execute scripts in order
-- Track execution state
-- Support idempotent operations
+This generates orchestrator notebooks in `fabric_workspace_items/ddl_scripts/` that will:
+- Execute DDL scripts in the correct order
+- Track execution state to prevent duplicate runs
+- Provide logging and error handling
 
-### 8. Create Transformation Notebooks
-Add your transformation and ingestion notebooks to `fabric_workspace_items/`:
-
-```
-fabric_workspace_items/
-├── ddl_scripts/        # Generated DDL notebooks
-├── transformations/    # Your transformation notebooks
-└── ingestion/          # Your ingestion notebooks
-```
-
-### 9. Deploy Complete Solution
-Deploy all artifacts including generated DDL notebooks:
+### 5. Deploy to Fabric
+Deploy the complete solution to your Fabric workspace:
 
 ```bash
-ingen_fab deploy-to-environment \
-    --fabric-workspace-repo-dir . \
+# Deploy all artifacts to development environment
+ingen_fab deploy to-environment \
+    --fabric-workspace-repo-dir ./sample_project \
     --fabric-environment development
 ```
 
-### 10. Iterate and Redeploy
-As you develop:
-1. Add new DDL scripts as needed
-2. Regenerate DDL notebooks
-3. Create new transformation notebooks
-4. Update variable files
-5. Redeploy to see changes
+This will:
+- Deploy the variable library with environment-specific values
+- Deploy all generated DDL notebooks
+- Deploy transformation and ingestion notebooks
+- Deploy lakehouse and warehouse configurations
+
+### 6. Run DDL Scripts
+Execute the DDL notebooks in Fabric to create your data model:
+
+1. Navigate to your Fabric workspace
+2. Run the orchestrator notebooks in this order:
+   - `00_all_warehouses_orchestrator` (if using warehouses)
+   - `00_all_lakehouses_orchestrator` (if using lakehouses)
+
+The orchestrator notebooks will:
+- Execute all DDL scripts in the correct sequence
+- Log execution status to prevent duplicate runs
+- Handle errors gracefully
+
+### 7. Test Your Deployment
+Run the platform testing notebooks to verify everything is working:
 
 ```bash
-# Quick iteration cycle
-ingen_fab compile-ddl-notebooks --output-mode fabric --generation-mode warehouse
-ingen_fab deploy-to-environment --fabric-workspace-repo-dir . --fabric-environment development
+# Test notebooks on the Fabric platform
+ingen_fab test platform notebooks \
+    --fabric-workspace-repo-dir ./sample_project \
+    --fabric-environment development
 ```
 
-## Commands Reference
+Or run the testing notebooks directly in Fabric:
+- `platform_testing/python_platform_test.Notebook`
+- `platform_testing/pyspark_platform_test.Notebook`
 
-### Initialize Solution
-```bash
-ingen_fab init-solution --project-name "Project Name"
-```
+## Key Features Demonstrated
 
-### Compile DDL Notebooks
-```bash
-# For warehouses
-ingen_fab compile-ddl-notebooks \
-    --output-mode [local|fabric] \
-    --generation-mode warehouse
+### Environment-Specific Configuration
+- Variable library with multiple environments (development, test, production)
+- Environment-specific deployment configurations
+- Secure secret management through variable sets
 
-# For lakehouses
-ingen_fab compile-ddl-notebooks \
-    --output-mode [local|fabric] \
-    --generation-mode lakehouse
-```
+### DDL Script Management
+- Numbered DDL scripts for controlled execution order
+- Support for both SQL and Python DDL scripts
+- Idempotent execution with logging
+- Separate orchestration for warehouses and lakehouses
 
-### Deploy to Environment
-```bash
-ingen_fab deploy-to-environment \
-    --fabric-workspace-repo-dir <path> \
-    --fabric-environment <environment>
-```
+### Notebook Generation
+- Automatic notebook generation from DDL scripts
+- Orchestrator notebooks for batch execution
+- Platform testing notebooks for validation
+- Proper error handling and logging
 
-### Inject Variables
-```bash
-ingen_fab inject-notebook-vars \
-    --template-path <notebook-path> \
-    --environment <environment>
-```
+### Data Architecture
+- Configuration-driven data loading
+- Synapse integration for legacy data sources
+- Parquet file processing capabilities
+- Comprehensive logging and monitoring
 
-### Other Commands
-```bash
-# Find notebook files
-ingen_fab find-notebook-content-files --base-dir <path>
+## Customization
 
-# Scan notebook blocks
-ingen_fab scan-notebook-blocks --base-dir <path>
+To adapt this sample for your own project:
 
-# Help
-ingen_fab --help
-ingen_fab <command> --help
-```
-
-## Project Structure
-
-| Folder | Purpose |
-| ------ | ------- |
-| `ddl_scripts/` | SQL and Python scripts for DDL operations |
-| `fabric_workspace_items/` | Fabric artifacts (notebooks, pipelines, etc.) |
-| `var_lib/` | Environment-specific variable files |
-| `diagrams/` | Architecture diagrams |
-
-## Environment Variables
-
-Set these environment variables for authentication:
-- `AZURE_TENANT_ID`
-- `AZURE_CLIENT_ID`
-- `AZURE_CLIENT_SECRET`
+1. **Update Variable Library**: Modify the JSON files in `fabric_workspace_items/config/var_lib.VariableLibrary/valueSets/` with your workspace IDs
+2. **Modify DDL Scripts**: Update the scripts in `ddl_scripts/` to match your data model
+3. **Add Custom Notebooks**: Create your own transformation and ingestion notebooks
+4. **Update Configurations**: Modify the platform manifest files for your environments
 
 ## Testing
 
-Run the test suite:
+The sample includes comprehensive testing capabilities:
+
 ```bash
-uv run pytest
+# Test locally (uses local SQL Server)
+ingen_fab test local libraries --base-dir ./sample_project
+
+# Test on Fabric platform
+ingen_fab test platform notebooks --base-dir ./sample_project
 ```
 
-## Documentation
+## Related Documentation
 
-- [Python Libraries](ingen_fab/python_libs/README.md) - Reusable Python utilities
-- [DDL Scripts](ingen_fab/ddl_scripts/README.md) - DDL notebook generation
-- [Sample Project](sample_project/README.md) - Example workspace structure
+- **[Main README](../README.md)** - Complete CLI reference and installation guide
+- **[Python Libraries](../ingen_fab/python_libs/README.md)** - Reusable Python utilities documentation
+- **[DDL Scripts](../ingen_fab/ddl_scripts/README.md)** - DDL notebook generation system
+- **[Notebook Utils](../ingen_fab/python_libs/python/README_notebook_utils.md)** - Environment abstraction layer
+- **[SQL Templates](../ingen_fab/python_libs/python/sql_template_factory/README.md)** - SQL template system
+
+## Support
+
+For issues and questions:
+- Check the main project documentation
+- Review the generated notebook logs for execution details
+- Test locally using the testing framework before deploying to Fabric
 

@@ -1,0 +1,133 @@
+site_name: Ingenious Fabric Accelerator
+site_url: https://your-org.github.io/ingen_fab/
+repo_url: https://github.com/your-org/ingen_fab
+repo_name: ingen_fab
+edit_uri: edit/main/docs/
+
+theme:
+  name: material
+  custom_dir: docs/overrides
+  logo: assets/insight_logo_only.png
+  favicon: assets/images/favicon.ico
+  palette:
+    scheme: insight
+    primary: custom
+    accent: custom
+  features:
+    - content.tooltips
+    - navigation.top
+    - navigation.path
+    - navigation.tracking
+    - navigation.tabs
+    - navigation.tabs.sticky
+    - navigation.sections
+    - navigation.indexes
+    - navigation.instant
+    - toc.integrate
+    - search.suggest
+    - search.highlight
+    - search.share
+    - content.action.edit
+    - content.action.view
+    - content.code.copy
+    - content.code.select
+    - content.code.annotate
+
+markdown_extensions:
+  - attr_list
+  - md_in_html
+  - pymdownx.highlight:
+      anchor_linenums: true
+      line_spans: __span
+      pygments_lang_class: true
+  - pymdownx.inlinehilite
+  - pymdownx.snippets
+  - pymdownx.superfences:
+      custom_fences:
+        - name: mermaid
+          class: mermaid
+          format: !!python/name:pymdownx.superfences.fence_code_format
+  - pymdownx.tabbed:
+      alternate_style: true
+  - pymdownx.tasklist:
+      custom_checkbox: true
+  - pymdownx.emoji:
+      emoji_index: !!python/name:material.extensions.emoji.twemoji
+      emoji_generator: !!python/name:material.extensions.emoji.to_svg
+      options:
+        custom_icons:
+          - pymdownx.emoji.paths.materialdesignicons
+  - admonition
+  - pymdownx.details
+  - pymdownx.keys
+  - pymdownx.mark
+  - pymdownx.tilde
+  - tables
+  - footnotes
+  - def_list
+  - abbr
+  - pymdownx.critic
+  - toc:
+      permalink: true
+
+plugins:
+  - search:
+      separator: '[\s\-,:!=\[\]()"`/]+|\.(?!\d)|&[lg]t;|(?!\b)(?=[A-Z][a-z])'
+  - mkdocs-nav-weight
+  - macros:
+      include_yaml:
+        - bundle: docs/data/bundle.yml
+  - table-reader
+  - redirects:
+      redirect_maps:
+        'user_guide/index.md': 'user_guide/installation.md'
+        'developer_guide/index.md': 'developer_guide/python_libraries.md'
+        'examples/index.md': 'examples/sample_project.md'
+  - git-revision-date-localized:
+      enable_creation_date: true
+      type: datetime
+  - minify:
+      minify_html: true
+
+nav:
+  - Home: index.md
+  - User Guide:
+    - user_guide/index.md
+    - Installation: user_guide/installation.md
+    - Quick Start: user_guide/quick_start.md
+    - CLI Reference: user_guide/cli_reference.md
+    - Workflows: user_guide/workflows.md
+  - Developer Guide:
+    - developer_guide/index.md
+    - Python Libraries: developer_guide/python_libraries.md
+    - DDL Scripts: developer_guide/ddl_scripts.md
+    - Notebook Utils: developer_guide/notebook_utils.md
+    - SQL Templates: developer_guide/sql_templates.md
+  - Examples:
+    - examples/index.md
+    - Sample Project: examples/sample_project.md
+    - Project Templates: examples/templates.md
+  - API Reference:
+    - api/index.md
+    - CLI Commands: api/cli_commands.md
+    - Python APIs: api/python_apis.md
+
+exclude_docs: |
+  data/*
+
+extra_javascript:
+  - https://unpkg.com/tablesort@5.3.0/dist/tablesort.min.js
+  - javascripts/tablesort.js
+
+extra_css:
+  - assets/stylesheets/extra.css
+
+extra:
+  version:
+    provider: mike
+    default: latest
+  social:
+    - icon: fontawesome/brands/github
+      link: https://github.com/your-org/ingen_fab
+    - icon: fontawesome/solid/book
+      link: https://your-org.github.io/ingen_fab/
