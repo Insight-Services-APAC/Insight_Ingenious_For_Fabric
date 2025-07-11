@@ -42,7 +42,7 @@ jobs:
     
     - name: Install dependencies
       run: |
-        uv sync --group docs
+        uv sync
     
     - name: Build documentation
       run: |
