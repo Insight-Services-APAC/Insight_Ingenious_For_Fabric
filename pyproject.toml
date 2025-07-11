@@ -42,7 +42,7 @@ docs = [
     "mkdocs-macros-plugin==1.0.5",
     "mkdocs-nav-weight==0.2.0",
     "mkdocs-redirects==1.2.1",
-    "mkdocs-table-reader-plugin==2.2.2",
+    "mkdocs-table-reader-plugin==3.1.0",
     "mkdocs-get-deps==0.2.0",
     "mkdocs-git-revision-date-localized-plugin==1.4.7",
     "mkdocs-minify-plugin==0.8.0",
