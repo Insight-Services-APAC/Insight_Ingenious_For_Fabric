@@ -1,0 +1,25 @@
+project:
+  name: "Ingenious Fabric Accelerator"
+  version: "0.1.0"
+  description: "Accelerator for building Microsoft Fabric Applications"
+  
+commands:
+  - name: "init"
+    description: "Initialize solutions and projects"
+  - name: "ddl"
+    description: "Compile DDL notebooks from templates"
+  - name: "deploy"
+    description: "Deploy to environments and manage workspace items"
+  - name: "notebook"
+    description: "Manage and scan notebook content"
+  - name: "test"
+    description: "Test notebooks and Python blocks"
+
+features:
+  - "Project Initialization"
+  - "DDL Notebook Generation"
+  - "Environment Management"
+  - "Orchestrator Notebooks"
+  - "Notebook Utilities"
+  - "Testing Framework"
+  - "Python Libraries"
