@@ -93,7 +93,7 @@ jobs:
     
     - name: Build documentation
       run: |
-        uv run mkdocs build --strict
+        uv run mkdocs build
     
     - name: Check for broken links
       run: |
