@@ -73,11 +73,11 @@ markdown_extensions:
 plugins:
   - search:
       separator: '[\s\-,:!=\[\]()"`/]+|\.(?!\d)|&[lg]t;|(?!\b)(?=[A-Z][a-z])'
+  - table-reader
   - mkdocs-nav-weight
   - macros:
       include_yaml:
         - bundle: docs/data/bundle.yml
-  - table-reader
   - redirects:
       redirect_maps:
         'user_guide/index.md': 'user_guide/installation.md'
