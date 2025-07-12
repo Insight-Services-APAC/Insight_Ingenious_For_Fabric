@@ -205,14 +205,14 @@ Transform the DDL scripts into executable notebooks:
 cd sample_project
 
 # Generate DDL notebooks for warehouses
-ingen_fab ddl compile-notebooks \
+ingen_fab ddl compile \
     --fabric-workspace-repo-dir . \
     --fabric-environment development \
     --output-mode fabric \
     --generation-mode warehouse
 
 # Generate DDL notebooks for lakehouses
-ingen_fab ddl compile-notebooks \
+ingen_fab ddl compile \
     --fabric-workspace-repo-dir . \
     --fabric-environment development \
     --output-mode fabric \
@@ -238,7 +238,7 @@ Deploy the complete solution to your Fabric workspace:
 
 ```bash
 # Deploy all artifacts to development environment
-ingen_fab deploy to-environment \
+ingen_fab deploy deploy \
     --fabric-workspace-repo-dir . \
     --fabric-environment development
 ```
@@ -384,12 +384,12 @@ Configuration-driven data pipelines:
 
 2. **Regenerate notebooks**:
    ```bash
-   ingen_fab ddl compile-notebooks --output-mode fabric --generation-mode lakehouse
+   ingen_fab ddl compile --output-mode fabric --generation-mode lakehouse
    ```
 
 3. **Redeploy**:
    ```bash
-   ingen_fab deploy to-environment --fabric-workspace-repo-dir . --fabric-environment development
+   ingen_fab deploy deploy --fabric-workspace-repo-dir . --fabric-environment development
    ```
 
 ### Adding New Environments
@@ -414,7 +414,7 @@ Configuration-driven data pipelines:
 
 3. **Deploy to new environment**:
    ```bash
-   ingen_fab deploy to-environment --fabric-workspace-repo-dir . --fabric-environment staging
+   ingen_fab deploy deploy --fabric-workspace-repo-dir . --fabric-environment staging
    ```
 
 ## Advanced Usage
@@ -466,9 +466,9 @@ jobs:
     - name: Deploy sample project
       run: |
         cd sample_project
-        uv run ingen_fab ddl compile-notebooks --output-mode fabric --generation-mode warehouse
-        uv run ingen_fab ddl compile-notebooks --output-mode fabric --generation-mode lakehouse
-        uv run ingen_fab deploy to-environment --fabric-workspace-repo-dir . --fabric-environment development
+        uv run ingen_fab ddl compile --output-mode fabric --generation-mode warehouse
+        uv run ingen_fab ddl compile --output-mode fabric --generation-mode lakehouse
+        uv run ingen_fab deploy deploy --fabric-workspace-repo-dir . --fabric-environment development
       env:
         AZURE_TENANT_ID: ${{ "{{" }} secrets.AZURE_TENANT_ID {{ "}}" }}
         AZURE_CLIENT_ID: ${{ "{{" }} secrets.AZURE_CLIENT_ID {{ "}}" }}
@@ -496,7 +496,7 @@ jobs:
    cat fabric_workspace_items/config/var_lib.VariableLibrary/valueSets/development.json | jq .
    
    # Test variable injection
-   ingen_fab deploy to-environment --fabric-workspace-repo-dir . --fabric-environment development --dry-run
+   ingen_fab deploy deploy --fabric-workspace-repo-dir . --fabric-environment development --dry-run
    ```
 
 3. **DDL Script Failures**:

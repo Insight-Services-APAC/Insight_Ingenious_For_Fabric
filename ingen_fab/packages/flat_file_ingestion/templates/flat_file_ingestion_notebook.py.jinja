@@ -1,3 +1,4 @@
+{%- import 'common/nb_macros.py.jinja' as macros -%}
 # Fabric notebook source
 
 # METADATA ********************
@@ -13,35 +14,26 @@
 # META   }
 # META }
 
-# CELL ********************
-
-# MARKDOWN ********************
-
-# ## 📄 Flat File Ingestion Notebook
-# 
-# This notebook processes flat files (CSV, JSON, Parquet, Avro, XML) and loads them into delta tables based on configuration metadata.
-
-# PARAMETERS CELL ********************
+{{ macros.parameters_cell() }}
 
 # Default parameters
 config_id = ""
 execution_group = 1
 environment = "development"
 
-# METADATA ********************
+{{ macros.pyspark_cell_with_heading("## 📄 Flat File Ingestion Notebook") }}
 
-# META {
-# META   "language": "python",
-# META   "language_group": "synapse_pyspark"
-# META }
+# This notebook processes flat files (CSV, JSON, Parquet, Avro, XML) and loads them into delta tables based on configuration metadata.
 
-# MARKDOWN ********************
+{% set runtime_type = "pyspark" %}
+{% set language_group = "synapse_pyspark" %}
+{% set include_ddl_utils = false %}
+{% include 'common/nb_library_loader.py.jinja' %}
 
-# ## 📦 Import Libraries and Initialize
+{{ macros.pyspark_cell_with_heading("## 🔧 Load Configuration and Initialize") }}
+{% include 'common/nb_config_loader.py.jinja' %}
 
-# CELL ********************
-
-import sys
+# Additional imports for flat file ingestion
 import uuid
 import json
 from datetime import datetime
@@ -49,65 +41,18 @@ from typing import Dict, List, Optional, Any
 from pyspark.sql import DataFrame, SparkSession
 from pyspark.sql.types import StructType, StructField, StringType, IntegerType, LongType, TimestampType, BooleanType
 from pyspark.sql.functions import lit, current_timestamp, col, when, coalesce
-from delta.tables import DeltaTable
 
-# Mount configuration files
-if "notebookutils" in sys.modules:
-    notebookutils.fs.mount(
-        "abfss://{{varlib.config_workspace_id}}@onelake.dfs.fabric.microsoft.com/{{varlib.config_workspace_name}}.Lakehouse/Files/",
-        "/config_files"
-    )
-    new_path = notebookutils.fs.getMountPath("/config_files")
-    sys.path.insert(0, new_path)
-else:
-    print("NotebookUtils not available, using local imports")
-    from ingen_fab.python_libs.pyspark.notebook_utils_abstraction import NotebookUtilsFactory
-    notebookutils = NotebookUtilsFactory.create_instance()
-
-# METADATA ********************
-
-# META {
-# META   "language": "python",
-# META   "language_group": "synapse_pyspark"
-# META }
-
-# MARKDOWN ********************
-
-# ## 🔧 Configuration and Setup
-
-# CELL ********************
-
-from ingen_fab.python_libs.common.config_utils import get_configs_as_object, ConfigsObject
-from ingen_fab.python_libs.pyspark.lakehouse_utils import lakehouse_utils
-
-# Initialize configuration
-configs: ConfigsObject = get_configs_as_object()
-spark = SparkSession.builder.appName("FlatFileIngestion").getOrCreate()
+# Initialize spark session and execution tracking
+if run_mode == "local" and spark is None:
+    spark = SparkSession.builder.appName("FlatFileIngestion").getOrCreate()
 execution_id = str(uuid.uuid4())
-
-# Initialize lakehouse utilities
-config_lakehouse = lakehouse_utils(
-    target_workspace_id=configs.config_lakehouse_workspace_id,
-    target_lakehouse_id=configs.config_lakehouse_id
-)
 
 print(f"Execution ID: {execution_id}")
 print(f"Config ID: {config_id}")
 print(f"Execution Group: {execution_group}")
 print(f"Environment: {environment}")
 
-# METADATA ********************
-
-# META {
-# META   "language": "python",
-# META   "language_group": "synapse_pyspark"
-# META }
-
-# MARKDOWN ********************
-
-# ## 📋 Load Configuration Data
-
-# CELL ********************
+{{ macros.pyspark_cell_with_heading("## 📋 Load Configuration Data") }}
 
 class FlatFileIngestionConfig:
     """Configuration class for flat file ingestion"""
@@ -137,6 +82,13 @@ class FlatFileIngestionConfig:
         self.execution_group = config_row["execution_group"]
         self.active_yn = config_row["active_yn"]
 
+# Initialize config lakehouse utilities
+config_lakehouse = lakehouse_utils(
+    target_workspace_id=configs.config_lakehouse_workspace_id,
+    target_lakehouse_id=configs.config_lakehouse_id,
+    spark=spark
+)
+
 # Load configuration
 config_df = config_lakehouse.read_table("config_flat_file_ingestion").to_pandas()
 
@@ -154,21 +106,10 @@ if config_df.empty:
 
 print(f"Found {len(config_df)} configurations to process")
 
-# METADATA ********************
-
-# META {
-# META   "language": "python",
-# META   "language_group": "synapse_pyspark"
-# META }
-
-# MARKDOWN ********************
-
-# ## 🚀 File Processing Functions
-
-# CELL ********************
+{{ macros.pyspark_cell_with_heading("## 🚀 File Processing Functions") }}
 
 class FlatFileProcessor:
-    """Main processor for flat file ingestion"""
+    """Main processor for flat file ingestion using python_libs abstractions"""
     
     def __init__(self, spark_session: SparkSession):
         self.spark = spark_session
@@ -270,87 +211,51 @@ class FlatFileProcessor:
             else:  # skip
                 return df.limit(0)
     
-    def write_data(self, df: DataFrame, config: FlatFileIngestionConfig) -> Dict[str, Any]:
-        """Write data to target table"""
+    def write_data(self, df: DataFrame, config: FlatFileIngestionConfig, target_lakehouse: Any) -> Dict[str, Any]:
+        """Write data to target table using lakehouse_utils abstraction"""
         
-        # Initialize target lakehouse
-        target_lakehouse = lakehouse_utils(
-            target_workspace_id=config.target_lakehouse_workspace_id,
-            target_lakehouse_id=config.target_lakehouse_id
-        )
-        
-        full_table_name = f"{config.target_schema_name}.{config.target_table_name}"
-        
-        # Add metadata columns
+        # Add metadata columns for traceability
         df_with_metadata = df.withColumn("_ingestion_timestamp", current_timestamp()) \
                             .withColumn("_ingestion_execution_id", lit(execution_id)) \
                             .withColumn("_source_file_path", lit(config.source_file_path))
         
+        records_processed = df_with_metadata.count()
+        
+        # Use lakehouse_utils abstraction for writing
+        full_table_name = f"{config.target_schema_name}_{config.target_table_name}" if config.target_schema_name else config.target_table_name
+        
+        # Handle different write modes using lakehouse_utils
+        write_options = {}
+        if config.partition_columns:
+            write_options["partitionBy"] = config.partition_columns
+        
+        # Use the abstracted write_to_table method
+        target_lakehouse.write_to_table(
+            df=df_with_metadata,
+            table_name=full_table_name,
+            mode=config.write_mode,
+            options=write_options
+        )
+        
+        # For simplicity, return basic stats (advanced merge stats would require custom logic)
         write_stats = {
-            "records_processed": df_with_metadata.count(),
-            "records_inserted": 0,
+            "records_processed": records_processed,
+            "records_inserted": records_processed if config.write_mode in ["overwrite", "append"] else 0,
             "records_updated": 0,
             "records_deleted": 0
         }
-        
-        if config.write_mode == "overwrite":
-            df_with_metadata.write.format("delta").mode("overwrite").saveAsTable(full_table_name)
-            write_stats["records_inserted"] = write_stats["records_processed"]
-            
-        elif config.write_mode == "append":
-            df_with_metadata.write.format("delta").mode("append").saveAsTable(full_table_name)
-            write_stats["records_inserted"] = write_stats["records_processed"]
-            
-        elif config.write_mode == "merge":
-            if not config.merge_keys:
-                raise ValueError("Merge keys must be specified for merge write mode")
-                
-            # Create delta table if it doesn't exist
-            try:
-                delta_table = DeltaTable.forName(self.spark, full_table_name)
-            except Exception:
-                # Table doesn't exist, create it
-                df_with_metadata.write.format("delta").saveAsTable(full_table_name)
-                write_stats["records_inserted"] = write_stats["records_processed"]
-                return write_stats
-            
-            # Perform merge
-            merge_condition = " AND ".join([f"target.{key} = source.{key}" for key in config.merge_keys])
-            
-            merge_result = delta_table.alias("target").merge(
-                df_with_metadata.alias("source"),
-                merge_condition
-            ).whenMatchedUpdateAll().whenNotMatchedInsertAll().execute()
-            
-            # Parse merge statistics
-            if 'operationMetrics' in merge_result:
-                metrics = merge_result['operationMetrics']
-                write_stats["records_inserted"] = int(metrics.get('numTargetRowsInserted', 0))
-                write_stats["records_updated"] = int(metrics.get('numTargetRowsUpdated', 0))
-                write_stats["records_deleted"] = int(metrics.get('numTargetRowsDeleted', 0))
         
         return write_stats
 
 # Initialize processor
 processor = FlatFileProcessor(spark)
 
-# METADATA ********************
-
-# META {
-# META   "language": "python",
-# META   "language_group": "synapse_pyspark"
-# META }
-
-# MARKDOWN ********************
-
-# ## 📊 Process Files
-
-# CELL ********************
+{{ macros.pyspark_cell_with_heading("## 📊 Process Files") }}
 
 def log_execution(config: FlatFileIngestionConfig, status: str, write_stats: Dict[str, Any] = None, 
                  error_message: str = None, error_details: str = None, 
                  start_time: datetime = None, end_time: datetime = None):
-    """Log execution details"""
+    """Log execution details using lakehouse_utils abstraction"""
     
     duration = None
     if start_time and end_time:
@@ -378,15 +283,26 @@ def log_execution(config: FlatFileIngestionConfig, status: str, write_stats: Dic
         "created_by": "system"
     }
     
-    # Insert log record
+    # Use lakehouse_utils abstraction for logging
     log_df = spark.createDataFrame([log_data])
-    log_df.write.format("delta").mode("append").saveAsTable("log_flat_file_ingestion")
+    config_lakehouse.write_to_table(
+        df=log_df,
+        table_name="log_flat_file_ingestion",
+        mode="append"
+    )
 
 # Process each configuration
 results = []
 for _, config_row in config_df.iterrows():
     config = FlatFileIngestionConfig(config_row)
     start_time = datetime.now()
+    
+    # Initialize target lakehouse for this configuration
+    target_lakehouse = lakehouse_utils(
+        target_workspace_id=config.target_lakehouse_workspace_id,
+        target_lakehouse_id=config.target_lakehouse_id,
+        spark=spark
+    )
     
     try:
         print(f"\n=== Processing {config.config_name} ===")
@@ -405,8 +321,8 @@ for _, config_row in config_df.iterrows():
         # Validate data
         df_validated = processor.validate_data(df, config)
         
-        # Write data
-        write_stats = processor.write_data(df_validated, config)
+        # Write data using abstraction
+        write_stats = processor.write_data(df_validated, config, target_lakehouse)
         
         end_time = datetime.now()
         duration = (end_time - start_time).total_seconds()
@@ -448,18 +364,7 @@ for _, config_row in config_df.iterrows():
         if config.error_handling_strategy == "fail":
             raise e
 
-# METADATA ********************
-
-# META {
-# META   "language": "python",
-# META   "language_group": "synapse_pyspark"
-# META }
-
-# MARKDOWN ********************
-
-# ## 📈 Execution Summary
-
-# CELL ********************
+{{ macros.pyspark_cell_with_heading("## 📈 Execution Summary") }}
 
 # Print summary
 print("\n=== EXECUTION SUMMARY ===")
@@ -488,9 +393,6 @@ summary_df.show(truncate=False)
 
 print(f"\nExecution completed at: {datetime.now()}")
 
-# METADATA ********************
+{{ macros.exit_notebook("success") }}
 
-# META {
-# META   "language": "python",
-# META   "language_group": "synapse_pyspark"
-# META }
+{%include 'common/nb_footer.py.jinja' %}

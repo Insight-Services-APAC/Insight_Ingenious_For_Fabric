@@ -37,3 +37,6 @@ uv venv
 pip install uv
 uv sync
 
+# NPM
+bash scripts/dev_container_scripts/spark_minimal/npm_install.sh
+
