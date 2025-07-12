@@ -27,6 +27,9 @@ test_app = typer.Typer()
 test_local_app = typer.Typer()
 test_platform_app = typer.Typer()
 notebook_app = typer.Typer()
+run_app = typer.Typer()
+package_app = typer.Typer()
+ingest_app = typer.Typer()
 
 # Add sub-apps to main app
 test_app.add_typer(
@@ -56,6 +59,11 @@ app.add_typer(
     notebook_app,
     name="notebook",
     help="Commands for managing and scanning notebook content.",
+)
+app.add_typer(
+    run_app,
+    name="run",
+    help="Commands for running packages and workflows.",
 )
 
 
@@ -317,6 +325,75 @@ def scan_notebook_blocks(
 @notebook_app.command()
 def perform_code_replacements(ctx: typer.Context):
     deploy_commands.perform_code_replacements(ctx)
+
+
+# Package commands
+run_app.add_typer(
+    package_app,
+    name="package",
+    help="Commands for running packages.",
+)
+package_app.add_typer(
+    ingest_app,
+    name="flat-file-ingestion",
+    help="Commands for flat file ingestion package.",
+)
+
+
+@ingest_app.command()
+def compile(
+    ctx: typer.Context,
+    template_vars: Annotated[str, typer.Option("--template-vars", "-t", help="JSON string of template variables")] = None,
+):
+    """Compile flat file ingestion package templates and DDL scripts."""
+    import json
+    from ingen_fab.packages.flat_file_ingestion.flat_file_ingestion import compile_flat_file_ingestion_package
+    
+    # Parse template variables if provided
+    vars_dict = {}
+    if template_vars:
+        try:
+            vars_dict = json.loads(template_vars)
+        except json.JSONDecodeError as e:
+            console.print(f"[red]Error parsing template variables: {e}[/red]")
+            raise typer.Exit(code=1)
+    
+    # Get fabric workspace repo directory from context
+    fabric_workspace_repo_dir = str(ctx.obj["fabric_workspace_repo_dir"])
+    
+    try:
+        results = compile_flat_file_ingestion_package(
+            fabric_workspace_repo_dir=fabric_workspace_repo_dir,
+            template_vars=vars_dict
+        )
+        
+        if results["success"]:
+            console.print("[green]✓ Flat file ingestion package compiled successfully![/green]")
+        else:
+            console.print(f"[red]✗ Compilation failed: {results['errors']}[/red]")
+            raise typer.Exit(code=1)
+            
+    except Exception as e:
+        console.print(f"[red]Error compiling package: {e}[/red]")
+        raise typer.Exit(code=1)
+
+
+@ingest_app.command()
+def run(
+    ctx: typer.Context,
+    config_id: Annotated[str, typer.Option("--config-id", "-c", help="Specific configuration ID to process")] = "",
+    execution_group: Annotated[int, typer.Option("--execution-group", "-g", help="Execution group number")] = 1,
+    environment: Annotated[str, typer.Option("--environment", "-e", help="Environment name")] = "development",
+):
+    """Run flat file ingestion for specified configuration or execution group."""
+    console.print(f"[blue]Running flat file ingestion...[/blue]")
+    console.print(f"Config ID: {config_id}")
+    console.print(f"Execution Group: {execution_group}")
+    console.print(f"Environment: {environment}")
+    console.print(f"Fabric Workspace Repo Dir: {ctx.obj['fabric_workspace_repo_dir']}")
+    
+    console.print("[yellow]Note: This command would typically execute the compiled notebook with the specified parameters.[/yellow]")
+    console.print("[yellow]In a production environment, this would submit the notebook to Fabric for execution.[/yellow]")
 
 
 if __name__ == "__main__":

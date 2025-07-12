@@ -34,5 +34,6 @@ cp ./scripts/dev_container_scripts/spark_minimal/pwsh_profile_sample.txt $PROFIL
 pip install uv
 uv venv
 ./.venv/bin/activate.ps1
+pip install uv
 uv sync
 
