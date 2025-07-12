@@ -25,3 +25,7 @@ $scriptblock = {
 Register-ArgumentCompleter -Native -CommandName typer -ScriptBlock $scriptblock
 
 oh-my-posh init pwsh | Invoke-Expression
+$env:NVM_DIR="$HOME/.nvm"
+$env:PATH += ";$env:NVM_DIR"
+$cmd = "source " + $env:NVM_DIR + "/nvm.sh"
+bash -c $cmd
