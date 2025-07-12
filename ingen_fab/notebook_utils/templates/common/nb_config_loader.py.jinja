@@ -1,0 +1,77 @@
+# METADATA ********************
+
+# META {
+# META   "language": "python",
+# META   "language_group": "{{language_group | default('synapse_pyspark')}}"
+# META }
+
+# MARKDOWN ********************
+
+# ## 🔧 Load Configuration and Initialize Utilities
+
+# CELL ********************
+
+{% if runtime_type == "pyspark" %}
+if run_mode == "local":
+    from ingen_fab.python_libs.common.config_utils import get_configs_as_object, ConfigsObject
+    from ingen_fab.python_libs.pyspark.lakehouse_utils import lakehouse_utils
+    {% if include_ddl_utils %}
+    from ingen_fab.python_libs.pyspark.ddl_utils import ddl_utils
+    {% endif %}
+    from ingen_fab.python_libs.pyspark.notebook_utils_abstraction import NotebookUtilsFactory
+    notebookutils = NotebookUtilsFactory.get_instance()
+else:
+    files_to_load = [
+        "ingen_fab/python_libs/common/config_utils.py",
+        "ingen_fab/python_libs/pyspark/lakehouse_utils.py",
+        {% if include_ddl_utils %}
+        "ingen_fab/python_libs/pyspark/ddl_utils.py",
+        {% endif %}
+        "ingen_fab/python_libs/pyspark/notebook_utils_abstraction.py"
+    ]
+    load_python_modules_from_path(mount_path, files_to_load)
+{% else %}
+if run_mode == "local":
+    from ingen_fab.python_libs.common.config_utils import get_configs_as_object, ConfigsObject
+    from ingen_fab.python_libs.python.lakehouse_utils import lakehouse_utils
+    {% if include_ddl_utils %}
+    from ingen_fab.python_libs.python.ddl_utils import ddl_utils
+    {% endif %}
+    from ingen_fab.python_libs.python.notebook_utils_abstraction import NotebookUtilsFactory
+    notebookutils = NotebookUtilsFactory.get_instance()
+else:
+    files_to_load = [
+        "ingen_fab/python_libs/common/config_utils.py",
+        "ingen_fab/python_libs/python/lakehouse_utils.py",
+        {% if include_ddl_utils %}
+        "ingen_fab/python_libs/python/ddl_utils.py",
+        {% endif %}
+        "ingen_fab/python_libs/python/notebook_utils_abstraction.py"
+    ]
+    load_python_modules_from_path(mount_path, files_to_load)
+{% endif %}
+
+# Initialize configuration
+configs: ConfigsObject = get_configs_as_object()
+
+{% if target_lakehouse_config_prefix %}
+# Initialize target lakehouse utilities
+target_lakehouse_config_prefix = "{{target_lakehouse_config_prefix}}"
+target_lakehouse_id = getattr(configs, f"{target_lakehouse_config_prefix.lower()}_lakehouse_id")
+target_workspace_id = getattr(configs, f"{target_lakehouse_config_prefix.lower()}_workspace_id")
+
+target_lakehouse = lakehouse_utils(
+    target_workspace_id=target_workspace_id,
+    target_lakehouse_id=target_lakehouse_id{% if runtime_type == "pyspark" %},
+    spark=spark{% endif %}
+)
+
+{% if include_ddl_utils %}
+# Initialize DDL utilities
+du = ddl_utils(
+    target_workspace_id=target_workspace_id,
+    target_lakehouse_id=target_lakehouse_id{% if runtime_type == "pyspark" %},
+    spark=spark{% endif %}
+)
+{% endif %}
+{% endif %}

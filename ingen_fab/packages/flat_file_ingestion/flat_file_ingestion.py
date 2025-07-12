@@ -31,9 +31,12 @@ class FlatFileIngestionCompiler:
         self.fabric_workspace_repo_dir = Path(fabric_workspace_repo_dir)
         self.output_dir = self.fabric_workspace_repo_dir / "fabric_workspace_items"
         
-        # Initialize Jinja2 environment
+        # Initialize Jinja2 environment with support for common templates
+        root_dir = Path.cwd()
+        common_templates_dir = root_dir / "ingen_fab" / "notebook_utils" / "templates"
+        template_search_paths = [str(self.templates_dir), str(common_templates_dir)]
         self.jinja_env = Environment(
-            loader=FileSystemLoader(str(self.templates_dir)),
+            loader=FileSystemLoader(template_search_paths),
             autoescape=False
         )
         
@@ -104,12 +107,12 @@ class FlatFileIngestionCompiler:
         
         compiled_files = []
         
-        # Create DDL scripts directory structure
-        ddl_output_dir = self.output_dir / "ddl_scripts" / "flat_file_ingestion"
+        # Create DDL scripts directory structure in the root project directory
+        ddl_output_dir = self.fabric_workspace_repo_dir / "ddl_scripts"
         ddl_output_dir.mkdir(parents=True, exist_ok=True)
         
         # Copy lakehouse DDL scripts
-        lakehouse_dir = ddl_output_dir / "Lakehouses" / "Config" / "001_Initial_Creation"
+        lakehouse_dir = ddl_output_dir / "Lakehouses" / "Config" / "001_Initial_Creation_Ingestion"
         lakehouse_dir.mkdir(parents=True, exist_ok=True)
         
         lakehouse_files = [
@@ -130,7 +133,7 @@ class FlatFileIngestionCompiler:
                 self.console.print(f"[green]✓ DDL script compiled to: {target_path}[/green]")
         
         # Copy warehouse DDL scripts
-        warehouse_dir = ddl_output_dir / "Warehouses" / "Config" / "001_Initial_Creation"
+        warehouse_dir = ddl_output_dir / "Warehouses" / "Config" / "001_Initial_Creation_Ingestion"
         warehouse_dir.mkdir(parents=True, exist_ok=True)
         
         warehouse_files = [

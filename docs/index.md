@@ -15,23 +15,44 @@ Ingenious for Fabric is a comprehensive command line tool built with [Typer](htt
 
 ## Quick Start
 
+**Tip:** You can set environment variables to avoid specifying them in every CLI operation. This makes commands simpler and less repetitive.
+
+### Primary Environment Variables
+
+- `FABRIC_WORKSPACE_REPO_DIR`: Sets the default directory containing your Fabric workspace repository files. If not specified in a CLI command, the CLI will use this value automatically.
+- `FABRIC_ENVIRONMENT`: Sets the default environment name (e.g., `local`, `development`, `production`). This controls which environment configuration and variable library are used for operations. If not specified in a CLI command, the CLI will use this value automatically.
+
+**Usage Example:**
+
+In PowerShell:
+```powershell
+$env:FABRIC_WORKSPACE_REPO_DIR = "sample_project"
+$env:FABRIC_ENVIRONMENT = "local"
+```
+In bash:
+```bash
+export FABRIC_WORKSPACE_REPO_DIR="sample_project"
+export FABRIC_ENVIRONMENT="local"
+```
+Once set, all CLI commands will use these values by default, so you do not need to pass `--fabric-workspace-repo-dir` or `--fabric-environment` every time.
+
 ### Initialize a New Project
 
 ```bash
 # Create a new Fabric workspace project
-ingen_fab init solution --project-name "My Fabric Project"
+ingen_fab init init-solution --project-name "My Fabric Project"
 ```
 
 ### Generate DDL Notebooks
 
 ```bash
 # Generate DDL notebooks for warehouses
-ingen_fab ddl compile-notebooks \
+ingen_fab ddl compile \
     --output-mode fabric \
     --generation-mode warehouse
 
 # Generate DDL notebooks for lakehouses  
-ingen_fab ddl compile-notebooks \
+ingen_fab ddl compile \
     --output-mode fabric \
     --generation-mode lakehouse
 ```
@@ -40,7 +61,7 @@ ingen_fab ddl compile-notebooks \
 
 ```bash
 # Deploy to development environment
-ingen_fab deploy to-environment \
+ingen_fab deploy deploy \
     --fabric-workspace-repo-dir . \
     --fabric-environment development
 ```

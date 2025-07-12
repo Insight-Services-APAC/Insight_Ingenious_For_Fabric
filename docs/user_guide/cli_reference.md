@@ -23,12 +23,12 @@ ingen_fab [GLOBAL_OPTIONS] COMMAND [COMMAND_OPTIONS]
 
 Initialize solutions and projects.
 
-#### `init solution`
+#### `init init-solution`
 
 Create a new Fabric workspace project with proper structure.
 
 ```bash
-ingen_fab init solution --project-name "My Project"
+ingen_fab init init-solution --project-name "My Project"
 ```
 
 **Options:**
@@ -39,25 +39,25 @@ ingen_fab init solution --project-name "My Project"
 **Examples:**
 ```bash
 # Create a new project
-ingen_fab init solution --project-name "Data Analytics Platform"
+ingen_fab init init-solution --project-name "Data Analytics Platform"
 
 # Create project with custom template
-ingen_fab init solution --project-name "ML Pipeline" --template-dir ./custom-templates
+ingen_fab init init-solution --project-name "ML Pipeline" --template-dir ./custom-templates
 
 # Force overwrite existing project
-ingen_fab init solution --project-name "Existing Project" --force
+ingen_fab init init-solution --project-name "Existing Project" --force
 ```
 
 ### ddl
 
 Compile DDL notebooks from templates.
 
-#### `ddl compile-notebooks`
+#### `ddl compile`
 
 Generate DDL notebooks from SQL and Python scripts.
 
 ```bash
-ingen_fab ddl compile-notebooks --output-mode fabric --generation-mode warehouse
+ingen_fab ddl compile --output-mode fabric --generation-mode warehouse
 ```
 
 **Options:**
@@ -68,25 +68,25 @@ ingen_fab ddl compile-notebooks --output-mode fabric --generation-mode warehouse
 **Examples:**
 ```bash
 # Generate warehouse notebooks for Fabric deployment
-ingen_fab ddl compile-notebooks --output-mode fabric --generation-mode warehouse
+ingen_fab ddl compile --output-mode fabric --generation-mode warehouse
 
 # Generate lakehouse notebooks locally
-ingen_fab ddl compile-notebooks --output-mode local --generation-mode lakehouse
+ingen_fab ddl compile --output-mode local --generation-mode lakehouse
 
 # Force regeneration of all notebooks
-ingen_fab ddl compile-notebooks --output-mode fabric --generation-mode warehouse --force
+ingen_fab ddl compile --output-mode fabric --generation-mode warehouse --force
 ```
 
 ### deploy
 
 Deploy to environments and manage workspace items.
 
-#### `deploy to-environment`
+#### `deploy deploy`
 
 Deploy all artifacts to a specific environment.
 
 ```bash
-ingen_fab deploy to-environment --fabric-workspace-repo-dir . --fabric-environment development
+ingen_fab deploy deploy --fabric-workspace-repo-dir . --fabric-environment development
 ```
 
 **Options:**
@@ -98,13 +98,13 @@ ingen_fab deploy to-environment --fabric-workspace-repo-dir . --fabric-environme
 **Examples:**
 ```bash
 # Deploy to development
-ingen_fab deploy to-environment --fabric-workspace-repo-dir . --fabric-environment development
+ingen_fab deploy deploy --fabric-workspace-repo-dir . --fabric-environment development
 
 # Dry run deployment
-ingen_fab deploy to-environment --fabric-workspace-repo-dir . --fabric-environment production --dry-run
+ingen_fab deploy deploy --fabric-workspace-repo-dir . --fabric-environment production --dry-run
 
 # Force deployment
-ingen_fab deploy to-environment --fabric-workspace-repo-dir . --fabric-environment test --force
+ingen_fab deploy deploy --fabric-workspace-repo-dir . --fabric-environment test --force
 ```
 
 ### notebook
@@ -221,20 +221,20 @@ The tool looks for configuration in:
 
 ```bash
 # 1. Create project
-ingen_fab init solution --project-name "My Project"
+ingen_fab init init-solution --project-name "My Project"
 
 # 2. Edit DDL scripts and configuration
 # ... make changes ...
 
 # 3. Generate notebooks
-ingen_fab ddl compile-notebooks --output-mode fabric --generation-mode warehouse
-ingen_fab ddl compile-notebooks --output-mode fabric --generation-mode lakehouse
+ingen_fab ddl compile --output-mode fabric --generation-mode warehouse
+ingen_fab ddl compile --output-mode fabric --generation-mode lakehouse
 
 # 4. Test locally
 ingen_fab test local libraries --base-dir .
 
 # 5. Deploy to development
-ingen_fab deploy to-environment --fabric-workspace-repo-dir . --fabric-environment development
+ingen_fab deploy deploy --fabric-workspace-repo-dir . --fabric-environment development
 
 # 6. Test on platform
 ingen_fab test platform notebooks --base-dir ./fabric_workspace_items
@@ -244,16 +244,16 @@ ingen_fab test platform notebooks --base-dir ./fabric_workspace_items
 
 ```bash
 # Deploy to different environments
-ingen_fab deploy to-environment --fabric-workspace-repo-dir . --fabric-environment development
-ingen_fab deploy to-environment --fabric-workspace-repo-dir . --fabric-environment test
-ingen_fab deploy to-environment --fabric-workspace-repo-dir . --fabric-environment production
+ingen_fab deploy deploy --fabric-workspace-repo-dir . --fabric-environment development
+ingen_fab deploy deploy --fabric-workspace-repo-dir . --fabric-environment test
+ingen_fab deploy deploy --fabric-workspace-repo-dir . --fabric-environment production
 ```
 
 ### Debugging and Troubleshooting
 
 ```bash
 # Dry run to see what would be deployed
-ingen_fab deploy to-environment --fabric-workspace-repo-dir . --fabric-environment development --dry-run
+ingen_fab deploy deploy --fabric-workspace-repo-dir . --fabric-environment development --dry-run
 
 # Verbose testing
 ingen_fab test local libraries --base-dir . --verbose
@@ -289,7 +289,7 @@ ingen_fab notebook scan-blocks --base-dir ./fabric_workspace_items --output-form
 
 ```bash
 # Use custom project templates
-ingen_fab init solution --project-name "Custom Project" --template-dir ./my-templates
+ingen_fab init init-solution --project-name "Custom Project" --template-dir ./my-templates
 ```
 
 ### Batch Operations
@@ -297,7 +297,7 @@ ingen_fab init solution --project-name "Custom Project" --template-dir ./my-temp
 ```bash
 # Process multiple environments
 for env in development test production; do
-    ingen_fab deploy to-environment --fabric-workspace-repo-dir . --fabric-environment $env
+    ingen_fab deploy deploy --fabric-workspace-repo-dir . --fabric-environment $env
 done
 ```
 
@@ -305,9 +305,9 @@ done
 
 ```bash
 # CI/CD pipeline example
-ingen_fab ddl compile-notebooks --output-mode fabric --generation-mode warehouse
+ingen_fab ddl compile --output-mode fabric --generation-mode warehouse
 ingen_fab test local libraries --base-dir . --failfast
-ingen_fab deploy to-environment --fabric-workspace-repo-dir . --fabric-environment production
+ingen_fab deploy deploy --fabric-workspace-repo-dir . --fabric-environment production
 ```
 
 ## Getting Help

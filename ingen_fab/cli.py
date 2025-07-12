@@ -27,7 +27,6 @@ test_app = typer.Typer()
 test_local_app = typer.Typer()
 test_platform_app = typer.Typer()
 notebook_app = typer.Typer()
-run_app = typer.Typer()
 package_app = typer.Typer()
 ingest_app = typer.Typer()
 
@@ -61,10 +60,11 @@ app.add_typer(
     help="Commands for managing and scanning notebook content.",
 )
 app.add_typer(
-    run_app,
-    name="run",
-    help="Commands for running packages and workflows.",
+    package_app,
+    name="package",
+    help="Commands for running extension packages.",
 )
+
 
 
 @app.callback()
@@ -328,26 +328,24 @@ def perform_code_replacements(ctx: typer.Context):
 
 
 # Package commands
-run_app.add_typer(
-    package_app,
-    name="package",
-    help="Commands for running packages.",
-)
 package_app.add_typer(
     ingest_app,
-    name="flat-file-ingestion",
+    name="ingest",
     help="Commands for flat file ingestion package.",
 )
 
 
-@ingest_app.command()
-def compile(
+@ingest_app.command("compile")
+def ingest_app_compile(
     ctx: typer.Context,
     template_vars: Annotated[str, typer.Option("--template-vars", "-t", help="JSON string of template variables")] = None,
 ):
     """Compile flat file ingestion package templates and DDL scripts."""
     import json
-    from ingen_fab.packages.flat_file_ingestion.flat_file_ingestion import compile_flat_file_ingestion_package
+
+    from ingen_fab.packages.flat_file_ingestion.flat_file_ingestion import (
+        compile_flat_file_ingestion_package,
+    )
     
     # Parse template variables if provided
     vars_dict = {}

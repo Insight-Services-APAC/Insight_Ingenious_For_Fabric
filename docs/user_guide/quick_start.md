@@ -20,7 +20,7 @@ mkdir my-fabric-project
 cd my-fabric-project
 
 # Initialize the project
-ingen_fab init solution --project-name "My First Fabric Project"
+ingen_fab init init-solution --project-name "My First Fabric Project"
 ```
 
 This creates the following structure:
@@ -113,12 +113,12 @@ Transform your DDL scripts into executable notebooks:
 
 ```bash
 # Generate notebooks for lakehouses
-ingen_fab ddl compile-notebooks \
+ingen_fab ddl compile \
     --output-mode fabric \
     --generation-mode lakehouse
 
 # Generate notebooks for warehouses (if you have any)
-ingen_fab ddl compile-notebooks \
+ingen_fab ddl compile \
     --output-mode fabric \
     --generation-mode warehouse
 ```
@@ -134,7 +134,7 @@ Deploy your project to your Fabric workspace:
 
 ```bash
 # Deploy to development environment
-ingen_fab deploy to-environment \
+ingen_fab deploy deploy \
     --fabric-workspace-repo-dir . \
     --fabric-environment development
 ```
@@ -198,10 +198,10 @@ print("✅ Sample data table created successfully!")
 EOF
 
 # Regenerate notebooks
-ingen_fab ddl compile-notebooks --output-mode fabric --generation-mode lakehouse
+ingen_fab ddl compile --output-mode fabric --generation-mode lakehouse
 
 # Redeploy
-ingen_fab deploy to-environment --fabric-workspace-repo-dir . --fabric-environment development
+ingen_fab deploy deploy --fabric-workspace-repo-dir . --fabric-environment development
 ```
 
 ### Testing Changes Locally
