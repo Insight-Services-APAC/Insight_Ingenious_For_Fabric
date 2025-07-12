@@ -47,8 +47,9 @@ else
 
     ###################################
     # Install PowerShell
-    apt-get install -y pwsh
+    apt-get install -y powershell
 
     # Start PowerShell
     pwsh
 fi
+

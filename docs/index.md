@@ -11,6 +11,7 @@ Ingenious for Fabric is a comprehensive command line tool built with [Typer](htt
 - **Notebook Utilities**: Scan and analyze existing notebook code and content
 - **Testing Framework**: Test notebooks both locally and on the Fabric platform
 - **Python Libraries**: Reusable Python and PySpark libraries for common Fabric operations
+- **Packages**: Reusable workload extensions for common data processing scenarios
 
 ## Quick Start
 
@@ -44,6 +45,16 @@ ingen_fab deploy to-environment \
     --fabric-environment development
 ```
 
+### Use Packages
+
+```bash
+# Compile flat file ingestion package
+ingen_fab run package flat-file-ingestion compile
+
+# Run flat file ingestion
+ingen_fab run package flat-file-ingestion run --config-id=my-config
+```
+
 ## Getting Started
 
 !!! tip "New to Ingenious Fabric Accelerator?"
@@ -74,6 +85,7 @@ project_templates/        # Templates for new project initialization
 - **[`deploy`](user_guide/cli_reference.md#deploy)** - Deploy to environments and manage workspace items
 - **[`notebook`](user_guide/cli_reference.md#notebook)** - Manage and scan notebook content
 - **[`test`](user_guide/cli_reference.md#test)** - Test notebooks and Python blocks (local and platform)
+- **[`run`](user_guide/cli_reference.md#run)** - Run packages and workflows
 
 ## Core Concepts
 
@@ -85,6 +97,9 @@ Organize DDL scripts in numbered sequence for controlled execution, supporting b
 
 ### Notebook Generation
 Automatically generate notebooks from templates with proper error handling, logging, and orchestration capabilities.
+
+### Packages
+Reusable workload extensions that provide specialized functionality for common data processing scenarios like flat file ingestion.
 
 ### Testing Framework
 Comprehensive testing framework supporting both local development and Fabric platform testing.
@@ -124,6 +139,14 @@ Comprehensive testing framework supporting both local development and Fabric pla
     See real-world examples and best practices
 
     [:octicons-arrow-right-24: Examples](examples/index.md)
+
+-   :material-package:{ .lg .middle } **Packages**
+
+    ---
+
+    Explore reusable workload extensions
+
+    [:octicons-arrow-right-24: Packages](packages/index.md)
 
 </div>
 
