@@ -1,0 +1,123 @@
+{%- import 'shared/notebook/macros/notebook_macros.py.jinja' as macros -%}
+{% if language_group == "synapse_pyspark" %}
+{%- include "shared/notebook/headers/pyspark.py.jinja" %}
+{% else %}
+{%- include "shared/notebook/headers/python.py.jinja" %}
+{% endif %}
+
+{% include "shared/notebook/environment/mount_setup.py.jinja" %}
+
+
+{{macros.python_cell_with_heading("## 🗂️ Now Load the Custom Python Libraries")}}
+
+if run_mode == "local":
+    from ingen_fab.python_libs.common.config_utils.py import *
+    from ingen_fab.python_libs.python.lakehouse_utils import lakehouse_utils
+    from ingen_fab.python_libs.python.ddl_utils import ddl_utils
+    from ingen_fab.python_libs.python.notebook_utils_abstraction import NotebookUtilsFactory
+    from ingen_fab.python_libs.python.sql_templates import sql_templates
+    from ingen_fab.python_libs.python.warehouse_utils import warehouse_utils
+    from ingen_fab.python_libs.python.pipeline_utils import pipeline_utils
+    notebookutils = NotebookUtilsFactory.create_instance() 
+else:
+    files_to_load = [
+        "ingen_fab/python_libs/common/config_utils.py",
+        "ingen_fab/python_libs/python/lakehouse_utils.py",
+        "ingen_fab/python_libs/python/ddl_utils.py",
+        "ingen_fab/python_libs/python/notebook_utils_abstraction.py",
+        "ingen_fab/python_libs/python/sql_templates.py",
+        "ingen_fab/python_libs/python/warehouse_utils.py",
+        "ingen_fab/python_libs/python/pipeline_utils.py"
+    ]
+
+{{ macros.python_cell_with_heading("## 🆕 Instantiate Required Classes ")}}
+
+
+configs: ConfigsObject = get_configs_as_object()
+
+
+{{macros.python_cell_with_heading("## 🏃‍♂️‍➡️ Run All Lakehouse DDL")}}
+# Import required libraries
+from notebookutils import mssparkutils
+import sys
+from datetime import datetime
+
+# Initialize variables
+workspace_id = mssparkutils.runtime.context.get("currentWorkspaceId")
+success_count = 0
+failed_notebook = None
+start_time = datetime.now()
+
+# Define execution function
+def execute_notebook(notebook_name, index, total, timeout_seconds=3600):
+    """Execute a single notebook and handle success/failure."""
+    global success_count
+    
+    try:
+        
+        print(f"{'='*60}")
+        print(f"Executing notebook {index}/{total}:{notebook_name}")
+        print(f"{'='*60}")
+        params = {
+            "fabric_environment": fabric_environment,
+            "config_workspace_id": config_workspace_id,
+            "config_lakehouse_id": config_lakehouse_id,
+            "target_lakehouse_config_prefix": target_lakehouse_config_prefix,
+            'useRootDefaultLakehouse': True
+        }
+        # Run the notebook
+        result = mssparkutils.notebook.run(
+            notebook_name,
+            timeout_seconds,
+            params
+        )
+        
+        if (result == 'success'):
+            success_count += 1
+        else: 
+            raise Exception({"result": result}) 
+
+        print(f"✓ Successfully executed: {notebook_name}")
+        print(f"Exit value: {result}")
+        return True
+        
+    except Exception as e:
+        print(f"✗ Failed to execute: {notebook_name}")
+        print(f"Error: {str(e)}")
+        
+        # Stop execution on failure
+        error_msg = f"Orchestration stopped due to failure in notebook: {notebook_name}. Error: {str(e)}"
+        mssparkutils.notebook.exit(error_msg)
+        return False
+
+print(f"Starting orchestration for {{ lakehouse_name }} lakehouse")
+print(f"Start time: {start_time}")
+print(f"Workspace ID: {workspace_id}")
+print(f"Total notebooks to execute: {{ total_notebooks }}")
+print("="*60)
+
+{%- for notebook in notebooks %}
+execute_notebook("{{ notebook.name }}", {{ notebook.index }}, {{ notebook.total }})
+{%- endfor %}
+
+# Final Summary
+end_time = datetime.now()
+duration = end_time - start_time
+
+print(f"{'='*60}")
+print(f"Orchestration Complete!")
+print(f"{'='*60}")
+print(f"End time: {end_time}")
+print(f"Duration: {duration}")
+print(f"Total notebooks: {{ total_notebooks }}")
+print(f"Successfully executed: {success_count}")
+print(f"Failed: {{ total_notebooks }} - {success_count}")
+
+if success_count == {{ total_notebooks }}:
+    print("✓ All notebooks executed successfully!")
+    mssparkutils.notebook.exit("success")
+else:
+    print(f"✗ Orchestration completed with failures")
+    mssparkutils.notebook.exit(f"Orchestration completed with {success_count}/{{ total_notebooks }} successful executions")
+
+{%include "shared/notebook/cells/footer.py.jinja" %}

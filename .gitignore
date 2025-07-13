@@ -14,3 +14,4 @@ fabric_cicd.error.log
 /fabric_cicd.error.log
 /.venv_win
 /site/**/*/
+/tmp/**/*/

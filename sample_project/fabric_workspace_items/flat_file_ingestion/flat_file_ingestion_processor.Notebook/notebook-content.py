@@ -14,8 +14,12 @@
 # META }
 
 
+# MARKDOWN ********************
 
 # ## 『』Parameters
+
+# PARAMETERS CELL ********************
+
 
 
 
@@ -34,7 +38,7 @@ environment = "development"
 
 # MARKDOWN ********************
 
-# ## 📄 Flat File Ingestion Notebook
+# ## ## 📄 Flat File Ingestion Notebook
 
 # CELL ********************
 
@@ -140,7 +144,7 @@ clear_module_cache("ingen_fab")
 
 # MARKDOWN ********************
 
-# ## 🔧 Load Configuration and Initialize
+# ## ## 🔧 Load Configuration and Initialize
 
 # CELL ********************
 
@@ -208,7 +212,7 @@ print(f"Environment: {environment}")
 
 # MARKDOWN ********************
 
-# ## 📋 Load Configuration Data
+# ## ## 📋 Load Configuration Data
 
 # CELL ********************
 
@@ -275,7 +279,7 @@ print(f"Found {len(config_df)} configurations to process")
 
 # MARKDOWN ********************
 
-# ## 🚀 File Processing Functions
+# ## ## 🚀 File Processing Functions
 
 # CELL ********************
 
@@ -432,7 +436,7 @@ processor = FlatFileProcessor(spark)
 
 # MARKDOWN ********************
 
-# ## 📊 Process Files
+# ## ## 📊 Process Files
 
 # CELL ********************
 
@@ -559,7 +563,7 @@ for _, config_row in config_df.iterrows():
 
 # MARKDOWN ********************
 
-# ## 📈 Execution Summary
+# ## ## 📈 Execution Summary
 
 # CELL ********************
 
@@ -605,7 +609,9 @@ print(f"\nExecution completed at: {datetime.now()}")
 
 # CELL ********************
 
+
 notebookutils.mssparkutils.notebook.exit("success")
+
 
 
 # METADATA ********************
@@ -614,3 +620,4 @@ notebookutils.mssparkutils.notebook.exit("success")
 # META   "language": "python",
 # META   "language_group": "synapse_pyspark"
 # META }
+

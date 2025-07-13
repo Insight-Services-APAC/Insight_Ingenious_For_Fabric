@@ -14,6 +14,7 @@ from ingen_fab.cli_utils import (
     workspace_commands,
 )
 from ingen_fab.cli_utils.console_styles import ConsoleStyles
+from ingen_fab.ddl_scripts.notebook_generator import NotebookGenerator
 
 console = Console()
 console_styles = ConsoleStyles()
@@ -130,6 +131,12 @@ def compile(
     verbose: Annotated[bool, typer.Option("--verbose", "-v")] = False,
 ):
     """Compile the DDL notebooks in the specified project directory."""
+    # Convert string parameters to enums
+    if output_mode:
+        output_mode = NotebookGenerator.OutputMode(output_mode)
+    if generation_mode:
+        generation_mode = NotebookGenerator.GenerationMode(generation_mode)
+    
     notebook_commands.compile_ddl_notebooks(ctx, output_mode, generation_mode, verbose)
 
 

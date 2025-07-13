@@ -110,3 +110,6 @@ Python libraries follow interface-based design:
 - Integration tests marked with `@pytest.mark.e2e`
 - Platform tests can run against live Fabric environments
 - Tests are designed to run offline by default
+
+## Linting and Formatting
+- Uses `ruff` for linting and formatting
