@@ -7,7 +7,13 @@
       "Bash(rm:*)",
       "Bash(export FABRIC_WORKSPACE_REPO_DIR=\"./sample_project\")",
       "Bash(export FABRIC_ENVIRONMENT=\"local\")",
-      "Bash(timeout:*)"
+      "Bash(timeout:*)",
+      "Bash(mv:*)",
+      "Bash(tree:*)",
+      "Bash(export FABRIC_ENVIRONMENT=\"development\")",
+      "Bash(ingen_fab ddl:*)",
+      "Bash(ingen_fab package:*)",
+      "Bash(ingen_fab test:*)"
     ],
     "deny": []
   }

@@ -48,7 +48,7 @@ class FlatFileIngestionCompiler(BaseNotebookCompiler):
             output_subdir="flat_file_ingestion"
         )
     
-    def compile_ddl_scripts(self) -> List[Path]:
+    def compile_ddl_scripts(self, include_sample_data: bool = False) -> List[Path]:
         """Compile DDL scripts to the target directory"""
         
         ddl_output_base = self.fabric_workspace_repo_dir / "ddl_scripts"
@@ -56,14 +56,23 @@ class FlatFileIngestionCompiler(BaseNotebookCompiler):
         # Define script mappings for different targets
         script_mappings = {
             "Lakehouses/Config/001_Initial_Creation_Ingestion": [
-                ("lakehouse_config_create.py", "001_config_flat_file_ingestion_create.py"),
-                ("lakehouse_log_create.py", "002_log_flat_file_ingestion_create.py")
+                ("lakehouse/config_create.py.jinja", "001_config_flat_file_ingestion_create.py"),
+                ("lakehouse/log_create.py", "002_log_flat_file_ingestion_create.py")
             ],
             "Warehouses/Config/001_Initial_Creation_Ingestion": [
-                ("warehouse_config_create.sql", "001_config_flat_file_ingestion_create.sql"),
-                ("warehouse_log_create.sql", "002_log_flat_file_ingestion_create.sql")
+                ("warehouse/config_create.sql", "001_config_flat_file_ingestion_create.sql"),
+                ("warehouse/log_create.sql", "002_log_flat_file_ingestion_create.sql")
             ]
         }
+        
+        # Add sample data scripts if requested
+        if include_sample_data:
+            script_mappings["Lakehouses/Config/002_Sample_Data_Ingestion"] = [
+                ("lakehouse/sample_data_insert.py.jinja", "003_sample_data_insert.py")
+            ]
+            script_mappings["Warehouses/Config/002_Sample_Data_Ingestion"] = [
+                ("warehouse/sample_data_insert.sql", "003_sample_data_insert.sql")
+            ]
         
         # Use base class method to copy files
         results = super().compile_ddl_scripts(self.ddl_scripts_dir, ddl_output_base, script_mappings)
@@ -75,13 +84,42 @@ class FlatFileIngestionCompiler(BaseNotebookCompiler):
         
         return compiled_files
     
-    def compile_all(self, template_vars: Dict[str, Any] = None) -> Dict[str, Any]:
+    def compile_sample_files(self) -> List[Path]:
+        """Copy sample data files to the target directory"""
+        
+        sample_source_dir = self.package_dir / "sample_project" / "sample_data"
+        sample_output_dir = self.fabric_workspace_repo_dir / "Files" / "sample_data"
+        
+        if not sample_source_dir.exists():
+            self.print_error("Sample data directory not found", f"Expected: {sample_source_dir}")
+            return []
+        
+        # Create output directory
+        sample_output_dir.mkdir(parents=True, exist_ok=True)
+        
+        # Copy all files from sample_data directory
+        copied_files = []
+        for file_path in sample_source_dir.iterdir():
+            if file_path.is_file():
+                target_path = sample_output_dir / file_path.name
+                target_path.write_bytes(file_path.read_bytes())
+                copied_files.append(target_path)
+                if self.console:
+                    self.console.print(f"[green]✓ File copied:[/green] {target_path}")
+        
+        return copied_files
+    
+    def compile_all(self, template_vars: Dict[str, Any] = None, include_samples: bool = False) -> Dict[str, Any]:
         """Compile all templates and DDL scripts"""
         
         compile_functions = [
             (self.compile_notebook, [template_vars], {}),
-            (self.compile_ddl_scripts, [], {})
+            (self.compile_ddl_scripts, [], {"include_sample_data": include_samples})
         ]
+        
+        # Add sample files compilation if requested
+        if include_samples:
+            compile_functions.append((self.compile_sample_files, [], {}))
         
         results = self.compile_all_with_results(
             compile_functions, 
@@ -92,18 +130,24 @@ class FlatFileIngestionCompiler(BaseNotebookCompiler):
         if results["success"]:
             notebook_file = results["compiled_items"].get("compile_notebook")
             ddl_files = results["compiled_items"].get("compile_ddl_scripts", [])
+            sample_files = results["compiled_items"].get("compile_sample_files", [])
             
-            self.print_success_panel(
-                "Compilation Complete",
+            success_message = (
                 f"✓ Successfully compiled flat file ingestion package\n"
                 f"Notebook: {notebook_file}\n"
                 f"DDL Scripts: {len(ddl_files)} files"
             )
             
+            if sample_files:
+                success_message += f"\nSample Files: {len(sample_files)} files"
+            
+            self.print_success_panel("Compilation Complete", success_message)
+            
             # Return in expected format
             return {
                 "notebook_file": notebook_file,
                 "ddl_files": ddl_files,
+                "sample_files": sample_files,
                 "success": True,
                 "errors": []
             }
@@ -111,14 +155,16 @@ class FlatFileIngestionCompiler(BaseNotebookCompiler):
             return {
                 "notebook_file": None,
                 "ddl_files": [],
+                "sample_files": [],
                 "success": False,
                 "errors": results["errors"]
             }
 
 
 def compile_flat_file_ingestion_package(fabric_workspace_repo_dir: str = None, 
-                                       template_vars: Dict[str, Any] = None) -> Dict[str, Any]:
+                                       template_vars: Dict[str, Any] = None,
+                                       include_samples: bool = False) -> Dict[str, Any]:
     """Main function to compile the flat file ingestion package"""
     
     compiler = FlatFileIngestionCompiler(fabric_workspace_repo_dir)
-    return compiler.compile_all(template_vars)
+    return compiler.compile_all(template_vars, include_samples=include_samples)

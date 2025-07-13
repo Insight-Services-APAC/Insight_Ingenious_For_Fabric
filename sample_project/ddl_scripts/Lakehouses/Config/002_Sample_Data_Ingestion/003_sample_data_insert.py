@@ -1,0 +1,94 @@
+# Sample configuration data for flat file ingestion testing - Lakehouse version
+from pyspark.sql import Row
+
+# Import the schema definition
+{% include 'ddl/schemas/flat_file_config_schema.py.jinja' %}
+
+# Sample configuration records for testing
+sample_configs = [
+    Row(
+        config_id="csv_test_001",
+        config_name="CSV Sales Data Test",
+        source_file_path="Files/sample_data/sales_data.csv",
+        source_file_format="csv",
+        target_lakehouse_workspace_id="{{varlib:config_workspace_id}}",
+        target_lakehouse_id="{{varlib:config_lakehouse_id}}",
+        target_schema_name="raw",
+        target_table_name="sales_data",
+        file_delimiter=",",
+        has_header=True,
+        encoding="utf-8",
+        date_format="yyyy-MM-dd",
+        timestamp_format="yyyy-MM-dd HH:mm:ss",
+        schema_inference=True,
+        custom_schema_json=None,
+        partition_columns="",
+        sort_columns="date",
+        write_mode="overwrite",
+        merge_keys="",
+        data_validation_rules=None,
+        error_handling_strategy="fail",
+        execution_group=1,
+        active_yn="Y"
+    ),
+    Row(
+        config_id="json_test_002",
+        config_name="JSON Products Data Test",
+        source_file_path="Files/sample_data/products.json",
+        source_file_format="json",
+        target_lakehouse_workspace_id="{{varlib:config_workspace_id}}",
+        target_lakehouse_id="{{varlib:config_lakehouse_id}}",
+        target_schema_name="raw",
+        target_table_name="products",
+        file_delimiter=None,
+        has_header=None,
+        encoding="utf-8",
+        date_format="yyyy-MM-dd",
+        timestamp_format="yyyy-MM-dd'T'HH:mm:ss'Z'",
+        schema_inference=True,
+        custom_schema_json=None,
+        partition_columns="category",
+        sort_columns="product_id",
+        write_mode="overwrite",
+        merge_keys="",
+        data_validation_rules=None,
+        error_handling_strategy="log",
+        execution_group=1,
+        active_yn="Y"
+    ),
+    Row(
+        config_id="parquet_test_003",
+        config_name="Parquet Customers Data Test",
+        source_file_path="Files/sample_data/customers.parquet",
+        source_file_format="parquet",
+        target_lakehouse_workspace_id="{{varlib:config_workspace_id}}",
+        target_lakehouse_id="{{varlib:config_lakehouse_id}}",
+        target_schema_name="raw",
+        target_table_name="customers",
+        file_delimiter=None,
+        has_header=None,
+        encoding=None,
+        date_format="yyyy-MM-dd",
+        timestamp_format="yyyy-MM-dd HH:mm:ss",
+        schema_inference=True,
+        custom_schema_json=None,
+        partition_columns="region",
+        sort_columns="customer_id",
+        write_mode="overwrite",
+        merge_keys="",
+        data_validation_rules=None,
+        error_handling_strategy="fail",
+        execution_group=2,
+        active_yn="Y"
+    )
+]
+
+# Create DataFrame and insert records
+df = spark.createDataFrame(sample_configs, schema)  # type: ignore # noqa: F821
+target_lakehouse.write_to_table(
+    df=df,
+    table_name="config_flat_file_ingestion",
+    mode="append"
+)
+
+print(f"✓ Inserted {len(sample_configs)} sample configuration records")

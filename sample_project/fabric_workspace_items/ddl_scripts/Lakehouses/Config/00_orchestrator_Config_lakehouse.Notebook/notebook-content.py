@@ -190,10 +190,11 @@ def execute_notebook(notebook_name, index, total, timeout_seconds=3600):
 
 print(f"Starting orchestration for Config lakehouse")
 print(f"Start time: {start_time}")
-print(f"Total notebooks to execute: 2")
+print(f"Total notebooks to execute: 3")
 print("="*60)
-execute_notebook("001_Initial_Creation_Config_Lakehouses", 1, 2)
-execute_notebook("001_Initial_Creation_Ingestion_Config_Lakehouses", 2, 2)
+execute_notebook("001_Initial_Creation_Config_Lakehouses", 1, 3)
+execute_notebook("001_Initial_Creation_Ingestion_Config_Lakehouses", 2, 3)
+execute_notebook("002_Sample_Data_Ingestion_Config_Lakehouses", 3, 3)
 
 # Final Summary
 end_time = datetime.now()
@@ -204,16 +205,16 @@ print(f"Orchestration Complete!")
 print(f"{'='*60}")
 print(f"End time: {end_time}")
 print(f"Duration: {duration}")
-print(f"Total notebooks: 2")
+print(f"Total notebooks: 3")
 print(f"Successfully executed: {success_count}")
-print(f"Failed: 2 - {success_count}")
+print(f"Failed: 3 - {success_count}")
 
-if success_count == 2:
+if success_count == 3:
     print("✓ All notebooks executed successfully!")
     mssparkutils.notebook.exit("success")
 else:
     print(f"✗ Orchestration completed with failures")
-    mssparkutils.notebook.exit(f"Orchestration completed with {success_count}/2 successful executions")
+    mssparkutils.notebook.exit(f"Orchestration completed with {success_count}/3 successful executions")
 
 # METADATA ********************
 

@@ -84,7 +84,7 @@ class FlatFileIngestionConfig:
 
 # Initialize config lakehouse utilities
 config_lakehouse = lakehouse_utils(
-    target_workspace_id=configs.config_lakehouse_workspace_id,
+    target_workspace_id=configs.config_workspace_id,
     target_lakehouse_id=configs.config_lakehouse_id,
     spark=spark
 )
