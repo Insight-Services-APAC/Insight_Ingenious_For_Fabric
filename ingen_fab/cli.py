@@ -30,6 +30,7 @@ test_platform_app = typer.Typer()
 notebook_app = typer.Typer()
 package_app = typer.Typer()
 ingest_app = typer.Typer()
+libs_app = typer.Typer()
 
 # Add sub-apps to main app
 test_app.add_typer(
@@ -64,6 +65,11 @@ app.add_typer(
     package_app,
     name="package",
     help="Commands for running extension packages.",
+)
+app.add_typer(
+    libs_app,
+    name="libs",
+    help="Commands for compiling and managing Python libraries.",
 )
 
 
@@ -124,18 +130,32 @@ def main(
 @ddl_app.command()
 def compile(
     ctx: typer.Context,
-    output_mode: Annotated[str, typer.Option("--output-mode", "-o")] = None,
+    output_mode: Annotated[str, typer.Option("--output-mode", "-o", help="Output mode: fabric_workspace_repo or local")] = None,
     generation_mode: Annotated[
-        str, typer.Option("--generation-mode", "-g")
+        str, typer.Option("--generation-mode", "-g", help="Generation mode: Lakehouse or Warehouse")
     ] = None,
     verbose: Annotated[bool, typer.Option("--verbose", "-v")] = False,
 ):
     """Compile the DDL notebooks in the specified project directory."""
-    # Convert string parameters to enums
+    
+    # Convert string parameters to enums with proper error handling
     if output_mode:
-        output_mode = NotebookGenerator.OutputMode(output_mode)
+        try:
+            output_mode = NotebookGenerator.OutputMode(output_mode)
+        except ValueError:
+            valid_modes = [mode.value for mode in NotebookGenerator.OutputMode]
+            console.print(f"[red]Error: Invalid output mode '{output_mode}'[/red]")
+            console.print(f"[yellow]Valid output modes: {', '.join(valid_modes)}[/yellow]")
+            raise typer.Exit(code=1)
+    
     if generation_mode:
-        generation_mode = NotebookGenerator.GenerationMode(generation_mode)
+        try:
+            generation_mode = NotebookGenerator.GenerationMode(generation_mode)
+        except ValueError:
+            valid_modes = [mode.value for mode in NotebookGenerator.GenerationMode]
+            console.print(f"[red]Error: Invalid generation mode '{generation_mode}'[/red]")
+            console.print(f"[yellow]Valid generation modes: {', '.join(valid_modes)}[/yellow]")
+            raise typer.Exit(code=1)
     
     notebook_commands.compile_ddl_notebooks(ctx, output_mode, generation_mode, verbose)
 
@@ -401,6 +421,57 @@ def run(
     
     console.print("[yellow]Note: This command would typically execute the compiled notebook with the specified parameters.[/yellow]")
     console.print("[yellow]In a production environment, this would submit the notebook to Fabric for execution.[/yellow]")
+
+
+# Library compilation commands
+@libs_app.command()
+def compile(
+    ctx: typer.Context,
+    target_file: Annotated[str, typer.Option("--target-file", "-f", help="Specific python file to compile (relative to project root)")] = None,
+):
+    """Compile Python libraries by injecting variables from the variable library."""
+    from pathlib import Path
+    from ingen_fab.config_utils.variable_lib import inject_variables_into_file, VariableLibraryUtils
+    
+    project_path = Path(ctx.obj["fabric_workspace_repo_dir"])
+    environment = str(ctx.obj["fabric_environment"])
+    
+    console.print(f"[blue]Compiling Python libraries...[/blue]")
+    console.print(f"Project path: {project_path}")
+    console.print(f"Environment: {environment}")
+    
+    if target_file:
+        # Compile specific file
+        target_path = project_path / target_file
+        console.print(f"Target file: {target_path}")
+        
+        if not target_path.exists():
+            console.print(f"[red]Error: Target file not found: {target_path}[/red]")
+            raise typer.Exit(code=1)
+            
+        try:
+            inject_variables_into_file(project_path, target_path, environment)
+            console.print(f"[green]✓ Successfully compiled: {target_file}[/green]")
+        except Exception as e:
+            console.print(f"[red]Error compiling {target_file}: {e}[/red]")
+            raise typer.Exit(code=1)
+    else:
+        # Compile config_utils.py as default - use absolute path since we're in the ingen_fab directory
+        from pathlib import Path as PathlibPath
+        current_dir = PathlibPath.cwd()
+        config_utils_path = current_dir / "ingen_fab" / "python_libs" / "common" / "config_utils.py"
+        console.print(f"Target file: {config_utils_path}")
+        
+        if not config_utils_path.exists():
+            console.print(f"[red]Error: config_utils.py not found at: {config_utils_path}[/red]")
+            raise typer.Exit(code=1)
+            
+        try:
+            inject_variables_into_file(project_path, config_utils_path, environment)
+            console.print(f"[green]✓ Successfully compiled config_utils.py[/green]")
+        except Exception as e:
+            console.print(f"[red]Error compiling config_utils.py: {e}[/red]")
+            raise typer.Exit(code=1)
 
 
 if __name__ == "__main__":

@@ -282,3 +282,88 @@ class DataStoreInterface(ABC):
             retention_hours: Retention period in hours (default: 168)
         """
         pass
+
+    @abstractmethod
+    def read_file(
+        self,
+        file_path: str,
+        file_format: str,
+        options: dict[str, Any] | None = None,
+    ) -> Any:
+        """
+        Read a file from the file system using the appropriate method for the environment.
+
+        Args:
+            file_path: Path to the file (relative or absolute)
+            file_format: Format of the file (csv, json, parquet, avro, xml)
+            options: Additional options for reading (headers, delimiters, schema, etc.)
+
+        Returns:
+            DataFrame containing the file data
+        """
+        pass
+
+    @abstractmethod
+    def write_file(
+        self,
+        df: Any,
+        file_path: str,
+        file_format: str,
+        options: dict[str, Any] | None = None,
+    ) -> None:
+        """
+        Write a DataFrame to a file using the appropriate method for the environment.
+
+        Args:
+            df: DataFrame to write
+            file_path: Path where to write the file
+            file_format: Format for the file (csv, json, parquet, avro, xml)
+            options: Additional options for writing
+        """
+        pass
+
+    @abstractmethod
+    def file_exists(self, file_path: str) -> bool:
+        """
+        Check if a file exists.
+
+        Args:
+            file_path: Path to the file to check
+
+        Returns:
+            True if file exists, False otherwise
+        """
+        pass
+
+    @abstractmethod
+    def list_files(
+        self,
+        directory_path: str,
+        pattern: str | None = None,
+        recursive: bool = False,
+    ) -> list[str]:
+        """
+        List files in a directory.
+
+        Args:
+            directory_path: Path to the directory
+            pattern: Optional pattern to filter files (e.g., "*.csv")
+            recursive: Whether to search recursively in subdirectories
+
+        Returns:
+            List of file paths
+        """
+        pass
+
+    @abstractmethod
+    def get_file_info(self, file_path: str) -> dict[str, Any]:
+        """
+        Get information about a file (size, modification time, etc.).
+
+        Args:
+            file_path: Path to the file
+
+        Returns:
+            Dictionary containing file information (size, modified_time, etc.)
+        """
+        pass

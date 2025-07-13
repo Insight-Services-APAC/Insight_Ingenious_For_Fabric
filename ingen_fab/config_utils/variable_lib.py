@@ -68,42 +68,61 @@ class VariableLibraryUtils:
 
         return content
       
-    def inject_variables_into_template(self) -> None:
-        """Main function to inject variables into the template and replace variable placeholders."""
+    def inject_variables_into_template(self, target_file: Path = None) -> None:
+        """Main function to inject variables into the template and replace variable placeholders.
+        
+        Args:
+            target_file: Optional specific file to update. If None, updates all notebook-content files.
+        """
         variables = self.variables
 
-        # Find all notebook-content files and update them
-        notebook_files = []
-        workspace_items_path = self.project_path / Path("fabric_workspace_items")
+        # If a specific file is provided, update only that file
+        if target_file:
+            files_to_update = [target_file]
+        else:
+            # Find all notebook-content files and update them
+            files_to_update = []
+            workspace_items_path = self.project_path / Path("fabric_workspace_items")
 
-        if workspace_items_path.exists():
-            for notebook_file in workspace_items_path.rglob("notebook-content.py"):
-                notebook_files.append(notebook_file)
+            if workspace_items_path.exists():
+                for notebook_file in workspace_items_path.rglob("notebook-content.py"):
+                    files_to_update.append(notebook_file)
 
-        if not notebook_files:
-            print(f"No notebook-content files found in {workspace_items_path}")
-            return
+            if not files_to_update:
+                print(f"No notebook-content files found in {workspace_items_path}")
+                return
 
         updated_files = []
-        for notebook_file in notebook_files:
-            with open(notebook_file, "r", encoding="utf-8") as f:
+        for file_path in files_to_update:
+            # Skip if file doesn't exist
+            if not file_path.exists():
+                print(f"Warning: File not found: {file_path}")
+                continue
+                
+            with open(file_path, "r", encoding="utf-8") as f:
                 content = f.read()
 
             updated_content = self.perform_code_replacements(content)
 
             # Write the updated content back to the file if changed
             if updated_content != content:
-                with open(notebook_file, "w", encoding="utf-8") as f:
+                with open(file_path, "w", encoding="utf-8") as f:
                     f.write(updated_content)
-                updated_files.append(notebook_file)
+                updated_files.append(file_path)
 
         # Report results
         if updated_files:
-            print(f"Updated {len(updated_files)} notebook-content file(s) with values from {self.environment} environment:")
+            if target_file:
+                print(f"Updated specific file with values from {self.environment} environment:")
+            else:
+                print(f"Updated {len(updated_files)} file(s) with values from {self.environment} environment:")
             for file in updated_files:
-                print(f"  - {file.relative_to(self.project_path)}")
+                print(f"  - {file.relative_to(self.project_path) if self.project_path else file}")
         else:
-            print(f"No notebook-content files with injection markers or placeholders found in {workspace_items_path}")
+            if target_file:
+                print(f"No changes needed for target file: {target_file}")
+            else:
+                print(f"No files with injection markers or placeholders found")
             
     def get_workspace_id(self) -> str:
         """Get the target workspace ID from the variable library."""
@@ -172,3 +191,19 @@ class VariableLibraryUtils:
             updated_content = content_with_vars
 
         return updated_content
+
+
+def inject_variables_into_file(
+    project_path: Path,
+    target_file: Path,
+    environment: str = "local"
+) -> None:
+    """Convenience function to inject variables into a specific file.
+    
+    Args:
+        project_path: Path to the project root
+        target_file: Path to the specific file to update
+        environment: Environment name for variable library lookup
+    """
+    varlib_utils = VariableLibraryUtils(project_path, environment)
+    varlib_utils.inject_variables_into_template(target_file)

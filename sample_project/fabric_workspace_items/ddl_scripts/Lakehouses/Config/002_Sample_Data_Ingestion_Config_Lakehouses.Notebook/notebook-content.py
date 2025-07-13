@@ -57,22 +57,64 @@ if "notebookutils" in sys.modules:
     sys.path.insert(0, mount_path)
 
     
-    # Python environment - no spark session needed
-    spark = None
+    # PySpark environment - spark session should be available
     
 else:
     print("NotebookUtils not available, assumed running in local mode.")
-    from ingen_fab.python_libs.python.notebook_utils_abstraction import (
+    from ingen_fab.python_libs.pyspark.notebook_utils_abstraction import (
         NotebookUtilsFactory,
     )
     notebookutils = NotebookUtilsFactory.create_instance()
-    
-    
+        
     spark = None
-    
     
     mount_path = None
     run_mode = "local"
+
+import traceback
+
+def load_python_modules_from_path(base_path: str, relative_files: list[str], max_chars: int = 1_000_000_000):
+    """
+    Executes Python files from a Fabric-mounted file path using notebookutils.fs.head.
+    
+    Args:
+        base_path (str): The root directory where modules are located.
+        relative_files (list[str]): List of relative paths to Python files (from base_path).
+        max_chars (int): Max characters to read from each file (default: 1,000,000).
+    """
+    success_files = []
+    failed_files = []
+
+    for relative_path in relative_files:
+        full_path = f"file:{base_path}/{relative_path}"
+        try:
+            print(f"🔄 Loading: {full_path}")
+            code = notebookutils.fs.head(full_path, max_chars)
+            exec(code, globals())  # Use globals() to share context across modules
+            success_files.append(relative_path)
+        except Exception as e:
+            failed_files.append(relative_path)
+            print(f"❌ Error loading {relative_path}")
+
+    print("\n✅ Successfully loaded:")
+    for f in success_files:
+        print(f" - {f}")
+
+    if failed_files:
+        print("\n⚠️ Failed to load:")
+        for f in failed_files:
+            print(f" - {f}")
+
+def clear_module_cache(prefix: str):
+    """Clear module cache for specified prefix"""
+    for mod in list(sys.modules):
+        if mod.startswith(prefix):
+            print("deleting..." + mod)
+            del sys.modules[mod]
+
+# Always clear the module cache - We may remove this once the libs are stable
+clear_module_cache("ingen_fab.python_libs")
+clear_module_cache("ingen_fab")
 
 
 
@@ -190,6 +232,45 @@ def script_to_execute():
     # Sample configuration data for flat file ingestion testing - Lakehouse version
     from pyspark.sql import Row
     
+    # Import the schema definition
+    from pyspark.sql.types import (
+        BooleanType,
+        IntegerType,
+        StringType,
+        StructField,
+        StructType,
+    )
+    
+    schema = StructType([
+        StructField("config_id", StringType(), nullable=False),
+        StructField("config_name", StringType(), nullable=False),
+        StructField("source_file_path", StringType(), nullable=False),
+        StructField("source_file_format", StringType(), nullable=False),  # csv, json, parquet, avro, xml
+        StructField("target_lakehouse_workspace_id", StringType(), nullable=False),
+        StructField("target_lakehouse_id", StringType(), nullable=False),
+        StructField("target_schema_name", StringType(), nullable=False),
+        StructField("target_table_name", StringType(), nullable=False),
+        StructField("file_delimiter", StringType(), nullable=True),  # for CSV files
+        StructField("has_header", BooleanType(), nullable=True),  # for CSV files
+        StructField("encoding", StringType(), nullable=True),  # utf-8, latin-1, etc.
+        StructField("date_format", StringType(), nullable=True),  # for date columns
+        StructField("timestamp_format", StringType(), nullable=True),  # for timestamp columns
+        StructField("schema_inference", BooleanType(), nullable=False),  # whether to infer schema
+        StructField("custom_schema_json", StringType(), nullable=True),  # custom schema definition
+        StructField("partition_columns", StringType(), nullable=True),  # comma-separated list
+        StructField("sort_columns", StringType(), nullable=True),  # comma-separated list
+        StructField("write_mode", StringType(), nullable=False),  # overwrite, append, merge
+        StructField("merge_keys", StringType(), nullable=True),  # for merge operations
+        StructField("data_validation_rules", StringType(), nullable=True),  # JSON validation rules
+        StructField("error_handling_strategy", StringType(), nullable=False),  # fail, skip, log
+        StructField("execution_group", IntegerType(), nullable=False),
+        StructField("active_yn", StringType(), nullable=False),
+        StructField("created_date", StringType(), nullable=False),
+        StructField("modified_date", StringType(), nullable=True),
+        StructField("created_by", StringType(), nullable=False),
+        StructField("modified_by", StringType(), nullable=True)
+    ])
+    
     # Sample configuration records for testing
     sample_configs = [
         Row(
@@ -215,7 +296,11 @@ def script_to_execute():
             data_validation_rules=None,
             error_handling_strategy="fail",
             execution_group=1,
-            active_yn="Y"
+            active_yn="Y",
+            created_date="2024-01-15",
+            modified_date=None,
+            created_by="system",
+            modified_by=None
         ),
         Row(
             config_id="json_test_002",
@@ -230,7 +315,7 @@ def script_to_execute():
             has_header=None,
             encoding="utf-8",
             date_format="yyyy-MM-dd",
-            timestamp_format="yyyy-MM-dd'T'HH:mm:ss'Z'",
+            timestamp_format="yyyy-MM-dd T HH:mm:ss Z",
             schema_inference=True,
             custom_schema_json=None,
             partition_columns="category",
@@ -240,7 +325,11 @@ def script_to_execute():
             data_validation_rules=None,
             error_handling_strategy="log",
             execution_group=1,
-            active_yn="Y"
+            active_yn="Y",
+            created_date="2024-01-15",
+            modified_date=None,
+            created_by="system",
+            modified_by=None
         ),
         Row(
             config_id="parquet_test_003",
@@ -265,19 +354,23 @@ def script_to_execute():
             data_validation_rules=None,
             error_handling_strategy="fail",
             execution_group=2,
-            active_yn="Y"
+            active_yn="Y",        
+            created_date="2024-01-15",
+            modified_date=None,
+            created_by="system",
+            modified_by=None
         )
     ]
     
     # Create DataFrame and insert records
-    df = target_lakehouse.spark.createDataFrame(sample_configs, schema=target_lakehouse.schema)  # type: ignore # noqa: F821
+    df = target_lakehouse.get_connection.createDataFrame(sample_configs, schema)
     target_lakehouse.write_to_table(
         df=df,
         table_name="config_flat_file_ingestion",
         mode="append"
     )
     
-    print(f"✓ Inserted {len(sample_configs)} sample configuration records")
+    print("✓ Inserted " + str(len(sample_configs)) + " sample configuration records")
     
 
 du.run_once(script_to_execute, "003_sample_data_insert","15fc8b132572")

@@ -19,11 +19,10 @@ class FlatFileIngestionCompiler(BaseNotebookCompiler):
         self.templates_dir = self.package_dir / "templates"
         self.ddl_scripts_dir = self.package_dir / "ddl_scripts"
         
-        # Set up template directories - include package templates, common templates, and unified templates
+        # Set up template directories - include package templates and unified templates
         root_dir = Path.cwd()
-        common_templates_dir = root_dir / "ingen_fab" / "notebook_utils" / "templates"
         unified_templates_dir = root_dir / "ingen_fab" / "templates"
-        template_search_paths = [self.templates_dir, common_templates_dir, unified_templates_dir]
+        template_search_paths = [self.templates_dir, unified_templates_dir]
         
         super().__init__(
             templates_dir=template_search_paths,

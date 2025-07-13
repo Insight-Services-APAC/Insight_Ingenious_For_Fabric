@@ -57,6 +57,14 @@
     {
       "name": "synapse_export_shortcut_path_in_onelake",
       "value": "exports/"
+    },
+    {
+      "name": "raw_workspace_id",
+      "value": "50fbcab0-7d56-46f7-90f6-80ceb00ac86d"
+    },
+    {
+      "name": "raw_datastore_id",
+      "value": "23ba8378-7884-4ac7-bab5-10e11af43d6c"
     }
   ]
 }

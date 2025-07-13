@@ -2,10 +2,10 @@
   "$schema": "https://developer.microsoft.com/json-schemas/fabric/gitIntegration/platformProperties/2.0.0/schema.json",
   "metadata": {
     "type": "Notebook",
-    "displayName": "002_Sample_Data_Ingestion_Config_Lakehouses_ddl_scripts"
+    "displayName": "002_Sample_Data_Ingestion_Config_Warehouses_ddl_scripts"
   },
   "config": {
     "version": "2.0",
-    "logicalId": "2d241fdc-6fd8-427d-8f70-bf05d6dc493c"
+    "logicalId": "fc833936-8266-480a-983a-1a93933fdd14"
   }
 }
