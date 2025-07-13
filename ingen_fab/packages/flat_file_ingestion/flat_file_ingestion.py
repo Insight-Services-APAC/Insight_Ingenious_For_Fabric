@@ -74,8 +74,8 @@ class FlatFileIngestionCompiler(BaseNotebookCompiler):
                 ("warehouse/sample_data_insert.sql", "003_sample_data_insert.sql")
             ]
         
-        # Use base class method to copy files
-        results = super().compile_ddl_scripts(self.ddl_scripts_dir, ddl_output_base, script_mappings)
+        # Process DDL scripts with template rendering
+        results = self._compile_ddl_scripts_with_templates(self.ddl_scripts_dir, ddl_output_base, script_mappings)
         
         # Flatten results into a single list for backward compatibility
         compiled_files = []
@@ -83,6 +83,72 @@ class FlatFileIngestionCompiler(BaseNotebookCompiler):
             compiled_files.extend(file_list)
         
         return compiled_files
+    
+    def _compile_ddl_scripts_with_templates(self, ddl_source_dir: Path, ddl_output_base: Path, script_mappings: Dict[str, List[tuple]]) -> Dict[str, List[Path]]:
+        """Compile DDL scripts with Jinja template processing"""
+        from pathlib import Path
+        import jinja2
+        
+        results = {}
+        
+        for folder_path, file_mappings in script_mappings.items():
+            folder_results = []
+            
+            # Create target directory
+            target_dir = ddl_output_base / folder_path
+            target_dir.mkdir(parents=True, exist_ok=True)
+            
+            for source_file, target_file in file_mappings:
+                source_path = ddl_source_dir / source_file
+                target_path = target_dir / target_file
+                
+                if source_file.endswith('.jinja'):
+                    # Process as Jinja template
+                    try:
+                        if source_path.exists():
+                            template_content = source_path.read_text()
+                            
+                            # Create a template environment that includes our DDL scripts directory and unified templates
+                            template_paths = [ddl_source_dir]
+                            # Add the unified templates directory
+                            unified_templates_dir = Path.cwd() / "ingen_fab" / "templates"
+                            template_paths.append(unified_templates_dir)
+                            
+                            env = jinja2.Environment(
+                                loader=jinja2.FileSystemLoader(template_paths),
+                                autoescape=False
+                            )
+                            
+                            template = env.from_string(template_content)
+                            rendered_content = template.render()
+                            
+                            target_path.write_text(rendered_content)
+                            if self.console:
+                                self.console.print(f"[green]✓ Template rendered:[/green] {target_path}")
+                        else:
+                            if self.console:
+                                self.console.print(f"[red]✗ Template file not found:[/red] {source_path}")
+                            continue
+                    except Exception as e:
+                        if self.console:
+                            self.console.print(f"[red]✗ Template error:[/red] {source_file} - {e}")
+                        continue
+                else:
+                    # Copy file directly
+                    if source_path.exists():
+                        target_path.write_bytes(source_path.read_bytes())
+                        if self.console:
+                            self.console.print(f"[green]✓ File copied:[/green] {target_path}")
+                    else:
+                        if self.console:
+                            self.console.print(f"[red]✗ Source file not found:[/red] {source_path}")
+                        continue
+                
+                folder_results.append(target_path)
+            
+            results[folder_path] = folder_results
+        
+        return results
     
     def compile_sample_files(self) -> List[Path]:
         """Copy sample data files to the target directory"""
