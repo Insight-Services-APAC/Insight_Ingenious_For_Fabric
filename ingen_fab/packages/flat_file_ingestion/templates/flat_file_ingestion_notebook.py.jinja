@@ -1,4 +1,4 @@
-{%- import 'common/nb_macros.py.jinja' as macros -%}
+{%- import 'shared/notebook/macros/notebook_macros.py.jinja' as macros -%}
 # Fabric notebook source
 
 # METADATA ********************
@@ -395,4 +395,4 @@ print(f"\nExecution completed at: {datetime.now()}")
 
 {{ macros.exit_notebook("success") }}
 
-{%include 'common/nb_footer.py.jinja' %}
+{%include 'shared/notebook/cells/footer.py.jinja' %}

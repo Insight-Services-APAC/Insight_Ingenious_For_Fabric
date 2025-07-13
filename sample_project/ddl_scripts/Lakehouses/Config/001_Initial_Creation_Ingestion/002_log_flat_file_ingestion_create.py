@@ -1,5 +1,12 @@
 # Log table for flat file ingestion execution tracking - Lakehouse version
-from pyspark.sql.types import StructType, StructField, StringType, IntegerType, LongType, TimestampType
+from pyspark.sql.types import (
+    IntegerType,
+    LongType,
+    StringType,
+    StructField,
+    StructType,
+    TimestampType,
+)
 
 schema = StructType([
     StructField("log_id", StringType(), nullable=False),

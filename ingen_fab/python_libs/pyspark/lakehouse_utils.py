@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from pathlib import Path
 from typing import Any
 
 from delta.tables import DeltaTable
@@ -113,7 +114,7 @@ class lakehouse_utils(DataStoreInterface):
     def lakehouse_tables_uri(self) -> str:
         """Get the ABFSS URI for the lakehouse Tables directory."""
         if self.spark_version == "local":
-            return f"file:///tmp/{self._target_lakehouse_id}/Tables/"
+            return f"file:///{Path.cwd()}/tmp/spark/Tables/"
         else:
             return f"abfss://{self._target_workspace_id}@onelake.dfs.fabric.microsoft.com/{self._target_lakehouse_id}/Tables/"
 

@@ -1,5 +1,11 @@
 # Configuration table for flat file ingestion metadata - Lakehouse version
-from pyspark.sql.types import StructType, StructField, StringType, IntegerType, BooleanType
+from pyspark.sql.types import (
+    BooleanType,
+    IntegerType,
+    StringType,
+    StructField,
+    StructType,
+)
 
 schema = StructType([
     StructField("config_id", StringType(), nullable=False),
