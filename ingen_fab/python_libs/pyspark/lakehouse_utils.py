@@ -157,8 +157,9 @@ class lakehouse_utils(DataStoreInterface):
 
         # Register the table in the Hive catalog - Only needed if local
         if self.spark_version == "local":
+            print(f"⚠ Alert: Registering table '{table_name}' in the Hive catalog for local Spark.")
             self.spark.sql(
-                f"CREATE TABLE IF NOT EXISTS {table_name} USING DELTA LOCATION '{self.lakehouse_tables_uri()}{table_name}'"
+            f"CREATE TABLE IF NOT EXISTS {table_name} USING DELTA LOCATION '{self.lakehouse_tables_uri()}{table_name}'"
             )
 
     def list_tables(self) -> list[str]:
