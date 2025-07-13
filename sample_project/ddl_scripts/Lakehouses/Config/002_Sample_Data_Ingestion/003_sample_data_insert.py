@@ -2,7 +2,43 @@
 from pyspark.sql import Row
 
 # Import the schema definition
-{% include 'ddl/schemas/flat_file_config_schema.py.jinja' %}
+from pyspark.sql.types import (
+    BooleanType,
+    IntegerType,
+    StringType,
+    StructField,
+    StructType,
+)
+
+schema = StructType([
+    StructField("config_id", StringType(), nullable=False),
+    StructField("config_name", StringType(), nullable=False),
+    StructField("source_file_path", StringType(), nullable=False),
+    StructField("source_file_format", StringType(), nullable=False),  # csv, json, parquet, avro, xml
+    StructField("target_lakehouse_workspace_id", StringType(), nullable=False),
+    StructField("target_lakehouse_id", StringType(), nullable=False),
+    StructField("target_schema_name", StringType(), nullable=False),
+    StructField("target_table_name", StringType(), nullable=False),
+    StructField("file_delimiter", StringType(), nullable=True),  # for CSV files
+    StructField("has_header", BooleanType(), nullable=True),  # for CSV files
+    StructField("encoding", StringType(), nullable=True),  # utf-8, latin-1, etc.
+    StructField("date_format", StringType(), nullable=True),  # for date columns
+    StructField("timestamp_format", StringType(), nullable=True),  # for timestamp columns
+    StructField("schema_inference", BooleanType(), nullable=False),  # whether to infer schema
+    StructField("custom_schema_json", StringType(), nullable=True),  # custom schema definition
+    StructField("partition_columns", StringType(), nullable=True),  # comma-separated list
+    StructField("sort_columns", StringType(), nullable=True),  # comma-separated list
+    StructField("write_mode", StringType(), nullable=False),  # overwrite, append, merge
+    StructField("merge_keys", StringType(), nullable=True),  # for merge operations
+    StructField("data_validation_rules", StringType(), nullable=True),  # JSON validation rules
+    StructField("error_handling_strategy", StringType(), nullable=False),  # fail, skip, log
+    StructField("execution_group", IntegerType(), nullable=False),
+    StructField("active_yn", StringType(), nullable=False),
+    StructField("created_date", StringType(), nullable=False),
+    StructField("modified_date", StringType(), nullable=True),
+    StructField("created_by", StringType(), nullable=False),
+    StructField("modified_by", StringType(), nullable=True)
+])
 
 # Sample configuration records for testing
 sample_configs = [
@@ -44,7 +80,7 @@ sample_configs = [
         has_header=None,
         encoding="utf-8",
         date_format="yyyy-MM-dd",
-        timestamp_format="yyyy-MM-dd'T'HH:mm:ss'Z'",
+        timestamp_format="yyyy-MM-dd T HH:mm:ss Z",
         schema_inference=True,
         custom_schema_json=None,
         partition_columns="category",
@@ -91,4 +127,4 @@ target_lakehouse.write_to_table(
     mode="append"
 )
 
-print(f"✓ Inserted {len(sample_configs)} sample configuration records")
+print("✓ Inserted " + str(len(sample_configs)) + " sample configuration records")
