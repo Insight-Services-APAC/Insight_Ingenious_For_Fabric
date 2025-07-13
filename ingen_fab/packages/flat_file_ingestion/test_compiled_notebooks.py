@@ -7,9 +7,10 @@ import os
 import sys
 from pathlib import Path
 
-# Set up environment
-os.environ['FABRIC_WORKSPACE_REPO_DIR'] = './sample_project'
-os.environ['FABRIC_ENVIRONMENT'] = 'development'
+# Set up environment - use absolute path for consistency
+workspace_dir = os.path.abspath('./sample_project')
+os.environ['FABRIC_WORKSPACE_REPO_DIR'] = workspace_dir
+os.environ['FABRIC_ENVIRONMENT'] = 'local'
 
 # Add the project to Python path
 sys.path.insert(0, '/workspaces/ingen_fab')
@@ -151,10 +152,12 @@ def run_flat_file_processor():
         os.environ['config_id'] = ''  # Process all active configs
         os.environ['execution_group'] = '1'
         os.environ['environment'] = 'development'
+        # Ensure consistent workspace directory
+        os.environ['FABRIC_WORKSPACE_REPO_DIR'] = workspace_dir
         
         print(f"✓ Running processor: {processor_path}")
         
-        # Execute the notebook
+        # Execute the notebook from root directory so table paths are consistent
         import subprocess
         result = subprocess.run([
             sys.executable, processor_path
@@ -181,6 +184,39 @@ def main():
     print("=" * 60)
     
     try:
+        # Step 0: Compile notebooks and DDL scripts first
+        print("Step 0: Compiling notebooks and DDL scripts...")
+        
+        import subprocess
+        
+        # Compile flat file ingestion package with samples
+        print("  - Compiling flat file ingestion package...")
+        result = subprocess.run([
+            sys.executable, "-m", "ingen_fab.cli", "package", "ingest", "compile", "--include-samples"
+        ], capture_output=True, text=True, cwd=os.getcwd())
+        
+        if result.returncode != 0:
+            print("✗ Failed to compile flat file ingestion package")
+            print("Error:", result.stderr)
+            return False
+        else:
+            print("✓ Flat file ingestion package compiled successfully")
+        
+        # Compile DDL scripts
+        print("  - Compiling DDL scripts...")
+        result = subprocess.run([
+            sys.executable, "-m", "ingen_fab.cli", "ddl", "compile"
+        ], capture_output=True, text=True, cwd=os.getcwd())
+        
+        if result.returncode != 0:
+            print("✗ Failed to compile DDL scripts")
+            print("Error:", result.stderr)
+            return False
+        else:
+            print("✓ DDL scripts compiled successfully")
+        
+        print("\n" + "-" * 40)
+        
         # Step 1: Insert sample configuration data
         if not insert_sample_config_data():
             print("❌ Failed to insert sample data")

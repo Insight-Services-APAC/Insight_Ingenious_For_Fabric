@@ -82,9 +82,8 @@ else:
         NotebookUtilsFactory,
     )
     notebookutils = NotebookUtilsFactory.create_instance()
-    
-    from pyspark.sql import SparkSession
-    spark = SparkSession.builder.appName("LocalTesting").getOrCreate()
+        
+    spark = None
     
     mount_path = None
     run_mode = "local"
@@ -192,9 +191,6 @@ from pyspark.sql import DataFrame, SparkSession
 from pyspark.sql.types import StructType, StructField, StringType, IntegerType, LongType, TimestampType, BooleanType
 from pyspark.sql.functions import lit, current_timestamp, col, when, coalesce
 
-# Initialize spark session and execution tracking
-if run_mode == "local" and spark is None:
-    spark = SparkSession.builder.appName("FlatFileIngestion").getOrCreate()
 execution_id = str(uuid.uuid4())
 
 print(f"Execution ID: {execution_id}")
@@ -252,8 +248,15 @@ config_lakehouse = lakehouse_utils(
     spark=spark
 )
 
+# Initialize raw data lakehouse utilities for file access
+raw_lakehouse = lakehouse_utils(
+    target_workspace_id=configs.raw_workspace_id,
+    target_lakehouse_id=configs.raw_datastore_id,
+    spark=spark
+)
+
 # Load configuration
-config_df = config_lakehouse.read_table("config_flat_file_ingestion").to_pandas()
+config_df = config_lakehouse.read_table("config_flat_file_ingestion").toPandas()
 
 # Filter configurations
 if config_id:
@@ -287,86 +290,42 @@ print(f"Found {len(config_df)} configurations to process")
 class FlatFileProcessor:
     """Main processor for flat file ingestion using python_libs abstractions"""
     
-    def __init__(self, spark_session: SparkSession):
+    def __init__(self, spark_session: SparkSession, raw_lakehouse_utils):
         self.spark = spark_session
+        self.raw_lakehouse = raw_lakehouse_utils
         
     def read_file(self, config: FlatFileIngestionConfig) -> DataFrame:
-        """Read file based on format and configuration"""
+        """Read file based on format and configuration using abstracted file access"""
+        
+        # Build options dictionary for the abstracted read_file method
+        options = {}
         
         if config.source_file_format.lower() == "csv":
-            return self._read_csv(config)
+            options["header"] = config.has_header
+            options["delimiter"] = config.file_delimiter
+            options["encoding"] = config.encoding
+            options["inferSchema"] = config.schema_inference
+            options["dateFormat"] = config.date_format
+            options["timestampFormat"] = config.timestamp_format
+            
         elif config.source_file_format.lower() == "json":
-            return self._read_json(config)
-        elif config.source_file_format.lower() == "parquet":
-            return self._read_parquet(config)
-        elif config.source_file_format.lower() == "avro":
-            return self._read_avro(config)
-        elif config.source_file_format.lower() == "xml":
-            return self._read_xml(config)
-        else:
-            raise ValueError(f"Unsupported file format: {config.source_file_format}")
-    
-    def _read_csv(self, config: FlatFileIngestionConfig) -> DataFrame:
-        """Read CSV file"""
-        reader = self.spark.read.format("csv")
-        
-        if config.has_header:
-            reader = reader.option("header", "true")
-        
-        if config.file_delimiter:
-            reader = reader.option("sep", config.file_delimiter)
+            options["dateFormat"] = config.date_format
+            options["timestampFormat"] = config.timestamp_format
             
-        if config.encoding:
-            reader = reader.option("encoding", config.encoding)
-            
-        if config.date_format:
-            reader = reader.option("dateFormat", config.date_format)
-            
-        if config.timestamp_format:
-            reader = reader.option("timestampFormat", config.timestamp_format)
-            
-        if config.schema_inference:
-            reader = reader.option("inferSchema", "true")
-            
+        # Add custom schema if provided
         if config.custom_schema_json:
+            import json
+            from pyspark.sql.types import StructType
             schema = StructType.fromJson(json.loads(config.custom_schema_json))
-            reader = reader.schema(schema)
+            options["schema"] = schema
             
-        return reader.load(config.source_file_path)
+        # Use the abstracted read_file method from raw lakehouse_utils
+        return self.raw_lakehouse.read_file(
+            file_path=config.source_file_path,
+            file_format=config.source_file_format,
+            options=options
+        )
     
-    def _read_json(self, config: FlatFileIngestionConfig) -> DataFrame:
-        """Read JSON file"""
-        reader = self.spark.read.format("json")
-        
-        if config.date_format:
-            reader = reader.option("dateFormat", config.date_format)
-            
-        if config.timestamp_format:
-            reader = reader.option("timestampFormat", config.timestamp_format)
-            
-        if config.custom_schema_json:
-            schema = StructType.fromJson(json.loads(config.custom_schema_json))
-            reader = reader.schema(schema)
-            
-        return reader.load(config.source_file_path)
-    
-    def _read_parquet(self, config: FlatFileIngestionConfig) -> DataFrame:
-        """Read Parquet file"""
-        return self.spark.read.format("parquet").load(config.source_file_path)
-    
-    def _read_avro(self, config: FlatFileIngestionConfig) -> DataFrame:
-        """Read Avro file"""
-        return self.spark.read.format("avro").load(config.source_file_path)
-    
-    def _read_xml(self, config: FlatFileIngestionConfig) -> DataFrame:
-        """Read XML file"""
-        reader = self.spark.read.format("xml")
-        
-        if config.custom_schema_json:
-            schema = StructType.fromJson(json.loads(config.custom_schema_json))
-            reader = reader.schema(schema)
-            
-        return reader.load(config.source_file_path)
     
     def validate_data(self, df: DataFrame, config: FlatFileIngestionConfig) -> DataFrame:
         """Apply data validation rules"""
@@ -424,7 +383,7 @@ class FlatFileProcessor:
         return write_stats
 
 # Initialize processor
-processor = FlatFileProcessor(spark)
+processor = FlatFileProcessor(spark, raw_lakehouse)
 
 
 # METADATA ********************
@@ -450,6 +409,9 @@ def log_execution(config: FlatFileIngestionConfig, status: str, write_stats: Dic
     if start_time and end_time:
         duration = int((end_time - start_time).total_seconds())
     
+    # Get file information using abstracted method
+    file_info = raw_lakehouse.get_file_info(config.source_file_path)
+    
     log_data = {
         "log_id": str(uuid.uuid4()),
         "config_id": config.config_id,
@@ -458,6 +420,8 @@ def log_execution(config: FlatFileIngestionConfig, status: str, write_stats: Dic
         "job_end_time": end_time,
         "status": status,
         "source_file_path": config.source_file_path,
+        "source_file_size_bytes": file_info.get("size"),
+        "source_file_modified_time": file_info.get("modified_time"),
         "target_table_name": f"{config.target_schema_name}.{config.target_table_name}",
         "records_processed": write_stats.get("records_processed", 0) if write_stats else 0,
         "records_inserted": write_stats.get("records_inserted", 0) if write_stats else 0,
@@ -467,13 +431,41 @@ def log_execution(config: FlatFileIngestionConfig, status: str, write_stats: Dic
         "error_message": error_message,
         "error_details": error_details,
         "execution_duration_seconds": duration,
-        "spark_application_id": spark.sparkContext.applicationId,
+        "spark_application_id": getattr(spark, "sparkContext", None) and spark.sparkContext.applicationId or "unknown",
         "created_date": datetime.now(),
         "created_by": "system"
     }
     
     # Use lakehouse_utils abstraction for logging
-    log_df = spark.createDataFrame([log_data])
+    # Define log schema to match the DDL
+    from pyspark.sql.types import StructType, StructField, StringType, IntegerType, LongType, TimestampType
+    
+    log_schema = StructType([
+        StructField("log_id", StringType(), nullable=False),
+        StructField("config_id", StringType(), nullable=False),
+        StructField("execution_id", StringType(), nullable=False),
+        StructField("job_start_time", TimestampType(), nullable=False),
+        StructField("job_end_time", TimestampType(), nullable=True),
+        StructField("status", StringType(), nullable=False),
+        StructField("source_file_path", StringType(), nullable=False),
+        StructField("source_file_size_bytes", LongType(), nullable=True),
+        StructField("source_file_modified_time", TimestampType(), nullable=True),
+        StructField("target_table_name", StringType(), nullable=False),
+        StructField("records_processed", LongType(), nullable=True),
+        StructField("records_inserted", LongType(), nullable=True),
+        StructField("records_updated", LongType(), nullable=True),
+        StructField("records_deleted", LongType(), nullable=True),
+        StructField("records_failed", LongType(), nullable=True),
+        StructField("error_message", StringType(), nullable=True),
+        StructField("error_details", StringType(), nullable=True),
+        StructField("execution_duration_seconds", IntegerType(), nullable=True),
+        StructField("spark_application_id", StringType(), nullable=True),
+        StructField("created_date", TimestampType(), nullable=False),
+        StructField("created_by", StringType(), nullable=False)
+    ])
+    
+    # Use config_lakehouse to create DataFrame with abstraction
+    log_df = config_lakehouse.get_connection.createDataFrame([log_data], log_schema)
     config_lakehouse.write_to_table(
         df=log_df,
         table_name="log_flat_file_ingestion",
@@ -590,8 +582,9 @@ if failed:
         print(f"  - {result['config_name']}: {result['error']}")
 
 # Create summary dataframe for potential downstream use
-summary_df = spark.createDataFrame(results)
-summary_df.show(truncate=False)
+if results:
+    summary_df = config_lakehouse.get_connection.createDataFrame(results)
+    summary_df.show(truncate=False)
 
 print(f"\nExecution completed at: {datetime.now()}")
 

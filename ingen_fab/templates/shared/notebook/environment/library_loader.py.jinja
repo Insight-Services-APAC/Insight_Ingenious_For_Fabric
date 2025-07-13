@@ -1,3 +1,48 @@
+# METADATA ********************
+
+# META {
+# META   "language": "python"{{ ',
+# META   "language_group": "' + language_group + '"' if language_group else '' }}
+# META }
+
+# MARKDOWN ********************
+
+# ## 📦 Load Python Libraries and Initialize Environment
+
+# CELL ********************
+
+import sys
+
+# Check if running in Fabric environment
+if "notebookutils" in sys.modules:
+    import sys
+    {% raw %}
+    notebookutils.fs.mount("abfss://{{varlib:config_workspace_name}}@onelake.dfs.fabric.microsoft.com/{{varlib:config_lakehouse_name}}.Lakehouse/Files/", "/config_files")  # type: ignore # noqa: F821
+    mount_path = notebookutils.fs.getMountPath("/config_files")  # type: ignore # noqa: F821
+    {% endraw %}
+    run_mode = "fabric"
+    sys.path.insert(0, mount_path)
+
+    {% if language_group == 'synapse_pyspark' %}
+    # PySpark environment - spark session should be available
+    {% else %}
+    # Python environment - no spark session needed
+    spark = None
+    {% endif %}
+else:
+    print("NotebookUtils not available, assumed running in local mode.")
+    from ingen_fab.python_libs.{{ 'pyspark' if language_group == 'synapse_pyspark' else 'python' }}.notebook_utils_abstraction import (
+        NotebookUtilsFactory,
+    )
+    notebookutils = NotebookUtilsFactory.create_instance()
+    {% if language_group == 'synapse_pyspark' %}    
+    spark = None
+    {% else %}
+    spark = None
+    {% endif %}
+    mount_path = None
+    run_mode = "local"
+
 import traceback
 
 def load_python_modules_from_path(base_path: str, relative_files: list[str], max_chars: int = 1_000_000_000):

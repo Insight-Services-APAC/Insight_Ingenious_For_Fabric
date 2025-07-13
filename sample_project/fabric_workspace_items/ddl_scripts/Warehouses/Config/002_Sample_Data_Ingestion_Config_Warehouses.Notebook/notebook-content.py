@@ -212,21 +212,123 @@ du = ddl_utils(
 
 # MARKDOWN ********************
 
-# ## 𝄜 Cell for 001_parquet_load_upate.sql
+# ## 𝄜 Cell for 003_sample_data_insert.sql
 
 # CELL ********************
 
-guid = "de43b7e48326"
+guid = "a8c5702c3e8c"
 def work():
     sql = """
 
+-- Sample configuration data for flat file ingestion testing - Warehouse version
+INSERT INTO config_flat_file_ingestion (
+    config_id,
+    config_name,
+    source_file_path,
+    source_file_format,
+    target_lakehouse_workspace_id,
+    target_lakehouse_id,
+    target_schema_name,
+    target_table_name,
+    file_delimiter,
+    has_header,
+    encoding,
+    date_format,
+    timestamp_format,
+    schema_inference,
+    custom_schema_json,
+    partition_columns,
+    sort_columns,
+    write_mode,
+    merge_keys,
+    data_validation_rules,
+    error_handling_strategy,
+    execution_group,
+    active_yn
+) VALUES 
+(
+    'csv_test_001',
+    'CSV Sales Data Test',
+    'Files/sample_data/sales_data.csv',
+    'csv',
+    '{{varlib:config_workspace_id}}',
+    '{{varlib:config_lakehouse_id}}',
+    'raw',
+    'sales_data',
+    ',',
+    1,
+    'utf-8',
+    'yyyy-MM-dd',
+    'yyyy-MM-dd HH:mm:ss',
+    1,
+    NULL,
+    '',
+    'date',
+    'overwrite',
+    '',
+    NULL,
+    'fail',
+    1,
+    'Y'
+),
+(
+    'json_test_002',
+    'JSON Products Data Test',
+    'Files/sample_data/products.json',
+    'json',
+    '{{varlib:config_workspace_id}}',
+    '{{varlib:config_lakehouse_id}}',
+    'raw',
+    'products',
+    NULL,
+    NULL,
+    'utf-8',
+    'yyyy-MM-dd',
+    'yyyy-MM-dd''T''HH:mm:ss''Z''',
+    1,
+    NULL,
+    'category',
+    'product_id',
+    'overwrite',
+    '',
+    NULL,
+    'log',
+    1,
+    'Y'
+),
+(
+    'parquet_test_003',
+    'Parquet Customers Data Test',
+    'Files/sample_data/customers.parquet',
+    'parquet',
+    '{{varlib:config_workspace_id}}',
+    '{{varlib:config_lakehouse_id}}',
+    'raw',
+    'customers',
+    NULL,
+    NULL,
+    NULL,
+    'yyyy-MM-dd',
+    'yyyy-MM-dd HH:mm:ss',
+    1,
+    NULL,
+    'region',
+    'customer_id',
+    'overwrite',
+    '',
+    NULL,
+    'fail',
+    2,
+    'Y'
+);
 
+PRINT 'Inserted 3 sample configuration records';
 
     """
 
     wu.execute_query(wu.get_connection(), sql)
 
-du.run_once(work,"001_parquet_load_upate", guid)
+du.run_once(work,"003_sample_data_insert", guid)
 
 
 

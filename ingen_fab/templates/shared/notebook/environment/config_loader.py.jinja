@@ -1,8 +1,8 @@
 # METADATA ********************
 
 # META {
-# META   "language": "python",
-# META   "language_group": "{{language_group | default('synapse_pyspark')}}"
+# META   "language": "python"{{ ',
+# META   "language_group": "' + language_group + '"' if language_group else '' }}
 # META }
 
 # MARKDOWN ********************

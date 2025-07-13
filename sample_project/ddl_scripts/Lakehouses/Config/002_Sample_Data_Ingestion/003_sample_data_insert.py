@@ -65,7 +65,11 @@ sample_configs = [
         data_validation_rules=None,
         error_handling_strategy="fail",
         execution_group=1,
-        active_yn="Y"
+        active_yn="Y",
+        created_date="2024-01-15",
+        modified_date=None,
+        created_by="system",
+        modified_by=None
     ),
     Row(
         config_id="json_test_002",
@@ -90,7 +94,11 @@ sample_configs = [
         data_validation_rules=None,
         error_handling_strategy="log",
         execution_group=1,
-        active_yn="Y"
+        active_yn="Y",
+        created_date="2024-01-15",
+        modified_date=None,
+        created_by="system",
+        modified_by=None
     ),
     Row(
         config_id="parquet_test_003",
@@ -115,12 +123,16 @@ sample_configs = [
         data_validation_rules=None,
         error_handling_strategy="fail",
         execution_group=2,
-        active_yn="Y"
+        active_yn="Y",        
+        created_date="2024-01-15",
+        modified_date=None,
+        created_by="system",
+        modified_by=None
     )
 ]
 
 # Create DataFrame and insert records
-df = spark.createDataFrame(sample_configs, schema)  # type: ignore # noqa: F821
+df = target_lakehouse.get_connection.createDataFrame(sample_configs, schema)
 target_lakehouse.write_to_table(
     df=df,
     table_name="config_flat_file_ingestion",
