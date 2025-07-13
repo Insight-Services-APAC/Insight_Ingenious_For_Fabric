@@ -346,6 +346,7 @@ package_app.add_typer(
 def ingest_app_compile(
     ctx: typer.Context,
     template_vars: Annotated[str, typer.Option("--template-vars", "-t", help="JSON string of template variables")] = None,
+    include_samples: Annotated[bool, typer.Option("--include-samples", "-s", help="Include sample data DDL and files")] = False,
 ):
     """Compile flat file ingestion package templates and DDL scripts."""
     import json
@@ -369,7 +370,8 @@ def ingest_app_compile(
     try:
         results = compile_flat_file_ingestion_package(
             fabric_workspace_repo_dir=fabric_workspace_repo_dir,
-            template_vars=vars_dict
+            template_vars=vars_dict,
+            include_samples=include_samples
         )
         
         if results["success"]:

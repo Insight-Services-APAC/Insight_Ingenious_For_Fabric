@@ -1,67 +1,34 @@
-# Fabric notebook source
+#!/usr/bin/env python3
+"""
+Run the flat file processor directly with sample data
+"""
 
-# METADATA ********************
+import os
+import sys
+from pathlib import Path
 
-# META {
-# META   "kernel_info": {
-# META     "name": "synapse_pyspark",
-# META     "display_name": "PySpark (Synapse)"
-# META   },
-# META   "language_info": {
-# META     "name": "python",
-# META     "language_group": "synapse_pyspark"
-# META   }
-# META }
+# Set up environment for the notebook
+os.environ['FABRIC_WORKSPACE_REPO_DIR'] = './sample_project'
+os.environ['FABRIC_ENVIRONMENT'] = 'development'
 
-
-# MARKDOWN ********************
-
-# ## 『』Parameters
-
-# PARAMETERS CELL ********************
-
-
-
-
-# Default parameters
-config_id = ""
+# Set notebook parameters
+config_id = ""  # Process all configs
 execution_group = 1
 environment = "development"
 
+# Add the project to Python path
+sys.path.insert(0, '/workspaces/ingen_fab')
 
-# METADATA ********************
+print("🚀 Running Flat File Processor Directly")
+print("=" * 50)
+print(f"Config ID: {config_id if config_id else 'ALL ACTIVE'}")
+print(f"Execution Group: {execution_group}")
+print(f"Environment: {environment}")
+print("=" * 50)
 
-# META {
-# META   "language": "python",
-# META   "language_group": "synapse_pyspark"
-# META }
-
-# MARKDOWN ********************
-
-# ## ## 📄 Flat File Ingestion Notebook
-
-# CELL ********************
-
-
-# This notebook processes flat files (CSV, JSON, Parquet, Avro, XML) and loads them into delta tables based on configuration metadata.
-
-
-
-
-# METADATA ********************
-
-# META {
-# META   "language": "python",
-# META   "language_group": "synapse_pyspark"
-# META }
-
-# MARKDOWN ********************
-
-# ## 📦 Load Python Libraries and Initialize Environment
-
-# CELL ********************
-
+# Import the required modules that the notebook needs
 import sys
+import traceback
 
 # Check if running in Fabric environment
 if "notebookutils" in sys.modules:
@@ -73,7 +40,6 @@ if "notebookutils" in sys.modules:
     run_mode = "fabric"
     sys.path.insert(0, mount_path)
 
-    
     # PySpark environment - spark session should be available
     
 else:
@@ -88,8 +54,6 @@ else:
     
     mount_path = None
     run_mode = "local"
-
-import traceback
 
 def load_python_modules_from_path(base_path: str, relative_files: list[str], max_chars: int = 1_000_000_000):
     """
@@ -114,12 +78,12 @@ def load_python_modules_from_path(base_path: str, relative_files: list[str], max
             failed_files.append(relative_path)
             print(f"❌ Error loading {relative_path}")
 
-    print("\n✅ Successfully loaded:")
+    print("\\n✅ Successfully loaded:")
     for f in success_files:
         print(f" - {f}")
 
     if failed_files:
-        print("\n⚠️ Failed to load:")
+        print("\\n⚠️ Failed to load:")
         for f in failed_files:
             print(f" - {f}")
 
@@ -134,34 +98,7 @@ def clear_module_cache(prefix: str):
 clear_module_cache("ingen_fab.python_libs")
 clear_module_cache("ingen_fab")
 
-
-# METADATA ********************
-
-# META {
-# META   "language": "python",
-# META   "language_group": "synapse_pyspark"
-# META }
-
-# MARKDOWN ********************
-
-# ## ## 🔧 Load Configuration and Initialize
-
-# CELL ********************
-
-# METADATA ********************
-
-# META {
-# META   "language": "python",
-# META   "language_group": "synapse_pyspark"
-# META }
-
-# MARKDOWN ********************
-
-# ## 🔧 Load Configuration and Initialize Utilities
-
-# CELL ********************
-
-
+# Load configuration and initialize utilities
 if run_mode == "local":
     from ingen_fab.python_libs.common.config_utils import get_configs_as_object, ConfigsObject
     from ingen_fab.python_libs.pyspark.lakehouse_utils import lakehouse_utils
@@ -177,11 +114,8 @@ else:
     ]
     load_python_modules_from_path(mount_path, files_to_load)
 
-
 # Initialize configuration
 configs: ConfigsObject = get_configs_as_object()
-
-
 
 # Additional imports for flat file ingestion
 import uuid
@@ -202,20 +136,83 @@ print(f"Config ID: {config_id}")
 print(f"Execution Group: {execution_group}")
 print(f"Environment: {environment}")
 
+# Since tables don't exist yet, let's create some sample configurations directly
+print("\n=== Creating Sample Configuration Data ===")
 
-# METADATA ********************
+# Create sample config data directly
+sample_configs = [
+    {
+        "config_id": "csv_test_001",
+        "config_name": "CSV Sales Data Test",
+        "source_file_path": "./sample_project/Files/sample_data/sales_data.csv",
+        "source_file_format": "csv",
+        "target_lakehouse_workspace_id": "test_workspace",
+        "target_lakehouse_id": "test_lakehouse",
+        "target_schema_name": "raw",
+        "target_table_name": "sales_data",
+        "file_delimiter": ",",
+        "has_header": True,
+        "encoding": "utf-8",
+        "date_format": "yyyy-MM-dd",
+        "timestamp_format": "yyyy-MM-dd HH:mm:ss",
+        "schema_inference": True,
+        "custom_schema_json": None,
+        "partition_columns": "",
+        "sort_columns": "date",
+        "write_mode": "overwrite",
+        "merge_keys": "",
+        "data_validation_rules": None,
+        "error_handling_strategy": "fail",
+        "execution_group": 1,
+        "active_yn": "Y"
+    },
+    {
+        "config_id": "json_test_002",
+        "config_name": "JSON Products Data Test",
+        "source_file_path": "./sample_project/Files/sample_data/products.json",
+        "source_file_format": "json",
+        "target_lakehouse_workspace_id": "test_workspace",
+        "target_lakehouse_id": "test_lakehouse",
+        "target_schema_name": "raw",
+        "target_table_name": "products",
+        "file_delimiter": None,
+        "has_header": None,
+        "encoding": "utf-8",
+        "date_format": "yyyy-MM-dd",
+        "timestamp_format": "yyyy-MM-dd'T'HH:mm:ss'Z'",
+        "schema_inference": True,
+        "custom_schema_json": None,
+        "partition_columns": "category",
+        "sort_columns": "product_id",
+        "write_mode": "overwrite",
+        "merge_keys": "",
+        "data_validation_rules": None,
+        "error_handling_strategy": "fail",
+        "execution_group": 1,
+        "active_yn": "Y"
+    }
+]
 
-# META {
-# META   "language": "python",
-# META   "language_group": "synapse_pyspark"
-# META }
+# Convert to DataFrame for processing
+import pandas as pd
+config_df = pd.DataFrame(sample_configs)
 
-# MARKDOWN ********************
+# Filter configurations
+if config_id:
+    config_df = config_df[config_df["config_id"] == config_id]
+else:
+    config_df = config_df[
+        (config_df["execution_group"] == execution_group) & 
+        (config_df["active_yn"] == "Y")
+    ]
 
-# ## ## 📋 Load Configuration Data
+if config_df.empty:
+    raise ValueError(f"No active configurations found for config_id: {config_id}, execution_group: {execution_group}")
 
-# CELL ********************
+print(f"Found {len(config_df)} configurations to process")
 
+# Now run the flat file processing logic
+print("\n=== Processing Files ===")
 
 class FlatFileIngestionConfig:
     """Configuration class for flat file ingestion"""
@@ -245,47 +242,8 @@ class FlatFileIngestionConfig:
         self.execution_group = config_row["execution_group"]
         self.active_yn = config_row["active_yn"]
 
-# Initialize config lakehouse utilities
-config_lakehouse = lakehouse_utils(
-    target_workspace_id=configs.config_workspace_id,
-    target_lakehouse_id=configs.config_lakehouse_id,
-    spark=spark
-)
-
-# Load configuration
-config_df = config_lakehouse.read_table("config_flat_file_ingestion").to_pandas()
-
-# Filter configurations
-if config_id:
-    config_df = config_df[config_df["config_id"] == config_id]
-else:
-    config_df = config_df[
-        (config_df["execution_group"] == execution_group) & 
-        (config_df["active_yn"] == "Y")
-    ]
-
-if config_df.empty:
-    raise ValueError(f"No active configurations found for config_id: {config_id}, execution_group: {execution_group}")
-
-print(f"Found {len(config_df)} configurations to process")
-
-
-# METADATA ********************
-
-# META {
-# META   "language": "python",
-# META   "language_group": "synapse_pyspark"
-# META }
-
-# MARKDOWN ********************
-
-# ## ## 🚀 File Processing Functions
-
-# CELL ********************
-
-
 class FlatFileProcessor:
-    """Main processor for flat file ingestion using python_libs abstractions"""
+    """Main processor for flat file ingestion"""
     
     def __init__(self, spark_session: SparkSession):
         self.spark = spark_session
@@ -299,10 +257,6 @@ class FlatFileProcessor:
             return self._read_json(config)
         elif config.source_file_format.lower() == "parquet":
             return self._read_parquet(config)
-        elif config.source_file_format.lower() == "avro":
-            return self._read_avro(config)
-        elif config.source_file_format.lower() == "xml":
-            return self._read_xml(config)
         else:
             raise ValueError(f"Unsupported file format: {config.source_file_format}")
     
@@ -353,132 +307,9 @@ class FlatFileProcessor:
     def _read_parquet(self, config: FlatFileIngestionConfig) -> DataFrame:
         """Read Parquet file"""
         return self.spark.read.format("parquet").load(config.source_file_path)
-    
-    def _read_avro(self, config: FlatFileIngestionConfig) -> DataFrame:
-        """Read Avro file"""
-        return self.spark.read.format("avro").load(config.source_file_path)
-    
-    def _read_xml(self, config: FlatFileIngestionConfig) -> DataFrame:
-        """Read XML file"""
-        reader = self.spark.read.format("xml")
-        
-        if config.custom_schema_json:
-            schema = StructType.fromJson(json.loads(config.custom_schema_json))
-            reader = reader.schema(schema)
-            
-        return reader.load(config.source_file_path)
-    
-    def validate_data(self, df: DataFrame, config: FlatFileIngestionConfig) -> DataFrame:
-        """Apply data validation rules"""
-        if not config.data_validation_rules:
-            return df
-            
-        try:
-            validation_rules = json.loads(config.data_validation_rules)
-            # Apply validation rules here
-            # This is a placeholder for custom validation logic
-            return df
-        except Exception as e:
-            if config.error_handling_strategy == "fail":
-                raise e
-            elif config.error_handling_strategy == "log":
-                print(f"Validation error: {e}")
-                return df
-            else:  # skip
-                return df.limit(0)
-    
-    def write_data(self, df: DataFrame, config: FlatFileIngestionConfig, target_lakehouse: Any) -> Dict[str, Any]:
-        """Write data to target table using lakehouse_utils abstraction"""
-        
-        # Add metadata columns for traceability
-        df_with_metadata = df.withColumn("_ingestion_timestamp", current_timestamp()) \
-                            .withColumn("_ingestion_execution_id", lit(execution_id)) \
-                            .withColumn("_source_file_path", lit(config.source_file_path))
-        
-        records_processed = df_with_metadata.count()
-        
-        # Use lakehouse_utils abstraction for writing
-        full_table_name = f"{config.target_schema_name}_{config.target_table_name}" if config.target_schema_name else config.target_table_name
-        
-        # Handle different write modes using lakehouse_utils
-        write_options = {}
-        if config.partition_columns:
-            write_options["partitionBy"] = config.partition_columns
-        
-        # Use the abstracted write_to_table method
-        target_lakehouse.write_to_table(
-            df=df_with_metadata,
-            table_name=full_table_name,
-            mode=config.write_mode,
-            options=write_options
-        )
-        
-        # For simplicity, return basic stats (advanced merge stats would require custom logic)
-        write_stats = {
-            "records_processed": records_processed,
-            "records_inserted": records_processed if config.write_mode in ["overwrite", "append"] else 0,
-            "records_updated": 0,
-            "records_deleted": 0
-        }
-        
-        return write_stats
 
 # Initialize processor
 processor = FlatFileProcessor(spark)
-
-
-# METADATA ********************
-
-# META {
-# META   "language": "python",
-# META   "language_group": "synapse_pyspark"
-# META }
-
-# MARKDOWN ********************
-
-# ## ## 📊 Process Files
-
-# CELL ********************
-
-
-def log_execution(config: FlatFileIngestionConfig, status: str, write_stats: Dict[str, Any] = None, 
-                 error_message: str = None, error_details: str = None, 
-                 start_time: datetime = None, end_time: datetime = None):
-    """Log execution details using lakehouse_utils abstraction"""
-    
-    duration = None
-    if start_time and end_time:
-        duration = int((end_time - start_time).total_seconds())
-    
-    log_data = {
-        "log_id": str(uuid.uuid4()),
-        "config_id": config.config_id,
-        "execution_id": execution_id,
-        "job_start_time": start_time,
-        "job_end_time": end_time,
-        "status": status,
-        "source_file_path": config.source_file_path,
-        "target_table_name": f"{config.target_schema_name}.{config.target_table_name}",
-        "records_processed": write_stats.get("records_processed", 0) if write_stats else 0,
-        "records_inserted": write_stats.get("records_inserted", 0) if write_stats else 0,
-        "records_updated": write_stats.get("records_updated", 0) if write_stats else 0,
-        "records_deleted": write_stats.get("records_deleted", 0) if write_stats else 0,
-        "records_failed": write_stats.get("records_failed", 0) if write_stats else 0,
-        "error_message": error_message,
-        "error_details": error_details,
-        "execution_duration_seconds": duration,
-        "spark_application_id": spark.sparkContext.applicationId,
-        "created_date": datetime.now(),
-        "created_by": "system"
-    }
-    
-    # Use lakehouse_utils abstraction for logging
-    log_df = spark.createDataFrame([log_data])
-    config_lakehouse.write_to_table(
-        df=log_df,
-        table_name="log_flat_file_ingestion",
-        mode="append"
-    )
 
 # Process each configuration
 results = []
@@ -486,62 +317,53 @@ for _, config_row in config_df.iterrows():
     config = FlatFileIngestionConfig(config_row)
     start_time = datetime.now()
     
-    # Initialize target lakehouse for this configuration
-    target_lakehouse = lakehouse_utils(
-        target_workspace_id=config.target_lakehouse_workspace_id,
-        target_lakehouse_id=config.target_lakehouse_id,
-        spark=spark
-    )
-    
     try:
-        print(f"\n=== Processing {config.config_name} ===")
+        print(f"\\n=== Processing {config.config_name} ===")
         print(f"Source: {config.source_file_path}")
         print(f"Target: {config.target_schema_name}.{config.target_table_name}")
         print(f"Format: {config.source_file_format}")
         print(f"Write Mode: {config.write_mode}")
         
-        # Log start
-        log_execution(config, "running", start_time=start_time)
-        
         # Read file
         df = processor.read_file(config)
         print(f"Read {df.count()} records from source file")
         
-        # Validate data
-        df_validated = processor.validate_data(df, config)
+        # Add ingestion metadata
+        df_with_metadata = df.withColumn("_ingestion_timestamp", current_timestamp()) \
+                            .withColumn("_ingestion_execution_id", lit(execution_id)) \
+                            .withColumn("_source_file_path", lit(config.source_file_path))
         
-        # Write data using abstraction
-        write_stats = processor.write_data(df_validated, config, target_lakehouse)
+        record_count = df_with_metadata.count()
+        
+        # Create target table view for this session
+        full_table_name = f"{config.target_schema_name}_{config.target_table_name}"
+        df_with_metadata.createOrReplaceTempView(full_table_name)
         
         end_time = datetime.now()
         duration = (end_time - start_time).total_seconds()
         
         print(f"Processing completed in {duration:.2f} seconds")
-        print(f"Records processed: {write_stats['records_processed']}")
-        print(f"Records inserted: {write_stats['records_inserted']}")
-        print(f"Records updated: {write_stats['records_updated']}")
+        print(f"Records processed: {record_count}")
+        print(f"Target table created: {full_table_name}")
         
-        # Log success
-        log_execution(config, "completed", write_stats, start_time=start_time, end_time=end_time)
+        # Show sample of the data
+        print("Sample data:")
+        df_with_metadata.show(5, truncate=False)
         
         results.append({
             "config_id": config.config_id,
             "config_name": config.config_name,
             "status": "success",
             "duration": duration,
-            "records_processed": write_stats['records_processed']
+            "records_processed": record_count,
+            "target_table": full_table_name
         })
         
     except Exception as e:
         end_time = datetime.now()
         error_message = str(e)
-        error_details = str(e.__class__.__name__)
         
         print(f"Error processing {config.config_name}: {error_message}")
-        
-        # Log error
-        log_execution(config, "failed", error_message=error_message, error_details=error_details,
-                     start_time=start_time, end_time=end_time)
         
         results.append({
             "config_id": config.config_id,
@@ -553,23 +375,8 @@ for _, config_row in config_df.iterrows():
         if config.error_handling_strategy == "fail":
             raise e
 
-
-# METADATA ********************
-
-# META {
-# META   "language": "python",
-# META   "language_group": "synapse_pyspark"
-# META }
-
-# MARKDOWN ********************
-
-# ## ## 📈 Execution Summary
-
-# CELL ********************
-
-
 # Print summary
-print("\n=== EXECUTION SUMMARY ===")
+print("\\n=== EXECUTION SUMMARY ===")
 print(f"Execution ID: {execution_id}")
 print(f"Total configurations processed: {len(results)}")
 
@@ -580,44 +387,31 @@ print(f"Successful: {len(successful)}")
 print(f"Failed: {len(failed)}")
 
 if successful:
-    print("\nSuccessful configurations:")
+    print("\\nSuccessful configurations:")
     for result in successful:
         print(f"  - {result['config_name']}: {result['records_processed']} records in {result['duration']:.2f}s")
+        print(f"    Table: {result['target_table']}")
 
 if failed:
-    print("\nFailed configurations:")
+    print("\\nFailed configurations:")
     for result in failed:
         print(f"  - {result['config_name']}: {result['error']}")
 
-# Create summary dataframe for potential downstream use
-summary_df = spark.createDataFrame(results)
-summary_df.show(truncate=False)
+print(f"\\nExecution completed at: {datetime.now()}")
 
-print(f"\nExecution completed at: {datetime.now()}")
+# Show created tables
+print("\\n=== CREATED TABLES ===")
+for result in successful:
+    table_name = result['target_table']
+    try:
+        count = spark.sql(f"SELECT COUNT(*) as count FROM {table_name}").collect()[0]['count']
+        print(f"✓ {table_name}: {count} records")
+        
+        # Show schema
+        spark.sql(f"DESCRIBE {table_name}").show()
+    except Exception as e:
+        print(f"✗ Error accessing {table_name}: {e}")
 
-
-# METADATA ********************
-
-# META {
-# META   "language": "python",
-# META   "language_group": "synapse_pyspark"
-# META }
-
-# MARKDOWN ********************
-
-# ## ✔️ Exit notebook with result
-
-# CELL ********************
-
-
-notebookutils.mssparkutils.notebook.exit("success")
-
-
-
-# METADATA ********************
-
-# META {
-# META   "language": "python",
-# META   "language_group": "synapse_pyspark"
-# META }
-
+spark.stop()
+print("✓ Spark session stopped")
+print("\\n🎉 FLAT FILE INGESTION COMPLETE!")
