@@ -25,7 +25,7 @@ Guide to using and customizing project templates:
 
 ```bash
 # Create a new project
-ingen_fab init solution --project-name "Analytics Platform"
+ingen_fab init init-solution --project-name "Analytics Platform"
 
 # Navigate to project directory
 cd analytics-platform
@@ -64,16 +64,19 @@ print("✅ Configuration table created successfully!")
 
 ```bash
 # Generate notebooks
-ingen_fab ddl compile-notebooks --output-mode fabric --generation-mode lakehouse
+ingen_fab ddl compile --output-mode fabric_workspace_repo --generation-mode Lakehouse
 
-# Test locally
-ingen_fab test local libraries --base-dir .
+# Test locally (requires FABRIC_ENVIRONMENT=local)
+export FABRIC_ENVIRONMENT=local
+ingen_fab test local python
+ingen_fab test local pyspark
 
 # Deploy to development
-ingen_fab deploy to-environment --fabric-workspace-repo-dir . --fabric-environment development
+ingen_fab deploy deploy --fabric-workspace-repo-dir . --fabric-environment development
 
-# Test on platform
-ingen_fab test platform notebooks --base-dir ./fabric_workspace_items
+# Generate platform tests
+export FABRIC_ENVIRONMENT=development
+ingen_fab test platform generate
 ```
 
 ## Common Patterns
@@ -130,13 +133,14 @@ def test_data_processing():
 # Deploy to multiple environments
 for env in development test production; do
     echo "Deploying to $env..."
-    ingen_fab deploy to-environment \
+    ingen_fab deploy deploy \
         --fabric-workspace-repo-dir . \
         --fabric-environment $env
     
-    echo "Testing $env deployment..."
-    ingen_fab test platform notebooks \
-        --base-dir ./fabric_workspace_items
+    echo "Generating platform tests for $env..."
+    ingen_fab test platform generate \
+        --fabric-workspace-repo-dir . \
+        --fabric-environment $env
 done
 ```
 
@@ -261,7 +265,7 @@ export AZURE_CLIENT_ID="your-client-id"
 export AZURE_CLIENT_SECRET="your-client-secret"
 
 # Test deployment
-ingen_fab deploy to-environment --fabric-workspace-repo-dir . --fabric-environment development --dry-run
+ingen_fab deploy deploy --fabric-workspace-repo-dir . --fabric-environment development --dry-run
 ```
 
 #### DDL Script Issues
@@ -291,7 +295,7 @@ find ddl_scripts -name "*.py" -o -name "*.sql" | sort
 ls -la ddl_scripts/Lakehouses/Config/001_Initial_Setup/
 
 # Test generation
-ingen_fab ddl compile-notebooks --output-mode local --generation-mode lakehouse
+ingen_fab ddl compile --output-mode local --generation-mode Lakehouse
 ```
 
 ## Integration Examples
@@ -324,12 +328,12 @@ jobs:
     
     - name: Generate notebooks
       run: |
-        uv run ingen_fab ddl compile-notebooks --output-mode fabric --generation-mode warehouse
-        uv run ingen_fab ddl compile-notebooks --output-mode fabric --generation-mode lakehouse
+        uv run ingen_fab ddl compile --output-mode fabric_workspace_repo --generation-mode Warehouse
+        uv run ingen_fab ddl compile --output-mode fabric_workspace_repo --generation-mode Lakehouse
     
     - name: Deploy to staging
       run: |
-        uv run ingen_fab deploy to-environment --fabric-workspace-repo-dir . --fabric-environment staging
+        uv run ingen_fab deploy deploy --fabric-workspace-repo-dir . --fabric-environment staging
       env:
         AZURE_TENANT_ID: ${{ "{{" }} secrets.AZURE_TENANT_ID {{ "}}" }}
         AZURE_CLIENT_ID: ${{ "{{" }} secrets.AZURE_CLIENT_ID {{ "}}" }}

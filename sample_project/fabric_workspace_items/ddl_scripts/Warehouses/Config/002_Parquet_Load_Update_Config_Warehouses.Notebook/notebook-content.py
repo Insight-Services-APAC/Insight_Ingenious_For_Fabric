@@ -7,16 +7,26 @@
 # META     "name": "jupyter",
 # META     "jupyter_kernel_name": "python3.11"
 # META   },
+# META   "language_info": {
+# META     "name": "python"
+# META   }
 # META }
 
-# MARKDOWN ********************
+
 
 # ## 『』Parameters
 
 
-# PARAMETERS CELL ********************
+
+# Default parameters  
+# Add default parameters here
 
 
+# METADATA ********************
+
+# META {
+# META   "language": "python"
+# META }
 
 
 
@@ -24,39 +34,40 @@
 
 # META {
 # META   "language": "python",
-# META   "language_group": "jupyter_python",
+# META   "language_group": "jupyter_python"
 # META }
 
 # MARKDOWN ********************
 
-# ## 📦 Inject Reusable Classes and Functions
-
+# ## 📦 Load Python Libraries and Initialize Environment
 
 # CELL ********************
 
-
 import sys
 
-
+# Check if running in Fabric environment
 if "notebookutils" in sys.modules:
     import sys
     
-    notebookutils.fs.mount("abfss://dev_jr@onelake.dfs.fabric.microsoft.com/config.Lakehouse/Files/", "/config_files")  # type: ignore # noqa: F821
+    notebookutils.fs.mount("abfss://{{varlib:config_workspace_name}}@onelake.dfs.fabric.microsoft.com/{{varlib:config_lakehouse_name}}.Lakehouse/Files/", "/config_files")  # type: ignore # noqa: F821
     mount_path = notebookutils.fs.getMountPath("/config_files")  # type: ignore # noqa: F821
     
     run_mode = "fabric"
     sys.path.insert(0, mount_path)
 
     
-    spark = None # Assuming Python mode does not require a Spark session
+    # Python environment - no spark session needed
+    spark = None
     
 else:
     print("NotebookUtils not available, assumed running in local mode.")
-    from ingen_fab.python_libs.pyspark.notebook_utils_abstraction import (
+    from ingen_fab.python_libs.python.notebook_utils_abstraction import (
         NotebookUtilsFactory,
     )
     notebookutils = NotebookUtilsFactory.create_instance()
+    
     spark = None
+    
     mount_path = None
     run_mode = "local"
 
@@ -84,8 +95,6 @@ def load_python_modules_from_path(base_path: str, relative_files: list[str], max
         except Exception as e:
             failed_files.append(relative_path)
             print(f"❌ Error loading {relative_path}")
-            #traceback.print_exc()
-            #print(notebookutils.fs.head(full_path, max_chars))
 
     print("\n✅ Successfully loaded:")
     for f in success_files:
@@ -96,9 +105,8 @@ def load_python_modules_from_path(base_path: str, relative_files: list[str], max
         for f in failed_files:
             print(f" - {f}")
 
-import sys
-
 def clear_module_cache(prefix: str):
+    """Clear module cache for specified prefix"""
     for mod in list(sys.modules):
         if mod.startswith(prefix):
             print("deleting..." + mod)
@@ -111,31 +119,29 @@ clear_module_cache("ingen_fab")
 
 
 
-
-
 # METADATA ********************
 
 # META {
-# META   "language": "python",
-# META   "language_group": "{language group | required}"
+# META   "language": "python"
 # META }
-
 # MARKDOWN ********************
+
+# Add markdown content here
 
 # ## 🗂️ Now Load the Custom Python Libraries
 
 # CELL ********************
 
 
-
 if run_mode == "local":
     from ingen_fab.python_libs.common.config_utils.py import *
     from ingen_fab.python_libs.python.lakehouse_utils import lakehouse_utils
     from ingen_fab.python_libs.python.ddl_utils import ddl_utils
-    from ingen_fab.python_libs.python.notebook_utils_abstraction import notebookutils
+    from ingen_fab.python_libs.python.notebook_utils_abstraction import NotebookUtilsFactory
     from ingen_fab.python_libs.python.sql_templates import sql_templates
     from ingen_fab.python_libs.python.warehouse_utils import warehouse_utils
-    from ingen_fab.python_libs.python.pipeline_utils import pipeline_utils 
+    from ingen_fab.python_libs.python.pipeline_utils import pipeline_utils
+    notebookutils = NotebookUtilsFactory.create_instance() 
 else:
     files_to_load = [
         "ingen_fab/python_libs/common/config_utils.py",
@@ -151,20 +157,18 @@ else:
 
 
 
-
 # METADATA ********************
 
 # META {
-# META   "language": "python",
-# META   "language_group": "{language group | required}"
+# META   "language": "python"
 # META }
-
 # MARKDOWN ********************
+
+# Add markdown content here
 
 # ## 🆕 Instantiate Required Classes 
 
 # CELL ********************
-
 
 
 target_lakehouse_config_prefix = "Config"
@@ -181,20 +185,18 @@ du = ddl_utils(
 
 
 
-
 # METADATA ********************
 
 # META {
-# META   "language": "python",
-# META   "language_group": "{language group | required}"
+# META   "language": "python"
 # META }
-
 # MARKDOWN ********************
+
+# Add markdown content here
 
 # ## 🏃‍♂️‍➡️ Run DDL Cells 
 
 # CELL ********************
-
 
 
 # DDL cells are injected below:
@@ -231,44 +233,45 @@ du.run_once(work,"001_parquet_load_upate", guid)
 
 
 
-
 # METADATA ********************
 
 # META {
-# META   "language": "python",
-# META   "language_group": "{language group | required}"
+# META   "language": "python"
 # META }
-
 # MARKDOWN ********************
+
+# Add markdown content here
 
 # ## 📇 Print the execution log
 
 # CELL ********************
 
 
-
 du.print_log() 
-
 
 
 
 # METADATA ********************
 
 # META {
-# META   "language": "python",
-# META   "language_group": "{language group | required}"
+# META   "language": "python"
 # META }
-
 # MARKDOWN ********************
+
+# Add markdown content here
 
 # ## ✔️ If we make it to the end return a successful result
 
 # CELL ********************
 
 
-
 import sys
 sys.exit("success")
 
+# METADATA ********************
 
+# META {
+# META   "language": "python",
+# META   "language_group": "jupyter_python"
+# META }
 

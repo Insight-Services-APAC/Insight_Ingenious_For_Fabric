@@ -96,6 +96,18 @@
       "note": "Path in OneLake for Synapse export shortcut.",
       "type": "String",
       "value": ""
+    },
+    {
+      "name": "raw_workspace_id",
+      "note": "ID of the raw workspace.",
+      "type": "String",
+      "value": ""
+    },
+    {
+      "name": "raw_datastore_id",
+      "note": "ID of the raw datastore (lakehouse or warehouse).",
+      "type": "String",
+      "value": ""
     }
   ]
 }

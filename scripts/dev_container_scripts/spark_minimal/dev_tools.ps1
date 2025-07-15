@@ -1,25 +1,24 @@
 # Install zip
-apt-get install curl
-apt-get install zip
-
+sudo apt-get update
+sudo apt-get install -y curl
+sudo apt-get install -y zip
 
 # Install Oh My Posh
-curl -s https://ohmyposh.dev/install.sh | bash -s
+curl -s https://ohmyposh.dev/install.sh | bash -s -- -t "/.local/bin/themes/"
 
 # Add /bin to the PATH environment variable
-$env:PATH += ";/bin"
+$env:PATH += ":/bin"
 
-apt-get install fontconfig
+sudo apt-get install -y fontconfig
 oh-my-posh font install CascadiaCode 
 
 # Suggest setting font to Cascadia Code NFM in vs code settings
 # "terminal.integrated.fontFamily": "CaskaydiaCove Nerd Font, monospace",
-
 Install-Module -Name Terminal-Icons -Scope CurrentUser -Force
 Install-Module -Name posh-git -Scope CurrentUser -Force
 
 # Install Git 
-apt install git -y
+sudo apt install git -y
 
 #### GH CLI for Authentication with GitHub ####
 bash ./scripts/dev_container_scripts/spark_minimal/git_cli_install.sh 
@@ -34,5 +33,8 @@ cp ./scripts/dev_container_scripts/spark_minimal/pwsh_profile_sample.txt $PROFIL
 pip install uv
 uv venv
 ./.venv/bin/activate.ps1
+pip install uv
 uv sync
 
+# NPM
+bash ./scripts/dev_container_scripts/spark_minimal/npm_install.sh

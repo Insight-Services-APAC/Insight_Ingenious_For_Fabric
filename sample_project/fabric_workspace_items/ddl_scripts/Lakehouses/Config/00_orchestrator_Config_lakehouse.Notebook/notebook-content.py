@@ -4,47 +4,60 @@
 
 # META {
 # META   "kernel_info": {
-# META     "name": "synapse_pyspark"
+# META     "name": "synapse_pyspark",
+# META     "display_name": "PySpark (Synapse)"
+# META   },
+# META   "language_info": {
+# META     "name": "python",
+# META     "language_group": "synapse_pyspark"
 # META   }
 # META }
 
-# MARKDOWN ********************
+
 
 # ## 『』Parameters
 
 
-# PARAMETERS CELL ********************
 
-
+# Default parameters
+# Add default parameters here
 
 
 # METADATA ********************
 
 # META {
 # META   "language": "python",
-# META   "language_group": "synapse_pyspark",
+# META   "language_group": "synapse_pyspark"
+# META }
+
+
+# METADATA ********************
+
+# META {
+# META   "language": "python",
+# META   "language_group": "synapse_pyspark"
 # META }
 
 # MARKDOWN ********************
 
-# ## 📦 Inject Reusable Classes and Functions
-
+# ## 📦 Load Python Libraries and Initialize Environment
 
 # CELL ********************
 
-
 import sys
 
-
+# Check if running in Fabric environment
 if "notebookutils" in sys.modules:
     import sys
     
-    notebookutils.fs.mount("abfss://dev_jr@onelake.dfs.fabric.microsoft.com/config.Lakehouse/Files/", "/config_files")  # type: ignore # noqa: F821
+    notebookutils.fs.mount("abfss://{{varlib:config_workspace_name}}@onelake.dfs.fabric.microsoft.com/{{varlib:config_lakehouse_name}}.Lakehouse/Files/", "/config_files")  # type: ignore # noqa: F821
     mount_path = notebookutils.fs.getMountPath("/config_files")  # type: ignore # noqa: F821
     
     run_mode = "fabric"
     sys.path.insert(0, mount_path)
 
+    
+    # PySpark environment - spark session should be available
     
 else:
     print("NotebookUtils not available, assumed running in local mode.")
@@ -52,7 +65,9 @@ else:
         NotebookUtilsFactory,
     )
     notebookutils = NotebookUtilsFactory.create_instance()
+        
     spark = None
+    
     mount_path = None
     run_mode = "local"
 
@@ -80,8 +95,6 @@ def load_python_modules_from_path(base_path: str, relative_files: list[str], max
         except Exception as e:
             failed_files.append(relative_path)
             print(f"❌ Error loading {relative_path}")
-            #traceback.print_exc()
-            #print(notebookutils.fs.head(full_path, max_chars))
 
     print("\n✅ Successfully loaded:")
     for f in success_files:
@@ -92,9 +105,8 @@ def load_python_modules_from_path(base_path: str, relative_files: list[str], max
         for f in failed_files:
             print(f" - {f}")
 
-import sys
-
 def clear_module_cache(prefix: str):
+    """Clear module cache for specified prefix"""
     for mod in list(sys.modules):
         if mod.startswith(prefix):
             print("deleting..." + mod)
@@ -107,56 +119,50 @@ clear_module_cache("ingen_fab")
 
 
 
-
-
 # METADATA ********************
 
 # META {
-# META   "language": "python",
-# META   "language_group": "{language group | required}"
+# META   "language": "python"
 # META }
-
 # MARKDOWN ********************
+
+# Add markdown content here
 
 # ## 🗂️ Now Load the Custom Python Libraries
 
 # CELL ********************
 
 
-
 if run_mode == "local":
-    import ingen_fab.python_libs.common.config_utils
+    from ingen_fab.python_libs.common.config_utils import *
     from ingen_fab.python_libs.pyspark.lakehouse_utils import lakehouse_utils
     from ingen_fab.python_libs.pyspark.ddl_utils import ddl_utils
-    from ingen_fab.python_libs.pyspark.notebook_utils_abstraction import notebookutils
-    from ingen_fab.python_libs.pyspark.parquet_load_utils import parquet_load_utils 
+    from ingen_fab.python_libs.pyspark.notebook_utils_abstraction import NotebookUtilsFactory
+    notebookutils = NotebookUtilsFactory.create_instance() 
 else:
     files_to_load = [
         "ingen_fab/python_libs/common/config_utils.py",
         "ingen_fab/python_libs/pyspark/lakehouse_utils.py",
         "ingen_fab/python_libs/pyspark/ddl_utils.py",
-        "ingen_fab/python_libs/pyspark/notebook_utils_abstraction.py",
-        "ingen_fab/python_libs/pyspark/parquet_load_utils.py"
+        "ingen_fab/python_libs/pyspark/notebook_utils_abstraction.py"
     ]
 
     load_python_modules_from_path(mount_path, files_to_load)
 
 
 
-
 # METADATA ********************
 
 # META {
-# META   "language": "python",
-# META   "language_group": "{language group | required}"
+# META   "language": "python"
 # META }
-
 # MARKDOWN ********************
+
+# Add markdown content here
 
 # ## 🆕 Instantiate Required Classes 
 
 # CELL ********************
-
 
 
 configs: ConfigsObject = get_configs_as_object()
@@ -165,20 +171,18 @@ configs: ConfigsObject = get_configs_as_object()
 
 
 
-
 # METADATA ********************
 
 # META {
-# META   "language": "python",
-# META   "language_group": "{language group | required}"
+# META   "language": "python"
 # META }
-
 # MARKDOWN ********************
+
+# Add markdown content here
 
 # ## 🏃‍♂️‍➡️ Run the lakehouse DDL Notebooks
 
 # CELL ********************
-
 
 
 # Import required libraries
@@ -228,9 +232,11 @@ def execute_notebook(notebook_name, index, total, timeout_seconds=3600):
 
 print(f"Starting orchestration for Config lakehouse")
 print(f"Start time: {start_time}")
-print(f"Total notebooks to execute: 1")
+print(f"Total notebooks to execute: 3")
 print("="*60)
-execute_notebook("001_Initial_Creation_Config_Lakehouses", 1, 1)
+execute_notebook("001_Initial_Creation_Config_Lakehouses", 1, 3)
+execute_notebook("001_Initial_Creation_Ingestion_Config_Lakehouses", 2, 3)
+execute_notebook("002_Sample_Data_Ingestion_Config_Lakehouses", 3, 3)
 
 # Final Summary
 end_time = datetime.now()
@@ -241,16 +247,21 @@ print(f"Orchestration Complete!")
 print(f"{'='*60}")
 print(f"End time: {end_time}")
 print(f"Duration: {duration}")
-print(f"Total notebooks: 1")
+print(f"Total notebooks: 3")
 print(f"Successfully executed: {success_count}")
-print(f"Failed: 1 - {success_count}")
+print(f"Failed: 3 - {success_count}")
 
-if success_count == 1:
+if success_count == 3:
     print("✓ All notebooks executed successfully!")
     mssparkutils.notebook.exit("success")
 else:
     print(f"✗ Orchestration completed with failures")
-    mssparkutils.notebook.exit(f"Orchestration completed with {success_count}/1 successful executions")
+    mssparkutils.notebook.exit(f"Orchestration completed with {success_count}/3 successful executions")
 
+# METADATA ********************
 
+# META {
+# META   "language": "python",
+# META   "language_group": "synapse_pyspark"
+# META }
 

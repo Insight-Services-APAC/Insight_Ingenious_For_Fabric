@@ -2,11 +2,10 @@
   "$schema": "https://developer.microsoft.com/json-schemas/fabric/gitIntegration/platformProperties/2.0.0/schema.json",
   "metadata": {
     "type": "Notebook",
-    "displayName": "001_Initial_Creation_Config_Warehouses_ddl_scripts",
-    "description": "Executes a set of DDL cells in the target Lakehouse."
+    "displayName": "001_Initial_Creation_Config_Warehouses_ddl_scripts"
   },
   "config": {
     "version": "2.0",
-    "logicalId": "e8fbfae6-8369-4c70-9e2d-e1f0e99fee83"
+    "logicalId": "addbcae8-d074-495e-b6f5-934871e6ede4"
   }
 }

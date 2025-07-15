@@ -14,6 +14,7 @@ from ingen_fab.cli_utils import (
     workspace_commands,
 )
 from ingen_fab.cli_utils.console_styles import ConsoleStyles
+from ingen_fab.ddl_scripts.notebook_generator import NotebookGenerator
 
 console = Console()
 console_styles = ConsoleStyles()
@@ -27,6 +28,9 @@ test_app = typer.Typer()
 test_local_app = typer.Typer()
 test_platform_app = typer.Typer()
 notebook_app = typer.Typer()
+package_app = typer.Typer()
+ingest_app = typer.Typer()
+libs_app = typer.Typer()
 
 # Add sub-apps to main app
 test_app.add_typer(
@@ -57,6 +61,17 @@ app.add_typer(
     name="notebook",
     help="Commands for managing and scanning notebook content.",
 )
+app.add_typer(
+    package_app,
+    name="package",
+    help="Commands for running extension packages.",
+)
+app.add_typer(
+    libs_app,
+    name="libs",
+    help="Commands for compiling and managing Python libraries.",
+)
+
 
 
 @app.callback()
@@ -115,13 +130,33 @@ def main(
 @ddl_app.command()
 def compile(
     ctx: typer.Context,
-    output_mode: Annotated[str, typer.Option("--output-mode", "-o")] = None,
+    output_mode: Annotated[str, typer.Option("--output-mode", "-o", help="Output mode: fabric_workspace_repo or local")] = None,
     generation_mode: Annotated[
-        str, typer.Option("--generation-mode", "-g")
+        str, typer.Option("--generation-mode", "-g", help="Generation mode: Lakehouse or Warehouse")
     ] = None,
     verbose: Annotated[bool, typer.Option("--verbose", "-v")] = False,
 ):
     """Compile the DDL notebooks in the specified project directory."""
+    
+    # Convert string parameters to enums with proper error handling
+    if output_mode:
+        try:
+            output_mode = NotebookGenerator.OutputMode(output_mode)
+        except ValueError:
+            valid_modes = [mode.value for mode in NotebookGenerator.OutputMode]
+            console.print(f"[red]Error: Invalid output mode '{output_mode}'[/red]")
+            console.print(f"[yellow]Valid output modes: {', '.join(valid_modes)}[/yellow]")
+            raise typer.Exit(code=1)
+    
+    if generation_mode:
+        try:
+            generation_mode = NotebookGenerator.GenerationMode(generation_mode)
+        except ValueError:
+            valid_modes = [mode.value for mode in NotebookGenerator.GenerationMode]
+            console.print(f"[red]Error: Invalid generation mode '{generation_mode}'[/red]")
+            console.print(f"[yellow]Valid generation modes: {', '.join(valid_modes)}[/yellow]")
+            raise typer.Exit(code=1)
+    
     notebook_commands.compile_ddl_notebooks(ctx, output_mode, generation_mode, verbose)
 
 
@@ -317,6 +352,126 @@ def scan_notebook_blocks(
 @notebook_app.command()
 def perform_code_replacements(ctx: typer.Context):
     deploy_commands.perform_code_replacements(ctx)
+
+
+# Package commands
+package_app.add_typer(
+    ingest_app,
+    name="ingest",
+    help="Commands for flat file ingestion package.",
+)
+
+
+@ingest_app.command("compile")
+def ingest_app_compile(
+    ctx: typer.Context,
+    template_vars: Annotated[str, typer.Option("--template-vars", "-t", help="JSON string of template variables")] = None,
+    include_samples: Annotated[bool, typer.Option("--include-samples", "-s", help="Include sample data DDL and files")] = False,
+):
+    """Compile flat file ingestion package templates and DDL scripts."""
+    import json
+
+    from ingen_fab.packages.flat_file_ingestion.flat_file_ingestion import (
+        compile_flat_file_ingestion_package,
+    )
+    
+    # Parse template variables if provided
+    vars_dict = {}
+    if template_vars:
+        try:
+            vars_dict = json.loads(template_vars)
+        except json.JSONDecodeError as e:
+            console.print(f"[red]Error parsing template variables: {e}[/red]")
+            raise typer.Exit(code=1)
+    
+    # Get fabric workspace repo directory from context
+    fabric_workspace_repo_dir = str(ctx.obj["fabric_workspace_repo_dir"])
+    
+    try:
+        results = compile_flat_file_ingestion_package(
+            fabric_workspace_repo_dir=fabric_workspace_repo_dir,
+            template_vars=vars_dict,
+            include_samples=include_samples
+        )
+        
+        if results["success"]:
+            console.print("[green]✓ Flat file ingestion package compiled successfully![/green]")
+        else:
+            console.print(f"[red]✗ Compilation failed: {results['errors']}[/red]")
+            raise typer.Exit(code=1)
+            
+    except Exception as e:
+        console.print(f"[red]Error compiling package: {e}[/red]")
+        raise typer.Exit(code=1)
+
+
+@ingest_app.command()
+def run(
+    ctx: typer.Context,
+    config_id: Annotated[str, typer.Option("--config-id", "-c", help="Specific configuration ID to process")] = "",
+    execution_group: Annotated[int, typer.Option("--execution-group", "-g", help="Execution group number")] = 1,
+    environment: Annotated[str, typer.Option("--environment", "-e", help="Environment name")] = "development",
+):
+    """Run flat file ingestion for specified configuration or execution group."""
+    console.print(f"[blue]Running flat file ingestion...[/blue]")
+    console.print(f"Config ID: {config_id}")
+    console.print(f"Execution Group: {execution_group}")
+    console.print(f"Environment: {environment}")
+    console.print(f"Fabric Workspace Repo Dir: {ctx.obj['fabric_workspace_repo_dir']}")
+    
+    console.print("[yellow]Note: This command would typically execute the compiled notebook with the specified parameters.[/yellow]")
+    console.print("[yellow]In a production environment, this would submit the notebook to Fabric for execution.[/yellow]")
+
+
+# Library compilation commands
+@libs_app.command()
+def compile(
+    ctx: typer.Context,
+    target_file: Annotated[str, typer.Option("--target-file", "-f", help="Specific python file to compile (relative to project root)")] = None,
+):
+    """Compile Python libraries by injecting variables from the variable library."""
+    from pathlib import Path
+    from ingen_fab.config_utils.variable_lib import inject_variables_into_file, VariableLibraryUtils
+    
+    project_path = Path(ctx.obj["fabric_workspace_repo_dir"])
+    environment = str(ctx.obj["fabric_environment"])
+    
+    console.print(f"[blue]Compiling Python libraries...[/blue]")
+    console.print(f"Project path: {project_path}")
+    console.print(f"Environment: {environment}")
+    
+    if target_file:
+        # Compile specific file
+        target_path = project_path / target_file
+        console.print(f"Target file: {target_path}")
+        
+        if not target_path.exists():
+            console.print(f"[red]Error: Target file not found: {target_path}[/red]")
+            raise typer.Exit(code=1)
+            
+        try:
+            inject_variables_into_file(project_path, target_path, environment)
+            console.print(f"[green]✓ Successfully compiled: {target_file}[/green]")
+        except Exception as e:
+            console.print(f"[red]Error compiling {target_file}: {e}[/red]")
+            raise typer.Exit(code=1)
+    else:
+        # Compile config_utils.py as default - use absolute path since we're in the ingen_fab directory
+        from pathlib import Path as PathlibPath
+        current_dir = PathlibPath.cwd()
+        config_utils_path = current_dir / "ingen_fab" / "python_libs" / "common" / "config_utils.py"
+        console.print(f"Target file: {config_utils_path}")
+        
+        if not config_utils_path.exists():
+            console.print(f"[red]Error: config_utils.py not found at: {config_utils_path}[/red]")
+            raise typer.Exit(code=1)
+            
+        try:
+            inject_variables_into_file(project_path, config_utils_path, environment)
+            console.print(f"[green]✓ Successfully compiled config_utils.py[/green]")
+        except Exception as e:
+            console.print(f"[red]Error compiling config_utils.py: {e}[/red]")
+            raise typer.Exit(code=1)
 
 
 if __name__ == "__main__":
