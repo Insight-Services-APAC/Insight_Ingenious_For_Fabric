@@ -18,7 +18,7 @@ ingen_fab [GLOBAL_OPTIONS] COMMAND [COMMAND_OPTIONS]
 
 ## Command Groups
 
-### init
+## init {#init}
 
 Initialize solutions and projects.
 
@@ -43,7 +43,7 @@ ingen_fab init init-solution --project-name "Data Analytics Platform"
 ingen_fab init init-solution --project-name "ML Pipeline" --path ./projects
 ```
 
-### ddl
+## ddl {#ddl}
 
 Compile DDL notebooks from templates.
 
@@ -72,7 +72,7 @@ ingen_fab ddl compile --output-mode fabric_workspace_repo --generation-mode Lake
 ingen_fab ddl compile -o fabric_workspace_repo -g Warehouse -v
 ```
 
-### deploy
+## deploy {#deploy}
 
 Deploy to environments and manage workspace items.
 
@@ -130,7 +130,7 @@ ingen_fab deploy upload-python-libs --environment development --project-path .
 - `--environment` / `-e`: Fabric environment name (default: development_jr)
 - `--project-path` / `-p`: Project path (default: sample_project)
 
-### notebook
+## notebook {#notebook}
 
 Manage and scan notebook content.
 
@@ -167,7 +167,7 @@ ingen_fab notebook perform-code-replacements
 
 Uses the global context for fabric workspace directory and environment.
 
-### test
+## test {#test}
 
 Test notebooks and Python blocks.
 
@@ -303,7 +303,11 @@ ingen_fab package ingest run --config-id CONFIG_ID --execution-group 1
 - `--execution-group` / `-g`: Execution group number (default: 1)
 - `--environment` / `-e`: Environment name (default: development)
 
-### libs
+## run {#run}
+
+Run packages and workflows.
+
+## libs {#libs}
 
 Compile and manage Python libraries.
 

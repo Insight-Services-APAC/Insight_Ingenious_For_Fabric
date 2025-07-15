@@ -409,13 +409,13 @@ config_files = {
 
 ### Documentation Templates
 
-- [Package README Template](../examples/package_readme_template.md)
-- [API Documentation Template](../examples/api_docs_template.md)
+- Package README Template (coming soon)
+- API Documentation Template (coming soon)
 
 ### Code Examples
 
 - [Flat File Ingestion Package](../packages/flat_file_ingestion.md)
-- [Package Development Examples](../examples/package_development.md)
+- Package Development Examples (coming soon)
 
 ### Related Topics
 

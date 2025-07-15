@@ -2,6 +2,16 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
+## Important: Environment Activation
+
+**ALWAYS activate the Python virtual environment and set required environment variables before running any commands:**
+```bash
+source .venv/bin/activate
+export FABRIC_ENVIRONMENT="local"
+export FABRIC_WORKSPACE_REPO_DIR="sample_project"
+```
+This must be done at the start of every session to ensure proper dependency access and correct CLI operation.
+
 ## Project Overview
 
 Ingenious Fabric Accelerator (`ingen_fab`) is a CLI tool for creating and managing Microsoft Fabric workspace projects. It automates DDL notebook generation, environment deployment, and testing workflows for Fabric lakehouses and warehouses.
