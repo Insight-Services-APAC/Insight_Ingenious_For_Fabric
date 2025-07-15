@@ -68,11 +68,13 @@ export FABRIC_WORKSPACE_REPO_DIR="./sample_project"
 export FABRIC_ENVIRONMENT="development"
 
 # Generate DDL notebooks
-ingen_fab ddl compile-notebooks --output-mode fabric --generation-mode warehouse
-ingen_fab ddl compile-notebooks --output-mode fabric --generation-mode lakehouse
+ingen_fab ddl compile --output-mode fabric_workspace_repo --generation-mode Warehouse
+ingen_fab ddl compile --output-mode fabric_workspace_repo --generation-mode Lakehouse
 
-# Test notebooks
-ingen_fab test local notebooks --base-dir ./sample_project/fabric_workspace_items
+# Test Python libraries locally (requires FABRIC_ENVIRONMENT=local)
+export FABRIC_ENVIRONMENT=local
+ingen_fab test local python
+ingen_fab test local pyspark
 ```
 
 ## Key Configuration Files

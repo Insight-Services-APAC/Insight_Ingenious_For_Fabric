@@ -114,13 +114,13 @@ Transform your DDL scripts into executable notebooks:
 ```bash
 # Generate notebooks for lakehouses
 ingen_fab ddl compile \
-    --output-mode fabric \
-    --generation-mode lakehouse
+    --output-mode fabric_workspace_repo \
+    --generation-mode Lakehouse
 
 # Generate notebooks for warehouses (if you have any)
 ingen_fab ddl compile \
-    --output-mode fabric \
-    --generation-mode warehouse
+    --output-mode fabric_workspace_repo \
+    --generation-mode Warehouse
 ```
 
 This creates orchestrator notebooks in `fabric_workspace_items/ddl_scripts/` that will:
@@ -158,8 +158,8 @@ The orchestrator will:
 Test that everything is working correctly:
 
 ```bash
-# Test your deployment
-ingen_fab test platform notebooks \
+# Generate platform tests
+ingen_fab test platform generate \
     --fabric-workspace-repo-dir . \
     --fabric-environment development
 ```
@@ -198,7 +198,7 @@ print("✅ Sample data table created successfully!")
 EOF
 
 # Regenerate notebooks
-ingen_fab ddl compile --output-mode fabric --generation-mode lakehouse
+ingen_fab ddl compile --output-mode fabric_workspace_repo --generation-mode Lakehouse
 
 # Redeploy
 ingen_fab deploy deploy --fabric-workspace-repo-dir . --fabric-environment development
@@ -207,11 +207,13 @@ ingen_fab deploy deploy --fabric-workspace-repo-dir . --fabric-environment devel
 ### Testing Changes Locally
 
 ```bash
-# Test your Python libraries locally
-ingen_fab test local libraries --base-dir .
+# Test your Python libraries locally (requires FABRIC_ENVIRONMENT=local)
+export FABRIC_ENVIRONMENT=local
+ingen_fab test local python
+ingen_fab test local pyspark
 
-# Test specific notebooks
-ingen_fab test local notebooks --base-dir ./fabric_workspace_items
+# Scan notebook content
+ingen_fab notebook scan-notebook-blocks --base-dir ./fabric_workspace_items
 ```
 
 ## Next Steps

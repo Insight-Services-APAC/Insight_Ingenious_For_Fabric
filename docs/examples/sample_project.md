@@ -272,7 +272,7 @@ Test that everything is working correctly:
 
 ```bash
 # Test the deployment using CLI
-ingen_fab test platform notebooks \
+ingen_fab test platform generate \
     --fabric-workspace-repo-dir . \
     --fabric-environment development
 ```

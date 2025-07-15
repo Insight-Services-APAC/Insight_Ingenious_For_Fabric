@@ -37,28 +37,28 @@ uv sync
 
 ```bash
 # Create a new Fabric workspace project
-ingen_fab init solution --project-name "My Fabric Project"
+ingen_fab init init-solution --project-name "My Fabric Project"
 ```
 
 ### Generate DDL Notebooks
 
 ```bash
 # Generate DDL notebooks for warehouses
-ingen_fab ddl compile-notebooks \
-    --output-mode fabric \
-    --generation-mode warehouse
+ingen_fab ddl compile \
+    --output-mode fabric_workspace_repo \
+    --generation-mode Warehouse
 
 # Generate DDL notebooks for lakehouses  
-ingen_fab ddl compile-notebooks \
-    --output-mode fabric \
-    --generation-mode lakehouse
+ingen_fab ddl compile \
+    --output-mode fabric_workspace_repo \
+    --generation-mode Lakehouse
 ```
 
 ### Deploy to Environment
 
 ```bash
 # Deploy to development environment
-ingen_fab deploy to-environment \
+ingen_fab deploy deploy \
     --fabric-workspace-repo-dir . \
     --fabric-environment development
 ```
@@ -78,30 +78,45 @@ ingen_fab --help
 - **`deploy`** - Deploy to environments and manage workspace items
 - **`notebook`** - Manage and scan notebook content
 - **`test`** - Test notebooks and Python blocks (local and platform)
+- **`package`** - Run extension packages (e.g., flat file ingestion)
+- **`libs`** - Compile and manage Python libraries
 
 ### Common Commands
 
 ```bash
 # Initialize new solution
-ingen_fab init solution --project-name "Project Name"
+ingen_fab init init-solution --project-name "Project Name"
 
 # Compile DDL notebooks
-ingen_fab ddl compile-notebooks --output-mode fabric --generation-mode warehouse
+ingen_fab ddl compile --output-mode fabric_workspace_repo --generation-mode Warehouse
 
 # Deploy to environment
-ingen_fab deploy to-environment --fabric-workspace-repo-dir . --fabric-environment development
+ingen_fab deploy deploy --fabric-workspace-repo-dir . --fabric-environment development
 
 # Find notebook content files
-ingen_fab notebook find-content-files --base-dir path/to/workspace
+ingen_fab notebook find-notebook-content-files --base-dir path/to/workspace
 
 # Scan notebook blocks
-ingen_fab notebook scan-blocks --base-dir path/to/workspace
+ingen_fab notebook scan-notebook-blocks --base-dir path/to/workspace
 
-# Test notebooks locally
-ingen_fab test local notebooks --base-dir path/to/workspace
+# Test Python libraries locally
+ingen_fab test local python  # Tests python implementations
+ingen_fab test local pyspark  # Tests pyspark implementations
 
-# Test on Fabric platform
-ingen_fab test platform notebooks --base-dir path/to/workspace
+# Generate platform tests
+ingen_fab test platform generate
+
+# Upload Python libraries to Fabric
+ingen_fab deploy upload-python-libs --environment development --project-path .
+
+# Delete all workspace items (use with caution!)
+ingen_fab deploy delete-all --environment development --force
+
+# Compile flat file ingestion package
+ingen_fab package ingest compile --include-samples
+
+# Compile Python libraries with variable injection
+ingen_fab libs compile --target-file path/to/file.py
 ```
 
 ## Running the tests
@@ -158,23 +173,23 @@ export AZURE_CLIENT_SECRET="your-client-secret"
 
 ```bash
 # 1. Initialize a new project
-ingen_fab init solution --project-name "My Data Platform"
+ingen_fab init init-solution --project-name "My Data Platform"
 
-# 2. Configure variables in var_lib/ for your environments
-# Edit var_lib/development.json, var_lib/production.json, etc.
+# 2. Configure variables in fabric_workspace_items/config/var_lib.VariableLibrary/valueSets/
+# Edit development.json, production.json, etc.
 
 # 3. Create DDL scripts in ddl_scripts/
 # Add numbered .sql or .py files for your tables and procedures
 
 # 4. Generate DDL notebooks
-ingen_fab ddl compile-notebooks --output-mode fabric --generation-mode warehouse
-ingen_fab ddl compile-notebooks --output-mode fabric --generation-mode lakehouse
+ingen_fab ddl compile --output-mode fabric_workspace_repo --generation-mode Warehouse
+ingen_fab ddl compile --output-mode fabric_workspace_repo --generation-mode Lakehouse
 
 # 5. Deploy to your environment
-ingen_fab deploy to-environment --fabric-workspace-repo-dir . --fabric-environment development
+ingen_fab deploy deploy --fabric-workspace-repo-dir . --fabric-environment development
 
-# 6. Test your deployment
-ingen_fab test platform notebooks --base-dir ./fabric_workspace_items
+# 6. Generate and run platform tests
+ingen_fab test platform generate
 ```
 
 
