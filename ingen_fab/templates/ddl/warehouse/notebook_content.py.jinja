@@ -12,13 +12,13 @@
 {{macros.python_cell_with_heading("## 🗂️ Now Load the Custom Python Libraries")}}
 
 if run_mode == "local":
-    from ingen_fab.python_libs.common.config_utils.py import *
+    from ingen_fab.python_libs.common.config_utils import *
     from ingen_fab.python_libs.python.lakehouse_utils import lakehouse_utils
     from ingen_fab.python_libs.python.ddl_utils import ddl_utils
     from ingen_fab.python_libs.python.notebook_utils_abstraction import NotebookUtilsFactory
-    from ingen_fab.python_libs.python.sql_templates import sql_templates
+    from ingen_fab.python_libs.python.sql_templates import SQLTemplates
     from ingen_fab.python_libs.python.warehouse_utils import warehouse_utils
-    from ingen_fab.python_libs.python.pipeline_utils import pipeline_utils
+    from ingen_fab.python_libs.python.pipeline_utils import PipelineUtils
     notebookutils = NotebookUtilsFactory.create_instance() 
 else:
     files_to_load = [
@@ -33,6 +33,13 @@ else:
 
     load_python_modules_from_path(mount_path, files_to_load)
 
+{{macros.python_cell_with_heading("## ⚙️ Configuration Settings")}}
+
+# variableLibraryInjectionStart: var_lib
+
+
+# variableLibraryInjectionEnd: var_lib
+
 {{ macros.python_cell_with_heading("## 🆕 Instantiate Required Classes ")}}
 
 target_lakehouse_config_prefix = "{{target_lakehouse_config_prefix | required}}"
@@ -44,6 +51,11 @@ du = ddl_utils(
     target_workspace_id=target_workspace_id,
     target_warehouse_id=target_warehouse_id,
     notebookutils=notebookutils
+)
+
+wu = warehouse_utils(
+    target_workspace_id=target_workspace_id,
+    target_warehouse_id=target_warehouse_id
 )
 
 
