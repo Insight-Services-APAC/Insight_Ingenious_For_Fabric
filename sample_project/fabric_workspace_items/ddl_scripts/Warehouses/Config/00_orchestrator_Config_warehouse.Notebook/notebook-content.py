@@ -7,55 +7,66 @@
 # META     "name": "jupyter",
 # META     "jupyter_kernel_name": "python3.11"
 # META   },
+# META   "language_info": {
+# META     "name": "python"
+# META   }
 # META }
 
-# MARKDOWN ********************
+
 
 # ## 『』Parameters
 
 
-# PARAMETERS CELL ********************
+
+# Default parameters  
+# Add default parameters here
 
 
+# METADATA ********************
+
+# META {
+# META   "language": "python"
+# META }
 
 
 # METADATA ********************
 
 # META {
 # META   "language": "python",
-# META   "language_group": "jupyter_python",
+# META   "language_group": "jupyter_python"
 # META }
 
 # MARKDOWN ********************
 
-# ## 📦 Inject Reusable Classes and Functions
-
+# ## 📦 Load Python Libraries and Initialize Environment
 
 # CELL ********************
 
-
 import sys
 
-
+# Check if running in Fabric environment
 if "notebookutils" in sys.modules:
     import sys
     
-    notebookutils.fs.mount("abfss://dev_jr@onelake.dfs.fabric.microsoft.com/config.Lakehouse/Files/", "/config_files")  # type: ignore # noqa: F821
+    notebookutils.fs.mount("abfss://{{varlib:config_workspace_name}}@onelake.dfs.fabric.microsoft.com/{{varlib:config_lakehouse_name}}.Lakehouse/Files/", "/config_files")  # type: ignore # noqa: F821
     mount_path = notebookutils.fs.getMountPath("/config_files")  # type: ignore # noqa: F821
     
     run_mode = "fabric"
     sys.path.insert(0, mount_path)
 
     
-    spark = None # Assuming Python mode does not require a Spark session
+    # Python environment - no spark session needed
+    spark = None
     
 else:
     print("NotebookUtils not available, assumed running in local mode.")
-    from ingen_fab.python_libs.pyspark.notebook_utils_abstraction import (
+    from ingen_fab.python_libs.python.notebook_utils_abstraction import (
         NotebookUtilsFactory,
     )
     notebookutils = NotebookUtilsFactory.create_instance()
+    
     spark = None
+    
     mount_path = None
     run_mode = "local"
 
@@ -83,8 +94,6 @@ def load_python_modules_from_path(base_path: str, relative_files: list[str], max
         except Exception as e:
             failed_files.append(relative_path)
             print(f"❌ Error loading {relative_path}")
-            #traceback.print_exc()
-            #print(notebookutils.fs.head(full_path, max_chars))
 
     print("\n✅ Successfully loaded:")
     for f in success_files:
@@ -95,9 +104,8 @@ def load_python_modules_from_path(base_path: str, relative_files: list[str], max
         for f in failed_files:
             print(f" - {f}")
 
-import sys
-
 def clear_module_cache(prefix: str):
+    """Clear module cache for specified prefix"""
     for mod in list(sys.modules):
         if mod.startswith(prefix):
             print("deleting..." + mod)
@@ -110,31 +118,29 @@ clear_module_cache("ingen_fab")
 
 
 
-
-
 # METADATA ********************
 
 # META {
-# META   "language": "python",
-# META   "language_group": "{language group | required}"
+# META   "language": "python"
 # META }
-
 # MARKDOWN ********************
+
+# Add markdown content here
 
 # ## 🗂️ Now Load the Custom Python Libraries
 
 # CELL ********************
 
 
-
 if run_mode == "local":
     from ingen_fab.python_libs.common.config_utils.py import *
     from ingen_fab.python_libs.python.lakehouse_utils import lakehouse_utils
     from ingen_fab.python_libs.python.ddl_utils import ddl_utils
-    from ingen_fab.python_libs.python.notebook_utils_abstraction import notebookutils
+    from ingen_fab.python_libs.python.notebook_utils_abstraction import NotebookUtilsFactory
     from ingen_fab.python_libs.python.sql_templates import sql_templates
     from ingen_fab.python_libs.python.warehouse_utils import warehouse_utils
-    from ingen_fab.python_libs.python.pipeline_utils import pipeline_utils 
+    from ingen_fab.python_libs.python.pipeline_utils import pipeline_utils
+    notebookutils = NotebookUtilsFactory.create_instance() 
 else:
     files_to_load = [
         "ingen_fab/python_libs/common/config_utils.py",
@@ -148,20 +154,18 @@ else:
 
 
 
-
 # METADATA ********************
 
 # META {
-# META   "language": "python",
-# META   "language_group": "{language group | required}"
+# META   "language": "python"
 # META }
-
 # MARKDOWN ********************
+
+# Add markdown content here
 
 # ## 🆕 Instantiate Required Classes 
 
 # CELL ********************
-
 
 
 
@@ -170,20 +174,18 @@ configs: ConfigsObject = get_configs_as_object()
 
 
 
-
 # METADATA ********************
 
 # META {
-# META   "language": "python",
-# META   "language_group": "{language group | required}"
+# META   "language": "python"
 # META }
-
 # MARKDOWN ********************
+
+# Add markdown content here
 
 # ## 🏃‍♂️‍➡️ Run All Lakehouse DDL
 
 # CELL ********************
-
 
 # Import required libraries
 from notebookutils import mssparkutils
@@ -241,10 +243,12 @@ def execute_notebook(notebook_name, index, total, timeout_seconds=3600):
 print(f"Starting orchestration for Config lakehouse")
 print(f"Start time: {start_time}")
 print(f"Workspace ID: {workspace_id}")
-print(f"Total notebooks to execute: 2")
+print(f"Total notebooks to execute: 4")
 print("="*60)
-execute_notebook("001_Initial_Creation_Config_Warehouses", 1, 2)
-execute_notebook("002_Parquet_Load_Update_Config_Warehouses", 2, 2)
+execute_notebook("001_Initial_Creation_Config_Warehouses", 1, 4)
+execute_notebook("001_Initial_Creation_Ingestion_Config_Warehouses", 2, 4)
+execute_notebook("002_Parquet_Load_Update_Config_Warehouses", 3, 4)
+execute_notebook("002_Sample_Data_Ingestion_Config_Warehouses", 4, 4)
 
 # Final Summary
 end_time = datetime.now()
@@ -255,16 +259,21 @@ print(f"Orchestration Complete!")
 print(f"{'='*60}")
 print(f"End time: {end_time}")
 print(f"Duration: {duration}")
-print(f"Total notebooks: 2")
+print(f"Total notebooks: 4")
 print(f"Successfully executed: {success_count}")
-print(f"Failed: 2 - {success_count}")
+print(f"Failed: 4 - {success_count}")
 
-if success_count == 2:
+if success_count == 4:
     print("✓ All notebooks executed successfully!")
     mssparkutils.notebook.exit("success")
 else:
     print(f"✗ Orchestration completed with failures")
-    mssparkutils.notebook.exit(f"Orchestration completed with {success_count}/2 successful executions")
+    mssparkutils.notebook.exit(f"Orchestration completed with {success_count}/4 successful executions")
 
+# METADATA ********************
 
+# META {
+# META   "language": "python",
+# META   "language_group": "jupyter_python"
+# META }
 

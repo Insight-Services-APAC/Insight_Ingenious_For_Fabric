@@ -7,7 +7,12 @@
   "customizations": {
     "vscode": {
       "settings": {
-        "terminal.integrated.shell.linux": "/bin/bash"
+        "terminal.integrated.defaultProfile.linux": "bash",
+        "terminal.integrated.profiles.linux": {
+          "bash": {
+            "path": "/bin/bash"
+          }
+        }
       },
       "extensions": [
         "ms-python.python",
@@ -19,5 +24,8 @@
       ]
   }
 },
+"workspaceMount": "source=${localWorkspaceFolder},target=/workspaces/${localWorkspaceFolderBasename},type=bind",
+"workspaceFolder": "/workspaces/${localWorkspaceFolderBasename}",
 "remoteUser": "root"
+
 }

@@ -1,12 +1,12 @@
-from pathlib import Path
 import traceback
+from pathlib import Path
 
 from rich.console import Console
 
+from ingen_fab.az_cli.onelake_utils import OneLakeUtils
 from ingen_fab.cli_utils.console_styles import ConsoleStyles
 from ingen_fab.config_utils.variable_lib import VariableLibraryUtils
 from ingen_fab.fabric_cicd.promotion_utils import SyncToFabricEnvironment
-from ingen_fab.az_cli.onelake_utils import OneLakeUtils
 
 
 def deploy_to_environment(ctx):

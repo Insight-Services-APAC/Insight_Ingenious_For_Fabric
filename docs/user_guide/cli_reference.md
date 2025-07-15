@@ -10,182 +10,325 @@ These options are available for all commands:
 ingen_fab [GLOBAL_OPTIONS] COMMAND [COMMAND_OPTIONS]
 ```
 
-| Option | Description | Environment Variable |
-|--------|-------------|---------------------|
-| `--fabric-workspace-repo-dir` | Directory containing fabric workspace repository files | `FABRIC_WORKSPACE_REPO_DIR` |
-| `--fabric-environment` | Target environment (development, test, production) | `FABRIC_ENVIRONMENT` |
-| `--help` | Show help message | - |
-| `--version` | Show version information | - |
+| Option | Short | Description | Environment Variable |
+|--------|-------|-------------|---------------------|
+| `--fabric-workspace-repo-dir` | `-fwd` | Directory containing fabric workspace repository files | `FABRIC_WORKSPACE_REPO_DIR` |
+| `--fabric-environment` | `-fe` | Target environment (e.g., development, production) | `FABRIC_ENVIRONMENT` |
+| `--help` | - | Show help message | - |
 
 ## Command Groups
 
-### init
+## init {#init}
 
 Initialize solutions and projects.
 
-#### `init solution`
+#### `init init-solution`
 
 Create a new Fabric workspace project with proper structure.
 
 ```bash
-ingen_fab init solution --project-name "My Project"
+ingen_fab init init-solution --project-name "My Project"
 ```
 
 **Options:**
 - `--project-name` (required): Name of the project
-- `--template-dir`: Custom template directory (default: built-in templates)
-- `--force`: Overwrite existing files
+- `--path`: Path where to create the project (default: current directory)
 
 **Examples:**
 ```bash
-# Create a new project
-ingen_fab init solution --project-name "Data Analytics Platform"
+# Create a new project in current directory
+ingen_fab init init-solution --project-name "Data Analytics Platform"
 
-# Create project with custom template
-ingen_fab init solution --project-name "ML Pipeline" --template-dir ./custom-templates
-
-# Force overwrite existing project
-ingen_fab init solution --project-name "Existing Project" --force
+# Create project in specific path
+ingen_fab init init-solution --project-name "ML Pipeline" --path ./projects
 ```
 
-### ddl
+## ddl {#ddl}
 
 Compile DDL notebooks from templates.
 
-#### `ddl compile-notebooks`
+#### `ddl compile`
 
 Generate DDL notebooks from SQL and Python scripts.
 
 ```bash
-ingen_fab ddl compile-notebooks --output-mode fabric --generation-mode warehouse
+ingen_fab ddl compile --output-mode fabric_workspace_repo --generation-mode Warehouse
 ```
 
 **Options:**
-- `--output-mode`: Output destination (`fabric`, `local`)
-- `--generation-mode`: Target platform (`warehouse`, `lakehouse`)
-- `--force`: Overwrite existing notebooks
+- `--output-mode` / `-o`: Output destination (`fabric_workspace_repo`, `local`)
+- `--generation-mode` / `-g`: Target platform (`Warehouse`, `Lakehouse`)
+- `--verbose` / `-v`: Enable verbose output
 
 **Examples:**
 ```bash
 # Generate warehouse notebooks for Fabric deployment
-ingen_fab ddl compile-notebooks --output-mode fabric --generation-mode warehouse
+ingen_fab ddl compile --output-mode fabric_workspace_repo --generation-mode Warehouse
 
-# Generate lakehouse notebooks locally
-ingen_fab ddl compile-notebooks --output-mode local --generation-mode lakehouse
+# Generate lakehouse notebooks
+ingen_fab ddl compile --output-mode fabric_workspace_repo --generation-mode Lakehouse
 
-# Force regeneration of all notebooks
-ingen_fab ddl compile-notebooks --output-mode fabric --generation-mode warehouse --force
+# Generate with verbose output
+ingen_fab ddl compile -o fabric_workspace_repo -g Warehouse -v
 ```
 
-### deploy
+## deploy {#deploy}
 
 Deploy to environments and manage workspace items.
 
-#### `deploy to-environment`
+#### `deploy deploy`
 
 Deploy all artifacts to a specific environment.
 
 ```bash
-ingen_fab deploy to-environment --fabric-workspace-repo-dir . --fabric-environment development
+ingen_fab deploy deploy
 ```
 
-**Options:**
-- `--fabric-workspace-repo-dir`: Source directory for deployment
-- `--fabric-environment`: Target environment
-- `--dry-run`: Show what would be deployed without actually deploying
-- `--force`: Force deployment even if validation fails
+Uses the global options `--fabric-workspace-repo-dir` and `--fabric-environment`.
 
 **Examples:**
 ```bash
 # Deploy to development
-ingen_fab deploy to-environment --fabric-workspace-repo-dir . --fabric-environment development
+ingen_fab deploy deploy --fabric-workspace-repo-dir . --fabric-environment development
 
-# Dry run deployment
-ingen_fab deploy to-environment --fabric-workspace-repo-dir . --fabric-environment production --dry-run
-
-# Force deployment
-ingen_fab deploy to-environment --fabric-workspace-repo-dir . --fabric-environment test --force
+# Using environment variables
+export FABRIC_WORKSPACE_REPO_DIR="./sample_project"
+export FABRIC_ENVIRONMENT="development"
+ingen_fab deploy deploy
 ```
 
-### notebook
+#### `deploy delete-all`
+
+Delete all workspace items in an environment.
+
+```bash
+ingen_fab deploy delete-all --environment development
+```
+
+**Options:**
+- `--environment` / `-e`: Environment name (default: development)
+- `--force` / `-f`: Force deletion without confirmation
+
+**Examples:**
+```bash
+# Delete all items in development environment (will prompt for confirmation)
+ingen_fab deploy delete-all --environment development
+
+# Force delete without confirmation
+ingen_fab deploy delete-all --environment test --force
+```
+
+#### `deploy upload-python-libs`
+
+Upload python_libs directory to Fabric config lakehouse using OneLakeUtils.
+
+```bash
+ingen_fab deploy upload-python-libs --environment development --project-path .
+```
+
+**Options:**
+- `--environment` / `-e`: Fabric environment name (default: development_jr)
+- `--project-path` / `-p`: Project path (default: sample_project)
+
+## notebook {#notebook}
 
 Manage and scan notebook content.
 
-#### `notebook find-content-files`
+#### `notebook find-notebook-content-files`
 
 Find all notebook-content.py files in a directory.
 
 ```bash
-ingen_fab notebook find-content-files --base-dir ./fabric_workspace_items
+ingen_fab notebook find-notebook-content-files --base-dir ./fabric_workspace_items
 ```
 
-#### `notebook scan-blocks`
+**Options:**
+- `--base-dir` / `-b`: Directory to scan (default: fabric_workspace_items)
+
+#### `notebook scan-notebook-blocks`
 
 Scan and analyze notebook code blocks.
 
 ```bash
-ingen_fab notebook scan-blocks --base-dir ./fabric_workspace_items
+ingen_fab notebook scan-notebook-blocks --base-dir ./fabric_workspace_items
 ```
 
 **Options:**
-- `--base-dir`: Directory to scan
-- `--output-format`: Output format (`json`, `table`, `summary`)
-- `--include-patterns`: File patterns to include
-- `--exclude-patterns`: File patterns to exclude
+- `--base-dir` / `-b`: Directory to scan (default: fabric_workspace_items)
+- `--apply-replacements` / `-a`: Apply code replacements
 
-**Examples:**
+#### `notebook perform-code-replacements`
+
+Perform code replacements in notebooks.
+
 ```bash
-# Find all notebook files
-ingen_fab notebook find-content-files --base-dir ./fabric_workspace_items
-
-# Scan blocks with JSON output
-ingen_fab notebook scan-blocks --base-dir ./fabric_workspace_items --output-format json
-
-# Scan specific patterns
-ingen_fab notebook scan-blocks --base-dir ./fabric_workspace_items --include-patterns "*.py"
+ingen_fab notebook perform-code-replacements
 ```
 
-### test
+Uses the global context for fabric workspace directory and environment.
+
+## test {#test}
 
 Test notebooks and Python blocks.
 
-#### `test local`
+#### `test test-python-block`
 
-Test components locally.
+Test a Python code block.
 
 ```bash
-# Test libraries
-ingen_fab test local libraries --base-dir .
-
-# Test notebooks
-ingen_fab test local notebooks --base-dir ./fabric_workspace_items
+ingen_fab test test-python-block
 ```
 
-#### `test platform`
+#### `test run-simple-notebook`
 
-Test components on the Fabric platform.
+Run a simple test notebook.
 
 ```bash
-# Test notebooks on platform
-ingen_fab test platform notebooks --base-dir ./fabric_workspace_items
+ingen_fab test run-simple-notebook
+```
+
+#### `test run-livy-notebook`
+
+Run a notebook using Fabric Livy API.
+
+```bash
+ingen_fab test run-livy-notebook --workspace-id WORKSPACE_ID --lakehouse-id LAKEHOUSE_ID
 ```
 
 **Options:**
-- `--base-dir`: Directory containing tests
-- `--test-pattern`: Pattern to match test files
-- `--verbose`: Show detailed output
-- `--failfast`: Stop on first failure
+- `--workspace-id` / `-w`: Workspace ID (required)
+- `--lakehouse-id` / `-l`: Lakehouse ID (required)
+- `--code` / `-c`: Code to execute (default: "print('Hello from Fabric Livy API!')")
+- `--timeout` / `-t`: Timeout in seconds (default: 600)
+
+#### Test Local Subcommands
+
+##### `test local python`
+
+Run pytest on Python library tests.
+
+```bash
+ingen_fab test local python
+```
+
+**Arguments:**
+- `lib` (optional): Specific test file to run (without _pytest.py suffix)
 
 **Examples:**
 ```bash
-# Test all libraries locally
-ingen_fab test local libraries --base-dir . --verbose
+# Test all Python libraries
+export FABRIC_ENVIRONMENT=local
+ingen_fab test local python
 
-# Test specific pattern
-ingen_fab test local notebooks --base-dir ./fabric_workspace_items --test-pattern "*test*"
+# Test specific library
+ingen_fab test local python ddl_utils
+```
 
-# Test on platform with fail-fast
-ingen_fab test platform notebooks --base-dir ./fabric_workspace_items --failfast
+##### `test local pyspark`
+
+Run pytest on PySpark library tests.
+
+```bash
+ingen_fab test local pyspark
+```
+
+**Arguments:**
+- `lib` (optional): Specific test file to run (without _pytest.py suffix)
+
+**Note:** Requires `FABRIC_ENVIRONMENT=local` to be set.
+
+##### `test local common`
+
+Run pytest on common library tests.
+
+```bash
+ingen_fab test local common
+```
+
+**Arguments:**
+- `lib` (optional): Specific test file to run (without _pytest.py suffix)
+
+#### Test Platform Subcommands
+
+##### `test platform generate`
+
+Generate platform tests using the script in python_libs_tests.
+
+```bash
+ingen_fab test platform generate
+```
+
+Uses the global context for fabric workspace directory and environment.
+
+### package
+
+Run extension packages.
+
+#### Package Ingest Subcommands
+
+##### `package ingest compile`
+
+Compile flat file ingestion package templates and DDL scripts.
+
+```bash
+ingen_fab package ingest compile
+```
+
+**Options:**
+- `--template-vars` / `-t`: JSON string of template variables
+- `--include-samples` / `-s`: Include sample data DDL and files
+
+**Examples:**
+```bash
+# Basic compilation
+ingen_fab package ingest compile
+
+# With custom template variables
+ingen_fab package ingest compile --template-vars '{"schema": "custom_schema"}'
+
+# Include sample data
+ingen_fab package ingest compile --include-samples
+```
+
+##### `package ingest run`
+
+Run flat file ingestion for specified configuration or execution group.
+
+```bash
+ingen_fab package ingest run --config-id CONFIG_ID --execution-group 1
+```
+
+**Options:**
+- `--config-id` / `-c`: Specific configuration ID to process
+- `--execution-group` / `-g`: Execution group number (default: 1)
+- `--environment` / `-e`: Environment name (default: development)
+
+## run {#run}
+
+Run packages and workflows.
+
+## libs {#libs}
+
+Compile and manage Python libraries.
+
+#### `libs compile`
+
+Compile Python libraries by injecting variables from the variable library.
+
+```bash
+ingen_fab libs compile
+```
+
+**Options:**
+- `--target-file` / `-f`: Specific python file to compile (relative to project root)
+
+**Examples:**
+```bash
+# Compile default config_utils.py
+ingen_fab libs compile
+
+# Compile specific file
+ingen_fab libs compile --target-file path/to/mylib.py
 ```
 
 ## Configuration
@@ -199,13 +342,13 @@ Set these to avoid specifying options repeatedly:
 export FABRIC_WORKSPACE_REPO_DIR="./sample_project"
 export FABRIC_ENVIRONMENT="development"
 
-# Authentication
+# For local testing
+export FABRIC_ENVIRONMENT="local"  # Required for test local commands
+
+# Authentication (for deployment)
 export AZURE_TENANT_ID="your-tenant-id"
 export AZURE_CLIENT_ID="your-client-id"
 export AZURE_CLIENT_SECRET="your-client-secret"
-
-# Optional: SQL Server for local testing
-export SQL_SERVER_SA_PASSWORD="YourStrong!Passw0rd"
 ```
 
 ### Configuration Files
@@ -221,99 +364,64 @@ The tool looks for configuration in:
 
 ```bash
 # 1. Create project
-ingen_fab init solution --project-name "My Project"
+ingen_fab init init-solution --project-name "My Project"
 
 # 2. Edit DDL scripts and configuration
 # ... make changes ...
 
 # 3. Generate notebooks
-ingen_fab ddl compile-notebooks --output-mode fabric --generation-mode warehouse
-ingen_fab ddl compile-notebooks --output-mode fabric --generation-mode lakehouse
+ingen_fab ddl compile --output-mode fabric_workspace_repo --generation-mode Warehouse
+ingen_fab ddl compile --output-mode fabric_workspace_repo --generation-mode Lakehouse
 
 # 4. Test locally
-ingen_fab test local libraries --base-dir .
+export FABRIC_ENVIRONMENT=local
+ingen_fab test local python
+ingen_fab test local pyspark
 
 # 5. Deploy to development
-ingen_fab deploy to-environment --fabric-workspace-repo-dir . --fabric-environment development
+export FABRIC_ENVIRONMENT=development
+ingen_fab deploy deploy --fabric-workspace-repo-dir . --fabric-environment development
 
-# 6. Test on platform
-ingen_fab test platform notebooks --base-dir ./fabric_workspace_items
+# 6. Generate and run platform tests
+ingen_fab test platform generate
 ```
 
 ### Multi-Environment Deployment
 
 ```bash
 # Deploy to different environments
-ingen_fab deploy to-environment --fabric-workspace-repo-dir . --fabric-environment development
-ingen_fab deploy to-environment --fabric-workspace-repo-dir . --fabric-environment test
-ingen_fab deploy to-environment --fabric-workspace-repo-dir . --fabric-environment production
+for env in development test production; do
+    ingen_fab deploy deploy --fabric-workspace-repo-dir . --fabric-environment $env
+done
 ```
 
-### Debugging and Troubleshooting
+### Working with Flat File Ingestion
 
 ```bash
-# Dry run to see what would be deployed
-ingen_fab deploy to-environment --fabric-workspace-repo-dir . --fabric-environment development --dry-run
+# Compile the ingestion package
+ingen_fab package ingest compile --include-samples
 
-# Verbose testing
-ingen_fab test local libraries --base-dir . --verbose
-
-# Scan notebooks for issues
-ingen_fab notebook scan-blocks --base-dir ./fabric_workspace_items --output-format json
+# Run ingestion for specific config
+ingen_fab package ingest run --config-id "customers_import" --environment development
 ```
 
 ## Error Handling
 
-### Common Error Codes
-
-| Exit Code | Description |
-|-----------|-------------|
-| 0 | Success |
-| 1 | General error |
-| 2 | Configuration error |
-| 3 | Authentication error |
-| 4 | Deployment error |
-| 5 | Test failure |
+Common exit codes:
+- 0: Success
+- 1: General error or invalid parameters
+- Non-zero: Command-specific failure
 
 ### Troubleshooting Tips
 
 1. **Use `--help`** with any command for detailed usage
 2. **Check environment variables** if commands fail unexpectedly
-3. **Use `--dry-run`** to preview changes before deployment
-4. **Enable verbose output** with `--verbose` for debugging
+3. **Set `FABRIC_ENVIRONMENT=local`** for local testing
+4. **Enable verbose output** with `--verbose` where available
 5. **Check log files** in your workspace for detailed error messages
-
-## Advanced Usage
-
-### Custom Templates
-
-```bash
-# Use custom project templates
-ingen_fab init solution --project-name "Custom Project" --template-dir ./my-templates
-```
-
-### Batch Operations
-
-```bash
-# Process multiple environments
-for env in development test production; do
-    ingen_fab deploy to-environment --fabric-workspace-repo-dir . --fabric-environment $env
-done
-```
-
-### Integration with CI/CD
-
-```bash
-# CI/CD pipeline example
-ingen_fab ddl compile-notebooks --output-mode fabric --generation-mode warehouse
-ingen_fab test local libraries --base-dir . --failfast
-ingen_fab deploy to-environment --fabric-workspace-repo-dir . --fabric-environment production
-```
 
 ## Getting Help
 
 - **Command help**: `ingen_fab COMMAND --help`
+- **Subcommand help**: `ingen_fab COMMAND SUBCOMMAND --help`
 - **Global help**: `ingen_fab --help`
-- **Version info**: `ingen_fab --version`
-- **Documentation**: This documentation site
-- **Issues**: [GitHub Issues](https://github.com/your-org/ingen_fab/issues)

@@ -73,18 +73,18 @@ From the root directory, generate DDL notebooks for your environment:
 
 ```bash
 # Generate DDL notebooks for warehouses
-ingen_fab ddl compile-notebooks \
+ingen_fab ddl compile \
     --fabric-workspace-repo-dir ./sample_project \
     --fabric-environment development \
-    --output-mode fabric \
-    --generation-mode warehouse
+    --output-mode fabric_workspace_repo \
+    --generation-mode Warehouse
 
 # Generate DDL notebooks for lakehouses
-ingen_fab ddl compile-notebooks \
+ingen_fab ddl compile \
     --fabric-workspace-repo-dir ./sample_project \
     --fabric-environment development \
-    --output-mode fabric \
-    --generation-mode lakehouse
+    --output-mode fabric_workspace_repo \
+    --generation-mode Lakehouse
 ```
 
 This generates orchestrator notebooks in `fabric_workspace_items/ddl_scripts/` that will:
@@ -97,7 +97,7 @@ Deploy the complete solution to your Fabric workspace:
 
 ```bash
 # Deploy all artifacts to development environment
-ingen_fab deploy to-environment \
+ingen_fab deploy deploy \
     --fabric-workspace-repo-dir ./sample_project \
     --fabric-environment development
 ```
@@ -125,8 +125,8 @@ The orchestrator notebooks will:
 Run the platform testing notebooks to verify everything is working:
 
 ```bash
-# Test notebooks on the Fabric platform
-ingen_fab test platform notebooks \
+# Generate platform test notebooks
+ingen_fab test platform generate \
     --fabric-workspace-repo-dir ./sample_project \
     --fabric-environment development
 ```
@@ -174,11 +174,14 @@ To adapt this sample for your own project:
 The sample includes comprehensive testing capabilities:
 
 ```bash
-# Test locally (uses local SQL Server)
-ingen_fab test local libraries --base-dir ./sample_project
+# Test locally (requires FABRIC_ENVIRONMENT=local)
+export FABRIC_ENVIRONMENT=local
+ingen_fab test local python
+ingen_fab test local pyspark
 
-# Test on Fabric platform
-ingen_fab test platform notebooks --base-dir ./sample_project
+# Generate platform tests
+export FABRIC_ENVIRONMENT=development
+ingen_fab test platform generate
 ```
 
 ## Related Documentation

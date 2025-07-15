@@ -8,7 +8,10 @@ This guide covers best practices and common workflows for using the Ingenious Fa
 
 ```bash
 # Initialize new project
-ingen_fab init solution --project-name "Data Analytics Platform"
+ingen_fab init init-solution --project-name "Data Analytics Platform"
+
+# Navigate to the project directory
+cd "Data Analytics Platform"
 
 # Configure your environment variables
 export FABRIC_WORKSPACE_REPO_DIR="."
@@ -41,22 +44,37 @@ graph TD
 
 2. **Generate Notebooks**
    ```bash
-   ingen_fab ddl compile-notebooks --output-mode fabric --generation-mode lakehouse
+   # For warehouses
+   ingen_fab ddl compile --output-mode fabric_workspace_repo --generation-mode Warehouse
+   
+   # For lakehouses
+   ingen_fab ddl compile --output-mode fabric_workspace_repo --generation-mode Lakehouse
    ```
 
 3. **Test Locally**
    ```bash
-   ingen_fab test local libraries --base-dir .
+   # Set environment for local testing
+   export FABRIC_ENVIRONMENT=local
+   
+   # Test Python implementations
+   ingen_fab test local python
+   
+   # Test PySpark implementations
+   ingen_fab test local pyspark
    ```
 
 4. **Deploy to Development**
    ```bash
-   ingen_fab deploy to-environment --fabric-workspace-repo-dir . --fabric-environment development
+   # Set environment back to development
+   export FABRIC_ENVIRONMENT=development
+   
+   # Deploy
+   ingen_fab deploy deploy --fabric-workspace-repo-dir . --fabric-environment development
    ```
 
-5. **Test on Platform**
+5. **Generate Platform Tests**
    ```bash
-   ingen_fab test platform notebooks --base-dir ./fabric_workspace_items
+   ingen_fab test platform generate
    ```
 
 ## Environment Management
@@ -75,6 +93,7 @@ Each environment should have its own configuration:
 
 ```bash
 fabric_workspace_items/config/var_lib.VariableLibrary/valueSets/
+├── local.json
 ├── development.json
 ├── test.json
 └── production.json
@@ -119,16 +138,16 @@ fabric_workspace_items/config/var_lib.VariableLibrary/valueSets/
 
 ```bash
 # Deploy to development first
-ingen_fab deploy to-environment --fabric-workspace-repo-dir . --fabric-environment development
+ingen_fab deploy deploy --fabric-workspace-repo-dir . --fabric-environment development
 
-# Test thoroughly
-ingen_fab test platform notebooks --base-dir ./fabric_workspace_items
+# Generate and run platform tests
+ingen_fab test platform generate
 
 # Deploy to test
-ingen_fab deploy to-environment --fabric-workspace-repo-dir . --fabric-environment test
+ingen_fab deploy deploy --fabric-workspace-repo-dir . --fabric-environment test
 
 # Final deployment to production
-ingen_fab deploy to-environment --fabric-workspace-repo-dir . --fabric-environment production
+ingen_fab deploy deploy --fabric-workspace-repo-dir . --fabric-environment production
 ```
 
 ## DDL Script Organization
@@ -204,25 +223,31 @@ ddl_scripts/
 Test your code before deploying:
 
 ```bash
+# Set environment for local testing
+export FABRIC_ENVIRONMENT=local
+
 # Test Python libraries
-ingen_fab test local libraries --base-dir .
+ingen_fab test local python
 
-# Test specific modules
-python -m pytest ./ingen_fab/python_libs_tests/ -v
+# Test PySpark libraries
+ingen_fab test local pyspark
 
-# Test notebook generation
-ingen_fab ddl compile-notebooks --output-mode local --generation-mode lakehouse
+# Test common libraries
+ingen_fab test local common
+
+# Test specific module
+ingen_fab test local python ddl_utils
 ```
 
 ### Platform Testing
 
-Test on Fabric platform:
+Generate platform tests:
 
 ```bash
-# Test generated notebooks
-ingen_fab test platform notebooks --base-dir ./fabric_workspace_items
+# Generate platform test notebooks
+ingen_fab test platform generate
 
-# Or run specific test notebooks in Fabric
+# The generated test notebooks can then be run in Fabric:
 # - platform_testing/python_platform_test.Notebook
 # - platform_testing/pyspark_platform_test.Notebook
 ```
@@ -255,17 +280,20 @@ jobs:
     
     - name: Run tests
       run: |
-        uv run ingen_fab test local libraries --base-dir .
+        export FABRIC_ENVIRONMENT=local
+        uv run ingen_fab test local python
+        uv run ingen_fab test local pyspark
     
     - name: Generate notebooks
       run: |
-        uv run ingen_fab ddl compile-notebooks --output-mode local --generation-mode warehouse
-        uv run ingen_fab ddl compile-notebooks --output-mode local --generation-mode lakehouse
+        uv run ingen_fab ddl compile --output-mode fabric_workspace_repo --generation-mode Warehouse
+        uv run ingen_fab ddl compile --output-mode fabric_workspace_repo --generation-mode Lakehouse
     
     - name: Deploy to staging
       if: github.ref == 'refs/heads/main'
       run: |
-        uv run ingen_fab deploy to-environment --fabric-workspace-repo-dir . --fabric-environment development
+        export FABRIC_ENVIRONMENT=development
+        uv run ingen_fab deploy deploy --fabric-workspace-repo-dir . --fabric-environment development
       env:
         AZURE_TENANT_ID: ${{ "{{" }} secrets.AZURE_TENANT_ID {{ "}}" }}
         AZURE_CLIENT_ID: ${{ "{{" }} secrets.AZURE_CLIENT_ID {{ "}}" }}
@@ -301,24 +329,26 @@ jobs:
    # Verify variable files
    cat fabric_workspace_items/config/var_lib.VariableLibrary/valueSets/development.json
    
-   # Test variable injection
-   ingen_fab deploy to-environment --fabric-workspace-repo-dir . --fabric-environment development --dry-run
+   # Compile libraries with variable injection
+   ingen_fab libs compile
    ```
 
 ### Debug Workflow
 
 ```bash
-# 1. Use dry-run to preview changes
-ingen_fab deploy to-environment --fabric-workspace-repo-dir . --fabric-environment development --dry-run
+# 1. Test locally first
+export FABRIC_ENVIRONMENT=local
+ingen_fab test local python
 
-# 2. Test locally first
-ingen_fab test local libraries --base-dir . --verbose
+# 2. Check notebook content
+ingen_fab notebook scan-notebook-blocks --base-dir ./fabric_workspace_items
 
-# 3. Check notebook content
-ingen_fab notebook scan-blocks --base-dir ./fabric_workspace_items --output-format json
+# 3. Find all notebook files
+ingen_fab notebook find-notebook-content-files --base-dir ./fabric_workspace_items
 
-# 4. Deploy with verbose output
-ingen_fab deploy to-environment --fabric-workspace-repo-dir . --fabric-environment development --verbose
+# 4. Deploy to development
+export FABRIC_ENVIRONMENT=development
+ingen_fab deploy deploy --fabric-workspace-repo-dir . --fabric-environment development
 ```
 
 ## Advanced Workflows
@@ -330,7 +360,7 @@ ingen_fab deploy to-environment --fabric-workspace-repo-dir . --fabric-environme
 for project in analytics ml-pipeline reporting; do
     mkdir $project
     cd $project
-    ingen_fab init solution --project-name "$project"
+    ingen_fab init init-solution --project-name "$project"
     cd ..
 done
 ```
@@ -339,7 +369,7 @@ done
 
 ```bash
 # Create shared library project
-ingen_fab init solution --project-name "shared-libs"
+ingen_fab init init-solution --project-name "shared-libs"
 
 # Reference shared libraries in other projects
 # Update python_libs/ to include shared components
@@ -349,13 +379,36 @@ ingen_fab init solution --project-name "shared-libs"
 
 ```bash
 # Promote from development to test
-ingen_fab deploy to-environment --fabric-workspace-repo-dir . --fabric-environment test
+ingen_fab deploy deploy --fabric-workspace-repo-dir . --fabric-environment test
 
-# Validate in test environment
-ingen_fab test platform notebooks --base-dir ./fabric_workspace_items
+# Generate platform tests for validation
+ingen_fab test platform generate
 
 # Promote to production
-ingen_fab deploy to-environment --fabric-workspace-repo-dir . --fabric-environment production
+ingen_fab deploy deploy --fabric-workspace-repo-dir . --fabric-environment production
+```
+
+### Working with Flat File Ingestion
+
+```bash
+# Compile the flat file ingestion package
+ingen_fab package ingest compile --include-samples
+
+# Run ingestion for specific configuration
+ingen_fab package ingest run --config-id "customers_import" --execution-group 1
+```
+
+### Managing Python Libraries
+
+```bash
+# Compile Python libraries with variable injection
+ingen_fab libs compile
+
+# Compile specific library file
+ingen_fab libs compile --target-file "python_libs/common/config_utils.py"
+
+# Upload libraries to Fabric
+ingen_fab deploy upload-python-libs --environment development --project-path .
 ```
 
 ## Best Practices
@@ -389,24 +442,27 @@ ingen_fab deploy to-environment --fabric-workspace-repo-dir . --fabric-environme
 ### Notebook Generation
 
 ```bash
-# Generate notebooks in parallel for large projects
-ingen_fab ddl compile-notebooks --output-mode fabric --generation-mode warehouse &
-ingen_fab ddl compile-notebooks --output-mode fabric --generation-mode lakehouse &
-wait
+# Generate notebooks for multiple types sequentially
+ingen_fab ddl compile --output-mode fabric_workspace_repo --generation-mode Warehouse
+ingen_fab ddl compile --output-mode fabric_workspace_repo --generation-mode Lakehouse
 ```
 
 ### Testing
 
 ```bash
-# Run tests in parallel
-ingen_fab test local libraries --base-dir . --parallel
+# Run specific test modules for faster feedback
+ingen_fab test local python ddl_utils
+ingen_fab test local pyspark lakehouse_utils
 ```
 
 ### Deployment
 
 ```bash
-# Use dry-run to validate before actual deployment
-ingen_fab deploy to-environment --fabric-workspace-repo-dir . --fabric-environment production --dry-run
+# Clean up old items before deployment if needed
+ingen_fab deploy delete-all --environment development --force
+
+# Deploy fresh
+ingen_fab deploy deploy --fabric-workspace-repo-dir . --fabric-environment development
 ```
 
 This workflow guide provides a comprehensive approach to using the Ingenious Fabric Accelerator effectively in your projects. Adapt these patterns to fit your specific needs and organizational requirements.

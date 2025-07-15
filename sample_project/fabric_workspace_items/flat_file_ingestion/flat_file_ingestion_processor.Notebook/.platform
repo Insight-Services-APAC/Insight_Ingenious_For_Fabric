@@ -1,0 +1,12 @@
+{
+  "$schema": "https://developer.microsoft.com/json-schemas/fabric/gitIntegration/platformProperties/2.0.0/schema.json",
+  "metadata": {
+    "type": "Notebook",
+    "displayName": "Flat File Ingestion Processor",
+    "description": "Processes flat files and loads them into delta tables based on configuration metadata"
+  },
+  "config": {
+    "version": "2.0",
+    "logicalId": "98938fe2-4f75-4d44-99b7-bf725d95a9af"
+  }
+}
