@@ -64,16 +64,19 @@ print("✅ Configuration table created successfully!")
 
 ```bash
 # Generate notebooks
-ingen_fab ddl compile --output-mode fabric --generation-mode lakehouse
+ingen_fab ddl compile --output-mode fabric_workspace_repo --generation-mode Lakehouse
 
-# Test locally
-ingen_fab test local libraries --base-dir .
+# Test locally (requires FABRIC_ENVIRONMENT=local)
+export FABRIC_ENVIRONMENT=local
+ingen_fab test local python
+ingen_fab test local pyspark
 
 # Deploy to development
 ingen_fab deploy deploy --fabric-workspace-repo-dir . --fabric-environment development
 
-# Test on platform
-ingen_fab test platform notebooks --base-dir ./fabric_workspace_items
+# Generate platform tests
+export FABRIC_ENVIRONMENT=development
+ingen_fab test platform generate
 ```
 
 ## Common Patterns
@@ -134,9 +137,10 @@ for env in development test production; do
         --fabric-workspace-repo-dir . \
         --fabric-environment $env
     
-    echo "Testing $env deployment..."
-    ingen_fab test platform notebooks \
-        --base-dir ./fabric_workspace_items
+    echo "Generating platform tests for $env..."
+    ingen_fab test platform generate \
+        --fabric-workspace-repo-dir . \
+        --fabric-environment $env
 done
 ```
 
@@ -291,7 +295,7 @@ find ddl_scripts -name "*.py" -o -name "*.sql" | sort
 ls -la ddl_scripts/Lakehouses/Config/001_Initial_Setup/
 
 # Test generation
-ingen_fab ddl compile --output-mode local --generation-mode lakehouse
+ingen_fab ddl compile --output-mode local --generation-mode Lakehouse
 ```
 
 ## Integration Examples
@@ -324,8 +328,8 @@ jobs:
     
     - name: Generate notebooks
       run: |
-        uv run ingen_fab ddl compile --output-mode fabric --generation-mode warehouse
-        uv run ingen_fab ddl compile --output-mode fabric --generation-mode lakehouse
+        uv run ingen_fab ddl compile --output-mode fabric_workspace_repo --generation-mode Warehouse
+        uv run ingen_fab ddl compile --output-mode fabric_workspace_repo --generation-mode Lakehouse
     
     - name: Deploy to staging
       run: |

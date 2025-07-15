@@ -2,7 +2,7 @@
 
 ## Overview
 
-The Ingenious Fabric Accelerator provides comprehensive APIs for building, deploying, and managing Microsoft Fabric applications. This reference covers all available APIs, including CLI commands and Python interfaces.
+The Ingenious Fabric Accelerator is primarily a CLI tool for building, deploying, and managing Microsoft Fabric applications. It provides Python libraries that are used within generated notebooks and can be imported for custom development.
 
 ## API Categories
 
@@ -10,7 +10,7 @@ The Ingenious Fabric Accelerator provides comprehensive APIs for building, deplo
 Command-line interface for interacting with the accelerator tools.
 
 ### [Python APIs](python_apis.md)
-Python libraries and modules for programmatic access.
+Python libraries and modules for use in Fabric notebooks and local development.
 
 ## Quick Start
 
@@ -24,47 +24,128 @@ pip install insight-ingenious-for-fabric
 ingen_fab --help
 
 # Initialize new project
-ingen_fab init --template basic --name my_project
+ingen_fab init init-solution --project-name "My Project"
 
 # Compile DDL scripts
-ingen_fab ddl compile --environment production
+ingen_fab ddl compile --output-mode fabric_workspace_repo --generation-mode Warehouse
 ```
 
-### Python API
+### Python Libraries
+
+The Python libraries are designed to be used within Fabric notebooks:
 
 ```python
-from ingen_fab.python_libs import get_notebook_utils
-from ingen_fab.ddl_scripts import DDLScriptGenerator
+# Import DDL utilities (within Fabric notebook)
+from python_libs.python.ddl_utils import DDLUtils
+from python_libs.python.lakehouse_utils import LakehouseUtils
 
-# Get utilities
-utils = get_notebook_utils()
+# Create utilities
+ddl_utils = DDLUtils()
+lakehouse_utils = LakehouseUtils()
 
-# Generate DDL scripts
-generator = DDLScriptGenerator()
-scripts = generator.generate_all()
+# Execute DDL
+sql = "CREATE TABLE IF NOT EXISTS my_table (id INT, name STRING) USING DELTA"
+ddl_utils.execute_ddl(sql, "Create my_table")
 ```
 
-## Authentication
+## Installation
 
-### CLI Authentication
+Install the package from PyPI:
+
+```bash
+# Standard installation
+pip install insight-ingenious-for-fabric
+
+# Development installation with all dependencies
+pip install insight-ingenious-for-fabric[dev]
+
+# Using uv (recommended for development)
+uv sync
+```
+
+## CLI Authentication
+
+### Using Environment Variables
+
+```bash
+# Core configuration
+export FABRIC_WORKSPACE_REPO_DIR="./my_project"
+export FABRIC_ENVIRONMENT="development"
+
+# Azure authentication (for deployment)
+export AZURE_TENANT_ID="your-tenant-id"
+export AZURE_CLIENT_ID="your-client-id"
+export AZURE_CLIENT_SECRET="your-client-secret"
+```
+
+### Using Azure CLI
 
 ```bash
 # Login to Azure
 az login
 
-# Set Fabric workspace
-export FABRIC_WORKSPACE_ID=your-workspace-id
+# The CLI will use your authenticated session
+ingen_fab deploy deploy
 ```
 
-### Python Authentication
+## Python Library Structure
 
-```python
-from azure.identity import DefaultAzureCredential
-from ingen_fab.fabric_api import FabricClient
+The accelerator provides libraries organized by runtime environment:
 
-# Authenticate
-credential = DefaultAzureCredential()
-client = FabricClient(credential)
+### Common Libraries (`python_libs/common/`)
+- `config_utils.py` - Configuration and variable management
+- `data_utils.py` - Common data processing utilities
+- `workflow_utils.py` - Workflow management functions
+
+### CPython/Fabric Libraries (`python_libs/python/`)
+- `ddl_utils.py` - DDL execution and schema management
+- `lakehouse_utils.py` - Lakehouse operations
+- `warehouse_utils.py` - Warehouse operations
+- `notebook_utils_abstraction.py` - Notebook utilities for Fabric runtime
+- `pipeline_utils.py` - Data pipeline utilities
+- `sql_templates.py` - SQL template processing
+
+### PySpark Libraries (`python_libs/pyspark/`)
+- `ddl_utils.py` - DDL execution using Spark SQL
+- `lakehouse_utils.py` - Lakehouse operations with Spark
+- `notebook_utils_abstraction.py` - Notebook utilities for Spark runtime
+- `parquet_load_utils.py` - Parquet file loading utilities
+
+### Interfaces (`python_libs/interfaces/`)
+- `ddl_utils_interface.py` - Abstract interface for DDL operations
+- `data_store_interface.py` - Abstract interface for data store operations
+
+## Configuration
+
+### Project Configuration
+
+The accelerator uses YAML manifest files and JSON variable libraries:
+
+```bash
+# Project structure
+my_project/
+├── platform_manifest_development.yml
+├── platform_manifest_production.yml
+└── fabric_workspace_items/
+    └── config/
+        └── var_lib.VariableLibrary/
+            ├── variables.json
+            └── valueSets/
+                ├── development.json
+                ├── test.json
+                └── production.json
+```
+
+### Variable Library Example
+
+```json
+// fabric_workspace_items/config/var_lib.VariableLibrary/valueSets/development.json
+{
+  "fabric_environment": "development",
+  "config_workspace_id": "dev-workspace-guid",
+  "config_lakehouse_id": "dev-lakehouse-guid",
+  "data_retention_days": 30
+}
 ```
 
 ## Error Handling
@@ -72,297 +153,205 @@ client = FabricClient(credential)
 ### CLI Errors
 
 ```bash
-# Verbose output for debugging
-ingen_fab --verbose ddl compile
+# Use --help for command-specific guidance
+ingen_fab ddl compile --help
 
-# Check logs
-tail -f ~/.ingen_fab/logs/cli.log
+# Check environment variables if commands fail
+echo $FABRIC_WORKSPACE_REPO_DIR
+echo $FABRIC_ENVIRONMENT
 ```
 
-### Python Errors
+### Python Library Errors
+
+Within Fabric notebooks, the libraries handle errors appropriately:
 
 ```python
-from ingen_fab.exceptions import IngenFabError
-
 try:
-    result = utils.execute_query(sql)
-except IngenFabError as e:
-    print(f"Operation failed: {e}")
-```
-
-## Configuration
-
-### Global Configuration
-
-```json
-{
-  "default_environment": "development",
-  "logging": {
-    "level": "INFO",
-    "file": "~/.ingen_fab/logs/api.log"
-  },
-  "fabric": {
-    "workspace_id": "default-workspace-id",
-    "timeout": 30
-  }
-}
-```
-
-### Environment Variables
-
-```bash
-# Core settings
-export INGEN_FAB_ENVIRONMENT=production
-export FABRIC_WORKSPACE_ID=your-workspace-id
-
-# Logging
-export INGEN_FAB_LOG_LEVEL=DEBUG
-export INGEN_FAB_LOG_FILE=/path/to/log/file
-
-# Database connections
-export DATABASE_CONNECTION_STRING=your-connection-string
-```
-
-## API Versioning
-
-The API follows semantic versioning:
-
-- **Major version**: Breaking changes
-- **Minor version**: New features, backward compatible
-- **Patch version**: Bug fixes
-
-Current version: `0.1.0`
-
-### Version Compatibility
-
-```python
-import ingen_fab
-
-# Check version
-print(ingen_fab.__version__)
-
-# Check compatibility
-if ingen_fab.version_info >= (0, 1, 0):
-    # Use new features
-    pass
-```
-
-## Rate Limiting
-
-### Fabric API Limits
-
-- **Requests per minute**: 1000
-- **Concurrent requests**: 10
-- **Data transfer**: 100MB per request
-
-### Best Practices
-
-```python
-import time
-from ingen_fab.fabric_api import FabricClient
-
-client = FabricClient()
-
-# Rate limiting
-for item in large_dataset:
-    client.process_item(item)
-    time.sleep(0.1)  # Throttle requests
-```
-
-## Common Patterns
-
-### Batch Operations
-
-```python
-from ingen_fab.python_libs import BatchProcessor
-
-processor = BatchProcessor(batch_size=100)
-
-# Process items in batches
-for batch in processor.process(items):
-    results = client.process_batch(batch)
-```
-
-### Error Recovery
-
-```python
-from ingen_fab.utils import RetryHandler
-
-retry_handler = RetryHandler(max_retries=3, backoff_factor=2)
-
-@retry_handler.retry
-def unreliable_operation():
-    return client.execute_query(sql)
-```
-
-### Context Management
-
-```python
-from ingen_fab.notebook_utils import get_notebook_utils
-
-with get_notebook_utils() as utils:
-    # Resources are automatically managed
-    result = utils.execute_query(sql)
+    ddl_utils.execute_ddl(sql, "Create table")
+    print("✅ Table created successfully")
+except Exception as e:
+    print(f"❌ Failed to create table: {e}")
+    raise
 ```
 
 ## Testing
 
-### Unit Testing
+### Local Testing
 
-```python
-import unittest
-from unittest.mock import patch
-from ingen_fab.python_libs import NotebookUtils
+```bash
+# Set environment for local testing
+export FABRIC_ENVIRONMENT=local
 
-class TestNotebookUtils(unittest.TestCase):
-    @patch('ingen_fab.python_libs.get_connection')
-    def test_execute_query(self, mock_connection):
-        utils = NotebookUtils()
-        result = utils.execute_query("SELECT 1")
-        self.assertIsNotNone(result)
+# Test Python libraries
+ingen_fab test local python
+
+# Test PySpark libraries  
+ingen_fab test local pyspark
+
+# Test common libraries
+ingen_fab test local common
 ```
 
-### Integration Testing
+### Platform Testing
 
-```python
-import pytest
-from ingen_fab.fabric_api import FabricClient
+```bash
+# Generate platform test notebooks
+ingen_fab test platform generate
 
-@pytest.mark.integration
-def test_fabric_integration():
-    client = FabricClient()
-    workspaces = client.list_workspaces()
-    assert len(workspaces) > 0
+# Test notebooks are created in:
+# fabric_workspace_items/platform_testing/
 ```
 
-## Performance
+## Common Patterns
 
-### Optimization Tips
-
-1. **Use batch operations** for multiple items
-2. **Enable connection pooling** for database operations
-3. **Cache frequently accessed data**
-4. **Use async operations** where available
-
-### Monitoring
+### DDL Script Development
 
 ```python
-from ingen_fab.monitoring import MetricsCollector
+# In a DDL script (ddl_scripts/Lakehouses/MyLakehouse/001_Setup/001_create_tables.py)
+from python_libs.python.ddl_utils import DDLUtils
 
-collector = MetricsCollector()
+ddl_utils = DDLUtils()
 
-# Track operation performance
-with collector.timer('query_execution'):
-    result = utils.execute_query(sql)
+# Create table with error handling
+sql = """
+CREATE TABLE IF NOT EXISTS config.metadata (
+    id BIGINT,
+    name STRING,
+    value STRING,
+    created_date TIMESTAMP
+) USING DELTA
+"""
 
-# View metrics
-print(collector.get_metrics())
+try:
+    ddl_utils.execute_ddl(sql, "Create metadata table")
+    ddl_utils.log_execution("001_create_tables.py", "Created metadata table")
+    print("✅ Successfully created metadata table")
+except Exception as e:
+    print(f"❌ Failed to create metadata table: {e}")
+    raise
 ```
 
-## Examples
-
-### Complete Workflow
+### Notebook Content Generation
 
 ```python
-from ingen_fab.python_libs import get_notebook_utils
-from ingen_fab.ddl_scripts import DDLScriptGenerator
-from ingen_fab.fabric_api import FabricClient
-
-# Initialize components
-utils = get_notebook_utils()
-generator = DDLScriptGenerator()
-client = FabricClient()
-
-# Generate DDL scripts
-scripts = generator.generate_all()
-
-# Deploy to Fabric
-for script in scripts:
-    notebook = client.create_notebook(script)
-    client.execute_notebook(notebook.id)
-
-# Verify deployment
-tables = utils.list_tables()
-print(f"Created {len(tables)} tables")
+# Generated notebooks include standardized imports and patterns
+# This is handled automatically by the DDL compilation process
 ```
 
-### Custom Extensions
+### Variable Injection
+
+```bash
+# Compile libraries with environment-specific variables
+ingen_fab libs compile --target-file "python_libs/common/config_utils.py"
+```
+
+## Package Management
+
+### Flat File Ingestion
+
+```bash
+# Compile flat file ingestion package
+ingen_fab package ingest compile --include-samples
+
+# Run ingestion
+ingen_fab package ingest run --config-id "customer_data" --execution-group 1
+```
+
+### Library Management
+
+```bash
+# Upload Python libraries to Fabric
+ingen_fab deploy upload-python-libs --environment development
+
+# Compile libraries with variable injection
+ingen_fab libs compile
+```
+
+## Notebook Utilities
+
+### Finding and Scanning Notebooks
+
+```bash
+# Find all notebook content files
+ingen_fab notebook find-notebook-content-files --base-dir ./fabric_workspace_items
+
+# Scan notebook blocks for analysis
+ingen_fab notebook scan-notebook-blocks --base-dir ./fabric_workspace_items
+
+# Perform code replacements
+ingen_fab notebook perform-code-replacements
+```
+
+## Version Information
+
+Current version: `0.1.0`
 
 ```python
-from ingen_fab.python_libs import NotebookUtils
+import ingen_fab
+print(ingen_fab.__version__)  # "0.1.0"
+```
 
-class CustomNotebookUtils(NotebookUtils):
-    def custom_operation(self, data):
-        """Custom business logic"""
-        processed_data = self.process_data(data)
-        return self.save_results(processed_data)
+## Development
 
-# Register custom implementation
-utils = CustomNotebookUtils()
+### Contributing
+
+The project follows these development practices:
+
+1. Use `ruff` for linting and formatting
+2. Run tests with `pytest`
+3. Use `uv` for dependency management
+4. Follow the established project structure
+
+### Testing Framework
+
+```bash
+# Run all tests
+pytest
+
+# Run with coverage
+pytest --cov=ingen_fab
+
+# Run specific test module
+pytest tests/test_specific_module.py
 ```
 
 ## Support
-
-### Documentation
-
-- **User Guide**: Step-by-step instructions
-- **Developer Guide**: Architecture and development
-- **Examples**: Real-world usage patterns
-
-### Community
-
-- **GitHub Issues**: Bug reports and feature requests
-- **Discussions**: Community questions and answers
-- **Contributions**: How to contribute to the project
 
 ### Getting Help
 
 ```bash
 # CLI help
 ingen_fab --help
-ingen_fab <command> --help
+ingen_fab COMMAND --help
 
-# Python help
-python -c "import ingen_fab; help(ingen_fab)"
+# Specific command help
+ingen_fab ddl compile --help
+ingen_fab test local python --help
 ```
 
-## Changelog
+### Documentation
 
-### Version 0.1.0
+- **User Guide**: Step-by-step instructions for common workflows
+- **Developer Guide**: Architecture and development information
+- **CLI Reference**: Complete command reference
+- **Examples**: Sample projects and templates
 
-- Initial release
-- Basic CLI commands
-- Core Python libraries
-- Fabric integration
-- Template system
+### Project Structure
 
-### Upcoming Features
+The accelerator follows a consistent project structure:
 
-- Advanced error handling
-- Performance optimizations
-- Extended template library
-- Enhanced monitoring
+```
+ingen_fab/
+├── cli.py                    # Main CLI entry point
+├── cli_utils/               # CLI command implementations
+├── ddl_scripts/             # DDL notebook generation
+├── notebook_utils/          # Notebook scanning and management
+├── python_libs/             # Runtime libraries
+│   ├── common/             # Environment-agnostic utilities
+│   ├── interfaces/         # Abstract interfaces
+│   ├── python/             # CPython/Fabric implementations
+│   └── pyspark/            # PySpark implementations
+└── templates/              # Jinja2 templates for generation
+```
 
-## Security
-
-### Authentication
-
-- Azure AD integration
-- Service principal support
-- Token-based authentication
-- Role-based access control
-
-### Data Protection
-
-- Encryption at rest
-- Secure connections
-- Audit logging
-- Privacy compliance
-
-## License
-
-This project is licensed under the MIT License. See LICENSE file for details.
-
-## Contributing
-
-We welcome contributions! Please see our contributing guidelines for details on how to submit pull requests, report issues, and suggest improvements.
+This structure ensures consistent development patterns and clear separation of concerns between CLI operations, notebook generation, and runtime libraries.

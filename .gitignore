@@ -16,3 +16,7 @@ fabric_cicd.error.log
 /site/**/*/
 /tmp/**/*/
 /node_modules/**/*/
+ModuleAnalysisCache-AE0255EC
+StartupProfileData-Interactive
+/metastore_db/**/*/
+derby.log

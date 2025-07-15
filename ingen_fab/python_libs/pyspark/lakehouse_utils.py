@@ -161,6 +161,8 @@ class lakehouse_utils(DataStoreInterface):
             self.spark.sql(
             f"CREATE TABLE IF NOT EXISTS {table_name} USING DELTA LOCATION '{self.lakehouse_tables_uri()}{table_name}'"
             )
+        else:
+            print(f"No need to register table '{table_name}' in Hive catalog for Fabric Spark.")
 
     def list_tables(self) -> list[str]:
         """List all tables in the lakehouse."""
