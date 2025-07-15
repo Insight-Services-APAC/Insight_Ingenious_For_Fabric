@@ -13,7 +13,14 @@
       "Bash(export FABRIC_ENVIRONMENT=\"development\")",
       "Bash(ingen_fab ddl:*)",
       "Bash(ingen_fab package:*)",
-      "Bash(ingen_fab test:*)"
+      "Bash(ingen_fab test:*)",
+      "Bash(mkdocs serve:*)",
+      "Bash(./serve-docs.sh:*)",
+      "Bash(export FABRIC_WORKSPACE_REPO_DIR=\"sample_project\")",
+      "Bash(echo:*)",
+      "Bash(source:*)",
+      "Bash(mkdocs:*)",
+      "Bash(uv sync:*)"
     ],
     "deny": []
   }
