@@ -22,7 +22,8 @@ schema = StructType([
     StructField("end_timestamp", TimestampType(), True),
     StructField("duration_sec", DoubleType(), True),
     StructField("status", StringType(), True),
-    StructField("error_messages", StringType(), True)
+    StructField("error_messages", StringType(), True),
+    StructField("end_timestamp_int", LongType(), True)
 ])
 
 target_lakehouse.create_table(
@@ -31,6 +32,7 @@ target_lakehouse.create_table(
     mode="overwrite",
     partition_by=["master_execution_id"],
     options={
-        "parquet.vorder.default": "true"
+        "parquet.vorder.default": "true",
+        "overwriteSchema": "true"
     }
 )

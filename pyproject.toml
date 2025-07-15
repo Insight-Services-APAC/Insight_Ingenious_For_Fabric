@@ -31,7 +31,8 @@ dev = [
     "delta-spark==4.0.0",
     "pytest-clarity==1.0.1",
     "pytest-sugar==1.0.0",
-    "azure-storage-file-datalake==12.20.0"
+    "azure-storage-file-datalake==12.20.0",
+    "nest-asyncio==1.6.0"
 ]
 
 docs = [

@@ -223,3 +223,88 @@ class lakehouse_utils(DataStoreInterface):
     ) -> None:
         """Perform cleanup/compaction on a table (delta-rs does not support this directly)."""
         raise NotImplementedError("delta-rs does not support vacuum directly.")
+
+    def read_file(
+        self,
+        file_path: str,
+        file_format: str,
+        options: dict[str, Any] | None = None,
+    ) -> Any:
+        """Read a file from the file system."""
+        import pandas as pd
+        
+        if file_format.lower() == "csv":
+            return pd.read_csv(file_path, **(options or {}))
+        elif file_format.lower() == "json":
+            return pd.read_json(file_path, **(options or {}))
+        elif file_format.lower() == "parquet":
+            return pd.read_parquet(file_path, **(options or {}))
+        else:
+            raise NotImplementedError(f"File format {file_format} not supported")
+
+    def write_file(
+        self,
+        df: Any,
+        file_path: str,
+        file_format: str,
+        options: dict[str, Any] | None = None,
+    ) -> None:
+        """Write a DataFrame to a file."""
+        if file_format.lower() == "csv":
+            df.to_csv(file_path, **(options or {}))
+        elif file_format.lower() == "json":
+            df.to_json(file_path, **(options or {}))
+        elif file_format.lower() == "parquet":
+            df.to_parquet(file_path, **(options or {}))
+        else:
+            raise NotImplementedError(f"File format {file_format} not supported")
+
+    def file_exists(self, file_path: str) -> bool:
+        """Check if a file exists."""
+        import os
+        return os.path.exists(file_path.replace("file://", ""))
+
+    def list_files(
+        self,
+        directory_path: str,
+        pattern: str | None = None,
+        recursive: bool = False,
+    ) -> list[str]:
+        """List files in a directory."""
+        import os
+        import glob
+        
+        dir_path = directory_path.replace("file://", "")
+        
+        if pattern:
+            if recursive:
+                return glob.glob(os.path.join(dir_path, "**", pattern), recursive=True)
+            else:
+                return glob.glob(os.path.join(dir_path, pattern))
+        else:
+            if recursive:
+                files = []
+                for root, dirs, filenames in os.walk(dir_path):
+                    for filename in filenames:
+                        files.append(os.path.join(root, filename))
+                return files
+            else:
+                return [os.path.join(dir_path, f) for f in os.listdir(dir_path) if os.path.isfile(os.path.join(dir_path, f))]
+
+    def get_file_info(self, file_path: str) -> dict[str, Any]:
+        """Get information about a file."""
+        import os
+        from datetime import datetime
+        
+        path = file_path.replace("file://", "")
+        if not os.path.exists(path):
+            raise FileNotFoundError(f"File not found: {file_path}")
+        
+        stat = os.stat(path)
+        return {
+            "size": stat.st_size,
+            "modified_time": datetime.fromtimestamp(stat.st_mtime),
+            "created_time": datetime.fromtimestamp(stat.st_ctime),
+            "is_file": os.path.isfile(path),
+            "is_directory": os.path.isdir(path),
+        }

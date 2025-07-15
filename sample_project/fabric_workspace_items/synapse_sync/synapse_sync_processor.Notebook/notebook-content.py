@@ -196,10 +196,15 @@ configs: ConfigsObject = get_configs_as_object()
 
 # Additional imports for synapse sync
 import asyncio
-import nest_asyncio
 import json
 import logging
 import uuid
+try:
+    import nest_asyncio
+    nest_asyncio.apply()
+except ImportError:
+    # nest_asyncio not needed in Fabric environment
+    pass
 import time
 import random
 from dataclasses import dataclass
@@ -207,7 +212,11 @@ from datetime import date, datetime, timedelta
 from typing import Dict, List, Tuple, Optional, Any
 
 # Third-party imports
-import sempy.fabric as fabric
+try:
+    import sempy.fabric as fabric
+except ImportError:
+    # sempy not available in local environment
+    pass
 import numpy as np
 import pyarrow as pa
 from delta.tables import DeltaTable
@@ -254,7 +263,13 @@ TRIGGER_TYPE = "Manual"
 # ## Initialize utilities from python libs
 
 # Get lakehouse utilities
-lakehouse = lakehouse_utils(spark=spark, lakehouse_id=lakehouse_id, workspace_id=workspace_id)
+lakehouse_id = configs.config_lakehouse_id
+workspace_id = configs.config_workspace_id
+lakehouse = lakehouse_utils(
+    target_workspace_id=workspace_id, 
+    target_lakehouse_id=lakehouse_id, 
+    spark=spark
+)
 
 # Check if DDL tables exist
 if not lakehouse.check_if_table_exists("config_synapse_extract_objects"):
@@ -313,7 +328,8 @@ logger.info(f"Pipeline ID: {synapse_extract_pipeline_id}")
 synapse_extract_utils = SynapseExtractUtils(
     datasource_name=synapse_datasource_name,
     datasource_location=synapse_datasource_location,
-    lakehouse_util=lakehouse
+    workspace_id=workspace_id,
+    lakehouse_id=lakehouse_id
 )
 
 # ## Construct extract work items
@@ -411,8 +427,7 @@ def run_async_orchestration():
         loop = asyncio.new_event_loop()
         asyncio.set_event_loop(loop)
 
-    if loop.is_running():
-        nest_asyncio.apply()
+    # nest_asyncio already applied at the top if available
 
     # Run orchestration using the modular orchestrator
     return loop.run_until_complete(

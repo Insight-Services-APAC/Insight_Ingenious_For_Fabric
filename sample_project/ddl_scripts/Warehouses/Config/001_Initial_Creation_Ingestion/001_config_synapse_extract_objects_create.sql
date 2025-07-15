@@ -13,8 +13,6 @@ BEGIN
         active_yn CHAR(1) NOT NULL,
         pipeline_id NVARCHAR(255) NOT NULL,
         synapse_datasource_name NVARCHAR(255) NOT NULL,
-        synapse_datasource_location NVARCHAR(MAX) NOT NULL,
-        created_timestamp DATETIME2 NOT NULL,
-        updated_timestamp DATETIME2 NOT NULL
+        synapse_datasource_location NVARCHAR(MAX) NOT NULL
     );
 END

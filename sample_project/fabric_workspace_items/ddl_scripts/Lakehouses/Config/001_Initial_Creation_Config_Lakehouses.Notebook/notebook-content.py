@@ -227,12 +227,14 @@ du = ddl_utils(
 )
 
 from pyspark.sql.types import (
+    DateType,
+    DoubleType,
     IntegerType,
+    LongType,
     StringType,
     StructField,
     StructType,
-    TimestampType,
-    LongType
+    TimestampType
 )
 
 

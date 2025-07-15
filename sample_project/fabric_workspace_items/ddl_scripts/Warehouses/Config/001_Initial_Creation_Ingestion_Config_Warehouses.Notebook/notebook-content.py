@@ -322,6 +322,50 @@ du.run_once(work,"001_config_flat_file_ingestion_create", guid)
 
 # MARKDOWN ********************
 
+# ## 𝄜 Cell for 001_config_synapse_extract_objects_create.sql
+
+# CELL ********************
+
+guid = "e3ff46d84458"
+def work():
+    sql = """
+
+-- Configuration table for synapse extract objects - Warehouse version
+
+IF OBJECT_ID('config_synapse_extract_objects', 'U') IS NULL
+BEGIN
+    CREATE TABLE config_synapse_extract_objects (
+        synapse_connection_name NVARCHAR(255) NOT NULL,
+        source_schema_name NVARCHAR(255) NOT NULL,
+        source_table_name NVARCHAR(255) NOT NULL,
+        extract_mode NVARCHAR(50) NOT NULL,
+        single_date_filter NVARCHAR(MAX) NULL,
+        date_range_filter NVARCHAR(MAX) NULL,
+        execution_group INT NOT NULL,
+        active_yn CHAR(1) NOT NULL,
+        pipeline_id NVARCHAR(255) NOT NULL,
+        synapse_datasource_name NVARCHAR(255) NOT NULL,
+        synapse_datasource_location NVARCHAR(MAX) NOT NULL
+    );
+END
+
+    """
+
+    wu.execute_query(wu.get_connection(), sql)
+
+du.run_once(work,"001_config_synapse_extract_objects_create", guid)
+
+
+
+# METADATA ********************
+
+# META {
+# META   "language": "python",
+# META   "language_group": "jupyter_python"
+# META }
+
+# MARKDOWN ********************
+
 # ## 𝄜 Cell for 002_log_flat_file_ingestion_create.sql
 
 # CELL ********************
@@ -363,6 +407,61 @@ CREATE TABLE log_flat_file_ingestion (
     wu.execute_query(wu.get_connection(), sql)
 
 du.run_once(work,"002_log_flat_file_ingestion_create", guid)
+
+
+
+# METADATA ********************
+
+# META {
+# META   "language": "python",
+# META   "language_group": "jupyter_python"
+# META }
+
+# MARKDOWN ********************
+
+# ## 𝄜 Cell for 002_log_synapse_extract_run_log_create.sql
+
+# CELL ********************
+
+guid = "79e5f216ce02"
+def work():
+    sql = """
+
+-- Log table for synapse extract run log - Warehouse version
+
+IF OBJECT_ID('log_synapse_extract_run_log', 'U') IS NULL
+BEGIN
+    CREATE TABLE log_synapse_extract_run_log (
+        master_execution_id NVARCHAR(255) NULL,
+        execution_id NVARCHAR(255) NULL,
+        pipeline_job_id NVARCHAR(255) NULL,
+        execution_group INT NULL,
+        master_execution_parameters NVARCHAR(MAX) NULL,
+        trigger_type NVARCHAR(50) NULL,
+        config_synapse_connection_name NVARCHAR(255) NULL,
+        source_schema_name NVARCHAR(255) NULL,
+        source_table_name NVARCHAR(255) NULL,
+        extract_mode NVARCHAR(50) NULL,
+        extract_start_dt DATE NULL,
+        extract_end_dt DATE NULL,
+        partition_clause NVARCHAR(MAX) NULL,
+        output_path NVARCHAR(MAX) NULL,
+        extract_file_name NVARCHAR(255) NULL,
+        external_table NVARCHAR(255) NULL,
+        start_timestamp DATETIME2 NULL,
+        end_timestamp DATETIME2 NULL,
+        duration_sec FLOAT NULL,
+        status NVARCHAR(50) NULL,
+        error_messages NVARCHAR(MAX) NULL,
+        end_timestamp_int BIGINT NULL
+    );
+END
+
+    """
+
+    wu.execute_query(wu.get_connection(), sql)
+
+du.run_once(work,"002_log_synapse_extract_run_log_create", guid)
 
 
 
