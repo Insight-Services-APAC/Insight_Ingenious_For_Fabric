@@ -48,7 +48,7 @@ import sys
 if "notebookutils" in sys.modules:
     import sys
     
-    notebookutils.fs.mount("abfss://{{varlib:config_workspace_name}}@onelake.dfs.fabric.microsoft.com/{{varlib:config_lakehouse_name}}.Lakehouse/Files/", "/config_files")  # type: ignore # noqa: F821
+    notebookutils.fs.mount("abfss://{{varlib:config_workspace_name}}@onelake.dfs.fabric.microsoft.com/config.Lakehouse/Files/", "/config_files")  # type: ignore # noqa: F821
     mount_path = notebookutils.fs.getMountPath("/config_files")  # type: ignore # noqa: F821
     
     run_mode = "fabric"
@@ -133,13 +133,13 @@ clear_module_cache("ingen_fab")
 
 
 if run_mode == "local":
-    from ingen_fab.python_libs.common.config_utils.py import *
+    from ingen_fab.python_libs.common.config_utils import *
     from ingen_fab.python_libs.python.lakehouse_utils import lakehouse_utils
     from ingen_fab.python_libs.python.ddl_utils import ddl_utils
     from ingen_fab.python_libs.python.notebook_utils_abstraction import NotebookUtilsFactory
-    from ingen_fab.python_libs.python.sql_templates import sql_templates
+    from ingen_fab.python_libs.python.sql_templates import SQLTemplates
     from ingen_fab.python_libs.python.warehouse_utils import warehouse_utils
-    from ingen_fab.python_libs.python.pipeline_utils import pipeline_utils
+    from ingen_fab.python_libs.python.pipeline_utils import PipelineUtils
     notebookutils = NotebookUtilsFactory.create_instance() 
 else:
     files_to_load = [

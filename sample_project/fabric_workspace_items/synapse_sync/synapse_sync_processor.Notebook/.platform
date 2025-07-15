@@ -1,0 +1,12 @@
+{
+  "$schema": "https://developer.microsoft.com/json-schemas/fabric/gitIntegration/platformProperties/2.0.0/schema.json",
+  "metadata": {
+    "type": "Notebook",
+    "displayName": "Synapse Sync Processor",
+    "description": "Orchestrates extraction of data from Azure Synapse Analytics to Parquet files stored in ADLS"
+  },
+  "config": {
+    "version": "2.0",
+    "logicalId": "aaced0dd-a8cd-4c4f-8e19-d06dc69a5ad5"
+  }
+}

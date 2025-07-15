@@ -217,24 +217,55 @@ class LocalNotebookUtils(NotebookUtilsInterface):
                     return value
                 
                 @staticmethod
-                def run(name: Any = None, timeout: int = 60) -> None:
+                def run(name: Any = None, timeout: int = 60, params: dict = None) -> str:
                     """Run the notebook in value."""
+                    print(f"DEBUG: Running notebook '{name}' with timeout {timeout} and params {params}")
                     # Search sample_project/fabric_workspace_items Find the directory of the notebook
                     from ingen_fab.fabric_cicd.promotion_utils import (
                         SyncToFabricEnvironment,
                     )
-                    pu = SyncToFabricEnvironment("sample_project/fabric_workspace_items")
-                    folders = pu.find_platform_folders(Path("sample_project/fabric_workspace_items"))
+                    # Find the current working directory and navigate to the fabric_workspace_items root
+                    import os
+                    current_dir = Path(os.getcwd())
+                    
+                    # Navigate up to find fabric_workspace_items
+                    workspace_items_path = current_dir
+                    while workspace_items_path.name != "fabric_workspace_items" and workspace_items_path.parent != workspace_items_path:
+                        workspace_items_path = workspace_items_path.parent
+                    
+                    if workspace_items_path.name != "fabric_workspace_items":
+                        # Fallback to relative path
+                        workspace_items_path = Path("sample_project/fabric_workspace_items")
+                    
+                    print(f"DEBUG: Searching for notebooks in: {workspace_items_path}")
+                    pu = SyncToFabricEnvironment(str(workspace_items_path))
+                    folders = pu.find_platform_folders(workspace_items_path)
+                    
+                    print(f"DEBUG: All folders found:")
+                    for folder in folders:
+                        print(f"DEBUG:   - {folder.name} at {folder.path}")
+                    
                     # print each folder                    
                     for folder in folders:
-                        if folder.name == name + ".Notebook":
+                        # Check for exact match first, then with suffix
+                        if folder.name == name + ".Notebook" or folder.name.startswith(name + "_") and folder.name.endswith(".Notebook"):
+                            print(f"DEBUG: Found notebook folder: {folder.path}")
                             # Run the notebook-content.py file
                             notebook_content_path = Path(folder.path) / "notebook-content.py"
                             import importlib.util
                             spec = importlib.util.spec_from_file_location("notebook_content", notebook_content_path)
                             notebook_content = importlib.util.module_from_spec(spec)
-                            result = spec.loader.exec_module(notebook_content)
-                            return result                          
+                            try:
+                                print(f"DEBUG: Executing notebook at: {notebook_content_path}")
+                                result = spec.loader.exec_module(notebook_content)
+                                print(f"DEBUG: Notebook executed successfully, returning 'success'")
+                                return "success"  # Return success if notebook executes without error
+                            except Exception as e:
+                                logger.error(f"Error executing notebook {name}: {e}")
+                                return f"failed: {str(e)}"
+                    
+                    print(f"DEBUG: Notebook '{name}' not found")
+                    return f"failed: notebook '{name}' not found"                          
                             
                         
 

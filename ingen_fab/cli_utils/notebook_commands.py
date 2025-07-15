@@ -94,6 +94,20 @@ def compile_ddl_notebooks(
             fabric_workspace_repo_dir=fabric_workspace_repo_dir,
         )
         nbg.run_all()
+    
+    # After generating all notebooks, inject variables using variable_lib
+    fabric_environment = ctx.obj.get("fabric_environment", "local") if ctx.obj else "local"
+    if fabric_workspace_repo_dir:
+        try:
+            varlib_utils = VariableLibraryUtils(
+                project_path=Path(fabric_workspace_repo_dir),
+                environment=fabric_environment
+            )
+            varlib_utils.inject_variables_into_template()
+            console.print(f"[green]✓[/green] Variable injection completed for environment: {fabric_environment}")
+        except Exception as e:
+            console.print(f"[yellow]⚠[/yellow] Variable injection failed: {str(e)}")
+            console.print("[dim]This may be expected if no variable library is configured[/dim]")
 
 
 def test_python_block():

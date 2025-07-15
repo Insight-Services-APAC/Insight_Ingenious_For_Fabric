@@ -50,7 +50,7 @@ import sys
 if "notebookutils" in sys.modules:
     import sys
     
-    notebookutils.fs.mount("abfss://{{varlib:config_workspace_name}}@onelake.dfs.fabric.microsoft.com/{{varlib:config_lakehouse_name}}.Lakehouse/Files/", "/config_files")  # type: ignore # noqa: F821
+    notebookutils.fs.mount("abfss://{{varlib:config_workspace_name}}@onelake.dfs.fabric.microsoft.com/config.Lakehouse/Files/", "/config_files")  # type: ignore # noqa: F821
     mount_path = notebookutils.fs.getMountPath("/config_files")  # type: ignore # noqa: F821
     
     run_mode = "fabric"
@@ -205,8 +205,16 @@ def execute_notebook(notebook_name, index, total, timeout_seconds=3600):
         print(f"Executing notebook {index}/{total}:{notebook_name}")
         print(f"{'='*60}")
         
-        # Run the notebook
-        result = mssparkutils.notebook.run(
+        params = {
+            "fabric_environment": configs.fabric_environment,
+            "config_workspace_id": configs.config_workspace_id,
+            "config_lakehouse_id": configs.config_lakehouse_id,
+            "target_lakehouse_config_prefix": "Config",
+            'useRootDefaultLakehouse': True
+        }
+        
+        # Use notebook utils abstraction for cross-environment compatibility
+        result = notebookutils.mssparkutils.notebook.run(
             notebook_name,
             timeout_seconds,
             params
@@ -227,7 +235,7 @@ def execute_notebook(notebook_name, index, total, timeout_seconds=3600):
         
         # Stop execution on failure
         error_msg = f"Orchestration stopped due to failure in notebook: {notebook_name}. Error: {str(e)}"
-        mssparkutils.notebook.exit(error_msg)
+        notebookutils.mssparkutils.notebook.exit(error_msg)
         return False
 
 print(f"Starting orchestration for Config lakehouse")
@@ -253,10 +261,10 @@ print(f"Failed: 3 - {success_count}")
 
 if success_count == 3:
     print("✓ All notebooks executed successfully!")
-    mssparkutils.notebook.exit("success")
+    notebookutils.mssparkutils.notebook.exit("success")
 else:
     print(f"✗ Orchestration completed with failures")
-    mssparkutils.notebook.exit(f"Orchestration completed with {success_count}/3 successful executions")
+    notebookutils.mssparkutils.notebook.exit(f"Orchestration completed with {success_count}/3 successful executions")
 
 # METADATA ********************
 

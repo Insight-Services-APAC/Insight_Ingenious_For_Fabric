@@ -50,7 +50,7 @@ import sys
 if "notebookutils" in sys.modules:
     import sys
     
-    notebookutils.fs.mount("abfss://{{varlib:config_workspace_name}}@onelake.dfs.fabric.microsoft.com/{{varlib:config_lakehouse_name}}.Lakehouse/Files/", "/config_files")  # type: ignore # noqa: F821
+    notebookutils.fs.mount("abfss://{{varlib:config_workspace_name}}@onelake.dfs.fabric.microsoft.com/config.Lakehouse/Files/", "/config_files")  # type: ignore # noqa: F821
     mount_path = notebookutils.fs.getMountPath("/config_files")  # type: ignore # noqa: F821
     
     run_mode = "fabric"
@@ -148,6 +148,50 @@ else:
     ]
 
     load_python_modules_from_path(mount_path, files_to_load)
+
+
+
+# METADATA ********************
+
+# META {
+# META   "language": "python"
+# META }
+# MARKDOWN ********************
+
+# Add markdown content here
+
+# ## ⚙️ Configuration Settings
+
+# CELL ********************
+
+
+# variableLibraryInjectionStart: var_lib
+
+# All variables as a dictionary
+configs_dict = {'fabric_environment': 'local', 'fabric_deployment_workspace_id': '#####', 'synapse_source_database_1': 'test1', 'config_workspace_id': '#####', 'synapse_source_sql_connection': 'sansdaisyn-ondemand.sql.azuresynapse.net', 'config_lakehouse_name': 'config', 'edw_warehouse_name': 'edw', 'config_lakehouse_id': '2629d4cc-685c-458a-866b-b4705dde71a7', 'edw_workspace_id': '###', 'edw_warehouse_id': '###', 'edw_lakehouse_id': '6adb67d6-c8eb-4612-9053-890cae3a55d7', 'edw_lakehouse_name': 'edw', 'legacy_synapse_connection_name': 'synapse_connection', 'synapse_export_shortcut_path_in_onelake': 'exports/', 'raw_workspace_id': 'local_raw_workspace', 'raw_datastore_id': 'local_raw_datastore', 'config_warehouse_id': 'local-config-warehouse-id'}
+# All variables as an object
+from dataclasses import dataclass
+@dataclass
+class ConfigsObject:
+    fabric_environment: str 
+    fabric_deployment_workspace_id: str 
+    synapse_source_database_1: str 
+    config_workspace_id: str 
+    synapse_source_sql_connection: str 
+    config_lakehouse_name: str 
+    edw_warehouse_name: str 
+    config_lakehouse_id: str 
+    edw_workspace_id: str 
+    edw_warehouse_id: str 
+    edw_lakehouse_id: str 
+    edw_lakehouse_name: str 
+    legacy_synapse_connection_name: str 
+    synapse_export_shortcut_path_in_onelake: str 
+    raw_workspace_id: str 
+    raw_datastore_id: str 
+    config_warehouse_id: str 
+configs_object: ConfigsObject = ConfigsObject(**configs_dict)
+# variableLibraryInjectionEnd: var_lib
 
 
 
@@ -278,8 +322,8 @@ def script_to_execute():
             config_name="CSV Sales Data Test",
             source_file_path="Files/sample_data/sales_data.csv",
             source_file_format="csv",
-            target_lakehouse_workspace_id="{{varlib:config_workspace_id}}",
-            target_lakehouse_id="{{varlib:config_lakehouse_id}}",
+            target_lakehouse_workspace_id="#####",
+            target_lakehouse_id="2629d4cc-685c-458a-866b-b4705dde71a7",
             target_schema_name="raw",
             target_table_name="sales_data",
             file_delimiter=",",
@@ -307,15 +351,15 @@ def script_to_execute():
             config_name="JSON Products Data Test",
             source_file_path="Files/sample_data/products.json",
             source_file_format="json",
-            target_lakehouse_workspace_id="{{varlib:config_workspace_id}}",
-            target_lakehouse_id="{{varlib:config_lakehouse_id}}",
+            target_lakehouse_workspace_id="#####",
+            target_lakehouse_id="2629d4cc-685c-458a-866b-b4705dde71a7",
             target_schema_name="raw",
             target_table_name="products",
             file_delimiter=None,
             has_header=None,
             encoding="utf-8",
             date_format="yyyy-MM-dd",
-            timestamp_format="yyyy-MM-dd T HH:mm:ss Z",
+            timestamp_format="yyyy-MM-dd'T'HH:mm:ss'Z'",
             schema_inference=True,
             custom_schema_json=None,
             partition_columns="category",
@@ -336,8 +380,8 @@ def script_to_execute():
             config_name="Parquet Customers Data Test",
             source_file_path="Files/sample_data/customers.parquet",
             source_file_format="parquet",
-            target_lakehouse_workspace_id="{{varlib:config_workspace_id}}",
-            target_lakehouse_id="{{varlib:config_lakehouse_id}}",
+            target_lakehouse_workspace_id="#####",
+            target_lakehouse_id="2629d4cc-685c-458a-866b-b4705dde71a7",
             target_schema_name="raw",
             target_table_name="customers",
             file_delimiter=None,
