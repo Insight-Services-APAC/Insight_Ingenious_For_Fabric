@@ -317,6 +317,7 @@ class lakehouse_utils(DataStoreInterface):
         schema: dict[str, Any] | None = None,
         mode: str = "overwrite",
         options: dict[str, Any] | None = None,
+        partition_by: list[str] | None = None,
     ) -> None:
         """
         Create a new table with a given schema.
@@ -326,6 +327,9 @@ class lakehouse_utils(DataStoreInterface):
         
         empty_df = self.get_connection.createDataFrame([], schema)
         writer = empty_df.write.format("delta").mode(mode)
+        
+        if partition_by:
+            writer = writer.partitionBy(*partition_by)
 
         if options:
             for k, v in options.items():

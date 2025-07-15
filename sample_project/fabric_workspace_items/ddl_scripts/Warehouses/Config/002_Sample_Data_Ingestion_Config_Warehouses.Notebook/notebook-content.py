@@ -261,6 +261,51 @@ wu = warehouse_utils(
 
 # MARKDOWN ********************
 
+# ## 𝄜 Cell for 003_config_synapse_extract_objects_insert.sql
+
+# CELL ********************
+
+guid = "efce5f9475ef"
+def work():
+    sql = """
+
+-- Sample data for config_synapse_extract_objects - Warehouse version
+
+INSERT INTO config_synapse_extract_objects (
+    synapse_connection_name,
+    source_schema_name,
+    source_table_name,
+    extract_mode,
+    single_date_filter,
+    date_range_filter,
+    execution_group,
+    active_yn,
+    pipeline_id,
+    synapse_datasource_name,
+    synapse_datasource_location,
+    created_timestamp,
+    updated_timestamp
+) VALUES
+    ('SynapseConnection', 'dbo', 'DimCustomer', 'snapshot', NULL, NULL, 1, 'Y', '00000000-0000-0000-0000-000000000000', 'SynapseDatasource', 'https://onelake.dfs.fabric.microsoft.com/workspace/lakehouse/Files', GETUTCDATE(), GETUTCDATE()),
+    ('SynapseConnection', 'dbo', 'FactSales', 'incremental', 'WHERE DATE_SK = @date', 'WHERE DATE_SK BETWEEN @start_date AND @end_date', 2, 'Y', '00000000-0000-0000-0000-000000000000', 'SynapseDatasource', 'https://onelake.dfs.fabric.microsoft.com/workspace/lakehouse/Files', GETUTCDATE(), GETUTCDATE());
+
+    """
+
+    wu.execute_query(wu.get_connection(), sql)
+
+du.run_once(work,"003_config_synapse_extract_objects_insert", guid)
+
+
+
+# METADATA ********************
+
+# META {
+# META   "language": "python",
+# META   "language_group": "jupyter_python"
+# META }
+
+# MARKDOWN ********************
+
 # ## 𝄜 Cell for 003_sample_data_insert.sql
 
 # CELL ********************

@@ -12,9 +12,7 @@ schema = StructType([
     StructField("active_yn", StringType(), False),
     StructField("pipeline_id", StringType(), False),
     StructField("synapse_datasource_name", StringType(), False),
-    StructField("synapse_datasource_location", StringType(), False),
-    StructField("created_timestamp", TimestampType(), False),
-    StructField("updated_timestamp", TimestampType(), False)
+    StructField("synapse_datasource_location", StringType(), False)
 ])
 
 target_lakehouse.create_table(
@@ -22,6 +20,7 @@ target_lakehouse.create_table(
     schema=schema,
     mode="overwrite",
     options={
-        "parquet.vorder.default": "true"
+        "parquet.vorder.default": "true",
+        "overwriteSchema": "true"
     }
 )

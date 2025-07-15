@@ -23,6 +23,7 @@ BEGIN
         end_timestamp DATETIME2 NULL,
         duration_sec FLOAT NULL,
         status NVARCHAR(50) NULL,
-        error_messages NVARCHAR(MAX) NULL
+        error_messages NVARCHAR(MAX) NULL,
+        end_timestamp_int BIGINT NULL
     );
 END
