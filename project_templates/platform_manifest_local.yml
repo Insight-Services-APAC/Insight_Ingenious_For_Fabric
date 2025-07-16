@@ -1,0 +1,4 @@
+# Platform manifest for local environment
+# This file tracks the deployment state of Fabric items
+# It will be automatically updated by the deployment process
+platform_folders: []

@@ -3,85 +3,61 @@
   "variables": [
     {
       "name": "fabric_environment",
-      "note": "",
+      "note": "The environment name (e.g., development, production). Must match your platform_manifest_[environment].yml file name.",
       "type": "String",
       "value": ""
     },
     {
       "name": "fabric_deployment_workspace_id",
-      "note": "The id of the workspace that this solution will be deployed to.",
+      "note": "The GUID of the Fabric workspace where this solution will be deployed.",
       "type": "String",
       "value": ""
     },
     {
-      "name": "synapse_source_sql_connection",
-      "note": "",
-      "type": "String",
-      "value": ""
-    },
-    {
-      "name": "synapse_source_database_1",
-      "note": "",
-      "type": "String",
-      "value": ""
-    },
-    {
-      "name": "config_lakehouse_name",
-      "note": "",
+      "name": "config_workspace_name",
+      "note": "Name of the workspace containing the configuration lakehouse.",
       "type": "String",
       "value": ""
     },
     {
       "name": "config_workspace_id",
-      "note": "",
+      "note": "GUID of the workspace containing the configuration lakehouse.",
+      "type": "String",
+      "value": ""
+    },
+    {
+      "name": "config_lakehouse_name",
+      "note": "Name of the lakehouse used for configuration tables.",
       "type": "String",
       "value": ""
     },
     {
       "name": "config_lakehouse_id",
-      "note": "",
+      "note": "GUID of the lakehouse used for configuration tables.",
       "type": "String",
       "value": ""
     },
     {
-      "name": "edw_workspace_id",
-      "note": "",
+      "name": "sample_lakehouse_name",
+      "note": "Name of your sample/main lakehouse for data tables.",
       "type": "String",
       "value": ""
     },
     {
-      "name": "edw_warehouse_id",
-      "note": "",
+      "name": "sample_lakehouse_id",
+      "note": "GUID of your sample/main lakehouse for data tables.",
       "type": "String",
       "value": ""
     },
     {
-      "name": "edw_warehouse_name",
-      "note": "",
+      "name": "sample_warehouse_name",
+      "note": "Optional: Name of your warehouse (if using SQL analytics).",
       "type": "String",
       "value": ""
     },
     {
-      "name": "edw_lakehouse_id",
-      "note": "",
-      "type": "String",
-      "value": ""
-    },
-    {
-      "name": "edw_lakehouse_name",
-      "note": "",
-      "type": "String",
-      "value": ""
-    },
-    {
-      "name": "legacy_synapse_connection_name",
-      "note": "",
-      "type": "String",
-      "value": ""
-    },
-    {
-      "name": "synapse_export_shortcut_path_in_onelake",
-      "note": "",
+      "name": "sample_warehouse_id",
+      "note": "Optional: GUID of your warehouse (if using SQL analytics).",
       "type": "String",
       "value": ""
     }

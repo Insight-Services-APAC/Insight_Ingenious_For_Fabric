@@ -20,7 +20,12 @@
       "Bash(echo:*)",
       "Bash(source:*)",
       "Bash(mkdocs:*)",
-      "Bash(uv sync:*)"
+      "Bash(uv sync:*)",
+      "Bash(export FABRIC_WORKSPACE_REPO_DIR=\"init_test_project\")",
+      "Bash(ingen_fab init:*)",
+      "Bash(ls:*)",
+      "Bash(export FABRIC_WORKSPACE_REPO_DIR=\"./init_test_project\")",
+      "Bash(ingen_fab:*)"
     ],
     "deny": []
   }

@@ -39,8 +39,8 @@ Once set, all CLI commands will use these values by default, so you do not need 
 ### Initialize a New Project
 
 ```bash
-# Create a new Fabric workspace project
-ingen_fab init init-solution --project-name "My Fabric Project"
+# Create a new Fabric workspace project with complete starter template
+ingen_fab init new --project-name "My Fabric Project"
 ```
 
 ### Generate DDL Notebooks
