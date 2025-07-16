@@ -164,9 +164,9 @@ def compile(
 # Initialize commands
 
 
-@init_app.command()
+@init_app.command("new")
 def init_solution(
-    project_name: Annotated[str, typer.Option(...)] = "",
+    project_name: Annotated[str, typer.Option(...)],
     path: Annotated[Path, typer.Option("--path")] = Path("."),
 ):
     init_commands.init_solution(project_name, path)

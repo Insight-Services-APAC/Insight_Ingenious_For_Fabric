@@ -22,26 +22,38 @@ ingen_fab [GLOBAL_OPTIONS] COMMAND [COMMAND_OPTIONS]
 
 Initialize solutions and projects.
 
-#### `init init-solution`
+#### `init new`
 
-Create a new Fabric workspace project with proper structure.
+Create a new Fabric workspace project with complete starter template including variable library, sample DDL scripts, and platform manifests.
 
 ```bash
-ingen_fab init init-solution --project-name "My Project"
+ingen_fab init new --project-name "My Project"
 ```
 
 **Options:**
 - `--project-name` (required): Name of the project
 - `--path`: Path where to create the project (default: current directory)
 
+**What gets created:**
+- Complete variable library with environment-specific configurations
+- Sample DDL scripts for both Lakehouse (Python) and Warehouse (SQL)
+- Pre-configured Lakehouse and Warehouse definitions
+- Platform manifests for deployment tracking
+- Comprehensive README with setup instructions
+
 **Examples:**
 ```bash
 # Create a new project in current directory
-ingen_fab init init-solution --project-name "Data Analytics Platform"
+ingen_fab init new --project-name "Data Analytics Platform"
 
 # Create project in specific path
-ingen_fab init init-solution --project-name "ML Pipeline" --path ./projects
+ingen_fab init new --project-name "ML Pipeline" --path ./projects
 ```
+
+**Next steps after creation:**
+1. Update variable values in `fabric_workspace_items/config/var_lib.VariableLibrary/valueSets/development.json`
+2. Generate DDL notebooks: `ingen_fab ddl compile --output-mode fabric_workspace_repo --generation-mode Lakehouse`
+3. Deploy to Fabric: `ingen_fab deploy deploy --environment development`
 
 ## ddl {#ddl}
 
@@ -364,25 +376,31 @@ The tool looks for configuration in:
 
 ```bash
 # 1. Create project
-ingen_fab init init-solution --project-name "My Project"
+ingen_fab init new --project-name "My Project"
+cd "My Project"
 
-# 2. Edit DDL scripts and configuration
-# ... make changes ...
+# 2. Configure environment variables
+export FABRIC_WORKSPACE_REPO_DIR="./My Project"
+export FABRIC_ENVIRONMENT="development"
 
-# 3. Generate notebooks
+# 3. Update configuration
+# Edit fabric_workspace_items/config/var_lib.VariableLibrary/valueSets/development.json
+# Replace placeholder GUIDs with your actual workspace and lakehouse IDs
+
+# 4. Generate notebooks
 ingen_fab ddl compile --output-mode fabric_workspace_repo --generation-mode Warehouse
 ingen_fab ddl compile --output-mode fabric_workspace_repo --generation-mode Lakehouse
 
-# 4. Test locally
+# 5. Test locally
 export FABRIC_ENVIRONMENT=local
 ingen_fab test local python
 ingen_fab test local pyspark
 
-# 5. Deploy to development
+# 6. Deploy to development
 export FABRIC_ENVIRONMENT=development
-ingen_fab deploy deploy --fabric-workspace-repo-dir . --fabric-environment development
+ingen_fab deploy deploy
 
-# 6. Generate and run platform tests
+# 7. Generate and run platform tests
 ingen_fab test platform generate
 ```
 

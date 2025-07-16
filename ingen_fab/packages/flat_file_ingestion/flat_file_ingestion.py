@@ -153,7 +153,10 @@ class FlatFileIngestionCompiler(BaseNotebookCompiler):
     def compile_sample_files(self) -> List[Path]:
         """Upload sample data files to the lakehouse using lakehouse_utils"""
         
-        sample_source_dir = self.package_dir / "sample_project" / "sample_data"
+        # Get workspace repo directory from environment variable or use current working directory
+        import os
+        workspace_repo_dir = os.environ.get('FABRIC_WORKSPACE_REPO_DIR', '.')
+        sample_source_dir = Path(workspace_repo_dir) / "Files" / "sample_data"
         
         if not sample_source_dir.exists():
             self.print_error("Sample data directory not found", f"Expected: {sample_source_dir}")

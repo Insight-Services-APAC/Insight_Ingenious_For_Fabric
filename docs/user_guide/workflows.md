@@ -8,7 +8,7 @@ This guide covers best practices and common workflows for using the Ingenious Fa
 
 ```bash
 # Initialize new project
-ingen_fab init init-solution --project-name "Data Analytics Platform"
+ingen_fab init new --project-name "Data Analytics Platform"
 
 # Navigate to the project directory
 cd "Data Analytics Platform"
@@ -358,10 +358,7 @@ ingen_fab deploy deploy --fabric-workspace-repo-dir . --fabric-environment devel
 ```bash
 # Create multiple related projects
 for project in analytics ml-pipeline reporting; do
-    mkdir $project
-    cd $project
-    ingen_fab init init-solution --project-name "$project"
-    cd ..
+    ingen_fab init new --project-name "$project"
 done
 ```
 
@@ -369,7 +366,7 @@ done
 
 ```bash
 # Create shared library project
-ingen_fab init init-solution --project-name "shared-libs"
+ingen_fab init new --project-name "shared-libs"
 
 # Reference shared libraries in other projects
 # Update python_libs/ to include shared components

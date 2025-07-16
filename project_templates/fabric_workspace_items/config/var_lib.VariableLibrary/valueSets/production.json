@@ -8,23 +8,39 @@
     },
     {
       "name": "fabric_deployment_workspace_id",
-      "value": "3a4fc13c-f7c5-463e-a9de-57c4754699ff"
+      "value": "REPLACE_WITH_PRODUCTION_WORKSPACE_GUID"
+    },
+    {
+      "name": "config_workspace_name",
+      "value": "REPLACE_WITH_PRODUCTION_CONFIG_WORKSPACE_NAME"
     },
     {
       "name": "config_workspace_id",
-      "value": "3a4fc13c-f7c5-463e-a9de-57c4754699ff"
+      "value": "REPLACE_WITH_PRODUCTION_CONFIG_WORKSPACE_GUID"
+    },
+    {
+      "name": "config_lakehouse_name",
+      "value": "config"
     },
     {
       "name": "config_lakehouse_id",
-      "value": "production-lakehouse-id"
+      "value": "REPLACE_WITH_PRODUCTION_CONFIG_LAKEHOUSE_GUID"
     },
     {
-      "name": "raw_workspace_id",
-      "value": "3a4fc13c-f7c5-463e-a9de-57c4754699ff"
+      "name": "sample_lakehouse_name",
+      "value": "sample"
     },
     {
-      "name": "raw_datastore_id",
-      "value": "production-lakehouse-id"
+      "name": "sample_lakehouse_id",
+      "value": "REPLACE_WITH_PRODUCTION_SAMPLE_LAKEHOUSE_GUID"
+    },
+    {
+      "name": "sample_warehouse_name",
+      "value": ""
+    },
+    {
+      "name": "sample_warehouse_id",
+      "value": ""
     }
   ]
 }
