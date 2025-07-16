@@ -9,15 +9,24 @@ from pathlib import Path
 from typing import Any, Dict, List
 
 from ingen_fab.notebook_utils.base_notebook_compiler import BaseNotebookCompiler
+from ingen_fab.utils.path_utils import PathUtils
 
 
 class FlatFileIngestionCompiler(BaseNotebookCompiler):
     """Compiler for flat file ingestion templates"""
     
     def __init__(self, fabric_workspace_repo_dir: str = None):
-        self.package_dir = Path(__file__).parent
-        self.templates_dir = self.package_dir / "templates"
-        self.ddl_scripts_dir = self.package_dir / "ddl_scripts"
+        try:
+            # Use path utilities for package resource discovery
+            package_base = PathUtils.get_package_resource_path("packages/flat_file_ingestion")
+            self.package_dir = package_base
+            self.templates_dir = package_base / "templates"
+            self.ddl_scripts_dir = package_base / "ddl_scripts"
+        except FileNotFoundError:
+            # Fallback for development environment
+            self.package_dir = Path(__file__).parent
+            self.templates_dir = self.package_dir / "templates"
+            self.ddl_scripts_dir = self.package_dir / "ddl_scripts"
         
         # Set up template directories - include package templates and unified templates
         root_dir = Path.cwd()
@@ -153,10 +162,9 @@ class FlatFileIngestionCompiler(BaseNotebookCompiler):
     def compile_sample_files(self) -> List[Path]:
         """Upload sample data files to the lakehouse using lakehouse_utils"""
         
-        # Get workspace repo directory from environment variable or use current working directory
-        import os
-        workspace_repo_dir = os.environ.get('FABRIC_WORKSPACE_REPO_DIR', '.')
-        sample_source_dir = Path(workspace_repo_dir) / "Files" / "sample_data"
+        # Get workspace repo directory using the path utilities
+        workspace_repo_dir = PathUtils.get_workspace_repo_dir()
+        sample_source_dir = workspace_repo_dir / "Files" / "sample_data"
         
         if not sample_source_dir.exists():
             self.print_error("Sample data directory not found", f"Expected: {sample_source_dir}")

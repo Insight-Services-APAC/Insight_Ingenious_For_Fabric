@@ -15,6 +15,7 @@ from ingen_fab.cli_utils import (
 )
 from ingen_fab.cli_utils.console_styles import ConsoleStyles
 from ingen_fab.ddl_scripts.notebook_generator import NotebookGenerator
+from ingen_fab.utils.path_utils import PathUtils
 
 console = Console()
 console_styles = ConsoleStyles()
@@ -103,7 +104,7 @@ def main(
                 "Falling back to FABRIC_WORKSPACE_REPO_DIR environment variable.",
             )
         fabric_workspace_repo_dir = (
-            Path(env_val) if env_val else Path("./sample_project")
+            Path(env_val) if env_val else PathUtils.get_workspace_repo_dir()
         )
     if fabric_environment is None:
         env_val = os.environ.get("FABRIC_ENVIRONMENT")
@@ -190,17 +191,12 @@ def delete_all(
 
 @deploy_app.command()
 def upload_python_libs(
-    environment: Annotated[
-        str, typer.Option("--environment", "-e", help="Fabric environment name")
-    ] = "development_jr",
-    project_path: Annotated[
-        str, typer.Option("--project-path", "-p", help="Project path")
-    ] = "sample_project",
+    ctx: typer.Context
 ):
     """Upload python_libs directory to Fabric config lakehouse using OneLakeUtils."""
     deploy_commands.upload_python_libs_to_config_lakehouse(
-        environment=environment,
-        project_path=project_path,
+        environment=ctx.obj['fabric_environment'],
+        project_path=ctx.obj['fabric_workspace_repo_dir'],
         console=console,
     )
 

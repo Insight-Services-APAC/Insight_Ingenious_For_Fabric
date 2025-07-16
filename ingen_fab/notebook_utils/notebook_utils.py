@@ -13,6 +13,8 @@ try:
 except ImportError:
     get_configs_as_object = None
 
+from ingen_fab.utils.path_utils import PathUtils
+
 
 def required_filter(value, var_name=""):
     """Jinja2 filter: raises an error if value is not provided or is falsy."""
@@ -66,7 +68,7 @@ class NotebookUtils:
         """Set up directory paths with intelligent defaults."""
         # Set fabric workspace repo directory
         if fabric_workspace_repo_dir is None:
-            fabric_workspace_repo_dir = Path.cwd() / "sample_project"
+            fabric_workspace_repo_dir = PathUtils.get_workspace_repo_dir()
         self.fabric_workspace_repo_dir = Path(fabric_workspace_repo_dir).resolve()
         
         # Set output directory

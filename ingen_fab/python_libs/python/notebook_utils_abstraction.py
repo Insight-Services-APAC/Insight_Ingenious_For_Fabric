@@ -200,8 +200,10 @@ class LocalNotebookUtils(NotebookUtilsInterface):
                         workspace_items_path = workspace_items_path.parent
                     
                     if workspace_items_path.name != "fabric_workspace_items":
-                        # Fallback to relative path
-                        workspace_items_path = Path("sample_project/fabric_workspace_items")
+                        # Fallback using the path utilities
+                        from ingen_fab.utils.path_utils import PathUtils
+                        workspace_repo_dir = PathUtils.get_workspace_repo_dir()
+                        workspace_items_path = workspace_repo_dir / "fabric_workspace_items"
                     
                     print(f"DEBUG: Searching for notebooks in: {workspace_items_path}")
                     pu = SyncToFabricEnvironment(str(workspace_items_path))
