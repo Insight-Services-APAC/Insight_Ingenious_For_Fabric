@@ -14,6 +14,7 @@ from rich.table import Table
 
 from ingen_fab.notebook_utils.base_notebook_compiler import BaseNotebookCompiler
 from ingen_fab.python_libs.gather_python_libs import GatherPythonLibs
+from ingen_fab.utils.path_utils import PathUtils
 
 
 class NotebookGenerator(BaseNotebookCompiler):
@@ -45,10 +46,12 @@ class NotebookGenerator(BaseNotebookCompiler):
             self.language_group = "synapse_pyspark"
 
         if templates_dir is None:
-            # Use the unified template directory
-            templates_dir = (
-                Path(__file__).resolve().parent.parent / "templates"
-            )
+            # Use the unified template directory with proper path resolution
+            try:
+                templates_dir = PathUtils.get_template_path('ddl')
+            except FileNotFoundError:
+                # Fallback for development environment
+                templates_dir = Path.cwd() / "ingen_fab" / "templates"
 
         # Determine folder names based on generation mode
         self.entity_type = self.generation_mode.value

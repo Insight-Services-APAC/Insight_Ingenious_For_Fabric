@@ -1,11 +1,11 @@
 {
   "$schema": "https://developer.microsoft.com/json-schemas/fabric/gitIntegration/platformProperties/2.0.0/schema.json",
   "metadata": {
-    "type": "DataPipeline",
-    "displayName": "extract_from_synapse"
+    "type": "Warehouse",
+    "displayName": "config_wh"
   },
   "config": {
     "version": "2.0",
-    "logicalId": "6cb04f30-bbe9-8fe4-4184-3383a71203b6"
+    "logicalId": "REPLACE_WITH_UNIQUE_GUID"
   }
 }

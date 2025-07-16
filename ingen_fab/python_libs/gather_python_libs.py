@@ -4,6 +4,8 @@ import traceback
 from pathlib import Path
 from typing import List, Set
 
+from ..utils.path_utils import PathUtils
+
 
 class GatherPythonLibs:
     def __init__(self, console, include_jinja_raw_tags: bool = True):
@@ -247,24 +249,22 @@ class GatherPythonLibs:
         Analyze python_libs files, sort by dependencies, and inject into lib.py.jinja.
         Includes files from common and interfaces directories when referenced.
         """
-        # Try multiple possible paths for python_libs
-        possible_paths = [Path(__file__).resolve().parent / python_libs_path]
-
-        target_python_libs_path = None
-        for path in possible_paths:
-            if path.exists():
-                target_python_libs_path = path
-                break
-
-        if target_python_libs_path is None:
+        # Use the new path utilities to find python_libs
+        try:
+            base_python_libs_path = PathUtils.get_package_resource_path("python_libs")
+            target_python_libs_path = base_python_libs_path / python_libs_path
+            
+            if not target_python_libs_path.exists():
+                self.console.print(
+                    f"[yellow]Warning: Python libs path not found: {target_python_libs_path}[/yellow]"
+                )
+                return
+                
+        except FileNotFoundError:
             self.console.print(
-                f"[yellow]Warning: Python libs path not found in any of: "
-                f"{[str(p) for p in possible_paths]}[/yellow]"
+                f"[yellow]Warning: Could not locate python_libs package resources[/yellow]"
             )
             return
-
-        # Get base python_libs directory to access common and interfaces
-        base_python_libs_path = Path(__file__).resolve().parent
         
         # Get all Python files from the target directory
         target_python_files = []
