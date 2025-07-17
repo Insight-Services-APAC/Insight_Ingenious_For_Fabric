@@ -2,10 +2,10 @@
   "$schema": "https://developer.microsoft.com/json-schemas/fabric/gitIntegration/platformProperties/2.0.0/schema.json",
   "metadata": {
     "type": "Notebook",
-    "displayName": "002_Parquet_Load_Update_Config_Warehouses_ddl_scripts"
+    "displayName": "002_Sample_Data_Synapse_Sync_Config_Warehouses_ddl_scripts"
   },
   "config": {
     "version": "2.0",
-    "logicalId": "df610ea8-4259-4fe3-ba04-1a18fa440cc2"
+    "logicalId": "2b128ab9-24ce-4bbc-9c72-2be833f5430e"
   }
 }

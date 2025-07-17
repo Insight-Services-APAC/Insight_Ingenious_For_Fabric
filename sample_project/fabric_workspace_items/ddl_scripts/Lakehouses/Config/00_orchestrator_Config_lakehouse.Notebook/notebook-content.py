@@ -13,22 +13,17 @@
 # META   }
 # META }
 
-
+# MARKDOWN ********************
 
 # ## 『』Parameters
 
+
+# PARAMETERS CELL ********************
 
 
 # Default parameters
 # Add default parameters here
 
-
-# METADATA ********************
-
-# META {
-# META   "language": "python",
-# META   "language_group": "synapse_pyspark"
-# META }
 
 
 # METADATA ********************
@@ -50,7 +45,7 @@ import sys
 if "notebookutils" in sys.modules:
     import sys
     
-    notebookutils.fs.mount("abfss://{{varlib:config_workspace_name}}@onelake.dfs.fabric.microsoft.com/config.Lakehouse/Files/", "/config_files")  # type: ignore # noqa: F821
+    notebookutils.fs.mount("abfss://dev_jr@onelake.dfs.fabric.microsoft.com/config.Lakehouse/Files/", "/config_files")  # type: ignore # noqa: F821
     mount_path = notebookutils.fs.getMountPath("/config_files")  # type: ignore # noqa: F821
     
     run_mode = "fabric"
@@ -240,11 +235,13 @@ def execute_notebook(notebook_name, index, total, timeout_seconds=3600):
 
 print(f"Starting orchestration for Config lakehouse")
 print(f"Start time: {start_time}")
-print(f"Total notebooks to execute: 3")
+print(f"Total notebooks to execute: 5")
 print("="*60)
-execute_notebook("001_Initial_Creation_Config_Lakehouses", 1, 3)
-execute_notebook("001_Initial_Creation_Ingestion_Config_Lakehouses", 2, 3)
-execute_notebook("002_Sample_Data_Ingestion_Config_Lakehouses", 3, 3)
+execute_notebook("001_Initial_Creation_Config_Lakehouses", 1, 5)
+execute_notebook("001_Initial_Creation_Ingestion_Config_Lakehouses", 2, 5)
+execute_notebook("001_Initial_Creation_Synapse_Sync_Config_Lakehouses", 3, 5)
+execute_notebook("002_Sample_Data_Ingestion_Config_Lakehouses", 4, 5)
+execute_notebook("002_Sample_Data_Synapse_Sync_Config_Lakehouses", 5, 5)
 
 # Final Summary
 end_time = datetime.now()
@@ -255,16 +252,16 @@ print(f"Orchestration Complete!")
 print(f"{'='*60}")
 print(f"End time: {end_time}")
 print(f"Duration: {duration}")
-print(f"Total notebooks: 3")
+print(f"Total notebooks: 5")
 print(f"Successfully executed: {success_count}")
-print(f"Failed: 3 - {success_count}")
+print(f"Failed: 5 - {success_count}")
 
-if success_count == 3:
+if success_count == 5:
     print("✓ All notebooks executed successfully!")
     notebookutils.mssparkutils.notebook.exit("success")
 else:
     print(f"✗ Orchestration completed with failures")
-    notebookutils.mssparkutils.notebook.exit(f"Orchestration completed with {success_count}/3 successful executions")
+    notebookutils.mssparkutils.notebook.exit(f"Orchestration completed with {success_count}/5 successful executions")
 
 # METADATA ********************
 

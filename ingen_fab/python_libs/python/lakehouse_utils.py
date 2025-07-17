@@ -39,7 +39,8 @@ class lakehouse_utils(DataStoreInterface):
         """Get the ABFSS URI for the lakehouse Tables directory."""
         if config_utils._is_local_environment():
             # Local environment uses file:// URI
-            return f"file:///tmp/{self._target_lakehouse_id}/Tables/"
+            # For local development, use the shared spark tables directory
+            return "file:////workspaces/ingen_fab/tmp/spark/Tables/"
         else:
             return f"abfss://{self._target_workspace_id}@onelake.dfs.fabric.microsoft.com/{self._target_lakehouse_id}/Tables/"
 
@@ -94,10 +95,44 @@ class lakehouse_utils(DataStoreInterface):
     def drop_all_tables(
         self, schema_name: str | None = None, table_prefix: str | None = None
     ) -> None:
-        """Drop all Delta tables in the lakehouse directory using delta-rs."""
-        # delta-rs does not provide a directory listing, so this is a stub.
-        # You would need to list directories in the Tables/ path using a filesystem API.
-        raise NotImplementedError("delta-rs does not support dropping all tables directly.")
+        """Drop all Delta tables in the lakehouse directory using filesystem operations."""
+        import shutil
+        from pathlib import Path
+        
+        # Get the tables directory path
+        tables_uri = self.lakehouse_tables_uri()
+        tables_path = Path(tables_uri.replace("file://", ""))
+        
+        # Check if the tables directory exists
+        if not tables_path.exists():
+            return
+        
+        # List all directories in the tables path
+        dropped_tables = []
+        for item in tables_path.iterdir():
+            if item.is_dir():
+                table_name = item.name
+                
+                # Apply table prefix filter if specified
+                if table_prefix and not table_name.startswith(table_prefix):
+                    continue
+                
+                # Check if it's a valid Delta table by looking for _delta_log directory
+                delta_log_path = item / "_delta_log"
+                if delta_log_path.exists():
+                    try:
+                        # Remove the entire table directory
+                        shutil.rmtree(str(item))
+                        dropped_tables.append(table_name)
+                    except Exception as e:
+                        # Continue dropping other tables even if one fails
+                        print(f"Warning: Failed to drop table {table_name}: {e}")
+                        continue
+        
+        if dropped_tables:
+            print(f"Successfully dropped {len(dropped_tables)} tables: {dropped_tables}")
+        else:
+            print("No tables found to drop")
 
     def execute_query(self, query: str) -> Any:
         """delta-rs does not support SQL queries directly."""

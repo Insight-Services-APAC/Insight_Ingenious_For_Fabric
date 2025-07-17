@@ -27,8 +27,10 @@ MASTER_EXECUTION_ID = None  # auto-UUID if None
 WORK_ITEMS_JSON     = None  # JSON-encoded list for historical mode
 MAX_CONCURRENCY     = 10
 INCLUDE_SNAPSHOTS   = True  # sets whether to include snapshot tables in the extraction
-DAILY_RUN_START_DATE = None  # will be set to current date - 4 days
-DAILY_RUN_END_DATE   = None  # will be set to current date
+DAILY_RUN_START_DATE : date = (datetime.utcnow() - timedelta(days=4)).date()
+DAILY_RUN_END_DATE : date = datetime.utcnow().date()
+
+
 
 
 
@@ -58,6 +60,7 @@ DAILY_RUN_END_DATE   = None  # will be set to current date
 
 
 
+
 # METADATA ********************
 
 # META {
@@ -77,7 +80,7 @@ import sys
 if "notebookutils" in sys.modules:
     import sys
     
-    notebookutils.fs.mount("abfss://{{varlib:config_workspace_name}}@onelake.dfs.fabric.microsoft.com/{{varlib:config_lakehouse_name}}.Lakehouse/Files/", "/config_files")  # type: ignore # noqa: F821
+    notebookutils.fs.mount("abfss://dev_jr@onelake.dfs.fabric.microsoft.com/config.Lakehouse/Files/", "/config_files")  # type: ignore # noqa: F821
     mount_path = notebookutils.fs.getMountPath("/config_files")  # type: ignore # noqa: F821
     
     run_mode = "fabric"
@@ -146,6 +149,7 @@ clear_module_cache("ingen_fab")
 
 
 
+
 # METADATA ********************
 
 # META {
@@ -194,6 +198,52 @@ configs: ConfigsObject = get_configs_as_object()
 
 
 
+
+
+# METADATA ********************
+
+# META {
+# META   "language": "python"
+# META }
+# MARKDOWN ********************
+
+# Add markdown content here
+
+# ## Load Synapse-Specific Libraries
+
+# CELL ********************
+
+
+# Load pipeline utils and synapse-specific libraries
+if run_mode == "local":
+    from ingen_fab.python_libs.python.pipeline_utils import PipelineUtils
+    from ingen_fab.python_libs.python.synapse_extract_utils import SynapseExtractUtils
+    from ingen_fab.python_libs.python.synapse_orchestrator import SynapseOrchestrator
+else:
+    synapse_files_to_load = [
+        "ingen_fab/python_libs/python/pipeline_utils.py",
+        "ingen_fab/python_libs/python/synapse_extract_utils.py",
+        "ingen_fab/python_libs/python/synapse_orchestrator.py"
+    ]
+    load_python_modules_from_path(mount_path, synapse_files_to_load)
+
+
+
+
+# METADATA ********************
+
+# META {
+# META   "language": "python"
+# META }
+# MARKDOWN ********************
+
+# Add markdown content here
+
+# ## Additional Imports for Synapse Sync
+
+# CELL ********************
+
+
 # Additional imports for synapse sync
 import asyncio
 import json
@@ -219,7 +269,6 @@ except ImportError:
     pass
 import numpy as np
 import pyarrow as pa
-from delta.tables import DeltaTable
 
 import pyspark.sql.functions as F
 from pyspark.sql.types import *
@@ -229,17 +278,31 @@ from pyspark.sql.types import *
 logging.basicConfig(level=logging.INFO, format='%(asctime)s %(levelname)s %(message)s')
 logger = logging.getLogger(__name__)
 
-# ## Define parameters
 
-MASTER_EXECUTION_ID = None  # auto-UUID if None
-WORK_ITEMS_JSON     = None  # JSON-encoded list for historical mode
-MAX_CONCURRENCY     = 10
 
-INCLUDE_SNAPSHOTS   = True  # sets whether to include snapshot tables in the extraction
-DAILY_RUN_START_DATE : date = (datetime.utcnow() - timedelta(days=4)).date()
-DAILY_RUN_END_DATE : date = datetime.utcnow().date()
+
+# METADATA ********************
+
+# META {
+# META   "language": "python"
+# META }
+# MARKDOWN ********************
+
+# Add markdown content here
+
+# ## Constants
+
+# CELL ********************
+
+
 
 # ## Define constants
+
+if DAILY_RUN_START_DATE is None:
+    DAILY_RUN_START_DATE : date = (datetime.utcnow() - timedelta(days=4)).date()
+
+if DAILY_RUN_END_DATE is None:
+    DAILY_RUN_END_DATE : date = datetime.utcnow().date()
 
 POLL_INTERVAL    = 30
 FAST_RETRY_SEC   = 3
@@ -260,15 +323,28 @@ MASTER_EXECUTION_PARAMETERS = {
 
 TRIGGER_TYPE = "Manual"
 
+
+
+# METADATA ********************
+
+# META {
+# META   "language": "python"
+# META }
+# MARKDOWN ********************
+
+# Add markdown content here
+
 # ## Initialize utilities from python libs
+
+# CELL ********************
+
 
 # Get lakehouse utilities
 lakehouse_id = configs.config_lakehouse_id
 workspace_id = configs.config_workspace_id
 lakehouse = lakehouse_utils(
     target_workspace_id=workspace_id, 
-    target_lakehouse_id=lakehouse_id, 
-    spark=spark
+    target_lakehouse_id=lakehouse_id
 )
 
 # Check if DDL tables exist
@@ -280,22 +356,22 @@ if not lakehouse.check_if_table_exists("log_synapse_extract_run_log"):
     logger.error("Log table 'log_synapse_extract_run_log' not found. Please run DDL scripts first.")
     raise ValueError("Log table not found")
 
-# ## Load Synapse-Specific Libraries
 
-# Load pipeline utils and synapse-specific libraries
-if run_mode == "local":
-    from ingen_fab.python_libs.python.pipeline_utils import PipelineUtils
-    from ingen_fab.python_libs.python.synapse_extract_utils import SynapseExtractUtils
-    from ingen_fab.python_libs.python.synapse_orchestrator import SynapseOrchestrator
-else:
-    synapse_files_to_load = [
-        "ingen_fab/python_libs/python/pipeline_utils.py",
-        "ingen_fab/python_libs/python/synapse_extract_utils.py",
-        "ingen_fab/python_libs/python/synapse_orchestrator.py"
-    ]
-    load_python_modules_from_path(mount_path, synapse_files_to_load)
+
+
+# METADATA ********************
+
+# META {
+# META   "language": "python"
+# META }
+# MARKDOWN ********************
+
+# Add markdown content here
 
 # ## Import Helper Functions from Libraries
+
+# CELL ********************
+
 
 # Import the helper functions from synapse_extract_utils
 if run_mode == "local":
@@ -310,13 +386,32 @@ else:
     # Functions are already loaded via load_python_modules_from_path above
     pass
 
+
+
+# METADATA ********************
+
+# META {
+# META   "language": "python"
+# META }
+# MARKDOWN ********************
+
+# Add markdown content here
+
 # ## Initialize Synapse Extract Configuration
 
+# CELL ********************
+
+
 # Read configuration from the synapse extract objects table
-synapse_extract_objects_df = lakehouse.read_table("config_synapse_extract_objects").filter("active_yn = 'Y'")
+synapse_extract_objects_df = lakehouse.read_table("config_synapse_extract_objects")
+synapse_extract_objects_df = synapse_extract_objects_df[synapse_extract_objects_df["active_yn"] == "Y"]
 
 # Get data source and pipeline configuration
-synapse_config_row = synapse_extract_objects_df.limit(1).collect()[0]
+synapse_config_row = synapse_extract_objects_df.iloc[0] if len(synapse_extract_objects_df) > 0 else None
+if synapse_config_row is None:
+    logger.error("No active synapse extract configuration found in config_synapse_extract_objects table")
+    raise ValueError("No active synapse extract configuration found")
+
 synapse_datasource_name = synapse_config_row["synapse_datasource_name"]
 synapse_datasource_location = synapse_config_row["synapse_datasource_location"]
 synapse_extract_pipeline_id = synapse_config_row["pipeline_id"]
@@ -332,7 +427,23 @@ synapse_extract_utils = SynapseExtractUtils(
     lakehouse_id=lakehouse_id
 )
 
+
+
+
+# METADATA ********************
+
+# META {
+# META   "language": "python"
+# META }
+# MARKDOWN ********************
+
+# Add markdown content here
+
 # ## Construct extract work items
+
+# CELL ********************
+
+
 
 if WORK_ITEMS_JSON:
     # Historical extraction mode
@@ -366,7 +477,7 @@ else:
     logger.info(f"Date Range: {DAILY_RUN_START_DATE} to {DAILY_RUN_END_DATE}")
 
     # Create extract work items for each active table in the objects table
-    table_configs = synapse_extract_objects_df.collect()
+    table_configs = synapse_extract_objects_df.to_dict('records')
 
     # Filter out snapshots if INCLUDE_SNAPSHOTS is False
     if not INCLUDE_SNAPSHOTS:
@@ -404,7 +515,21 @@ extraction_payloads = prepare_extract_payloads(work_items, sql_template)
 extraction_payloads.sort(key=lambda x: x.get('execution_group', float('inf')))
 logger.info(f"Extraction payloads sorted by execution_group for ordered processing")
 
+
+
+# METADATA ********************
+
+# META {
+# META   "language": "python"
+# META }
+# MARKDOWN ********************
+
+# Add markdown content here
+
 # ## Orchestrate extraction using simplified modular approach
+
+# CELL ********************
+
 
 # Initialize the orchestrator with PipelineUtils integration
 orchestrator = SynapseOrchestrator(
@@ -446,7 +571,7 @@ logger.info("Extraction orchestration process completed")
 
 # Display summary
 logger.info(f"EXTRACTION SUMMARY - Master Execution ID: {summary['master_execution_id']}")
-logger.info(f"Mode: {summary['extraction_mode']} • Completed: {summary['completion_time']}")
+logger.info(f"Mode: {mode} • Completed: {summary['completion_time']}")
 logger.info(f"Total: {summary['total_tables']}, Succeeded: {summary['successful_extractions']}, "
             f"Failed: {summary['failed_extractions']}, Skipped: {summary['skipped_extractions']}")
 logger.info(f"Success Rate: {summary['success_rate']}")
@@ -466,3 +591,33 @@ if summary['failed_extractions'] > 0:
         logger.warning("Review failed tasks and consider retrying.")
 else:
     logger.info("All extractions completed successfully!")
+
+
+print(f"\nExecution completed at: {datetime.now()}")
+
+
+# METADATA ********************
+
+# META {
+# META   "language": "python",
+# META   "language_group": "synapse_pyspark"
+# META }
+
+# MARKDOWN ********************
+
+# ## ✔️ Exit notebook with result
+
+# CELL ********************
+
+
+notebookutils.mssparkutils.notebook.exit("success")
+
+
+
+# METADATA ********************
+
+# META {
+# META   "language": "python",
+# META   "language_group": "python"
+# META }
+

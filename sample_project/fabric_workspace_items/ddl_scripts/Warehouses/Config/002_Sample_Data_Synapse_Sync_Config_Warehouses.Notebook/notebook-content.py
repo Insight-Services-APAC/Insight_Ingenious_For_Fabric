@@ -28,6 +28,7 @@
 
 
 
+
 # METADATA ********************
 
 # META {
@@ -151,6 +152,53 @@ else:
         "ingen_fab/python_libs/python/pipeline_utils.py"
     ]
 
+    load_python_modules_from_path(mount_path, files_to_load)
+
+
+
+# METADATA ********************
+
+# META {
+# META   "language": "python"
+# META }
+# MARKDOWN ********************
+
+# Add markdown content here
+
+# ## ⚙️ Configuration Settings
+
+# CELL ********************
+
+
+# variableLibraryInjectionStart: var_lib
+
+# All variables as a dictionary
+configs_dict = {'fabric_environment': 'development_jr', 'fabric_deployment_workspace_id': 'b3fbeaf7-ec67-4622-ba37-8d8bcb7e436a', 'synapse_source_database_1': 'test1', 'config_workspace_id': 'b3fbeaf7-ec67-4622-ba37-8d8bcb7e436a', 'config_workspace_name': 'dev_jr', 'synapse_source_sql_connection': 'sansdaisyn-ondemand.sql.azuresynapse.net', 'config_lakehouse_name': 'config', 'edw_warehouse_name': 'edw', 'config_lakehouse_id': 'b3e5c081-5a1f-4fdd-9232-afc2108c27f1', 'config_warehouse_id': 'd1786653-8981-4c05-bcb9-7b22410723c5', 'edw_workspace_id': 'b3fbeaf7-ec67-4622-ba37-8d8bcb7e436a', 'edw_warehouse_id': 'd1786653-8981-4c05-bcb9-7b22410723c5', 'edw_lakehouse_id': '6adb67d6-c8eb-4612-9053-890cae3a55d7', 'edw_lakehouse_name': 'edw', 'legacy_synapse_connection_name': 'synapse_connection', 'synapse_export_shortcut_path_in_onelake': 'exports/', 'raw_workspace_id': 'b3fbeaf7-ec67-4622-ba37-8d8bcb7e436a', 'raw_datastore_id': 'b3e5c081-5a1f-4fdd-9232-afc2108c27f1'}
+# All variables as an object
+from dataclasses import dataclass
+@dataclass
+class ConfigsObject:
+    fabric_environment: str 
+    fabric_deployment_workspace_id: str 
+    synapse_source_database_1: str 
+    config_workspace_id: str 
+    config_workspace_name: str 
+    synapse_source_sql_connection: str 
+    config_lakehouse_name: str 
+    edw_warehouse_name: str 
+    config_lakehouse_id: str 
+    config_warehouse_id: str 
+    edw_workspace_id: str 
+    edw_warehouse_id: str 
+    edw_lakehouse_id: str 
+    edw_lakehouse_name: str 
+    legacy_synapse_connection_name: str 
+    synapse_export_shortcut_path_in_onelake: str 
+    raw_workspace_id: str 
+    raw_datastore_id: str 
+configs_object: ConfigsObject = ConfigsObject(**configs_dict)
+# variableLibraryInjectionEnd: var_lib
+
 
 
 # METADATA ********************
@@ -167,8 +215,21 @@ else:
 # CELL ********************
 
 
-
+target_lakehouse_config_prefix = "Config"
 configs: ConfigsObject = get_configs_as_object()
+target_warehouse_id = get_config_value(f"{target_lakehouse_config_prefix.lower()}_warehouse_id")
+target_workspace_id = get_config_value(f"{target_lakehouse_config_prefix.lower()}_workspace_id")
+
+du = ddl_utils(
+    target_workspace_id=target_workspace_id,
+    target_warehouse_id=target_warehouse_id,
+    notebookutils=notebookutils
+)
+
+wu = warehouse_utils(
+    target_workspace_id=target_workspace_id,
+    target_warehouse_id=target_warehouse_id
+)
 
 
 
@@ -182,92 +243,97 @@ configs: ConfigsObject = get_configs_as_object()
 
 # Add markdown content here
 
-# ## 🏃‍♂️‍➡️ Run All Warehouse DDL
+# ## 🏃‍♂️‍➡️ Run DDL Cells 
 
 # CELL ********************
 
-# Import required libraries
+
+# DDL cells are injected below:
+
+
+
+# METADATA ********************
+
+# META {
+# META   "language": "python",
+# META   "language_group": "jupyter_python"
+# META }
+
+# MARKDOWN ********************
+
+# ## 𝄜 Cell for 003_config_synapse_extract_objects_insert.sql
+
+# CELL ********************
+
+guid = "8ca9a21e16fc"
+def work():
+    sql = """
+
+-- Sample data for config_synapse_extract_objects - Warehouse version
+
+INSERT INTO config_synapse_extract_objects (
+    synapse_connection_name,
+    source_schema_name,
+    source_table_name,
+    extract_mode,
+    single_date_filter,
+    date_range_filter,
+    execution_group,
+    active_yn,
+    pipeline_id,
+    synapse_datasource_name,
+    synapse_datasource_location,
+    created_timestamp,
+    updated_timestamp
+) VALUES
+    ('SynapseConnection', 'dbo', 'DimCustomer', 'snapshot', NULL, NULL, 1, 'Y', '00000000-0000-0000-0000-000000000000', 'SynapseDatasource', 'https://onelake.dfs.fabric.microsoft.com/workspace/lakehouse/Files', GETUTCDATE(), GETUTCDATE()),
+    ('SynapseConnection', 'dbo', 'FactSales', 'incremental', 'WHERE DATE_SK = @date', 'WHERE DATE_SK BETWEEN @start_date AND @end_date', 2, 'Y', '00000000-0000-0000-0000-000000000000', 'SynapseDatasource', 'https://onelake.dfs.fabric.microsoft.com/workspace/lakehouse/Files', GETUTCDATE(), GETUTCDATE());
+
+    """
+
+    wu.execute_query(wu.get_connection(), sql)
+
+du.run_once(work,"003_config_synapse_extract_objects_insert", guid)
+
+
+
+
+
+
+# METADATA ********************
+
+# META {
+# META   "language": "python"
+# META }
+# MARKDOWN ********************
+
+# Add markdown content here
+
+# ## 📇 Print the execution log
+
+# CELL ********************
+
+
+du.print_log() 
+
+
+
+# METADATA ********************
+
+# META {
+# META   "language": "python"
+# META }
+# MARKDOWN ********************
+
+# Add markdown content here
+
+# ## ✔️ If we make it to the end return a successful result
+
+# CELL ********************
+
+
 import sys
-from datetime import datetime
-
-# Initialize variables
-success_count = 0
-failed_notebook = None
-start_time = datetime.now()
-
-# Define execution function
-def execute_notebook(notebook_name, index, total, timeout_seconds=3600):
-    """Execute a single notebook and handle success/failure."""
-    global success_count
-    
-    try:
-        
-        print(f"{'='*60}")
-        print(f"Executing notebook {index}/{total}:{notebook_name}")
-        print(f"{'='*60}")
-        params = {
-            "fabric_environment": configs.fabric_environment,
-            "config_workspace_id": configs.config_workspace_id,
-            "config_warehouse_id": configs.config_warehouse_id,
-            "target_warehouse_config_prefix": "",
-            'useRootDefaultWarehouse': True
-        }
-        
-        # Use notebook utils abstraction for cross-environment compatibility
-        result = notebookutils.mssparkutils.notebook.run(
-            notebook_name,
-            timeout_seconds,
-            params
-        )
-        
-        if (result == 'success'):
-            success_count += 1
-        else: 
-            raise Exception({"result": result}) 
-
-        print(f"✓ Successfully executed: {notebook_name}")
-        print(f"Exit value: {result}")
-        return True
-        
-    except Exception as e:
-        print(f"✗ Failed to execute: {notebook_name}")
-        print(f"Error: {str(e)}")
-        
-        # Stop execution on failure
-        error_msg = f"Orchestration stopped due to failure in notebook: {notebook_name}. Error: {str(e)}"
-        notebookutils.mssparkutils.notebook.exit(error_msg)
-        return False
-
-print(f"Starting orchestration for  warehouse")
-print(f"Start time: {start_time}")
-print(f"Total notebooks to execute: 6")
-print("="*60)
-execute_notebook("001_Initial_Creation_Config_Warehouses", 1, 6)
-execute_notebook("001_Initial_Creation_Ingestion_Config_Warehouses", 2, 6)
-execute_notebook("001_Initial_Creation_Synapse_Sync_Config_Warehouses", 3, 6)
-execute_notebook("002_Parquet_Load_Update_Config_Warehouses", 4, 6)
-execute_notebook("002_Sample_Data_Ingestion_Config_Warehouses", 5, 6)
-execute_notebook("002_Sample_Data_Synapse_Sync_Config_Warehouses", 6, 6)
-
-# Final Summary
-end_time = datetime.now()
-duration = end_time - start_time
-
-print(f"{'='*60}")
-print(f"Orchestration Complete!")
-print(f"{'='*60}")
-print(f"End time: {end_time}")
-print(f"Duration: {duration}")
-print(f"Total notebooks: 6")
-print(f"Successfully executed: {success_count}")
-print(f"Failed: 6 - {success_count}")
-
-if success_count == 6:
-    print("✓ All notebooks executed successfully!")
-    notebookutils.mssparkutils.notebook.exit("success")
-else:
-    print(f"✗ Orchestration completed with failures")
-    notebookutils.mssparkutils.notebook.exit(f"Orchestration completed with {success_count}/6 successful executions")
+sys.exit("success")
 
 # METADATA ********************
 

@@ -13,9 +13,9 @@ import logging
 import time
 import uuid
 from datetime import datetime
-from typing import Dict, List, Optional, Any
+from typing import Any, Dict, List, Optional
 
-from .synapse_extract_utils import SynapseExtractUtils
+from ingen_fab.python_libs.python.synapse_extract_utils import SynapseExtractUtils
 
 logger = logging.getLogger(__name__)
 
