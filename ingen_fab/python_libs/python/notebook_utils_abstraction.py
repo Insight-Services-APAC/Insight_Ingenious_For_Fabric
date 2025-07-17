@@ -8,6 +8,7 @@ local development environments and Fabric notebook execution environments.
 import logging
 import os
 from abc import ABC, abstractmethod
+from pathlib import Path
 from typing import Any, Dict, Optional
 
 from ingen_fab.python_libs.common.config_utils import get_configs_as_object
@@ -171,6 +172,61 @@ class LocalNotebookUtils(NotebookUtilsInterface):
     def is_available(self) -> bool:
         """Local utils are always available."""
         return True
+    
+    @property
+    def mssparkutils(self):
+        """Return a dummy mssparkutils for local development."""
+        class DummyMSSparkUtils:
+            class notebook:
+                @staticmethod
+                def exit(value: Any = None) -> None:
+                    """Exit method for local development."""
+                    return value
+                
+                @staticmethod
+                def run(name: Any = None, timeout: int = 60, params: dict = None) -> None:
+                    """Run the notebook in value."""
+                    # Search sample_project/fabric_workspace_items Find the directory of the notebook
+                    from ingen_fab.fabric_cicd.promotion_utils import (
+                        SyncToFabricEnvironment,
+                    )
+                    # Find the current working directory and navigate to the fabric_workspace_items root
+                    import os
+                    current_dir = Path(os.getcwd())
+                    
+                    # Navigate up to find fabric_workspace_items
+                    workspace_items_path = current_dir
+                    while workspace_items_path.name != "fabric_workspace_items" and workspace_items_path.parent != workspace_items_path:
+                        workspace_items_path = workspace_items_path.parent
+                    
+                    if workspace_items_path.name != "fabric_workspace_items":
+                        # Fallback using the path utilities
+                        from ingen_fab.utils.path_utils import PathUtils
+                        workspace_repo_dir = PathUtils.get_workspace_repo_dir()
+                        workspace_items_path = workspace_repo_dir / "fabric_workspace_items"
+                    
+                    print(f"DEBUG: Searching for notebooks in: {workspace_items_path}")
+                    pu = SyncToFabricEnvironment(str(workspace_items_path))
+                    folders = pu.find_platform_folders(workspace_items_path)
+                    # print each folder                    
+                    for folder in folders:
+                        # Check for exact match first, then with suffix
+                        if folder.name == name + ".Notebook" or folder.name.startswith(name + "_") and folder.name.endswith(".Notebook"):
+                            # Run the notebook-content.py file
+                            notebook_content_path = Path(folder.path) / "notebook-content.py"
+                            import importlib.util
+                            spec = importlib.util.spec_from_file_location("notebook_content", notebook_content_path)
+                            notebook_content = importlib.util.module_from_spec(spec)
+                            try:
+                                result = spec.loader.exec_module(notebook_content)
+                                return "success"  # Return success if notebook executes without error
+                            except Exception as e:
+                                logger.error(f"Error executing notebook {name}: {e}")
+                                return f"failed: {str(e)}"                          
+                            
+                        
+
+        return DummyMSSparkUtils()
 
 
 class NotebookUtilsFactory:

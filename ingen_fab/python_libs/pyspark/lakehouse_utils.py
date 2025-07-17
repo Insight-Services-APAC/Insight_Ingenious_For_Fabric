@@ -132,7 +132,10 @@ class lakehouse_utils(DataStoreInterface):
             # Use FABRIC_WORKSPACE_REPO_DIR for file access in local mode
             import os
             workspace_dir = os.environ.get('FABRIC_WORKSPACE_REPO_DIR', str(Path.cwd()))
-            return f"file:///{workspace_dir}/"
+            # Convert to absolute path if relative
+            if not os.path.isabs(workspace_dir):
+                workspace_dir = os.path.abspath(workspace_dir)
+            return f"file://{workspace_dir}/"
         else:
             return f"abfss://{self._target_workspace_id}@onelake.dfs.fabric.microsoft.com/{self._target_lakehouse_id}/Files/"
 
@@ -166,8 +169,7 @@ class lakehouse_utils(DataStoreInterface):
 
     def list_tables(self) -> list[str]:
         """List all tables in the lakehouse."""
-        return self.spark.catalog.listTables()
-        # return self.spark.sql("SHOW TABLES").collect()
+        return [row.tableName for row in self.spark.sql("SHOW TABLES").collect()]
 
     def drop_all_tables(
         self, schema_name: str | None = None, table_prefix: str | None = None
@@ -315,6 +317,7 @@ class lakehouse_utils(DataStoreInterface):
         schema: dict[str, Any] | None = None,
         mode: str = "overwrite",
         options: dict[str, Any] | None = None,
+        partition_by: list[str] | None = None,
     ) -> None:
         """
         Create a new table with a given schema.
@@ -324,6 +327,9 @@ class lakehouse_utils(DataStoreInterface):
         
         empty_df = self.get_connection.createDataFrame([], schema)
         writer = empty_df.write.format("delta").mode(mode)
+        
+        if partition_by:
+            writer = writer.partitionBy(*partition_by)
 
         if options:
             for k, v in options.items():

@@ -25,7 +25,7 @@ Guide to using and customizing project templates:
 
 ```bash
 # Create a new project
-ingen_fab init init-solution --project-name "Analytics Platform"
+ingen_fab init new --project-name "Analytics Platform"
 
 # Navigate to project directory
 cd analytics-platform

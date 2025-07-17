@@ -65,6 +65,10 @@
     {
       "name": "raw_datastore_id",
       "value": "local_raw_datastore"
+    },
+    {
+      "name": "config_warehouse_id",
+      "value": "local-config-warehouse-id"
     }
   ]
 }

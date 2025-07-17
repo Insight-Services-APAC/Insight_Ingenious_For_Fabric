@@ -39,7 +39,8 @@ class lakehouse_utils(DataStoreInterface):
         """Get the ABFSS URI for the lakehouse Tables directory."""
         if config_utils._is_local_environment():
             # Local environment uses file:// URI
-            return f"file:///tmp/{self._target_lakehouse_id}/Tables/"
+            # For local development, use the shared spark tables directory
+            return "file:////workspaces/ingen_fab/tmp/spark/Tables/"
         else:
             return f"abfss://{self._target_workspace_id}@onelake.dfs.fabric.microsoft.com/{self._target_lakehouse_id}/Tables/"
 
@@ -94,10 +95,44 @@ class lakehouse_utils(DataStoreInterface):
     def drop_all_tables(
         self, schema_name: str | None = None, table_prefix: str | None = None
     ) -> None:
-        """Drop all Delta tables in the lakehouse directory using delta-rs."""
-        # delta-rs does not provide a directory listing, so this is a stub.
-        # You would need to list directories in the Tables/ path using a filesystem API.
-        raise NotImplementedError("delta-rs does not support dropping all tables directly.")
+        """Drop all Delta tables in the lakehouse directory using filesystem operations."""
+        import shutil
+        from pathlib import Path
+        
+        # Get the tables directory path
+        tables_uri = self.lakehouse_tables_uri()
+        tables_path = Path(tables_uri.replace("file://", ""))
+        
+        # Check if the tables directory exists
+        if not tables_path.exists():
+            return
+        
+        # List all directories in the tables path
+        dropped_tables = []
+        for item in tables_path.iterdir():
+            if item.is_dir():
+                table_name = item.name
+                
+                # Apply table prefix filter if specified
+                if table_prefix and not table_name.startswith(table_prefix):
+                    continue
+                
+                # Check if it's a valid Delta table by looking for _delta_log directory
+                delta_log_path = item / "_delta_log"
+                if delta_log_path.exists():
+                    try:
+                        # Remove the entire table directory
+                        shutil.rmtree(str(item))
+                        dropped_tables.append(table_name)
+                    except Exception as e:
+                        # Continue dropping other tables even if one fails
+                        print(f"Warning: Failed to drop table {table_name}: {e}")
+                        continue
+        
+        if dropped_tables:
+            print(f"Successfully dropped {len(dropped_tables)} tables: {dropped_tables}")
+        else:
+            print("No tables found to drop")
 
     def execute_query(self, query: str) -> Any:
         """delta-rs does not support SQL queries directly."""
@@ -223,3 +258,88 @@ class lakehouse_utils(DataStoreInterface):
     ) -> None:
         """Perform cleanup/compaction on a table (delta-rs does not support this directly)."""
         raise NotImplementedError("delta-rs does not support vacuum directly.")
+
+    def read_file(
+        self,
+        file_path: str,
+        file_format: str,
+        options: dict[str, Any] | None = None,
+    ) -> Any:
+        """Read a file from the file system."""
+        import pandas as pd
+        
+        if file_format.lower() == "csv":
+            return pd.read_csv(file_path, **(options or {}))
+        elif file_format.lower() == "json":
+            return pd.read_json(file_path, **(options or {}))
+        elif file_format.lower() == "parquet":
+            return pd.read_parquet(file_path, **(options or {}))
+        else:
+            raise NotImplementedError(f"File format {file_format} not supported")
+
+    def write_file(
+        self,
+        df: Any,
+        file_path: str,
+        file_format: str,
+        options: dict[str, Any] | None = None,
+    ) -> None:
+        """Write a DataFrame to a file."""
+        if file_format.lower() == "csv":
+            df.to_csv(file_path, **(options or {}))
+        elif file_format.lower() == "json":
+            df.to_json(file_path, **(options or {}))
+        elif file_format.lower() == "parquet":
+            df.to_parquet(file_path, **(options or {}))
+        else:
+            raise NotImplementedError(f"File format {file_format} not supported")
+
+    def file_exists(self, file_path: str) -> bool:
+        """Check if a file exists."""
+        import os
+        return os.path.exists(file_path.replace("file://", ""))
+
+    def list_files(
+        self,
+        directory_path: str,
+        pattern: str | None = None,
+        recursive: bool = False,
+    ) -> list[str]:
+        """List files in a directory."""
+        import os
+        import glob
+        
+        dir_path = directory_path.replace("file://", "")
+        
+        if pattern:
+            if recursive:
+                return glob.glob(os.path.join(dir_path, "**", pattern), recursive=True)
+            else:
+                return glob.glob(os.path.join(dir_path, pattern))
+        else:
+            if recursive:
+                files = []
+                for root, dirs, filenames in os.walk(dir_path):
+                    for filename in filenames:
+                        files.append(os.path.join(root, filename))
+                return files
+            else:
+                return [os.path.join(dir_path, f) for f in os.listdir(dir_path) if os.path.isfile(os.path.join(dir_path, f))]
+
+    def get_file_info(self, file_path: str) -> dict[str, Any]:
+        """Get information about a file."""
+        import os
+        from datetime import datetime
+        
+        path = file_path.replace("file://", "")
+        if not os.path.exists(path):
+            raise FileNotFoundError(f"File not found: {file_path}")
+        
+        stat = os.stat(path)
+        return {
+            "size": stat.st_size,
+            "modified_time": datetime.fromtimestamp(stat.st_mtime),
+            "created_time": datetime.fromtimestamp(stat.st_ctime),
+            "is_file": os.path.isfile(path),
+            "is_directory": os.path.isdir(path),
+        }

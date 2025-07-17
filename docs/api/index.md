@@ -24,7 +24,7 @@ pip install insight-ingenious-for-fabric
 ingen_fab --help
 
 # Initialize new project
-ingen_fab init init-solution --project-name "My Project"
+ingen_fab init new --project-name "My Project"
 
 # Compile DDL scripts
 ingen_fab ddl compile --output-mode fabric_workspace_repo --generation-mode Warehouse

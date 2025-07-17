@@ -13,22 +13,17 @@
 # META   }
 # META }
 
-
+# MARKDOWN ********************
 
 # ## 『』Parameters
 
+
+# PARAMETERS CELL ********************
 
 
 # Default parameters
 # Add default parameters here
 
-
-# METADATA ********************
-
-# META {
-# META   "language": "python",
-# META   "language_group": "synapse_pyspark"
-# META }
 
 
 # METADATA ********************
@@ -50,7 +45,7 @@ import sys
 if "notebookutils" in sys.modules:
     import sys
     
-    notebookutils.fs.mount("abfss://{{varlib:config_workspace_name}}@onelake.dfs.fabric.microsoft.com/{{varlib:config_lakehouse_name}}.Lakehouse/Files/", "/config_files")  # type: ignore # noqa: F821
+    notebookutils.fs.mount("abfss://dev_jr@onelake.dfs.fabric.microsoft.com/config.Lakehouse/Files/", "/config_files")  # type: ignore # noqa: F821
     mount_path = notebookutils.fs.getMountPath("/config_files")  # type: ignore # noqa: F821
     
     run_mode = "fabric"
@@ -160,6 +155,51 @@ else:
 
 # Add markdown content here
 
+# ## ⚙️ Configuration Settings
+
+# CELL ********************
+
+
+# variableLibraryInjectionStart: var_lib
+
+# All variables as a dictionary
+configs_dict = {'fabric_environment': 'development_jr', 'fabric_deployment_workspace_id': 'b3fbeaf7-ec67-4622-ba37-8d8bcb7e436a', 'synapse_source_database_1': 'test1', 'config_workspace_id': 'b3fbeaf7-ec67-4622-ba37-8d8bcb7e436a', 'config_workspace_name': 'dev_jr', 'synapse_source_sql_connection': 'sansdaisyn-ondemand.sql.azuresynapse.net', 'config_lakehouse_name': 'config', 'edw_warehouse_name': 'edw', 'config_lakehouse_id': 'b3e5c081-5a1f-4fdd-9232-afc2108c27f1', 'config_warehouse_id': 'd1786653-8981-4c05-bcb9-7b22410723c5', 'edw_workspace_id': 'b3fbeaf7-ec67-4622-ba37-8d8bcb7e436a', 'edw_warehouse_id': 'd1786653-8981-4c05-bcb9-7b22410723c5', 'edw_lakehouse_id': '6adb67d6-c8eb-4612-9053-890cae3a55d7', 'edw_lakehouse_name': 'edw', 'legacy_synapse_connection_name': 'synapse_connection', 'synapse_export_shortcut_path_in_onelake': 'exports/', 'raw_workspace_id': 'b3fbeaf7-ec67-4622-ba37-8d8bcb7e436a', 'raw_datastore_id': 'b3e5c081-5a1f-4fdd-9232-afc2108c27f1'}
+# All variables as an object
+from dataclasses import dataclass
+@dataclass
+class ConfigsObject:
+    fabric_environment: str 
+    fabric_deployment_workspace_id: str 
+    synapse_source_database_1: str 
+    config_workspace_id: str 
+    config_workspace_name: str 
+    synapse_source_sql_connection: str 
+    config_lakehouse_name: str 
+    edw_warehouse_name: str 
+    config_lakehouse_id: str 
+    config_warehouse_id: str 
+    edw_workspace_id: str 
+    edw_warehouse_id: str 
+    edw_lakehouse_id: str 
+    edw_lakehouse_name: str 
+    legacy_synapse_connection_name: str 
+    synapse_export_shortcut_path_in_onelake: str 
+    raw_workspace_id: str 
+    raw_datastore_id: str 
+configs_object: ConfigsObject = ConfigsObject(**configs_dict)
+# variableLibraryInjectionEnd: var_lib
+
+
+
+# METADATA ********************
+
+# META {
+# META   "language": "python"
+# META }
+# MARKDOWN ********************
+
+# Add markdown content here
+
 # ## 🆕 Instantiate Required Classes 
 
 # CELL ********************
@@ -183,12 +223,14 @@ du = ddl_utils(
 )
 
 from pyspark.sql.types import (
+    DateType,
+    DoubleType,
     IntegerType,
+    LongType,
     StringType,
     StructField,
     StructType,
-    TimestampType,
-    LongType
+    TimestampType
 )
 
 
@@ -294,6 +336,58 @@ def script_to_execute():
 
 # MARKDOWN ********************
 
+# ## 📄 Cell for 001_config_synapse_extract_objects_create.py
+
+# CELL ********************
+
+guid="9278a7677589"
+object_name = "001_config_synapse_extract_objects_create"
+
+def script_to_execute():
+    # Configuration table for synapse extract objects - Lakehouse version
+    
+    # Define schema for the table
+    schema = StructType([
+        StructField("synapse_connection_name", StringType(), False),
+        StructField("source_schema_name", StringType(), False),
+        StructField("source_table_name", StringType(), False),
+        StructField("extract_mode", StringType(), False),
+        StructField("single_date_filter", StringType(), True),
+        StructField("date_range_filter", StringType(), True),
+        StructField("execution_group", IntegerType(), False),
+        StructField("active_yn", StringType(), False),
+        StructField("pipeline_id", StringType(), False),
+        StructField("synapse_datasource_name", StringType(), False),
+        StructField("synapse_datasource_location", StringType(), False)
+    ])
+    
+    target_lakehouse.create_table(
+        table_name="config_synapse_extract_objects",
+        schema=schema,
+        mode="overwrite",
+        options={
+            "parquet.vorder.default": "true",
+            "overwriteSchema": "true"
+        }
+    )
+    
+
+du.run_once(script_to_execute, "001_config_synapse_extract_objects_create","9278a7677589")
+
+def script_to_execute():
+    print("Script block is empty. No action taken.")
+
+
+
+# METADATA ********************
+
+# META {
+# META   "language": "python",
+# META   "language_group": "synapse_pyspark"
+# META }
+
+# MARKDOWN ********************
+
 # ## 📄 Cell for 002_log_flat_file_ingestion_create.py
 
 # CELL ********************
@@ -347,6 +441,70 @@ def script_to_execute():
     
 
 du.run_once(script_to_execute, "002_log_flat_file_ingestion_create","af23899189d1")
+
+def script_to_execute():
+    print("Script block is empty. No action taken.")
+
+
+
+# METADATA ********************
+
+# META {
+# META   "language": "python",
+# META   "language_group": "synapse_pyspark"
+# META }
+
+# MARKDOWN ********************
+
+# ## 📄 Cell for 002_log_synapse_extract_run_log_create.py
+
+# CELL ********************
+
+guid="fa2b6f874122"
+object_name = "002_log_synapse_extract_run_log_create"
+
+def script_to_execute():
+    # Log table for synapse extract run log - Lakehouse version
+    
+    # Define schema for the table
+    schema = StructType([
+        StructField("master_execution_id", StringType(), True),
+        StructField("execution_id", StringType(), True),
+        StructField("pipeline_job_id", StringType(), True),
+        StructField("execution_group", IntegerType(), True),
+        StructField("master_execution_parameters", StringType(), True),
+        StructField("trigger_type", StringType(), True),
+        StructField("config_synapse_connection_name", StringType(), True),
+        StructField("source_schema_name", StringType(), True),
+        StructField("source_table_name", StringType(), True),
+        StructField("extract_mode", StringType(), True),
+        StructField("extract_start_dt", DateType(), True),
+        StructField("extract_end_dt", DateType(), True),
+        StructField("partition_clause", StringType(), True),
+        StructField("output_path", StringType(), True),
+        StructField("extract_file_name", StringType(), True),
+        StructField("external_table", StringType(), True),
+        StructField("start_timestamp", TimestampType(), True),
+        StructField("end_timestamp", TimestampType(), True),
+        StructField("duration_sec", DoubleType(), True),
+        StructField("status", StringType(), True),
+        StructField("error_messages", StringType(), True),
+        StructField("end_timestamp_int", LongType(), True)
+    ])
+    
+    target_lakehouse.create_table(
+        table_name="log_synapse_extract_run_log",
+        schema=schema,
+        mode="overwrite",
+        partition_by=["master_execution_id"],
+        options={
+            "parquet.vorder.default": "true",
+            "overwriteSchema": "true"
+        }
+    )
+    
+
+du.run_once(script_to_execute, "002_log_synapse_extract_run_log_create","fa2b6f874122")
 
 def script_to_execute():
     print("Script block is empty. No action taken.")

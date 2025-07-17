@@ -12,100 +12,98 @@ Before starting, ensure you have:
 
 ## Step 1: Initialize Your First Project
 
-Create a new project directory and initialize it:
+Create a new project with the complete starter template:
 
 ```bash
-# Create and navigate to your project directory
-mkdir my-fabric-project
-cd my-fabric-project
+# Initialize the project with complete template
+ingen_fab init new --project-name "My First Fabric Project"
 
-# Initialize the project
-ingen_fab init init-solution --project-name "My First Fabric Project"
+# Navigate to the created project
+cd "My First Fabric Project"
 ```
 
-This creates the following structure:
+This creates the following structure with complete starter files:
 ```
-my-fabric-project/
-├── ddl_scripts/              # Your DDL scripts go here
-├── fabric_workspace_items/   # Generated Fabric artifacts
-├── diagrams/                 # Architecture diagrams
-└── platform_manifest_*.yml  # Environment configurations
+My First Fabric Project/
+├── ddl_scripts/                    # Sample DDL scripts included
+│   ├── Lakehouses/Sample/         # Python DDL scripts for Delta tables
+│   └── Warehouses/Sample/         # SQL DDL scripts for warehouses
+├── fabric_workspace_items/        # Complete Fabric workspace structure
+│   ├── config/var_lib.VariableLibrary/  # Pre-configured variable library
+│   ├── lakehouses/                # Sample lakehouse definitions
+│   └── warehouses/                # Sample warehouse definitions
+├── platform_manifest_*.yml       # Environment deployment tracking
+└── README.md                      # Complete setup instructions
 ```
 
 ## Step 2: Configure Your Environment
 
-Edit the variable library with your Fabric workspace details:
+Set up environment variables and configure your workspace details:
 
 ```bash
+# Set up environment variables
+export FABRIC_WORKSPACE_REPO_DIR="./My First Fabric Project"
+export FABRIC_ENVIRONMENT="development"
+
 # Edit the development environment variables
 vim fabric_workspace_items/config/var_lib.VariableLibrary/valueSets/development.json
 ```
 
-Update the configuration with your workspace IDs:
+Replace the placeholder values with your actual workspace IDs:
 
 ```json
 {
-  "fabric_environment": "development",
-  "config_workspace_id": "your-workspace-guid",
-  "config_lakehouse_id": "your-lakehouse-guid",
-  "edw_workspace_id": "your-workspace-guid",
-  "edw_lakehouse_id": "your-lakehouse-guid",
-  "edw_warehouse_id": "your-warehouse-guid"
+  "name": "development",
+  "variableOverrides": [
+    {
+      "name": "fabric_environment",
+      "value": "development"
+    },
+    {
+      "name": "fabric_deployment_workspace_id",
+      "value": "your-workspace-guid"  // ← Replace this
+    },
+    {
+      "name": "config_workspace_id",
+      "value": "your-config-workspace-guid"  // ← Replace this
+    },
+    {
+      "name": "config_lakehouse_id",
+      "value": "your-config-lakehouse-guid"  // ← Replace this
+    },
+    {
+      "name": "sample_lakehouse_id",
+      "value": "your-sample-lakehouse-guid"  // ← Replace this
+    }
+  ]
 }
 ```
 
 !!! tip "Finding Your Workspace IDs"
     You can find workspace and lakehouse IDs in the Microsoft Fabric portal URL when you navigate to your workspace or lakehouse.
 
-## Step 3: Create Your First DDL Script
+## Step 3: Explore the Sample DDL Scripts
 
-Create a simple DDL script to set up a configuration table:
+The project template includes sample DDL scripts to get you started. Take a look at what's included:
 
 ```bash
-# Create the DDL script directory
-mkdir -p ddl_scripts/Lakehouses/Config/001_Initial_Setup
+# View the sample Lakehouse DDL script
+cat ddl_scripts/Lakehouses/Sample/001_Initial_Creation/001_sample_customer_table_create.py
 
-# Create your first DDL script
-cat > ddl_scripts/Lakehouses/Config/001_Initial_Setup/001_create_config_table.py << 'EOF'
-# Create configuration table for the project
-from lakehouse_utils import LakehouseUtils
-from ddl_utils import DDLUtils
-
-# Initialize utilities
-lakehouse_utils = LakehouseUtils()
-ddl_utils = DDLUtils()
-
-# Create the configuration table
-sql_create_table = """
-CREATE TABLE IF NOT EXISTS config.project_metadata (
-    id BIGINT,
-    project_name STRING,
-    environment STRING,
-    created_date TIMESTAMP,
-    last_updated TIMESTAMP
-) USING DELTA
-LOCATION 'Tables/config/project_metadata'
-"""
-
-# Execute the DDL
-ddl_utils.execute_ddl(sql_create_table, "Create project metadata table")
-
-# Insert initial configuration
-sql_insert_config = """
-INSERT INTO config.project_metadata VALUES (
-    1,
-    'My First Fabric Project',
-    'development',
-    current_timestamp(),
-    current_timestamp()
-)
-"""
-
-ddl_utils.execute_ddl(sql_insert_config, "Insert initial project metadata")
-
-print("✅ Project configuration table created successfully!")
-EOF
+# View the sample Warehouse DDL script  
+cat ddl_scripts/Warehouses/Sample/001_Initial_Creation/001_sample_customer_table_create.sql
 ```
+
+The sample scripts create a customer table and insert sample data. You can:
+- **Use them as-is** to test the workflow
+- **Modify them** for your data model
+- **Create additional scripts** following the same pattern
+
+!!! tip "DDL Script Conventions"
+    - Scripts are executed in alphabetical order by filename
+    - Use numbered prefixes (001_, 002_, etc.) to control execution order
+    - Lakehouse scripts use Python with Spark SQL
+    - Warehouse scripts use T-SQL syntax
 
 ## Step 4: Generate DDL Notebooks
 

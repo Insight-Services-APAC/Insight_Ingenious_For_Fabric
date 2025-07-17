@@ -12,7 +12,8 @@ dependencies = [
     "pandas>=2.3.0",
     "deltalake==1.0.2",
     "pyarrow==20.0.0",
-    "fabric_cicd @ https://github.com/jrampono/fabric-cicd/archive/refs/tags/v0.0.1.tar.gz"
+    "fabric_cicd @ https://github.com/jrampono/fabric-cicd/archive/refs/tags/v0.0.1.tar.gz",
+    "azure-storage-file-datalake==12.20.0"
 ]
 
 [dependency-groups]
@@ -31,7 +32,7 @@ dev = [
     "delta-spark==4.0.0",
     "pytest-clarity==1.0.1",
     "pytest-sugar==1.0.0",
-    "azure-storage-file-datalake==12.20.0"
+    "nest-asyncio==1.6.0"
 ]
 
 docs = [
@@ -75,7 +76,7 @@ where = ["."]
 include = ["ingen_fab*"]
 
 [tool.setuptools.package-data]
-ingen_fab = ["**/*.json", "**/*.jinja", "**/*.jinja2"]
+ingen_fab = ["**/*.json", "**/*.jinja", "**/*.jinja2", "**/*.sql", "**/*.py", "**/*.md", "**/*.yml", "**/*.yaml", "**/.platform", "project_templates/**/*.txt", "project_templates/**/.gitignore"]
 
 [project.scripts]
 ingen_fab = "ingen_fab.cli:app"
