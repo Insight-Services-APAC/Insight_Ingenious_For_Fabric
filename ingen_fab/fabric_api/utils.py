@@ -1,5 +1,5 @@
-from typing import Optional
 from pathlib import Path
+from typing import Optional
 
 import requests
 from azure.identity import DefaultAzureCredential
@@ -13,13 +13,17 @@ class FabricApiUtils:
     """
 
     def __init__(
-        self, environment: str, project_path: Path, *, credential: Optional[DefaultAzureCredential] = None
+        self, environment: str, project_path: Path, *, credential: Optional[DefaultAzureCredential] = None, workspace_id: Optional[str] = None
     ) -> None:
         self.environment = environment
         self.project_path = project_path
         self.credential = credential or DefaultAzureCredential()
         self.base_url = "https://api.fabric.microsoft.com/v1/workspaces"
-        self.workspace_id = self._get_workspace_id()
+        # Only get workspace_id from variable library if not provided
+        if workspace_id:
+            self.workspace_id = workspace_id
+        else:
+            self.workspace_id = self._get_workspace_id()
         
 
     def _get_token(self) -> str:
@@ -221,4 +225,99 @@ class FabricApiUtils:
         print(f"SQL Endpoint: {sql_endpoint}")
 
         return sql_endpoint
+    
+    def create_workspace(self, workspace_name: str, description: Optional[str] = None) -> str:
+        """
+        Create a new Fabric workspace and return its ID.
+        
+        Args:
+            workspace_name: Name of the workspace to create
+            description: Optional description for the workspace
+            
+        Returns:
+            The ID of the created workspace
+            
+        Raises:
+            Exception: If workspace creation fails
+        """
+        headers = {
+            "Authorization": f"Bearer {self._get_token()}",
+            "Content-Type": "application/json",
+        }
+        
+        # Prepare the workspace creation payload
+        create_payload = {
+            "displayName": workspace_name,
+            "description": description or "Workspace created by Ingenious Fabric Accelerator"
+        }
+        
+        create_url = "https://api.fabric.microsoft.com/v1/workspaces"
+        
+        response = requests.post(create_url, json=create_payload, headers=headers)
+        
+        if response.status_code == 201:
+            workspace_data = response.json()
+            workspace_id = workspace_data.get('id')
+            if workspace_id:
+                return workspace_id
+            else:
+                raise Exception("Workspace created but ID not found in response")
+        elif response.status_code == 409:
+            raise Exception(f"Workspace '{workspace_name}' already exists")
+        else:
+            error_msg = f"Failed to create workspace. Status: {response.status_code}"
+            try:
+                error_detail = response.json()
+                if 'error' in error_detail:
+                    error_msg += f", Error: {error_detail['error']}"
+            except (ValueError, KeyError):
+                error_msg += f", Response: {response.text}"
+            
+            raise Exception(f"Workspace creation failed: {error_msg}")
+    
+    def list_lakehouses(self, workspace_id: str) -> list[dict]:
+        """
+        List all lakehouses in a workspace.
+        
+        Args:
+            workspace_id: The ID of the workspace
+            
+        Returns:
+            List of lakehouse dictionaries with 'id', 'displayName', and other properties
+        """
+        headers = {
+            "Authorization": f"Bearer {self._get_token()}",
+            "Content-Type": "application/json",
+        }
+        
+        url = f"{self.base_url}/{workspace_id}/items?type=Lakehouse"
+        response = requests.get(url, headers=headers)
+        
+        if response.status_code == 200:
+            return response.json().get("value", [])
+        else:
+            raise Exception(f"Failed to list lakehouses: {response.status_code} - {response.text}")
+    
+    def list_warehouses(self, workspace_id: str) -> list[dict]:
+        """
+        List all warehouses in a workspace.
+        
+        Args:
+            workspace_id: The ID of the workspace
+            
+        Returns:
+            List of warehouse dictionaries with 'id', 'displayName', and other properties
+        """
+        headers = {
+            "Authorization": f"Bearer {self._get_token()}",
+            "Content-Type": "application/json",
+        }
+        
+        url = f"{self.base_url}/{workspace_id}/items?type=Warehouse"
+        response = requests.get(url, headers=headers)
+        
+        if response.status_code == 200:
+            return response.json().get("value", [])
+        else:
+            raise Exception(f"Failed to list warehouses: {response.status_code} - {response.text}")
 

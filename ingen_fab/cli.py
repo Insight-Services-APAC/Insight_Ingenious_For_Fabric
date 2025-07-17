@@ -15,6 +15,7 @@ from ingen_fab.cli_utils import (
 )
 from ingen_fab.cli_utils.console_styles import ConsoleStyles
 from ingen_fab.ddl_scripts.notebook_generator import NotebookGenerator
+from ingen_fab.utils.path_utils import PathUtils
 
 console = Console()
 console_styles = ConsoleStyles()
@@ -30,6 +31,7 @@ test_platform_app = typer.Typer()
 notebook_app = typer.Typer()
 package_app = typer.Typer()
 ingest_app = typer.Typer()
+synapse_app = typer.Typer()
 libs_app = typer.Typer()
 
 # Add sub-apps to main app
@@ -94,6 +96,10 @@ def main(
         ),
     ] = None,
 ):
+    # Track if values came from environment variables or defaults
+    fabric_workspace_repo_dir_source = "option"
+    fabric_environment_source = "option"
+    
     if fabric_workspace_repo_dir is None:
         env_val = os.environ.get("FABRIC_WORKSPACE_REPO_DIR")
         if env_val:
@@ -101,16 +107,62 @@ def main(
                 console,
                 "Falling back to FABRIC_WORKSPACE_REPO_DIR environment variable.",
             )
-        fabric_workspace_repo_dir = (
-            Path(env_val) if env_val else Path("./sample_project")
-        )
+            fabric_workspace_repo_dir = Path(env_val)
+            fabric_workspace_repo_dir_source = "env"
+        else:
+            fabric_workspace_repo_dir = PathUtils.get_workspace_repo_dir()
+            fabric_workspace_repo_dir_source = "default"
+    
     if fabric_environment is None:
         env_val = os.environ.get("FABRIC_ENVIRONMENT")
         if env_val:
             console_styles.print_warning(
                 console, "Falling back to FABRIC_ENVIRONMENT environment variable."
             )
-        fabric_environment = Path(env_val) if env_val else Path("development")
+            fabric_environment = Path(env_val)
+            fabric_environment_source = "env"
+        else:
+            fabric_environment = Path("development")
+            fabric_environment_source = "default"
+
+    # Skip validation for init new command and help
+    # Note: We need to check the command path to differentiate between init subcommands
+    import sys
+    skip_validation = (
+        ctx.invoked_subcommand is None or
+        (ctx.params and ctx.params.get("help")) or
+        (ctx.invoked_subcommand == "init" and len(sys.argv) > 2 and sys.argv[2] == "new")
+    )
+    
+    if not skip_validation:
+        # Validate that both fabric_environment and fabric_workspace_repo_dir are explicitly set
+        if fabric_environment_source == "default":
+            console_styles.print_error(
+                console, "❌ FABRIC_ENVIRONMENT must be set. Use --fabric-environment or set the FABRIC_ENVIRONMENT environment variable."
+            )
+            raise typer.Exit(code=1)
+        
+        if fabric_workspace_repo_dir_source == "default":
+            console_styles.print_error(
+                console, "❌ FABRIC_WORKSPACE_REPO_DIR must be set. Use --fabric-workspace-repo-dir or set the FABRIC_WORKSPACE_REPO_DIR environment variable."
+            )
+            raise typer.Exit(code=1)
+        
+        # Validate that fabric_workspace_repo_dir exists
+        if not fabric_workspace_repo_dir.exists():
+            console_styles.print_error(
+                console, f"❌ Fabric workspace repository directory does not exist: {fabric_workspace_repo_dir}"
+            )
+            console_styles.print_info(
+                console, "💡 Use 'ingen_fab init new --project-name <name>' to create a new project."
+            )
+            raise typer.Exit(code=1)
+        
+        if not fabric_workspace_repo_dir.is_dir():
+            console_styles.print_error(
+                console, f"❌ Fabric workspace repository path is not a directory: {fabric_workspace_repo_dir}"
+            )
+            raise typer.Exit(code=1)
 
     console_styles.print_info(
         console, f"Using Fabric workspace repo directory: {fabric_workspace_repo_dir}"
@@ -163,12 +215,22 @@ def compile(
 # Initialize commands
 
 
-@init_app.command()
+@init_app.command("new")
 def init_solution(
-    project_name: Annotated[str, typer.Option(...)] = "",
-    path: Annotated[Path, typer.Option("--path")] = Path("."),
+    project_name: Annotated[str | None, typer.Option("--project-name", "-p", help="Name of the project to create")] = None,
+    path: Annotated[Path, typer.Option("--path", help="Base path where the project will be created")] = Path("."),
 ):
     init_commands.init_solution(project_name, path)
+
+
+@init_app.command("workspace")
+def init_workspace(
+    ctx: typer.Context,
+    workspace_name: Annotated[str, typer.Option("--workspace-name", "-w", help="Name of the Fabric workspace to lookup and configure")],
+    create_if_not_exists: Annotated[bool, typer.Option("--create-if-not-exists", "-c", help="Create the workspace if it doesn't exist")] = False,
+):
+    """Initialize workspace configuration by looking up workspace ID from name."""
+    init_commands.init_workspace(ctx, workspace_name, create_if_not_exists)
 
 
 # Deploy commands
@@ -181,25 +243,24 @@ def deploy(ctx: typer.Context):
 
 @deploy_app.command()
 def delete_all(
-    environment: Annotated[str, typer.Option("--environment", "-e")] = "development",
+    ctx: typer.Context,
     force: Annotated[bool, typer.Option("--force", "-f")] = False,
 ):
-    workspace_commands.delete_workspace_items(environment, force)
+    workspace_commands.delete_workspace_items(
+        environment=ctx.obj['fabric_environment'],
+        project_path=ctx.obj['fabric_workspace_repo_dir'],
+        force=force
+    )
 
 
 @deploy_app.command()
 def upload_python_libs(
-    environment: Annotated[
-        str, typer.Option("--environment", "-e", help="Fabric environment name")
-    ] = "development_jr",
-    project_path: Annotated[
-        str, typer.Option("--project-path", "-p", help="Project path")
-    ] = "sample_project",
+    ctx: typer.Context
 ):
     """Upload python_libs directory to Fabric config lakehouse using OneLakeUtils."""
     deploy_commands.upload_python_libs_to_config_lakehouse(
-        environment=environment,
-        project_path=project_path,
+        environment=ctx.obj['fabric_environment'],
+        project_path=ctx.obj['fabric_workspace_repo_dir'],
         console=console,
     )
 
@@ -361,6 +422,12 @@ package_app.add_typer(
     help="Commands for flat file ingestion package.",
 )
 
+package_app.add_typer(
+    synapse_app,
+    name="synapse",
+    help="Commands for synapse sync package.",
+)
+
 
 @ingest_app.command("compile")
 def ingest_app_compile(
@@ -416,6 +483,71 @@ def run(
     console.print(f"[blue]Running flat file ingestion...[/blue]")
     console.print(f"Config ID: {config_id}")
     console.print(f"Execution Group: {execution_group}")
+    console.print(f"Environment: {environment}")
+    console.print(f"Fabric Workspace Repo Dir: {ctx.obj['fabric_workspace_repo_dir']}")
+    
+    console.print("[yellow]Note: This command would typically execute the compiled notebook with the specified parameters.[/yellow]")
+    console.print("[yellow]In a production environment, this would submit the notebook to Fabric for execution.[/yellow]")
+
+
+@synapse_app.command("compile")
+def synapse_app_compile(
+    ctx: typer.Context,
+    template_vars: Annotated[str, typer.Option("--template-vars", "-t", help="JSON string of template variables")] = None,
+    include_samples: Annotated[bool, typer.Option("--include-samples", "-s", help="Include sample data DDL and files")] = False,
+):
+    """Compile synapse sync package templates and DDL scripts."""
+    import json
+
+    from ingen_fab.packages.synapse_sync.synapse_sync import (
+        compile_synapse_sync_package,
+    )
+    
+    # Parse template variables if provided
+    vars_dict = {}
+    if template_vars:
+        try:
+            vars_dict = json.loads(template_vars)
+        except json.JSONDecodeError as e:
+            console.print(f"[red]Error parsing template variables: {e}[/red]")
+            raise typer.Exit(code=1)
+    
+    # Get fabric workspace repo directory from context
+    fabric_workspace_repo_dir = str(ctx.obj["fabric_workspace_repo_dir"])
+    
+    try:
+        results = compile_synapse_sync_package(
+            fabric_workspace_repo_dir=fabric_workspace_repo_dir,
+            template_vars=vars_dict,
+            include_samples=include_samples
+        )
+        
+        if results["success"]:
+            console.print("[green]✓ Synapse sync package compiled successfully![/green]")
+        else:
+            console.print(f"[red]✗ Compilation failed: {results['errors']}[/red]")
+            raise typer.Exit(code=1)
+            
+    except Exception as e:
+        console.print(f"[red]Error compiling package: {e}[/red]")
+        raise typer.Exit(code=1)
+
+
+@synapse_app.command()
+def run(
+    ctx: typer.Context,
+    master_execution_id: Annotated[str, typer.Option("--master-execution-id", "-m", help="Master execution ID")] = "",
+    work_items_json: Annotated[str, typer.Option("--work-items-json", "-w", help="JSON string of work items for historical mode")] = "",
+    max_concurrency: Annotated[int, typer.Option("--max-concurrency", "-c", help="Maximum concurrency level")] = 10,
+    include_snapshots: Annotated[bool, typer.Option("--include-snapshots", "-s", help="Include snapshot tables")] = True,
+    environment: Annotated[str, typer.Option("--environment", "-e", help="Environment name")] = "development",
+):
+    """Run synapse sync extraction for specified configuration."""
+    console.print(f"[blue]Running synapse sync extraction...[/blue]")
+    console.print(f"Master Execution ID: {master_execution_id}")
+    console.print(f"Work Items JSON: {work_items_json}")
+    console.print(f"Max Concurrency: {max_concurrency}")
+    console.print(f"Include Snapshots: {include_snapshots}")
     console.print(f"Environment: {environment}")
     console.print(f"Fabric Workspace Repo Dir: {ctx.obj['fabric_workspace_repo_dir']}")
     

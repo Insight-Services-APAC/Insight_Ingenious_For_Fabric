@@ -1,0 +1,11 @@
+{
+  "$schema": "https://developer.microsoft.com/json-schemas/fabric/gitIntegration/platformProperties/2.0.0/schema.json",
+  "metadata": {
+    "type": "Notebook",
+    "displayName": "002_Sample_Data_Synapse_Sync_Config_Lakehouses_ddl_scripts"
+  },
+  "config": {
+    "version": "2.0",
+    "logicalId": "1b0910fe-be81-4d3b-afac-b7ca2c04d6b7"
+  }
+}

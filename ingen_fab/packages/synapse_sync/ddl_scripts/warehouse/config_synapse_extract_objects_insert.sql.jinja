@@ -1,0 +1,19 @@
+-- Sample data for config_synapse_extract_objects - Warehouse version
+
+INSERT INTO config_synapse_extract_objects (
+    synapse_connection_name,
+    source_schema_name,
+    source_table_name,
+    extract_mode,
+    single_date_filter,
+    date_range_filter,
+    execution_group,
+    active_yn,
+    pipeline_id,
+    synapse_datasource_name,
+    synapse_datasource_location,
+    created_timestamp,
+    updated_timestamp
+) VALUES
+    ('SynapseConnection', 'dbo', 'DimCustomer', 'snapshot', NULL, NULL, 1, 'Y', '00000000-0000-0000-0000-000000000000', 'SynapseDatasource', 'https://onelake.dfs.fabric.microsoft.com/workspace/lakehouse/Files', GETUTCDATE(), GETUTCDATE()),
+    ('SynapseConnection', 'dbo', 'FactSales', 'incremental', 'WHERE DATE_SK = @date', 'WHERE DATE_SK BETWEEN @start_date AND @end_date', 2, 'Y', '00000000-0000-0000-0000-000000000000', 'SynapseDatasource', 'https://onelake.dfs.fabric.microsoft.com/workspace/lakehouse/Files', GETUTCDATE(), GETUTCDATE());

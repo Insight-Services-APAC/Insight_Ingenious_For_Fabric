@@ -14,19 +14,18 @@
 
 
 
+# MARKDOWN ********************
+
 # ## 『』Parameters
+
+
+# PARAMETERS CELL ********************
 
 
 
 # Default parameters  
 # Add default parameters here
 
-
-# METADATA ********************
-
-# META {
-# META   "language": "python"
-# META }
 
 
 # METADATA ********************
@@ -48,7 +47,7 @@ import sys
 if "notebookutils" in sys.modules:
     import sys
     
-    notebookutils.fs.mount("abfss://{{varlib:config_workspace_name}}@onelake.dfs.fabric.microsoft.com/{{varlib:config_lakehouse_name}}.Lakehouse/Files/", "/config_files")  # type: ignore # noqa: F821
+    notebookutils.fs.mount("abfss://dev_jr@onelake.dfs.fabric.microsoft.com/config.Lakehouse/Files/", "/config_files")  # type: ignore # noqa: F821
     mount_path = notebookutils.fs.getMountPath("/config_files")  # type: ignore # noqa: F821
     
     run_mode = "fabric"
@@ -133,13 +132,13 @@ clear_module_cache("ingen_fab")
 
 
 if run_mode == "local":
-    from ingen_fab.python_libs.common.config_utils.py import *
+    from ingen_fab.python_libs.common.config_utils import *
     from ingen_fab.python_libs.python.lakehouse_utils import lakehouse_utils
     from ingen_fab.python_libs.python.ddl_utils import ddl_utils
     from ingen_fab.python_libs.python.notebook_utils_abstraction import NotebookUtilsFactory
-    from ingen_fab.python_libs.python.sql_templates import sql_templates
+    from ingen_fab.python_libs.python.sql_templates import SQLTemplates
     from ingen_fab.python_libs.python.warehouse_utils import warehouse_utils
-    from ingen_fab.python_libs.python.pipeline_utils import pipeline_utils
+    from ingen_fab.python_libs.python.pipeline_utils import PipelineUtils
     notebookutils = NotebookUtilsFactory.create_instance() 
 else:
     files_to_load = [
@@ -183,17 +182,15 @@ configs: ConfigsObject = get_configs_as_object()
 
 # Add markdown content here
 
-# ## 🏃‍♂️‍➡️ Run All Lakehouse DDL
+# ## 🏃‍♂️‍➡️ Run All Warehouse DDL
 
 # CELL ********************
 
 # Import required libraries
-from notebookutils import mssparkutils
 import sys
 from datetime import datetime
 
 # Initialize variables
-workspace_id = mssparkutils.runtime.context.get("currentWorkspaceId")
 success_count = 0
 failed_notebook = None
 start_time = datetime.now()
@@ -209,14 +206,15 @@ def execute_notebook(notebook_name, index, total, timeout_seconds=3600):
         print(f"Executing notebook {index}/{total}:{notebook_name}")
         print(f"{'='*60}")
         params = {
-            "fabric_environment": fabric_environment,
-            "config_workspace_id": config_workspace_id,
-            "config_lakehouse_id": config_lakehouse_id,
-            "target_lakehouse_config_prefix": target_lakehouse_config_prefix,
-            'useRootDefaultLakehouse': True
+            "fabric_environment": configs.fabric_environment,
+            "config_workspace_id": configs.config_workspace_id,
+            "config_warehouse_id": configs.config_warehouse_id,
+            "target_warehouse_config_prefix": "",
+            'useRootDefaultWarehouse': True
         }
-        # Run the notebook
-        result = mssparkutils.notebook.run(
+        
+        # Use notebook utils abstraction for cross-environment compatibility
+        result = notebookutils.mssparkutils.notebook.run(
             notebook_name,
             timeout_seconds,
             params
@@ -237,18 +235,19 @@ def execute_notebook(notebook_name, index, total, timeout_seconds=3600):
         
         # Stop execution on failure
         error_msg = f"Orchestration stopped due to failure in notebook: {notebook_name}. Error: {str(e)}"
-        mssparkutils.notebook.exit(error_msg)
+        notebookutils.mssparkutils.notebook.exit(error_msg)
         return False
 
-print(f"Starting orchestration for Config lakehouse")
+print(f"Starting orchestration for  warehouse")
 print(f"Start time: {start_time}")
-print(f"Workspace ID: {workspace_id}")
-print(f"Total notebooks to execute: 4")
+print(f"Total notebooks to execute: 6")
 print("="*60)
-execute_notebook("001_Initial_Creation_Config_Warehouses", 1, 4)
-execute_notebook("001_Initial_Creation_Ingestion_Config_Warehouses", 2, 4)
-execute_notebook("002_Parquet_Load_Update_Config_Warehouses", 3, 4)
-execute_notebook("002_Sample_Data_Ingestion_Config_Warehouses", 4, 4)
+execute_notebook("001_Initial_Creation_Config_Warehouses", 1, 6)
+execute_notebook("001_Initial_Creation_Ingestion_Config_Warehouses", 2, 6)
+execute_notebook("001_Initial_Creation_Synapse_Sync_Config_Warehouses", 3, 6)
+execute_notebook("002_Parquet_Load_Update_Config_Warehouses", 4, 6)
+execute_notebook("002_Sample_Data_Ingestion_Config_Warehouses", 5, 6)
+execute_notebook("002_Sample_Data_Synapse_Sync_Config_Warehouses", 6, 6)
 
 # Final Summary
 end_time = datetime.now()
@@ -259,16 +258,16 @@ print(f"Orchestration Complete!")
 print(f"{'='*60}")
 print(f"End time: {end_time}")
 print(f"Duration: {duration}")
-print(f"Total notebooks: 4")
+print(f"Total notebooks: 6")
 print(f"Successfully executed: {success_count}")
-print(f"Failed: 4 - {success_count}")
+print(f"Failed: 6 - {success_count}")
 
-if success_count == 4:
+if success_count == 6:
     print("✓ All notebooks executed successfully!")
-    mssparkutils.notebook.exit("success")
+    notebookutils.mssparkutils.notebook.exit("success")
 else:
     print(f"✗ Orchestration completed with failures")
-    mssparkutils.notebook.exit(f"Orchestration completed with {success_count}/4 successful executions")
+    notebookutils.mssparkutils.notebook.exit(f"Orchestration completed with {success_count}/6 successful executions")
 
 # METADATA ********************
 

@@ -9,15 +9,24 @@ from pathlib import Path
 from typing import Any, Dict, List
 
 from ingen_fab.notebook_utils.base_notebook_compiler import BaseNotebookCompiler
+from ingen_fab.utils.path_utils import PathUtils
 
 
 class FlatFileIngestionCompiler(BaseNotebookCompiler):
     """Compiler for flat file ingestion templates"""
     
     def __init__(self, fabric_workspace_repo_dir: str = None):
-        self.package_dir = Path(__file__).parent
-        self.templates_dir = self.package_dir / "templates"
-        self.ddl_scripts_dir = self.package_dir / "ddl_scripts"
+        try:
+            # Use path utilities for package resource discovery
+            package_base = PathUtils.get_package_resource_path("packages/flat_file_ingestion")
+            self.package_dir = package_base
+            self.templates_dir = package_base / "templates"
+            self.ddl_scripts_dir = package_base / "ddl_scripts"
+        except FileNotFoundError:
+            # Fallback for development environment
+            self.package_dir = Path(__file__).parent
+            self.templates_dir = self.package_dir / "templates"
+            self.ddl_scripts_dir = self.package_dir / "ddl_scripts"
         
         # Set up template directories - include package templates and unified templates
         root_dir = Path.cwd()
@@ -86,6 +95,7 @@ class FlatFileIngestionCompiler(BaseNotebookCompiler):
     def _compile_ddl_scripts_with_templates(self, ddl_source_dir: Path, ddl_output_base: Path, script_mappings: Dict[str, List[tuple]]) -> Dict[str, List[Path]]:
         """Compile DDL scripts with Jinja template processing"""
         from pathlib import Path
+
         import jinja2
         
         results = {}
@@ -150,29 +160,93 @@ class FlatFileIngestionCompiler(BaseNotebookCompiler):
         return results
     
     def compile_sample_files(self) -> List[Path]:
-        """Copy sample data files to the target directory"""
+        """Upload sample data files to the lakehouse using lakehouse_utils"""
         
-        sample_source_dir = self.package_dir / "sample_project" / "sample_data"
-        sample_output_dir = self.fabric_workspace_repo_dir / "Files" / "sample_data"
+        # Get workspace repo directory using the path utilities
+        workspace_repo_dir = PathUtils.get_workspace_repo_dir()
+        sample_source_dir = workspace_repo_dir / "Files" / "sample_data"
         
         if not sample_source_dir.exists():
             self.print_error("Sample data directory not found", f"Expected: {sample_source_dir}")
             return []
         
-        # Create output directory
-        sample_output_dir.mkdir(parents=True, exist_ok=True)
+        # Import lakehouse_utils for file upload in local mode
+        try:
+            from pyspark.sql import SparkSession
+
+            from ingen_fab.python_libs.pyspark.lakehouse_utils import lakehouse_utils
+            
+            # Get or create Spark session
+            spark = SparkSession.builder.appName("FlatFileIngestionCompiler").getOrCreate()
+            
+            # Initialize lakehouse_utils for the raw lakehouse (where sample files go)
+            raw_lakehouse = lakehouse_utils(
+                spark=spark,
+                lakehouse_id=None,  # Use default from environment
+                workspace_id=None,  # Use default from environment
+                lakehouse_name="raw"
+            )
+            
+            # Upload all files from sample_data directory
+            uploaded_files = []
+            for file_path in sample_source_dir.iterdir():
+                if file_path.is_file():
+                    # Read file content based on type
+                    relative_path = f"Files/sample_data/{file_path.name}"
+                    
+                    if file_path.suffix == '.csv':
+                        # Read CSV and write using lakehouse_utils
+                        df = spark.read.option("header", "true").csv(str(file_path))
+                        raw_lakehouse.write_file(
+                            df=df,
+                            file_path=relative_path,
+                            file_format="csv",
+                            options={"header": True}
+                        )
+                    elif file_path.suffix == '.json':
+                        # Read JSON and write using lakehouse_utils
+                        df = spark.read.json(str(file_path))
+                        raw_lakehouse.write_file(
+                            df=df,
+                            file_path=relative_path,
+                            file_format="json"
+                        )
+                    elif file_path.suffix == '.parquet':
+                        # Read Parquet and write using lakehouse_utils
+                        df = spark.read.parquet(str(file_path))
+                        raw_lakehouse.write_file(
+                            df=df,
+                            file_path=relative_path,
+                            file_format="parquet"
+                        )
+                    else:
+                        # For other file types, copy as-is (not supported in this implementation)
+                        if self.console:
+                            self.console.print(f"[yellow]⚠ Skipping unsupported file type:[/yellow] {file_path.name}")
+                        continue
+                    
+                    uploaded_files.append(Path(relative_path))
+                    if self.console:
+                        self.console.print(f"[green]✓ File uploaded:[/green] {relative_path}")
+                        
+        except Exception as e:
+            # Fallback to file copy if lakehouse_utils is not available
+            if self.console:
+                self.console.print(f"[yellow]⚠ Lakehouse upload not available, falling back to file copy:[/yellow] {e}")
+            
+            sample_output_dir = self.fabric_workspace_repo_dir / "Files" / "sample_data"
+            sample_output_dir.mkdir(parents=True, exist_ok=True)
+            
+            uploaded_files = []
+            for file_path in sample_source_dir.iterdir():
+                if file_path.is_file():
+                    target_path = sample_output_dir / file_path.name
+                    target_path.write_bytes(file_path.read_bytes())
+                    uploaded_files.append(target_path)
+                    if self.console:
+                        self.console.print(f"[green]✓ File copied:[/green] {target_path}")
         
-        # Copy all files from sample_data directory
-        copied_files = []
-        for file_path in sample_source_dir.iterdir():
-            if file_path.is_file():
-                target_path = sample_output_dir / file_path.name
-                target_path.write_bytes(file_path.read_bytes())
-                copied_files.append(target_path)
-                if self.console:
-                    self.console.print(f"[green]✓ File copied:[/green] {target_path}")
-        
-        return copied_files
+        return uploaded_files
     
     def compile_all(self, template_vars: Dict[str, Any] = None, include_samples: bool = False) -> Dict[str, Any]:
         """Compile all templates and DDL scripts"""
