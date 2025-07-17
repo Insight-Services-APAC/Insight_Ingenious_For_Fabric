@@ -4,16 +4,15 @@ import logging
 import time
 import uuid
 from datetime import datetime
-from typing import Dict, List, Optional, Any
+from typing import Any, Dict, List, Optional
 
+import numpy as np
 import pandas as pd
 import pyarrow as pa
-import numpy as np
 from deltalake import write_deltalake
 
 # Import pipeline utils
-from .pipeline_utils import PipelineUtils
-
+from ingen_fab.python_libs.python.pipeline_utils import PipelineUtils
 
 logger = logging.getLogger(__name__)
 

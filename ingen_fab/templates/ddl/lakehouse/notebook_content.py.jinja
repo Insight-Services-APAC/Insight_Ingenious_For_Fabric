@@ -26,13 +26,6 @@ else:
 
     load_python_modules_from_path(mount_path, files_to_load)
 
-{{macros.python_cell_with_heading("## ⚙️ Configuration Settings")}}
-
-# variableLibraryInjectionStart: var_lib
-
-
-# variableLibraryInjectionEnd: var_lib
-
 {{ macros.python_cell_with_heading("## 🆕 Instantiate Required Classes ")}}
 
 target_lakehouse_config_prefix = "{{target_lakehouse_config_prefix | required}}"
