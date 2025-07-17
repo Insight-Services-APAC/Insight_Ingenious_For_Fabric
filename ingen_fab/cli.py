@@ -96,6 +96,10 @@ def main(
         ),
     ] = None,
 ):
+    # Track if values came from environment variables or defaults
+    fabric_workspace_repo_dir_source = "option"
+    fabric_environment_source = "option"
+    
     if fabric_workspace_repo_dir is None:
         env_val = os.environ.get("FABRIC_WORKSPACE_REPO_DIR")
         if env_val:
@@ -103,16 +107,62 @@ def main(
                 console,
                 "Falling back to FABRIC_WORKSPACE_REPO_DIR environment variable.",
             )
-        fabric_workspace_repo_dir = (
-            Path(env_val) if env_val else PathUtils.get_workspace_repo_dir()
-        )
+            fabric_workspace_repo_dir = Path(env_val)
+            fabric_workspace_repo_dir_source = "env"
+        else:
+            fabric_workspace_repo_dir = PathUtils.get_workspace_repo_dir()
+            fabric_workspace_repo_dir_source = "default"
+    
     if fabric_environment is None:
         env_val = os.environ.get("FABRIC_ENVIRONMENT")
         if env_val:
             console_styles.print_warning(
                 console, "Falling back to FABRIC_ENVIRONMENT environment variable."
             )
-        fabric_environment = Path(env_val) if env_val else Path("development")
+            fabric_environment = Path(env_val)
+            fabric_environment_source = "env"
+        else:
+            fabric_environment = Path("development")
+            fabric_environment_source = "default"
+
+    # Skip validation for init new command and help
+    # Note: We need to check the command path to differentiate between init subcommands
+    import sys
+    skip_validation = (
+        ctx.invoked_subcommand is None or
+        (ctx.params and ctx.params.get("help")) or
+        (ctx.invoked_subcommand == "init" and len(sys.argv) > 2 and sys.argv[2] == "new")
+    )
+    
+    if not skip_validation:
+        # Validate that both fabric_environment and fabric_workspace_repo_dir are explicitly set
+        if fabric_environment_source == "default":
+            console_styles.print_error(
+                console, "❌ FABRIC_ENVIRONMENT must be set. Use --fabric-environment or set the FABRIC_ENVIRONMENT environment variable."
+            )
+            raise typer.Exit(code=1)
+        
+        if fabric_workspace_repo_dir_source == "default":
+            console_styles.print_error(
+                console, "❌ FABRIC_WORKSPACE_REPO_DIR must be set. Use --fabric-workspace-repo-dir or set the FABRIC_WORKSPACE_REPO_DIR environment variable."
+            )
+            raise typer.Exit(code=1)
+        
+        # Validate that fabric_workspace_repo_dir exists
+        if not fabric_workspace_repo_dir.exists():
+            console_styles.print_error(
+                console, f"❌ Fabric workspace repository directory does not exist: {fabric_workspace_repo_dir}"
+            )
+            console_styles.print_info(
+                console, "💡 Use 'ingen_fab init new --project-name <name>' to create a new project."
+            )
+            raise typer.Exit(code=1)
+        
+        if not fabric_workspace_repo_dir.is_dir():
+            console_styles.print_error(
+                console, f"❌ Fabric workspace repository path is not a directory: {fabric_workspace_repo_dir}"
+            )
+            raise typer.Exit(code=1)
 
     console_styles.print_info(
         console, f"Using Fabric workspace repo directory: {fabric_workspace_repo_dir}"
@@ -167,10 +217,20 @@ def compile(
 
 @init_app.command("new")
 def init_solution(
-    project_name: Annotated[str, typer.Option(...)],
-    path: Annotated[Path, typer.Option("--path")] = Path("."),
+    project_name: Annotated[str | None, typer.Option("--project-name", "-p", help="Name of the project to create")] = None,
+    path: Annotated[Path, typer.Option("--path", help="Base path where the project will be created")] = Path("."),
 ):
     init_commands.init_solution(project_name, path)
+
+
+@init_app.command("workspace")
+def init_workspace(
+    ctx: typer.Context,
+    workspace_name: Annotated[str, typer.Option("--workspace-name", "-w", help="Name of the Fabric workspace to lookup and configure")],
+    create_if_not_exists: Annotated[bool, typer.Option("--create-if-not-exists", "-c", help="Create the workspace if it doesn't exist")] = False,
+):
+    """Initialize workspace configuration by looking up workspace ID from name."""
+    init_commands.init_workspace(ctx, workspace_name, create_if_not_exists)
 
 
 # Deploy commands
@@ -183,10 +243,14 @@ def deploy(ctx: typer.Context):
 
 @deploy_app.command()
 def delete_all(
-    environment: Annotated[str, typer.Option("--environment", "-e")] = "development",
+    ctx: typer.Context,
     force: Annotated[bool, typer.Option("--force", "-f")] = False,
 ):
-    workspace_commands.delete_workspace_items(environment, force)
+    workspace_commands.delete_workspace_items(
+        environment=ctx.obj['fabric_environment'],
+        project_path=ctx.obj['fabric_workspace_repo_dir'],
+        force=force
+    )
 
 
 @deploy_app.command()
