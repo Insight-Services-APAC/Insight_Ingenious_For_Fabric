@@ -8,17 +8,9 @@ env/
 venv/
 .venv
 
-# IDE
-.vscode/
-.idea/
 
-# Fabric
-*.pbix
-*.pbit
 
 # Environment files
 .env
 .env.*
 
-# Generated files
-fabric_workspace_items/ddl_scripts/

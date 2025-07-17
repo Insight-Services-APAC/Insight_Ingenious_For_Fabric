@@ -25,7 +25,11 @@
       "Bash(ingen_fab init:*)",
       "Bash(ls:*)",
       "Bash(export FABRIC_WORKSPACE_REPO_DIR=\"./init_test_project\")",
-      "Bash(ingen_fab:*)"
+      "Bash(ingen_fab:*)",
+      "Bash(export FABRIC_WORKSPACE_REPO_DIR=\"/workspaces/ingen_fab/my_fabric_project\")",
+      "Bash(unset:*)",
+      "Bash(export FABRIC_WORKSPACE_REPO_DIR=\"/workspaces/ingen_fab/env_project\")",
+      "Bash(ruff check:*)"
     ],
     "deny": []
   }
