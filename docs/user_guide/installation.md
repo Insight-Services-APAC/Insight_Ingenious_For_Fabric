@@ -93,9 +93,6 @@ alias ifab-help="ingen_fab --help"
 Verify your installation by running:
 
 ```bash
-# Check version
-ingen_fab --version
-
 # Display help
 ingen_fab --help
 
@@ -107,17 +104,19 @@ Expected output:
 ```
 Usage: ingen_fab [OPTIONS] COMMAND [ARGS]...
 
-  Ingenious Fabric Accelerator - A tool for managing Microsoft Fabric assets.
-
 Options:
-  --help  Show this message and exit.
+  --fabric-workspace-repo-dir  -fwd  Directory containing fabric workspace repository files
+  --fabric-environment         -fe   The name of your fabric environment
+  --help                            Show this message and exit.
 
 Commands:
-  init      Initialize solutions and projects
-  ddl       Compile DDL notebooks from templates
-  deploy    Deploy to environments and manage workspace items
-  notebook  Manage and scan notebook content
-  test      Test notebooks and Python blocks
+  deploy    Commands for deploying to environments and managing workspace items.
+  init      Commands for initializing solutions and projects.
+  ddl       Commands for compiling DDL notebooks.
+  test      Commands for testing notebooks and Python blocks.
+  notebook  Commands for managing and scanning notebook content.
+  package   Commands for running extension packages.
+  libs      Commands for compiling and managing Python libraries.
 ```
 
 ## Docker Installation (Optional)
@@ -141,7 +140,7 @@ WORKDIR /app
 RUN uv sync
 
 # Set entrypoint
-ENTRYPOINT ["uv", "run", "ingen_fab"]
+ENTRYPOINT ["ingen_fab"]
 ```
 
 ## Troubleshooting

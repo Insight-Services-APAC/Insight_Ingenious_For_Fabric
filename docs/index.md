@@ -48,13 +48,13 @@ ingen_fab init new --project-name "My Fabric Project"
 ```bash
 # Generate DDL notebooks for warehouses
 ingen_fab ddl compile \
-    --output-mode fabric \
-    --generation-mode warehouse
+    --output-mode fabric_workspace_repo \
+    --generation-mode Warehouse
 
 # Generate DDL notebooks for lakehouses  
 ingen_fab ddl compile \
-    --output-mode fabric \
-    --generation-mode lakehouse
+    --output-mode fabric_workspace_repo \
+    --generation-mode Lakehouse
 ```
 
 ### Deploy to Environment
@@ -70,10 +70,10 @@ ingen_fab deploy deploy \
 
 ```bash
 # Compile flat file ingestion package
-ingen_fab run package flat-file-ingestion compile
+ingen_fab package ingest compile --include-samples
 
-# Run flat file ingestion
-ingen_fab run package flat-file-ingestion run --config-id=my-config
+# Compile synapse sync package
+ingen_fab package synapse compile --include-samples
 ```
 
 ## Getting Started
@@ -106,7 +106,8 @@ project_templates/        # Templates for new project initialization
 - **[`deploy`](user_guide/cli_reference.md#deploy)** - Deploy to environments and manage workspace items
 - **[`notebook`](user_guide/cli_reference.md#notebook)** - Manage and scan notebook content
 - **[`test`](user_guide/cli_reference.md#test)** - Test notebooks and Python blocks (local and platform)
-- **[`run`](user_guide/cli_reference.md#run)** - Run packages and workflows
+- **[`package`](user_guide/cli_reference.md#package)** - Compile and run extension packages
+- **[`libs`](user_guide/cli_reference.md#libs)** - Compile and manage Python libraries
 
 ## Core Concepts
 
@@ -120,7 +121,7 @@ Organize DDL scripts in numbered sequence for controlled execution, supporting b
 Automatically generate notebooks from templates with proper error handling, logging, and orchestration capabilities.
 
 ### Packages
-Reusable workload extensions that provide specialized functionality for common data processing scenarios like flat file ingestion.
+Reusable workload extensions that provide specialized functionality for common data processing scenarios like flat file ingestion and synapse sync.
 
 ### Testing Framework
 Comprehensive testing framework supporting both local development and Fabric platform testing.

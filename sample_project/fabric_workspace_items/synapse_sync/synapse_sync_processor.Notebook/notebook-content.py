@@ -27,8 +27,8 @@ MASTER_EXECUTION_ID = None  # auto-UUID if None
 WORK_ITEMS_JSON     = None  # JSON-encoded list for historical mode
 MAX_CONCURRENCY     = 10
 INCLUDE_SNAPSHOTS   = True  # sets whether to include snapshot tables in the extraction
-DAILY_RUN_START_DATE : date = (datetime.utcnow() - timedelta(days=4)).date()
-DAILY_RUN_END_DATE : date = datetime.utcnow().date()
+DAILY_RUN_START_DATE = None
+DAILY_RUN_END_DATE = None
 
 
 

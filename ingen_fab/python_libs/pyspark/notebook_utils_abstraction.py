@@ -134,7 +134,7 @@ class LocalNotebookUtils(NotebookUtilsInterface):
 
     def _get_default_connection_string(self) -> str:
         """Get default local SQL Server connection string."""
-        password = os.getenv("SQL_SERVER_SA_PASSWORD", "YourStrong!Passw0rd")
+        password = os.getenv("SQL_SERVER_PASSWORD", "YourStrong!Passw0rd")
         return (
             f"DRIVER={{ODBC Driver 18 for SQL Server}};SERVER=localhost,1433;"
             f"UID=sa;PWD={password};TrustServerCertificate=yes;"

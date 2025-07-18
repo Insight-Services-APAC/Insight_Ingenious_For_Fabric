@@ -208,15 +208,15 @@ cd sample_project
 ingen_fab ddl compile \
     --fabric-workspace-repo-dir . \
     --fabric-environment development \
-    --output-mode fabric \
-    --generation-mode warehouse
+    --output-mode fabric_workspace_repo \
+    --generation-mode Warehouse
 
 # Generate DDL notebooks for lakehouses
 ingen_fab ddl compile \
     --fabric-workspace-repo-dir . \
     --fabric-environment development \
-    --output-mode fabric \
-    --generation-mode lakehouse
+    --output-mode fabric_workspace_repo \
+    --generation-mode Lakehouse
 ```
 
 This generates several types of notebooks:
@@ -384,7 +384,7 @@ Configuration-driven data pipelines:
 
 2. **Regenerate notebooks**:
    ```bash
-   ingen_fab ddl compile --output-mode fabric --generation-mode lakehouse
+   ingen_fab ddl compile --output-mode fabric_workspace_repo --generation-mode Lakehouse
    ```
 
 3. **Redeploy**:
@@ -466,8 +466,8 @@ jobs:
     - name: Deploy sample project
       run: |
         cd sample_project
-        uv run ingen_fab ddl compile --output-mode fabric --generation-mode warehouse
-        uv run ingen_fab ddl compile --output-mode fabric --generation-mode lakehouse
+        uv run ingen_fab ddl compile --output-mode fabric_workspace_repo --generation-mode Warehouse
+        uv run ingen_fab ddl compile --output-mode fabric_workspace_repo --generation-mode Lakehouse
         uv run ingen_fab deploy deploy --fabric-workspace-repo-dir . --fabric-environment development
       env:
         AZURE_TENANT_ID: ${{ "{{" }} secrets.AZURE_TENANT_ID {{ "}}" }}
@@ -495,8 +495,8 @@ jobs:
    # Verify variable files exist and are valid JSON
    cat fabric_workspace_items/config/var_lib.VariableLibrary/valueSets/development.json | jq .
    
-   # Test variable injection
-   ingen_fab deploy deploy --fabric-workspace-repo-dir . --fabric-environment development --dry-run
+   # Test variable injection (Note: --dry-run option not implemented)
+   # Check variable files manually or use the deploy command directly
    ```
 
 3. **DDL Script Failures**:
