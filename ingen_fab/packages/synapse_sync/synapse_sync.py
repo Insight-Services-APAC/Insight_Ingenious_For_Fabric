@@ -55,22 +55,22 @@ class SynapseSyncCompiler(BaseNotebookCompiler):
         # Define script mappings for different targets
         script_mappings = {
             "Lakehouses/Config/001_Initial_Creation_Synapse_Sync": [
-                ("lakehouse/config_synapse_extract_objects_create.py.jinja", "001_config_synapse_extract_objects_create.py"),
-                ("lakehouse/log_synapse_extract_run_log_create.py.jinja", "002_log_synapse_extract_run_log_create.py")
+                ("lakehouse/config_synapse_extract_objects_create.py.jinja", "001_synapse_extract_objects_create.py"),
+                ("lakehouse/log_synapse_extract_run_log_create.py.jinja", "002_synapse_extract_run_log_create.py")
             ],
             "Warehouses/Config/001_Initial_Creation_Synapse_Sync": [
-                ("warehouse/config_synapse_extract_objects_create.sql.jinja", "001_config_synapse_extract_objects_create.sql"),
-                ("warehouse/log_synapse_extract_run_log_create.sql.jinja", "002_log_synapse_extract_run_log_create.sql")
+                ("warehouse/config_synapse_extract_objects_create.sql.jinja", "001_synapse_extract_objects_create.sql"),
+                ("warehouse/log_synapse_extract_run_log_create.sql.jinja", "002_synapse_extract_run_log_create.sql")
             ]
         }
         
         # Add sample data scripts if requested
         if include_sample_data:
             script_mappings["Lakehouses/Config/002_Sample_Data_Synapse_Sync"] = [
-                ("lakehouse/config_synapse_extract_objects_insert.py.jinja", "003_config_synapse_extract_objects_insert.py")
+                ("lakehouse/config_synapse_extract_objects_insert.py.jinja", "003_synapse_extract_objects_insert.py")
             ]
             script_mappings["Warehouses/Config/002_Sample_Data_Synapse_Sync"] = [
-                ("warehouse/config_synapse_extract_objects_insert.sql.jinja", "003_config_synapse_extract_objects_insert.sql")
+                ("warehouse/config_synapse_extract_objects_insert.sql.jinja", "003_synapse_extract_objects_insert.sql")
             ]
         
         # Process DDL scripts with template rendering

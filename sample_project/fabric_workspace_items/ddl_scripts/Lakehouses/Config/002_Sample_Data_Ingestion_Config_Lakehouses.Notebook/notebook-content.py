@@ -45,7 +45,7 @@ import sys
 if "notebookutils" in sys.modules:
     import sys
     
-    notebookutils.fs.mount("abfss://dev_jr@onelake.dfs.fabric.microsoft.com/config.Lakehouse/Files/", "/config_files")  # type: ignore # noqa: F821
+    notebookutils.fs.mount("abfss://{{varlib:config_workspace_name}}@onelake.dfs.fabric.microsoft.com/config.Lakehouse/Files/", "/config_files")  # type: ignore # noqa: F821
     mount_path = notebookutils.fs.getMountPath("/config_files")  # type: ignore # noqa: F821
     
     run_mode = "fabric"
@@ -264,9 +264,26 @@ def script_to_execute():
         }
     ]
     
+    schema = StructType([
+        StructField("synapse_connection_name", StringType(), False),
+        StructField("source_schema_name", StringType(), False),
+        StructField("source_table_name", StringType(), False),
+        StructField("extract_mode", StringType(), False),
+        StructField("single_date_filter", StringType(), True),
+        StructField("date_range_filter", StringType(), True),
+        StructField("execution_group", IntegerType(), False),
+        StructField("active_yn", StringType(), False),
+        StructField("pipeline_id", StringType(), False),
+        StructField("synapse_datasource_name", StringType(), False),
+        StructField("synapse_datasource_location", StringType(), False)
+    ])
+    
+    # Convert list to DataFrame using target_lakehouse
+    df = target_lakehouse.spark.createDataFrame(sample_data, schema)
+    
     target_lakehouse.write_to_table(
+        df=df,
         table_name="config_synapse_extract_objects",
-        df=sample_data,
         mode="append"
     )
     
@@ -344,8 +361,8 @@ def script_to_execute():
             config_name="CSV Sales Data Test",
             source_file_path="Files/sample_data/sales_data.csv",
             source_file_format="csv",
-            target_lakehouse_workspace_id="b3fbeaf7-ec67-4622-ba37-8d8bcb7e436a",
-            target_lakehouse_id="b3e5c081-5a1f-4fdd-9232-afc2108c27f1",
+            target_lakehouse_workspace_id="#####",
+            target_lakehouse_id="2629d4cc-685c-458a-866b-b4705dde71a7",
             target_schema_name="raw",
             target_table_name="sales_data",
             file_delimiter=",",
@@ -369,19 +386,19 @@ def script_to_execute():
             modified_by=None
         ),
         Row(
-            config_id="json_test_002",
-            config_name="JSON Products Data Test",
-            source_file_path="Files/sample_data/products.json",
-            source_file_format="json",
-            target_lakehouse_workspace_id="b3fbeaf7-ec67-4622-ba37-8d8bcb7e436a",
-            target_lakehouse_id="b3e5c081-5a1f-4fdd-9232-afc2108c27f1",
+            config_id="parquet_test_002",
+            config_name="Parquet Products Data Test",
+            source_file_path="Files/sample_data/products.parquet",
+            source_file_format="parquet",
+            target_lakehouse_workspace_id="#####",
+            target_lakehouse_id="2629d4cc-685c-458a-866b-b4705dde71a7",
             target_schema_name="raw",
             target_table_name="products",
             file_delimiter=None,
             has_header=None,
-            encoding="utf-8",
+            encoding=None,
             date_format="yyyy-MM-dd",
-            timestamp_format="yyyy-MM-dd'T'HH:mm:ss'Z'",
+            timestamp_format="yyyy-MM-dd HH:mm:ss",
             schema_inference=True,
             custom_schema_json=None,
             partition_columns="category",
@@ -402,8 +419,8 @@ def script_to_execute():
             config_name="Parquet Customers Data Test",
             source_file_path="Files/sample_data/customers.parquet",
             source_file_format="parquet",
-            target_lakehouse_workspace_id="b3fbeaf7-ec67-4622-ba37-8d8bcb7e436a",
-            target_lakehouse_id="b3e5c081-5a1f-4fdd-9232-afc2108c27f1",
+            target_lakehouse_workspace_id="#####",
+            target_lakehouse_id="2629d4cc-685c-458a-866b-b4705dde71a7",
             target_schema_name="raw",
             target_table_name="customers",
             file_delimiter=None,

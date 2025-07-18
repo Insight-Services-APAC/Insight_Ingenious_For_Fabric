@@ -45,7 +45,7 @@ import sys
 if "notebookutils" in sys.modules:
     import sys
     
-    notebookutils.fs.mount("abfss://dev_jr@onelake.dfs.fabric.microsoft.com/config.Lakehouse/Files/", "/config_files")  # type: ignore # noqa: F821
+    notebookutils.fs.mount("abfss://{{varlib:config_workspace_name}}@onelake.dfs.fabric.microsoft.com/config.Lakehouse/Files/", "/config_files")  # type: ignore # noqa: F821
     mount_path = notebookutils.fs.getMountPath("/config_files")  # type: ignore # noqa: F821
     
     run_mode = "fabric"
@@ -270,6 +270,58 @@ def script_to_execute():
 
 # MARKDOWN ********************
 
+# ## 📄 Cell for 001_synapse_extract_objects_create.py
+
+# CELL ********************
+
+guid="2c106544314d"
+object_name = "001_synapse_extract_objects_create"
+
+def script_to_execute():
+    # Configuration table for synapse extract objects - Lakehouse version
+    
+    # Define schema for the table
+    schema = StructType([
+        StructField("synapse_connection_name", StringType(), False),
+        StructField("source_schema_name", StringType(), False),
+        StructField("source_table_name", StringType(), False),
+        StructField("extract_mode", StringType(), False),
+        StructField("single_date_filter", StringType(), True),
+        StructField("date_range_filter", StringType(), True),
+        StructField("execution_group", IntegerType(), False),
+        StructField("active_yn", StringType(), False),
+        StructField("pipeline_id", StringType(), False),
+        StructField("synapse_datasource_name", StringType(), False),
+        StructField("synapse_datasource_location", StringType(), False)
+    ])
+    
+    target_lakehouse.create_table(
+        table_name="synapse_extract_objects",
+        schema=schema,
+        mode="overwrite",
+        options={
+            "parquet.vorder.default": "true",
+            "overwriteSchema": "true"
+        }
+    )
+    
+
+du.run_once(script_to_execute, "001_synapse_extract_objects_create","2c106544314d")
+
+def script_to_execute():
+    print("Script block is empty. No action taken.")
+
+
+
+# METADATA ********************
+
+# META {
+# META   "language": "python",
+# META   "language_group": "synapse_pyspark"
+# META }
+
+# MARKDOWN ********************
+
 # ## 📄 Cell for 002_log_synapse_extract_run_log_create.py
 
 # CELL ********************
@@ -319,6 +371,70 @@ def script_to_execute():
     
 
 du.run_once(script_to_execute, "002_log_synapse_extract_run_log_create","e5e5f221fd39")
+
+def script_to_execute():
+    print("Script block is empty. No action taken.")
+
+
+
+# METADATA ********************
+
+# META {
+# META   "language": "python",
+# META   "language_group": "synapse_pyspark"
+# META }
+
+# MARKDOWN ********************
+
+# ## 📄 Cell for 002_synapse_extract_run_log_create.py
+
+# CELL ********************
+
+guid="db3b12a53b43"
+object_name = "002_synapse_extract_run_log_create"
+
+def script_to_execute():
+    # Log table for synapse extract run log - Lakehouse version
+    
+    # Define schema for the table
+    schema = StructType([
+        StructField("master_execution_id", StringType(), True),
+        StructField("execution_id", StringType(), True),
+        StructField("pipeline_job_id", StringType(), True),
+        StructField("execution_group", IntegerType(), True),
+        StructField("master_execution_parameters", StringType(), True),
+        StructField("trigger_type", StringType(), True),
+        StructField("config_synapse_connection_name", StringType(), True),
+        StructField("source_schema_name", StringType(), True),
+        StructField("source_table_name", StringType(), True),
+        StructField("extract_mode", StringType(), True),
+        StructField("extract_start_dt", DateType(), True),
+        StructField("extract_end_dt", DateType(), True),
+        StructField("partition_clause", StringType(), True),
+        StructField("output_path", StringType(), True),
+        StructField("extract_file_name", StringType(), True),
+        StructField("external_table", StringType(), True),
+        StructField("start_timestamp", TimestampType(), True),
+        StructField("end_timestamp", TimestampType(), True),
+        StructField("duration_sec", DoubleType(), True),
+        StructField("status", StringType(), True),
+        StructField("error_messages", StringType(), True),
+        StructField("end_timestamp_int", LongType(), True)
+    ])
+    
+    target_lakehouse.create_table(
+        table_name="synapse_extract_run_log",
+        schema=schema,
+        mode="overwrite",
+        partition_by=["master_execution_id"],
+        options={
+            "parquet.vorder.default": "true",
+            "overwriteSchema": "true"
+        }
+    )
+    
+
+du.run_once(script_to_execute, "002_synapse_extract_run_log_create","db3b12a53b43")
 
 def script_to_execute():
     print("Script block is empty. No action taken.")

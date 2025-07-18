@@ -129,17 +129,7 @@ class LocalNotebookUtils(NotebookUtilsInterface):
     def connect_to_artifact(self, artifact_id: str, workspace_id: str) -> Any:
         """Connect to a local SQL Server instead of Fabric artifact."""
         try:
-            import pyodbc
-            logger.info(f"Connecting to local SQL Server (artifact_id: {artifact_id}, workspace_id: {workspace_id})")
-            # Try SQL_SERVER_PASSWORD first, then fall back to SQL_SERVER_SA_PASSWORD, then default
-            password = os.getenv("SQL_SERVER_PASSWORD") or os.getenv("SQL_SERVER_SA_PASSWORD") or "YourStrong!Passw0rd"
-            connection_string = (
-                "DRIVER={ODBC Driver 18 for SQL Server};SERVER=localhost,1433;UID=sa;"
-                + f"PWD={password};TrustServerCertificate=yes;"
-            )
-            conn = pyodbc.connect(connection_string)
-            logger.debug("Connected to local SQL Server instance.")
-            return conn
+            return self._connect_to_local_sql_server()
         except ImportError:
             raise RuntimeError("pyodbc not available - cannot connect to local SQL Server")
         

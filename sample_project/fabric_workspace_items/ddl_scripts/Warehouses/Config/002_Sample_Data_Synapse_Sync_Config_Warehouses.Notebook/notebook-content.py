@@ -48,7 +48,7 @@ import sys
 if "notebookutils" in sys.modules:
     import sys
     
-    notebookutils.fs.mount("abfss://dev_jr@onelake.dfs.fabric.microsoft.com/config.Lakehouse/Files/", "/config_files")  # type: ignore # noqa: F821
+    notebookutils.fs.mount("abfss://{{varlib:config_workspace_name}}@onelake.dfs.fabric.microsoft.com/config.Lakehouse/Files/", "/config_files")  # type: ignore # noqa: F821
     mount_path = notebookutils.fs.getMountPath("/config_files")  # type: ignore # noqa: F821
     
     run_mode = "fabric"
@@ -173,7 +173,7 @@ else:
 # variableLibraryInjectionStart: var_lib
 
 # All variables as a dictionary
-configs_dict = {'fabric_environment': 'development_jr', 'fabric_deployment_workspace_id': 'b3fbeaf7-ec67-4622-ba37-8d8bcb7e436a', 'synapse_source_database_1': 'test1', 'config_workspace_id': 'b3fbeaf7-ec67-4622-ba37-8d8bcb7e436a', 'config_workspace_name': 'dev_jr', 'synapse_source_sql_connection': 'sansdaisyn-ondemand.sql.azuresynapse.net', 'config_lakehouse_name': 'config', 'edw_warehouse_name': 'edw', 'config_lakehouse_id': 'b3e5c081-5a1f-4fdd-9232-afc2108c27f1', 'config_warehouse_id': 'd1786653-8981-4c05-bcb9-7b22410723c5', 'edw_workspace_id': 'b3fbeaf7-ec67-4622-ba37-8d8bcb7e436a', 'edw_warehouse_id': 'd1786653-8981-4c05-bcb9-7b22410723c5', 'edw_lakehouse_id': '6adb67d6-c8eb-4612-9053-890cae3a55d7', 'edw_lakehouse_name': 'edw', 'legacy_synapse_connection_name': 'synapse_connection', 'synapse_export_shortcut_path_in_onelake': 'exports/', 'raw_workspace_id': 'b3fbeaf7-ec67-4622-ba37-8d8bcb7e436a', 'raw_datastore_id': 'b3e5c081-5a1f-4fdd-9232-afc2108c27f1'}
+configs_dict = {'fabric_environment': 'local', 'fabric_deployment_workspace_id': '#####', 'synapse_source_database_1': 'test1', 'config_workspace_id': '#####', 'synapse_source_sql_connection': 'sansdaisyn-ondemand.sql.azuresynapse.net', 'config_lakehouse_name': 'config', 'edw_warehouse_name': 'edw', 'config_lakehouse_id': '2629d4cc-685c-458a-866b-b4705dde71a7', 'edw_workspace_id': '###', 'edw_warehouse_id': '###', 'edw_lakehouse_id': '6adb67d6-c8eb-4612-9053-890cae3a55d7', 'edw_lakehouse_name': 'edw', 'legacy_synapse_connection_name': 'synapse_connection', 'synapse_export_shortcut_path_in_onelake': 'exports/', 'raw_workspace_id': 'local_raw_workspace', 'raw_datastore_id': 'local_raw_datastore', 'config_warehouse_id': 'local-config-warehouse-id'}
 # All variables as an object
 from dataclasses import dataclass
 @dataclass
@@ -182,12 +182,10 @@ class ConfigsObject:
     fabric_deployment_workspace_id: str 
     synapse_source_database_1: str 
     config_workspace_id: str 
-    config_workspace_name: str 
     synapse_source_sql_connection: str 
     config_lakehouse_name: str 
     edw_warehouse_name: str 
     config_lakehouse_id: str 
-    config_warehouse_id: str 
     edw_workspace_id: str 
     edw_warehouse_id: str 
     edw_lakehouse_id: str 
@@ -196,6 +194,7 @@ class ConfigsObject:
     synapse_export_shortcut_path_in_onelake: str 
     raw_workspace_id: str 
     raw_datastore_id: str 
+    config_warehouse_id: str 
 configs_object: ConfigsObject = ConfigsObject(**configs_dict)
 # variableLibraryInjectionEnd: var_lib
 
@@ -261,17 +260,17 @@ wu = warehouse_utils(
 
 # MARKDOWN ********************
 
-# ## 𝄜 Cell for 003_config_synapse_extract_objects_insert.sql
+# ## 𝄜 Cell for 003_synapse_extract_objects_insert.sql
 
 # CELL ********************
 
-guid = "8ca9a21e16fc"
+guid = "ac566bb8729e"
 def work():
     sql = """
 
--- Sample data for config_synapse_extract_objects - Warehouse version
+-- Sample data for synapse_extract_objects - Warehouse version
 
-INSERT INTO config_synapse_extract_objects (
+INSERT INTO synapse_extract_objects (
     synapse_connection_name,
     source_schema_name,
     source_table_name,
@@ -282,18 +281,16 @@ INSERT INTO config_synapse_extract_objects (
     active_yn,
     pipeline_id,
     synapse_datasource_name,
-    synapse_datasource_location,
-    created_timestamp,
-    updated_timestamp
+    synapse_datasource_location
 ) VALUES
-    ('SynapseConnection', 'dbo', 'DimCustomer', 'snapshot', NULL, NULL, 1, 'Y', '00000000-0000-0000-0000-000000000000', 'SynapseDatasource', 'https://onelake.dfs.fabric.microsoft.com/workspace/lakehouse/Files', GETUTCDATE(), GETUTCDATE()),
-    ('SynapseConnection', 'dbo', 'FactSales', 'incremental', 'WHERE DATE_SK = @date', 'WHERE DATE_SK BETWEEN @start_date AND @end_date', 2, 'Y', '00000000-0000-0000-0000-000000000000', 'SynapseDatasource', 'https://onelake.dfs.fabric.microsoft.com/workspace/lakehouse/Files', GETUTCDATE(), GETUTCDATE());
+    ('SynapseConnection', 'dbo', 'DimCustomer', 'snapshot', NULL, NULL, 1, 'Y', '00000000-0000-0000-0000-000000000000', 'SynapseDatasource', 'https://onelake.dfs.fabric.microsoft.com/workspace/lakehouse/Files'),
+    ('SynapseConnection', 'dbo', 'FactSales', 'incremental', 'WHERE DATE_SK = @date', 'WHERE DATE_SK BETWEEN @start_date AND @end_date', 2, 'Y', '00000000-0000-0000-0000-000000000000', 'SynapseDatasource', 'https://onelake.dfs.fabric.microsoft.com/workspace/lakehouse/Files');
 
     """
 
     wu.execute_query(wu.get_connection(), sql)
 
-du.run_once(work,"003_config_synapse_extract_objects_insert", guid)
+du.run_once(work,"003_synapse_extract_objects_insert", guid)
 
 
 

@@ -36,8 +36,25 @@ sample_data = [
     }
 ]
 
+schema = StructType([
+    StructField("synapse_connection_name", StringType(), False),
+    StructField("source_schema_name", StringType(), False),
+    StructField("source_table_name", StringType(), False),
+    StructField("extract_mode", StringType(), False),
+    StructField("single_date_filter", StringType(), True),
+    StructField("date_range_filter", StringType(), True),
+    StructField("execution_group", IntegerType(), False),
+    StructField("active_yn", StringType(), False),
+    StructField("pipeline_id", StringType(), False),
+    StructField("synapse_datasource_name", StringType(), False),
+    StructField("synapse_datasource_location", StringType(), False)
+])
+
+# Convert list to DataFrame using target_lakehouse
+df = target_lakehouse.spark.createDataFrame(sample_data, schema)
+
 target_lakehouse.write_to_table(
+    df=df,
     table_name="config_synapse_extract_objects",
-    df=sample_data,
     mode="append"
 )

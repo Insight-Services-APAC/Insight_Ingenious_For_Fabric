@@ -1,9 +1,11 @@
 import logging
 import os
+from datetime import datetime, date
 from typing import Any, Optional
 
 import pandas as pd
 
+from ingen_fab.python_libs.common.config_utils import get_configs_as_object
 from ingen_fab.python_libs.interfaces.data_store_interface import DataStoreInterface
 from ingen_fab.python_libs.python.notebook_utils_abstraction import NotebookUtilsFactory
 from ingen_fab.python_libs.python.sql_templates import (
@@ -71,31 +73,45 @@ class warehouse_utils(DataStoreInterface):
         return self._target_warehouse_id
 
     def get_connection(self):
-        """Return a connection object depending on the configured dialect."""
-        if self.dialect == "fabric" and self.notebook_utils.is_available():
+        """Return a connection object depending on the configured dialect."""        
+        if get_configs_as_object().fabric_environment == "local":
+            # For local SQL Server, use pyodbc
+            conn = self._connect_to_local_sql_server()
+        else:
             conn = self.notebook_utils.connect_to_artifact(
                 self._target_warehouse_id, self._target_workspace_id
             )
-            return conn
-        elif self.dialect == "sql_server":
-            return self._connect_to_local_sql_server()
-        else:
-            raise RuntimeError(f"Unable to connect with dialect '{self.dialect}'. Check environment setup.")
+        return conn
+        
 
-
-    def execute_query(self, conn, query: str):
+    def execute_query(self, conn = None, query: str = None, params: tuple | list | None = None):
         """Execute a query and return results as a DataFrame when possible."""
+        if not conn:
+            conn = self.get_connection()
         # Check if the connection is of type pyodbc.Connection
         try:
-            logging.info(f"Executing query: {query}")
+            logging.debug(f"Executing query: {query}")
+            if params:
+                logging.debug(f"Query parameters: {params}")
+            
             if hasattr(conn, "query"):
-                result = conn.query(query)
+                # For Fabric connections that have a query method
+                if params:
+                    result = conn.query(query, params)
+                else:
+                    result = conn.query(query)
                 logging.debug("Query executed successfully.")
                 return result
             else:
                 cursor = conn.cursor()
                 logger.debug(f"Executing query: {query}")
-                cursor.execute(query)
+                
+                # Execute with or without parameters
+                if params:
+                    cursor.execute(query, params)
+                else:
+                    cursor.execute(query)
+                    
                 if cursor.description:
                     rows = cursor.fetchall()
                     columns = [d[0] for d in cursor.description]
@@ -107,8 +123,88 @@ class warehouse_utils(DataStoreInterface):
             return df
         except Exception as e:            
             logging.error(f"Error executing query: {query}. Error: {e}")
+            if params:
+                logging.error(f"Query parameters: {params}")
             logging.error("Connection details: %s", conn)
             raise
+
+    def create_local_database(self) -> None:
+        """Create a database called 'local' if it does not already exist."""
+        try:
+            conn = self.get_connection()
+            self._create_local_database_with_connection(conn)
+                
+        except Exception as e:
+            logging.error(f"Error creating database 'local': {e}")
+            raise
+
+    def _create_local_database_with_connection(self, conn) -> None:
+        """Create a database called 'local' using the provided connection."""
+        try:
+            # Check if database exists
+            check_db_sql = """
+            SELECT 1 
+            FROM sys.databases 
+            WHERE name = 'local'
+            """
+            result = self.execute_query(conn, check_db_sql)
+            db_exists = len(result) > 0 if result is not None else False
+
+            # Create database if it doesn't exist
+            if not db_exists:
+                # CREATE DATABASE must be executed outside of a transaction
+                cursor = conn.cursor()
+                
+                # Set autocommit to True to avoid transaction issues
+                old_autocommit = conn.autocommit
+                conn.autocommit = True
+                
+                try:
+                    create_db_sql = "CREATE DATABASE [local];"
+                    logger.debug(f"Executing CREATE DATABASE: {create_db_sql}")
+                    cursor.execute(create_db_sql)
+                    logging.info("Created database 'local'.")
+                finally:
+                    # Restore original autocommit setting
+                    conn.autocommit = old_autocommit
+                    cursor.close()
+            else:
+                logging.info("Database 'local' already exists.")
+                
+        except Exception as e:
+            logging.error(f"Error creating database 'local': {e}")
+            logging.exception("Stack trace:", exc_info=True)
+            raise
+    
+    def _connect_to_local_sql_server(self):
+        """Connect to local SQL Server using pyodbc, or return mock connection for testing."""
+        try:
+            import pyodbc
+            logger.debug(f"Connecting to local SQL Server with connection string: {self.connection_string}")
+            
+            # First connect without database specified to create the database
+            conn = pyodbc.connect(self.connection_string)
+            logger.debug("Successfully connected to local SQL Server")
+            
+            # Create local database if it doesn't exist
+            self._create_local_database_with_connection(conn)
+            
+            # Check if database is already in connection string
+            if "DATABASE=" not in self.connection_string.upper() and "INITIAL CATALOG=" not in self.connection_string.upper():
+                # Add local database to connection string and reconnect
+                local_connection_string = self.connection_string.rstrip(';') + ";DATABASE=local;"
+                logger.debug(f"Reconnecting with local database: {local_connection_string}")
+                conn.close()
+                conn = pyodbc.connect(local_connection_string)
+                logger.debug(f"Successfully connected to local database: {local_connection_string}")
+            else:
+                logger.debug(f"Local database already specified in connection string, using existing connection: {self.connection_string}")
+            
+            return conn
+        except ImportError:
+            logger.error("pyodbc not available, using mock connection for testing")
+
+    
 
     def create_schema_if_not_exists(self, schema_name: str):
         """Create a schema if it does not already exist."""
@@ -178,7 +274,7 @@ class warehouse_utils(DataStoreInterface):
                 values = []
                 for _, row in pandas_df.iterrows():
                     row_values = ", ".join(
-                        [f"'{v}'" if isinstance(v, str) else str(v) for v in row]
+                        ["NULL" if pd.isna(v) or v is None else f"'{v}'" if isinstance(v, (str, datetime, date)) else str(v) for v in row]
                     )
                     values.append(f"({row_values})")
 
@@ -199,7 +295,7 @@ class warehouse_utils(DataStoreInterface):
                 # Insert data into existing table
                 for _, row in pandas_df.iterrows():
                     row_values = ", ".join(
-                        [f"'{v}'" if isinstance(v, str) else str(v) for v in row]
+                        ["NULL" if pd.isna(v) or v is None else f"'{v}'" if isinstance(v, (str, datetime, date)) else str(v) for v in row]
                     )
                     insert_query = self.sql.render(
                         "insert_row",
@@ -217,7 +313,7 @@ class warehouse_utils(DataStoreInterface):
                 values = []
                 for _, row in pandas_df.iterrows():
                     row_values = ", ".join(
-                        [f"'{v}'" if isinstance(v, str) else str(v) for v in row]
+                        ["NULL" if pd.isna(v) or v is None else f"'{v}'" if isinstance(v, (str, datetime, date)) else str(v) for v in row]
                     )
                     values.append(f"({row_values})")
 
@@ -510,47 +606,4 @@ class warehouse_utils(DataStoreInterface):
 
     # Additional utility methods
     
-    def _connect_to_local_sql_server(self):
-        """Connect to local SQL Server using pyodbc, or return mock connection for testing."""
-        try:
-            import pyodbc
-            logger.info(f"Connecting to local SQL Server with connection string: {self.connection_string}")
-            conn = pyodbc.connect(self.connection_string)
-            logger.info("Successfully connected to local SQL Server")
-            return conn
-        except ImportError:
-            logger.warning("pyodbc not available, using mock connection for testing")
-            return MockConnection()
-        except Exception as e:
-            logger.error(f"Failed to connect to local SQL Server: {e}")
-            logger.warning("Returning mock connection for testing")
-            return MockConnection()
-
-class MockConnection:
-    """Mock connection for testing when SQL Server is not available."""
     
-    def cursor(self):
-        return MockCursor()
-    
-    def commit(self):
-        pass
-    
-    def close(self):
-        pass
-
-class MockCursor:
-    """Mock cursor for testing."""
-    
-    def __init__(self):
-        self.description = None
-    
-    def execute(self, query):
-        logger.info(f"Mock execution of query: {query}")
-        # Simulate successful execution
-        pass
-    
-    def fetchall(self):
-        return []
-    
-    def close(self):
-        pass

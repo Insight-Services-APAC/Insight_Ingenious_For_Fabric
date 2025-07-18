@@ -49,6 +49,16 @@ class lakehouse_utils(DataStoreInterface):
     ) -> bool:
         """Check if a Delta table exists at the given table name."""
         table_path = f"{self.lakehouse_tables_uri()}{table_name}"
+        
+        # For local environment, check if directory exists with _delta_log
+        if config_utils._is_local_environment():
+            import os
+            local_path = table_path.replace("file://", "")
+            if os.path.exists(local_path):
+                delta_log_path = os.path.join(local_path, "_delta_log")
+                return os.path.exists(delta_log_path)
+            return False
+        
         try:
             # delta-rs: DeltaTable will raise if not found
             DeltaTable(table_path)

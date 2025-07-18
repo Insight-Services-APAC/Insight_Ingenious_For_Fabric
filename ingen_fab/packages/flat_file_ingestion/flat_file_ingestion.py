@@ -172,19 +172,18 @@ class FlatFileIngestionCompiler(BaseNotebookCompiler):
         
         # Import lakehouse_utils for file upload in local mode
         try:
-            from pyspark.sql import SparkSession
-
+            import ingen_fab.python_libs.common.config_utils as cu
             from ingen_fab.python_libs.pyspark.lakehouse_utils import lakehouse_utils
             
-            # Get or create Spark session
-            spark = SparkSession.builder.appName("FlatFileIngestionCompiler").getOrCreate()
+            # Get config values
+            configs = cu.get_configs_as_object()
             
             # Initialize lakehouse_utils for the raw lakehouse (where sample files go)
+            # Note: Using config lakehouse as the target for sample files
             raw_lakehouse = lakehouse_utils(
-                spark=spark,
-                lakehouse_id=None,  # Use default from environment
-                workspace_id=None,  # Use default from environment
-                lakehouse_name="raw"
+                target_workspace_id=configs.config_workspace_id,
+                target_lakehouse_id=configs.config_lakehouse_id,
+                spark=None  # Will create/reuse session automatically
             )
             
             # Upload all files from sample_data directory
@@ -196,7 +195,12 @@ class FlatFileIngestionCompiler(BaseNotebookCompiler):
                     
                     if file_path.suffix == '.csv':
                         # Read CSV and write using lakehouse_utils
-                        df = spark.read.option("header", "true").csv(str(file_path))
+                        # For local files, use file:// prefix to indicate absolute path
+                        df = raw_lakehouse.read_file(
+                            file_path=f"file://{file_path.absolute()}",
+                            file_format="csv",
+                            options={"header": True}
+                        )
                         raw_lakehouse.write_file(
                             df=df,
                             file_path=relative_path,
@@ -205,7 +209,11 @@ class FlatFileIngestionCompiler(BaseNotebookCompiler):
                         )
                     elif file_path.suffix == '.json':
                         # Read JSON and write using lakehouse_utils
-                        df = spark.read.json(str(file_path))
+                        # For local files, use file:// prefix to indicate absolute path
+                        df = raw_lakehouse.read_file(
+                            file_path=f"file://{file_path.absolute()}",
+                            file_format="json"
+                        )
                         raw_lakehouse.write_file(
                             df=df,
                             file_path=relative_path,
@@ -213,7 +221,11 @@ class FlatFileIngestionCompiler(BaseNotebookCompiler):
                         )
                     elif file_path.suffix == '.parquet':
                         # Read Parquet and write using lakehouse_utils
-                        df = spark.read.parquet(str(file_path))
+                        # For local files, use file:// prefix to indicate absolute path
+                        df = raw_lakehouse.read_file(
+                            file_path=f"file://{file_path.absolute()}",
+                            file_format="parquet"
+                        )
                         raw_lakehouse.write_file(
                             df=df,
                             file_path=relative_path,
