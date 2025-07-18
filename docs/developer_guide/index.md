@@ -101,12 +101,25 @@ For a consistent development environment with Apache Spark and SQL Server, use t
    
    Note: You'll need to provide an SA password and select "Enterprise (2)" and "English" when prompted.
 
-6. **Start SQL Server**:
+   Once the setup is complete, you can start SQL Server with. (Press Enter after the command completes and sql server will be started in the background. Note you will need to run this command every time you start the container):
+
    ```bash
-   /opt/mssql/bin/sqlservr
+   /opt/mssql/bin/sqlservr &
    ```
 
-The container provides a minimal setup with Apache Spark, SQL Server, and PowerShell support for local development.
+   Next set the environment variables for SQL Server connection:
+
+   ```bash
+   export SQL_SERVER_PASSWORD="YourStrong@Passw0rd"
+   ```
+
+   or 
+
+   ``` pwsh 
+   $env:SQL_SERVER_PASSWORD = "YourStrong@Passw0rd"
+   ```
+
+You now have a minimal setup with Apache Spark, SQL Server, and PowerShell support for local development.
 
 ## Project Structure
 

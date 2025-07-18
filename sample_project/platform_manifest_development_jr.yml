@@ -11,27 +11,27 @@ platform_folders:
   environment: development_jr
 - name: 001_Initial_Creation_Config_Lakehouses_ddl_scripts.Notebook
   path: sample_project/fabric_workspace_items/ddl_scripts/Lakehouses/Config/001_Initial_Creation_Config_Lakehouses.Notebook
-  hash: 39ae938fcede5be70c6766b3a56d8f5b8092075156991d9ba4667b223d96526d
+  hash: 3c2e44b898c75cae4101e69cf0ca73e02fa2a26720f63eb63c302ea27cd135cf
   status: deployed
   environment: development_jr
 - name: 001_Initial_Creation_Ingestion_Config_Lakehouses_ddl_scripts.Notebook
   path: sample_project/fabric_workspace_items/ddl_scripts/Lakehouses/Config/001_Initial_Creation_Ingestion_Config_Lakehouses.Notebook
-  hash: 516d159163dd36756786bf602eeaaa9f653d91cd8153539d902966a9a96d23f1
+  hash: c5dfaab8141312fde14d805fa393460ad27961ca175806738df9b14556461c90
   status: deployed
   environment: development_jr
 - name: 001_Initial_Creation_Synapse_Sync_Config_Lakehouses_ddl_scripts.Notebook
   path: sample_project/fabric_workspace_items/ddl_scripts/Lakehouses/Config/001_Initial_Creation_Synapse_Sync_Config_Lakehouses.Notebook
-  hash: e00d8f5b0696d54c22968d1e2437d6cd111e0960da7a48bc7d3d0c13b5c1aa92
+  hash: a4474188aeefed5dcdf6bcc03d13122405c9c47b76f0f5da217a72115f8de07b
   status: deployed
   environment: development_jr
 - name: 002_Sample_Data_Ingestion_Config_Lakehouses_ddl_scripts.Notebook
   path: sample_project/fabric_workspace_items/ddl_scripts/Lakehouses/Config/002_Sample_Data_Ingestion_Config_Lakehouses.Notebook
-  hash: 96e0d2c5074c008b1a4015bb995a23008e78de2af06f628aa202662860c63124
+  hash: 3a19615945073a537ecaf3711210a9f46be989838efbe7e0ae256b1bbcd20d3c
   status: deployed
   environment: development_jr
 - name: 002_Sample_Data_Synapse_Sync_Config_Lakehouses_ddl_scripts.Notebook
   path: sample_project/fabric_workspace_items/ddl_scripts/Lakehouses/Config/002_Sample_Data_Synapse_Sync_Config_Lakehouses.Notebook
-  hash: 0cf0aae6beb2e62631ecdfebff68d9d55bf89d750558721a671fd767e3e38987
+  hash: 8c99f987d406172e9d913d48ff2bf61a44794b2403c3917be853c710cb5be57c
   status: deployed
   environment: development_jr
 - name: 00_orchestrator_Config_lakehouse_ddl_scripts.Notebook
@@ -121,7 +121,7 @@ platform_folders:
   environment: development_jr
 - name: Synapse Sync Processor.Notebook
   path: sample_project/fabric_workspace_items/synapse_sync/synapse_sync_processor.Notebook
-  hash: 1b10fd8eac86928967c8feb6936ce007e592c5641c1288a07f85ed3a21ddb434
+  hash: a353d61b1d9c31088f0622e5e21d4812a3db6329683ee94e16d94027dcbebb06
   status: deployed
   environment: development_jr
 - name: EDW.Warehouse

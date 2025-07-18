@@ -28,7 +28,7 @@ class warehouse_utils(DataStoreInterface):
         target_warehouse_id: Optional[str] = None,
         *,
         dialect: str = "fabric",
-        connection_string: Optional[str] = f"DRIVER={{ODBC Driver 18 for SQL Server}};SERVER=localhost,1433;UID=sa;PWD={os.getenv('SQL_SERVER_SA_PASSWORD', 'YourStrong!Passw0rd')};TrustServerCertificate=yes;",
+        connection_string: Optional[str] = f"DRIVER={{ODBC Driver 18 for SQL Server}};SERVER=localhost,1433;UID=sa;PWD={os.getenv('SQL_SERVER_PASSWORD', 'YourStrong!Passw0rd')};TrustServerCertificate=yes;",
         notebookutils: Optional[Any] = None
     ):
         

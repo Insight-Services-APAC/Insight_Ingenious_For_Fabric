@@ -37,7 +37,7 @@ uv sync
 
 ```bash
 # Create a new Fabric workspace project
-ingen_fab init init-solution --project-name "My Fabric Project"
+ingen_fab init new --project-name "My Fabric Project"
 ```
 
 ### Generate DDL Notebooks
@@ -78,14 +78,14 @@ ingen_fab --help
 - **`deploy`** - Deploy to environments and manage workspace items
 - **`notebook`** - Manage and scan notebook content
 - **`test`** - Test notebooks and Python blocks (local and platform)
-- **`package`** - Run extension packages (e.g., flat file ingestion)
+- **`package`** - Compile and run extension packages (e.g., flat file ingestion, synapse sync)
 - **`libs`** - Compile and manage Python libraries
 
 ### Common Commands
 
 ```bash
 # Initialize new solution
-ingen_fab init init-solution --project-name "Project Name"
+ingen_fab init new --project-name "Project Name"
 
 # Compile DDL notebooks
 ingen_fab ddl compile --output-mode fabric_workspace_repo --generation-mode Warehouse
@@ -107,13 +107,16 @@ ingen_fab test local pyspark  # Tests pyspark implementations
 ingen_fab test platform generate
 
 # Upload Python libraries to Fabric
-ingen_fab deploy upload-python-libs --environment development --project-path .
+ingen_fab deploy upload-python-libs
 
 # Delete all workspace items (use with caution!)
-ingen_fab deploy delete-all --environment development --force
+ingen_fab deploy delete-all --force
 
 # Compile flat file ingestion package
 ingen_fab package ingest compile --include-samples
+
+# Compile synapse sync package
+ingen_fab package synapse compile --include-samples
 
 # Compile Python libraries with variable injection
 ingen_fab libs compile --target-file path/to/file.py
@@ -173,7 +176,7 @@ export AZURE_CLIENT_SECRET="your-client-secret"
 
 ```bash
 # 1. Initialize a new project
-ingen_fab init init-solution --project-name "My Data Platform"
+ingen_fab init new --project-name "My Data Platform"
 
 # 2. Configure variables in fabric_workspace_items/config/var_lib.VariableLibrary/valueSets/
 # Edit development.json, production.json, etc.

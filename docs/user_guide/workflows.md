@@ -405,7 +405,7 @@ ingen_fab libs compile
 ingen_fab libs compile --target-file "python_libs/common/config_utils.py"
 
 # Upload libraries to Fabric
-ingen_fab deploy upload-python-libs --environment development --project-path .
+ingen_fab deploy upload-python-libs
 ```
 
 ## Best Practices
