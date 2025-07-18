@@ -55,7 +55,7 @@ For local development, configure the following environment variables:
 
 ```bash
 # SQL Server connection
-export SQL_SERVER_SA_PASSWORD="YourStrong!Passw0rd"
+export SQL_SERVER_PASSWORD="YourStrong!Passw0rd"
 
 # Secrets (prefix with SECRET_)
 export SECRET_API_KEY="your-api-key"

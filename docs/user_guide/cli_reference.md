@@ -53,7 +53,28 @@ ingen_fab init new --project-name "ML Pipeline" --path ./projects
 **Next steps after creation:**
 1. Update variable values in `fabric_workspace_items/config/var_lib.VariableLibrary/valueSets/development.json`
 2. Generate DDL notebooks: `ingen_fab ddl compile --output-mode fabric_workspace_repo --generation-mode Lakehouse`
-3. Deploy to Fabric: `ingen_fab deploy deploy --environment development`
+3. Deploy to Fabric: `ingen_fab deploy deploy --fabric-environment development`
+
+#### `init workspace`
+
+Initialize workspace configuration by looking up workspace ID from name.
+
+```bash
+ingen_fab init workspace --workspace-name "My Workspace"
+```
+
+**Options:**
+- `--workspace-name` / `-w`: Name of the Fabric workspace to lookup and configure (required)
+- `--create-if-not-exists` / `-c`: Create the workspace if it doesn't exist
+
+**Examples:**
+```bash
+# Look up existing workspace
+ingen_fab init workspace --workspace-name "Analytics Workspace"
+
+# Create workspace if it doesn't exist
+ingen_fab init workspace --workspace-name "New Workspace" --create-if-not-exists
+```
 
 ## ddl {#ddl}
 
@@ -114,20 +135,21 @@ ingen_fab deploy deploy
 Delete all workspace items in an environment.
 
 ```bash
-ingen_fab deploy delete-all --environment development
+ingen_fab deploy delete-all
 ```
 
 **Options:**
-- `--environment` / `-e`: Environment name (default: development)
 - `--force` / `-f`: Force deletion without confirmation
+
+Uses the global options `--fabric-workspace-repo-dir` and `--fabric-environment`.
 
 **Examples:**
 ```bash
 # Delete all items in development environment (will prompt for confirmation)
-ingen_fab deploy delete-all --environment development
+ingen_fab deploy delete-all --fabric-environment development
 
 # Force delete without confirmation
-ingen_fab deploy delete-all --environment test --force
+ingen_fab deploy delete-all --fabric-environment test --force
 ```
 
 #### `deploy upload-python-libs`
@@ -135,12 +157,10 @@ ingen_fab deploy delete-all --environment test --force
 Upload python_libs directory to Fabric config lakehouse using OneLakeUtils.
 
 ```bash
-ingen_fab deploy upload-python-libs --environment development --project-path .
+ingen_fab deploy upload-python-libs
 ```
 
-**Options:**
-- `--environment` / `-e`: Fabric environment name (default: development_jr)
-- `--project-path` / `-p`: Project path (default: sample_project)
+Uses the global options `--fabric-workspace-repo-dir` and `--fabric-environment`.
 
 ## notebook {#notebook}
 
@@ -272,9 +292,9 @@ ingen_fab test platform generate
 
 Uses the global context for fabric workspace directory and environment.
 
-### package
+## package {#package}
 
-Run extension packages.
+Compile and run extension packages.
 
 #### Package Ingest Subcommands
 
@@ -315,9 +335,48 @@ ingen_fab package ingest run --config-id CONFIG_ID --execution-group 1
 - `--execution-group` / `-g`: Execution group number (default: 1)
 - `--environment` / `-e`: Environment name (default: development)
 
-## run {#run}
+#### Package Synapse Subcommands
 
-Run packages and workflows.
+##### `package synapse compile`
+
+Compile synapse sync package templates and DDL scripts.
+
+```bash
+ingen_fab package synapse compile
+```
+
+**Options:**
+- `--template-vars` / `-t`: JSON string of template variables
+- `--include-samples` / `-s`: Include sample data DDL and files
+
+**Examples:**
+```bash
+# Basic compilation
+ingen_fab package synapse compile
+
+# With custom template variables
+ingen_fab package synapse compile --template-vars '{"schema": "custom_schema"}'
+
+# Include sample data
+ingen_fab package synapse compile --include-samples
+```
+
+##### `package synapse run`
+
+Run synapse sync extraction for specified configuration.
+
+```bash
+ingen_fab package synapse run --master-execution-id MASTER_ID
+```
+
+**Options:**
+- `--master-execution-id` / `-m`: Master execution ID
+- `--work-items-json` / `-w`: JSON string of work items for historical mode
+- `--max-concurrency` / `-c`: Maximum concurrency level (default: 10)
+- `--include-snapshots` / `-s`: Include snapshot tables
+- `--environment` / `-e`: Environment name (default: development)
+
+**Note:** The run commands currently display what parameters would be used for execution in a production environment.
 
 ## libs {#libs}
 
@@ -413,14 +472,18 @@ for env in development test production; do
 done
 ```
 
-### Working with Flat File Ingestion
+### Working with Packages
 
 ```bash
-# Compile the ingestion package
+# Compile the flat file ingestion package
 ingen_fab package ingest compile --include-samples
 
-# Run ingestion for specific config
+# Compile the synapse sync package
+ingen_fab package synapse compile --include-samples
+
+# Note: The run commands are not yet fully implemented and will show what parameters would be used
 ingen_fab package ingest run --config-id "customers_import" --environment development
+ingen_fab package synapse run --master-execution-id "12345"
 ```
 
 ## Error Handling

@@ -138,7 +138,7 @@ class TestLocalNotebookUtils:
     
     def test_get_default_connection_string_with_env_password(self):
         """Test default connection string with environment password."""
-        with patch.dict(os.environ, {"SQL_SERVER_SA_PASSWORD": "test_password"}):
+        with patch.dict(os.environ, {"SQL_SERVER_PASSWORD": "test_password"}):
             utils = LocalNotebookUtils()
             conn_str = utils._get_default_connection_string()
             assert "PWD=test_password" in conn_str
@@ -191,7 +191,7 @@ class TestLocalNotebookUtils:
             
             mock_import.side_effect = import_side_effect
             
-            with patch.dict(os.environ, {"SQL_SERVER_SA_PASSWORD": "fallback_password"}):
+            with patch.dict(os.environ, {"SQL_SERVER_PASSWORD": "fallback_password"}):
                 utils = LocalNotebookUtils()
                 result = utils.connect_to_artifact("test-artifact", "test-workspace")
                 
