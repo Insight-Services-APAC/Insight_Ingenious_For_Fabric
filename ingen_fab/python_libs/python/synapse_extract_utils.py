@@ -9,12 +9,23 @@ from typing import Any, Dict, List, Optional
 import numpy as np
 import pandas as pd
 import pyarrow as pa
-from deltalake import write_deltalake
 
-# Import pipeline utils
+# Import pipeline utils and error categorization
 from ingen_fab.python_libs.python.pipeline_utils import PipelineUtils
+from ingen_fab.python_libs.python.error_categorization import (
+    error_categorizer, 
+    ErrorCategory, 
+    ErrorSeverity
+)
+from ingen_fab.python_libs.common.config_utils import get_configs_as_object
+from ingen_fab.python_libs.python.warehouse_utils import warehouse_utils
 
 logger = logging.getLogger(__name__)
+
+# Constants for polling
+POLL_INTERVAL = 30
+FAST_RETRY_SEC = 3
+TRANSIENT_HTTP = {429, 500, 503, 504, 408}
 
 
 def timestamp_now() -> int:
@@ -31,6 +42,32 @@ async def random_delay_before_logging():
 class SynapseExtractUtils: 
     """Utility class for Synapse data extraction operations."""
 
+    # Schema definition that matches the original file
+    LOG_SCHEMA = pa.schema([
+        ("master_execution_id", pa.string()),
+        ("execution_id", pa.string()),
+        ("pipeline_job_id", pa.string()),
+        ("execution_group", pa.int32()),
+        ("master_execution_parameters", pa.string()),
+        ("trigger_type", pa.string()),
+        ("config_synapse_connection_name", pa.string()),
+        ("source_schema_name", pa.string()),
+        ("source_table_name", pa.string()),
+        ("extract_mode", pa.string()),
+        ("extract_start_dt", pa.date32()),
+        ("extract_end_dt", pa.date32()),
+        ("partition_clause", pa.string()),
+        ("output_path", pa.string()),
+        ("extract_file_name", pa.string()),
+        ("external_table", pa.string()),
+        ("start_timestamp", pa.timestamp('ms')),
+        ("end_timestamp", pa.timestamp('ms')),
+        ("duration_sec", pa.float64()),
+        ("status", pa.string()),
+        ("error_messages", pa.string()),
+        ("end_timestamp_int", pa.int64())
+    ])
+
     def __init__(self, datasource_name: str, datasource_location: str, workspace_id: str, lakehouse_id: str):
         """
         Initialise the Synapse extract utilities.
@@ -43,9 +80,17 @@ class SynapseExtractUtils:
         """
         self.datasource_name = datasource_name
         self.datasource_location = datasource_location
-        base_lh_table_path = f"abfss://{workspace_id}@onelake.dfs.fabric.microsoft.com/{lakehouse_id}/Tables"
-        self.log_table_uri = f"{base_lh_table_path}/log_synapse_extracts"
-        self.config_table_uri = f"{base_lh_table_path}/config_synapse_extracts"
+        
+        # Initialize warehouse utils for metadata and logging
+        self.warehouse_utils = warehouse_utils(
+            target_workspace_id=workspace_id,
+            target_warehouse_id="config_wh"  # Using config warehouse for metadata
+        )
+        
+        # Table names for metadata and logging
+        self.log_table_name = "synapse_extract_run_log"
+        self.config_table_name = "synapse_extract_objects"
+        self.schema_name = "dbo"
 
     def get_extract_sql_template(self) -> str:
         """Get the SQL template for CETAS extraction."""
@@ -154,141 +199,306 @@ class SynapseExtractUtils:
         table_name: str,
         poll_interval: int = 30
     ) -> str:
-        """Poll pipeline until completion using PipelineUtils.
+        """Poll pipeline until completion using PipelineUtils with advanced polling logic.
         
         Args:
             workspace_id: Fabric workspace ID
             pipeline_id: Pipeline ID
             job_id: Job ID to poll
             table_name: Table name for logging
-            poll_interval: Seconds between status checks
+            poll_interval: Seconds between status checks (ignored, uses constants)
             
         Returns:
             Final pipeline status
         """
         pipeline_utils = self.get_pipeline_utils()
         
-        while True:
-            status, error = await pipeline_utils.check_pipeline(
-                table_name=table_name,
-                workspace_id=workspace_id,
-                pipeline_id=pipeline_id,
-                job_id=job_id
-            )
-            
-            if status is None:
-                # Transient error, continue polling
-                await asyncio.sleep(poll_interval)
-                continue
-            
-            # Check for terminal states
-            if status in {"Completed", "Failed", "Cancelled", "Deduped", "Error"}:
-                return status
-            
-            # Still running, wait and check again
-            await asyncio.sleep(poll_interval)
+        # Construct job URL for polling
+        job_url = f"v1/workspaces/{workspace_id}/items/{pipeline_id}/jobs/instances/{job_id}"
+        
+        # Use the advanced polling logic from PipelineUtils
+        return await pipeline_utils.poll_job(job_url, table_name)
     
-    async def insert_log_record(
-        self,
-        execution_id: str,
-        cfg_synapse_connection_name: str,
-        source_schema_name: str,
-        source_table_name: str,
-        extract_file_name: str,
-        partition_clause: str,
-        status: str,
-        error_messages: str,
-        start_date: Optional[int] = None, 
-        finish_date: Optional[int] = None, 
-        update_date: Optional[int] = None,
-        output_path: Optional[str] = None,
-        master_execution_id: Optional[str] = None
-    ) -> None:
+    def _with_retry(self, fn, max_retries=5, initial_delay=0.5):
         """
-        Insert a log record into the log_synapse_extracts table with retry mechanism.
+        Execute a function with exponential backoff retry logic using sophisticated error categorization.
         
         Args:
-            execution_id: Unique ID for this execution
-            cfg_synapse_connection_name: Name of the Synapse connection
-            source_schema_name: Schema containing the source table
-            source_table_name: Name of the source table
-            extract_file_name: Name of the extract file
-            partition_clause: SQL clause for partitioning
-            status: Current status of the extraction
-            error_messages: Any error messages
-            start_date: Start timestamp
-            finish_date: Finish timestamp
-            update_date: Update timestamp
-            output_path: Path to the output file
-            master_execution_id: ID that links related executions together
+            fn: Function to execute
+            max_retries: Maximum number of retry attempts
+            initial_delay: Initial delay in seconds before first retry
+            
+        Returns:
+            Result of the function if successful
+            
+        Raises:
+            Exception: Re-raises the last exception after all retries are exhausted
         """
-        # Default the dates only if they are not provided
-        start_ts = start_date if start_date is not None else timestamp_now()
-        finish_ts = finish_date if finish_date is not None else timestamp_now()
-        update_ts = update_date if update_date is not None else timestamp_now()
-
-        # Step 1: Prepare schema
-        schema = pa.schema([
-            ("execution_id", pa.string()),
-            ("cfg_synapse_connection_name", pa.string()),
-            ("source_schema_name", pa.string()),
-            ("source_table_name", pa.string()),
-            ("extract_file_name", pa.string()),
-            ("partition_clause", pa.string()),
-            ("status", pa.string()),
-            ("error_messages", pa.string()),
-            ("start_date", pa.int64()),
-            ("finish_date", pa.int64()),
-            ("update_date", pa.int64()),
-            ("output_path", pa.string()),
-            ("master_execution_id", pa.string())
-        ])
-
-        # Step 2: Create DataFrame
-        df = pd.DataFrame([{
-            "execution_id": execution_id,
-            "cfg_synapse_connection_name": cfg_synapse_connection_name,
-            "source_schema_name": source_schema_name,
-            "source_table_name": source_table_name,
-            "extract_file_name": extract_file_name,
-            "partition_clause": partition_clause,
-            "status": status,
-            "error_messages": error_messages,
-            "start_date": start_ts,
-            "finish_date": finish_ts,
-            "update_date": update_ts,
-            "output_path": output_path,
-            "master_execution_id": master_execution_id
-        }])
-
-        # Step 3: Convert to Arrow Table
-        table = pa.Table.from_pandas(df, schema=schema, preserve_index=False)
-
-        # Add a small random delay before writing to reduce contention with parallel writes
-        await random_delay_before_logging()
-
-        # Step 4: Write to Delta (append) with retry mechanism
-        max_retries = 5
-        retry_delay_base = 2  # seconds
-        
-        for attempt in range(max_retries):
+        for attempt in range(1, max_retries + 1):
             try:
-                write_deltalake(self.log_table_uri, table, mode="append", schema=schema)
-                # If successful, break out of retry loop
-                return
-            except Exception as e:
-                error_msg = str(e)
-                # Check if it's a timeout error
-                if "OperationTimedOut" in error_msg or "timeout" in error_msg.lower() or attempt < max_retries - 1:
-                    # Calculate exponential backoff with jitter
-                    delay = retry_delay_base * (2 ** attempt) * (0.5 + np.random.random())
-                    logger.warning(f"Delta write attempt {attempt+1}/{max_retries} failed for {source_schema_name}.{source_table_name} with error: {error_msg[:100]}...")
-                    logger.info(f"Retrying in {delay:.2f} seconds...")
-                    await asyncio.sleep(delay)
-                else:
-                    # On last attempt, or if not a timeout error, re-raise
-                    logger.error(f"Failed to write log record for {source_schema_name}.{source_table_name} after {attempt+1} attempts: {error_msg}")
+                return fn()
+            except Exception as exc:
+                # Categorize the error
+                category, severity, is_retryable = error_categorizer.categorize_exception(exc)
+                
+                # Log error with appropriate context
+                error_categorizer.log_error(
+                    exc, 
+                    category, 
+                    severity, 
+                    context={"attempt": attempt, "max_retries": max_retries}
+                )
+                
+                # If last attempt or non-retryable, re-raise
+                if attempt == max_retries or not is_retryable:
                     raise
+                
+                # Calculate delay based on error category
+                delay = error_categorizer.get_retry_delay(category, attempt, initial_delay)
+                
+                # Add jitter to prevent thundering herd
+                jitter = 0.8 + (0.4 * np.random.random())
+                delay_with_jitter = delay * jitter
+                
+                logger.info(f"Retrying in {delay_with_jitter:.2f}s (category: {category.value}, severity: {severity.value})")
+                time.sleep(delay_with_jitter)
+    
+    def bulk_insert_queued_extracts(
+        self,
+        extraction_payloads: List[Dict], 
+        master_execution_id: str,
+        master_execution_parameters: Dict = None,
+        trigger_type: str = "Manual"
+    ) -> Dict[str, str]:
+        """
+        Bulk insert all extraction payloads into log table with 'Queued' status.
+        This ensures all planned extractions are logged, even if never started.
+        
+        Args:
+            extraction_payloads: List of extraction payload dictionaries
+            master_execution_id: ID linking all extractions in this batch
+            master_execution_parameters: Optional parameters to record with the execution
+            trigger_type: Type of trigger that initiated the extraction
+            
+        Returns:
+            Dictionary mapping table names to execution IDs for status updates
+            
+        Raises:
+            Exception: If bulk insert fails after retries
+        """
+        logger.info(f"Pre-logging {len(extraction_payloads)} extractions as 'Queued'...")
+
+        records = []
+        # Create timestamp with millisecond precision, no timezone
+        ts_now = datetime.utcnow().replace(microsecond=0)
+        
+        for item in extraction_payloads:
+            # Convert string dates to date objects if needed
+            extract_start = None
+            extract_end = None
+            if item.get("extract_start"):
+                extract_start = datetime.strptime(item["extract_start"], "%Y-%m-%d").date() if isinstance(item["extract_start"], str) else item["extract_start"]
+            if item.get("extract_end"):
+                extract_end = datetime.strptime(item["extract_end"], "%Y-%m-%d").date() if isinstance(item["extract_end"], str) else item["extract_end"]
+            
+            record = {
+                "master_execution_id": master_execution_id,
+                "execution_id": str(uuid.uuid4()),
+                "pipeline_job_id": None,
+                "execution_group": item.get("execution_group"),
+                "master_execution_parameters": json.dumps(master_execution_parameters) if master_execution_parameters else None,
+                "trigger_type": trigger_type,
+                "config_synapse_connection_name": self.datasource_name,
+                "source_schema_name": item["source_schema"],
+                "source_table_name": item["source_table"],
+                "extract_mode": item["extract_mode"],
+                "extract_start_dt": extract_start,
+                "extract_end_dt": extract_end,
+                "partition_clause": item.get("partition_clause"),
+                "output_path": item.get("output_path"),
+                "extract_file_name": item.get("extract_file_name"),
+                "external_table": item.get("external_table"),
+                "start_timestamp": ts_now,
+                "end_timestamp": None,
+                "duration_sec": None,
+                "status": "Queued",
+                "error_messages": None,
+                "end_timestamp_int": None
+            }
+            records.append(record)
+        
+        # Create DataFrame for bulk insert
+        df = pd.DataFrame(records)
+        
+        try:
+            # Use warehouse utils to write to the log table
+            self.warehouse_utils.write_to_table(
+                df=df,
+                table_name=self.log_table_name,
+                schema_name=self.schema_name,
+                mode="append"
+            )
+            logger.info(f"Successfully queued {len(extraction_payloads)} extractions in log table")
+            # Return mapping using external table name as key (guaranteed unique)
+            return {r['external_table']: r['execution_id'] for r in records}
+        except Exception as exc:
+            logger.error(f"Failed to bulk insert log records: {exc}")
+            raise
+    
+    def update_log_record(
+        self,
+        status: str,
+        master_execution_id: str,
+        execution_id: str,
+        error: Optional[str] = None,
+        duration_sec: Optional[float] = None,
+        pipeline_job_id: Optional[str] = None,
+        output_path: Optional[str] = None,
+        extract_file_name: Optional[str] = None,
+        external_table: Optional[str] = None,
+    ) -> None:
+        """
+        Update a log record in the extraction run log table using Delta Lake merge operations.
+        
+        Args:
+            status: Current status of the extraction ('Queued', 'Claimed', 'Running', 'Completed', 'Failed', etc.)
+            master_execution_id: ID linking all extractions in this batch
+            execution_id: Unique ID for this specific extraction
+            error: Optional error message if the extraction failed
+            duration_sec: Optional duration of the extraction in seconds
+            pipeline_job_id: Optional ID of the pipeline job executing the extraction
+            output_path: Optional path where extracted data is stored
+            extract_file_name: Optional base name for the extracted files
+            external_table: Optional name of the external table created
+            
+        Raises:
+            Exception: If update fails after retries
+        """
+        
+        # Create timestamp with millisecond precision, no timezone
+        current_time = datetime.utcnow().replace(microsecond=0)
+        
+        updates = {
+            "master_execution_id": master_execution_id,
+            "execution_id": execution_id,
+            "status": status,
+            "error_messages": error,
+            "end_timestamp": None,
+            "end_timestamp_int": None
+        }
+
+        if status in {"Completed", "Failed", "Cancelled", "Deduped"}:
+            updates["end_timestamp"] = current_time
+            updates["end_timestamp_int"] = int(current_time.strftime("%Y%m%d%H%M%S%f")[:-3])
+
+        if duration_sec is not None:
+            updates["duration_sec"] = duration_sec
+        if pipeline_job_id:
+            updates["pipeline_job_id"] = pipeline_job_id
+        if output_path:
+            updates["output_path"] = output_path
+        if extract_file_name:
+            updates["extract_file_name"] = extract_file_name
+        if external_table:
+            updates["external_table"] = external_table
+
+        # Build the update SQL statement
+        set_clauses = []
+        params = []
+        
+        # Always update these fields
+        set_clauses.append("status = ?")
+        params.append(status)
+        
+        if error:
+            set_clauses.append("error_messages = ?")
+            params.append(error)
+            
+        if status in {"Completed", "Failed", "Cancelled", "Deduped"}:
+            set_clauses.append("end_timestamp = ?")
+            params.append(current_time)
+            set_clauses.append("end_timestamp_int = ?")
+            params.append(int(current_time.strftime("%Y%m%d%H%M%S%f")[:-3]))
+            
+        if duration_sec is not None:
+            set_clauses.append("duration_sec = ?")
+            params.append(duration_sec)
+            
+        if pipeline_job_id:
+            set_clauses.append("pipeline_job_id = ?")
+            params.append(pipeline_job_id)
+            
+        if output_path:
+            set_clauses.append("output_path = ?")
+            params.append(output_path)
+            
+        if extract_file_name:
+            set_clauses.append("extract_file_name = ?")
+            params.append(extract_file_name)
+            
+        if external_table:
+            set_clauses.append("external_table = ?")
+            params.append(external_table)
+        
+        # Build and execute the update query
+        sql = f"""
+        UPDATE {self.schema_name}.{self.log_table_name}
+        SET {', '.join(set_clauses)}
+        WHERE execution_id = ? AND master_execution_id = ?
+        """
+        params.extend([execution_id, master_execution_id])
+        
+        try:
+            self.warehouse_utils.execute_query(query=sql, params= params)
+            logger.debug(f"Updated log record: execution_id={execution_id}, status={status}")
+        except Exception as exc:
+            logger.error(f"Failed to update log record: {exc}")
+            raise
+    
+    def extract_exists(self, master_execution_id: str, rec: Dict) -> bool:
+        """
+        Check if an extraction with the same parameters already exists.
+        
+        This helps avoid duplicate extractions for the same table and date range.
+        
+        Args:
+            master_execution_id: ID linking all extractions in this batch
+            rec: Dictionary containing extraction parameters to check
+            
+        Returns:
+            bool: True if a matching extraction exists, False otherwise
+        """
+        try:
+            # Build SQL query to check existence
+            sql = f"""
+            SELECT COUNT(*) as cnt
+            FROM {self.schema_name}.{self.log_table_name}
+            WHERE master_execution_id = ?
+              AND source_schema_name = ?
+              AND source_table_name = ?
+              AND extract_start_dt = ?
+              AND extract_end_dt = ?
+            """
+            
+            params = [
+                master_execution_id,
+                rec["source_schema"],
+                rec["source_table"],
+                rec.get("extract_start"),
+                rec.get("extract_end")
+            ]
+            
+            result = self.warehouse_utils.execute_query(query=sql, params=params)
+            
+            # Check if any matching record exists
+            return result[0]["cnt"] > 0 if result else False
+            
+        except Exception as e:
+            logger.warning(f"Error checking extraction existence: {e}")
+            return False
+    
+    # Note: The insert_log_record method has been removed as we now use bulk_insert_queued_extracts
+    # and update_log_record for all logging operations through warehouse_utils
 
 
 def build_path_components(item: Dict[str, Any]) -> Dict[str, str]:
