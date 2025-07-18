@@ -155,51 +155,6 @@ else:
 
 # Add markdown content here
 
-# ## ⚙️ Configuration Settings
-
-# CELL ********************
-
-
-# variableLibraryInjectionStart: var_lib
-
-# All variables as a dictionary
-configs_dict = {'fabric_environment': 'development_jr', 'fabric_deployment_workspace_id': 'b3fbeaf7-ec67-4622-ba37-8d8bcb7e436a', 'synapse_source_database_1': 'test1', 'config_workspace_id': 'b3fbeaf7-ec67-4622-ba37-8d8bcb7e436a', 'config_workspace_name': 'dev_jr', 'synapse_source_sql_connection': 'sansdaisyn-ondemand.sql.azuresynapse.net', 'config_lakehouse_name': 'config', 'edw_warehouse_name': 'edw', 'config_lakehouse_id': 'b3e5c081-5a1f-4fdd-9232-afc2108c27f1', 'config_warehouse_id': 'd1786653-8981-4c05-bcb9-7b22410723c5', 'edw_workspace_id': 'b3fbeaf7-ec67-4622-ba37-8d8bcb7e436a', 'edw_warehouse_id': 'd1786653-8981-4c05-bcb9-7b22410723c5', 'edw_lakehouse_id': '6adb67d6-c8eb-4612-9053-890cae3a55d7', 'edw_lakehouse_name': 'edw', 'legacy_synapse_connection_name': 'synapse_connection', 'synapse_export_shortcut_path_in_onelake': 'exports/', 'raw_workspace_id': 'b3fbeaf7-ec67-4622-ba37-8d8bcb7e436a', 'raw_datastore_id': 'b3e5c081-5a1f-4fdd-9232-afc2108c27f1'}
-# All variables as an object
-from dataclasses import dataclass
-@dataclass
-class ConfigsObject:
-    fabric_environment: str 
-    fabric_deployment_workspace_id: str 
-    synapse_source_database_1: str 
-    config_workspace_id: str 
-    config_workspace_name: str 
-    synapse_source_sql_connection: str 
-    config_lakehouse_name: str 
-    edw_warehouse_name: str 
-    config_lakehouse_id: str 
-    config_warehouse_id: str 
-    edw_workspace_id: str 
-    edw_warehouse_id: str 
-    edw_lakehouse_id: str 
-    edw_lakehouse_name: str 
-    legacy_synapse_connection_name: str 
-    synapse_export_shortcut_path_in_onelake: str 
-    raw_workspace_id: str 
-    raw_datastore_id: str 
-configs_object: ConfigsObject = ConfigsObject(**configs_dict)
-# variableLibraryInjectionEnd: var_lib
-
-
-
-# METADATA ********************
-
-# META {
-# META   "language": "python"
-# META }
-# MARKDOWN ********************
-
-# Add markdown content here
-
 # ## 🆕 Instantiate Required Classes 
 
 # CELL ********************
@@ -389,8 +344,8 @@ def script_to_execute():
             config_name="CSV Sales Data Test",
             source_file_path="Files/sample_data/sales_data.csv",
             source_file_format="csv",
-            target_lakehouse_workspace_id="#####",
-            target_lakehouse_id="2629d4cc-685c-458a-866b-b4705dde71a7",
+            target_lakehouse_workspace_id="b3fbeaf7-ec67-4622-ba37-8d8bcb7e436a",
+            target_lakehouse_id="b3e5c081-5a1f-4fdd-9232-afc2108c27f1",
             target_schema_name="raw",
             target_table_name="sales_data",
             file_delimiter=",",
@@ -418,8 +373,8 @@ def script_to_execute():
             config_name="JSON Products Data Test",
             source_file_path="Files/sample_data/products.json",
             source_file_format="json",
-            target_lakehouse_workspace_id="#####",
-            target_lakehouse_id="2629d4cc-685c-458a-866b-b4705dde71a7",
+            target_lakehouse_workspace_id="b3fbeaf7-ec67-4622-ba37-8d8bcb7e436a",
+            target_lakehouse_id="b3e5c081-5a1f-4fdd-9232-afc2108c27f1",
             target_schema_name="raw",
             target_table_name="products",
             file_delimiter=None,
@@ -447,8 +402,8 @@ def script_to_execute():
             config_name="Parquet Customers Data Test",
             source_file_path="Files/sample_data/customers.parquet",
             source_file_format="parquet",
-            target_lakehouse_workspace_id="#####",
-            target_lakehouse_id="2629d4cc-685c-458a-866b-b4705dde71a7",
+            target_lakehouse_workspace_id="b3fbeaf7-ec67-4622-ba37-8d8bcb7e436a",
+            target_lakehouse_id="b3e5c081-5a1f-4fdd-9232-afc2108c27f1",
             target_schema_name="raw",
             target_table_name="customers",
             file_delimiter=None,

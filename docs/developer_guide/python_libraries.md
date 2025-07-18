@@ -76,42 +76,41 @@ python_libs/
 Configuration management with environment-specific settings:
 
 ```python
-from common.config_utils import FabricConfig
+from ingen_fab.python_libs.common.config_utils import ConfigUtils
 
-# Load configuration from environment
-config = FabricConfig.from_environment()
+# Load configuration from variable library
+config_utils = ConfigUtils()
 
 # Access configuration values
-workspace_id = config.workspace_id
-lakehouse_id = config.lakehouse_id
+fabric_environment = config_utils.get_fabric_environment()
+workspace_id = config_utils.get_variable('config_workspace_id')
+lakehouse_id = config_utils.get_variable('config_lakehouse_id')
 ```
 
 #### `data_utils.py`
 Data processing and validation utilities:
 
 ```python
-from common.data_utils import DataValidator, DataTransformer
+from ingen_fab.python_libs.common.data_utils import DataUtils
 
-# Validate data
-validator = DataValidator()
-is_valid = validator.validate_schema(dataframe, expected_schema)
+# Data processing utilities
+data_utils = DataUtils()
 
-# Transform data
-transformer = DataTransformer()
-cleaned_data = transformer.clean_data(dataframe)
+# Common data operations would be implemented here
+# Note: The actual implementation may vary based on specific use cases
 ```
 
 #### `workflow_utils.py`
 Workflow orchestration and dependency management:
 
 ```python
-from common.workflow_utils import WorkflowOrchestrator
+from ingen_fab.python_libs.common.workflow_utils import WorkflowUtils
 
-# Create workflow
-orchestrator = WorkflowOrchestrator()
-orchestrator.add_task("task1", dependencies=[])
-orchestrator.add_task("task2", dependencies=["task1"])
-orchestrator.execute()
+# Workflow utilities for orchestration
+workflow_utils = WorkflowUtils()
+
+# Common workflow operations would be implemented here
+# Note: The actual implementation may vary based on specific use cases
 ```
 
 ### Interfaces
@@ -152,7 +151,7 @@ class DDLUtilsInterface(ABC):
 DDL execution with logging and error handling:
 
 ```python
-from python.ddl_utils import DDLUtils
+from ingen_fab.python_libs.python.ddl_utils import DDLUtils
 
 ddl_utils = DDLUtils(
     target_warehouse_id="warehouse-guid",
@@ -172,27 +171,24 @@ ddl_utils.execute_ddl(
 Lakehouse operations for file and table management:
 
 ```python
-from python.lakehouse_utils import LakehouseUtils
+from ingen_fab.python_libs.python.lakehouse_utils import LakehouseUtils
 
 lakehouse_utils = LakehouseUtils(
     target_lakehouse_id="lakehouse-guid",
     target_workspace_id="workspace-guid"
 )
 
-# File operations
-files = lakehouse_utils.list_files("Tables/")
-lakehouse_utils.upload_file("local_file.csv", "Files/data/")
-
 # Table operations
 tables = lakehouse_utils.list_tables()
 df = lakehouse_utils.read_table("config.metadata")
+lakehouse_utils.write_table(df, "output_table")
 ```
 
 #### `warehouse_utils.py`
 Warehouse connectivity and query execution:
 
 ```python
-from python.warehouse_utils import WarehouseUtils
+from ingen_fab.python_libs.python.warehouse_utils import WarehouseUtils
 
 warehouse_utils = WarehouseUtils(
     target_warehouse_id="warehouse-guid",
@@ -209,15 +205,15 @@ warehouse_utils.execute_non_query("INSERT INTO logs VALUES (...)")
 Environment-agnostic notebook utilities:
 
 ```python
-from python.notebook_utils_abstraction import get_notebook_utils
+from ingen_fab.python_libs.python.notebook_utils_abstraction import get_notebook_utils
 
 # Automatically detects environment
 utils = get_notebook_utils()
 
 # Works in both local and Fabric environments
 utils.display(dataframe)
-connection = utils.connect_to_artifact(warehouse_id, workspace_id)
-secret = utils.get_secret("API_KEY", "key-vault-name")
+connection = utils.connect_to_warehouse(warehouse_id, workspace_id)
+# Note: Secret management functionality depends on environment setup
 ```
 
 ### PySpark Implementation
@@ -226,7 +222,7 @@ secret = utils.get_secret("API_KEY", "key-vault-name")
 Spark-compatible DDL execution:
 
 ```python
-from pyspark.ddl_utils import DDLUtils
+from ingen_fab.python_libs.pyspark.ddl_utils import DDLUtils
 
 ddl_utils = DDLUtils(
     target_lakehouse_id="lakehouse-guid",
@@ -245,7 +241,7 @@ ddl_utils.execute_ddl(
 Spark-based lakehouse operations:
 
 ```python
-from pyspark.lakehouse_utils import LakehouseUtils
+from ingen_fab.python_libs.pyspark.lakehouse_utils import LakehouseUtils
 
 lakehouse_utils = LakehouseUtils(
     target_lakehouse_id="lakehouse-guid",
@@ -253,23 +249,21 @@ lakehouse_utils = LakehouseUtils(
     spark_session=spark
 )
 
-# Read/write Delta tables
-df = lakehouse_utils.read_delta_table("config.metadata")
-lakehouse_utils.write_delta_table(df, "output.results")
+# Read/write tables using Spark
+df = lakehouse_utils.read_table("config.metadata")
+lakehouse_utils.write_table(df, "output_results")
 ```
 
 #### `parquet_load_utils.py`
 Parquet file processing utilities:
 
 ```python
-from pyspark.parquet_load_utils import ParquetLoadUtils
+from ingen_fab.python_libs.pyspark.parquet_load_utils import ParquetLoadUtils
 
 parquet_utils = ParquetLoadUtils(spark_session=spark)
 
-# Load and process parquet files
-df = parquet_utils.load_parquet_files("path/to/files/*.parquet")
-processed_df = parquet_utils.process_parquet_data(df, transformations)
-parquet_utils.save_to_delta("output_table", processed_df)
+# The parquet load utilities would provide methods for loading and processing parquet files
+# Note: Specific implementation details may vary
 ```
 
 ## SQL Template Factory
@@ -277,15 +271,15 @@ parquet_utils.save_to_delta("output_table", processed_df)
 The SQL template system provides database-agnostic SQL generation:
 
 ```python
-from python.sql_templates import SQLTemplates
+from ingen_fab.python_libs.python.sql_templates import SQLTemplateFactory
 
 # Create templates instance
-templates = SQLTemplates(dialect="fabric")  # or "sqlserver"
+template_factory = SQLTemplateFactory(dialect="fabric")  # or "sql_server"
 
 # Generate SQL
-sql = templates.render("check_table_exists", 
-                      schema_name="config", 
-                      table_name="metadata")
+sql = template_factory.get_sql("check_table_exists", 
+                               schema_name="config", 
+                               table_name="metadata")
 ```
 
 Available templates:
@@ -314,15 +308,15 @@ pytest ./ingen_fab/python_libs_tests/pyspark/test_lakehouse_utils_pytest.py -v
 pytest ./ingen_fab/python_libs_tests/ --cov=ingen_fab.python_libs --cov-report=html
 ```
 
-### Integration Tests
+### Platform Tests
 
 Test with actual Fabric workspaces:
 
 ```bash
-# Test with environment variables set
-export FABRIC_WORKSPACE_ID="your-workspace-id"
-export FABRIC_LAKEHOUSE_ID="your-lakehouse-id"
-pytest ./ingen_fab/python_libs_tests/integration/ -v
+# Generate platform test notebooks
+ingen_fab test platform generate
+
+# The generated notebooks can then be run in Fabric to test the libraries
 ```
 
 ## Development Guidelines
@@ -407,15 +401,24 @@ When creating new implementations:
 Libraries are automatically injected into generated notebooks:
 
 ```python
-# In generated notebook
+# In generated notebook (libraries are injected automatically)
 from lakehouse_utils import LakehouseUtils
-from warehouse_utils import WarehouseUtils
+from warehouse_utils import WarehouseUtils  
 from ddl_utils import DDLUtils
 
-# Libraries are available for use
-lakehouse_utils = LakehouseUtils()
-warehouse_utils = WarehouseUtils()
-ddl_utils = DDLUtils()
+# Libraries are available for use with proper initialization
+lakehouse_utils = LakehouseUtils(
+    target_lakehouse_id=target_lakehouse_id,
+    target_workspace_id=target_workspace_id
+)
+warehouse_utils = WarehouseUtils(
+    target_warehouse_id=target_warehouse_id,
+    target_workspace_id=target_workspace_id
+)
+ddl_utils = DDLUtils(
+    config_workspace_id=config_workspace_id,
+    config_lakehouse_id=config_lakehouse_id
+)
 ```
 
 ## Performance Considerations

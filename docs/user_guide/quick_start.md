@@ -26,8 +26,10 @@ This creates the following structure with complete starter files:
 ```
 My First Fabric Project/
 ├── ddl_scripts/                    # Sample DDL scripts included
-│   ├── Lakehouses/Sample/         # Python DDL scripts for Delta tables
-│   └── Warehouses/Sample/         # SQL DDL scripts for warehouses
+│   ├── Lakehouses/Config/         # Python DDL scripts for Delta tables
+│   └── Warehouses/               # SQL DDL scripts for warehouses
+│       ├── Config_WH/            # Config warehouse scripts
+│       └── Sample_WH/            # Sample warehouse scripts
 ├── fabric_workspace_items/        # Complete Fabric workspace structure
 │   ├── config/var_lib.VariableLibrary/  # Pre-configured variable library
 │   ├── lakehouses/                # Sample lakehouse definitions
@@ -88,10 +90,10 @@ The project template includes sample DDL scripts to get you started. Take a look
 
 ```bash
 # View the sample Lakehouse DDL script
-cat ddl_scripts/Lakehouses/Sample/001_Initial_Creation/001_sample_customer_table_create.py
+cat ddl_scripts/Lakehouses/Config/001_Initial_Creation/001_sample_customer_table_create.py
 
 # View the sample Warehouse DDL script  
-cat ddl_scripts/Warehouses/Sample/001_Initial_Creation/001_sample_customer_table_create.sql
+cat ddl_scripts/Warehouses/Sample_WH/001_Initial_Creation/001_sample_customer_table_create.sql
 ```
 
 The sample scripts create a customer table and insert sample data. You can:
