@@ -177,6 +177,6 @@ Comprehensive testing framework supporting both local development and Fabric pla
 
 ## Support
 
-- **Issues**: Report bugs and request features on [GitHub Issues](https://github.com/your-org/ingen_fab/issues)
-- **Discussions**: Join community discussions on [GitHub Discussions](https://github.com/your-org/ingen_fab/discussions)
 - **Documentation**: Browse the complete documentation on this site
+- **Help**: Use `ingen_fab --help` for CLI assistance
+- **Local Development**: Use the sample project for testing and learning
