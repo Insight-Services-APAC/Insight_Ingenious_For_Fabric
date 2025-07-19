@@ -1,3 +1,0 @@
-2025-07-18 02:25:31,523 - ERROR - root - Error executing query: DROP TABLE IF EXISTS dbo.spt_values. Error: ('42000', "[42000] [Microsoft][ODBC Driver 18 for SQL Server][SQL Server]Cannot use DROP TABLE with 'dbo.spt_values' because 'dbo.spt_values' is a view. Use DROP VIEW. (3705) (SQLExecDirectW)")
-2025-07-18 02:25:31,524 - ERROR - root - Connection details: <pyodbc.Connection object at 0x73012bffa4c0>
-2025-07-18 02:25:31,524 - ERROR - root - ⚠ Error dropping table dbo.spt_values: ('42000', "[42000] [Microsoft][ODBC Driver 18 for SQL Server][SQL Server]Cannot use DROP TABLE with 'dbo.spt_values' because 'dbo.spt_values' is a view. Use DROP VIEW. (3705) (SQLExecDirectW)")

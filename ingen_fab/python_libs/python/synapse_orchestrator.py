@@ -97,7 +97,7 @@ class SynapseOrchestrator:
                 
                 logger.info(f"Pipeline triggered for {table_info} - Job ID: {job_id}")
                 
-                # Poll pipeline until completion
+                # Poll pipeline until completion using advanced polling logic
                 final_status = await self.synapse_utils.poll_pipeline_to_completion(
                     workspace_id=self.workspace_id,
                     pipeline_id=self.pipeline_id,
@@ -156,11 +156,19 @@ class SynapseOrchestrator:
         external_table: Optional[str] = None,
         error: Optional[str] = None
     ) -> None:
-        """Helper method to update extraction status."""
+        """Helper method to update extraction status using SynapseExtractUtils."""
         try:
-            # Note: This would need to be adapted to work with the actual lakehouse utils
-            # For now, we'll create a simplified version
-            pass  # TODO: Implement status update using lakehouse utils
+            self.synapse_utils.update_log_record(
+                status=status,
+                master_execution_id=master_execution_id,
+                execution_id=execution_id,
+                error=error,
+                duration_sec=duration_sec,
+                pipeline_job_id=pipeline_job_id,
+                output_path=output_path,
+                extract_file_name=extract_file_name,
+                external_table=external_table
+            )
         except Exception as exc:
             logger.error(f"Failed to update status: {exc}")
     
@@ -247,15 +255,13 @@ class SynapseOrchestrator:
         """Pre-log all extractions as 'Queued' and return execution ID mapping."""
         logger.info(f"Pre-logging {len(extraction_payloads)} extractions as 'Queued'...")
         
-        # Generate execution IDs for all extractions
-        execution_id_map = {}
-        for payload in extraction_payloads:
-            execution_id = str(uuid.uuid4())
-            execution_id_map[payload['external_table']] = execution_id
-        
-        # TODO: Implement bulk insert using lakehouse utils
-        # For now, return the mapping
-        return execution_id_map
+        # Use the SynapseExtractUtils bulk insert method
+        return self.synapse_utils.bulk_insert_queued_extracts(
+            extraction_payloads=extraction_payloads,
+            master_execution_id=master_execution_id,
+            master_execution_parameters=master_execution_parameters,
+            trigger_type=trigger_type
+        )
     
     def _generate_summary(
         self,

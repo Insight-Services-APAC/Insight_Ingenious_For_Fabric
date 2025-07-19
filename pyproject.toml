@@ -6,14 +6,15 @@ readme = "README.md"
 requires-python = ">=3.12"
 dependencies = [
     "jinja2",
-    "typer>=0.15.4",    
+    "typer>=0.15.4",
     "requests>=2.32.3",
     "pyodbc>=5.2.0",
     "pandas>=2.3.0",
     "deltalake==1.0.2",
     "pyarrow==20.0.0",
     "fabric_cicd @ https://github.com/jrampono/fabric-cicd/archive/refs/tags/v0.0.1.tar.gz",
-    "azure-storage-file-datalake==12.20.0"
+    "azure-storage-file-datalake==12.20.0",
+    "lazy-import>=0.2.2",
 ]
 
 [dependency-groups]

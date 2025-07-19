@@ -555,9 +555,11 @@ name = "insight-ingenious-for-fabric"
 version = "0.1.0"
 source = { editable = "." }
 dependencies = [
+    { name = "azure-storage-file-datalake" },
     { name = "deltalake" },
     { name = "fabric-cicd" },
     { name = "jinja2" },
+    { name = "lazy-import" },
     { name = "pandas" },
     { name = "pyarrow" },
     { name = "pyodbc" },
@@ -584,8 +586,8 @@ tests = [
 
 [package.dev-dependencies]
 dev = [
-    { name = "azure-storage-file-datalake" },
     { name = "delta-spark" },
+    { name = "nest-asyncio" },
     { name = "pre-commit" },
     { name = "pyodbc" },
     { name = "pyspark" },
@@ -616,10 +618,12 @@ docs = [
 
 [package.metadata]
 requires-dist = [
+    { name = "azure-storage-file-datalake", specifier = "==12.20.0" },
     { name = "backoff", marker = "extra == 'dataprep'", specifier = "==2.2" },
     { name = "deltalake", specifier = "==1.0.2" },
     { name = "fabric-cicd", url = "https://github.com/jrampono/fabric-cicd/archive/refs/tags/v0.0.1.tar.gz" },
     { name = "jinja2" },
+    { name = "lazy-import", specifier = ">=0.2.2" },
     { name = "pandas", specifier = ">=2.3.0" },
     { name = "pre-commit", marker = "extra == 'tests'", specifier = "==4.2.0" },
     { name = "pyarrow", specifier = "==20.0.0" },
@@ -640,8 +644,8 @@ provides-extras = ["dataprep", "tests"]
 
 [package.metadata.requires-dev]
 dev = [
-    { name = "azure-storage-file-datalake", specifier = "==12.20.0" },
     { name = "delta-spark", specifier = "==4.0.0" },
+    { name = "nest-asyncio", specifier = "==1.6.0" },
     { name = "pre-commit", specifier = ">=4.2.0" },
     { name = "pyodbc", specifier = "==5.2.0" },
     { name = "pyspark", specifier = "==4.0.0" },
@@ -708,6 +712,15 @@ sdist = { url = "https://files.pythonhosted.org/packages/6d/86/08646239a313f8951
 wheels = [
     { url = "https://files.pythonhosted.org/packages/35/5a/73ecb3d82f8615f32ccdadeb9356726d6cae3a4bbc840b437ceb95708063/jsonpath_ng-1.7.0-py3-none-any.whl", hash = "sha256:f3d7f9e848cba1b6da28c55b1c26ff915dc9e0b1ba7e752a53d6da8d5cbd00b6", size = 30105, upload-time = "2024-11-20T17:58:30.418Z" },
 ]
+
+[[package]]
+name = "lazy-import"
+version = "0.2.2"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "six" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/44/2e/5378f9b9cbc893826c2ecb022646c97ece9efbaad351adf89425fff33990/lazy_import-0.2.2.tar.gz", hash = "sha256:2149aef8579459407c62cfeccf118527939c9931ace124f355236360644f8a3d", size = 15265, upload-time = "2018-01-22T02:19:32.029Z" }
 
 [[package]]
 name = "loguru"
@@ -1056,6 +1069,15 @@ dependencies = [
 sdist = { url = "https://files.pythonhosted.org/packages/01/99/5d239b6156eddf761a636bded1118414d161bd6b7b37a9335549ed159396/msal_extensions-1.3.1.tar.gz", hash = "sha256:c5b0fd10f65ef62b5f1d62f4251d51cbcaf003fcedae8c91b040a488614be1a4", size = 23315, upload-time = "2025-03-14T23:51:03.902Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/5e/75/bd9b7bb966668920f06b200e84454c8f3566b102183bc55c5473d96cb2b9/msal_extensions-1.3.1-py3-none-any.whl", hash = "sha256:96d3de4d034504e969ac5e85bae8106c8373b5c6568e4c8fa7af2eca9dbe6bca", size = 20583, upload-time = "2025-03-14T23:51:03.016Z" },
+]
+
+[[package]]
+name = "nest-asyncio"
+version = "1.6.0"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/83/f8/51569ac65d696c8ecbee95938f89d4abf00f47d58d48f6fbabfe8f0baefe/nest_asyncio-1.6.0.tar.gz", hash = "sha256:6f172d5449aca15afd6c646851f4e31e02c598d553a667e38cafa997cfec55fe", size = 7418, upload-time = "2024-01-21T14:25:19.227Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/a0/c4/c2971a3ba4c6103a3d10c4b0f24f461ddc027f0f09763220cf35ca1401b3/nest_asyncio-1.6.0-py3-none-any.whl", hash = "sha256:87af6efd6b5e897c81050477ef65c62e2b2f35d51703cae01aff2905b1852e1c", size = 5195, upload-time = "2024-01-21T14:25:17.223Z" },
 ]
 
 [[package]]

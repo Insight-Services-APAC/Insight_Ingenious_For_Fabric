@@ -80,7 +80,7 @@ import sys
 if "notebookutils" in sys.modules:
     import sys
     
-    notebookutils.fs.mount("abfss://dev_jr@onelake.dfs.fabric.microsoft.com/config.Lakehouse/Files/", "/config_files")  # type: ignore # noqa: F821
+    notebookutils.fs.mount("abfss://{{varlib:config_workspace_name}}@onelake.dfs.fabric.microsoft.com/config.Lakehouse/Files/", "/config_files")  # type: ignore # noqa: F821
     mount_path = notebookutils.fs.getMountPath("/config_files")  # type: ignore # noqa: F821
     
     run_mode = "fabric"
@@ -219,6 +219,7 @@ if run_mode == "local":
     from ingen_fab.python_libs.python.pipeline_utils import PipelineUtils
     from ingen_fab.python_libs.python.synapse_extract_utils import SynapseExtractUtils
     from ingen_fab.python_libs.python.synapse_orchestrator import SynapseOrchestrator
+    from ingen_fab.python_libs.python.warehouse_utils import warehouse_utils
 else:
     synapse_files_to_load = [
         "ingen_fab/python_libs/python/pipeline_utils.py",
@@ -339,21 +340,28 @@ TRIGGER_TYPE = "Manual"
 # CELL ********************
 
 
-# Get lakehouse utilities
-lakehouse_id = configs.config_lakehouse_id
+# Get warehouse utilities for metadata/logging tables
+warehouse_id = "config_wh"
 workspace_id = configs.config_workspace_id
+warehouse = warehouse_utils(
+    target_workspace_id=workspace_id, 
+    target_warehouse_id=warehouse_id
+)
+
+# Get lakehouse utilities for data operations
+lakehouse_id = configs.config_lakehouse_id
 lakehouse = lakehouse_utils(
     target_workspace_id=workspace_id, 
     target_lakehouse_id=lakehouse_id
 )
 
-# Check if DDL tables exist
-if not lakehouse.check_if_table_exists("config_synapse_extract_objects"):
-    logger.error("Configuration table 'config_synapse_extract_objects' not found. Please run DDL scripts first.")
+# Check if DDL tables exist in warehouse
+if not warehouse.check_if_table_exists("synapse_extract_objects"):
+    logger.error("Configuration table 'synapse_extract_objects' not found. Please run DDL scripts first.")
     raise ValueError("Configuration table not found")
 
-if not lakehouse.check_if_table_exists("log_synapse_extract_run_log"):
-    logger.error("Log table 'log_synapse_extract_run_log' not found. Please run DDL scripts first.")
+if not warehouse.check_if_table_exists("synapse_extract_run_log"):
+    logger.error("Log table 'synapse_extract_run_log' not found. Please run DDL scripts first.")
     raise ValueError("Log table not found")
 
 
@@ -402,14 +410,14 @@ else:
 # CELL ********************
 
 
-# Read configuration from the synapse extract objects table
-synapse_extract_objects_df = lakehouse.read_table("config_synapse_extract_objects")
+# Read configuration from the synapse extract objects table in warehouse
+synapse_extract_objects_df = warehouse.read_table("synapse_extract_objects")
 synapse_extract_objects_df = synapse_extract_objects_df[synapse_extract_objects_df["active_yn"] == "Y"]
 
 # Get data source and pipeline configuration
 synapse_config_row = synapse_extract_objects_df.iloc[0] if len(synapse_extract_objects_df) > 0 else None
 if synapse_config_row is None:
-    logger.error("No active synapse extract configuration found in config_synapse_extract_objects table")
+    logger.error("No active synapse extract configuration found in synapse_extract_objects table")
     raise ValueError("No active synapse extract configuration found")
 
 synapse_datasource_name = synapse_config_row["synapse_datasource_name"]
