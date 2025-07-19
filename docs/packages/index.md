@@ -21,11 +21,14 @@ A comprehensive package for processing various file formats (CSV, JSON, Parquet,
 
 **Quick Start:**
 ```bash
-# Compile the package
-ingen_fab run package flat-file-ingestion compile
+# Compile the package for lakehouse target
+ingen_fab package ingest compile --target-datastore lakehouse --include-samples
 
-# Run ingestion
-ingen_fab run package flat-file-ingestion run --config-id=my-config
+# Compile the package for warehouse target  
+ingen_fab package ingest compile --target-datastore warehouse --include-samples
+
+# Run ingestion (displays what parameters would be used)
+ingen_fab package ingest run --config-id=my-config
 ```
 
 ## Package Development
@@ -68,11 +71,13 @@ Packages integrate seamlessly with the CLI:
 
 ```bash
 # General command structure
-ingen_fab run package <package-name> <command> [options]
+ingen_fab package <package-name> <command> [options]
 
-# Common commands
-ingen_fab run package <package-name> compile    # Compile templates
-ingen_fab run package <package-name> run       # Execute workload
+# Available packages
+ingen_fab package ingest compile    # Flat file ingestion package
+ingen_fab package ingest run        # Run flat file ingestion
+ingen_fab package synapse compile   # Synapse sync package  
+ingen_fab package synapse run       # Run synapse sync
 ```
 
 ## Next Steps

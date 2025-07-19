@@ -11,24 +11,39 @@ Ingenious for Fabric is a comprehensive command line tool built with [Typer](htt
 - **Notebook Utilities**: Scan and analyze existing notebook code and content
 - **Testing Framework**: Test notebooks both locally and on the Fabric platform
 - **Python Libraries**: Reusable Python and PySpark libraries for common Fabric operations
+- **Extension Packages**: Reusable workload extensions for flat file ingestion and Synapse synchronization
 
 ## Requirements
 
 - Python 3.12+
-- Dependencies listed in `pyproject.toml`.
+- Dependencies listed in `pyproject.toml`
 
-Create and activate a virtual environment and install dependencies:
+## Installation
+
+### Using uv (Recommended)
 
 ```bash
-python -m venv .venv
-source .venv/bin/activate
-pip install -e .[dev]
+# Clone the repository
+git clone <repository-url>
+cd ingen_fab
+
+# Install with uv (includes all development dependencies)
+uv sync
 ```
 
-You can also manage the environment using [uv](https://github.com/astral-sh/uv):
+### Using pip
 
 ```bash
-uv sync
+# Clone the repository  
+git clone <repository-url>
+cd ingen_fab
+
+# Create and activate virtual environment
+python -m venv .venv
+source .venv/bin/activate  # On Windows: .venv\Scripts\activate
+
+# Install in development mode with all dependencies
+pip install -e .[dev]
 ```
 
 ## Quick Start
@@ -146,16 +161,20 @@ ingen_fab/
 ├── cli_utils/            # CLI command implementations
 ├── ddl_scripts/          # Jinja templates for DDL notebook generation
 ├── notebook_utils/       # Notebook scanning and injection helpers
+├── packages/             # Extension packages (flat file ingestion, synapse sync)
 ├── python_libs/          # Shared Python and PySpark libraries
 │   ├── common/          # Common utilities (config, data, workflow)
 │   ├── interfaces/      # Abstract interfaces
 │   ├── python/          # CPython/Fabric runtime libraries
 │   └── pyspark/         # PySpark-specific implementations
 ├── python_libs_tests/   # Test suites for Python libraries
+├── templates/           # Jinja2 templates for testing and generation
+├── utils/               # Core utility modules (path utils, resource manager)
 sample_project/          # Example workspace demonstrating project layout
 project_templates/       # Templates for new project initialization
-scripts/                 # Helper scripts (SQL Server setup, etc.)
+scripts/                 # Helper scripts (dev container setup, SQL Server, etc.)
 tests/                   # Unit tests for core functionality
+docs/                    # Documentation source files
 ```
 
 ## Environment Variables
@@ -201,13 +220,30 @@ ingen_fab test platform generate
 
 ## Documentation
 
-Additional documentation is available in the subdirectories:
+Additional documentation is available in the subdirectories and the complete documentation site:
 
+- **[docs/](docs/)** - Complete documentation source files (build with `mkdocs serve`)
 - **[sample_project/README.md](sample_project/README.md)** - Complete example workspace with step-by-step workflow
 - **[ingen_fab/python_libs/README.md](ingen_fab/python_libs/README.md)** - Reusable Python and PySpark libraries
 - **[ingen_fab/ddl_scripts/README.md](ingen_fab/ddl_scripts/README.md)** - DDL notebook generation templates
 - **[ingen_fab/python_libs/python/README_notebook_utils.md](ingen_fab/python_libs/python/README_notebook_utils.md)** - Notebook utilities abstraction
 - **[ingen_fab/python_libs/python/sql_template_factory/README.md](ingen_fab/python_libs/python/sql_template_factory/README.md)** - SQL template system
+
+## Documentation Site
+
+Build and serve the complete documentation:
+
+```bash
+# Install documentation dependencies
+pip install -e .[docs]
+# or with uv dependency groups
+uv sync --group docs
+
+# Serve documentation locally
+mkdocs serve --dev-addr=0.0.0.0:8000
+# or use the provided script
+./serve-docs.sh
+```
 
 ## License
 
