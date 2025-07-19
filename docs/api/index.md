@@ -250,8 +250,11 @@ ingen_fab libs compile --target-file "python_libs/common/config_utils.py"
 ### Flat File Ingestion
 
 ```bash
-# Compile flat file ingestion package
-ingen_fab package ingest compile --include-samples
+# Compile flat file ingestion package for lakehouse (PySpark runtime)
+ingen_fab package ingest compile --target-datastore lakehouse --include-samples
+
+# Compile flat file ingestion package for warehouse (Python runtime with COPY INTO)
+ingen_fab package ingest compile --target-datastore warehouse --include-samples
 
 # Run ingestion
 ingen_fab package ingest run --config-id "customer_data" --execution-group 1

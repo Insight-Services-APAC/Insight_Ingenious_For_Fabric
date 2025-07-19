@@ -112,8 +112,11 @@ ingen_fab deploy upload-python-libs
 # Delete all workspace items (use with caution!)
 ingen_fab deploy delete-all --force
 
-# Compile flat file ingestion package
-ingen_fab package ingest compile --include-samples
+# Compile flat file ingestion package for lakehouse
+ingen_fab package ingest compile --target-datastore lakehouse --include-samples
+
+# Compile flat file ingestion package for warehouse 
+ingen_fab package ingest compile --target-datastore warehouse --include-samples
 
 # Compile synapse sync package
 ingen_fab package synapse compile --include-samples

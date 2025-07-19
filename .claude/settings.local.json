@@ -29,7 +29,9 @@
       "Bash(export FABRIC_WORKSPACE_REPO_DIR=\"/workspaces/ingen_fab/my_fabric_project\")",
       "Bash(unset:*)",
       "Bash(export FABRIC_WORKSPACE_REPO_DIR=\"/workspaces/ingen_fab/env_project\")",
-      "Bash(ruff check:*)"
+      "Bash(ruff check:*)",
+      "Bash(sudo:*)",
+      "Bash(sudo mysqld_safe:*)"
     ],
     "deny": []
   }

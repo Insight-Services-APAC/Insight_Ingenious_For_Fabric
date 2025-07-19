@@ -44,43 +44,72 @@ class FlatFileIngestionCompiler(BaseNotebookCompiler):
             self.console.print(f"[bold blue]Templates Directory:[/bold blue] {self.templates_dir}")
             self.console.print(f"[bold blue]DDL Scripts Directory:[/bold blue] {self.ddl_scripts_dir}")
     
-    def compile_notebook(self, template_vars: Dict[str, Any] = None) -> Path:
+    def compile_notebook(self, template_vars: Dict[str, Any] = None, target_datastore: str = "lakehouse") -> Path:
         """Compile the flat file ingestion notebook template"""
         
+        # Select template based on target datastore
+        template_mapping = {
+            "lakehouse": "flat_file_ingestion_notebook.py.jinja",
+            "warehouse": "flat_file_ingestion_warehouse_notebook.py.jinja"
+        }
+        
+        template_name = template_mapping.get(target_datastore)
+        if not template_name:
+            raise ValueError(f"Unsupported target datastore: {target_datastore}. Must be 'lakehouse' or 'warehouse'")
+        
+        # Customize output name and description based on target
+        output_name = f"flat_file_ingestion_processor_{target_datastore}"
+        display_name = f"Flat File Ingestion Processor ({target_datastore.title()})"
+        description = f"Processes flat files and loads them into {target_datastore} tables based on configuration metadata"
+        
+        if target_datastore == "warehouse":
+            description += " using COPY INTO operations"
+        
         return self.compile_notebook_from_template(
-            template_name="flat_file_ingestion_notebook.py.jinja",
-            output_notebook_name="flat_file_ingestion_processor",
+            template_name=template_name,
+            output_notebook_name=output_name,
             template_vars=template_vars,
-            display_name="Flat File Ingestion Processor",
-            description="Processes flat files and loads them into delta tables based on configuration metadata",
+            display_name=display_name,
+            description=description,
             output_subdir="flat_file_ingestion"
         )
     
-    def compile_ddl_scripts(self, include_sample_data: bool = False) -> List[Path]:
+    def compile_ddl_scripts(self, include_sample_data: bool = False, target_datastore: str = "both") -> List[Path]:
         """Compile DDL scripts to the target directory"""
         
         ddl_output_base = self.fabric_workspace_repo_dir / "ddl_scripts"
         
         # Define script mappings for different targets
-        script_mappings = {
+        all_script_mappings = {
             "Lakehouses/Config/001_Initial_Creation_Ingestion": [
-                ("lakehouse/config_create.py.jinja", "001_config_flat_file_ingestion_create.py"),
+                ("lakehouse/config_create_universal.py.jinja", "001_config_flat_file_ingestion_create.py"),
                 ("lakehouse/log_create.py", "002_log_flat_file_ingestion_create.py")
             ],
             "Warehouses/Config/001_Initial_Creation_Ingestion": [
-                ("warehouse/config_create.sql", "001_config_flat_file_ingestion_create.sql"),
+                ("warehouse/config_create_universal.sql.jinja", "001_config_flat_file_ingestion_create.sql"),
                 ("warehouse/log_create.sql", "002_log_flat_file_ingestion_create.sql")
             ]
         }
         
         # Add sample data scripts if requested
         if include_sample_data:
-            script_mappings["Lakehouses/Config/002_Sample_Data_Ingestion"] = [
-                ("lakehouse/sample_data_insert.py.jinja", "003_sample_data_insert.py")
+            all_script_mappings["Lakehouses/Config/002_Sample_Data_Ingestion"] = [
+                ("lakehouse/sample_data_insert_universal.py.jinja", "003_sample_data_insert.py")
             ]
-            script_mappings["Warehouses/Config/002_Sample_Data_Ingestion"] = [
-                ("warehouse/sample_data_insert.sql", "003_sample_data_insert.sql")
+            all_script_mappings["Warehouses/Config/002_Sample_Data_Ingestion"] = [
+                ("warehouse/sample_data_insert_universal.sql.jinja", "003_sample_data_insert.sql")
             ]
+        
+        # Filter script mappings based on target datastore
+        script_mappings = {}
+        if target_datastore == "lakehouse":
+            script_mappings = {k: v for k, v in all_script_mappings.items() if "Lakehouses" in k}
+        elif target_datastore == "warehouse":
+            script_mappings = {k: v for k, v in all_script_mappings.items() if "Warehouses" in k}
+        elif target_datastore == "both":
+            script_mappings = all_script_mappings
+        else:
+            raise ValueError(f"Unsupported target datastore: {target_datastore}. Must be 'lakehouse', 'warehouse', or 'both'")
         
         # Process DDL scripts with template rendering
         results = self._compile_ddl_scripts_with_templates(self.ddl_scripts_dir, ddl_output_base, script_mappings)
@@ -260,12 +289,43 @@ class FlatFileIngestionCompiler(BaseNotebookCompiler):
         
         return uploaded_files
     
-    def compile_all(self, template_vars: Dict[str, Any] = None, include_samples: bool = False) -> Dict[str, Any]:
+    def compile_all(self, template_vars: Dict[str, Any] = None, include_samples: bool = False, target_datastore: str = "lakehouse") -> Dict[str, Any]:
         """Compile all templates and DDL scripts"""
         
+        # Handle "both" option by compiling both variants
+        if target_datastore == "both":
+            lakehouse_results = self.compile_all(template_vars, include_samples, "lakehouse")
+            warehouse_results = self.compile_all(template_vars, include_samples, "warehouse")
+            
+            # Combine results
+            combined_success = lakehouse_results["success"] and warehouse_results["success"]
+            combined_errors = lakehouse_results["errors"] + warehouse_results["errors"]
+            combined_ddl_files = lakehouse_results["ddl_files"] + warehouse_results["ddl_files"]
+            
+            success_message = (
+                f"✓ Successfully compiled flat file ingestion package for both lakehouse and warehouse\n"
+                f"Lakehouse Notebook: {lakehouse_results['notebook_file']}\n"
+                f"Warehouse Notebook: {warehouse_results['notebook_file']}\n"
+                f"DDL Scripts: {len(combined_ddl_files)} files"
+            )
+            
+            if lakehouse_results.get("sample_files"):
+                success_message += f"\nSample Files: {len(lakehouse_results['sample_files'])} files"
+            
+            if combined_success:
+                self.print_success_panel("Compilation Complete", success_message)
+            
+            return {
+                "notebook_file": [lakehouse_results["notebook_file"], warehouse_results["notebook_file"]],
+                "ddl_files": combined_ddl_files,
+                "sample_files": lakehouse_results.get("sample_files", []),
+                "success": combined_success,
+                "errors": combined_errors
+            }
+        
         compile_functions = [
-            (self.compile_notebook, [template_vars], {}),
-            (self.compile_ddl_scripts, [], {"include_sample_data": include_samples})
+            (self.compile_notebook, [template_vars], {"target_datastore": target_datastore}),
+            (self.compile_ddl_scripts, [], {"include_sample_data": include_samples, "target_datastore": target_datastore})
         ]
         
         # Add sample files compilation if requested
@@ -274,7 +334,7 @@ class FlatFileIngestionCompiler(BaseNotebookCompiler):
         
         results = self.compile_all_with_results(
             compile_functions, 
-            "Flat File Ingestion Package Compiler"
+            f"Flat File Ingestion Package Compiler ({target_datastore.title()})"
         )
         
         # Transform results for backward compatibility
@@ -284,7 +344,7 @@ class FlatFileIngestionCompiler(BaseNotebookCompiler):
             sample_files = results["compiled_items"].get("compile_sample_files", [])
             
             success_message = (
-                f"✓ Successfully compiled flat file ingestion package\n"
+                f"✓ Successfully compiled flat file ingestion package for {target_datastore}\n"
                 f"Notebook: {notebook_file}\n"
                 f"DDL Scripts: {len(ddl_files)} files"
             )
@@ -314,8 +374,9 @@ class FlatFileIngestionCompiler(BaseNotebookCompiler):
 
 def compile_flat_file_ingestion_package(fabric_workspace_repo_dir: str = None, 
                                        template_vars: Dict[str, Any] = None,
-                                       include_samples: bool = False) -> Dict[str, Any]:
+                                       include_samples: bool = False,
+                                       target_datastore: str = "lakehouse") -> Dict[str, Any]:
     """Main function to compile the flat file ingestion package"""
     
     compiler = FlatFileIngestionCompiler(fabric_workspace_repo_dir)
-    return compiler.compile_all(template_vars, include_samples=include_samples)
+    return compiler.compile_all(template_vars, include_samples=include_samples, target_datastore=target_datastore)
