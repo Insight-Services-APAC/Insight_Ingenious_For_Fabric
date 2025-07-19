@@ -69,8 +69,11 @@ ingen_fab deploy deploy \
 ### Use Packages
 
 ```bash
-# Compile flat file ingestion package
-ingen_fab package ingest compile --include-samples
+# Compile flat file ingestion package for lakehouse
+ingen_fab package ingest compile --target-datastore lakehouse --include-samples
+
+# Compile flat file ingestion package for warehouse
+ingen_fab package ingest compile --target-datastore warehouse --include-samples
 
 # Compile synapse sync package
 ingen_fab package synapse compile --include-samples

@@ -26,3 +26,6 @@ derby.log
 
 # pip install testing
 pip_install_test/
+
+# claude
+/.claude/**/*/
