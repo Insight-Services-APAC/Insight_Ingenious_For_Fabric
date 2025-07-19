@@ -28,6 +28,7 @@
 
 
 
+
 # METADATA ********************
 
 # META {
@@ -151,6 +152,52 @@ else:
         "ingen_fab/python_libs/python/pipeline_utils.py"
     ]
 
+    load_python_modules_from_path(mount_path, files_to_load)
+
+
+
+# METADATA ********************
+
+# META {
+# META   "language": "python"
+# META }
+# MARKDOWN ********************
+
+# Add markdown content here
+
+# ## ⚙️ Configuration Settings
+
+# CELL ********************
+
+
+# variableLibraryInjectionStart: var_lib
+
+# All variables as a dictionary
+configs_dict = {'fabric_environment': 'local', 'fabric_deployment_workspace_id': '#####', 'synapse_source_database_1': 'test1', 'config_workspace_id': '#####', 'synapse_source_sql_connection': 'sansdaisyn-ondemand.sql.azuresynapse.net', 'config_lakehouse_name': 'config', 'edw_warehouse_name': 'edw', 'config_lakehouse_id': '2629d4cc-685c-458a-866b-b4705dde71a7', 'edw_workspace_id': '###', 'edw_warehouse_id': '###', 'edw_lakehouse_id': '6adb67d6-c8eb-4612-9053-890cae3a55d7', 'edw_lakehouse_name': 'edw', 'legacy_synapse_connection_name': 'synapse_connection', 'synapse_export_shortcut_path_in_onelake': 'exports/', 'raw_workspace_id': 'local_raw_workspace', 'raw_datastore_id': 'local_raw_datastore', 'config_warehouse_id': 'local-config-warehouse-id'}
+# All variables as an object
+from dataclasses import dataclass
+@dataclass
+class ConfigsObject:
+    fabric_environment: str 
+    fabric_deployment_workspace_id: str 
+    synapse_source_database_1: str 
+    config_workspace_id: str 
+    synapse_source_sql_connection: str 
+    config_lakehouse_name: str 
+    edw_warehouse_name: str 
+    config_lakehouse_id: str 
+    edw_workspace_id: str 
+    edw_warehouse_id: str 
+    edw_lakehouse_id: str 
+    edw_lakehouse_name: str 
+    legacy_synapse_connection_name: str 
+    synapse_export_shortcut_path_in_onelake: str 
+    raw_workspace_id: str 
+    raw_datastore_id: str 
+    config_warehouse_id: str 
+configs_object: ConfigsObject = ConfigsObject(**configs_dict)
+# variableLibraryInjectionEnd: var_lib
+
 
 
 # METADATA ********************
@@ -167,8 +214,21 @@ else:
 # CELL ********************
 
 
-
+target_lakehouse_config_prefix = "Config"
 configs: ConfigsObject = get_configs_as_object()
+target_warehouse_id = get_config_value(f"{target_lakehouse_config_prefix.lower()}_warehouse_id")
+target_workspace_id = get_config_value(f"{target_lakehouse_config_prefix.lower()}_workspace_id")
+
+du = ddl_utils(
+    target_workspace_id=target_workspace_id,
+    target_warehouse_id=target_warehouse_id,
+    notebookutils=notebookutils
+)
+
+wu = warehouse_utils(
+    target_workspace_id=target_workspace_id,
+    target_warehouse_id=target_warehouse_id
+)
 
 
 
@@ -182,93 +242,84 @@ configs: ConfigsObject = get_configs_as_object()
 
 # Add markdown content here
 
-# ## 🏃‍♂️‍➡️ Run All Warehouse DDL
+# ## 🏃‍♂️‍➡️ Run DDL Cells 
 
 # CELL ********************
 
-# Import required libraries
-import sys
-from datetime import datetime
 
-# Initialize variables
-success_count = 0
-failed_notebook = None
-start_time = datetime.now()
+# DDL cells are injected below:
 
-# Define execution function
-def execute_notebook(notebook_name, index, total, timeout_seconds=3600):
-    """Execute a single notebook and handle success/failure."""
-    global success_count
+
+
+# METADATA ********************
+
+# META {
+# META   "language": "python",
+# META   "language_group": "jupyter_python"
+# META }
+
+# MARKDOWN ********************
+
+# ## 📄 Cell for 000_schema_creation.py
+
+# CELL ********************
+
+guid="2abe6fdaf6b7"
+object_name = "000_schema_creation"
+
+def script_to_execute():
+    # Create schemas if they don't exist
+    # This ensures the schemas exist before other DDL operations
     
-    try:
-        
-        print(f"{'='*60}")
-        print(f"Executing notebook {index}/{total}:{notebook_name}")
-        print(f"{'='*60}")
-        params = {
-            "fabric_environment": configs.fabric_environment,
-            "config_workspace_id": configs.config_workspace_id,
-            "config_warehouse_id": configs.config_warehouse_id,
-            "target_warehouse_config_prefix": "",
-            'useRootDefaultWarehouse': True
-        }
-        
-        # Use notebook utils abstraction for cross-environment compatibility
-        result = notebookutils.mssparkutils.notebook.run(
-            notebook_name,
-            timeout_seconds,
-            params
-        )
-        
-        if (result == 'success'):
-            success_count += 1
-        else: 
-            raise Exception({"result": result}) 
+    wu.create_schema_if_not_exists("config")
+    wu.create_schema_if_not_exists("log")
+    wu.create_schema_if_not_exists("raw")
+    
 
-        print(f"✓ Successfully executed: {notebook_name}")
-        print(f"Exit value: {result}")
-        return True
-        
-    except Exception as e:
-        print(f"✗ Failed to execute: {notebook_name}")
-        print(f"Error: {str(e)}")
-        
-        # Stop execution on failure
-        error_msg = f"Orchestration stopped due to failure in notebook: {notebook_name}. Error: {str(e)}"
-        notebookutils.mssparkutils.notebook.exit(error_msg)
-        return False
+du.run_once(script_to_execute, "000_schema_creation","2abe6fdaf6b7")
 
-print(f"Starting orchestration for  warehouse")
-print(f"Start time: {start_time}")
-print(f"Total notebooks to execute: 7")
-print("="*60)
-execute_notebook("000_Initial_Schema_Creation_Config_Warehouses", 1, 7)
-execute_notebook("001_Initial_Creation_Config_Warehouses", 2, 7)
-execute_notebook("001_Initial_Creation_Ingestion_Config_Warehouses", 3, 7)
-execute_notebook("001_Initial_Creation_Synapse_Sync_Config_Warehouses", 4, 7)
-execute_notebook("002_Parquet_Load_Update_Config_Warehouses", 5, 7)
-execute_notebook("002_Sample_Data_Ingestion_Config_Warehouses", 6, 7)
-execute_notebook("002_Sample_Data_Synapse_Sync_Config_Warehouses", 7, 7)
+def script_to_execute():
+    print("Script block is empty. No action taken.")
 
-# Final Summary
-end_time = datetime.now()
-duration = end_time - start_time
 
-print(f"{'='*60}")
-print(f"Orchestration Complete!")
-print(f"{'='*60}")
-print(f"End time: {end_time}")
-print(f"Duration: {duration}")
-print(f"Total notebooks: 7")
-print(f"Successfully executed: {success_count}")
-print(f"Failed: 7 - {success_count}")
 
-if success_count == 7:
-    print("✓ All notebooks executed successfully!")
-    notebookutils.mssparkutils.notebook.exit("success")
-else:
-    print(f"✗ Orchestration completed with failures")
-    notebookutils.mssparkutils.notebook.exit(f"Orchestration completed with {success_count}/7 successful executions")
+
+
+
+# METADATA ********************
+
+# META {
+# META   "language": "python"
+# META }
+# MARKDOWN ********************
+
+# Add markdown content here
+
+# ## 📇 Print the execution log
+
+# CELL ********************
+
+
+du.print_log() 
+
+
+
+# METADATA ********************
+
+# META {
+# META   "language": "python"
+# META }
+# MARKDOWN ********************
+
+# Add markdown content here
+
+# ## ✔️ If we make it to the end return a successful result
+
+# CELL ********************
+
+
+import sys
+sys.exit("success")
 
 # METADATA ********************
 

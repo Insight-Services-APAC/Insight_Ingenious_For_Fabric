@@ -17,8 +17,10 @@ Python libraries and modules for use in Fabric notebooks and local development.
 ### Command Line Interface
 
 ```bash
-# Install the CLI
-pip install insight-ingenious-for-fabric
+# Clone and install (see installation guide for complete instructions)
+git clone <repository-url>
+cd ingen_fab
+uv sync  # or pip install -e .[dev]
 
 # Get help
 ingen_fab --help
@@ -50,17 +52,18 @@ ddl_utils.execute_ddl(sql, "Create my_table")
 
 ## Installation
 
-Install the package from PyPI:
+Install the package from source:
 
 ```bash
-# Standard installation
-pip install insight-ingenious-for-fabric
+# Clone the repository (replace with your actual repository URL)
+git clone <repository-url>
+cd ingen_fab
 
-# Development installation with all dependencies
-pip install insight-ingenious-for-fabric[dev]
-
-# Using uv (recommended for development)
+# Using uv (recommended)
 uv sync
+
+# Or using pip for development installation
+pip install -e .[dev]
 ```
 
 ## CLI Authentication
@@ -250,8 +253,11 @@ ingen_fab libs compile --target-file "python_libs/common/config_utils.py"
 ### Flat File Ingestion
 
 ```bash
-# Compile flat file ingestion package
-ingen_fab package ingest compile --include-samples
+# Compile flat file ingestion package for lakehouse (PySpark runtime)
+ingen_fab package ingest compile --target-datastore lakehouse --include-samples
+
+# Compile flat file ingestion package for warehouse (Python runtime with COPY INTO)
+ingen_fab package ingest compile --target-datastore warehouse --include-samples
 
 # Run ingestion
 ingen_fab package ingest run --config-id "customer_data" --execution-group 1

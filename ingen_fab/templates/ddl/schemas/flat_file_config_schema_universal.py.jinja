@@ -1,4 +1,3 @@
-# Configuration table for flat file ingestion metadata - Universal schema (Lakehouse version)
 from pyspark.sql.types import (
     BooleanType,
     IntegerType,
@@ -38,12 +37,3 @@ schema = StructType([
     StructField("created_by", StringType(), nullable=False),
     StructField("modified_by", StringType(), nullable=True)
 ])
-
-target_lakehouse.create_table(
-    table_name="config_flat_file_ingestion",
-    schema=schema,
-    mode="overwrite",
-    options={
-        "parquet.vorder.default": "true"
-    }
-)

@@ -300,7 +300,7 @@ Compile and run extension packages.
 
 ##### `package ingest compile`
 
-Compile flat file ingestion package templates and DDL scripts.
+Compile flat file ingestion package templates and DDL scripts for lakehouse or warehouse targets.
 
 ```bash
 ingen_fab package ingest compile
@@ -309,18 +309,30 @@ ingen_fab package ingest compile
 **Options:**
 - `--template-vars` / `-t`: JSON string of template variables
 - `--include-samples` / `-s`: Include sample data DDL and files
+- `--target-datastore` / `-d`: Target datastore type: `lakehouse`, `warehouse`, or `both` (default: `lakehouse`)
 
 **Examples:**
 ```bash
-# Basic compilation
+# Basic compilation for lakehouse (default)
 ingen_fab package ingest compile
 
-# With custom template variables
-ingen_fab package ingest compile --template-vars '{"schema": "custom_schema"}'
+# Compile for warehouse using COPY INTO operations
+ingen_fab package ingest compile --target-datastore warehouse
 
-# Include sample data
-ingen_fab package ingest compile --include-samples
+# Compile both lakehouse and warehouse versions
+ingen_fab package ingest compile --target-datastore both
+
+# With custom template variables and samples
+ingen_fab package ingest compile --template-vars '{"schema": "custom_schema"}' --include-samples
+
+# Warehouse version with sample data
+ingen_fab package ingest compile --target-datastore warehouse --include-samples
 ```
+
+**Target Datastore Types:**
+- `lakehouse`: Generates PySpark notebook using lakehouse_utils for Delta table operations
+- `warehouse`: Generates Python notebook using warehouse_utils with COPY INTO for efficient bulk loading
+- `both`: Generates separate notebooks for both lakehouse and warehouse targets
 
 ##### `package ingest run`
 
@@ -475,8 +487,11 @@ done
 ### Working with Packages
 
 ```bash
-# Compile the flat file ingestion package
+# Compile the flat file ingestion package (lakehouse)
 ingen_fab package ingest compile --include-samples
+
+# Compile the flat file ingestion package (warehouse)
+ingen_fab package ingest compile --target-datastore warehouse --include-samples
 
 # Compile the synapse sync package
 ingen_fab package synapse compile --include-samples

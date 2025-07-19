@@ -113,6 +113,7 @@ def main(
             fabric_workspace_repo_dir = Path(env_val)
             fabric_workspace_repo_dir_source = "env"
         else:
+            from ingen_fab.utils.path_utils import PathUtils
             fabric_workspace_repo_dir = PathUtils.get_workspace_repo_dir()
             fabric_workspace_repo_dir_source = "default"
     
@@ -194,6 +195,9 @@ def compile(
     """Compile the DDL notebooks in the specified project directory."""
     
     # Convert string parameters to enums with proper error handling
+    # Import the actual class when we need it
+    from ingen_fab.ddl_scripts.notebook_generator import NotebookGenerator
+    
     if output_mode:
         try:
             output_mode = NotebookGenerator.OutputMode(output_mode)
@@ -437,6 +441,7 @@ def ingest_app_compile(
     ctx: typer.Context,
     template_vars: Annotated[str, typer.Option("--template-vars", "-t", help="JSON string of template variables")] = None,
     include_samples: Annotated[bool, typer.Option("--include-samples", "-s", help="Include sample data DDL and files")] = False,
+    target_datastore: Annotated[str, typer.Option("--target-datastore", "-d", help="Target datastore type: lakehouse, warehouse, or both")] = "lakehouse",
 ):
     """Compile flat file ingestion package templates and DDL scripts."""
     import json
@@ -457,11 +462,18 @@ def ingest_app_compile(
     # Get fabric workspace repo directory from context
     fabric_workspace_repo_dir = str(ctx.obj["fabric_workspace_repo_dir"])
     
+    # Validate target datastore parameter
+    valid_datastores = ["lakehouse", "warehouse", "both"]
+    if target_datastore not in valid_datastores:
+        console.print(f"[red]Error: Invalid target datastore '{target_datastore}'. Must be one of: {', '.join(valid_datastores)}[/red]")
+        raise typer.Exit(code=1)
+    
     try:
         results = compile_flat_file_ingestion_package(
             fabric_workspace_repo_dir=fabric_workspace_repo_dir,
             template_vars=vars_dict,
-            include_samples=include_samples
+            include_samples=include_samples,
+            target_datastore=target_datastore
         )
         
         if results["success"]:

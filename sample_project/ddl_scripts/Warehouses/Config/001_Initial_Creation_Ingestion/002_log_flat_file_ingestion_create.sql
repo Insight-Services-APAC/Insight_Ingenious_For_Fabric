@@ -1,5 +1,5 @@
 -- Log table for flat file ingestion execution tracking - Warehouse version
-CREATE TABLE log_flat_file_ingestion (
+CREATE TABLE log.log_flat_file_ingestion (
     log_id NVARCHAR(50) NOT NULL,
     config_id NVARCHAR(50) NOT NULL,
     execution_id NVARCHAR(50) NOT NULL,
@@ -21,7 +21,5 @@ CREATE TABLE log_flat_file_ingestion (
     spark_application_id NVARCHAR(255) NULL,
     created_date DATETIME2 NOT NULL,
     created_by NVARCHAR(100) NOT NULL,
-    CONSTRAINT PK_log_flat_file_ingestion PRIMARY KEY (log_id),
-    CONSTRAINT CHK_status CHECK (status IN ('running', 'completed', 'failed', 'cancelled')),
-    CONSTRAINT FK_log_config FOREIGN KEY (config_id) REFERENCES config_flat_file_ingestion(config_id)
+    CONSTRAINT PK_log_flat_file_ingestion PRIMARY KEY (log_id)
 );

@@ -387,13 +387,26 @@ ingen_fab deploy deploy --fabric-workspace-repo-dir . --fabric-environment produ
 
 ### Working with Flat File Ingestion
 
+The flat file ingestion package supports both lakehouse and warehouse targets with different processing approaches:
+
 ```bash
-# Compile the flat file ingestion package
-ingen_fab package ingest compile --include-samples
+# Compile for lakehouse (PySpark runtime with Delta tables)
+ingen_fab package ingest compile --target-datastore lakehouse --include-samples
+
+# Compile for warehouse (Python runtime with COPY INTO operations)
+ingen_fab package ingest compile --target-datastore warehouse --include-samples
+
+# Compile both versions
+ingen_fab package ingest compile --target-datastore both --include-samples
 
 # Run ingestion for specific configuration
 ingen_fab package ingest run --config-id "customers_import" --execution-group 1
 ```
+
+**Choosing Target Datastore:**
+- **Lakehouse**: Use for Delta table operations, schema evolution, and PySpark-based transformations
+- **Warehouse**: Use for high-performance bulk loading with COPY INTO and SQL-based operations
+- **Both**: Generate separate notebooks for maximum flexibility
 
 ### Managing Python Libraries
 
