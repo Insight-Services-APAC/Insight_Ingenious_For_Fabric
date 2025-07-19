@@ -7,15 +7,16 @@ import typer
 from rich.console import Console
 from typing_extensions import Annotated
 
-from ingen_fab.cli_utils import (
-    deploy_commands,
-    init_commands,
-    notebook_commands,
-    workspace_commands,
-)
+# Lazy imports - these heavy modules will be imported only when needed
+# from ingen_fab.cli_utils import (
+#     deploy_commands,
+#     init_commands,
+#     notebook_commands,
+#     workspace_commands,
+# )
 from ingen_fab.cli_utils.console_styles import ConsoleStyles
-from ingen_fab.ddl_scripts.notebook_generator import NotebookGenerator
-from ingen_fab.utils.path_utils import PathUtils
+# from ingen_fab.ddl_scripts.notebook_generator import NotebookGenerator
+# from ingen_fab.utils.path_utils import PathUtils
 
 console = Console()
 console_styles = ConsoleStyles()
@@ -110,6 +111,7 @@ def main(
             fabric_workspace_repo_dir = Path(env_val)
             fabric_workspace_repo_dir_source = "env"
         else:
+            from ingen_fab.utils.path_utils import PathUtils
             fabric_workspace_repo_dir = PathUtils.get_workspace_repo_dir()
             fabric_workspace_repo_dir_source = "default"
     
@@ -190,6 +192,9 @@ def compile(
 ):
     """Compile the DDL notebooks in the specified project directory."""
     
+    from ingen_fab.ddl_scripts.notebook_generator import NotebookGenerator
+    from ingen_fab.cli_utils import notebook_commands
+    
     # Convert string parameters to enums with proper error handling
     if output_mode:
         try:
@@ -220,6 +225,7 @@ def init_solution(
     project_name: Annotated[str | None, typer.Option("--project-name", "-p", help="Name of the project to create")] = None,
     path: Annotated[Path, typer.Option("--path", help="Base path where the project will be created")] = Path("."),
 ):
+    from ingen_fab.cli_utils import init_commands
     init_commands.init_solution(project_name, path)
 
 
@@ -230,6 +236,7 @@ def init_workspace(
     create_if_not_exists: Annotated[bool, typer.Option("--create-if-not-exists", "-c", help="Create the workspace if it doesn't exist")] = False,
 ):
     """Initialize workspace configuration by looking up workspace ID from name."""
+    from ingen_fab.cli_utils import init_commands
     init_commands.init_workspace(ctx, workspace_name, create_if_not_exists)
 
 
@@ -238,6 +245,7 @@ def init_workspace(
 
 @deploy_app.command()
 def deploy(ctx: typer.Context):
+    from ingen_fab.cli_utils import deploy_commands
     deploy_commands.deploy_to_environment(ctx)
 
 
@@ -246,6 +254,7 @@ def delete_all(
     ctx: typer.Context,
     force: Annotated[bool, typer.Option("--force", "-f")] = False,
 ):
+    from ingen_fab.cli_utils import workspace_commands
     workspace_commands.delete_workspace_items(
         environment=ctx.obj['fabric_environment'],
         project_path=ctx.obj['fabric_workspace_repo_dir'],
@@ -258,6 +267,7 @@ def upload_python_libs(
     ctx: typer.Context
 ):
     """Upload python_libs directory to Fabric config lakehouse using OneLakeUtils."""
+    from ingen_fab.cli_utils import deploy_commands
     deploy_commands.upload_python_libs_to_config_lakehouse(
         environment=ctx.obj['fabric_environment'],
         project_path=ctx.obj['fabric_workspace_repo_dir'],
@@ -268,11 +278,13 @@ def upload_python_libs(
 # Test commands
 @test_app.command()
 def test_python_block():
+    from ingen_fab.cli_utils import notebook_commands
     notebook_commands.test_python_block()
 
 
 @test_app.command()
 def run_simple_notebook(ctx: typer.Context):
+    from ingen_fab.cli_utils import notebook_commands
     notebook_commands.run_simple_notebook(ctx)
 
 
@@ -286,6 +298,7 @@ def run_livy_notebook(
     ] = "print('Hello from Fabric Livy API!')",
     timeout: Annotated[int, typer.Option("--timeout", "-t")] = 600,
 ):
+    from ingen_fab.cli_utils import notebook_commands
     notebook_commands.run_livy_notebook(ctx, workspace_id, lakehouse_id, code, timeout)
 
 
@@ -395,6 +408,7 @@ def find_notebook_content_files(
         "fabric_workspace_items"
     ),
 ):
+    from ingen_fab.cli_utils import notebook_commands
     notebook_commands.find_notebook_content_files(base_dir)
 
 
@@ -407,11 +421,13 @@ def scan_notebook_blocks(
         bool, typer.Option("--apply-replacements", "-a")
     ] = False,
 ):
+    from ingen_fab.cli_utils import notebook_commands
     notebook_commands.scan_notebook_blocks(base_dir, apply_replacements)
 
 
 @notebook_app.command()
 def perform_code_replacements(ctx: typer.Context):
+    from ingen_fab.cli_utils import deploy_commands
     deploy_commands.perform_code_replacements(ctx)
 
 

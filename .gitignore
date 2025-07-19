@@ -1,4 +1,5 @@
 .venv
+ .venv_pip_test
 **__pycache__**
 /build
 /insight_ingenious_for_fabric.egg-info
@@ -19,4 +20,9 @@ fabric_cicd.error.log
 ModuleAnalysisCache-AE0255EC
 StartupProfileData-Interactive
 /metastore_db/**/*/
+/node_modules/**/*/
+*.egg-info
 derby.log
+
+# pip install testing
+pip_install_test/
