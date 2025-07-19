@@ -3,19 +3,22 @@ from __future__ import annotations
 import os
 from pathlib import Path
 
+import lazy_import
 import typer
 from rich.console import Console
 from typing_extensions import Annotated
 
-from ingen_fab.cli_utils import (
-    deploy_commands,
-    init_commands,
-    notebook_commands,
-    workspace_commands,
-)
+# Lazy imports - these heavy modules will be imported only when accessed
+deploy_commands = lazy_import.lazy_module("ingen_fab.cli_utils.deploy_commands")
+init_commands = lazy_import.lazy_module("ingen_fab.cli_utils.init_commands")
+notebook_commands = lazy_import.lazy_module("ingen_fab.cli_utils.notebook_commands")
+workspace_commands = lazy_import.lazy_module("ingen_fab.cli_utils.workspace_commands")
+
 from ingen_fab.cli_utils.console_styles import ConsoleStyles
-from ingen_fab.ddl_scripts.notebook_generator import NotebookGenerator
-from ingen_fab.utils.path_utils import PathUtils
+
+# Lazy import for heavyweight modules
+NotebookGenerator = lazy_import.lazy_callable("ingen_fab.ddl_scripts.notebook_generator.NotebookGenerator")
+PathUtils = lazy_import.lazy_callable("ingen_fab.utils.path_utils.PathUtils")
 
 console = Console()
 console_styles = ConsoleStyles()
