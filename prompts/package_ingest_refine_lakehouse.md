@@ -35,7 +35,7 @@ export FABRIC_WORKSPACE_REPO_DIR="sample_project"
 ### 2. Compile Package Assets
 ```bash
 # Compile package notebooks and DDL scripts with sample data
-python -m ingen_fab.cli package ingest compile --include-sample-data
+python -m ingen_fab.cli package ingest compile --include-samples
 
 # Compile project DDL scripts for all environments
 python -m ingen_fab.cli ddl compile --output-mode fabric_workspace_repo --generation-mode all

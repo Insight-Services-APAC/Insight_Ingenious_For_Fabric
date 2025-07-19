@@ -39,6 +39,13 @@ import json
 from datetime import datetime
 from typing import Dict, List, Optional, Any
 
+# Import warehouse_utils for warehouse operations
+if run_mode == "local":
+    from ingen_fab.python_libs.python.warehouse_utils import warehouse_utils
+else:
+    files_to_load = ["ingen_fab/python_libs/python/warehouse_utils.py"]
+    load_python_modules_from_path(mount_path, files_to_load)
+
 execution_id = str(uuid.uuid4())
 
 print(f"Execution ID: {execution_id}")
@@ -84,6 +91,13 @@ config_warehouse = warehouse_utils(
     target_warehouse_id=configs.config_warehouse_id
 )
 
+# Initialize DDL utils for warehouse operations
+ddl_utils_instance = ddl_utils(
+    target_workspace_id=configs.config_workspace_id,
+    target_warehouse_id=configs.config_warehouse_id,
+    notebookutils=notebookutils
+)
+
 # Initialize raw data lakehouse utilities for file access (files still come from lakehouse)
 raw_lakehouse = lakehouse_utils(
     target_workspace_id=configs.raw_workspace_id,
@@ -91,8 +105,7 @@ raw_lakehouse = lakehouse_utils(
 )
 
 # Load configuration using DDL utils
-config_df_result = ddl_utils.read_table("config_flat_file_ingestion")
-config_df = config_df_result.to_pandas()
+config_df = config_warehouse.read_table("config_flat_file_ingestion", "config")
 
 # Filter configurations
 if config_id:
@@ -160,18 +173,18 @@ class FlatFileWarehouseProcessor:
         
         try:
             # First, try to read a sample to infer schema
+            csv_options = {"header": 0 if config.has_header else None} if config.source_file_format == "csv" else {}
             sample_df = self.raw_lakehouse.read_file(
                 file_path=config.source_file_path,
                 file_format=config.source_file_format,
-                options={"header": config.has_header} if config.source_file_format == "csv" else {}
+                options=csv_options
             )
             
-            # Convert PySpark schema to SQL DDL for warehouse
+            # Convert pandas DataFrame schema to SQL DDL for warehouse
             schema_fields = []
-            for field in sample_df.schema.fields:
-                sql_type = self._spark_to_sql_type(field.dataType)
-                nullable = "NULL" if field.nullable else "NOT NULL"
-                schema_fields.append(f"{field.name} {sql_type} {nullable}")
+            for column_name, dtype in sample_df.dtypes.items():
+                sql_type = self._pandas_to_sql_type(dtype)
+                schema_fields.append(f"[{column_name}] {sql_type} NULL")
             
             # Add metadata columns
             schema_fields.extend([
@@ -193,7 +206,7 @@ class FlatFileWarehouseProcessor:
             );
             """
             
-            self.ddl.execute_sql(create_table_sql)
+            self.target_warehouse.execute_query(query=create_table_sql)
             print(f"Created staging table: {full_staging_table}")
             return True
             
@@ -201,25 +214,80 @@ class FlatFileWarehouseProcessor:
             print(f"Error creating staging table: {e}")
             return False
     
-    def _spark_to_sql_type(self, spark_type):
-        """Convert Spark data types to SQL Server data types"""
-        type_mapping = {
-            "StringType": "NVARCHAR(500)",
-            "IntegerType": "INT",
-            "LongType": "BIGINT", 
-            "DoubleType": "FLOAT",
-            "BooleanType": "BIT",
-            "DateType": "DATE",
-            "TimestampType": "DATETIME2",
-            "DecimalType": "DECIMAL(18,2)"
-        }
+    def _pandas_to_sql_type(self, pandas_dtype):
+        """Convert pandas data types to SQL Server data types"""
+        dtype_str = str(pandas_dtype)
         
-        spark_type_name = type(spark_type).__name__
-        return type_mapping.get(spark_type_name, "NVARCHAR(500)")
+        if 'int' in dtype_str:
+            return "BIGINT"
+        elif 'float' in dtype_str:
+            return "FLOAT"
+        elif 'bool' in dtype_str:
+            return "BIT"
+        elif 'datetime' in dtype_str:
+            return "DATETIME2"
+        elif 'object' in dtype_str:
+            return "NVARCHAR(500)"
+        else:
+            return "NVARCHAR(500)"
     
     def execute_copy_into(self, config: FlatFileIngestionConfig) -> Dict[str, Any]:
-        """Execute COPY INTO operation"""
+        """Execute data loading operation (COPY INTO for Fabric, pandas insert for local testing)"""
         
+        try:
+            # For local testing with SQL Server, use pandas to load data
+            if run_mode == "local":
+                return self._execute_local_data_load(config)
+            else:
+                return self._execute_fabric_copy_into(config)
+                
+        except Exception as e:
+            print(f"Data loading failed: {e}")
+            return {
+                "records_loaded": 0,
+                "copy_status": "failed",
+                "error": str(e)
+            }
+    
+    def _execute_local_data_load(self, config: FlatFileIngestionConfig) -> Dict[str, Any]:
+        """Load data using pandas for local testing"""
+        try:
+            # Read the source file with pandas
+            csv_options = {"header": 0 if config.has_header else None} if config.source_file_format == "csv" else {}
+            source_df = self.raw_lakehouse.read_file(
+                file_path=config.source_file_path,
+                file_format=config.source_file_format,
+                options=csv_options
+            )
+            
+            # Add metadata columns
+            from datetime import datetime
+            source_df['_ingestion_timestamp'] = datetime.now()
+            source_df['_ingestion_execution_id'] = execution_id
+            source_df['_source_file_path'] = config.source_file_path
+            
+            # Write to staging table using warehouse_utils
+            full_staging_table = f"{config.target_schema_name}.{config.staging_table_name}"
+            print(f"Loading {len(source_df)} records to staging table: {full_staging_table}")
+            
+            self.target_warehouse.write_to_table(
+                df=source_df,
+                table_name=config.staging_table_name,
+                schema_name=config.target_schema_name,
+                mode="overwrite"
+            )
+            
+            return {
+                "records_loaded": len(source_df),
+                "copy_status": "success"
+            }
+            
+        except Exception as e:
+            print(f"Local data loading failed: {e}")
+            raise e
+    
+    def _execute_fabric_copy_into(self, config: FlatFileIngestionConfig) -> Dict[str, Any]:
+        """Execute COPY INTO operation for Fabric environment"""
         try:
             # Create staging table
             if not self.create_staging_table(config):
@@ -229,11 +297,11 @@ class FlatFileWarehouseProcessor:
             copy_sql = self.get_copy_into_sql(config)
             print(f"Executing COPY INTO:\n{copy_sql}")
             
-            result = self.ddl.execute_sql(copy_sql)
+            result = self.target_warehouse.execute_query(query=copy_sql)
             
             # Get row count from staging table
             full_staging_table = f"{config.target_schema_name}.{config.staging_table_name}"
-            count_result = self.ddl.execute_sql(f"SELECT COUNT(*) as row_count FROM {full_staging_table}")
+            count_result = self.target_warehouse.execute_query(query=f"SELECT COUNT(*) as row_count FROM {full_staging_table}")
             records_loaded = count_result.iloc[0]['row_count'] if not count_result.empty else 0
             
             return {
@@ -243,11 +311,7 @@ class FlatFileWarehouseProcessor:
             
         except Exception as e:
             print(f"COPY INTO failed: {e}")
-            return {
-                "records_loaded": 0,
-                "copy_status": "failed",
-                "error": str(e)
-            }
+            raise e
     
     def merge_to_target(self, config: FlatFileIngestionConfig) -> Dict[str, Any]:
         """Merge data from staging to target table"""
@@ -257,27 +321,19 @@ class FlatFileWarehouseProcessor:
         
         try:
             if config.write_mode == "overwrite":
-                # Simple truncate and insert
+                # Simple truncate and insert (staging table already has metadata columns)
                 merge_sql = f"""
                 TRUNCATE TABLE {full_target_table};
                 
                 INSERT INTO {full_target_table}
-                SELECT *,
-                       GETDATE() as _ingestion_timestamp,
-                       '{execution_id}' as _ingestion_execution_id,
-                       '{config.source_file_path}' as _source_file_path
-                FROM {full_staging_table};
+                SELECT * FROM {full_staging_table};
                 """
                 
             elif config.write_mode == "append":
-                # Simple insert
+                # Simple insert (staging table already has metadata columns)
                 merge_sql = f"""
                 INSERT INTO {full_target_table}
-                SELECT *,
-                       GETDATE() as _ingestion_timestamp,
-                       '{execution_id}' as _ingestion_execution_id,
-                       '{config.source_file_path}' as _source_file_path
-                FROM {full_staging_table};
+                SELECT * FROM {full_staging_table};
                 """
                 
             elif config.write_mode == "merge" and config.merge_keys:
@@ -303,10 +359,10 @@ class FlatFileWarehouseProcessor:
                 raise ValueError(f"Unsupported write mode: {config.write_mode}")
             
             print(f"Executing merge operation:\n{merge_sql}")
-            result = self.ddl.execute_sql(merge_sql)
+            result = self.target_warehouse.execute_query(query=merge_sql)
             
             # Get final row count
-            count_result = self.ddl.execute_sql(f"SELECT COUNT(*) as row_count FROM {full_target_table}")
+            count_result = self.target_warehouse.execute_query(query=f"SELECT COUNT(*) as row_count FROM {full_target_table}")
             final_count = count_result.iloc[0]['row_count'] if not count_result.empty else 0
             
             return {
@@ -332,13 +388,13 @@ class FlatFileWarehouseProcessor:
         """Clean up staging table"""
         try:
             full_staging_table = f"{config.target_schema_name}.{config.staging_table_name}"
-            self.ddl.execute_sql(f"DROP TABLE IF EXISTS {full_staging_table}")
+            self.target_warehouse.execute_query(query=f"DROP TABLE IF EXISTS {full_staging_table}")
             print(f"Cleaned up staging table: {full_staging_table}")
         except Exception as e:
             print(f"Warning: Could not clean up staging table: {e}")
 
 # Initialize processor
-processor = FlatFileWarehouseProcessor(raw_lakehouse, config_warehouse, ddl_utils)
+processor = FlatFileWarehouseProcessor(raw_lakehouse, config_warehouse, ddl_utils_instance)
 
 {{ macros.python_cell_with_heading("## 📊 Process Files") }}
 
@@ -387,11 +443,12 @@ def log_execution(config: FlatFileIngestionConfig, status: str, write_stats: Dic
         import pandas as pd
         log_df = pd.DataFrame([log_data])
         
-        # Use warehouse_utils to insert log data
-        ddl_utils.insert_dataframe(
+        # Use warehouse utils to insert log data  
+        config_warehouse.write_to_table(
             df=log_df,
             table_name="log_flat_file_ingestion",
-            if_exists="append"
+            schema_name="log",
+            mode="append"
         )
     except Exception as e:
         print(f"Warning: Could not log execution: {e}")

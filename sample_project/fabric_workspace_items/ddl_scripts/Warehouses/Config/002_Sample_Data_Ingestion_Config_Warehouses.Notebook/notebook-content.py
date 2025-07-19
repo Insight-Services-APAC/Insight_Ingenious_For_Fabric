@@ -268,16 +268,19 @@ guid = "a8c5702c3e8c"
 def work():
     sql = """
 
--- Sample configuration data for flat file ingestion testing - Warehouse version
-INSERT INTO config_flat_file_ingestion (
+-- Sample configuration data for flat file ingestion testing - Universal schema (Warehouse version)
+
+INSERT INTO config.config_flat_file_ingestion (
     config_id,
     config_name,
     source_file_path,
     source_file_format,
-    target_lakehouse_workspace_id,
-    target_lakehouse_id,
+    target_workspace_id,
+    target_datastore_id,
+    target_datastore_type,
     target_schema_name,
     target_table_name,
+    staging_table_name,
     file_delimiter,
     has_header,
     encoding,
@@ -292,7 +295,11 @@ INSERT INTO config_flat_file_ingestion (
     data_validation_rules,
     error_handling_strategy,
     execution_group,
-    active_yn
+    active_yn,
+    created_date,
+    modified_date,
+    created_by,
+    modified_by
 ) VALUES 
 (
     'csv_test_001',
@@ -301,8 +308,10 @@ INSERT INTO config_flat_file_ingestion (
     'csv',
     '#####',
     '2629d4cc-685c-458a-866b-b4705dde71a7',
+    'lakehouse',
     'raw',
     'sales_data',
+    NULL,
     ',',
     1,
     'utf-8',
@@ -317,7 +326,11 @@ INSERT INTO config_flat_file_ingestion (
     NULL,
     'fail',
     1,
-    'Y'
+    'Y',
+    '2024-01-15',
+    NULL,
+    'system',
+    NULL
 ),
 (
     'parquet_test_002',
@@ -326,8 +339,10 @@ INSERT INTO config_flat_file_ingestion (
     'parquet',
     '#####',
     '2629d4cc-685c-458a-866b-b4705dde71a7',
+    'lakehouse',
     'raw',
     'products',
+    NULL,
     NULL,
     NULL,
     NULL,
@@ -342,17 +357,54 @@ INSERT INTO config_flat_file_ingestion (
     NULL,
     'log',
     1,
-    'Y'
+    'Y',
+    '2024-01-15',
+    NULL,
+    'system',
+    NULL
 ),
 (
-    'parquet_test_003',
-    'Parquet Customers Data Test',
-    'Files/sample_data/customers.parquet',
+    'csv_warehouse_test_001',
+    'CSV Sales Data Test (Warehouse)',
+    'Files/sample_data/sales_data.csv',
+    'csv',
+    '#####',
+    'local-config-warehouse-id',
+    'warehouse',
+    'raw',
+    'sales_data',
+    'staging_sales_data',
+    ',',
+    1,
+    'utf-8',
+    'yyyy-MM-dd',
+    'yyyy-MM-dd HH:mm:ss',
+    1,
+    NULL,
+    '',
+    'date',
+    'overwrite',
+    '',
+    NULL,
+    'fail',
+    2,
+    'Y',
+    '2024-01-15',
+    NULL,
+    'system',
+    NULL
+),
+(
+    'parquet_warehouse_test_002',
+    'Parquet Products Data Test (Warehouse)',
+    'Files/sample_data/products.parquet',
     'parquet',
     '#####',
-    '2629d4cc-685c-458a-866b-b4705dde71a7',
+    'local-config-warehouse-id',
+    'warehouse',
     'raw',
-    'customers',
+    'products',
+    'staging_products',
     NULL,
     NULL,
     NULL,
@@ -360,17 +412,21 @@ INSERT INTO config_flat_file_ingestion (
     'yyyy-MM-dd HH:mm:ss',
     1,
     NULL,
-    'region',
-    'customer_id',
+    '',
+    'product_id',
     'overwrite',
     '',
     NULL,
-    'fail',
+    'log',
     2,
-    'Y'
+    'Y',
+    '2024-01-15',
+    NULL,
+    'system',
+    NULL
 );
 
-PRINT 'Inserted 3 sample configuration records';
+PRINT '✓ Inserted 4 sample configuration records (including warehouse targets)';
 
     """
 
