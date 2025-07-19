@@ -85,6 +85,9 @@ class FlatFileIngestionCompiler(BaseNotebookCompiler):
                 ("lakehouse/config_create_universal.py.jinja", "001_config_flat_file_ingestion_create.py"),
                 ("lakehouse/log_create.py", "002_log_flat_file_ingestion_create.py")
             ],
+            "Warehouses/Config/000_Initial_Schema_Creation": [
+                ("warehouse/000_schema_creation.py.jinja", "000_schema_creation.py")
+            ],
             "Warehouses/Config/001_Initial_Creation_Ingestion": [
                 ("warehouse/config_create_universal.sql.jinja", "001_config_flat_file_ingestion_create.sql"),
                 ("warehouse/log_create.sql", "002_log_flat_file_ingestion_create.sql")

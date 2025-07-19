@@ -268,40 +268,42 @@ guid = "c84bee3df682"
 def work():
     sql = """
 
--- Configuration table for flat file ingestion metadata - Warehouse version
-CREATE TABLE config_flat_file_ingestion (
+-- Configuration table for flat file ingestion metadata - Universal schema (Warehouse version)
+
+DROP TABLE IF EXISTS config.config_flat_file_ingestion;
+
+CREATE TABLE config.config_flat_file_ingestion (
     config_id NVARCHAR(50) NOT NULL,
-    config_name NVARCHAR(255) NOT NULL,
+    config_name NVARCHAR(200) NOT NULL,
     source_file_path NVARCHAR(500) NOT NULL,
-    source_file_format NVARCHAR(50) NOT NULL, -- csv, json, parquet, avro, xml
-    target_lakehouse_workspace_id NVARCHAR(50) NOT NULL,
-    target_lakehouse_id NVARCHAR(50) NOT NULL,
-    target_schema_name NVARCHAR(128) NOT NULL,
-    target_table_name NVARCHAR(128) NOT NULL,
-    file_delimiter NVARCHAR(10) NULL, -- for CSV files
+    source_file_format NVARCHAR(20) NOT NULL, -- csv, json, parquet, avro, xml
+    target_workspace_id NVARCHAR(50) NOT NULL, -- Universal field for workspace
+    target_datastore_id NVARCHAR(50) NOT NULL, -- Universal field for lakehouse/warehouse
+    target_datastore_type NVARCHAR(20) NOT NULL, -- 'lakehouse' or 'warehouse'
+    target_schema_name NVARCHAR(50) NOT NULL,
+    target_table_name NVARCHAR(100) NOT NULL,
+    staging_table_name NVARCHAR(100) NULL, -- For warehouse COPY INTO staging
+    file_delimiter NVARCHAR(5) NULL, -- for CSV files
     has_header BIT NULL, -- for CSV files
-    encoding NVARCHAR(50) NULL, -- utf-8, latin-1, etc.
+    encoding NVARCHAR(20) NULL, -- utf-8, latin-1, etc.
     date_format NVARCHAR(50) NULL, -- for date columns
     timestamp_format NVARCHAR(50) NULL, -- for timestamp columns
     schema_inference BIT NOT NULL, -- whether to infer schema
     custom_schema_json NVARCHAR(MAX) NULL, -- custom schema definition
     partition_columns NVARCHAR(500) NULL, -- comma-separated list
     sort_columns NVARCHAR(500) NULL, -- comma-separated list
-    write_mode NVARCHAR(50) NOT NULL, -- overwrite, append, merge
+    write_mode NVARCHAR(20) NOT NULL, -- overwrite, append, merge
     merge_keys NVARCHAR(500) NULL, -- for merge operations
     data_validation_rules NVARCHAR(MAX) NULL, -- JSON validation rules
-    error_handling_strategy NVARCHAR(50) NOT NULL, -- fail, skip, log
+    error_handling_strategy NVARCHAR(20) NOT NULL, -- fail, skip, log
     execution_group INT NOT NULL,
     active_yn NVARCHAR(1) NOT NULL,
-    created_date DATETIME2 NOT NULL,
-    modified_date DATETIME2 NULL,
+    created_date NVARCHAR(50) NOT NULL,
+    modified_date NVARCHAR(50) NULL,
     created_by NVARCHAR(100) NOT NULL,
     modified_by NVARCHAR(100) NULL,
-    CONSTRAINT PK_config_flat_file_ingestion PRIMARY KEY (config_id),
-    CONSTRAINT CHK_active_yn CHECK (active_yn IN ('Y', 'N')),
-    CONSTRAINT CHK_source_file_format CHECK (source_file_format IN ('csv', 'json', 'parquet', 'avro', 'xml')),
-    CONSTRAINT CHK_write_mode CHECK (write_mode IN ('overwrite', 'append', 'merge')),
-    CONSTRAINT CHK_error_handling_strategy CHECK (error_handling_strategy IN ('fail', 'skip', 'log'))
+    
+    CONSTRAINT PK_config_flat_file_ingestion PRIMARY KEY (config_id)
 );
 
     """
@@ -374,7 +376,7 @@ def work():
     sql = """
 
 -- Log table for flat file ingestion execution tracking - Warehouse version
-CREATE TABLE log_flat_file_ingestion (
+CREATE TABLE log.log_flat_file_ingestion (
     log_id NVARCHAR(50) NOT NULL,
     config_id NVARCHAR(50) NOT NULL,
     execution_id NVARCHAR(50) NOT NULL,
@@ -396,9 +398,7 @@ CREATE TABLE log_flat_file_ingestion (
     spark_application_id NVARCHAR(255) NULL,
     created_date DATETIME2 NOT NULL,
     created_by NVARCHAR(100) NOT NULL,
-    CONSTRAINT PK_log_flat_file_ingestion PRIMARY KEY (log_id),
-    CONSTRAINT CHK_status CHECK (status IN ('running', 'completed', 'failed', 'cancelled')),
-    CONSTRAINT FK_log_config FOREIGN KEY (config_id) REFERENCES config_flat_file_ingestion(config_id)
+    CONSTRAINT PK_log_flat_file_ingestion PRIMARY KEY (log_id)
 );
 
     """
