@@ -1,0 +1,7 @@
+SELECT
+    *
+FROM
+    {{ schema_name | required }}.{{ table_name | required }}
+{% if limit %}
+LIMIT {{ limit }}
+{% endif %}

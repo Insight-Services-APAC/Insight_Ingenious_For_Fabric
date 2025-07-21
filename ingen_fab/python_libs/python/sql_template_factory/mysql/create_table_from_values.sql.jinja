@@ -1,0 +1,13 @@
+CREATE TABLE {{ schema_name | required }}.{{ table_name | required }} AS
+SELECT *
+FROM (
+    {%- for row in values %}
+    SELECT
+        {%- for col, val in row.items() %}
+            '{{ val }}' AS {{ col }}{% if not loop.last %}, {% endif %}
+        {%- endfor %}
+        {% if not loop.last %}
+    UNION ALL
+        {% endif %}
+    {%- endfor %}
+) AS t;

@@ -1,5 +1,19 @@
 #!/bin/bash
 
+# Detect architecture for ARM/x64 support
+ARCH=$(uname -m)
+echo "Detected architecture: $ARCH"
+if [[ "$ARCH" == "x86_64" ]]; then
+    MYSQL_ARCH="amd64"
+    MYSQL_JDBC_URL="https://repo1.maven.org/maven2/mysql/mysql-connector-java/8.0.11/mysql-connector-java-8.0.11.jar"
+elif [[ "$ARCH" == "aarch64" ]]; then
+    MYSQL_ARCH="arm64"
+    MYSQL_JDBC_URL="https://repo1.maven.org/maven2/mysql/mysql-connector-java/8.0.11/mysql-connector-java-8.0.11.jar"
+else
+    echo "❌ Unsupported architecture: $ARCH"
+    exit 1
+fi
+
 echo "Setting up My SQL metastore with Delta Lake support..."
 echo "Spark Home: $SPARK_HOME"
 # Create necessary directories
@@ -18,7 +32,7 @@ apt-get install lsb-release
 apt-get install gnupg
 
 # Download MySQL 8.0 binary
-wget -q wget https://dev.mysql.com/get/mysql-apt-config_0.8.34-1_all.deb
+wget -q https://dev.mysql.com/get/mysql-apt-config_0.8.34-1_all.deb
 
 # Install the repository package
 sudo DEBIAN_FRONTEND=noninteractive dpkg -i mysql-apt-config_0.8.34-1_all.deb
@@ -27,8 +41,41 @@ sudo DEBIAN_FRONTEND=noninteractive dpkg -i mysql-apt-config_0.8.34-1_all.deb
 sudo apt-get update
 
 # Install MySQL Server with non-interactive configuration
-echo "Installing MySQL Server..."
-sudo DEBIAN_FRONTEND=noninteractive apt-get install -y mysql-server mysql-client
+if [[ "$ARCH" == "aarch64" ]]; then
+    echo "ARM64 detected: Installing PostgreSQL and Babelfish..."
+    # Install PostgreSQL
+    sudo apt-get update
+    sudo apt-get install -y wget gnupg2 lsb-release
+    echo "deb http://apt.postgresql.org/pub/repos/apt $(lsb_release -cs)-pgdg main" | sudo tee /etc/apt/sources.list.d/pgdg.list
+    wget --quiet -O - https://www.postgresql.org/media/keys/ACCC4CF8.asc | sudo apt-key add -
+    sudo apt-get update
+    sudo apt-get install -y postgresql-15 postgresql-server-dev-15 build-essential cmake clang llvm libicu-dev libkrb5-dev libssl-dev libreadline-dev zlib1g-dev
+
+    # Download and build Babelfish extensions
+    BABELFISH_VERSION="2.2.0"
+    git clone --branch v$BABELFISH_VERSION https://github.com/babelfish-for-postgresql/babelfish_extensions.git /tmp/babelfish_extensions
+    cd /tmp/babelfish_extensions
+    mkdir build && cd build
+    cmake ..
+    make -j$(nproc)
+    sudo make install
+    cd ~
+
+    # Initialize PostgreSQL and configure Babelfish
+    sudo -u postgres pg_ctlcluster 15 main start
+    sudo -u postgres psql -c "CREATE DATABASE babelfish_db;"
+    sudo -u postgres psql -d babelfish_db -c "CREATE EXTENSION IF NOT EXISTS babelfishpg_tds;"
+    sudo -u postgres psql -d babelfish_db -c "CREATE EXTENSION IF NOT EXISTS babelfishpg_tsql;"
+    sudo -u postgres psql -d babelfish_db -c "CALL babelfishpg_tds.babelfishpg_tds_install();"
+    sudo -u postgres psql -d babelfish_db -c "ALTER SYSTEM SET babelfishpg_tds.listen_addresses = '*';"
+    sudo -u postgres psql -d babelfish_db -c "ALTER SYSTEM SET babelfishpg_tds.port = 1433;"
+    sudo -u postgres psql -d babelfish_db -c "ALTER SYSTEM SET babelfishpg_tds.default_server_name = 'localhost';"
+    sudo systemctl restart postgresql
+    echo "✅ PostgreSQL with Babelfish is ready!"
+else
+    echo "Installing MySQL Server from apt..."
+    sudo DEBIAN_FRONTEND=noninteractive apt-get install -y mysql-server mysql-client
+fi
 
 
 # Configure MySQL for Hive compatibility
@@ -132,7 +179,7 @@ mysql -e "FLUSH PRIVILEGES;"
 echo "Downloading MySQL JDBC driver..."
 sudo rm -f $SPARK_HOME/jars/mariadb-java-client-*.jar
 sudo rm -f $SPARK_HOME/jars/mysql-connector-java-*.jar
-wget -q https://repo1.maven.org/maven2/mysql/mysql-connector-java/8.0.11/mysql-connector-java-8.0.11.jar -O $SPARK_HOME/jars/mysql-connector-java-8.0.11.jar
+wget -q "$MYSQL_JDBC_URL" -O $SPARK_HOME/jars/mysql-connector-java-8.0.11.jar
 
 
 # Download Delta Lake JARs

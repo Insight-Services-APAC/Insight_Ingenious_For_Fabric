@@ -1,0 +1,10 @@
+INSERT INTO {{ schema_name | required }}.{{ table_name | required }} (
+    {%- for col in columns %}
+        {{ col }}{% if not loop.last %}, {% endif %}
+    {%- endfor %}
+)
+VALUES (
+    {%- for val in values %}
+        '{{ val }}'{% if not loop.last %}, {% endif %}
+    {%- endfor %}
+);
