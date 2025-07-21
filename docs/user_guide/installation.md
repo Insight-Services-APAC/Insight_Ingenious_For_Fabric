@@ -21,26 +21,26 @@ Before installing, ensure your system meets these requirements:
 # Install uv if you haven't already
 curl -LsSf https://astral.sh/uv/install.sh | sh
 
-# Clone the repository
-git clone https://github.com/your-org/ingen_fab.git
+# Clone the repository (replace with your actual repository URL)
+git clone <repository-url>
 cd ingen_fab
 
-# Install with uv
+# Install with uv (includes all development dependencies)
 uv sync
 ```
 
 ### Method 2: Using pip
 
 ```bash
-# Clone the repository
-git clone https://github.com/your-org/ingen_fab.git
+# Clone the repository (replace with your actual repository URL)
+git clone <repository-url>
 cd ingen_fab
 
 # Create and activate virtual environment
 python -m venv .venv
 source .venv/bin/activate  # On Windows: .venv\Scripts\activate
 
-# Install the package
+# Install the package in development mode
 pip install -e .[dev]
 ```
 
@@ -49,11 +49,11 @@ pip install -e .[dev]
 For development work, install with all dependencies:
 
 ```bash
-# Using uv
+# Using uv (includes all dependency groups)
 uv sync --all-extras
 
-# Using pip
-pip install -e .[dev,docs,tests]
+# Using pip (install with all optional dependencies)
+pip install -e .[dev,docs]
 ```
 
 ## Environment Setup
@@ -215,9 +215,13 @@ pip install --upgrade -e .[dev]
 To remove the installation:
 
 ```bash
-# With uv
+# With uv (removes environment completely)
 uv clean
 
-# With pip
+# With pip (if installed in development mode)
 pip uninstall insight-ingenious-for-fabric
+
+# Remove the repository directory
+cd ..
+rm -rf ingen_fab
 ```

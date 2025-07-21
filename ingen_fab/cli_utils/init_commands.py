@@ -350,6 +350,13 @@ def _check_and_update_artifacts(fabric_api: FabricApiUtils, project_path: Path, 
         with open(valueset_path, 'r', encoding='utf-8') as f:
             valueset_data = json.load(f)
         
+        # Get workspace name from ID
+        try:
+            workspace_name = fabric_api.get_workspace_name_from_id(workspace_id)
+        except Exception as e:
+            ConsoleStyles.print_warning(console, f"  ⚠️  Could not get workspace name: {str(e)}")
+            workspace_name = None
+        
         # Get existing lakehouses and warehouses in the workspace
         try:
             lakehouses = fabric_api.list_lakehouses(workspace_id)
@@ -374,6 +381,14 @@ def _check_and_update_artifacts(fabric_api: FabricApiUtils, project_path: Path, 
             
             # Create a map of variable names to their values for easy lookup
             var_map = {var['name']: var for var in variable_overrides}
+            
+            # Update config_workspace_name if we have the workspace name and it exists in config
+            if workspace_name and "config_workspace_name" in var_map:
+                old_name = var_map["config_workspace_name"]["value"]
+                var_map["config_workspace_name"]["value"] = workspace_name
+                updated_artifacts.append("Workspace name (config_workspace_name)")
+                if old_name != workspace_name:
+                    ConsoleStyles.print_info(console, f"  ✓ Updated config_workspace_name: {old_name} → {workspace_name}")
             
             # Check and update lakehouse IDs
             lakehouse_mappings = [

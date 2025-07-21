@@ -45,8 +45,8 @@ Jinja-based SQL template system supporting multiple database dialects.
 ### Clone and Setup
 
 ```bash
-# Clone the repository
-git clone https://github.com/your-org/ingen_fab.git
+# Clone the repository (replace with your actual repository URL)
+git clone <repository-url>
 cd ingen_fab
 
 # Set up development environment
@@ -186,8 +186,10 @@ pytest ./ingen_fab/python_libs_tests/python/test_warehouse_utils_pytest.py -v
 # Run with coverage
 pytest --cov=ingen_fab --cov-report=html
 
-# Test CLI commands
-ingen_fab test local libraries --base-dir .
+# Test Python libraries locally (requires FABRIC_ENVIRONMENT=local)
+export FABRIC_ENVIRONMENT=local
+ingen_fab test local python
+ingen_fab test local pyspark
 ```
 
 ### 3. Documentation
@@ -406,8 +408,8 @@ Setting up comprehensive integration tests with Fabric.
 ## Getting Help
 
 - **Documentation**: This site covers most development topics
-- **Issues**: Report bugs or request features on GitHub
-- **Discussions**: Join community discussions for questions
-- **Code Review**: Submit pull requests for feedback
+- **CLI Help**: Use `ingen_fab --help` and `ingen_fab COMMAND --help` for command assistance
+- **Code Examples**: Check the sample_project/ directory for working examples
+- **Testing**: Run `pytest` to verify your development environment
 
 Ready to contribute? Start with the [Python Libraries](python_libraries.md) guide to understand the core architecture!

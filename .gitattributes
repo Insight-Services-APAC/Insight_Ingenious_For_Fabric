@@ -1,0 +1,68 @@
+# Auto detect text files and perform LF normalization
+* text=auto
+
+# Explicitly declare text files you want to always be normalized and converted
+*.js text
+*.ts text
+*.jsx text
+*.tsx text
+*.css text
+*.scss text
+*.html text
+*.md text
+*.json text
+*.yml text
+*.yaml text
+
+# Declare files that will always have CRLF line endings on checkout
+*.bat text eol=crlf
+
+# Denote all files that are truly binary and should not be modified
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.ico binary
+*.woff binary
+*.woff2 binary
+
+# Ensure shell scripts always have LF line endings and are executable
+*.sh text eol=lf
+*.bash text eol=lf
+
+# Python files - always use LF line endings
+*.py text eol=lf
+*.pyi text eol=lf
+*.pyx text eol=lf
+
+# Jinja templates - always use LF line endings
+*.j2 text eol=lf
+*.jinja text eol=lf
+*.jinja2 text eol=lf
+
+# Other Python-related files
+*.cfg text eol=lf
+*.ini text eol=lf
+requirements*.txt text eol=lf
+*.toml text eol=lf
+
+# Markdown files - use auto line ending detection
+*.md text
+*.markdown text
+*.mdown text
+*.mkd text
+*.mkdn text
+*.mdx text
+
+# Documentation files
+README* text
+CHANGELOG* text
+LICENSE* text
+CONTRIBUTING* text
+
+# The .gitattributes file itself
+.gitattributes text eol=lf
+
+# Other Git configuration files
+.gitignore text eol=lf
+.gitmodules text eol=lf
