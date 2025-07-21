@@ -1,8 +1,8 @@
 site_name: Ingenious Fabric Accelerator
-site_url: https://your-org.github.io/ingen_fab/
-repo_url: https://github.com/your-org/ingen_fab
-repo_name: ingen_fab
-edit_uri: edit/main/docs/
+site_url: https://localhost:8000/
+# repo_url: # Set this to your actual repository URL
+# repo_name: ingen_fab
+# edit_uri: edit/main/docs/
 
 theme:
   name: material
@@ -126,8 +126,8 @@ extra:
   version:
     provider: mike
     default: latest
-  social:
-    - icon: fontawesome/brands/github
-      link: https://github.com/your-org/ingen_fab
-    - icon: fontawesome/solid/book
-      link: https://your-org.github.io/ingen_fab/
+  # social:
+  #   - icon: fontawesome/brands/github
+  #     link: # Set this to your actual repository URL
+  #   - icon: fontawesome/solid/book
+  #     link: # Set this to your actual documentation URL

@@ -254,7 +254,7 @@ export AZURE_CLIENT_SECRET="your-client-secret"
 - Use `ingen_fab --help` for command-specific help
 - Check the [Examples](../examples/index.md) for more complex scenarios
 - Review the [Workflows](workflows.md) for best practices
-- Report issues on [GitHub](https://github.com/your-org/ingen_fab/issues)
+- Use the sample_project/ directory for hands-on learning
 
 !!! success "Congratulations!"
     You've successfully created and deployed your first Fabric project! You're now ready to build more complex data solutions with the Ingenious Fabric Accelerator.
