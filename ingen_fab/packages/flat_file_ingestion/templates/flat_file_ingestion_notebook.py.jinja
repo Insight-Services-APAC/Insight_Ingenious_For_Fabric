@@ -36,10 +36,11 @@ environment = "development"
 # Additional imports for flat file ingestion
 import uuid
 import json
+import time
 from datetime import datetime
 from typing import Dict, List, Optional, Any
 from pyspark.sql import DataFrame, SparkSession
-from pyspark.sql.types import StructType, StructField, StringType, IntegerType, LongType, TimestampType, BooleanType
+from pyspark.sql.types import StructType, StructField, StringType, IntegerType, LongType, TimestampType, BooleanType, FloatType
 from pyspark.sql.functions import lit, current_timestamp, col, when, coalesce
 
 execution_id = str(uuid.uuid4())
@@ -119,8 +120,11 @@ class FlatFileProcessor:
         self.spark = spark_session
         self.raw_lakehouse = raw_lakehouse_utils
         
-    def read_file(self, config: FlatFileIngestionConfig) -> DataFrame:
+    def read_file(self, config: FlatFileIngestionConfig) -> tuple[DataFrame, Dict[str, Any]]:
         """Read file based on format and configuration using abstracted file access"""
+        
+        # Track read performance
+        read_start = time.time()
         
         # Build options dictionary for the abstracted read_file method
         options = {}
@@ -145,11 +149,24 @@ class FlatFileProcessor:
             options["schema"] = schema
             
         # Use the abstracted read_file method from raw lakehouse_utils
-        return self.raw_lakehouse.read_file(
+        df = self.raw_lakehouse.read_file(
             file_path=config.source_file_path,
             file_format=config.source_file_format,
             options=options
         )
+        
+        # Calculate read duration
+        read_duration_ms = int((time.time() - read_start) * 1000)
+        
+        # Get source row count
+        source_row_count = df.count()
+        
+        read_stats = {
+            "data_read_duration_ms": read_duration_ms,
+            "source_row_count": source_row_count
+        }
+        
+        return df, read_stats
     
     
     def validate_data(self, df: DataFrame, config: FlatFileIngestionConfig) -> DataFrame:
@@ -171,18 +188,27 @@ class FlatFileProcessor:
             else:  # skip
                 return df.limit(0)
     
-    def write_data(self, df: DataFrame, config: FlatFileIngestionConfig, target_lakehouse: Any) -> Dict[str, Any]:
+    def write_data(self, df: DataFrame, config: FlatFileIngestionConfig, target_lakehouse: Any, source_row_count: int) -> Dict[str, Any]:
         """Write data to target table using lakehouse_utils abstraction"""
+        
+        # Track write performance
+        write_start = time.time()
+        
+        # Get target row count before write
+        full_table_name = f"{config.target_schema_name}_{config.target_table_name}" if config.target_schema_name else config.target_table_name
+        
+        try:
+            target_df_before = target_lakehouse.read_table(full_table_name)
+            target_count_before = target_df_before.count()
+        except:
+            target_count_before = 0  # Table doesn't exist yet
         
         # Add metadata columns for traceability
         df_with_metadata = df.withColumn("_ingestion_timestamp", current_timestamp()) \
                             .withColumn("_ingestion_execution_id", lit(execution_id)) \
                             .withColumn("_source_file_path", lit(config.source_file_path))
         
-        records_processed = df_with_metadata.count()
-        
-        # Use lakehouse_utils abstraction for writing
-        full_table_name = f"{config.target_schema_name}_{config.target_table_name}" if config.target_schema_name else config.target_table_name
+        staging_row_count = df_with_metadata.count()
         
         # Handle different write modes using lakehouse_utils
         write_options = {}
@@ -197,12 +223,35 @@ class FlatFileProcessor:
             options=write_options
         )
         
-        # For simplicity, return basic stats (advanced merge stats would require custom logic)
+        write_duration_ms = int((time.time() - write_start) * 1000)
+        
+        # Get target row count after write
+        target_df_after = target_lakehouse.read_table(full_table_name)
+        target_count_after = target_df_after.count()
+        
+        # Calculate actual records inserted/updated
+        if config.write_mode == "overwrite":
+            records_inserted = target_count_after
+            records_updated = 0
+            records_deleted = target_count_before
+        elif config.write_mode == "append":
+            records_inserted = target_count_after - target_count_before
+            records_updated = 0
+            records_deleted = 0
+        else:  # merge or other modes
+            records_inserted = max(0, target_count_after - target_count_before)
+            records_updated = min(staging_row_count, target_count_before)
+            records_deleted = 0
+        
         write_stats = {
-            "records_processed": records_processed,
-            "records_inserted": records_processed if config.write_mode in ["overwrite", "append"] else 0,
-            "records_updated": 0,
-            "records_deleted": 0
+            "records_processed": target_count_after,
+            "records_inserted": records_inserted,
+            "records_updated": records_updated,
+            "records_deleted": records_deleted,
+            "staging_row_count": staging_row_count,
+            "target_row_count_before": target_count_before,
+            "target_row_count_after": target_count_after,
+            "staging_write_duration_ms": write_duration_ms
         }
         
         return write_stats
@@ -212,17 +261,49 @@ processor = FlatFileProcessor(spark, raw_lakehouse)
 
 {{ macros.pyspark_cell_with_heading("## 📊 Process Files") }}
 
-def log_execution(config: FlatFileIngestionConfig, status: str, write_stats: Dict[str, Any] = None, 
-                 error_message: str = None, error_details: str = None, 
+def log_execution(config: FlatFileIngestionConfig, status: str, write_stats: Dict[str, Any] = None,
+                 read_stats: Dict[str, Any] = None, error_message: str = None, error_details: str = None, 
                  start_time: datetime = None, end_time: datetime = None):
-    """Log execution details using lakehouse_utils abstraction"""
+    """Log execution details with performance metrics using lakehouse_utils abstraction"""
     
     duration = None
+    total_duration_ms = None
     if start_time and end_time:
         duration = int((end_time - start_time).total_seconds())
+        total_duration_ms = int((end_time - start_time).total_seconds() * 1000)
     
     # Get file information using abstracted method
     file_info = raw_lakehouse.get_file_info(config.source_file_path)
+    
+    # Calculate performance metrics
+    source_row_count = read_stats.get("source_row_count", 0) if read_stats else 0
+    staging_row_count = write_stats.get("staging_row_count", 0) if write_stats else 0
+    target_count_before = write_stats.get("target_row_count_before", 0) if write_stats else 0
+    target_count_after = write_stats.get("target_row_count_after", 0) if write_stats else 0
+    
+    # Row count reconciliation
+    row_count_reconciliation_status = "not_verified"
+    row_count_difference = None
+    if status == "completed" and source_row_count > 0:
+        if config.write_mode == "overwrite" and source_row_count == target_count_after:
+            row_count_reconciliation_status = "matched"
+            row_count_difference = 0
+        elif config.write_mode == "append" and (target_count_after - target_count_before) == source_row_count:
+            row_count_reconciliation_status = "matched"
+            row_count_difference = 0
+        else:
+            row_count_reconciliation_status = "mismatched"
+            row_count_difference = abs(source_row_count - (target_count_after - target_count_before))
+    
+    # Calculate throughput
+    avg_rows_per_second = None
+    data_size_mb = None
+    throughput_mb_per_second = None
+    if total_duration_ms and total_duration_ms > 0:
+        avg_rows_per_second = (source_row_count / total_duration_ms) * 1000 if source_row_count else 0
+        if file_info.get("size"):
+            data_size_mb = file_info["size"] / (1024 * 1024)
+            throughput_mb_per_second = (data_size_mb / total_duration_ms) * 1000
     
     log_data = {
         "log_id": str(uuid.uuid4()),
@@ -240,6 +321,21 @@ def log_execution(config: FlatFileIngestionConfig, status: str, write_stats: Dic
         "records_updated": write_stats.get("records_updated", 0) if write_stats else 0,
         "records_deleted": write_stats.get("records_deleted", 0) if write_stats else 0,
         "records_failed": write_stats.get("records_failed", 0) if write_stats else 0,
+        # Performance metrics
+        "source_row_count": source_row_count,
+        "staging_row_count": staging_row_count,
+        "target_row_count_before": target_count_before,
+        "target_row_count_after": target_count_after,
+        "row_count_reconciliation_status": row_count_reconciliation_status,
+        "row_count_difference": row_count_difference,
+        "data_read_duration_ms": read_stats.get("data_read_duration_ms") if read_stats else None,
+        "staging_write_duration_ms": write_stats.get("staging_write_duration_ms") if write_stats else None,
+        "merge_duration_ms": None,  # Not applicable for lakehouse direct writes
+        "total_duration_ms": total_duration_ms,
+        "avg_rows_per_second": avg_rows_per_second,
+        "data_size_mb": data_size_mb,
+        "throughput_mb_per_second": throughput_mb_per_second,
+        # Error tracking
         "error_message": error_message,
         "error_details": error_details,
         "execution_duration_seconds": duration,
@@ -268,6 +364,21 @@ def log_execution(config: FlatFileIngestionConfig, status: str, write_stats: Dic
         StructField("records_updated", LongType(), nullable=True),
         StructField("records_deleted", LongType(), nullable=True),
         StructField("records_failed", LongType(), nullable=True),
+        # Performance metrics
+        StructField("source_row_count", LongType(), nullable=True),
+        StructField("staging_row_count", LongType(), nullable=True),
+        StructField("target_row_count_before", LongType(), nullable=True),
+        StructField("target_row_count_after", LongType(), nullable=True),
+        StructField("row_count_reconciliation_status", StringType(), nullable=True),
+        StructField("row_count_difference", LongType(), nullable=True),
+        StructField("data_read_duration_ms", LongType(), nullable=True),
+        StructField("staging_write_duration_ms", LongType(), nullable=True),
+        StructField("merge_duration_ms", LongType(), nullable=True),
+        StructField("total_duration_ms", LongType(), nullable=True),
+        StructField("avg_rows_per_second", FloatType(), nullable=True),
+        StructField("data_size_mb", FloatType(), nullable=True),
+        StructField("throughput_mb_per_second", FloatType(), nullable=True),
+        # Error tracking
         StructField("error_message", StringType(), nullable=True),
         StructField("error_details", StringType(), nullable=True),
         StructField("execution_duration_seconds", IntegerType(), nullable=True),
@@ -307,33 +418,51 @@ for _, config_row in config_df.iterrows():
         # Log start
         log_execution(config, "running", start_time=start_time)
         
-        # Read file
-        df = processor.read_file(config)
-        print(f"Read {df.count()} records from source file")
+        # Read file with performance tracking
+        df, read_stats = processor.read_file(config)
+        print(f"Read {read_stats['source_row_count']} records from source file in {read_stats['data_read_duration_ms']}ms")
         
         # Validate data
         df_validated = processor.validate_data(df, config)
         
-        # Write data using abstraction
-        write_stats = processor.write_data(df_validated, config, target_lakehouse)
+        # Write data using abstraction with performance tracking
+        write_stats = processor.write_data(df_validated, config, target_lakehouse, read_stats['source_row_count'])
         
         end_time = datetime.now()
         duration = (end_time - start_time).total_seconds()
         
-        print(f"Processing completed in {duration:.2f} seconds")
+        print(f"\nProcessing completed in {duration:.2f} seconds")
         print(f"Records processed: {write_stats['records_processed']}")
         print(f"Records inserted: {write_stats['records_inserted']}")
         print(f"Records updated: {write_stats['records_updated']}")
+        print(f"Source rows: {read_stats['source_row_count']}")
+        print(f"Target rows before: {write_stats['target_row_count_before']}")
+        print(f"Target rows after: {write_stats['target_row_count_after']}")
         
-        # Log success
-        log_execution(config, "completed", write_stats, start_time=start_time, end_time=end_time)
+        # Check reconciliation
+        recon_status = "matched"
+        if config.write_mode == "overwrite" and read_stats['source_row_count'] != write_stats['target_row_count_after']:
+            recon_status = "mismatched"
+        elif config.write_mode == "append" and read_stats['source_row_count'] != (write_stats['target_row_count_after'] - write_stats['target_row_count_before']):
+            recon_status = "mismatched"
+        print(f"Row count reconciliation: {recon_status}")
+        
+        # Log success with all metrics
+        log_execution(config, "completed", write_stats, read_stats, start_time=start_time, end_time=end_time)
         
         results.append({
             "config_id": config.config_id,
             "config_name": config.config_name,
             "status": "success",
             "duration": duration,
-            "records_processed": write_stats['records_processed']
+            "records_processed": write_stats['records_processed'],
+            "reconciliation_status": recon_status,
+            "performance": {
+                "source_rows": read_stats['source_row_count'],
+                "avg_rows_per_second": (read_stats['source_row_count'] / duration) if duration > 0 else 0,
+                "read_duration_ms": read_stats['data_read_duration_ms'],
+                "write_duration_ms": write_stats['staging_write_duration_ms']
+            }
         })
         
     except Exception as e:
@@ -344,7 +473,9 @@ for _, config_row in config_df.iterrows():
         print(f"Error processing {config.config_name}: {error_message}")
         
         # Log error
-        log_execution(config, "failed", error_message=error_message, error_details=error_details,
+        log_execution(config, "failed", 
+                     read_stats=read_stats if 'read_stats' in locals() else None,
+                     error_message=error_message, error_details=error_details,
                      start_time=start_time, end_time=end_time)
         
         results.append({
@@ -374,6 +505,11 @@ if successful:
     print("\nSuccessful configurations:")
     for result in successful:
         print(f"  - {result['config_name']}: {result['records_processed']} records in {result['duration']:.2f}s")
+        if 'performance' in result:
+            perf = result['performance']
+            print(f"    Performance: {perf['avg_rows_per_second']:.0f} rows/sec")
+            print(f"    Read time: {perf['read_duration_ms']}ms, Write time: {perf['write_duration_ms']}ms")
+        print(f"    Row count reconciliation: {result.get('reconciliation_status', 'N/A')}")
 
 if failed:
     print("\nFailed configurations:")

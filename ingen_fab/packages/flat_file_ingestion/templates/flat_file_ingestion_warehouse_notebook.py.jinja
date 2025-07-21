@@ -46,6 +46,8 @@ else:
     files_to_load = ["ingen_fab/python_libs/python/warehouse_utils.py"]
     load_python_modules_from_path(mount_path, files_to_load)
 
+import time
+
 execution_id = str(uuid.uuid4())
 
 print(f"Execution ID: {execution_id}")
@@ -252,6 +254,9 @@ class FlatFileWarehouseProcessor:
     def _execute_local_data_load(self, config: FlatFileIngestionConfig) -> Dict[str, Any]:
         """Load data using pandas for local testing"""
         try:
+            # Track read performance
+            read_start = time.time()
+            
             # Read the source file with pandas
             csv_options = {"header": 0 if config.has_header else None} if config.source_file_format == "csv" else {}
             source_df = self.raw_lakehouse.read_file(
@@ -260,11 +265,17 @@ class FlatFileWarehouseProcessor:
                 options=csv_options
             )
             
+            read_duration_ms = int((time.time() - read_start) * 1000)
+            source_row_count = len(source_df)
+            
             # Add metadata columns
             from datetime import datetime
             source_df['_ingestion_timestamp'] = datetime.now()
             source_df['_ingestion_execution_id'] = execution_id
             source_df['_source_file_path'] = config.source_file_path
+            
+            # Track staging write performance
+            staging_start = time.time()
             
             # Write to staging table using warehouse_utils
             full_staging_table = f"{config.target_schema_name}.{config.staging_table_name}"
@@ -277,9 +288,21 @@ class FlatFileWarehouseProcessor:
                 mode="overwrite"
             )
             
+            staging_duration_ms = int((time.time() - staging_start) * 1000)
+            
+            # Verify staging row count
+            staging_count_result = self.target_warehouse.execute_query(
+                query=f"SELECT COUNT(*) as row_count FROM {full_staging_table}"
+            )
+            staging_row_count = staging_count_result.iloc[0]['row_count'] if not staging_count_result.empty else 0
+            
             return {
                 "records_loaded": len(source_df),
-                "copy_status": "success"
+                "copy_status": "success",
+                "source_row_count": source_row_count,
+                "staging_row_count": staging_row_count,
+                "data_read_duration_ms": read_duration_ms,
+                "staging_write_duration_ms": staging_duration_ms
             }
             
         except Exception as e:
@@ -289,6 +312,9 @@ class FlatFileWarehouseProcessor:
     def _execute_fabric_copy_into(self, config: FlatFileIngestionConfig) -> Dict[str, Any]:
         """Execute COPY INTO operation for Fabric environment"""
         try:
+            # Track overall COPY INTO performance
+            copy_start = time.time()
+            
             # Create staging table
             if not self.create_staging_table(config):
                 raise Exception("Failed to create staging table")
@@ -297,29 +323,47 @@ class FlatFileWarehouseProcessor:
             copy_sql = self.get_copy_into_sql(config)
             print(f"Executing COPY INTO:\n{copy_sql}")
             
+            staging_start = time.time()
             result = self.target_warehouse.execute_query(query=copy_sql)
+            staging_duration_ms = int((time.time() - staging_start) * 1000)
             
             # Get row count from staging table
             full_staging_table = f"{config.target_schema_name}.{config.staging_table_name}"
             count_result = self.target_warehouse.execute_query(query=f"SELECT COUNT(*) as row_count FROM {full_staging_table}")
-            records_loaded = count_result.iloc[0]['row_count'] if not count_result.empty else 0
+            staging_row_count = count_result.iloc[0]['row_count'] if not count_result.empty else 0
+            
+            # For Fabric, we estimate source row count as staging row count
+            # since COPY INTO doesn't provide source metrics
+            total_duration_ms = int((time.time() - copy_start) * 1000)
             
             return {
-                "records_loaded": records_loaded,
-                "copy_status": "success"
+                "records_loaded": staging_row_count,
+                "copy_status": "success",
+                "source_row_count": staging_row_count,  # Estimate
+                "staging_row_count": staging_row_count,
+                "data_read_duration_ms": total_duration_ms - staging_duration_ms,  # Estimate
+                "staging_write_duration_ms": staging_duration_ms
             }
             
         except Exception as e:
             print(f"COPY INTO failed: {e}")
             raise e
     
-    def merge_to_target(self, config: FlatFileIngestionConfig) -> Dict[str, Any]:
+    def merge_to_target(self, config: FlatFileIngestionConfig, staging_row_count: int = None) -> Dict[str, Any]:
         """Merge data from staging to target table"""
         
         full_staging_table = f"{config.target_schema_name}.{config.staging_table_name}"
         full_target_table = f"{config.target_schema_name}.{config.target_table_name}"
         
         try:
+            # Get target row count before merge
+            count_before_result = self.target_warehouse.execute_query(
+                query=f"SELECT COUNT(*) as row_count FROM {full_target_table}"
+            )
+            target_count_before = count_before_result.iloc[0]['row_count'] if not count_before_result.empty else 0
+            
+            # Track merge performance
+            merge_start = time.time()
             if config.write_mode == "overwrite":
                 # Simple truncate and insert (staging table already has metadata columns)
                 merge_sql = f"""
@@ -361,16 +405,35 @@ class FlatFileWarehouseProcessor:
             print(f"Executing merge operation:\n{merge_sql}")
             result = self.target_warehouse.execute_query(query=merge_sql)
             
+            merge_duration_ms = int((time.time() - merge_start) * 1000)
+            
             # Get final row count
             count_result = self.target_warehouse.execute_query(query=f"SELECT COUNT(*) as row_count FROM {full_target_table}")
-            final_count = count_result.iloc[0]['row_count'] if not count_result.empty else 0
+            target_count_after = count_result.iloc[0]['row_count'] if not count_result.empty else 0
+            
+            # Calculate records inserted/updated
+            if config.write_mode == "overwrite":
+                records_inserted = target_count_after
+                records_updated = 0
+                records_deleted = target_count_before
+            elif config.write_mode == "append":
+                records_inserted = target_count_after - target_count_before
+                records_updated = 0
+                records_deleted = 0
+            else:  # merge mode
+                records_inserted = max(0, target_count_after - target_count_before)
+                records_updated = min(staging_row_count or 0, target_count_before) if staging_row_count else 0
+                records_deleted = 0
             
             return {
-                "records_processed": final_count,
-                "records_inserted": final_count if config.write_mode in ["overwrite", "append"] else 0,
-                "records_updated": 0,
-                "records_deleted": 0,
-                "merge_status": "success"
+                "records_processed": target_count_after,
+                "records_inserted": records_inserted,
+                "records_updated": records_updated,
+                "records_deleted": records_deleted,
+                "merge_status": "success",
+                "target_row_count_before": target_count_before,
+                "target_row_count_after": target_count_after,
+                "merge_duration_ms": merge_duration_ms
             }
             
         except Exception as e:
@@ -399,19 +462,51 @@ processor = FlatFileWarehouseProcessor(raw_lakehouse, config_warehouse, ddl_util
 {{ macros.python_cell_with_heading("## 📊 Process Files") }}
 
 def log_execution(config: FlatFileIngestionConfig, status: str, write_stats: Dict[str, Any] = None, 
-                 error_message: str = None, error_details: str = None, 
+                 copy_stats: Dict[str, Any] = None, error_message: str = None, error_details: str = None, 
                  start_time: datetime = None, end_time: datetime = None):
-    """Log execution details using warehouse utilities"""
+    """Log execution details with performance metrics using warehouse utilities"""
     
     duration = None
+    total_duration_ms = None
     if start_time and end_time:
         duration = int((end_time - start_time).total_seconds())
+        total_duration_ms = int((end_time - start_time).total_seconds() * 1000)
     
     # Get file information
     try:
         file_info = raw_lakehouse.get_file_info(config.source_file_path)
     except:
         file_info = {"size": None, "modified_time": None}
+    
+    # Calculate performance metrics
+    source_row_count = copy_stats.get("source_row_count", 0) if copy_stats else 0
+    staging_row_count = copy_stats.get("staging_row_count", 0) if copy_stats else 0
+    target_count_before = write_stats.get("target_row_count_before", 0) if write_stats else 0
+    target_count_after = write_stats.get("target_row_count_after", 0) if write_stats else 0
+    
+    # Row count reconciliation
+    row_count_reconciliation_status = "not_verified"
+    row_count_difference = None
+    if status == "completed" and source_row_count > 0:
+        if config.write_mode == "overwrite" and source_row_count == target_count_after:
+            row_count_reconciliation_status = "matched"
+            row_count_difference = 0
+        elif config.write_mode == "append" and (target_count_after - target_count_before) == source_row_count:
+            row_count_reconciliation_status = "matched"
+            row_count_difference = 0
+        else:
+            row_count_reconciliation_status = "mismatched"
+            row_count_difference = abs(source_row_count - (target_count_after - target_count_before))
+    
+    # Calculate throughput
+    avg_rows_per_second = None
+    data_size_mb = None
+    throughput_mb_per_second = None
+    if total_duration_ms and total_duration_ms > 0:
+        avg_rows_per_second = (source_row_count / total_duration_ms) * 1000 if source_row_count else 0
+        if file_info.get("size"):
+            data_size_mb = file_info["size"] / (1024 * 1024)
+            throughput_mb_per_second = (data_size_mb / total_duration_ms) * 1000
     
     log_data = {
         "log_id": str(uuid.uuid4()),
@@ -429,6 +524,21 @@ def log_execution(config: FlatFileIngestionConfig, status: str, write_stats: Dic
         "records_updated": write_stats.get("records_updated", 0) if write_stats else 0,
         "records_deleted": write_stats.get("records_deleted", 0) if write_stats else 0,
         "records_failed": write_stats.get("records_failed", 0) if write_stats else 0,
+        # Performance metrics
+        "source_row_count": source_row_count,
+        "staging_row_count": staging_row_count,
+        "target_row_count_before": target_count_before,
+        "target_row_count_after": target_count_after,
+        "row_count_reconciliation_status": row_count_reconciliation_status,
+        "row_count_difference": row_count_difference,
+        "data_read_duration_ms": copy_stats.get("data_read_duration_ms") if copy_stats else None,
+        "staging_write_duration_ms": copy_stats.get("staging_write_duration_ms") if copy_stats else None,
+        "merge_duration_ms": write_stats.get("merge_duration_ms") if write_stats else None,
+        "total_duration_ms": total_duration_ms,
+        "avg_rows_per_second": avg_rows_per_second,
+        "data_size_mb": data_size_mb,
+        "throughput_mb_per_second": throughput_mb_per_second,
+        # Error tracking
         "error_message": error_message,
         "error_details": error_details,
         "execution_duration_seconds": duration,
@@ -475,9 +585,12 @@ for _, config_row in config_df.iterrows():
         
         if copy_stats["copy_status"] == "success":
             print(f"COPY INTO completed: {copy_stats['records_loaded']} records loaded to staging")
+            print(f"Source rows: {copy_stats.get('source_row_count', 'N/A')}")
+            print(f"Staging rows: {copy_stats.get('staging_row_count', 'N/A')}")
+            print(f"Read duration: {copy_stats.get('data_read_duration_ms', 'N/A')}ms")
             
             # Merge from staging to target
-            merge_stats = processor.merge_to_target(config)
+            merge_stats = processor.merge_to_target(config, staging_row_count=copy_stats.get('staging_row_count'))
             
             if merge_stats["merge_status"] == "success":
                 # Clean up staging table
@@ -486,19 +599,36 @@ for _, config_row in config_df.iterrows():
                 end_time = datetime.now()
                 duration = (end_time - start_time).total_seconds()
                 
-                print(f"Processing completed in {duration:.2f} seconds")
+                print(f"\nProcessing completed in {duration:.2f} seconds")
                 print(f"Records processed: {merge_stats['records_processed']}")
                 print(f"Records inserted: {merge_stats['records_inserted']}")
+                print(f"Records updated: {merge_stats['records_updated']}")
+                print(f"Target rows before: {merge_stats['target_row_count_before']}")
+                print(f"Target rows after: {merge_stats['target_row_count_after']}")
+                print(f"Merge duration: {merge_stats.get('merge_duration_ms', 'N/A')}ms")
                 
-                # Log success
-                log_execution(config, "completed", merge_stats, start_time=start_time, end_time=end_time)
+                # Log success with all metrics
+                log_execution(config, "completed", merge_stats, copy_stats, start_time=start_time, end_time=end_time)
+                
+                # Calculate reconciliation status
+                recon_status = "matched"
+                if config.write_mode == "overwrite" and copy_stats.get('source_row_count') != merge_stats['target_row_count_after']:
+                    recon_status = "mismatched"
+                elif config.write_mode == "append" and copy_stats.get('source_row_count') != (merge_stats['target_row_count_after'] - merge_stats['target_row_count_before']):
+                    recon_status = "mismatched"
                 
                 results.append({
                     "config_id": config.config_id,
                     "config_name": config.config_name,
                     "status": "success",
                     "duration": duration,
-                    "records_processed": merge_stats['records_processed']
+                    "records_processed": merge_stats['records_processed'],
+                    "reconciliation_status": recon_status,
+                    "copy_stats": {
+                        "source_rows": copy_stats.get('source_row_count'),
+                        "staging_rows": copy_stats.get('staging_row_count'),
+                        "avg_rows_per_second": (copy_stats.get('source_row_count', 0) / duration) if duration > 0 else 0
+                    }
                 })
             else:
                 raise Exception(f"Merge failed: {merge_stats.get('error', 'Unknown error')}")
@@ -516,7 +646,8 @@ for _, config_row in config_df.iterrows():
         processor.cleanup_staging(config)
         
         # Log error
-        log_execution(config, "failed", error_message=error_message, error_details=error_details,
+        log_execution(config, "failed", copy_stats=copy_stats if 'copy_stats' in locals() else None,
+                     error_message=error_message, error_details=error_details,
                      start_time=start_time, end_time=end_time)
         
         results.append({
@@ -546,6 +677,12 @@ if successful:
     print("\nSuccessful configurations:")
     for result in successful:
         print(f"  - {result['config_name']}: {result['records_processed']} records in {result['duration']:.2f}s")
+        if 'copy_stats' in result:
+            copy_s = result['copy_stats']
+            if copy_s.get('avg_rows_per_second'):
+                print(f"    Performance: {copy_s['avg_rows_per_second']:.0f} rows/sec")
+        if 'reconciliation_status' in result:
+            print(f"    Row count reconciliation: {result['reconciliation_status']}")
 
 if failed:
     print("\nFailed configurations:")

@@ -1,5 +1,6 @@
 import logging
 import os
+import platform
 from datetime import datetime, date
 from typing import Any, Optional
 
@@ -16,12 +17,14 @@ logger = logging.getLogger(__name__)
 
 
 class warehouse_utils(DataStoreInterface):
-
-    def _is_notebookutils_available(self, notebookutils: Optional[Any] = None, mssparkutils: Optional[Any] = None) -> bool:
+    def _is_notebookutils_available(
+        self, notebookutils: Optional[Any] = None, mssparkutils: Optional[Any] = None
+    ) -> bool:
         """Check if notebookutils is importable (for Fabric dialect)."""
         return NotebookUtilsFactory.create_instance(
             notebookutils=notebookutils
         ).is_available()
+
     """Utilities for interacting with Fabric or local SQL Server warehouses."""
 
     def __init__(
@@ -30,33 +33,56 @@ class warehouse_utils(DataStoreInterface):
         target_warehouse_id: Optional[str] = None,
         *,
         dialect: str = "fabric",
-        connection_string: Optional[str] = f"DRIVER={{ODBC Driver 18 for SQL Server}};SERVER=localhost,1433;UID=sa;PWD={os.getenv('SQL_SERVER_PASSWORD', 'YourStrong!Passw0rd')};TrustServerCertificate=yes;",
-        notebookutils: Optional[Any] = None
+        connection_string: Optional[str] = None,
+        notebookutils: Optional[Any] = None,
     ):
-        
         self._target_workspace_id = target_workspace_id
         self._target_warehouse_id = target_warehouse_id
         self.dialect = dialect
 
-        if dialect not in ["fabric", "sql_server"]:
+        if dialect not in ["fabric", "sql_server", "mysql"]:
             raise ValueError(
-                f"Unsupported dialect: {dialect}. Supported dialects are 'fabric' and 'sql_server'."
+                f"Unsupported dialect: {dialect}. Supported dialects are 'fabric', 'sql_server', and 'mysql'."
             )
-        
+
         # Initialize notebook utils abstraction
         self.notebook_utils = NotebookUtilsFactory.get_instance(
             notebookutils=notebookutils
         )
 
-        # Look for the existence of notebookutils and if not found, assume local SQL Server
-        if dialect == "fabric" and not self.notebook_utils.is_available():
-            logger.warning(
-                "notebookutils not found, falling back to local SQL Server connection."
-            )
-            self.dialect = "sql_server"
+        # Look for the existence of notebookutils and if not found, assume local database
+        # Check if we're using LocalNotebookUtils (fallback) instead of real Fabric notebookutils
+        if (
+            dialect == "fabric"
+            and type(self.notebook_utils).__name__ == "LocalNotebookUtils"
+        ):
+            # Detect ARM architecture and choose appropriate local database
+            machine_arch = platform.machine().lower()
+            is_arm = machine_arch in ["arm64", "aarch64", "arm"]
 
-        self.connection_string = connection_string
-        self.sql = SQLTemplates(dialect)
+            if is_arm:
+                logger.warning(
+                    f"notebookutils not found on ARM architecture ({machine_arch}), falling back to local MySQL connection."
+                )
+                self.dialect = "mysql"
+            else:
+                logger.warning(
+                    f"notebookutils not found on {machine_arch} architecture, falling back to local SQL Server connection."
+                )
+                self.dialect = "sql_server"
+
+        # Set default connection string based on final dialect if not provided
+        if connection_string is None:
+            if self.dialect == "sql_server":
+                self.connection_string = f"DRIVER={{ODBC Driver 18 for SQL Server}};SERVER=localhost,1433;UID=sa;PWD={os.getenv('SQL_SERVER_PASSWORD', 'YourStrong!Passw0rd')};TrustServerCertificate=yes;"
+            elif self.dialect == "mysql":
+                self.connection_string = f"host=localhost,port=3306,user=root,password={os.getenv('MYSQL_PASSWORD', 'password')},database=local"
+            else:
+                self.connection_string = ""
+        else:
+            self.connection_string = connection_string
+
+        self.sql = SQLTemplates(self.dialect)
 
     @property
     def target_workspace_id(self) -> str:
@@ -73,18 +99,23 @@ class warehouse_utils(DataStoreInterface):
         return self._target_warehouse_id
 
     def get_connection(self):
-        """Return a connection object depending on the configured dialect."""        
+        """Return a connection object depending on the configured dialect."""
         if get_configs_as_object().fabric_environment == "local":
-            # For local SQL Server, use pyodbc
-            conn = self._connect_to_local_sql_server()
+            if self.dialect == "sql_server":
+                conn = self._connect_to_local_sql_server()
+            elif self.dialect == "mysql":
+                conn = self._connect_to_local_mysql()
+            else:
+                raise ValueError(f"Unsupported local dialect: {self.dialect}")
         else:
             conn = self.notebook_utils.connect_to_artifact(
                 self._target_warehouse_id, self._target_workspace_id
             )
         return conn
-        
 
-    def execute_query(self, conn = None, query: str = None, params: tuple | list | None = None):
+    def execute_query(
+        self, conn=None, query: str = None, params: tuple | list | None = None
+    ):
         """Execute a query and return results as a DataFrame when possible."""
         if not conn:
             conn = self.get_connection()
@@ -93,7 +124,7 @@ class warehouse_utils(DataStoreInterface):
             logging.debug(f"Executing query: {query}")
             if params:
                 logging.debug(f"Query parameters: {params}")
-            
+
             if hasattr(conn, "query"):
                 # For Fabric connections that have a query method
                 if params:
@@ -105,13 +136,13 @@ class warehouse_utils(DataStoreInterface):
             else:
                 cursor = conn.cursor()
                 logger.debug(f"Executing query: {query}")
-                
+
                 # Execute with or without parameters
                 if params:
                     cursor.execute(query, params)
                 else:
                     cursor.execute(query)
-                    
+
                 if cursor.description:
                     rows = cursor.fetchall()
                     columns = [d[0] for d in cursor.description]
@@ -121,7 +152,7 @@ class warehouse_utils(DataStoreInterface):
                     df = None
                 logging.debug("Query executed successfully.")
             return df
-        except Exception as e:            
+        except Exception as e:
             logging.error(f"Error executing query: {query}. Error: {e}")
             if params:
                 logging.error(f"Query parameters: {params}")
@@ -133,7 +164,7 @@ class warehouse_utils(DataStoreInterface):
         try:
             conn = self.get_connection()
             self._create_local_database_with_connection(conn)
-                
+
         except Exception as e:
             logging.error(f"Error creating database 'local': {e}")
             raise
@@ -154,11 +185,11 @@ class warehouse_utils(DataStoreInterface):
             if not db_exists:
                 # CREATE DATABASE must be executed outside of a transaction
                 cursor = conn.cursor()
-                
+
                 # Set autocommit to True to avoid transaction issues
                 old_autocommit = conn.autocommit
                 conn.autocommit = True
-                
+
                 try:
                     create_db_sql = "CREATE DATABASE [local];"
                     logger.debug(f"Executing CREATE DATABASE: {create_db_sql}")
@@ -170,41 +201,114 @@ class warehouse_utils(DataStoreInterface):
                     cursor.close()
             else:
                 logging.info("Database 'local' already exists.")
-                
+
         except Exception as e:
             logging.error(f"Error creating database 'local': {e}")
             logging.exception("Stack trace:", exc_info=True)
             raise
-    
+
     def _connect_to_local_sql_server(self):
         """Connect to local SQL Server using pyodbc, or return mock connection for testing."""
         try:
             import pyodbc
-            logger.debug(f"Connecting to local SQL Server with connection string: {self.connection_string}")
-            
+
+            logger.debug(
+                f"Connecting to local SQL Server with connection string: {self.connection_string}"
+            )
+
             # First connect without database specified to create the database
             conn = pyodbc.connect(self.connection_string)
             logger.debug("Successfully connected to local SQL Server")
-            
+
             # Create local database if it doesn't exist
             self._create_local_database_with_connection(conn)
-            
+
             # Check if database is already in connection string
-            if "DATABASE=" not in self.connection_string.upper() and "INITIAL CATALOG=" not in self.connection_string.upper():
+            if (
+                "DATABASE=" not in self.connection_string.upper()
+                and "INITIAL CATALOG=" not in self.connection_string.upper()
+            ):
                 # Add local database to connection string and reconnect
-                local_connection_string = self.connection_string.rstrip(';') + ";DATABASE=local;"
-                logger.debug(f"Reconnecting with local database: {local_connection_string}")
+                local_connection_string = (
+                    self.connection_string.rstrip(";") + ";DATABASE=local;"
+                )
+                logger.debug(
+                    f"Reconnecting with local database: {local_connection_string}"
+                )
                 conn.close()
                 conn = pyodbc.connect(local_connection_string)
-                logger.debug(f"Successfully connected to local database: {local_connection_string}")
+                logger.debug(
+                    f"Successfully connected to local database: {local_connection_string}"
+                )
             else:
-                logger.debug(f"Local database already specified in connection string, using existing connection: {self.connection_string}")
-            
+                logger.debug(
+                    f"Local database already specified in connection string, using existing connection: {self.connection_string}"
+                )
+
             return conn
         except ImportError:
             logger.error("pyodbc not available, using mock connection for testing")
 
-    
+    def _connect_to_local_mysql(self):
+        """Connect to local MySQL using mysql-connector-python, or return mock connection for testing."""
+        try:
+            import mysql.connector
+
+            # Parse connection string to mysql.connector format
+            connection_params = {}
+            for param in self.connection_string.split(","):
+                if "=" in param:
+                    key, value = param.split("=", 1)
+                    connection_params[key.strip()] = value.strip()
+
+            logger.debug(f"Connecting to local MySQL with params: {connection_params}")
+
+            # First connect without database specified to create the database if needed
+            conn_params_no_db = connection_params.copy()
+            if "database" in conn_params_no_db:
+                del conn_params_no_db["database"]
+
+            conn = mysql.connector.connect(**conn_params_no_db)
+            logger.debug("Successfully connected to local MySQL")
+
+            # Create local database if it doesn't exist
+            self._create_local_mysql_database_with_connection(conn)
+
+            # Reconnect with database specified
+            conn.close()
+            conn = mysql.connector.connect(**connection_params)
+            logger.debug(
+                f"Successfully connected to local MySQL database: {connection_params.get('database', 'local')}"
+            )
+
+            return conn
+        except ImportError:
+            logger.error(
+                "mysql-connector-python not available, using mock connection for testing"
+            )
+
+    def _create_local_mysql_database_with_connection(self, conn) -> None:
+        """Create a database called 'local' using the provided MySQL connection."""
+        try:
+            # Check if database exists
+            cursor = conn.cursor()
+            cursor.execute("SHOW DATABASES LIKE 'local'")
+            db_exists = len(cursor.fetchall()) > 0
+
+            # Create database if it doesn't exist
+            if not db_exists:
+                create_db_sql = "CREATE DATABASE `local`"
+                logger.debug(f"Executing CREATE DATABASE: {create_db_sql}")
+                cursor.execute(create_db_sql)
+                logging.info("Created database 'local'.")
+            else:
+                logging.info("Database 'local' already exists.")
+
+            cursor.close()
+        except Exception as e:
+            logging.error(f"Error creating MySQL database 'local': {e}")
+            logging.exception("Stack trace:", exc_info=True)
+            raise
 
     def create_schema_if_not_exists(self, schema_name: str):
         """Create a schema if it does not already exist."""
@@ -274,7 +378,14 @@ class warehouse_utils(DataStoreInterface):
                 values = []
                 for _, row in pandas_df.iterrows():
                     row_values = ", ".join(
-                        ["NULL" if pd.isna(v) or v is None else f"'{v}'" if isinstance(v, (str, datetime, date)) else str(v) for v in row]
+                        [
+                            "NULL"
+                            if pd.isna(v) or v is None
+                            else f"'{v}'"
+                            if isinstance(v, (str, datetime, date))
+                            else str(v)
+                            for v in row
+                        ]
                     )
                     values.append(f"({row_values})")
 
@@ -295,7 +406,14 @@ class warehouse_utils(DataStoreInterface):
                 # Insert data into existing table
                 for _, row in pandas_df.iterrows():
                     row_values = ", ".join(
-                        ["NULL" if pd.isna(v) or v is None else f"'{v}'" if isinstance(v, (str, datetime, date)) else str(v) for v in row]
+                        [
+                            "NULL"
+                            if pd.isna(v) or v is None
+                            else f"'{v}'"
+                            if isinstance(v, (str, datetime, date))
+                            else str(v)
+                            for v in row
+                        ]
                     )
                     insert_query = self.sql.render(
                         "insert_row",
@@ -313,7 +431,14 @@ class warehouse_utils(DataStoreInterface):
                 values = []
                 for _, row in pandas_df.iterrows():
                     row_values = ", ".join(
-                        ["NULL" if pd.isna(v) or v is None else f"'{v}'" if isinstance(v, (str, datetime, date)) else str(v) for v in row]
+                        [
+                            "NULL"
+                            if pd.isna(v) or v is None
+                            else f"'{v}'"
+                            if isinstance(v, (str, datetime, date))
+                            else str(v)
+                            for v in row
+                        ]
                     )
                     values.append(f"({row_values})")
 
@@ -405,7 +530,9 @@ class warehouse_utils(DataStoreInterface):
         result = self.execute_query(conn, query)
         if result is not None and not result.empty:
             # Expect columns: COLUMN_NAME, DATA_TYPE
-            return {row['COLUMN_NAME']: row['DATA_TYPE'] for _, row in result.iterrows()}
+            return {
+                row["COLUMN_NAME"]: row["DATA_TYPE"] for _, row in result.iterrows()
+            }
         return {}
 
     def read_table(
@@ -565,7 +692,7 @@ class warehouse_utils(DataStoreInterface):
         pass
 
     # File system methods (required by DataStoreInterface but not typical for warehouses)
-    
+
     def read_file(
         self,
         file_path: str,
@@ -573,7 +700,9 @@ class warehouse_utils(DataStoreInterface):
         options: dict[str, Any] | None = None,
     ) -> Any:
         """Implements DataStoreInterface: Read a file (not applicable for warehouses)."""
-        raise NotImplementedError("File operations not supported for warehouse utilities")
+        raise NotImplementedError(
+            "File operations not supported for warehouse utilities"
+        )
 
     def write_file(
         self,
@@ -583,11 +712,15 @@ class warehouse_utils(DataStoreInterface):
         options: dict[str, Any] | None = None,
     ) -> None:
         """Implements DataStoreInterface: Write a file (not applicable for warehouses)."""
-        raise NotImplementedError("File operations not supported for warehouse utilities")
+        raise NotImplementedError(
+            "File operations not supported for warehouse utilities"
+        )
 
     def file_exists(self, file_path: str) -> bool:
         """Implements DataStoreInterface: Check if a file exists (not applicable for warehouses)."""
-        raise NotImplementedError("File operations not supported for warehouse utilities")
+        raise NotImplementedError(
+            "File operations not supported for warehouse utilities"
+        )
 
     def list_files(
         self,
@@ -596,14 +729,16 @@ class warehouse_utils(DataStoreInterface):
         recursive: bool = False,
     ) -> list[str]:
         """Implements DataStoreInterface: List files in a directory (not applicable for warehouses)."""
-        raise NotImplementedError("File operations not supported for warehouse utilities")
+        raise NotImplementedError(
+            "File operations not supported for warehouse utilities"
+        )
 
     def get_file_info(self, file_path: str) -> dict[str, Any]:
         """Implements DataStoreInterface: Get file information (not applicable for warehouses)."""
-        raise NotImplementedError("File operations not supported for warehouse utilities")
+        raise NotImplementedError(
+            "File operations not supported for warehouse utilities"
+        )
 
     # --- End DataStoreInterface required methods ---
 
     # Additional utility methods
-    
-    

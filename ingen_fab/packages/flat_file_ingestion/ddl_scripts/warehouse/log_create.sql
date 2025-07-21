@@ -15,6 +15,21 @@ CREATE TABLE log.log_flat_file_ingestion (
     records_updated BIGINT NULL,
     records_deleted BIGINT NULL,
     records_failed BIGINT NULL,
+    -- Performance metrics
+    source_row_count BIGINT NULL,
+    staging_row_count BIGINT NULL,
+    target_row_count_before BIGINT NULL,
+    target_row_count_after BIGINT NULL,
+    row_count_reconciliation_status NVARCHAR(50) NULL, -- matched, mismatched, not_verified
+    row_count_difference BIGINT NULL,
+    data_read_duration_ms BIGINT NULL,
+    staging_write_duration_ms BIGINT NULL,
+    merge_duration_ms BIGINT NULL,
+    total_duration_ms BIGINT NULL,
+    avg_rows_per_second FLOAT NULL,
+    data_size_mb FLOAT NULL,
+    throughput_mb_per_second FLOAT NULL,
+    -- Error tracking
     error_message NVARCHAR(MAX) NULL,
     error_details NVARCHAR(MAX) NULL,
     execution_duration_seconds INT NULL,

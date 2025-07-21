@@ -1,0 +1,2 @@
+-- MySQL doesn't have VACUUM like PostgreSQL, but OPTIMIZE TABLE serves a similar purpose
+OPTIMIZE TABLE {{ schema_name | required }}.{{ table_name | required }};
