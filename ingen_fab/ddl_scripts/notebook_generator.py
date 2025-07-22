@@ -231,7 +231,7 @@ print(f"Configuration notebook for {self.entities_folder}")
         notebooks = []
         for i, notebook_name in enumerate(notebook_names, 1):
             notebooks.append(
-                {"index": i, "name": notebook_name, "total": len(notebook_names)}
+                {"index": i, "name": notebook_name + "_ddl_scripts", "total": len(notebook_names)}
             )  # Render the orchestrator notebook
         orchestrator_content = orchestrator_template.render(
             lakehouse_name=entity_name,
@@ -259,11 +259,11 @@ print(f"Configuration notebook for {self.entities_folder}")
             f"ddl/{self.generation_mode.lower()}/orchestrator_notebook_all_lakehouses.py.jinja"
         )
 
-        # Prepare lakehouse data
+        # Prepare lakehouse data. 
         lakehouses = []
         for name in entity_names:
             lakehouses.append(
-                {"name": name, "orchestrator_name": f"0_orchestrator_{name}_{self.generation_mode.lower()}_ddl_scripts"}
+                {"name": name, "orchestrator_name": f"00_orchestrator_{name}_{self.generation_mode.lower()}_ddl_scripts"}
             )  # Render the all lakehouses orchestrator notebook
         orchestrator_content = all_lakehouses_template.render(
             lakehouses=lakehouses, total_lakehouses=len(lakehouses), language_group=self.language_group

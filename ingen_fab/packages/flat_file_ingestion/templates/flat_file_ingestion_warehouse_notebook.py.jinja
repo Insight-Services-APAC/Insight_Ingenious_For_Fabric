@@ -90,13 +90,13 @@ class FlatFileIngestionConfig:
 # Initialize config warehouse utilities for configuration data
 config_warehouse = warehouse_utils(
     target_workspace_id=configs.config_workspace_id,
-    target_warehouse_id=configs.config_warehouse_id
+    target_warehouse_id=configs.config_wh_warehouse_id
 )
 
 # Initialize DDL utils for warehouse operations
 ddl_utils_instance = ddl_utils(
     target_workspace_id=configs.config_workspace_id,
-    target_warehouse_id=configs.config_warehouse_id,
+    target_warehouse_id=configs.config_wh_warehouse_id,
     notebookutils=notebookutils
 )
 
