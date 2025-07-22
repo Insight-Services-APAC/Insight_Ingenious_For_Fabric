@@ -19,12 +19,24 @@
       "value": "REPLACE_WITH_CONFIG_WORKSPACE_GUID"
     },
     {
+      "name": "config_wh_workspace_id",
+      "value": "REPLACE_WITH_CONFIG_WH_WORKSPACE_GUID"
+    },
+    {
       "name": "config_lakehouse_name",
       "value": "config"
     },
     {
       "name": "config_lakehouse_id",
       "value": "REPLACE_WITH_CONFIG_LAKEHOUSE_GUID"
+    },
+    {
+      "name": "config_wh_warehouse_name",
+      "value": "config_wh"
+    },
+    {
+      "name": "config_wh_warehouse_id",
+      "value": "REPLACE_WITH_CONFIG_WAREHOUSE_GUID"
     },
     {
       "name": "sample_lakehouse_name",
@@ -36,11 +48,39 @@
     },
     {
       "name": "sample_warehouse_name",
-      "value": ""
+      "value": "sample_wh"
     },
     {
       "name": "sample_warehouse_id",
-      "value": ""
+      "value": "REPLACE_WITH_SAMPLE_WAREHOUSE_GUID"
+    },
+    {
+      "name": "raw_workspace_id",
+      "value": "REPLACE_WITH_RAW_WORKSPACE_GUID"
+    },
+    {
+      "name": "raw_datastore_id",
+      "value": "REPLACE_WITH_RAW_DATASTORE_GUID"
+    },
+    {
+      "name": "edw_workspace_id",
+      "value": "REPLACE_WITH_EDW_WORKSPACE_GUID"
+    },
+    {
+      "name": "edw_lakehouse_name",
+      "value": "edw"
+    },
+    {
+      "name": "edw_lakehouse_id",
+      "value": "REPLACE_WITH_EDW_LAKEHOUSE_GUID"
+    },
+    {
+      "name": "edw_warehouse_name",
+      "value": "edw"
+    },
+    {
+      "name": "edw_warehouse_id",
+      "value": "REPLACE_WITH_EDW_WAREHOUSE_GUID"
     }
   ]
 }
