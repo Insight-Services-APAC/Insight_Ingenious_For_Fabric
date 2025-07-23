@@ -76,7 +76,9 @@ du.print_log()
 
 {{macros.python_cell_with_heading("## ✔️ If we make it to the end return a successful result")}}
 
-import sys
-sys.exit("success")
+notebookutils.notebook.exit("success")
+
+
+
 
 {%include "shared/notebook/cells/footer.py.jinja" %}
