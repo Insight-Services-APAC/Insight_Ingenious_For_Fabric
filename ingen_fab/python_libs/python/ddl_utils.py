@@ -41,7 +41,7 @@ class ddl_utils:
         SELECT count(*)
         FROM [{self.execution_log_table_schema}].[{self.execution_log_table_name}]
         WHERE script_id = '{script_id}'
-        AND execution_status = 'success'
+        AND lower(execution_status) = 'success'
         """
         df = self.warehouse_utils.execute_query(conn=conn, query=query)
         if df is not None and not df.empty:
