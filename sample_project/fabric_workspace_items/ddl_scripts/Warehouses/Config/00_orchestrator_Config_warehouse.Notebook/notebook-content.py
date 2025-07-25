@@ -47,7 +47,7 @@ import sys
 if "notebookutils" in sys.modules:
     import sys
     
-    notebookutils.fs.mount("abfss://{{varlib:config_workspace_name}}@onelake.dfs.fabric.microsoft.com/config.Lakehouse/Files/", "/config_files")  # type: ignore # noqa: F821
+    notebookutils.fs.mount("abfss://local_workspace@onelake.dfs.fabric.microsoft.com/config.Lakehouse/Files/", "/config_files")  # type: ignore # noqa: F821
     mount_path = notebookutils.fs.getMountPath("/config_files")  # type: ignore # noqa: F821
     
     run_mode = "fabric"
@@ -150,7 +150,7 @@ else:
         "ingen_fab/python_libs/python/warehouse_utils.py",
         "ingen_fab/python_libs/python/pipeline_utils.py"
     ]
-
+    load_python_modules_from_path(mount_path, files_to_load)
 
 
 # METADATA ********************
@@ -205,16 +205,10 @@ def execute_notebook(notebook_name, index, total, timeout_seconds=3600):
         print(f"{'='*60}")
         print(f"Executing notebook {index}/{total}:{notebook_name}")
         print(f"{'='*60}")
-        params = {
-            "fabric_environment": configs.fabric_environment,
-            "config_workspace_id": configs.config_workspace_id,
-            "config_warehouse_id": configs.config_warehouse_id,
-            "target_warehouse_config_prefix": "",
-            'useRootDefaultWarehouse': True
-        }
+        params = {}
         
         # Use notebook utils abstraction for cross-environment compatibility
-        result = notebookutils.mssparkutils.notebook.run(
+        result = notebookutils.notebook.run(
             notebook_name,
             timeout_seconds,
             params
@@ -235,20 +229,21 @@ def execute_notebook(notebook_name, index, total, timeout_seconds=3600):
         
         # Stop execution on failure
         error_msg = f"Orchestration stopped due to failure in notebook: {notebook_name}. Error: {str(e)}"
-        notebookutils.mssparkutils.notebook.exit(error_msg)
+        notebookutils.notebook.exit(error_msg)
         return False
 
 print(f"Starting orchestration for  warehouse")
 print(f"Start time: {start_time}")
-print(f"Total notebooks to execute: 7")
+print(f"Total notebooks to execute: 8")
 print("="*60)
-execute_notebook("000_Initial_Schema_Creation_Config_Warehouses", 1, 7)
-execute_notebook("001_Initial_Creation_Ingestion_Config_Warehouses", 2, 7)
-execute_notebook("001_Initial_Creation_Config_Warehouses", 3, 7)
-execute_notebook("001_Initial_Creation_Synapse_Sync_Config_Warehouses", 4, 7)
-execute_notebook("002_Sample_Data_Ingestion_Config_Warehouses", 5, 7)
-execute_notebook("002_Parquet_Load_Update_Config_Warehouses", 6, 7)
-execute_notebook("002_Sample_Data_Synapse_Sync_Config_Warehouses", 7, 7)
+execute_notebook("000_Initial_Schema_Creation_Config_Warehouses_ddl_scripts", 1, 8)
+execute_notebook("001_Initial_Creation_Ingestion_Config_Warehouses_ddl_scripts", 2, 8)
+execute_notebook("001_Initial_Creation_Config_Warehouses_ddl_scripts", 3, 8)
+execute_notebook("001_Initial_Creation_Synapse_Sync_Config_Warehouses_ddl_scripts", 4, 8)
+execute_notebook("001_Initial_Creation_ExtractGeneration_Config_Warehouses_ddl_scripts", 5, 8)
+execute_notebook("002_Sample_Data_Ingestion_Config_Warehouses_ddl_scripts", 6, 8)
+execute_notebook("002_Parquet_Load_Update_Config_Warehouses_ddl_scripts", 7, 8)
+execute_notebook("002_Sample_Data_Synapse_Sync_Config_Warehouses_ddl_scripts", 8, 8)
 
 # Final Summary
 end_time = datetime.now()
@@ -259,16 +254,16 @@ print(f"Orchestration Complete!")
 print(f"{'='*60}")
 print(f"End time: {end_time}")
 print(f"Duration: {duration}")
-print(f"Total notebooks: 7")
+print(f"Total notebooks: 8")
 print(f"Successfully executed: {success_count}")
-print(f"Failed: 7 - {success_count}")
+print(f"Failed: 8 - {success_count}")
 
-if success_count == 7:
+if success_count == 8:
     print("✓ All notebooks executed successfully!")
-    notebookutils.mssparkutils.notebook.exit("success")
+    notebookutils.notebook.exit("success")
 else:
     print(f"✗ Orchestration completed with failures")
-    notebookutils.mssparkutils.notebook.exit(f"Orchestration completed with {success_count}/7 successful executions")
+    notebookutils.notebook.exit(f"Orchestration completed with {success_count}/8 successful executions")
 
 # METADATA ********************
 
