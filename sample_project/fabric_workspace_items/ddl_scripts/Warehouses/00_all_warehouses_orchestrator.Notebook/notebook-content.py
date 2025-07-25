@@ -47,7 +47,7 @@ import sys
 if "notebookutils" in sys.modules:
     import sys
     
-    notebookutils.fs.mount("abfss://{{varlib:config_workspace_name}}@onelake.dfs.fabric.microsoft.com/config.Lakehouse/Files/", "/config_files")  # type: ignore # noqa: F821
+    notebookutils.fs.mount("abfss://local_workspace@onelake.dfs.fabric.microsoft.com/config.Lakehouse/Files/", "/config_files")  # type: ignore # noqa: F821
     mount_path = notebookutils.fs.getMountPath("/config_files")  # type: ignore # noqa: F821
     
     run_mode = "fabric"
@@ -151,6 +151,7 @@ else:
         "ingen_fab/python_libs/python/pipeline_utils.py"
     ]
 
+    load_python_modules_from_path(mount_path, files_to_load)
 
 
 # METADATA ********************
@@ -190,12 +191,11 @@ configs: ConfigsObject = get_configs_as_object()
 
 # Define the lakehouses and their orchestrators
 lakehouses_to_run = [
-    {'name': 'Config', 'orchestrator': '0_orchestrator_Config_warehouse_ddl_scripts'},
+    {'name': 'Config', 'orchestrator': '00_orchestrator_Config_warehouse_ddl_scripts'},
 ]
 
 
 # Import required libraries
-from notebookutils import mssparkutils
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import datetime
 import time
@@ -228,17 +228,11 @@ def run_lakehouse_orchestrator(lakehouse_name, orchestrator_name):
     try:
         print(f"[{result['start_time']}] Starting orchestrator for {lakehouse_name}")
         
-        params = {
-            "fabric_environment": fabric_environment,
-            "config_workspace_id": config_workspace_id,
-            "config_lakehouse_id": config_lakehouse_id,
-            "target_lakehouse_config_prefix": f"{lakehouse_name}",
-            "full_reset": full_reset
-        }
+        params = {}
 
         # Run the lakehouse orchestrator
-        notebook_result = mssparkutils.notebook.run(
-            f"{orchestrator_name}_Lakehouses_ddl_scripts",
+        notebook_result = notebookutils.notebook.run(
+            f"{orchestrator_name}",
             timeout_seconds=7200,  # 2 hour timeout per lakehouse
             arguments=params
         )
@@ -360,11 +354,11 @@ print(markdown_table)
 if failed_count == 0 and exception_count == 0:
     final_message = f"✓ All {success_count} lakehouses processed successfully!"
     print(f"\n{final_message}")
-    mssparkutils.notebook.exit(final_message)
+    notebookutils.notebook.exit(final_message)
 else:
     final_message = f"Completed with {failed_count + exception_count} failures out of 1 lakehouses"
     print(f"\n✗ {final_message}")
-    mssparkutils.notebook.exit(final_message)
+    notebookutils.notebook.exit(final_message)
     raise Exception(final_message)
 
 # METADATA ********************

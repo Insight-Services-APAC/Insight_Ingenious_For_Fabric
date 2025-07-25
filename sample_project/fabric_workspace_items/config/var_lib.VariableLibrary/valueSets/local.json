@@ -69,6 +69,10 @@
     {
       "name": "config_warehouse_id",
       "value": "local-config-warehouse-id"
+    },
+    {
+      "name": "config_workspace_name",
+      "value": "local_workspace"
     }
   ]
 }

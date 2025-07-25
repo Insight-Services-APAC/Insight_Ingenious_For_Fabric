@@ -1,0 +1,12 @@
+{
+  "$schema": "https://developer.microsoft.com/json-schemas/fabric/gitIntegration/platformProperties/2.0.0/schema.json",
+  "metadata": {
+    "type": "Notebook",
+    "displayName": "Extract Generation",
+    "description": "Automated extract report generation from warehouse/lakehouse tables"
+  },
+  "config": {
+    "version": "2.0",
+    "logicalId": "b2658e4b-4870-4bd7-8821-319398ae8e60"
+  }
+}

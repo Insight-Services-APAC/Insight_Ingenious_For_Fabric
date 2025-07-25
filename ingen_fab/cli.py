@@ -35,6 +35,7 @@ notebook_app = typer.Typer()
 package_app = typer.Typer()
 ingest_app = typer.Typer()
 synapse_app = typer.Typer()
+extract_app = typer.Typer()
 libs_app = typer.Typer()
 
 # Add sub-apps to main app
@@ -435,6 +436,12 @@ package_app.add_typer(
     help="Commands for synapse sync package.",
 )
 
+package_app.add_typer(
+    extract_app,
+    name="extract_generation",
+    help="Commands for extract generation package.",
+)
+
 
 @ingest_app.command("compile")
 def ingest_app_compile(
@@ -564,6 +571,72 @@ def run(
     console.print(f"Max Concurrency: {max_concurrency}")
     console.print(f"Include Snapshots: {include_snapshots}")
     console.print(f"Environment: {environment}")
+    console.print(f"Fabric Workspace Repo Dir: {ctx.obj['fabric_workspace_repo_dir']}")
+    
+    console.print("[yellow]Note: This command would typically execute the compiled notebook with the specified parameters.[/yellow]")
+    console.print("[yellow]In a production environment, this would submit the notebook to Fabric for execution.[/yellow]")
+
+
+# Extract generation commands
+@extract_app.command("compile")
+def extract_app_compile(
+    ctx: typer.Context,
+    template_vars: Annotated[str, typer.Option("--template-vars", "-t", help="JSON string of template variables")] = None,
+    include_samples: Annotated[bool, typer.Option("--include-samples", "-s", help="Include sample data DDL and source tables")] = False,
+    target_datastore: Annotated[str, typer.Option("--target-datastore", "-d", help="Target datastore type (warehouse)")] = "warehouse",
+):
+    """Compile extract generation package templates and DDL scripts."""
+    import json
+
+    from ingen_fab.packages.extract_generation.extract_generation import (
+        compile_extract_generation_package,
+    )
+    
+    # Parse template variables if provided
+    vars_dict = {}
+    if template_vars:
+        try:
+            vars_dict = json.loads(template_vars)
+        except json.JSONDecodeError as e:
+            console.print(f"[red]Error parsing template variables: {e}[/red]")
+            raise typer.Exit(code=1)
+    
+    # Get fabric workspace repo directory from context
+    fabric_workspace_repo_dir = str(ctx.obj["fabric_workspace_repo_dir"])
+    
+    try:
+        results = compile_extract_generation_package(
+            fabric_workspace_repo_dir=fabric_workspace_repo_dir,
+            template_vars=vars_dict,
+            include_samples=include_samples,
+            target_datastore=target_datastore
+        )
+        
+        if results["success"]:
+            console.print("[green]✓ Extract generation package compiled successfully![/green]")
+        else:
+            console.print(f"[red]✗ Compilation failed: {results['errors']}[/red]")
+            raise typer.Exit(code=1)
+            
+    except Exception as e:
+        console.print(f"[red]Error compiling package: {e}[/red]")
+        raise typer.Exit(code=1)
+
+
+@extract_app.command()
+def extract_run(
+    ctx: typer.Context,
+    extract_name: Annotated[str, typer.Option("--extract-name", "-n", help="Specific extract configuration to process")] = "",
+    execution_group: Annotated[str, typer.Option("--execution-group", "-g", help="Execution group to process")] = "",
+    environment: Annotated[str, typer.Option("--environment", "-e", help="Environment name")] = "development",
+    run_type: Annotated[str, typer.Option("--run-type", "-r", help="Run type: FULL or INCREMENTAL")] = "FULL",
+):
+    """Run extract generation for specified configuration or execution group."""
+    console.print(f"[blue]Running extract generation...[/blue]")
+    console.print(f"Extract Name: {extract_name}")
+    console.print(f"Execution Group: {execution_group}")
+    console.print(f"Environment: {environment}")
+    console.print(f"Run Type: {run_type}")
     console.print(f"Fabric Workspace Repo Dir: {ctx.obj['fabric_workspace_repo_dir']}")
     
     console.print("[yellow]Note: This command would typically execute the compiled notebook with the specified parameters.[/yellow]")
