@@ -44,6 +44,11 @@ class NotebookUtilsInterface(ABC):
         """Check if the notebook utils implementation is available."""
         pass
 
+    @abstractmethod
+    def run_notebook(self, notebook_name: str, timeout: int = 60, params: dict = None) -> str:
+        """Run a notebook and return the result."""
+        pass
+
 
 class FabricNotebookUtils(NotebookUtilsInterface):
     """Fabric notebook utilities implementation."""
@@ -100,6 +105,13 @@ class FabricNotebookUtils(NotebookUtilsInterface):
     def is_available(self) -> bool:
         """Check if Fabric notebook utils are available."""
         return self._available
+
+    def run_notebook(self, notebook_name: str, timeout: int = 60, params: dict = None) -> str:
+        """Run a notebook using notebookutils.notebook.run."""
+        if not self._available:
+            raise RuntimeError("notebookutils not available - cannot run notebook")
+        
+        return self._notebookutils.notebook.run(notebook_name, timeout, params)
 
 
 class LocalNotebookUtils(NotebookUtilsInterface):
@@ -162,6 +174,10 @@ class LocalNotebookUtils(NotebookUtilsInterface):
     def is_available(self) -> bool:
         """Local utils are always available."""
         return True
+
+    def run_notebook(self, notebook_name: str, timeout: int = 60, params: dict = None) -> str:
+        """Run a notebook by executing its Python file directly."""
+        return self.mssparkutils.notebook.run(notebook_name, timeout, params)
     
     @property
     def mssparkutils(self):

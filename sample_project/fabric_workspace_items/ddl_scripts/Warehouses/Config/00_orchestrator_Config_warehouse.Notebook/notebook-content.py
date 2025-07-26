@@ -208,10 +208,10 @@ def execute_notebook(notebook_name, index, total, timeout_seconds=3600):
         params = {}
         
         # Use notebook utils abstraction for cross-environment compatibility
-        result = notebookutils.notebook.run(
+        result = notebookutils.mssparkutils.notebook.run(
             notebook_name,
-            timeout_seconds,
-            params
+            timeout=timeout_seconds,
+            params=params
         )
         
         if (result == 'success'):
@@ -229,7 +229,7 @@ def execute_notebook(notebook_name, index, total, timeout_seconds=3600):
         
         # Stop execution on failure
         error_msg = f"Orchestration stopped due to failure in notebook: {notebook_name}. Error: {str(e)}"
-        notebookutils.notebook.exit(error_msg)
+        notebookutils.exit_notebook(error_msg)
         return False
 
 print(f"Starting orchestration for  warehouse")
@@ -260,10 +260,10 @@ print(f"Failed: 8 - {success_count}")
 
 if success_count == 8:
     print("✓ All notebooks executed successfully!")
-    notebookutils.notebook.exit("success")
+    notebookutils.exit_notebook("success")
 else:
     print(f"✗ Orchestration completed with failures")
-    notebookutils.notebook.exit(f"Orchestration completed with {success_count}/8 successful executions")
+    notebookutils.exit_notebook(f"Orchestration completed with {success_count}/8 successful executions")
 
 # METADATA ********************
 

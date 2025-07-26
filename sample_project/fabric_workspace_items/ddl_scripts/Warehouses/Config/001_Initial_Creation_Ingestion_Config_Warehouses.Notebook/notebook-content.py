@@ -515,7 +515,7 @@ du.print_log()
 # CELL ********************
 
 
-notebookutils.notebook.exit("success")
+notebookutils.exit_notebook("success")
 
 
 

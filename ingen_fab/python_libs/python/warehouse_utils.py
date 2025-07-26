@@ -101,12 +101,8 @@ class warehouse_utils(DataStoreInterface):
     def get_connection(self):
         """Return a connection object depending on the configured dialect."""
         if get_configs_as_object().fabric_environment == "local":
-            if self.dialect == "sql_server":
-                conn = self._connect_to_local_sql_server()
-            elif self.dialect == "mysql":
-                conn = self._connect_to_local_mysql()
-            else:
-                raise ValueError(f"Unsupported local dialect: {self.dialect}")
+            # Use PostgreSQL for local development
+            conn = self._connect_to_local_postgresql()
         else:
             conn = self.notebook_utils.connect_to_artifact(
                 self._target_warehouse_id, self._target_workspace_id
@@ -286,6 +282,72 @@ class warehouse_utils(DataStoreInterface):
             logger.error(
                 "mysql-connector-python not available, using mock connection for testing"
             )
+
+    def _connect_to_local_postgresql(self):
+        """Connect to local PostgreSQL using psycopg2, or return mock connection for testing."""
+        try:
+            import psycopg2
+            from psycopg2.extensions import ISOLATION_LEVEL_AUTOCOMMIT
+
+            # Default PostgreSQL connection parameters for local development
+            connection_params = {
+                'host': os.getenv('POSTGRES_HOST', 'localhost'),
+                'port': int(os.getenv('POSTGRES_PORT', '5432')),
+                'user': os.getenv('POSTGRES_USER', 'postgres'),
+                'password': os.getenv('POSTGRES_PASSWORD', 'postgres'),
+                'database': 'postgres'  # Connect to postgres db first to create target db
+            }
+
+            logger.debug(f"Connecting to local PostgreSQL with params: {connection_params}")
+
+            # First connect to postgres database to create the target database if needed
+            conn = psycopg2.connect(**connection_params)
+            conn.set_isolation_level(ISOLATION_LEVEL_AUTOCOMMIT)
+            logger.debug("Successfully connected to local PostgreSQL")
+
+            # Create local database if it doesn't exist
+            self._create_local_postgresql_database_with_connection(conn)
+
+            # Close and reconnect to the target database
+            conn.close()
+            connection_params['database'] = os.getenv('POSTGRES_DATABASE', 'local')
+            conn = psycopg2.connect(**connection_params)
+            logger.debug(f"Successfully connected to local PostgreSQL database: {connection_params['database']}")
+
+            return conn
+        except ImportError:
+            logger.error("psycopg2 not available, using mock connection for testing")
+            return None
+        except Exception as e:
+            logger.error(f"Failed to connect to PostgreSQL: {e}")
+            logger.error("Make sure PostgreSQL is running and connection parameters are correct")
+            return None
+
+    def _create_local_postgresql_database_with_connection(self, conn) -> None:
+        """Create a database called 'local' using the provided PostgreSQL connection."""
+        try:
+            target_db = os.getenv('POSTGRES_DATABASE', 'local')
+            
+            # Check if database exists
+            cursor = conn.cursor()
+            cursor.execute("SELECT 1 FROM pg_database WHERE datname = %s", (target_db,))
+            db_exists = cursor.fetchone() is not None
+
+            # Create database if it doesn't exist
+            if not db_exists:
+                # Database names cannot be parameterized in PostgreSQL
+                create_db_sql = f'CREATE DATABASE "{target_db}"'
+                logger.debug(f"Executing CREATE DATABASE: {create_db_sql}")
+                cursor.execute(create_db_sql)
+                logging.info(f"Created database '{target_db}'.")
+            else:
+                logging.info(f"Database '{target_db}' already exists.")
+
+            cursor.close()
+        except Exception as e:
+            logging.error(f"Error creating PostgreSQL database 'local': {e}")
+            logging.exception("Stack trace:", exc_info=True)
+            raise
 
     def _create_local_mysql_database_with_connection(self, conn) -> None:
         """Create a database called 'local' using the provided MySQL connection."""
