@@ -84,7 +84,7 @@ def execute_notebook(notebook_name, index, total, timeout_seconds=3600):
         
         # Stop execution on failure
         error_msg = f"Orchestration stopped due to failure in notebook: {notebook_name}. Error: {str(e)}"
-        notebookutils.mssparkutils.notebook.exit(error_msg)
+        notebookutils.exit_notebook(error_msg)
         return False
 
 print(f"Starting orchestration for {{ lakehouse_name }} lakehouse")
@@ -111,9 +111,9 @@ print(f"Failed: {{ total_notebooks }} - {success_count}")
 
 if success_count == {{ total_notebooks }}:
     print("✓ All notebooks executed successfully!")
-    notebookutils.mssparkutils.notebook.exit("success")
+    notebookutils.exit_notebook("success")
 else:
     print(f"✗ Orchestration completed with failures")
-    notebookutils.mssparkutils.notebook.exit(f"Orchestration completed with {success_count}/{{ total_notebooks }} successful executions")
+    notebookutils.exit_notebook(f"Orchestration completed with {success_count}/{{ total_notebooks }} successful executions")
 
 {%include "shared/notebook/cells/footer.py.jinja" %}

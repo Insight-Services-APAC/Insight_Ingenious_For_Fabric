@@ -231,10 +231,10 @@ def run_lakehouse_orchestrator(lakehouse_name, orchestrator_name):
         params = {}
 
         # Run the lakehouse orchestrator
-        notebook_result = notebookutils.notebook.run(
+        notebook_result = notebookutils.mssparkutils.notebook.run(
             f"{orchestrator_name}",
-            timeout_seconds=7200,  # 2 hour timeout per lakehouse
-            arguments=params
+            timeout=7200,  # 2 hour timeout per lakehouse
+            params=params
         )
         
         result['end_time'] = datetime.now()
@@ -354,11 +354,11 @@ print(markdown_table)
 if failed_count == 0 and exception_count == 0:
     final_message = f"✓ All {success_count} lakehouses processed successfully!"
     print(f"\n{final_message}")
-    notebookutils.notebook.exit(final_message)
+    notebookutils.exit_notebook(final_message)
 else:
     final_message = f"Completed with {failed_count + exception_count} failures out of 1 lakehouses"
     print(f"\n✗ {final_message}")
-    notebookutils.notebook.exit(final_message)
+    notebookutils.exit_notebook(final_message)
     raise Exception(final_message)
 
 # METADATA ********************

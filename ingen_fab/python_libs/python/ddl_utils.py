@@ -6,6 +6,7 @@ from datetime import datetime
 from typing import Any, Optional
 
 from ingen_fab.python_libs.python.warehouse_utils import warehouse_utils
+from ingen_fab.python_libs.python.sql_templates import SQLTemplates
 
 
 class ddl_utils:
@@ -24,6 +25,8 @@ class ddl_utils:
         )
         # Use the same notebook utils instance as warehouse_utils
         self.notebook_utils = self.warehouse_utils.notebook_utils
+        # Initialize SQL templates
+        self.sql = SQLTemplates(dialect="fabric")
         self.initialise_ddl_script_executions_table()
 
     def execution_log_schema():
@@ -31,18 +34,18 @@ class ddl_utils:
 
     def print_log(self):
         conn = self.warehouse_utils.get_connection()
-        query = f"SELECT * FROM [{self.execution_log_table_schema}].[{self.execution_log_table_name}]"
+        query = self.sql.render("read_table", 
+                               schema_name=self.execution_log_table_schema,
+                               table_name=self.execution_log_table_name)
         df = self.warehouse_utils.execute_query(conn=conn, query=query)
         self.notebook_utils.display(df)
 
     def check_if_script_has_run(self, script_id) -> bool:
         conn = self.warehouse_utils.get_connection()
-        query = f"""
-        SELECT count(*)
-        FROM [{self.execution_log_table_schema}].[{self.execution_log_table_name}]
-        WHERE script_id = '{script_id}'
-        AND lower(execution_status) = 'success'
-        """
+        query = self.sql.render("check_script_executed",
+                               schema_name=self.execution_log_table_schema,
+                               table_name=self.execution_log_table_name,
+                               script_id=script_id)
         df = self.warehouse_utils.execute_query(conn=conn, query=query)
         if df is not None and not df.empty:
             if int(df.iloc[0, 0]) > 0:
@@ -62,11 +65,13 @@ class ddl_utils:
     def write_to_execution_log(self, object_guid, object_name, script_status):
         conn = self.warehouse_utils.get_connection()
         current_timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-        insert_query = f"""
-        INSERT INTO [{self.execution_log_table_schema}].[{self.execution_log_table_name}]
-        (script_id, script_name, execution_status, update_date)
-        VALUES ('{object_guid}', '{object_name}', '{script_status}', '{current_timestamp}')
-        """
+        insert_query = self.sql.render("insert_ddl_log",
+                                      schema_name=self.execution_log_table_schema,
+                                      table_name=self.execution_log_table_name,
+                                      script_id=object_guid,
+                                      script_name=object_name,
+                                      execution_status=script_status,
+                                      update_date=current_timestamp)
         self.warehouse_utils.execute_query(conn=conn, query=insert_query)
 
     def run_once(self, work_fn: callable, object_name: str, guid: str):
@@ -116,15 +121,10 @@ class ddl_utils:
             self.warehouse_utils.create_schema_if_not_exists(
                 schema_name=self.execution_log_table_schema
             )
-            # Create the table
-            create_table_query = f"""
-            CREATE TABLE [{self.execution_log_table_schema}].[{self.execution_log_table_name}] (
-            script_id VARCHAR(255) NOT NULL,
-            script_name VARCHAR(255) NOT NULL,
-            execution_status VARCHAR(50) NOT NULL,
-            update_date DATETIME2(0) NOT NULL
-            )
-            """
+            # Create the table using SQL template
+            create_table_query = self.sql.render("create_ddl_log_table",
+                                                schema_name=self.execution_log_table_schema,
+                                                table_name=self.execution_log_table_name)
             self.warehouse_utils.execute_query(conn=conn, query=create_table_query)
             self.write_to_execution_log(
                 object_guid=guid, object_name=object_name, script_status="Success"

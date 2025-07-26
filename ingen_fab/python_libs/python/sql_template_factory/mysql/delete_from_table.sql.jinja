@@ -1,7 +1,0 @@
-DELETE FROM {{ schema_name | required }}.{{ table_name | required }}
-{% if conditions %}
-WHERE
-    {%- for col, val in conditions.items() %}
-        {{ col }} = '{{ val }}'{% if not loop.last %} AND {% endif %}
-    {%- endfor %}
-{% endif %};

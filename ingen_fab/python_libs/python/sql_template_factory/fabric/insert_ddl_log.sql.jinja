@@ -1,0 +1,3 @@
+INSERT INTO {{ schema_name | required }}.{{ table_name | required }}
+(script_id, script_name, execution_status, update_date)
+VALUES ('{{ script_id | required }}', '{{ script_name | required }}', '{{ execution_status | required }}', '{{ update_date | required }}')
