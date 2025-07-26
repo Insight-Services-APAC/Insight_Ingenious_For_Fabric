@@ -34,9 +34,9 @@ class FabricSQLTranslator:
     # Mapping of local environment to target SQL dialect
     DIALECT_MAPPING = {
         "local": "postgres",
-        "development": "tsql", 
-        "test": "tsql",
-        "production": "tsql"
+        "development": "fabric", 
+        "test": "fabric",
+        "production": "fabric"
     }
     
     # Custom translation rules for Fabric-specific patterns
@@ -63,17 +63,17 @@ class FabricSQLTranslator:
                           from the fabric_environment configuration.
         """
         self.target_dialect = target_dialect or self._get_target_dialect()
-        self.source_dialect = "tsql"  # Fabric uses T-SQL
+        self.source_dialect = "fabric"  # Microsoft Fabric SQL dialect
         
     def _get_target_dialect(self) -> str:
         """Determine target dialect based on fabric_environment."""
         try:
             config = get_configs_as_object()
             environment = getattr(config, 'fabric_environment', 'production')
-            return self.DIALECT_MAPPING.get(environment, "tsql")
+            return self.DIALECT_MAPPING.get(environment, "fabric")
         except Exception as e:
-            logger.warning(f"Could not determine environment, defaulting to tsql: {e}")
-            return "tsql"
+            logger.warning(f"Could not determine environment, defaulting to fabric: {e}")
+            return "fabric"
     
     def translate_sql(self, sql: str, **kwargs) -> str:
         """
@@ -89,7 +89,7 @@ class FabricSQLTranslator:
         Raises:
             SQLTranslatorError: If translation fails
         """
-        if self.target_dialect == "tsql":
+        if self.target_dialect == "fabric":
             # No translation needed for Fabric environments
             return sql
             
@@ -97,21 +97,38 @@ class FabricSQLTranslator:
             # Apply pre-translation mappings for Fabric-specific patterns
             translated_sql = self._apply_pre_translation_mappings(sql)
             
-            # Use SQLGlot to translate
-            result = transpile(
-                translated_sql,
-                read=self.source_dialect,
-                write=self.target_dialect,
-                pretty=True
-            )
-            
-            if not result:
-                raise SQLTranslatorError(f"SQLGlot returned empty result for SQL: {sql}")
+            # Check if pre-translation completely handled the SQL
+            if translated_sql.strip().upper().startswith('CREATE SCHEMA IF NOT EXISTS'):
+                # Already translated, skip SQLGlot
+                final_sql = translated_sql
+            else:
+                # Use SQLGlot to translate
+                result = transpile(
+                    translated_sql,
+                    read=self.source_dialect,
+                    write=self.target_dialect,
+                    pretty=True
+                )
                 
-            final_sql = result[0]
-            
-            # Apply post-translation fixes
-            final_sql = self._apply_post_translation_fixes(final_sql)
+                if not result:
+                    raise SQLTranslatorError(f"SQLGlot returned empty result for SQL: {sql}")
+                
+                # Handle multiple statements
+                if len(result) > 1:
+                    # Multiple statements - translate each and join with semicolons
+                    translated_statements = []
+                    for stmt in result:
+                        fixed_stmt = self._apply_post_translation_fixes(stmt)
+                        # Add semicolon if not present
+                        if not fixed_stmt.rstrip().endswith(';'):
+                            fixed_stmt = fixed_stmt.rstrip() + ';'
+                        translated_statements.append(fixed_stmt)
+                    final_sql = '\n\n'.join(translated_statements)
+                else:
+                    # Single statement
+                    final_sql = result[0]
+                    # Apply post-translation fixes
+                    final_sql = self._apply_post_translation_fixes(final_sql)
             
             logger.debug(f"Translated SQL from {self.source_dialect} to {self.target_dialect}:")
             logger.debug(f"Original: {sql}")
@@ -129,6 +146,29 @@ class FabricSQLTranslator:
         result = sql
         for fabric_pattern, postgres_pattern in self.FABRIC_TO_POSTGRES_MAPPINGS.items():
             result = result.replace(fabric_pattern, postgres_pattern)
+            
+        # Handle SQL Server IF NOT EXISTS pattern for schema creation
+        import re
+        # Look for exec('CREATE SCHEMA schema_name') pattern
+        exec_pattern = r"exec\s*\(\s*'CREATE\s+SCHEMA\s+(\w+)"
+        exec_match = re.search(exec_pattern, result, re.IGNORECASE)
+        if exec_match and 'sys.schemas' in result.lower():
+            schema_name = exec_match.group(1)
+            result = f"CREATE SCHEMA IF NOT EXISTS {schema_name}"
+        
+        # Handle Fabric-specific PRIMARY KEY NONCLUSTERED ... NOT ENFORCED syntax
+        if 'PRIMARY KEY NONCLUSTERED' in result.upper():
+            # Convert: PRIMARY KEY NONCLUSTERED (column) NOT ENFORCED 
+            # To:      PRIMARY KEY (column)
+            pk_pattern = r'PRIMARY\s+KEY\s+NONCLUSTERED\s*\(([^)]+)\)\s*NOT\s+ENFORCED'
+            result = re.sub(pk_pattern, r'PRIMARY KEY (\1)', result, flags=re.IGNORECASE)
+        
+        # Handle DROP CONSTRAINT IF EXISTS (convert to PostgreSQL syntax)
+        if 'DROP CONSTRAINT IF EXISTS' in result.upper():
+            # PostgreSQL uses slightly different syntax
+            drop_pattern = r'ALTER\s+TABLE\s+([^\s]+)\s+DROP\s+CONSTRAINT\s+IF\s+EXISTS\s+([^\s;]+)'
+            result = re.sub(drop_pattern, r'ALTER TABLE \1 DROP CONSTRAINT IF EXISTS \2', result, flags=re.IGNORECASE)
+            
         return result
     
     def _apply_post_translation_fixes(self, sql: str) -> str:
@@ -151,6 +191,18 @@ class FabricSQLTranslator:
             bracket_pattern = r'\[([^\]]+)\]'
             result = re.sub(bracket_pattern, r'\1', result)
             
+            # Remove NULLS FIRST/NULLS LAST from PRIMARY KEY constraints (PostgreSQL doesn't support this)
+            if 'PRIMARY KEY' in result.upper():
+                result = re.sub(r'\s+NULLS\s+(FIRST|LAST)', '', result, flags=re.IGNORECASE)
+            
+            # Handle SQL Server specific data types  
+            result = re.sub(r'\bDATETIME2\(\d+\)', 'TIMESTAMP', result, flags=re.IGNORECASE)
+            result = re.sub(r'\bTIMESTAMP\(\d+\)', 'TIMESTAMP', result, flags=re.IGNORECASE)
+            result = re.sub(r'\bBYTEA\(\d+\)', 'BYTEA', result, flags=re.IGNORECASE)
+            # Convert BIT to SMALLINT instead of BOOLEAN to maintain compatibility
+            # This allows 0/1 values to work in both Fabric and PostgreSQL without conversion
+            result = re.sub(r'\bBIT\b', 'SMALLINT', result, flags=re.IGNORECASE)
+            
             # Handle SQL Server specific commands
             if result.strip().startswith('EXEC sp_rename'):
                 # Convert SQL Server sp_rename to PostgreSQL ALTER TABLE RENAME
@@ -165,6 +217,16 @@ class FabricSQLTranslator:
             if not stripped or stripped.startswith('--'):
                 # For PostgreSQL, we can use a valid no-op statement
                 result = "SELECT 1 AS no_op_result"
+                
+            # Handle schema creation patterns
+            if 'CREATE SCHEMA' in result.upper():
+                # Extract schema name from various patterns
+                import re
+                # Pattern for: CREATE SCHEMA config
+                match = re.search(r"CREATE\s+SCHEMA\s+(\w+)", result, re.IGNORECASE)
+                if match:
+                    schema_name = match.group(1)
+                    result = f"CREATE SCHEMA IF NOT EXISTS {schema_name}"
             
         return result
     

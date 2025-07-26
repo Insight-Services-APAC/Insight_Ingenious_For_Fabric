@@ -85,15 +85,9 @@ class ExtractGenerationCompiler(BaseNotebookCompiler):
         if not mode_dir.exists():
             raise ValueError(f"DDL scripts directory not found for mode: {generation_mode}")
         
-        # Return scripts in the correct order
-        script_order = [
-            "000_schema_creation.sql",
-            "config_extract_generation_create.sql",
-            "config_extract_details_create.sql",
-            "log_extract_generation_create.sql",
-            "sample_data_insert.sql"
-        ]
-        
+        # order by name
+        script_order = sorted([f.name for f in mode_dir.glob("*.sql")])
+
         scripts = []
         for script_name in script_order:
             script_path = mode_dir / script_name
@@ -117,7 +111,7 @@ class ExtractGenerationCompiler(BaseNotebookCompiler):
         
         # Create DDL scripts directory structure
         # Following the pattern: ddl_scripts/Warehouses/Config/001_Initial_Creation_ExtractGeneration/
-        ddl_base_dir = Path(self.fabric_workspace_repo_dir) / "ddl_scripts" / "Warehouses" / "Config" / "001_Initial_Creation_ExtractGeneration"
+        ddl_base_dir = Path(self.fabric_workspace_repo_dir) / "ddl_scripts" / "Warehouses" / "Config_WH" / "001_Initial_Creation_ExtractGeneration"
         ddl_base_dir.mkdir(parents=True, exist_ok=True)
         
         # Get DDL scripts and copy/compile them
@@ -126,11 +120,7 @@ class ExtractGenerationCompiler(BaseNotebookCompiler):
         
         for script in scripts:
             # Generate target filename (remove any numbering prefix for cleaner names)
-            target_filename = script.name.replace("config_extract_generation_create.sql", "001_config_extract_generation_create.sql")
-            target_filename = target_filename.replace("config_extract_details_create.sql", "002_config_extract_details_create.sql")
-            target_filename = target_filename.replace("log_extract_generation_create.sql", "003_log_extract_generation_create.sql")
-            target_filename = target_filename.replace("sample_data_insert.sql", "004_sample_data_insert.sql")
-            target_filename = target_filename.replace("000_schema_creation.sql", "000_schema_creation.sql")
+            target_filename = script.name
             
             target_path = ddl_base_dir / target_filename
             

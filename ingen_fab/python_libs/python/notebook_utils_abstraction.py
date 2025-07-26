@@ -16,6 +16,14 @@ from ingen_fab.python_libs.common.config_utils import get_configs_as_object
 logger = logging.getLogger(__name__)
 
 
+class NotebookExit(Exception):
+    """Exception raised when a notebook calls exit_notebook() in local environment."""
+    
+    def __init__(self, exit_value: Any = "success"):
+        self.exit_value = exit_value
+        super().__init__(f"Notebook exit with value: {exit_value}")
+
+
 class NotebookUtilsInterface(ABC):
     """Abstract interface for notebook utilities."""
 
@@ -153,10 +161,14 @@ class LocalNotebookUtils(NotebookUtilsInterface):
             print(obj)
 
     def exit_notebook(self, value: Any = None) -> None:
-        """Exit the notebook (no-op in local environment)."""
+        """Exit the notebook by raising a special exception with the exit value."""
         logger.info(f"Notebook exit requested with value: {value}")
         if value is not None:
             print(f"Notebook would exit with value: {value}")
+        
+        # Raise a special exception that will be caught by the notebook runner
+        # to return the proper exit value
+        raise NotebookExit(value or "success")
 
     def get_secret(self, secret_name: str, key_vault_name: str) -> str:
         """Get a secret from environment variables."""
@@ -226,6 +238,9 @@ class LocalNotebookUtils(NotebookUtilsInterface):
                             try:
                                 result = spec.loader.exec_module(notebook_content)
                                 return "success"  # Return success if notebook executes without error
+                            except NotebookExit as e:
+                                # Notebook called exit_notebook() - return the exit value
+                                return e.exit_value
                             except Exception as e:
                                 logger.error(f"Error executing notebook {name}: {e}")
                                 return f"failed: {str(e)}"                          

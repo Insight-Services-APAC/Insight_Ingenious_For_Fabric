@@ -36,7 +36,9 @@
       "Bash(SQL_SERVER_PASSWORD=\"lotta6barkley*BOM\" python -m ingen_fab.cli package ingest compile --include-samples --target-datastore warehouse)",
       "Bash(SQL_SERVER_PASSWORD=\"lotta6barkley*BOM\" python /workspaces/ingen_fab/sample_project/fabric_workspace_items/flat_file_ingestion/flat_file_ingestion_processor_warehouse.Notebook/notebook-content.py)",
       "Bash(export SQL_SERVER_PASSWORD='lotta6barkley*BOM')",
-      "Bash(PGPASSWORD=hivepassword psql:*)"
+      "Bash(PGPASSWORD=hivepassword psql:*)",
+      "Bash(grep:*)",
+      "Bash(export POSTGRES_PASSWORD=\"postgres\")"
     ],
     "deny": []
   }

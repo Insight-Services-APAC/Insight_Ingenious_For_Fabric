@@ -50,8 +50,24 @@ echo "Using metastore type: $METASTORE_TYPE"
 
 if [[ "$METASTORE_TYPE" == "postgresql" ]]; then
     echo "Installing PostgreSQL..."
-    # Install PostgreSQL
+    
+    # Install locales and ensure UTF-8 locale is available
+    echo "Setting up locales for PostgreSQL..."
     sudo apt-get update
+    sudo apt-get install -y locales
+    
+    # Generate en_US.UTF-8 locale if not present
+    if ! locale -a | grep -q "en_US.utf8"; then
+        echo "en_US.UTF-8 UTF-8" | sudo tee -a /etc/locale.gen
+        sudo locale-gen
+    fi
+    
+    # Set locale environment variables for PostgreSQL
+    export LC_ALL=en_US.UTF-8
+    export LANG=en_US.UTF-8
+    export LANGUAGE=en_US.UTF-8
+    
+    # Install PostgreSQL
     sudo apt-get install -y wget gnupg2 lsb-release
     echo "deb http://apt.postgresql.org/pub/repos/apt $(lsb_release -cs)-pgdg main" | sudo tee /etc/apt/sources.list.d/pgdg.list
     wget --quiet -O - https://www.postgresql.org/media/keys/ACCC4CF8.asc | sudo apt-key add -
@@ -62,10 +78,11 @@ if [[ "$METASTORE_TYPE" == "postgresql" ]]; then
     echo "Configuring PostgreSQL for Hive metastore..."
     sudo -u postgres pg_ctlcluster 15 main start
     
-    # Create metastore database and user
-    sudo -u postgres psql -c "CREATE DATABASE metastore;"
+    # Create metastore database and user with explicit UTF-8 encoding
+    sudo -u postgres psql -c "CREATE DATABASE metastore WITH ENCODING='UTF8' LC_COLLATE='en_US.UTF-8' LC_CTYPE='en_US.UTF-8' TEMPLATE=template0;"
     sudo -u postgres psql -c "CREATE USER hive WITH PASSWORD 'hivepassword';"
     sudo -u postgres psql -c "GRANT ALL PRIVILEGES ON DATABASE metastore TO hive;"
+    sudo -u postgres psql -c "ALTER DATABASE metastore OWNER TO hive;"
     
     # Configure PostgreSQL for remote connections (localhost only)
     sudo sed -i "s/#listen_addresses = 'localhost'/listen_addresses = 'localhost'/" /etc/postgresql/15/main/postgresql.conf
@@ -372,6 +389,10 @@ if [[ "$METASTORE_TYPE" == "postgresql" ]]; then
     # Test database connection
     echo "Testing database connection..."
     PGPASSWORD=hivepassword psql -h localhost -U hive -d metastore -c "\dt" 2>/dev/null && echo "✅ Database connection successful" || echo "❌ Database connection failed"
+    
+    # Verify database encoding
+    echo "Verifying database encoding..."
+    PGPASSWORD=hivepassword psql -h localhost -U hive -d metastore -c "SELECT current_setting('server_encoding'), current_setting('lc_collate'), current_setting('lc_ctype');" 2>/dev/null
 else
     echo "MySQL metastore with Delta Lake setup complete!"
     echo "Database: metastore on localhost:3306"

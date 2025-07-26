@@ -47,11 +47,15 @@
       "value": "REPLACE_WITH_SAMPLE_LAKEHOUSE_GUID"
     },
     {
-      "name": "sample_warehouse_name",
+      "name": "sample_wh_workspace_id",
+      "value": "REPLACE_WITH_SAMPLE_WH_WORKSPACE_GUID"
+    },
+    {
+      "name": "sample_wh_warehouse_name",
       "value": "sample_wh"
     },
     {
-      "name": "sample_warehouse_id",
+      "name": "sample_wh_warehouse_id",
       "value": "REPLACE_WITH_SAMPLE_WAREHOUSE_GUID"
     },
     {

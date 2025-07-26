@@ -438,7 +438,7 @@ package_app.add_typer(
 
 package_app.add_typer(
     extract_app,
-    name="extract_generation",
+    name="extract",
     help="Commands for extract generation package.",
 )
 
@@ -670,8 +670,24 @@ def compile(
             raise typer.Exit(code=1)
             
         try:
-            inject_variables_into_file(project_path, target_path, environment)
-            console.print(f"[green]✓ Successfully compiled: {target_file}[/green]")
+            # Create a VariableLibraryUtils instance and directly call perform_code_replacements
+            varlib_utils = VariableLibraryUtils(project_path, environment)
+            
+            # Read the file content
+            with open(target_path, "r", encoding="utf-8") as f:
+                content = f.read()
+            
+            # Perform the replacements
+            updated_content = varlib_utils.perform_code_replacements(content)
+            
+            # Write back if changed
+            if updated_content != content:
+                with open(target_path, "w", encoding="utf-8") as f:
+                    f.write(updated_content)
+                console.print(f"[green]✓ Successfully compiled: {target_file} with values from {environment} environment[/green]")
+            else:
+                console.print(f"[yellow]No changes needed for {target_file}[/yellow]")
+                
         except Exception as e:
             console.print(f"[red]Error compiling {target_file}: {e}[/red]")
             raise typer.Exit(code=1)
@@ -687,8 +703,24 @@ def compile(
             raise typer.Exit(code=1)
             
         try:
-            inject_variables_into_file(project_path, config_utils_path, environment)
-            console.print(f"[green]✓ Successfully compiled config_utils.py[/green]")
+            # Create a VariableLibraryUtils instance and directly call perform_code_replacements
+            varlib_utils = VariableLibraryUtils(project_path, environment)
+            
+            # Read the file content
+            with open(config_utils_path, "r", encoding="utf-8") as f:
+                content = f.read()
+            
+            # Perform the replacements
+            updated_content = varlib_utils.perform_code_replacements(content)
+            
+            # Write back if changed
+            if updated_content != content:
+                with open(config_utils_path, "w", encoding="utf-8") as f:
+                    f.write(updated_content)
+                console.print(f"[green]✓ Successfully compiled config_utils.py with values from {environment} environment[/green]")
+            else:
+                console.print(f"[yellow]No changes needed for config_utils.py[/yellow]")
+                
         except Exception as e:
             console.print(f"[red]Error compiling config_utils.py: {e}[/red]")
             raise typer.Exit(code=1)

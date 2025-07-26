@@ -7,6 +7,8 @@ from typing import Any, Optional
 
 from ingen_fab.python_libs.python.warehouse_utils import warehouse_utils
 from ingen_fab.python_libs.python.sql_templates import SQLTemplates
+import traceback
+import logging
 
 
 class ddl_utils:
@@ -79,6 +81,8 @@ class ddl_utils:
         Runs `work_fn()` exactly once, keyed by `guid`. If `guid` is None,
         it's computed by hashing the source code of `work_fn`.
         """
+        logger = logging.getLogger(__name__)
+
         # 1. Auto-derive GUID if not provided
         if guid is None:
             try:
@@ -90,7 +94,7 @@ class ddl_utils:
             # compute SHA256 and take first 12 hex chars
             digest = hashlib.sha256(src.encode("utf-8")).hexdigest()
             guid = digest
-            print(f"Derived guid={guid} from work_fn source")
+            logger.info(f"Derived guid={guid} from work_fn source")
 
         # 2. Check execution
         if not self.check_if_script_has_run(script_id=guid):
@@ -99,14 +103,20 @@ class ddl_utils:
                 self.write_to_execution_log(
                     object_guid=guid, object_name=object_name, script_status="Success"
                 )
+                logger.info(f"Successfully executed work_fn for guid={guid}")
             except Exception as e:
-                print(f"Error in work_fn for {guid}: {e}")
+                error_message = f"Error in work_fn for {guid}: {e}\n{traceback.format_exc()}"
+                logger.error(error_message)
+
                 self.write_to_execution_log(
                     object_guid=guid, object_name=object_name, script_status="Failure"
                 )
-                raise
+                raise RuntimeError(error_message) from e
         else:
-            self.print_skipped_script_execution(guid=guid, object_name=object_name)
+            logger.info(
+                f"Skipping {guid}:{object_name} as the script has already run on workspace_id:"
+                f"{self.target_workspace_id} | warehouse_id {self.target_warehouse_id}"
+            )
 
     def initialise_ddl_script_executions_table(self):
         guid = "b8c83c87-36d2-46a8-9686-ced38363e169"

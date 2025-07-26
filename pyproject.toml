@@ -17,6 +17,7 @@ dependencies = [
     "lazy-import>=0.2.2",
     "sqlglot>=25.30.2",
     "psycopg2-binary>=2.9.9",
+    "azure-identity>=1.23.0",
 ]
 
 [dependency-groups]

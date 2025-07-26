@@ -45,7 +45,7 @@ import sys
 if "notebookutils" in sys.modules:
     import sys
     
-    notebookutils.fs.mount("abfss://local_workspace@onelake.dfs.fabric.microsoft.com/config.Lakehouse/Files/", "/config_files")  # type: ignore # noqa: F821
+    notebookutils.fs.mount("abfss://REPLACE_WITH_CONFIG_WORKSPACE_NAME@onelake.dfs.fabric.microsoft.com/config.Lakehouse/Files/", "/config_files")  # type: ignore # noqa: F821
     mount_path = notebookutils.fs.getMountPath("/config_files")  # type: ignore # noqa: F821
     
     run_mode = "fabric"
@@ -107,9 +107,19 @@ def clear_module_cache(prefix: str):
             print("deleting..." + mod)
             del sys.modules[mod]
 
-# Always clear the module cache - We may remove this once the libs are stable
-clear_module_cache("ingen_fab.python_libs")
-clear_module_cache("ingen_fab")
+# Clear the module cache only when running in Fabric environment
+# When running locally, module caching conflicts can occur in parallel execution
+if run_mode == "fabric":
+    # Check if ingen_fab modules are present in cache (indicating they need clearing)
+    ingen_fab_modules = [mod for mod in sys.modules.keys() if mod.startswith(('ingen_fab.python_libs', 'ingen_fab'))]
+    
+    if ingen_fab_modules:
+        print(f"Found {len(ingen_fab_modules)} ingen_fab modules to clear from cache")
+        clear_module_cache("ingen_fab.python_libs")
+        clear_module_cache("ingen_fab")
+        print("✓ Module cache cleared for ingen_fab libraries")
+    else:
+        print("ℹ No ingen_fab modules found in cache - already cleared or first load")
 
 
 
@@ -204,6 +214,7 @@ def run_lakehouse_orchestrator(lakehouse_name, orchestrator_name):
     result = {
         'lakehouse': lakehouse_name,
         'orchestrator': orchestrator_name,
+        'orchestrator_path': f"ddl_scripts/Lakehouses/{lakehouse_name}/{orchestrator_name}.Notebook/notebook-content.py",
         'start_time': datetime.now(),
         'end_time': None,
         'duration': None,
@@ -328,14 +339,15 @@ for lakehouse_name in sorted(results.keys()):
     result = results[lakehouse_name]
     status_icon = "✓" if result['status'] == 'Success' else "✗"
     duration_str = str(result.get('duration', 'N/A'))
-    summary_data.append(f"| {lakehouse_name} | {status_icon} {result['status']} | {duration_str} |")
+    orchestrator_path = result.get('orchestrator_path', 'N/A')
+    summary_data.append(f"| {lakehouse_name} | {status_icon} {result['status']} | {duration_str} | {orchestrator_path} |")
 
 markdown_table = f"""
 ## Execution Summary Table
 
-| Lakehouse | Status | Duration |
-|-----------|--------|----------|
-{''.join(summary_data)}
+| Lakehouse | Status | Duration | Orchestrator Path |
+|-----------|--------|----------|-------------------|
+{chr(10).join(summary_data)}
 
 **Total Execution Time:** {total_duration}
 """
@@ -347,11 +359,11 @@ print(markdown_table)
 if failed_count == 0 and exception_count == 0:
     final_message = f"✓ All {success_count} lakehouses processed successfully!"
     print(f"\n{final_message}")
-    mssparkutils.notebook.exit(final_message)
+    notebookutils.exit_notebook(final_message)
 else:
     final_message = f"Completed with {failed_count + exception_count} failures out of 1 lakehouses"
     print(f"\n✗ {final_message}")
-    mssparkutils.notebook.exit(final_message)
+    notebookutils.exit_notebook(final_message)
     raise Exception(final_message)
 
 # METADATA ********************
