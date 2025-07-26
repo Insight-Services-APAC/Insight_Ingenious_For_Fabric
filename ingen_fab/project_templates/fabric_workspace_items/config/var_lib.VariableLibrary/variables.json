@@ -68,13 +68,19 @@
       "value": ""
     },
     {
-      "name": "sample_warehouse_name",
+      "name": "sample_wh_workspace_id",
+      "note": "Optional: GUID of your warehouse (if using SQL analytics).",
+      "type": "String",
+      "value": ""
+    },
+    {
+      "name": "sample_wh_warehouse_name",
       "note": "Optional: Name of your warehouse (if using SQL analytics).",
       "type": "String",
       "value": ""
     },
     {
-      "name": "sample_warehouse_id",
+      "name": "sample_wh_warehouse_id",
       "note": "Optional: GUID of your warehouse (if using SQL analytics).",
       "type": "String",
       "value": ""

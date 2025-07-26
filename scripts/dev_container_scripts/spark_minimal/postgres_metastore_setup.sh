@@ -23,22 +23,111 @@ fi
 
 # Function to run commands with sudo if needed
 run_cmd() {
+    local cmd="$*"
     if [ "$EUID" -eq 0 ]; then
-        "$@"
+        if ! "$@"; then
+            echo "❌ Command failed: $cmd" >&2
+            return 1
+        fi
     else
-        sudo "$@"
+        if ! sudo "$@"; then
+            echo "❌ Command failed: sudo $cmd" >&2
+            return 1
+        fi
     fi
 }
 
 # Step 1: Install PostgreSQL
 echo "Step 1: Installing PostgreSQL..."
+
+# Install locales and ensure UTF-8 locale is available
+echo "Setting up locales for PostgreSQL..."
 run_cmd apt-get update
-run_cmd apt-get install -y wget gnupg2 lsb-release
+run_cmd apt-get install -y locales wget gnupg2 lsb-release
+
+# Configure and generate locales
+echo "Configuring locales..."
+run_cmd locale-gen en_US.UTF-8
+run_cmd update-locale LANG=en_US.UTF-8
+
+# Verify locale is available and determine the correct format
+echo "Available locales:"
+locale -a | grep -i utf
+
+# Check for locale availability and use the correct format
+# Test what PostgreSQL actually accepts for locale names
+echo "Testing PostgreSQL locale support..."
+
+# Try to determine which locale PostgreSQL will accept
+PG_LOCALE_COLLATE=""
+PG_LOCALE_CTYPE=""
+
+# Test en_US.utf8 first
+if sudo -u postgres psql -c "CREATE DATABASE test_locale_check WITH ENCODING='UTF8' LC_COLLATE='en_US.utf8' LC_CTYPE='en_US.utf8' TEMPLATE=template0;" &>/dev/null; then
+    sudo -u postgres psql -c "DROP DATABASE test_locale_check;" &>/dev/null
+    echo "✅ PostgreSQL accepts en_US.utf8 locale"
+    PG_LOCALE_COLLATE="en_US.utf8"
+    PG_LOCALE_CTYPE="en_US.utf8"
+# Test en_US.UTF-8
+elif sudo -u postgres psql -c "CREATE DATABASE test_locale_check WITH ENCODING='UTF8' LC_COLLATE='en_US.UTF-8' LC_CTYPE='en_US.UTF-8' TEMPLATE=template0;" &>/dev/null; then
+    sudo -u postgres psql -c "DROP DATABASE test_locale_check;" &>/dev/null
+    echo "✅ PostgreSQL accepts en_US.UTF-8 locale"
+    PG_LOCALE_COLLATE="en_US.UTF-8"
+    PG_LOCALE_CTYPE="en_US.UTF-8"
+# Fall back to C.UTF-8
+elif sudo -u postgres psql -c "CREATE DATABASE test_locale_check WITH ENCODING='UTF8' LC_COLLATE='C.UTF-8' LC_CTYPE='C.UTF-8' TEMPLATE=template0;" &>/dev/null; then
+    sudo -u postgres psql -c "DROP DATABASE test_locale_check;" &>/dev/null
+    echo "⚠️  Using C.UTF-8 locale (PostgreSQL doesn't support en_US locale)"
+    PG_LOCALE_COLLATE="C.UTF-8"
+    PG_LOCALE_CTYPE="C.UTF-8"
+# Final fallback to C
+else
+    echo "⚠️  Using C locale as final fallback"
+    PG_LOCALE_COLLATE="C"
+    PG_LOCALE_CTYPE="C"
+fi
+
+# Set shell locale based on what's available in the system
+if locale -a | grep -q "^en_US\.utf8$"; then
+    echo "Setting shell locale to en_US.utf8"
+    export LC_ALL=en_US.utf8
+    export LANG=en_US.utf8
+    export LANGUAGE=en_US.utf8
+elif locale -a | grep -q "^en_US\.UTF-8$"; then
+    echo "Setting shell locale to en_US.UTF-8"
+    export LC_ALL=en_US.UTF-8
+    export LANG=en_US.UTF-8
+    export LANGUAGE=en_US.UTF-8
+elif locale -a | grep -q "^C\.utf8$"; then
+    echo "Setting shell locale to C.utf8"
+    export LC_ALL=C.utf8
+    export LANG=C.utf8
+    export LANGUAGE=C.utf8
+else
+    echo "Setting shell locale to C"
+    export LC_ALL=C
+    export LANG=C
+    export LANGUAGE=C
+fi
+
+# Use the PostgreSQL-compatible locale for database creation
+export LOCALE_COLLATE="$PG_LOCALE_COLLATE"
+export LOCALE_CTYPE="$PG_LOCALE_CTYPE"
+
+echo "Using shell locale: LANG=$LANG, LC_ALL=$LC_ALL"
+echo "Using PostgreSQL locale: LC_COLLATE='$LOCALE_COLLATE', LC_CTYPE='$LOCALE_CTYPE'"
+
+# Note about locale selection
+if [[ "$LOCALE_COLLATE" == "C.UTF-8" ]]; then
+    echo "ℹ️  Note: Using C.UTF-8 locale for PostgreSQL (provides UTF-8 support with basic collation)"
+elif [[ "$LOCALE_COLLATE" == "C" ]]; then
+    echo "⚠️  Note: Using C locale for PostgreSQL (ASCII only, no locale-specific sorting)"
+fi
 
 # Add PostgreSQL APT repository
 echo "Adding PostgreSQL APT repository..."
 run_cmd sh -c 'echo "deb http://apt.postgresql.org/pub/repos/apt $(lsb_release -cs)-pgdg main" > /etc/apt/sources.list.d/pgdg.list'
-wget --quiet -O - https://www.postgresql.org/media/keys/ACCC4CF8.asc | run_cmd apt-key add -
+wget --quiet -O - https://www.postgresql.org/media/keys/ACCC4CF8.asc | sudo apt-key add -
 run_cmd apt-get update
 
 # Install PostgreSQL
@@ -70,12 +159,18 @@ echo "✅ PostgreSQL is ready!"
 
 # Step 3: Create metastore database and user
 echo "Step 3: Creating metastore database and user..."
-run_cmd -u postgres psql -c "DROP DATABASE IF EXISTS metastore;"
-run_cmd -u postgres psql -c "CREATE DATABASE metastore;"
-run_cmd -u postgres psql -c "DROP USER IF EXISTS hive;"
-run_cmd -u postgres psql -c "CREATE USER hive WITH PASSWORD 'hivepassword';"
-run_cmd -u postgres psql -c "GRANT ALL PRIVILEGES ON DATABASE metastore TO hive;"
-run_cmd -u postgres psql -c "ALTER DATABASE metastore OWNER TO hive;"
+echo "Using locale settings: LC_COLLATE='$LOCALE_COLLATE', LC_CTYPE='$LOCALE_CTYPE'"
+
+# Construct the CREATE DATABASE command with proper variable substitution
+CREATE_DB_CMD="CREATE DATABASE metastore WITH ENCODING='UTF8' LC_COLLATE='${LOCALE_COLLATE}' LC_CTYPE='${LOCALE_CTYPE}' TEMPLATE=template0;"
+echo "Database creation command: $CREATE_DB_CMD"
+
+sudo -u postgres psql -c "DROP DATABASE IF EXISTS metastore;" || echo "Database metastore does not exist, skipping drop"
+sudo -u postgres psql -c "$CREATE_DB_CMD"
+sudo -u postgres psql -c "DROP USER IF EXISTS hive;" || echo "User hive does not exist, skipping drop"
+sudo -u postgres psql -c "CREATE USER hive WITH PASSWORD 'hivepassword';"
+sudo -u postgres psql -c "GRANT ALL PRIVILEGES ON DATABASE metastore TO hive;"
+sudo -u postgres psql -c "ALTER DATABASE metastore OWNER TO hive;"
 
 # Configure PostgreSQL for local connections
 echo "Configuring PostgreSQL authentication..."
@@ -118,6 +213,13 @@ sleep 5
 # Test connection
 echo "Testing PostgreSQL connection..."
 PGPASSWORD=hivepassword psql -h localhost -U hive -d metastore -c "SELECT version();" && echo "✅ PostgreSQL connection successful" || echo "❌ PostgreSQL connection failed"
+
+# Verify database encoding and locale settings
+echo "Verifying database encoding and locale settings..."
+PGPASSWORD=hivepassword psql -h localhost -U hive -d metastore -c "SELECT 
+    current_setting('server_encoding') as encoding,
+    current_setting('lc_collate') as lc_collate,
+    current_setting('lc_ctype') as lc_ctype;" 2>/dev/null || echo "Could not verify database settings"
 
 # Step 4: Initialize Hive metastore schema
 echo "Step 4: Initializing Hive metastore schema..."

@@ -45,7 +45,7 @@ import sys
 if "notebookutils" in sys.modules:
     import sys
     
-    notebookutils.fs.mount("abfss://local_workspace@onelake.dfs.fabric.microsoft.com/config.Lakehouse/Files/", "/config_files")  # type: ignore # noqa: F821
+    notebookutils.fs.mount("abfss://REPLACE_WITH_CONFIG_WORKSPACE_NAME@onelake.dfs.fabric.microsoft.com/config.Lakehouse/Files/", "/config_files")  # type: ignore # noqa: F821
     mount_path = notebookutils.fs.getMountPath("/config_files")  # type: ignore # noqa: F821
     
     run_mode = "fabric"
@@ -107,9 +107,19 @@ def clear_module_cache(prefix: str):
             print("deleting..." + mod)
             del sys.modules[mod]
 
-# Always clear the module cache - We may remove this once the libs are stable
-clear_module_cache("ingen_fab.python_libs")
-clear_module_cache("ingen_fab")
+# Clear the module cache only when running in Fabric environment
+# When running locally, module caching conflicts can occur in parallel execution
+if run_mode == "fabric":
+    # Check if ingen_fab modules are present in cache (indicating they need clearing)
+    ingen_fab_modules = [mod for mod in sys.modules.keys() if mod.startswith(('ingen_fab.python_libs', 'ingen_fab'))]
+    
+    if ingen_fab_modules:
+        print(f"Found {len(ingen_fab_modules)} ingen_fab modules to clear from cache")
+        clear_module_cache("ingen_fab.python_libs")
+        clear_module_cache("ingen_fab")
+        print("✓ Module cache cleared for ingen_fab libraries")
+    else:
+        print("ℹ No ingen_fab modules found in cache - already cleared or first load")
 
 
 
@@ -186,13 +196,13 @@ from datetime import datetime
 
 # Initialize variables
 success_count = 0
-failed_notebook = None
+failed_notebooks = []
 start_time = datetime.now()
 
 # Define execution function
 def execute_notebook(notebook_name, index, total, timeout_seconds=3600):
     """Execute a single notebook and handle success/failure."""
-    global success_count
+    global success_count, failed_notebooks
     
     try:
         
@@ -217,51 +227,69 @@ def execute_notebook(notebook_name, index, total, timeout_seconds=3600):
         
         if (result == 'success'):
             success_count += 1
+            print(f"✓ Successfully executed: {notebook_name}")
+            print(f"Exit value: {result}")
+            return True
         else: 
-            raise Exception({"result": result}) 
+            # Record the failure but continue execution to get full picture
+            failed_notebooks.append({
+                'name': notebook_name,
+                'error': f"Notebook returned: {result}",
+                'index': index
+            })
+            print(f"✗ Failed to execute: {notebook_name}")
+            print(f"Result: {result}")
+            return False
 
-        print(f"✓ Successfully executed: {notebook_name}")
-        print(f"Exit value: {result}")
-        return True
-        
     except Exception as e:
+        # Record the failure but continue execution to get full picture
+        failed_notebooks.append({
+            'name': notebook_name,
+            'error': str(e),
+            'index': index
+        })
         print(f"✗ Failed to execute: {notebook_name}")
         print(f"Error: {str(e)}")
-        
-        # Stop execution on failure
-        error_msg = f"Orchestration stopped due to failure in notebook: {notebook_name}. Error: {str(e)}"
-        notebookutils.mssparkutils.notebook.exit(error_msg)
         return False
 
 print(f"Starting orchestration for Config lakehouse")
 print(f"Start time: {start_time}")
-print(f"Total notebooks to execute: 5")
+print(f"Total notebooks to execute: 1")
 print("="*60)
-execute_notebook("001_Initial_Creation_Config_Lakehouses", 1, 5)
-execute_notebook("001_Initial_Creation_Ingestion_Config_Lakehouses", 2, 5)
-execute_notebook("001_Initial_Creation_Synapse_Sync_Config_Lakehouses", 3, 5)
-execute_notebook("002_Sample_Data_Ingestion_Config_Lakehouses", 4, 5)
-execute_notebook("002_Sample_Data_Synapse_Sync_Config_Lakehouses", 5, 5)
+execute_notebook("001_Initial_Creation_Config_Lakehouses_ddl_scripts", 1, 1)
 
 # Final Summary
 end_time = datetime.now()
 duration = end_time - start_time
+failed_count = 1 - success_count
 
 print(f"{'='*60}")
 print(f"Orchestration Complete!")
 print(f"{'='*60}")
 print(f"End time: {end_time}")
 print(f"Duration: {duration}")
-print(f"Total notebooks: 5")
+print(f"Total notebooks: 1")
 print(f"Successfully executed: {success_count}")
-print(f"Failed: 5 - {success_count}")
+print(f"Failed: {failed_count}")
 
-if success_count == 5:
+# Show details of failed notebooks if any
+if failed_notebooks:
+    print(f"\n{'='*60}")
+    print("FAILED NOTEBOOKS DETAILS:")
+    print(f"{'='*60}")
+    for i, failure in enumerate(failed_notebooks, 1):
+        print(f"{i}. {failure['name']}")
+        print(f"   Error: {failure['error']}")
+        print()
+
+if success_count == 1:
     print("✓ All notebooks executed successfully!")
-    notebookutils.mssparkutils.notebook.exit("success")
+    notebookutils.exit_notebook("success")
 else:
-    print(f"✗ Orchestration completed with failures")
-    notebookutils.mssparkutils.notebook.exit(f"Orchestration completed with {success_count}/5 successful executions")
+    print(f"\n✗ Orchestration completed with {failed_count} failure(s)")
+    # Exit with failure status - this will be caught by parent orchestrator as non-"success"
+    error_summary = f"failed: {failed_count} of 1 notebooks failed"
+    notebookutils.exit_notebook(error_summary)
 
 # METADATA ********************
 

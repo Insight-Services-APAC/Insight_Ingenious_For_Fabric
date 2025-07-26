@@ -11,29 +11,32 @@ from typing import Any, Dict
 # variableLibraryInjectionStart: var_lib
 
 # All variables as a dictionary
-configs_dict = {'fabric_environment': 'local', 'fabric_deployment_workspace_id': '#####', 'synapse_source_database_1': 'test1', 'config_workspace_id': '#####', 'synapse_source_sql_connection': 'sansdaisyn-ondemand.sql.azuresynapse.net', 'config_lakehouse_name': 'config', 'edw_warehouse_name': 'edw', 'config_lakehouse_id': '2629d4cc-685c-458a-866b-b4705dde71a7', 'edw_workspace_id': '###', 'edw_warehouse_id': '###', 'edw_lakehouse_id': '6adb67d6-c8eb-4612-9053-890cae3a55d7', 'edw_lakehouse_name': 'edw', 'legacy_synapse_connection_name': 'synapse_connection', 'synapse_export_shortcut_path_in_onelake': 'exports/', 'raw_workspace_id': 'local_raw_workspace', 'raw_datastore_id': 'local_raw_datastore', 'config_warehouse_id': 'local-config-warehouse-id', 'config_workspace_name': 'local_workspace'}
+configs_dict = {'fabric_environment': 'local', 'fabric_deployment_workspace_id': 'REPLACE_WITH_YOUR_WORKSPACE_GUID', 'config_workspace_name': 'REPLACE_WITH_CONFIG_WORKSPACE_NAME', 'config_workspace_id': 'REPLACE_WITH_CONFIG_WORKSPACE_GUID', 'config_wh_workspace_id': 'REPLACE_WITH_CONFIG_WH_WORKSPACE_GUID', 'config_lakehouse_name': 'config', 'config_lakehouse_id': 'REPLACE_WITH_CONFIG_LAKEHOUSE_GUID', 'config_wh_warehouse_name': 'config_wh', 'config_wh_warehouse_id': 'REPLACE_WITH_CONFIG_WAREHOUSE_GUID', 'sample_lakehouse_name': 'sample', 'sample_lakehouse_id': 'REPLACE_WITH_SAMPLE_LAKEHOUSE_GUID', 'sample_wh_workspace_id': 'REPLACE_WITH_SAMPLE_WH_WORKSPACE_GUID', 'sample_wh_warehouse_name': 'sample_wh', 'sample_wh_warehouse_id': 'REPLACE_WITH_SAMPLE_WAREHOUSE_GUID', 'raw_workspace_id': 'REPLACE_WITH_RAW_WORKSPACE_GUID', 'raw_datastore_id': 'REPLACE_WITH_RAW_DATASTORE_GUID', 'edw_workspace_id': 'REPLACE_WITH_EDW_WORKSPACE_GUID', 'edw_lakehouse_name': 'edw', 'edw_lakehouse_id': 'REPLACE_WITH_EDW_LAKEHOUSE_GUID', 'edw_warehouse_name': 'edw', 'edw_warehouse_id': 'REPLACE_WITH_EDW_WAREHOUSE_GUID'}
 # All variables as an object
 from dataclasses import dataclass
 @dataclass
 class ConfigsObject:
     fabric_environment: str 
     fabric_deployment_workspace_id: str 
-    synapse_source_database_1: str 
+    config_workspace_name: str 
     config_workspace_id: str 
-    synapse_source_sql_connection: str 
+    config_wh_workspace_id: str 
     config_lakehouse_name: str 
-    edw_warehouse_name: str 
     config_lakehouse_id: str 
-    edw_workspace_id: str 
-    edw_warehouse_id: str 
-    edw_lakehouse_id: str 
-    edw_lakehouse_name: str 
-    legacy_synapse_connection_name: str 
-    synapse_export_shortcut_path_in_onelake: str 
+    config_wh_warehouse_name: str 
+    config_wh_warehouse_id: str 
+    sample_lakehouse_name: str 
+    sample_lakehouse_id: str 
+    sample_wh_workspace_id: str 
+    sample_wh_warehouse_name: str 
+    sample_wh_warehouse_id: str 
     raw_workspace_id: str 
     raw_datastore_id: str 
-    config_warehouse_id: str 
-    config_workspace_name: str 
+    edw_workspace_id: str 
+    edw_lakehouse_name: str 
+    edw_lakehouse_id: str 
+    edw_warehouse_name: str 
+    edw_warehouse_id: str 
 configs_object: ConfigsObject = ConfigsObject(**configs_dict)
 # variableLibraryInjectionEnd: var_lib
 

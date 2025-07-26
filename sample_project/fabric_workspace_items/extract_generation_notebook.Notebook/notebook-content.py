@@ -70,7 +70,7 @@ import sys
 if "notebookutils" in sys.modules:
     import sys
     
-    notebookutils.fs.mount("abfss://local_workspace@onelake.dfs.fabric.microsoft.com/config.Lakehouse/Files/", "/config_files")  # type: ignore # noqa: F821
+    notebookutils.fs.mount("abfss://REPLACE_WITH_CONFIG_WORKSPACE_NAME@onelake.dfs.fabric.microsoft.com/config.Lakehouse/Files/", "/config_files")  # type: ignore # noqa: F821
     mount_path = notebookutils.fs.getMountPath("/config_files")  # type: ignore # noqa: F821
     
     run_mode = "fabric"
@@ -133,9 +133,19 @@ def clear_module_cache(prefix: str):
             print("deleting..." + mod)
             del sys.modules[mod]
 
-# Always clear the module cache - We may remove this once the libs are stable
-clear_module_cache("ingen_fab.python_libs")
-clear_module_cache("ingen_fab")
+# Clear the module cache only when running in Fabric environment
+# When running locally, module caching conflicts can occur in parallel execution
+if run_mode == "fabric":
+    # Check if ingen_fab modules are present in cache (indicating they need clearing)
+    ingen_fab_modules = [mod for mod in sys.modules.keys() if mod.startswith(('ingen_fab.python_libs', 'ingen_fab'))]
+    
+    if ingen_fab_modules:
+        print(f"Found {len(ingen_fab_modules)} ingen_fab modules to clear from cache")
+        clear_module_cache("ingen_fab.python_libs")
+        clear_module_cache("ingen_fab")
+        print("✓ Module cache cleared for ingen_fab libraries")
+    else:
+        print("ℹ No ingen_fab modules found in cache - already cleared or first load")
 
 
 

@@ -58,6 +58,7 @@ def run_lakehouse_orchestrator(lakehouse_name, orchestrator_name):
     result = {
         'lakehouse': lakehouse_name,
         'orchestrator': orchestrator_name,
+        'orchestrator_path': f"ddl_scripts/Lakehouses/{lakehouse_name}/{orchestrator_name}.Notebook/notebook-content.py",
         'start_time': datetime.now(),
         'end_time': None,
         'duration': None,
@@ -182,14 +183,15 @@ for lakehouse_name in sorted(results.keys()):
     result = results[lakehouse_name]
     status_icon = "✓" if result['status'] == 'Success' else "✗"
     duration_str = str(result.get('duration', 'N/A'))
-    summary_data.append(f"| {lakehouse_name} | {status_icon} {result['status']} | {duration_str} |")
+    orchestrator_path = result.get('orchestrator_path', 'N/A')
+    summary_data.append(f"| {lakehouse_name} | {status_icon} {result['status']} | {duration_str} | {orchestrator_path} |")
 
 markdown_table = f"""
 ## Execution Summary Table
 
-| Lakehouse | Status | Duration |
-|-----------|--------|----------|
-{''.join(summary_data)}
+| Lakehouse | Status | Duration | Orchestrator Path |
+|-----------|--------|----------|-------------------|
+{chr(10).join(summary_data)}
 
 **Total Execution Time:** {total_duration}
 """

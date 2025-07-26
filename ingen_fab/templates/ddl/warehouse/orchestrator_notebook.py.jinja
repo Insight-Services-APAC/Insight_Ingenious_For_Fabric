@@ -12,7 +12,6 @@
 
 if run_mode == "local":
     from ingen_fab.python_libs.common.config_utils import *
-    from ingen_fab.python_libs.python.lakehouse_utils import lakehouse_utils
     from ingen_fab.python_libs.python.ddl_utils import ddl_utils
     from ingen_fab.python_libs.python.notebook_utils_abstraction import NotebookUtilsFactory
     from ingen_fab.python_libs.python.sql_templates import SQLTemplates
@@ -22,7 +21,6 @@ if run_mode == "local":
 else:
     files_to_load = [
         "ingen_fab/python_libs/common/config_utils.py",
-        "ingen_fab/python_libs/python/lakehouse_utils.py",
         "ingen_fab/python_libs/python/ddl_utils.py",
         "ingen_fab/python_libs/python/notebook_utils_abstraction.py",
         "ingen_fab/python_libs/python/sql_templates.py",
@@ -43,18 +41,18 @@ from datetime import datetime
 
 # Initialize variables
 success_count = 0
-failed_notebook = None
+failed_notebooks = []
 start_time = datetime.now()
 
 # Define execution function
 def execute_notebook(notebook_name, index, total, timeout_seconds=3600):
     """Execute a single notebook and handle success/failure."""
-    global success_count
+    global success_count, failed_notebooks
     
     try:
         
         print(f"{'='*60}")
-        print(f"Executing notebook {index}/{total}:{notebook_name}")
+        print(f"Executing notebook {index}/{total}: {notebook_name}")
         print(f"{'='*60}")
         params = {}
         
@@ -67,20 +65,29 @@ def execute_notebook(notebook_name, index, total, timeout_seconds=3600):
         
         if (result == 'success'):
             success_count += 1
+            print(f"✓ Successfully executed: {notebook_name}")
+            print(f"Exit value: {result}")
+            return True
         else: 
-            raise Exception({"result": result}) 
+            # Record the failure but continue execution to get full picture
+            failed_notebooks.append({
+                'name': notebook_name,
+                'error': f"Notebook returned: {result}",
+                'index': index
+            })
+            print(f"✗ Failed to execute: {notebook_name}")
+            print(f"Result: {result}")
+            return False
 
-        print(f"✓ Successfully executed: {notebook_name}")
-        print(f"Exit value: {result}")
-        return True
-        
     except Exception as e:
+        # Record the failure but continue execution to get full picture
+        failed_notebooks.append({
+            'name': notebook_name,
+            'error': str(e),
+            'index': index
+        })
         print(f"✗ Failed to execute: {notebook_name}")
         print(f"Error: {str(e)}")
-        
-        # Stop execution on failure
-        error_msg = f"Orchestration stopped due to failure in notebook: {notebook_name}. Error: {str(e)}"
-        notebookutils.exit_notebook(error_msg)
         return False
 
 print(f"Starting orchestration for {{ warehouse_name }} warehouse")
@@ -95,6 +102,7 @@ execute_notebook("{{ notebook.name }}", {{ notebook.index }}, {{ notebook.total 
 # Final Summary
 end_time = datetime.now()
 duration = end_time - start_time
+failed_count = {{ total_notebooks }} - success_count
 
 print(f"{'='*60}")
 print(f"Orchestration Complete!")
@@ -103,13 +111,25 @@ print(f"End time: {end_time}")
 print(f"Duration: {duration}")
 print(f"Total notebooks: {{ total_notebooks }}")
 print(f"Successfully executed: {success_count}")
-print(f"Failed: {{ total_notebooks }} - {success_count}")
+print(f"Failed: {failed_count}")
+
+# Show details of failed notebooks if any
+if failed_notebooks:
+    print(f"\n{'='*60}")
+    print("FAILED NOTEBOOKS DETAILS:")
+    print(f"{'='*60}")
+    for i, failure in enumerate(failed_notebooks, 1):
+        print(f"{i}. {failure['name']}")
+        print(f"   Error: {failure['error']}")
+        print()
 
 if success_count == {{ total_notebooks }}:
-    print("✓ All notebooks executed successfully!")
+    print("\n✓ All notebooks executed successfully!")
     notebookutils.exit_notebook("success")
 else:
-    print(f"✗ Orchestration completed with failures")
-    notebookutils.exit_notebook(f"Orchestration completed with {success_count}/{{ total_notebooks }} successful executions")
+    print(f"\n✗ Orchestration completed with {failed_count} failure(s)")
+    # Exit with failure status - this will be caught by parent orchestrator as non-"success"
+    error_summary = f"failed: {failed_count} of {{ total_notebooks }} notebooks failed"
+    notebookutils.exit_notebook(error_summary)
 
 {%include "shared/notebook/cells/footer.py.jinja" %}

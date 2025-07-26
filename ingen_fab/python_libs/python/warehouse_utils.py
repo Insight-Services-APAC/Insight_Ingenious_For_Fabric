@@ -40,9 +40,9 @@ class warehouse_utils(DataStoreInterface):
         self._target_warehouse_id = target_warehouse_id
         self.dialect = dialect
 
-        if dialect not in ["fabric", "sql_server", "mysql"]:
+        if dialect not in ["fabric", "sql_server", "mysql", "postgres"]:
             raise ValueError(
-                f"Unsupported dialect: {dialect}. Supported dialects are 'fabric', 'sql_server', and 'mysql'."
+                f"Unsupported dialect: {dialect}. Supported dialects are 'fabric', 'sql_server', 'mysql', and 'postgres'."
             )
 
         # Initialize notebook utils abstraction
@@ -50,26 +50,46 @@ class warehouse_utils(DataStoreInterface):
             notebookutils=notebookutils
         )
 
-        # Look for the existence of notebookutils and if not found, assume local database
-        # Check if we're using LocalNotebookUtils (fallback) instead of real Fabric notebookutils
+        # Use fabric_environment from config_utils to determine local database dialect
+        # This ensures consistency with sql_translator and other parts of the codebase
         if (
             dialect == "fabric"
             and type(self.notebook_utils).__name__ == "LocalNotebookUtils"
         ):
-            # Detect ARM architecture and choose appropriate local database
-            machine_arch = platform.machine().lower()
-            is_arm = machine_arch in ["arm64", "aarch64", "arm"]
+            # Get the fabric_environment to determine which local database to use
+            try:
+                config = get_configs_as_object()
+                fabric_env = getattr(config, 'fabric_environment', 'production')
+                
+                if fabric_env == 'local':
+                    # Use PostgreSQL for local development (matching sql_translator)
+                    logger.info(
+                        "Running in local environment, using PostgreSQL for database operations."
+                    )
+                    self.dialect = "postgres"
+                else:
+                    # Non-local environments without notebookutils shouldn't happen
+                    logger.warning(
+                        f"Environment '{fabric_env}' detected but notebookutils not available. "
+                        "This configuration is not supported."
+                    )
+                    self.dialect = "sql_server"
+            except Exception as e:
+                # Fallback to architecture-based detection if config fails
+                logger.warning(f"Could not get fabric_environment from config: {e}")
+                machine_arch = platform.machine().lower()
+                is_arm = machine_arch in ["arm64", "aarch64", "arm"]
 
-            if is_arm:
-                logger.warning(
-                    f"notebookutils not found on ARM architecture ({machine_arch}), falling back to local MySQL connection."
-                )
-                self.dialect = "mysql"
-            else:
-                logger.warning(
-                    f"notebookutils not found on {machine_arch} architecture, falling back to local SQL Server connection."
-                )
-                self.dialect = "sql_server"
+                if is_arm:
+                    logger.warning(
+                        f"Falling back to MySQL for ARM architecture ({machine_arch})."
+                    )
+                    self.dialect = "mysql"
+                else:
+                    logger.warning(
+                        f"Falling back to SQL Server for {machine_arch} architecture."
+                    )
+                    self.dialect = "sql_server"
 
         # Set default connection string based on final dialect if not provided
         if connection_string is None:
@@ -77,6 +97,8 @@ class warehouse_utils(DataStoreInterface):
                 self.connection_string = f"DRIVER={{ODBC Driver 18 for SQL Server}};SERVER=localhost,1433;UID=sa;PWD={os.getenv('SQL_SERVER_PASSWORD', 'YourStrong!Passw0rd')};TrustServerCertificate=yes;"
             elif self.dialect == "mysql":
                 self.connection_string = f"host=localhost,port=3306,user=root,password={os.getenv('MYSQL_PASSWORD', 'password')},database=local"
+            elif self.dialect == "postgres":
+                self.connection_string = f"host=localhost,port=5432,user=postgres,password={os.getenv('POSTGRES_PASSWORD', 'postgres')},database=local"
             else:
                 self.connection_string = ""
         else:
@@ -115,6 +137,18 @@ class warehouse_utils(DataStoreInterface):
         """Execute a query and return results as a DataFrame when possible."""
         if not conn:
             conn = self.get_connection()
+            
+        # Translate SQL if we're using PostgreSQL in local mode
+        if get_configs_as_object().fabric_environment == "local" and query:
+            from ingen_fab.python_libs.python.sql_translator import get_sql_translator
+            try:
+                translator = get_sql_translator()
+                query = translator.translate_sql(query)
+                logging.debug(f"Translated SQL for PostgreSQL: {query}")
+            except Exception as e:
+                logging.warning(f"SQL translation failed: {e}")
+                logging.warning(f"Using original SQL: {query}")
+                
         # Check if the connection is of type pyodbc.Connection
         try:
             logging.debug(f"Executing query: {query}")

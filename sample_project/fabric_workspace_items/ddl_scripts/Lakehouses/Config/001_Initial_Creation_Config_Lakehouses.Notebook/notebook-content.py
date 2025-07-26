@@ -45,7 +45,7 @@ import sys
 if "notebookutils" in sys.modules:
     import sys
     
-    notebookutils.fs.mount("abfss://local_workspace@onelake.dfs.fabric.microsoft.com/config.Lakehouse/Files/", "/config_files")  # type: ignore # noqa: F821
+    notebookutils.fs.mount("abfss://REPLACE_WITH_CONFIG_WORKSPACE_NAME@onelake.dfs.fabric.microsoft.com/config.Lakehouse/Files/", "/config_files")  # type: ignore # noqa: F821
     mount_path = notebookutils.fs.getMountPath("/config_files")  # type: ignore # noqa: F821
     
     run_mode = "fabric"
@@ -107,9 +107,19 @@ def clear_module_cache(prefix: str):
             print("deleting..." + mod)
             del sys.modules[mod]
 
-# Always clear the module cache - We may remove this once the libs are stable
-clear_module_cache("ingen_fab.python_libs")
-clear_module_cache("ingen_fab")
+# Clear the module cache only when running in Fabric environment
+# When running locally, module caching conflicts can occur in parallel execution
+if run_mode == "fabric":
+    # Check if ingen_fab modules are present in cache (indicating they need clearing)
+    ingen_fab_modules = [mod for mod in sys.modules.keys() if mod.startswith(('ingen_fab.python_libs', 'ingen_fab'))]
+    
+    if ingen_fab_modules:
+        print(f"Found {len(ingen_fab_modules)} ingen_fab modules to clear from cache")
+        clear_module_cache("ingen_fab.python_libs")
+        clear_module_cache("ingen_fab")
+        print("✓ Module cache cleared for ingen_fab libraries")
+    else:
+        print("ℹ No ingen_fab modules found in cache - already cleared or first load")
 
 
 
@@ -218,12 +228,66 @@ from pyspark.sql.types import (
 
 # MARKDOWN ********************
 
-# ## 📄 Cell for 001_config_parquet_loads_create.py
+# ## 📄 Cell for 001_sample_customer_table_create.py
 
 # CELL ********************
 
-guid="d4a04b9273bf"
-object_name = "001_config_parquet_loads_create"
+guid="97cf4ee0b247"
+object_name = "001_sample_customer_table_create"
+
+def script_to_execute():
+    # Sample DDL script for creating a customer table in lakehouse
+    # This demonstrates the basic pattern for creating Delta tables
+    
+    # Create the sample customer table
+    spark.sql("""
+    CREATE TABLE IF NOT EXISTS sample.customers (
+        customer_id BIGINT,
+        first_name STRING,
+        last_name STRING,
+        email STRING,
+        created_date TIMESTAMP,
+        is_active BOOLEAN
+    )
+    USING DELTA
+    LOCATION 'Tables/customers'
+    """)
+    
+    print("✓ Created sample customers table")
+    
+    # Add some sample data
+    spark.sql("""
+    INSERT INTO sample.customers VALUES
+    (1, 'John', 'Doe', 'john.doe@example.com', '2024-01-01 10:00:00', true),
+    (2, 'Jane', 'Smith', 'jane.smith@example.com', '2024-01-02 11:00:00', true),
+    (3, 'Bob', 'Johnson', 'bob.johnson@example.com', '2024-01-03 12:00:00', false)
+    """)
+    
+    print("✓ Inserted sample data into customers table")
+    
+
+du.run_once(script_to_execute, "001_sample_customer_table_create","97cf4ee0b247")
+
+def script_to_execute():
+    print("Script block is empty. No action taken.")
+
+
+
+# METADATA ********************
+
+# META {
+# META   "language": "python",
+# META   "language_group": "synapse_pyspark"
+# META }
+
+# MARKDOWN ********************
+
+# ## 📄 Cell for 001_Sample_Tables_Create.py
+
+# CELL ********************
+
+guid="2091c92f63e8"
+object_name = "001_Sample_Tables_Create"
 
 def script_to_execute():
     schema = StructType(
@@ -247,324 +311,17 @@ def script_to_execute():
         ]
     )
     
-    target_lakehouse.create_table(
-            table_name="config_parquet_loads",
-            schema=schema,
-            mode="overwrite",
-            options={
-                "parquet.vorder.default": "true"  # Ensure Parquet files are written in vorder order
-            },
+    empty_df = spark.createDataFrame([], schema)
+    (
+        empty_df.write.format("delta")
+        .option("parquet.vorder.default", "true")
+        .mode("overwrite")  # will error if table exists; change to "overwrite" to replace.
+        .save(f"{lu.lakehouse_tables_uri()}config_parquet_loads")
     )
     
     
 
-du.run_once(script_to_execute, "001_config_parquet_loads_create","d4a04b9273bf")
-
-def script_to_execute():
-    print("Script block is empty. No action taken.")
-
-
-
-# METADATA ********************
-
-# META {
-# META   "language": "python",
-# META   "language_group": "synapse_pyspark"
-# META }
-
-# MARKDOWN ********************
-
-# ## 📄 Cell for 002_config.synapse_extract_objects.py
-
-# CELL ********************
-
-guid="e11e271bff29"
-object_name = "002_config.synapse_extract_objects"
-
-def script_to_execute():
-    schema = StructType([
-        StructField("synapse_connection_name",     StringType(), nullable=False),
-        StructField("source_schema_name",          StringType(), nullable=False),
-        StructField("source_table_name",           StringType(), nullable=False),
-        StructField("partition_clause",            StringType(), nullable=False),
-        StructField("extract_mode",                StringType(), nullable=False),
-        StructField("single_date_filter",          StringType(), nullable=True),
-        StructField("date_range_filter",           StringType(), nullable=True),
-        StructField("execution_group",             IntegerType(), nullable=False),
-        StructField("active_yn",                   StringType(), nullable=False),
-        StructField("pipeline_id",                 StringType(), nullable=False),
-        StructField("synapse_datasource_name",     StringType(), nullable=False),
-        StructField("synapse_datasource_location", StringType(), nullable=False),
-    ])
-    
-    target_lakehouse.create_table(
-            table_name="config_synapse_extract_objects",
-            schema=schema,
-            mode="overwrite",
-            options={
-                "parquet.vorder.default": "true"  # Ensure Parquet files are written in vorder order
-            },
-    )
-    
-
-du.run_once(script_to_execute, "002_config.synapse_extract_objects","e11e271bff29")
-
-def script_to_execute():
-    print("Script block is empty. No action taken.")
-
-
-
-# METADATA ********************
-
-# META {
-# META   "language": "python",
-# META   "language_group": "synapse_pyspark"
-# META }
-
-# MARKDOWN ********************
-
-# ## 📄 Cell for 003_log_parquet_loads_create.py
-
-# CELL ********************
-
-guid="60a85cc65151"
-object_name = "003_log_parquet_loads_create"
-
-def script_to_execute():
-    schema = StructType(
-        [
-            StructField("execution_id", StringType(), nullable=False),
-            StructField("cfg_target_lakehouse_workspace_id", StringType(), nullable=False),
-            StructField("cfg_target_lakehouse_id", StringType(), nullable=False),
-            StructField("partition_clause", StringType(), nullable=True),
-            StructField("status", StringType(), nullable=False),
-            StructField("error_messages", StringType(), nullable=True),
-            StructField("start_date", LongType(), nullable=False),
-            StructField("finish_date", LongType(), nullable=False),
-            StructField("update_date", LongType(), nullable=False),
-        ]
-    )
-    
-    
-    target_lakehouse.create_table(
-            table_name="log_parquet_loads",
-            schema=schema,
-            mode="overwrite",
-            options={
-                "parquet.vorder.default": "true"  # Ensure Parquet files are written in vorder order
-            },
-    )
-    
-    
-    
-    
-
-du.run_once(script_to_execute, "003_log_parquet_loads_create","60a85cc65151")
-
-def script_to_execute():
-    print("Script block is empty. No action taken.")
-
-
-
-# METADATA ********************
-
-# META {
-# META   "language": "python",
-# META   "language_group": "synapse_pyspark"
-# META }
-
-# MARKDOWN ********************
-
-# ## 📄 Cell for 004_log_synapse_loads_create.py
-
-# CELL ********************
-
-guid="9cc7fc5f2097"
-object_name = "004_log_synapse_loads_create"
-
-def script_to_execute():
-    schema = StructType(
-        [
-            StructField("execution_id", StringType(), nullable=False),
-            StructField("cfg_synapse_connection_name", StringType(), nullable=False),
-            StructField("source_schema_name", StringType(), nullable=False),
-            StructField("source_table_name", StringType(), nullable=False),
-            StructField("extract_file_name", StringType(), nullable=False),
-            StructField("partition_clause", StringType(), nullable=False),
-            StructField("status", StringType(), nullable=False),
-            StructField("error_messages", StringType(), nullable=True),
-            StructField("start_date", LongType(), nullable=False),
-            StructField("finish_date", LongType(), nullable=False),
-            StructField("update_date", LongType(), nullable=False),
-        ]
-    )
-    
-    target_lakehouse.create_table(
-            table_name="log_synapse_extracts",
-            schema=schema,
-            mode="overwrite",
-            options={
-                "parquet.vorder.default": "true"  # Ensure Parquet files are written in vorder order
-            },
-    )
-    
-
-du.run_once(script_to_execute, "004_log_synapse_loads_create","9cc7fc5f2097")
-
-def script_to_execute():
-    print("Script block is empty. No action taken.")
-
-
-
-# METADATA ********************
-
-# META {
-# META   "language": "python",
-# META   "language_group": "synapse_pyspark"
-# META }
-
-# MARKDOWN ********************
-
-# ## 📄 Cell for 005_config_synapse_loads_insert.py
-
-# CELL ********************
-
-guid="a749c941a925"
-object_name = "005_config_synapse_loads_insert"
-
-def script_to_execute():
-    data = [
-        ("legacy_synapse_connection_name", "dbo", "dim_customer", "", 1, "Y"),
-        (
-            "legacy_synapse_connection_name",
-            "dbo",
-            "fact_transactions",
-            "where year = @year and month = @month",
-            1,
-            "Y",
-        ),
-    ]
-    
-    # 2. Create a DataFrame
-    schema = StructType(
-        [
-            StructField("cfg_legacy_synapse_connection_name", StringType(), nullable=False),
-            StructField("source_schema_name", StringType(), nullable=False),
-            StructField("source_table_name", StringType(), nullable=False),
-            StructField("partition_clause", StringType(), nullable=False),
-            StructField("execution_group", IntegerType(), nullable=False),
-            StructField("active_yn", StringType(), nullable=False),
-        ]
-    )
-    insert_df = target_lakehouse.get_connection.createDataFrame(data, schema)
-    
-    target_lakehouse.write_to_table(
-        table_name="config_synapse_extracts",
-        df=insert_df,
-        mode="append"
-    )
-    
-    
-
-du.run_once(script_to_execute, "005_config_synapse_loads_insert","a749c941a925")
-
-def script_to_execute():
-    print("Script block is empty. No action taken.")
-
-
-
-# METADATA ********************
-
-# META {
-# META   "language": "python",
-# META   "language_group": "synapse_pyspark"
-# META }
-
-# MARKDOWN ********************
-
-# ## 📄 Cell for 006_config_parquet_loads_insert.py
-
-# CELL ********************
-
-guid="2d4914d8bef6"
-object_name = "006_config_parquet_loads_insert"
-
-def script_to_execute():
-    schema = StructType(
-        [
-            StructField("cfg_target_lakehouse_workspace_id", StringType(), nullable=False),
-            StructField("cfg_target_lakehouse_id", StringType(), nullable=False),
-            StructField("target_partition_columns", StringType(), nullable=False),
-            StructField("target_sort_columns", StringType(), nullable=False),
-            StructField("target_replace_where", StringType(), nullable=False),
-            StructField("cfg_source_lakehouse_workspace_id", StringType(), nullable=False),
-            StructField("cfg_source_lakehouse_id", StringType(), nullable=False),
-            StructField("cfg_source_file_path", StringType(), nullable=False),
-            StructField("source_file_path", StringType(), nullable=False),
-            StructField("source_file_name", StringType(), nullable=False),
-            StructField("cfg_legacy_synapse_connection_name", StringType(), nullable=False),
-            StructField("synapse_source_schema_name", StringType(), nullable=False),
-            StructField("synapse_source_table_name", StringType(), nullable=False),
-            StructField("synapse_partition_clause", StringType(), nullable=False),
-            StructField("execution_group", IntegerType(), nullable=False),
-            StructField("active_yn", StringType(), nullable=False),
-        ]
-    )
-    
-    
-    # ──────────────────────────────────────────────────────────────────────────────
-    # Build the data rows
-    # ──────────────────────────────────────────────────────────────────────────────
-    data = [
-        (
-            "edw_workspace_id",
-            "edw_lakehouse_id",
-            "",  # target_partition_columns
-            "",  # target_sort_columns
-            "",  # target_replace_where
-            "edw_lakehouse_workspace_id",
-            "edw_lakehouse_id",
-            "synapse_export_shortcut_path_in_onelake",
-            "dbo_dim_customer",
-            "",
-            "legacy_synapse_connection_name",
-            "dbo",
-            "dim_customer",
-            "",
-            1,
-            "Y",
-        ),
-        (
-            "edw_workspace_id",
-            "edw_lakehouse_id",
-            "year, month",
-            "year, month",
-            "WHERE year = @year AND month = @month",
-            "edw_workspace_id",
-            "edw_lakehouse_id",
-            "synapse_export_shortcut_path_in_onelake",
-            "dbo_dim_customer",
-            "",
-            "legacy_synapse_connection_name",
-            "dbo",
-            "fact_transactions",
-            "WHERE year = @year AND month = @month",
-            1,
-            "Y",
-        ),
-    ]
-    
-    insert_df = target_lakehouse.get_connection.createDataFrame(data, schema)
-    
-    target_lakehouse.write_to_table(
-        table_name="config_parquet_loads",
-        df=insert_df,
-        mode="append"
-    )
-    
-    
-
-du.run_once(script_to_execute, "006_config_parquet_loads_insert","2d4914d8bef6")
+du.run_once(script_to_execute, "001_Sample_Tables_Create","2091c92f63e8")
 
 def script_to_execute():
     print("Script block is empty. No action taken.")
@@ -609,7 +366,7 @@ du.print_log()
 
 
 
-notebookutils.mssparkutils.notebook.exit("success")
+notebookutils.exit_notebook("success")
 
 
 
