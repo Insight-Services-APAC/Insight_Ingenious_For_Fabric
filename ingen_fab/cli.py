@@ -36,6 +36,7 @@ package_app = typer.Typer()
 ingest_app = typer.Typer()
 synapse_app = typer.Typer()
 extract_app = typer.Typer()
+synthetic_data_app = typer.Typer()
 libs_app = typer.Typer()
 
 # Add sub-apps to main app
@@ -441,6 +442,157 @@ package_app.add_typer(
     name="extract",
     help="Commands for extract generation package.",
 )
+package_app.add_typer(
+    synthetic_data_app,
+    name="synthetic-data",
+    help="Commands for synthetic data generation package.",
+)
+
+
+@synthetic_data_app.command("compile")
+def synthetic_data_app_compile(
+    ctx: typer.Context,
+    dataset_id: Annotated[str, typer.Option("--dataset-id", "-d", help="Predefined dataset ID to compile")] = None,
+    target_rows: Annotated[int, typer.Option("--target-rows", "-r", help="Number of rows to generate")] = 10000,
+    target_environment: Annotated[str, typer.Option("--target-environment", "-e", help="Target environment (lakehouse or warehouse)")] = "lakehouse",
+    generation_mode: Annotated[str, typer.Option("--generation-mode", "-m", help="Generation mode (python, pyspark, or auto)")] = "auto",
+    seed_value: Annotated[int, typer.Option("--seed", "-s", help="Seed value for reproducible generation")] = None,
+    include_ddl: Annotated[bool, typer.Option("--include-ddl", help="Include DDL scripts for configuration tables")] = True,
+):
+    """Compile synthetic data generation notebooks and DDL scripts."""
+    from ingen_fab.packages.synthetic_data_generation.synthetic_data_generation import SyntheticDataGenerationCompiler
+    
+    # Initialize compiler
+    compiler = SyntheticDataGenerationCompiler(
+        fabric_workspace_repo_dir=ctx.obj["fabric_workspace_repo_dir"],
+        fabric_environment=ctx.obj["fabric_environment"]
+    )
+    
+    try:
+        if dataset_id:
+            # Compile specific predefined dataset
+            console.print(f"[blue]Compiling synthetic data notebook for dataset: {dataset_id}[/blue]")
+            
+            notebook_path = compiler.compile_predefined_dataset_notebook(
+                dataset_id=dataset_id,
+                target_rows=target_rows,
+                target_environment=target_environment,
+                generation_mode=generation_mode,
+                seed_value=seed_value
+            )
+            
+            console.print(f"[green]✅ Notebook compiled: {notebook_path}[/green]")
+            
+        else:
+            # Compile all synthetic data packages
+            console.print(f"[blue]Compiling all synthetic data generation packages for {target_environment}[/blue]")
+            
+            results = compiler.compile_all_synthetic_data_notebooks(
+                target_environment=target_environment
+            )
+            
+            if results["success"]:
+                console.print("[green]✅ All synthetic data packages compiled successfully![/green]")
+                
+                # Show compiled items
+                for func_name, result in results["compiled_items"].items():
+                    console.print(f"[dim]  - {func_name}: {result}[/dim]")
+            else:
+                console.print("[red]❌ Compilation failed![/red]")
+                for error in results["errors"]:
+                    console.print(f"[red]  Error: {error}[/red]")
+                
+        # Compile DDL scripts if requested
+        if include_ddl:
+            console.print(f"[blue]Compiling DDL scripts for {target_environment}[/blue]")
+            ddl_results = compiler.compile_ddl_scripts(target_environment)
+            
+            for target_dir, files in ddl_results.items():
+                console.print(f"[green]✅ DDL scripts compiled to: {target_dir}[/green]")
+                for file_path in files:
+                    console.print(f"[dim]  - {file_path.name}[/dim]")
+                    
+    except Exception as e:
+        console.print(f"[red]❌ Error during compilation: {e}[/red]")
+        raise typer.Exit(1)
+
+
+@synthetic_data_app.command("list-datasets")
+def synthetic_data_list_datasets():
+    """List available predefined dataset configurations."""
+    from ingen_fab.packages.synthetic_data_generation.synthetic_data_generation import SyntheticDataGenerationCompiler
+    
+    compiler = SyntheticDataGenerationCompiler()
+    configs = compiler._get_predefined_dataset_configs()
+    
+    console.print("[bold blue]📊 Available Synthetic Dataset Configurations[/bold blue]")
+    console.print()
+    
+    for dataset_id, config in configs.items():
+        console.print(f"[bold]{dataset_id}[/bold]")
+        console.print(f"  Name: {config['dataset_name']}")
+        console.print(f"  Type: {config['dataset_type']} ({config['schema_pattern']})")
+        console.print(f"  Domain: {config['domain']}")
+        console.print(f"  Description: {config['description']}")
+        
+        if 'tables' in config:
+            console.print(f"  Tables: {', '.join(config['tables'])}")
+        if 'fact_tables' in config:
+            console.print(f"  Fact Tables: {', '.join(config['fact_tables'])}")
+        if 'dimensions' in config:
+            console.print(f"  Dimensions: {', '.join(config['dimensions'])}")
+        
+        console.print()
+
+
+@synthetic_data_app.command("generate")
+def synthetic_data_generate(
+    ctx: typer.Context,
+    dataset_id: Annotated[str, typer.Argument(help="Dataset ID to generate")],
+    target_rows: Annotated[int, typer.Option("--target-rows", "-r", help="Number of rows to generate")] = 10000,
+    target_environment: Annotated[str, typer.Option("--target-environment", "-e", help="Target environment (lakehouse or warehouse)")] = "lakehouse",
+    generation_mode: Annotated[str, typer.Option("--generation-mode", "-m", help="Generation mode (python, pyspark, or auto)")] = "auto",
+    seed_value: Annotated[int, typer.Option("--seed", "-s", help="Seed value for reproducible generation")] = None,
+    execute_notebook: Annotated[bool, typer.Option("--execute", help="Execute the notebook after compilation")] = False,
+):
+    """Generate synthetic data for a specific dataset configuration."""
+    console.print(f"[blue]🎲 Generating synthetic data for dataset: {dataset_id}[/blue]")
+    console.print(f"📊 Target rows: {target_rows:,}")
+    console.print(f"🏗️ Target environment: {target_environment}")
+    console.print(f"🔧 Generation mode: {generation_mode}")
+    if seed_value:
+        console.print(f"🌱 Seed value: {seed_value}")
+    
+    from ingen_fab.packages.synthetic_data_generation.synthetic_data_generation import SyntheticDataGenerationCompiler
+    
+    # Initialize compiler
+    compiler = SyntheticDataGenerationCompiler(
+        fabric_workspace_repo_dir=ctx.obj["fabric_workspace_repo_dir"],
+        fabric_environment=ctx.obj["fabric_environment"]
+    )
+    
+    try:
+        # Compile the notebook
+        notebook_path = compiler.compile_predefined_dataset_notebook(
+            dataset_id=dataset_id,
+            target_rows=target_rows,
+            target_environment=target_environment,
+            generation_mode=generation_mode,
+            seed_value=seed_value
+        )
+        
+        console.print(f"[green]✅ Notebook compiled: {notebook_path}[/green]")
+        
+        if execute_notebook:
+            console.print("[yellow]📓 Executing notebook...[/yellow]")
+            console.print("[yellow]Note: In a production environment, this would submit the notebook to Fabric for execution.[/yellow]")
+            console.print(f"[yellow]To run manually, execute: {notebook_path}[/yellow]")
+        else:
+            console.print(f"[dim]💡 To execute the notebook, add --execute flag or run it manually in your environment[/dim]")
+            
+    except Exception as e:
+        console.print(f"[red]❌ Error during generation: {e}[/red]")
+        raise typer.Exit(1)
 
 
 @ingest_app.command("compile")

@@ -274,47 +274,6 @@ wu = warehouse_utils(
 
 # MARKDOWN ********************
 
-# ## 𝄜 Cell for 000_schema_creation.sql
-
-# CELL ********************
-
-guid = "670b6a9a2f22"
-def work():
-    sql = """
-
--- Create schemas for Extract Generation package
--- This script creates the necessary schemas if they don't exist
-
--- Create config schema for configuration tables
-IF NOT EXISTS (SELECT * FROM sys.schemas WHERE name = 'config')
-BEGIN
-    EXEC('CREATE SCHEMA config')
-END;
-
-
--- Create log schema for logging tables
-IF NOT EXISTS (SELECT * FROM sys.schemas WHERE name = 'log')
-BEGIN
-    EXEC('CREATE SCHEMA log')
-END;
-
-    """
-
-    wu.execute_query(wu.get_connection(), sql)
-
-du.run_once(work,"000_schema_creation", guid)
-
-
-
-# METADATA ********************
-
-# META {
-# META   "language": "python",
-# META   "language_group": "jupyter_python"
-# META }
-
-# MARKDOWN ********************
-
 # ## 𝄜 Cell for 001_config_extract_details_create.sql
 
 # CELL ********************

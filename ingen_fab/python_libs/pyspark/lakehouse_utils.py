@@ -161,8 +161,9 @@ class lakehouse_utils(DataStoreInterface):
         # Register the table in the Hive catalog - Only needed if local
         if self.spark_version == "local":
             print(f"⚠ Alert: Registering table '{table_name}' in the Hive catalog for local Spark.")
+            full_table_path = f"{self.lakehouse_tables_uri()}{table_name}"
             self.spark.sql(
-            f"CREATE TABLE IF NOT EXISTS {table_name} USING DELTA LOCATION '{self.lakehouse_tables_uri()}{table_name}'"
+                f"CREATE TABLE IF NOT EXISTS {table_name} USING DELTA LOCATION '{full_table_path}'"
             )
         else:
             print(f"No need to register table '{table_name}' in Hive catalog for Fabric Spark.")
@@ -339,8 +340,9 @@ class lakehouse_utils(DataStoreInterface):
 
         # Register the table in the Hive catalog - Only needed if local
         if self.spark_version == "local":
+            full_table_path = f"{self.lakehouse_tables_uri()}{table_name}"
             self.spark.sql(
-                f"CREATE TABLE IF NOT EXISTS {table_name} USING DELTA LOCATION '{self.lakehouse_tables_uri()}{table_name}'"
+                f"CREATE TABLE IF NOT EXISTS {table_name} USING DELTA LOCATION '{full_table_path}'"
             )
 
 

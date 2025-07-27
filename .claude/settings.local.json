@@ -38,7 +38,11 @@
       "Bash(export SQL_SERVER_PASSWORD='lotta6barkley*BOM')",
       "Bash(PGPASSWORD=hivepassword psql:*)",
       "Bash(grep:*)",
-      "Bash(export POSTGRES_PASSWORD=\"postgres\")"
+      "Bash(export POSTGRES_PASSWORD=\"postgres\")",
+      "Bash(export POSTGRES_PASSWORD=\"wrongpassword\")",
+      "Bash(export PYTHONUNBUFFERED=1)",
+      "Bash(export POSTGRES_PASSWORD=\"password\")",
+      "Bash(export extract_name=\"SAMPLE_CUSTOMERS_DAILY\")"
     ],
     "deny": []
   }
