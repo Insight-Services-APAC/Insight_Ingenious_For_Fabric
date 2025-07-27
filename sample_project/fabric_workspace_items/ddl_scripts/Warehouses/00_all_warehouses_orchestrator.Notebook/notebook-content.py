@@ -223,7 +223,7 @@ print("="*60)
 
 
 # Define function to run a single lakehouse orchestrator
-def run_lakehouse_orchestrator(lakehouse_name, orchestrator_name):
+def run_lakehouse_orchestrator(lakehouse_name, orchestrator_name, stagger_delay=0):
     """Run a single lakehouse orchestrator and return the result."""
     result = {
         'lakehouse': lakehouse_name,
@@ -238,6 +238,11 @@ def run_lakehouse_orchestrator(lakehouse_name, orchestrator_name):
     }
     
     try:
+        # Add staggered delay to avoid concurrent update issues
+        if stagger_delay > 0:
+            print(f"[{result['start_time']}] Waiting {stagger_delay:.1f}s before starting {lakehouse_name} (staggered execution)")
+            time.sleep(stagger_delay)
+            
         print(f"[{result['start_time']}] Starting orchestrator for {lakehouse_name}")
         
         params = {}
@@ -275,17 +280,19 @@ print("\nStarting parallel execution of lakehouse orchestrators...")
 print("="*60)
 
 
-# Run orchestrators in parallel using ThreadPoolExecutor
+# Run orchestrators in parallel using ThreadPoolExecutor with staggered execution
 with ThreadPoolExecutor(max_workers=2) as executor:
-    # Submit all tasks
-    future_to_lakehouse = {
-        executor.submit(
+    # Submit all tasks with staggered delays (0.2 seconds apart)
+    future_to_lakehouse = {}
+    for i, lakehouse in enumerate(lakehouses_to_run):
+        stagger_delay = i * 0.2  # 0.2-second stagger between executions
+        future = executor.submit(
             run_lakehouse_orchestrator, 
             lakehouse['name'], 
-            lakehouse['orchestrator']
-        ): lakehouse['name'] 
-        for lakehouse in lakehouses_to_run
-    }
+            lakehouse['orchestrator'],
+            stagger_delay
+        )
+        future_to_lakehouse[future] = lakehouse['name']
     
     # Process completed tasks as they finish
     for future in as_completed(future_to_lakehouse):

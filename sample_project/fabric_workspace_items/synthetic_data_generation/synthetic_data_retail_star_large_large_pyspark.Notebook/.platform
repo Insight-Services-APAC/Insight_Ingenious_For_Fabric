@@ -1,0 +1,12 @@
+{
+  "$schema": "https://developer.microsoft.com/json-schemas/fabric/gitIntegration/platformProperties/2.0.0/schema.json",
+  "metadata": {
+    "type": "Notebook",
+    "displayName": "Synthetic Data Generation - Retail Star Schema - Large",
+    "description": "Generate synthetic data for retail_star_large using pyspark"
+  },
+  "config": {
+    "version": "2.0",
+    "logicalId": "187f83f7-a195-46c0-9463-ea152ee63d1a"
+  }
+}

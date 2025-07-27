@@ -2,13 +2,13 @@
 
 import hashlib
 import inspect
+import logging
+import traceback
 from datetime import datetime
 from typing import Any, Optional
 
-from ingen_fab.python_libs.python.warehouse_utils import warehouse_utils
 from ingen_fab.python_libs.python.sql_templates import SQLTemplates
-import traceback
-import logging
+from ingen_fab.python_libs.python.warehouse_utils import warehouse_utils
 
 
 class ddl_utils:
@@ -111,6 +111,9 @@ class ddl_utils:
                 self.write_to_execution_log(
                     object_guid=guid, object_name=object_name, script_status="Failure"
                 )
+                # Print the error message to stderr and raise a RuntimeError
+                import sys
+                print(error_message, file=sys.stderr)
                 raise RuntimeError(error_message) from e
         else:
             logger.info(
@@ -128,16 +131,27 @@ class ddl_utils:
         )
 
         if not table_exists:
-            self.warehouse_utils.create_schema_if_not_exists(
-                schema_name=self.execution_log_table_schema
-            )
-            # Create the table using SQL template
-            create_table_query = self.sql.render("create_ddl_log_table",
-                                                schema_name=self.execution_log_table_schema,
-                                                table_name=self.execution_log_table_name)
-            self.warehouse_utils.execute_query(conn=conn, query=create_table_query)
-            self.write_to_execution_log(
-                object_guid=guid, object_name=object_name, script_status="Success"
-            )
+            try:
+                self.warehouse_utils.create_schema_if_not_exists(
+                    schema_name=self.execution_log_table_schema
+                )
+                # Create the table using SQL template
+                create_table_query = self.sql.render("create_ddl_log_table",
+                                                    schema_name=self.execution_log_table_schema,
+                                                    table_name=self.execution_log_table_name)
+                self.warehouse_utils.execute_query(conn=conn, query=create_table_query)
+                self.write_to_execution_log(
+                    object_guid=guid, object_name=object_name, script_status="Success"
+                )
+            except Exception as e:
+                # Check again if table exists - it might have been created by another process
+                table_exists_now = self.warehouse_utils.check_if_table_exists(
+                    table_name=self.execution_log_table_name,
+                    schema_name=self.execution_log_table_schema,
+                )
+                if table_exists_now:
+                    print(f"Table {object_name} was created by another process")
+                else:
+                    raise e
         else:
             print(f"Skipping {object_name} as it already exists")

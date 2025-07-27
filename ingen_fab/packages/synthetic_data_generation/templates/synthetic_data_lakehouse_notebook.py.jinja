@@ -1,0 +1,227 @@
+{%- import 'shared/notebook/macros/notebook_macros.py.jinja' as macros -%}
+{%- include "shared/notebook/headers/pyspark.py.jinja" %}
+
+{% include "shared/notebook/environment/library_loader.py.jinja" %}
+
+{{macros.python_cell_with_heading("## 🗂️ Load Custom Python Libraries")}}
+
+if run_mode == "local":
+    from ingen_fab.python_libs.common.config_utils import *
+    from ingen_fab.python_libs.pyspark.lakehouse_utils import lakehouse_utils
+    from ingen_fab.python_libs.pyspark.ddl_utils import ddl_utils
+    from ingen_fab.python_libs.pyspark.notebook_utils_abstraction import NotebookUtilsFactory
+    from ingen_fab.python_libs.pyspark.synthetic_data_utils import PySparkSyntheticDataGenerator, PySparkDatasetBuilder
+    notebookutils = NotebookUtilsFactory.create_instance() 
+else:
+    files_to_load = [
+        "ingen_fab/python_libs/common/config_utils.py",
+        "ingen_fab/python_libs/pyspark/lakehouse_utils.py",
+        "ingen_fab/python_libs/pyspark/ddl_utils.py",
+        "ingen_fab/python_libs/pyspark/notebook_utils_abstraction.py",
+        "ingen_fab/python_libs/pyspark/synthetic_data_utils.py"
+    ]
+
+    load_python_modules_from_path(mount_path, files_to_load)
+
+{{macros.python_cell_with_heading("## ⚙️ Configuration Settings")}}
+
+# Dataset Configuration
+dataset_config = {{dataset_config | tojson | replace('null', 'None') | replace('true', 'True') | replace('false', 'False')}}
+generation_mode = "{{generation_mode}}"
+target_rows = {{target_rows}}
+chunk_size = {{chunk_size}}
+{% if seed_value %}seed_value = {{seed_value}}{% else %}seed_value = None{% endif %}
+
+# variableLibraryInjectionStart: var_lib
+# variableLibraryInjectionEnd: var_lib
+
+{{macros.python_cell_with_heading("## 🆕 Initialize Components")}}
+
+# Get configurations
+configs: ConfigsObject = get_configs_as_object()
+
+# Initialize lakehouse utils first (this will create/get the Spark session)
+target_lakehouse_id = get_config_value("{{target_lakehouse_config_prefix | default('config')}}_lakehouse_id")
+target_workspace_id = get_config_value("{{target_lakehouse_config_prefix | default('config')}}_workspace_id")
+
+lh_utils = lakehouse_utils(
+    target_workspace_id=target_workspace_id,
+    target_lakehouse_id=target_lakehouse_id,
+    spark=spark
+)
+
+# Initialize synthetic data generator using Spark session from lakehouse_utils
+generator = PySparkSyntheticDataGenerator(lh_utils.spark, seed=seed_value)
+dataset_builder = PySparkDatasetBuilder(generator)
+
+{{macros.python_cell_with_heading("## 🎲 Generate Synthetic Data")}}
+
+print(f"🎲 Generating synthetic data for dataset: {dataset_config['dataset_id']}")
+print(f"📊 Target rows: {target_rows:,}")
+print(f"🔧 Generation mode: {generation_mode}")
+print(f"🌱 Seed value: {seed_value}")
+
+{% if dataset_config.schema_pattern == "oltp" %}
+# Generate OLTP (Transactional) Dataset
+print("📋 Generating OLTP dataset...")
+
+# Calculate appropriate table sizes based on target rows
+if target_rows <= 100000:
+    # Small dataset
+    customers_count = max(1000, target_rows // 50)
+    products_count = max(100, target_rows // 100)
+    orders_count = target_rows // 5
+else:
+    # Large dataset
+    customers_count = max(10000, target_rows // 500)
+    products_count = max(1000, target_rows // 1000)
+    orders_count = target_rows // 10
+
+print(f"👥 Customers: {customers_count:,}")
+print(f"📦 Products: {products_count:,}")
+print(f"🛒 Orders: {orders_count:,}")
+
+# Generate tables
+customers_df = generator.generate_customers_table(customers_count)
+products_df = generator.generate_products_table(products_count)
+orders_df = generator.generate_orders_table(orders_count, customers_count)
+
+# Save to Delta tables using lakehouse_utils
+print("💾 Saving to Delta tables...")
+lh_utils.write_to_table(customers_df, "{{dataset_config.dataset_id}}_customers", mode="overwrite")
+lh_utils.write_to_table(products_df, "{{dataset_config.dataset_id}}_products", mode="overwrite")
+lh_utils.write_to_table(orders_df, "{{dataset_config.dataset_id}}_orders", mode="overwrite")
+
+print("✅ OLTP dataset generation completed!")
+
+{% elif dataset_config.schema_pattern == "star_schema" %}
+# Generate Star Schema (Analytical) Dataset
+print("⭐ Generating Star Schema dataset...")
+
+# Calculate dimension sizes
+customer_count = max(10000, target_rows // 100)
+product_count = max(1000, target_rows // 1000)
+store_count = max(100, target_rows // 10000)
+
+print(f"📊 Fact table rows: {target_rows:,}")
+print(f"👥 Customer dimension: {customer_count:,}")
+print(f"📦 Product dimension: {product_count:,}")
+print(f"🏪 Store dimension: {store_count:,}")
+
+# Generate complete star schema
+if target_rows > 100000000:  # 100M+ rows
+    print("🚀 Using chunked generation for large dataset...")
+    fact_df = dataset_builder.build_billion_row_fact_table(
+        target_rows=target_rows,
+        chunk_size=chunk_size
+    )
+else:
+    star_schema = dataset_builder.build_complete_star_schema(
+        fact_rows=target_rows,
+        customer_count=customer_count,
+        product_count=product_count,
+        store_count=store_count
+    )
+    
+    # Save dimensions using lakehouse_utils
+    for table_name, df in star_schema.items():
+        if table_name.startswith('dim_'):
+            lh_utils.write_to_table(df, f"{{dataset_config.dataset_id}}_{table_name}", mode="overwrite")
+    
+    fact_df = star_schema['fact_sales']
+
+# Save fact table with partitioning for large datasets
+print("💾 Saving fact table...")
+if target_rows > 10000000:  # 10M+ rows, use partitioning
+    # Note: lakehouse_utils doesn't directly support partitionBy, so we'll use regular write
+    lh_utils.write_to_table(fact_df, "{{dataset_config.dataset_id}}_fact_sales", mode="overwrite")
+else:
+    lh_utils.write_to_table(fact_df, "{{dataset_config.dataset_id}}_fact_sales", mode="overwrite")
+
+print("✅ Star Schema dataset generation completed!")
+
+{% else %}
+# Custom dataset generation
+print("🛠️ Generating custom dataset...")
+
+# For custom datasets, generate a basic fact table
+fact_df = generator.generate_large_fact_table(target_rows)
+lh_utils.write_to_table(fact_df, "{{dataset_config.dataset_id}}_data", mode="overwrite")
+
+print("✅ Custom dataset generation completed!")
+{% endif %}
+
+{{macros.python_cell_with_heading("## 📊 Data Quality Validation")}}
+
+print("🔍 Performing data quality validation...")
+
+# Get list of generated tables
+generated_tables = []
+for table in lh_utils.spark.catalog.listTables():
+    if table.name.startswith("{{dataset_config.dataset_id}}"):
+        generated_tables.append(table.name)
+
+print(f"📋 Generated tables: {generated_tables}")
+
+# Validate row counts and basic statistics
+total_generated_rows = 0
+for table_name in generated_tables:
+    df = lh_utils.spark.table(table_name)
+    row_count = df.count()
+    total_generated_rows += row_count
+    
+    print(f"📊 {table_name}: {row_count:,} rows")
+    
+    # Show sample data
+    print(f"📝 Sample data from {table_name}:")
+    df.show(5, truncate=False)
+
+print(f"🎯 Total rows generated: {total_generated_rows:,}")
+print(f"🎯 Target rows: {target_rows:,}")
+
+if total_generated_rows >= target_rows * 0.9:  # Allow 10% tolerance
+    print("✅ Row count validation passed!")
+else:
+    print("⚠️ Row count validation warning: Generated rows below target")
+
+{{macros.python_cell_with_heading("## 📈 Performance Metrics")}}
+
+print("📈 Performance and storage metrics:")
+
+# Calculate storage usage
+total_size_bytes = 0
+for table_name in generated_tables:
+    try:
+        # Get table details
+        table_details = lh_utils.spark.sql(f"DESCRIBE DETAIL {table_name}").collect()[0]
+        size_bytes = table_details.sizeInBytes if hasattr(table_details, 'sizeInBytes') else 0
+        total_size_bytes += size_bytes
+        
+        size_mb = size_bytes / (1024 * 1024)
+        print(f"💾 {table_name}: {size_mb:.2f} MB")
+    except Exception as e:
+        print(f"⚠️ Could not get size for {table_name}: {e}")
+
+total_size_mb = total_size_bytes / (1024 * 1024)
+total_size_gb = total_size_mb / 1024
+
+print(f"📊 Total storage used: {total_size_mb:.2f} MB ({total_size_gb:.2f} GB)")
+
+# Calculate generation rate
+if total_generated_rows > 0:
+    print(f"⚡ Generation rate: {total_generated_rows / max(1, total_size_mb):.0f} rows/MB")
+
+{{macros.python_cell_with_heading("## ✅ Completion Summary")}}
+
+print("🎉 Synthetic Data Generation Completed Successfully!")
+print(f"📊 Dataset: {dataset_config['dataset_name']}")
+print(f"🏷️ Dataset ID: {dataset_config['dataset_id']}")
+print(f"📈 Schema Pattern: {dataset_config['schema_pattern']}")
+print(f"🎯 Rows Generated: {total_generated_rows:,}")
+print(f"📋 Tables Created: {len(generated_tables)}")
+print(f"💾 Total Storage: {total_size_gb:.2f} GB")
+
+# Return success
+notebookutils.exit_notebook("success")
+
+{%include "shared/notebook/cells/footer.py.jinja" %}

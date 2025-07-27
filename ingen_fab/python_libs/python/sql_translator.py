@@ -97,38 +97,33 @@ class FabricSQLTranslator:
             # Apply pre-translation mappings for Fabric-specific patterns
             translated_sql = self._apply_pre_translation_mappings(sql)
             
-            # Check if pre-translation completely handled the SQL
-            if translated_sql.strip().upper().startswith('CREATE SCHEMA IF NOT EXISTS'):
-                # Already translated, skip SQLGlot
-                final_sql = translated_sql
+            # Use SQLGlot to translate
+            result = transpile(
+                translated_sql,
+                read=self.source_dialect,
+                write=self.target_dialect,
+                pretty=True
+            )
+            
+            if not result:
+                raise SQLTranslatorError(f"SQLGlot returned empty result for SQL: {sql}")
+            
+            # Handle multiple statements
+            if len(result) > 1:
+                # Multiple statements - translate each and join with semicolons
+                translated_statements = []
+                for stmt in result:
+                    fixed_stmt = self._apply_post_translation_fixes(stmt)
+                    # Add semicolon if not present
+                    if not fixed_stmt.rstrip().endswith(';'):
+                        fixed_stmt = fixed_stmt.rstrip() + ';'
+                    translated_statements.append(fixed_stmt)
+                final_sql = '\n\n'.join(translated_statements)
             else:
-                # Use SQLGlot to translate
-                result = transpile(
-                    translated_sql,
-                    read=self.source_dialect,
-                    write=self.target_dialect,
-                    pretty=True
-                )
-                
-                if not result:
-                    raise SQLTranslatorError(f"SQLGlot returned empty result for SQL: {sql}")
-                
-                # Handle multiple statements
-                if len(result) > 1:
-                    # Multiple statements - translate each and join with semicolons
-                    translated_statements = []
-                    for stmt in result:
-                        fixed_stmt = self._apply_post_translation_fixes(stmt)
-                        # Add semicolon if not present
-                        if not fixed_stmt.rstrip().endswith(';'):
-                            fixed_stmt = fixed_stmt.rstrip() + ';'
-                        translated_statements.append(fixed_stmt)
-                    final_sql = '\n\n'.join(translated_statements)
-                else:
-                    # Single statement
-                    final_sql = result[0]
-                    # Apply post-translation fixes
-                    final_sql = self._apply_post_translation_fixes(final_sql)
+                # Single statement
+                final_sql = result[0]
+                # Apply post-translation fixes
+                final_sql = self._apply_post_translation_fixes(final_sql)
             
             logger.debug(f"Translated SQL from {self.source_dialect} to {self.target_dialect}:")
             logger.debug(f"Original: {sql}")
@@ -147,14 +142,9 @@ class FabricSQLTranslator:
         for fabric_pattern, postgres_pattern in self.FABRIC_TO_POSTGRES_MAPPINGS.items():
             result = result.replace(fabric_pattern, postgres_pattern)
             
-        # Handle SQL Server IF NOT EXISTS pattern for schema creation
         import re
-        # Look for exec('CREATE SCHEMA schema_name') pattern
-        exec_pattern = r"exec\s*\(\s*'CREATE\s+SCHEMA\s+(\w+)"
-        exec_match = re.search(exec_pattern, result, re.IGNORECASE)
-        if exec_match and 'sys.schemas' in result.lower():
-            schema_name = exec_match.group(1)
-            result = f"CREATE SCHEMA IF NOT EXISTS {schema_name}"
+        
+        
         
         # Handle Fabric-specific PRIMARY KEY NONCLUSTERED ... NOT ENFORCED syntax
         if 'PRIMARY KEY NONCLUSTERED' in result.upper():
@@ -218,15 +208,7 @@ class FabricSQLTranslator:
                 # For PostgreSQL, we can use a valid no-op statement
                 result = "SELECT 1 AS no_op_result"
                 
-            # Handle schema creation patterns
-            if 'CREATE SCHEMA' in result.upper():
-                # Extract schema name from various patterns
-                import re
-                # Pattern for: CREATE SCHEMA config
-                match = re.search(r"CREATE\s+SCHEMA\s+(\w+)", result, re.IGNORECASE)
-                if match:
-                    schema_name = match.group(1)
-                    result = f"CREATE SCHEMA IF NOT EXISTS {schema_name}"
+
             
         return result
     

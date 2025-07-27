@@ -1,0 +1,4 @@
+SELECT * 
+FROM {{ config_schema | default('config') }}.config_extract_generation
+WHERE extract_name = '{{ extract_name | required("extract_name") }}'
+AND is_active = 1;

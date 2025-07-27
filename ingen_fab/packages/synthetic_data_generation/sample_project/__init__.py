@@ -1,0 +1,1 @@
+# Sample project files for synthetic data generation package
