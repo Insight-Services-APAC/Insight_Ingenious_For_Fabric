@@ -236,34 +236,32 @@ guid="97cf4ee0b247"
 object_name = "001_sample_customer_table_create"
 
 def script_to_execute():
+    from pyspark.sql.types import StructType, StructField, LongType, StringType, TimestampType, BooleanType
+    
     # Sample DDL script for creating a customer table in lakehouse
     # This demonstrates the basic pattern for creating Delta tables
     
-    # Create the sample customer table
-    spark.sql("""
-    CREATE TABLE IF NOT EXISTS sample.customers (
-        customer_id BIGINT,
-        first_name STRING,
-        last_name STRING,
-        email STRING,
-        created_date TIMESTAMP,
-        is_active BOOLEAN
+    
+    # Define the schema for the sample customers table
+    schema = StructType(
+        [
+            StructField("customer_id", LongType(), nullable=True),
+            StructField("first_name", StringType(), nullable=True),
+            StructField("last_name", StringType(), nullable=True),
+            StructField("email", StringType(), nullable=True),
+            StructField("created_date", TimestampType(), nullable=True),
+            StructField("is_active", BooleanType(), nullable=True)
+        ]
     )
-    USING DELTA
-    LOCATION 'Tables/customers'
-    """)
     
-    print("✓ Created sample customers table")
+    # Create an empty DataFrame with the schema
+    empty_df = target_lakehouse.spark.createDataFrame([], schema)
     
-    # Add some sample data
-    spark.sql("""
-    INSERT INTO sample.customers VALUES
-    (1, 'John', 'Doe', 'john.doe@example.com', '2024-01-01 10:00:00', true),
-    (2, 'Jane', 'Smith', 'jane.smith@example.com', '2024-01-02 11:00:00', true),
-    (3, 'Bob', 'Johnson', 'bob.johnson@example.com', '2024-01-03 12:00:00', false)
-    """)
-    
-    print("✓ Inserted sample data into customers table")
+    # Write the empty DataFrame to create the table
+    target_lakehouse.write_to_table(
+        df=empty_df,
+        table_name="sample_customers",
+        schema_name="default")
     
 
 du.run_once(script_to_execute, "001_sample_customer_table_create","97cf4ee0b247")
@@ -282,46 +280,87 @@ def script_to_execute():
 
 # MARKDOWN ********************
 
-# ## 📄 Cell for 001_Sample_Tables_Create.py
+# ## 📄 Cell for 002_sample_customer_table_create_insert.py
 
 # CELL ********************
 
-guid="2091c92f63e8"
-object_name = "001_Sample_Tables_Create"
+guid="3eaad0cf2eeb"
+object_name = "002_sample_customer_table_create_insert"
+
+def script_to_execute():
+    from pyspark.sql.types import StructType, StructField, IntegerType, StringType, TimestampType, BooleanType
+    from datetime import datetime
+    
+    # Sample DDL script for creating a customer table in lakehouse
+    # This demonstrates the basic pattern for creating Delta tables
+    # Define schema for customer table
+    schema = StructType([
+        StructField("customer_id", IntegerType(), nullable=False),
+        StructField("first_name", StringType(), nullable=False),
+        StructField("last_name", StringType(), nullable=False),
+        StructField("email", StringType(), nullable=False),
+        StructField("created_at", TimestampType(), nullable=False),
+        StructField("is_active", BooleanType(), nullable=False)
+    ])
+    
+    # Create DataFrame with sample data
+    data = [
+        (1, 'John', 'Doe', 'john.doe@example.com', datetime(2024, 1, 1, 10, 0, 0), True),
+        (2, 'Jane', 'Smith', 'jane.smith@example.com', datetime(2024, 1, 2, 11, 0, 0), True),
+        (3, 'Bob', 'Johnson', 'bob.johnson@example.com', datetime(2024, 1, 3, 12, 0, 0), False)
+    ]
+    
+    df = target_lakehouse.spark.createDataFrame(data, schema)
+    
+    target_lakehouse.write_to_table(
+        df=df,
+        table_name="sample_customers",
+        schema_name="sample")
+    
+    
+
+du.run_once(script_to_execute, "002_sample_customer_table_create_insert","3eaad0cf2eeb")
+
+def script_to_execute():
+    print("Script block is empty. No action taken.")
+
+
+
+# METADATA ********************
+
+# META {
+# META   "language": "python",
+# META   "language_group": "synapse_pyspark"
+# META }
+
+# MARKDOWN ********************
+
+# ## 📄 Cell for 003_sample_store_create.py
+
+# CELL ********************
+
+guid="1a10e653cdcb"
+object_name = "003_sample_store_create"
 
 def script_to_execute():
     schema = StructType(
         [
-            StructField("cfg_target_lakehouse_workspace_id", StringType(), nullable=False),
-            StructField("cfg_target_lakehouse_id", StringType(), nullable=False),
-            StructField("target_partition_columns", StringType(), nullable=False),
-            StructField("target_sort_columns", StringType(), nullable=False),
-            StructField("target_replace_where", StringType(), nullable=False),
-            StructField("cfg_source_lakehouse_workspace_id", StringType(), nullable=False),
-            StructField("cfg_source_lakehouse_id", StringType(), nullable=False),
-            StructField("cfg_source_file_path", StringType(), nullable=False),
-            StructField("source_file_path", StringType(), nullable=False),
-            StructField("source_file_name", StringType(), nullable=False),
-            StructField("cfg_legacy_synapse_connection_name", StringType(), nullable=False),
-            StructField("synapse_source_schema_name", StringType(), nullable=False),
-            StructField("synapse_source_table_name", StringType(), nullable=False),
-            StructField("synapse_partition_clause", StringType(), nullable=False),
-            StructField("execution_group", IntegerType(), nullable=False),
-            StructField("active_yn", StringType(), nullable=False),
+            StructField("store_name", StringType(), nullable=False),
+            StructField("department", StringType(), nullable=False)
         ]
     )
     
-    empty_df = spark.createDataFrame([], schema)
-    (
-        empty_df.write.format("delta")
-        .option("parquet.vorder.default", "true")
-        .mode("overwrite")  # will error if table exists; change to "overwrite" to replace.
-        .save(f"{lu.lakehouse_tables_uri()}config_parquet_loads")
-    )
+    empty_df = target_lakehouse.spark.createDataFrame([], schema)
+    
+    target_lakehouse.write_to_table(
+        df=empty_df,
+        table_name="store",
+        schema_name="sample")
+    
     
     
 
-du.run_once(script_to_execute, "001_Sample_Tables_Create","2091c92f63e8")
+du.run_once(script_to_execute, "003_sample_store_create","1a10e653cdcb")
 
 def script_to_execute():
     print("Script block is empty. No action taken.")

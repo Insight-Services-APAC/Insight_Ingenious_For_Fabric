@@ -199,7 +199,9 @@ class FlatFileIngestionCompiler(BaseNotebookCompiler):
         sample_source_dir = workspace_repo_dir / "Files" / "sample_data"
         
         if not sample_source_dir.exists():
-            self.print_error("Sample data directory not found", f"Expected: {sample_source_dir}")
+            if self.console:
+                self.console.print(f"[red]Error: Sample data directory not found[/red]")
+                self.console.print(f"[red]Expected: {sample_source_dir}[/red]")
             return []
         
         # Import lakehouse_utils for file upload in local mode

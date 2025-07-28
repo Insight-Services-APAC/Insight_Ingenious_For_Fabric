@@ -1,0 +1,49 @@
+# Configuration table for flat file ingestion metadata - Universal schema (Lakehouse version)
+from pyspark.sql.types import (
+    BooleanType,
+    IntegerType,
+    StringType,
+    StructField,
+    StructType,
+)
+
+schema = StructType([
+    StructField("config_id", StringType(), nullable=False),
+    StructField("config_name", StringType(), nullable=False),
+    StructField("source_file_path", StringType(), nullable=False),
+    StructField("source_file_format", StringType(), nullable=False),  # csv, json, parquet, avro, xml
+    StructField("target_workspace_id", StringType(), nullable=False),  # Universal field for workspace
+    StructField("target_datastore_id", StringType(), nullable=False),  # Universal field for lakehouse/warehouse
+    StructField("target_datastore_type", StringType(), nullable=False),  # 'lakehouse' or 'warehouse'
+    StructField("target_schema_name", StringType(), nullable=False),
+    StructField("target_table_name", StringType(), nullable=False),
+    StructField("staging_table_name", StringType(), nullable=True),  # For warehouse COPY INTO staging
+    StructField("file_delimiter", StringType(), nullable=True),  # for CSV files
+    StructField("has_header", BooleanType(), nullable=True),  # for CSV files
+    StructField("encoding", StringType(), nullable=True),  # utf-8, latin-1, etc.
+    StructField("date_format", StringType(), nullable=True),  # for date columns
+    StructField("timestamp_format", StringType(), nullable=True),  # for timestamp columns
+    StructField("schema_inference", BooleanType(), nullable=False),  # whether to infer schema
+    StructField("custom_schema_json", StringType(), nullable=True),  # custom schema definition
+    StructField("partition_columns", StringType(), nullable=True),  # comma-separated list
+    StructField("sort_columns", StringType(), nullable=True),  # comma-separated list
+    StructField("write_mode", StringType(), nullable=False),  # overwrite, append, merge
+    StructField("merge_keys", StringType(), nullable=True),  # for merge operations
+    StructField("data_validation_rules", StringType(), nullable=True),  # JSON validation rules
+    StructField("error_handling_strategy", StringType(), nullable=False),  # fail, skip, log
+    StructField("execution_group", IntegerType(), nullable=False),
+    StructField("active_yn", StringType(), nullable=False),
+    StructField("created_date", StringType(), nullable=False),
+    StructField("modified_date", StringType(), nullable=True),
+    StructField("created_by", StringType(), nullable=False),
+    StructField("modified_by", StringType(), nullable=True)
+])
+
+target_lakehouse.create_table(
+    table_name="config_flat_file_ingestion",
+    schema=schema,
+    mode="overwrite",
+    options={
+        "parquet.vorder.default": "true"
+    }
+)

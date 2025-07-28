@@ -23,14 +23,13 @@ config_jobs_schema = StructType([
     StructField("error_message", StringType(), True)
 ])
 
-# Create empty DataFrame with schema
-config_jobs_df = spark.createDataFrame([], config_jobs_schema)
-
-# Write as Delta table
-config_jobs_df.write \
-    .format("delta") \
-    .mode("overwrite") \
-    .option("overwriteSchema", "true") \
-    .saveAsTable("config_synthetic_data_generation_jobs")
+target_lakehouse.create_table(
+    table_name="config_synthetic_data_generation_jobs",
+    schema=config_jobs_schema,
+    mode="overwrite",
+    options={
+        "parquet.vorder.default": "true"
+    }
+)
 
 print("✅ Created config_synthetic_data_generation_jobs Delta table")

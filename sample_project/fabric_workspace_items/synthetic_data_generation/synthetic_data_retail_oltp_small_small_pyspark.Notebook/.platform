@@ -1,0 +1,12 @@
+{
+  "$schema": "https://developer.microsoft.com/json-schemas/fabric/gitIntegration/platformProperties/2.0.0/schema.json",
+  "metadata": {
+    "type": "Notebook",
+    "displayName": "Synthetic Data Generation - Retail OLTP - Small",
+    "description": "Generate synthetic data for retail_oltp_small using pyspark"
+  },
+  "config": {
+    "version": "2.0",
+    "logicalId": "4e731be6-2077-44f5-a86b-7070121267e4"
+  }
+}

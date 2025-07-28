@@ -129,13 +129,7 @@ class lakehouse_utils(DataStoreInterface):
     def lakehouse_files_uri(self) -> str:
         """Get the ABFSS URI for the lakehouse Files directory."""
         if self.spark_version == "local":
-            # Use FABRIC_WORKSPACE_REPO_DIR for file access in local mode
-            import os
-            workspace_dir = os.environ.get('FABRIC_WORKSPACE_REPO_DIR', str(Path.cwd()))
-            # Convert to absolute path if relative
-            if not os.path.isabs(workspace_dir):
-                workspace_dir = os.path.abspath(workspace_dir)
-            return f"file://{workspace_dir}/"
+            return f"file:///{Path.cwd()}/tmp/spark/Files/"
         else:
             return f"abfss://{self._target_workspace_id}@onelake.dfs.fabric.microsoft.com/{self._target_lakehouse_id}/Files/"
 
@@ -151,22 +145,24 @@ class lakehouse_utils(DataStoreInterface):
 
         # For lakehouse, schema_name is not used as tables are in the Tables directory
         writer = df.write.format("delta").mode(mode)
-
+        table_full_name = table_name
+        if schema_name:
+            table_full_name = f"{schema_name}_{table_name}"
         if options:
             for k, v in options.items():
                 writer = writer.option(k, v)
 
-        writer.save(f"{self.lakehouse_tables_uri()}{table_name}")
+        writer.save(f"{self.lakehouse_tables_uri()}{table_full_name}")
 
         # Register the table in the Hive catalog - Only needed if local
         if self.spark_version == "local":
-            print(f"⚠ Alert: Registering table '{table_name}' in the Hive catalog for local Spark.")
-            full_table_path = f"{self.lakehouse_tables_uri()}{table_name}"
+            print(f"⚠ Alert: Registering table '{table_full_name}' in the Hive catalog for local Spark.")
+            full_table_path = f"{self.lakehouse_tables_uri()}{table_full_name}"
             self.spark.sql(
-                f"CREATE TABLE IF NOT EXISTS {table_name} USING DELTA LOCATION '{full_table_path}'"
+                f"CREATE TABLE IF NOT EXISTS {table_full_name} USING DELTA LOCATION '{full_table_path}'"
             )
         else:
-            print(f"No need to register table '{table_name}' in Hive catalog for Fabric Spark.")
+            print(f"No need to register table '{table_full_name}' in Hive catalog for Fabric Spark.")
 
     def list_tables(self) -> list[str]:
         """List all tables in the lakehouse."""
@@ -422,7 +418,7 @@ class lakehouse_utils(DataStoreInterface):
         """
         if options is None:
             options = {}
-            
+        print(f"Reading file from: {file_path}")
         reader = self.spark.read.format(file_format.lower())
         
         # Apply common options based on file format
@@ -455,11 +451,20 @@ class lakehouse_utils(DataStoreInterface):
         # Build full file path using the lakehouse files URI
         if not file_path.startswith(("file://", "abfss://")):
             # Relative path - combine with lakehouse files URI
-            full_file_path = f"{self.lakehouse_files_uri()}{file_path}"
+            
+            if self.spark_version == "local":
+                # print("Using local Spark file access.")
+                # use path utils to get first part of the path
+                first_part = Path(file_path).parts[0]
+                print(f"First part of path: {first_part}")
+                if first_part == "Files":
+                    file_path = Path(*Path(file_path).parts[1:])
+                full_file_path = f"{self.lakehouse_files_uri()}{str(file_path)}"
+
         else:
             # Already absolute path
             full_file_path = file_path
-            
+        print(f"Reading file from: {full_file_path}")
         return reader.load(full_file_path)
 
     def write_file(
@@ -641,3 +646,105 @@ class lakehouse_utils(DataStoreInterface):
                     return {"path": full_file_path}
         except Exception:
             return {}
+
+    def set_spark_config(self, key: str, value: str) -> None:
+        """
+        Set a Spark configuration property.
+        
+        Args:
+            key: Configuration key (e.g., 'spark.sql.shuffle.partitions')
+            value: Configuration value
+        """
+        self.spark.conf.set(key, value)
+        
+    def create_range_dataframe(self, start: int, end: int, num_partitions: int = None) -> Any:
+        """
+        Create a DataFrame with a single column containing a range of values.
+        
+        Args:
+            start: Start value (inclusive)
+            end: End value (exclusive)
+            num_partitions: Number of partitions for the DataFrame
+            
+        Returns:
+            DataFrame with a single 'id' column
+        """
+        if num_partitions:
+            return self.spark.range(start, end, numPartitions=num_partitions)
+        else:
+            return self.spark.range(start, end)
+            
+    def cache_dataframe(self, df: Any) -> Any:
+        """
+        Cache a DataFrame in memory.
+        
+        Args:
+            df: DataFrame to cache
+            
+        Returns:
+            The cached DataFrame
+        """
+        return df.cache()
+        
+    def repartition_dataframe(self, df: Any, num_partitions: int = None, 
+                            partition_cols: list[str] = None) -> Any:
+        """
+        Repartition a DataFrame.
+        
+        Args:
+            df: DataFrame to repartition
+            num_partitions: Number of partitions (optional)
+            partition_cols: Columns to partition by (optional)
+            
+        Returns:
+            The repartitioned DataFrame
+        """
+        if partition_cols:
+            return df.repartition(*partition_cols)
+        elif num_partitions:
+            return df.repartition(num_partitions)
+        else:
+            return df.repartition()
+            
+    def union_dataframes(self, dfs: list[Any]) -> Any:
+        """
+        Union multiple DataFrames into one.
+        
+        Args:
+            dfs: List of DataFrames to union
+            
+        Returns:
+            The unioned DataFrame
+        """
+        if not dfs:
+            raise ValueError("No DataFrames provided for union")
+            
+        result = dfs[0]
+        for df in dfs[1:]:
+            result = result.union(df)
+        return result
+        
+    def save_dataframe_as_table(self, df: Any, table_name: str, 
+                               mode: str = "overwrite", partition_cols: list[str] = None) -> None:
+        """
+        Save a DataFrame as a Delta table using saveAsTable.
+        
+        Args:
+            df: DataFrame to save
+            table_name: Name of the table
+            mode: Write mode ('overwrite', 'append', etc.)
+            partition_cols: Columns to partition by (optional)
+        """
+        writer = df.write.format("delta").mode(mode)
+        
+        if partition_cols:
+            writer = writer.partitionBy(*partition_cols)
+            
+        writer.saveAsTable(table_name)
+        
+        # Log the operation
+        try:
+            row_count = df.count()
+            print(f"Written {row_count} rows to Delta table {table_name}")
+        except Exception as e:
+            print(f"Table {table_name} saved (row count unavailable: {e})")

@@ -2,8 +2,6 @@
 # This creates a Delta table for detailed execution metrics
 
 from pyspark.sql.types import StructType, StructField, StringType, LongType, IntegerType, DecimalType, TimestampType
-from pyspark.sql.functions import current_timestamp
-import uuid
 
 # Define schema for log_synthetic_data_generation table
 log_schema = StructType([
@@ -21,14 +19,13 @@ log_schema = StructType([
     StructField("execution_timestamp", TimestampType(), False)
 ])
 
-# Create empty DataFrame with schema
-log_df = spark.createDataFrame([], log_schema)
-
-# Write as Delta table with partitioning by date for performance
-log_df.write \
-    .format("delta") \
-    .mode("overwrite") \
-    .option("overwriteSchema", "true") \
-    .saveAsTable("log_synthetic_data_generation")
+target_lakehouse.create_table(
+    table_name="log_synthetic_data_generation",
+    schema=log_schema,
+    mode="overwrite",
+    options={
+        "parquet.vorder.default": "true"
+    }
+)
 
 print("✅ Created log_synthetic_data_generation Delta table")

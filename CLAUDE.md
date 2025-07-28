@@ -116,6 +116,8 @@ Python libraries follow interface-based design:
 - PySpark implementations in `python_libs/pyspark/`
 - Common utilities in `python_libs/common/`
 
+***IMPORTANT**: never use standard spark or file operations directly. Always use the provided utility functions and abstractions.
+
 ## Testing Strategy
 
 - Unit tests in `tests/` and `python_libs_tests/` 

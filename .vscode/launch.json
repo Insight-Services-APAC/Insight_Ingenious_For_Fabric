@@ -8,7 +8,7 @@
             "name": "Test2",
             "type": "debugpy",
             "request": "launch",
-            "program": "./sample_project/fabric_workspace_items/ddl_scripts/Warehouses/Config_WH/001_Initial_Creation_ExtractGeneration_Config_WH_Warehouses.Notebook/notebook-content.py",
+            "program": "./sample_project/fabric_workspace_items/ddl_scripts/Lakehouses/00_all_lakehouses_orchestrator.Notebook/notebook-content.py",
             "console": "integratedTerminal"
         },
         {

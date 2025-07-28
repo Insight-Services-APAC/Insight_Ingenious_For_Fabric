@@ -193,10 +193,14 @@ configs: ConfigsObject = get_configs_as_object()
 
 
 # Import required libraries
-from notebookutils import mssparkutils
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import datetime
 import time
+
+# Define the lakehouses and their orchestrators
+lakehouses_to_run = [
+    {'name': 'Config', 'orchestrator': '00_orchestrator_Config_lakehouse_ddl_scripts'},
+]
 
 # Initialize variables
 start_time = datetime.now()
@@ -231,19 +235,13 @@ def run_lakehouse_orchestrator(lakehouse_name, orchestrator_name, stagger_delay=
             
         print(f"[{result['start_time']}] Starting orchestrator for {lakehouse_name}")
         
-        params = {
-            "fabric_environment": fabric_environment,
-            "config_workspace_id": config_workspace_id,
-            "config_lakehouse_id": config_lakehouse_id,
-            "target_lakehouse_config_prefix": f"{lakehouse_name}",
-            "full_reset": full_reset
-        }
+        params = {}
 
         # Run the lakehouse orchestrator
-        notebook_result = mssparkutils.notebook.run(
-            f"{orchestrator_name}_Lakehouses_ddl_scripts",
-            timeout_seconds=7200,  # 2 hour timeout per lakehouse
-            arguments=params
+        notebook_result = notebookutils.mssparkutils.notebook.run(
+            f"{orchestrator_name}",
+            timeout=7200,  # 2 hour timeout per lakehouse
+            params=params
         )
         
         result['end_time'] = datetime.now()
@@ -366,12 +364,13 @@ print(markdown_table)
 if failed_count == 0 and exception_count == 0:
     final_message = f"✓ All {success_count} lakehouses processed successfully!"
     print(f"\n{final_message}")
-    notebookutils.exit_notebook(final_message)
+    notebookutils.exit_notebook("success")
 else:
     final_message = f"Completed with {failed_count + exception_count} failures out of 1 lakehouses"
     print(f"\n✗ {final_message}")
-    notebookutils.exit_notebook(final_message)
-    raise Exception(final_message)
+    # Exit with failure status - this will be caught by parent orchestrator as non-"success"
+    error_summary = f"failed: {failed_count + exception_count} of 1 lakehouses failed"
+    notebookutils.exit_notebook(error_summary)
 
 # METADATA ********************
 

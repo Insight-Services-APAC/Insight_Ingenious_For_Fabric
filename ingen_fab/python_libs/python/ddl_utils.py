@@ -15,7 +15,10 @@ class ddl_utils:
     """Run DDL scripts once and track execution in a warehouse table."""
 
     def __init__(self, target_workspace_id: str, target_warehouse_id: str, notebookutils: Optional[Any] = None) -> None:
-        super().__init__()
+        super().__init__(
+            target_datastore_id=target_warehouse_id,
+            target_workspace_id=target_workspace_id,
+        )
         self.target_workspace_id = target_workspace_id
         self.target_warehouse_id = target_warehouse_id
         self.execution_log_table_schema = "log"
@@ -57,7 +60,6 @@ class ddl_utils:
         else:
             return False
         
-
     def print_skipped_script_execution(self, guid, object_name):
         print(
             f"skipping {guid}:{object_name} as the script has already run on workspace_id:"
