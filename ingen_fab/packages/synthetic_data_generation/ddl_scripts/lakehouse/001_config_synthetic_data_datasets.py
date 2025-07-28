@@ -18,14 +18,13 @@ config_datasets_schema = StructType([
     StructField("modified_date", TimestampType(), False)
 ])
 
-# Create empty DataFrame with schema
-config_datasets_df = spark.createDataFrame([], config_datasets_schema)
-
-# Write as Delta table
-config_datasets_df.write \
-    .format("delta") \
-    .mode("overwrite") \
-    .option("overwriteSchema", "true") \
-    .saveAsTable("config_synthetic_data_datasets")
+target_lakehouse.create_table(
+    table_name="config_synthetic_data_datasets",
+    schema=config_datasets_schema,
+    mode="overwrite",
+    options={
+        "parquet.vorder.default": "true"
+    }
+)
 
 print("✅ Created config_synthetic_data_datasets Delta table")

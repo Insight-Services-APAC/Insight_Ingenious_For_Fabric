@@ -2,6 +2,8 @@ from __future__ import annotations
 
 import hashlib
 import inspect
+import logging
+import traceback
 from datetime import datetime
 
 from pyspark.sql import SparkSession  # type: ignore # noqa: F401
@@ -87,11 +89,13 @@ class ddl_utils(DDLUtilsInterface):
             f"{self.lakehouse_utils.lakehouse_tables_uri()}{self.execution_log_table_name}"
         )
 
-    def run_once(self, work_fn, object_name: str, guid: str | None = None) -> None:
+    def run_once(self, work_fn: callable, object_name: str, guid: str):
         """
         Runs `work_fn()` exactly once, keyed by `guid`. If `guid` is None,
         it's computed by hashing the source code of `work_fn`.
         """
+        logger = logging.getLogger(__name__)
+
         # 1. Auto-derive GUID if not provided
         if guid is None:
             try:
@@ -103,7 +107,7 @@ class ddl_utils(DDLUtilsInterface):
             # compute SHA256 and take first 12 hex chars
             digest = hashlib.sha256(src.encode("utf-8")).hexdigest()
             guid = digest
-            print(f"Derived guid={guid} from work_fn source")
+            logger.info(f"Derived guid={guid} from work_fn source")
 
         # 2. Check execution
         if not self.check_if_script_has_run(script_id=guid):
@@ -112,14 +116,23 @@ class ddl_utils(DDLUtilsInterface):
                 self.write_to_execution_log(
                     object_guid=guid, object_name=object_name, script_status="Success"
                 )
+                logger.info(f"Successfully executed work_fn for guid={guid}")
             except Exception as e:
-                print(f"Error in work_fn for {guid}: {e}")
+                error_message = f"Error in work_fn for {guid}: {e}\n{traceback.format_exc()}"
+                logger.error(error_message)
+
                 self.write_to_execution_log(
                     object_guid=guid, object_name=object_name, script_status="Failure"
                 )
-                raise e
+                # Print the error message to stderr and raise a RuntimeError
+                import sys
+                print(error_message, file=sys.stderr)
+                raise RuntimeError(error_message) from e
         else:
-            self.print_skipped_script_execution(guid=guid, object_name=object_name)
+            logger.info(
+                f"Skipping {guid}:{object_name} as the script has already run on workspace_id:"
+                f"{self.target_workspace_id} | warehouse_id {self.target_lakehouse_id}"
+            )
 
     def initialise_ddl_script_executions_table(self) -> None:
         guid = "b8c83c87-36d2-46a8-9686-ced38363e169"
@@ -143,8 +156,7 @@ class ddl_utils(DDLUtilsInterface):
                     "parquet.vorder.default": "true"
                 }
             )
-
-           
+      
             self.write_to_execution_log(
                 object_guid=guid, object_name=object_name, script_status="Success"
             )

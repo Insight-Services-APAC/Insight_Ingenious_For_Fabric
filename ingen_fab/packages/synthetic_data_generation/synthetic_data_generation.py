@@ -35,7 +35,8 @@ class SyntheticDataGenerationCompiler(BaseNotebookCompiler):
         dataset_config: Dict[str, Any],
         target_environment: str = "lakehouse",  # "lakehouse" or "warehouse"
         generation_mode: str = "auto",  # "python", "pyspark", or "auto"
-        output_subdir: str = None
+        output_subdir: str = None,
+        output_mode: str = "table"  # "table" or "parquet"
     ) -> Path:
         """
         Compile a synthetic data generation notebook based on dataset configuration.
@@ -45,6 +46,7 @@ class SyntheticDataGenerationCompiler(BaseNotebookCompiler):
             target_environment: Target environment ("lakehouse" or "warehouse")
             generation_mode: Generation mode ("python", "pyspark", or "auto")
             output_subdir: Optional subdirectory for output
+            output_mode: Output mode ("table" or "parquet")
             
         Returns:
             Path to the generated notebook
@@ -83,7 +85,8 @@ class SyntheticDataGenerationCompiler(BaseNotebookCompiler):
             "target_rows": dataset_config.get("target_rows", 10000),
             "chunk_size": dataset_config.get("chunk_size", 1000000),
             "seed_value": dataset_config.get("seed_value"),
-            "parallel_workers": dataset_config.get("parallel_workers", 1)
+            "parallel_workers": dataset_config.get("parallel_workers", 1),
+            "output_mode": output_mode
         }
         
         # Generate notebook name
@@ -112,7 +115,8 @@ class SyntheticDataGenerationCompiler(BaseNotebookCompiler):
         target_environment: str = "lakehouse",
         generation_mode: str = "auto",
         seed_value: Optional[int] = None,
-        output_subdir: str = None
+        output_subdir: str = None,
+        output_mode: str = "table"
     ) -> Path:
         """
         Compile a notebook for a predefined dataset configuration.
@@ -124,6 +128,7 @@ class SyntheticDataGenerationCompiler(BaseNotebookCompiler):
             generation_mode: Generation mode ("python", "pyspark", or "auto")
             seed_value: Optional seed for reproducible generation
             output_subdir: Optional subdirectory for output
+            output_mode: Output mode ("table" or "parquet")
             
         Returns:
             Path to the generated notebook
@@ -147,7 +152,8 @@ class SyntheticDataGenerationCompiler(BaseNotebookCompiler):
             dataset_config=dataset_config,
             target_environment=target_environment,
             generation_mode=generation_mode,
-            output_subdir=output_subdir
+            output_subdir=output_subdir,
+            output_mode=output_mode
         )
     
     def compile_ddl_scripts(self, target_environment: str = "warehouse") -> Dict[str, List[Path]]:
@@ -161,12 +167,12 @@ class SyntheticDataGenerationCompiler(BaseNotebookCompiler):
             Dictionary mapping target directories to lists of copied files
         """
         ddl_source_dir = Path(__file__).parent / "ddl_scripts" / target_environment
-        ddl_output_base = self.output_dir / "ddl_scripts" / target_environment
+        ddl_output_base = self.fabric_workspace_repo_dir / "ddl_scripts"
         
         if target_environment == "warehouse":
-            # Copy SQL files in order
+            # Copy SQL files to Warehouses/Config directory following standard pattern
             script_mappings = {
-                "": [  # Root ddl_scripts directory
+                "Warehouses/Config/001_Initial_Creation_SyntheticData": [
                     ("001_config_synthetic_data_datasets.sql", "001_config_synthetic_data_datasets.sql"),
                     ("002_config_synthetic_data_generation_jobs.sql", "002_config_synthetic_data_generation_jobs.sql"),
                     ("003_log_synthetic_data_generation.sql", "003_log_synthetic_data_generation.sql"),
@@ -174,9 +180,9 @@ class SyntheticDataGenerationCompiler(BaseNotebookCompiler):
                 ]
             }
         else:
-            # Lakehouse DDL scripts (Python files)
+            # Lakehouse DDL scripts (Python files) to Lakehouses/Config directory
             script_mappings = {
-                "": [
+                "Lakehouses/Config/001_Initial_Creation_SyntheticData": [
                     ("001_config_synthetic_data_datasets.py", "001_config_synthetic_data_datasets.py"),
                     ("002_config_synthetic_data_generation_jobs.py", "002_config_synthetic_data_generation_jobs.py"),
                     ("003_log_synthetic_data_generation.py", "003_log_synthetic_data_generation.py"),
@@ -189,7 +195,8 @@ class SyntheticDataGenerationCompiler(BaseNotebookCompiler):
     def compile_all_synthetic_data_notebooks(
         self,
         datasets: List[Dict[str, Any]] = None,
-        target_environment: str = "lakehouse"
+        target_environment: str = "lakehouse",
+        output_mode: str = "table"
     ) -> Dict[str, Any]:
         """
         Compile notebooks for multiple synthetic datasets.
@@ -197,6 +204,7 @@ class SyntheticDataGenerationCompiler(BaseNotebookCompiler):
         Args:
             datasets: List of dataset configurations. If None, uses predefined datasets.
             target_environment: Target environment ("lakehouse" or "warehouse")
+            output_mode: Output mode ("table" or "parquet")
             
         Returns:
             Dictionary with compilation results
@@ -224,7 +232,7 @@ class SyntheticDataGenerationCompiler(BaseNotebookCompiler):
             compile_functions.append((
                 self.compile_synthetic_data_generation_notebook,
                 [dataset_config, target_environment],
-                {"output_subdir": f"synthetic_data_generation/{dataset_config['dataset_id']}"}
+                {"output_subdir": f"synthetic_data_generation/{dataset_config['dataset_id']}", "output_mode": output_mode}
             ))
         
         return self.compile_all_with_results(

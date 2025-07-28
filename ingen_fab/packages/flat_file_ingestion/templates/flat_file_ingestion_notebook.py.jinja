@@ -60,10 +60,12 @@ class FlatFileIngestionConfig:
         self.config_name = config_row["config_name"]
         self.source_file_path = config_row["source_file_path"]
         self.source_file_format = config_row["source_file_format"]
-        self.target_lakehouse_workspace_id = config_row["target_lakehouse_workspace_id"]
-        self.target_lakehouse_id = config_row["target_lakehouse_id"]
+        self.target_workspace_id = config_row["target_workspace_id"]
+        self.target_datastore_id = config_row["target_datastore_id"]
+        self.target_datastore_type = config_row["target_datastore_type"]
         self.target_schema_name = config_row["target_schema_name"]
         self.target_table_name = config_row["target_table_name"]
+        self.staging_table_name = config_row.get("staging_table_name")
         self.file_delimiter = config_row.get("file_delimiter", ",")
         self.has_header = config_row.get("has_header", True)
         self.encoding = config_row.get("encoding", "utf-8")
@@ -403,8 +405,8 @@ for _, config_row in config_df.iterrows():
     
     # Initialize target lakehouse for this configuration
     target_lakehouse = lakehouse_utils(
-        target_workspace_id=config.target_lakehouse_workspace_id,
-        target_lakehouse_id=config.target_lakehouse_id,
+        target_workspace_id=config.target_workspace_id,
+        target_lakehouse_id=config.target_datastore_id,
         spark=spark
     )
     

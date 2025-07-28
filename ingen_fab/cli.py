@@ -458,9 +458,29 @@ def synthetic_data_app_compile(
     generation_mode: Annotated[str, typer.Option("--generation-mode", "-m", help="Generation mode (python, pyspark, or auto)")] = "auto",
     seed_value: Annotated[int, typer.Option("--seed", "-s", help="Seed value for reproducible generation")] = None,
     include_ddl: Annotated[bool, typer.Option("--include-ddl", help="Include DDL scripts for configuration tables")] = True,
+    output_mode: Annotated[str, typer.Option("--output-mode", "-o", help="Output mode (table or parquet)")] = "table",
 ):
     """Compile synthetic data generation notebooks and DDL scripts."""
     from ingen_fab.packages.synthetic_data_generation.synthetic_data_generation import SyntheticDataGenerationCompiler
+    
+    # Validate parameters
+    valid_generation_modes = ["python", "pyspark", "auto"]
+    if generation_mode not in valid_generation_modes:
+        console.print(f"[red]Error: Invalid generation mode '{generation_mode}'[/red]")
+        console.print(f"[yellow]Valid generation modes: {', '.join(valid_generation_modes)}[/yellow]")
+        raise typer.Exit(code=1)
+    
+    valid_target_environments = ["lakehouse", "warehouse"]
+    if target_environment not in valid_target_environments:
+        console.print(f"[red]Error: Invalid target environment '{target_environment}'[/red]")
+        console.print(f"[yellow]Valid target environments: {', '.join(valid_target_environments)}[/yellow]")
+        raise typer.Exit(code=1)
+    
+    valid_output_modes = ["table", "parquet"]
+    if output_mode not in valid_output_modes:
+        console.print(f"[red]Error: Invalid output mode '{output_mode}'[/red]")
+        console.print(f"[yellow]Valid output modes: {', '.join(valid_output_modes)}[/yellow]")
+        raise typer.Exit(code=1)
     
     # Initialize compiler
     compiler = SyntheticDataGenerationCompiler(
@@ -478,7 +498,8 @@ def synthetic_data_app_compile(
                 target_rows=target_rows,
                 target_environment=target_environment,
                 generation_mode=generation_mode,
-                seed_value=seed_value
+                seed_value=seed_value,
+                output_mode=output_mode
             )
             
             console.print(f"[green]✅ Notebook compiled: {notebook_path}[/green]")
@@ -488,7 +509,8 @@ def synthetic_data_app_compile(
             console.print(f"[blue]Compiling all synthetic data generation packages for {target_environment}[/blue]")
             
             results = compiler.compile_all_synthetic_data_notebooks(
-                target_environment=target_environment
+                target_environment=target_environment,
+                output_mode=output_mode
             )
             
             if results["success"]:
@@ -554,14 +576,35 @@ def synthetic_data_generate(
     generation_mode: Annotated[str, typer.Option("--generation-mode", "-m", help="Generation mode (python, pyspark, or auto)")] = "auto",
     seed_value: Annotated[int, typer.Option("--seed", "-s", help="Seed value for reproducible generation")] = None,
     execute_notebook: Annotated[bool, typer.Option("--execute", help="Execute the notebook after compilation")] = False,
+    output_mode: Annotated[str, typer.Option("--output-mode", "-o", help="Output mode (table or parquet)")] = "table",
 ):
     """Generate synthetic data for a specific dataset configuration."""
     console.print(f"[blue]🎲 Generating synthetic data for dataset: {dataset_id}[/blue]")
     console.print(f"📊 Target rows: {target_rows:,}")
     console.print(f"🏗️ Target environment: {target_environment}")
     console.print(f"🔧 Generation mode: {generation_mode}")
+    console.print(f"💾 Output mode: {output_mode}")
     if seed_value:
         console.print(f"🌱 Seed value: {seed_value}")
+    
+    # Validate parameters
+    valid_generation_modes = ["python", "pyspark", "auto"]
+    if generation_mode not in valid_generation_modes:
+        console.print(f"[red]Error: Invalid generation mode '{generation_mode}'[/red]")
+        console.print(f"[yellow]Valid generation modes: {', '.join(valid_generation_modes)}[/yellow]")
+        raise typer.Exit(code=1)
+    
+    valid_target_environments = ["lakehouse", "warehouse"]
+    if target_environment not in valid_target_environments:
+        console.print(f"[red]Error: Invalid target environment '{target_environment}'[/red]")
+        console.print(f"[yellow]Valid target environments: {', '.join(valid_target_environments)}[/yellow]")
+        raise typer.Exit(code=1)
+    
+    valid_output_modes = ["table", "parquet"]
+    if output_mode not in valid_output_modes:
+        console.print(f"[red]Error: Invalid output mode '{output_mode}'[/red]")
+        console.print(f"[yellow]Valid output modes: {', '.join(valid_output_modes)}[/yellow]")
+        raise typer.Exit(code=1)
     
     from ingen_fab.packages.synthetic_data_generation.synthetic_data_generation import SyntheticDataGenerationCompiler
     
@@ -578,7 +621,8 @@ def synthetic_data_generate(
             target_rows=target_rows,
             target_environment=target_environment,
             generation_mode=generation_mode,
-            seed_value=seed_value
+            seed_value=seed_value,
+            output_mode=output_mode
         )
         
         console.print(f"[green]✅ Notebook compiled: {notebook_path}[/green]")

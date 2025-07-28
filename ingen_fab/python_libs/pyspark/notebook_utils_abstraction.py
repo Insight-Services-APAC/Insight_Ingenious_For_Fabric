@@ -14,6 +14,15 @@ from typing import Any, Dict, Optional
 logger = logging.getLogger(__name__)
 
 
+
+class NotebookExit(Exception):
+    """Exception raised when a notebook calls exit_notebook() in local environment."""
+    
+    def __init__(self, exit_value: Any = "success"):
+        self.exit_value = exit_value
+        super().__init__(f"Notebook exit with value: {exit_value}")
+
+
 class NotebookUtilsInterface(ABC):
     """Abstract interface for notebook utilities."""
 
@@ -109,8 +118,8 @@ class FabricNotebookUtils(NotebookUtilsInterface):
     def exit_notebook(self, value: Any = None) -> None:
         """Exit the notebook with an optional return value."""
         if not self._available:
-            logger.warning("Notebook exit requested but not in Fabric environment")
-            return
+            print(f"Notebook would exit with value: {value}")
+            raise NotebookExit(value or "success")
         
         self._mssparkutils.notebook.exit(value)
 
@@ -132,8 +141,6 @@ class FabricNotebookUtils(NotebookUtilsInterface):
         
         return self._mssparkutils.notebook.run(notebook_name, timeout, params)
     
-    
-
 
 class LocalNotebookUtils(NotebookUtilsInterface):
     """Local development notebook utilities implementation."""
@@ -200,6 +207,7 @@ class LocalNotebookUtils(NotebookUtilsInterface):
         logger.info(f"Notebook exit requested with value: {value}")
         if value is not None:
             print(f"Notebook would exit with value: {value}")
+        raise NotebookExit(value or "success")
 
     def get_secret(self, secret_name: str, key_vault_name: str) -> str:
         """Get a secret from environment variables."""
@@ -253,6 +261,9 @@ class LocalNotebookUtils(NotebookUtilsInterface):
                         # Fallback using the path utilities
                         from ingen_fab.utils.path_utils import PathUtils
                         workspace_repo_dir = PathUtils.get_workspace_repo_dir()
+                        # If workspace_repo_dir is a relative path and we're already inside it, resolve correctly
+                        if not workspace_repo_dir.is_absolute():
+                            workspace_repo_dir = Path(workspace_repo_dir).resolve()
                         workspace_items_path = workspace_repo_dir / "fabric_workspace_items"
                     
                     print(f"DEBUG: Searching for notebooks in: {workspace_items_path}")
@@ -278,6 +289,9 @@ class LocalNotebookUtils(NotebookUtilsInterface):
                                 result = spec.loader.exec_module(notebook_content)
                                 print(f"DEBUG: Notebook executed successfully, returning 'success'")
                                 return "success"  # Return success if notebook executes without error
+                            except NotebookExit as e:
+                                # Notebook called exit_notebook() - return the exit value
+                                return e.exit_value
                             except Exception as e:
                                 logger.error(f"Error executing notebook {name}: {e}")
                                 return f"failed: {str(e)}"

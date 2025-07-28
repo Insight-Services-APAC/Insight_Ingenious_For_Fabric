@@ -210,19 +210,13 @@ def execute_notebook(notebook_name, index, total, timeout_seconds=3600):
         print(f"Executing notebook {index}/{total}:{notebook_name}")
         print(f"{'='*60}")
         
-        params = {
-            "fabric_environment": configs.fabric_environment,
-            "config_workspace_id": configs.config_workspace_id,
-            "config_lakehouse_id": configs.config_lakehouse_id,
-            "target_lakehouse_config_prefix": "Config",
-            'useRootDefaultLakehouse': True
-        }
+        params = {}
         
         # Use notebook utils abstraction for cross-environment compatibility
         result = notebookutils.mssparkutils.notebook.run(
             notebook_name,
-            timeout_seconds,
-            params
+            timeout=timeout_seconds,
+            params=params
         )
         
         if (result == 'success'):
@@ -254,21 +248,24 @@ def execute_notebook(notebook_name, index, total, timeout_seconds=3600):
 
 print(f"Starting orchestration for Config lakehouse")
 print(f"Start time: {start_time}")
-print(f"Total notebooks to execute: 1")
+print(f"Total notebooks to execute: 4")
 print("="*60)
-execute_notebook("001_Initial_Creation_Config_Lakehouses_ddl_scripts", 1, 1)
+execute_notebook("001_Initial_Creation_SyntheticData_Config_Lakehouses_ddl_scripts", 1, 4)
+execute_notebook("001_Initial_Creation_Ingestion_Config_Lakehouses_ddl_scripts", 2, 4)
+execute_notebook("001_Initial_Creation_Config_Lakehouses_ddl_scripts", 3, 4)
+execute_notebook("002_Sample_Data_Ingestion_Config_Lakehouses_ddl_scripts", 4, 4)
 
 # Final Summary
 end_time = datetime.now()
 duration = end_time - start_time
-failed_count = 1 - success_count
+failed_count = 4 - success_count
 
 print(f"{'='*60}")
 print(f"Orchestration Complete!")
 print(f"{'='*60}")
 print(f"End time: {end_time}")
 print(f"Duration: {duration}")
-print(f"Total notebooks: 1")
+print(f"Total notebooks: 4")
 print(f"Successfully executed: {success_count}")
 print(f"Failed: {failed_count}")
 
@@ -282,13 +279,13 @@ if failed_notebooks:
         print(f"   Error: {failure['error']}")
         print()
 
-if success_count == 1:
+if success_count == 4:
     print("✓ All notebooks executed successfully!")
     notebookutils.exit_notebook("success")
 else:
     print(f"\n✗ Orchestration completed with {failed_count} failure(s)")
     # Exit with failure status - this will be caught by parent orchestrator as non-"success"
-    error_summary = f"failed: {failed_count} of 1 notebooks failed"
+    error_summary = f"failed: {failed_count} of 4 notebooks failed"
     notebookutils.exit_notebook(error_summary)
 
 # METADATA ********************

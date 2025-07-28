@@ -44,7 +44,7 @@ import sys
 if "notebookutils" in sys.modules:
     import sys
     
-    notebookutils.fs.mount("abfss://{{varlib:config_workspace_name}}@onelake.dfs.fabric.microsoft.com/{{varlib:config_lakehouse_name}}.Lakehouse/Files/", "/config_files")  # type: ignore # noqa: F821
+    notebookutils.fs.mount("abfss://REPLACE_WITH_CONFIG_WORKSPACE_NAME@onelake.dfs.fabric.microsoft.com/config.Lakehouse/Files/", "/config_files")  # type: ignore # noqa: F821
     mount_path = notebookutils.fs.getMountPath("/config_files")  # type: ignore # noqa: F821
     
     run_mode = "fabric"
@@ -171,13 +171,43 @@ else:
 
 
 # Dataset Configuration
-dataset_config = {"chunk_size": 1000000, "dataset_id": "retail_star_large", "dataset_name": "Retail Star Schema - Large", "dataset_type": "analytical", "description": "Large retail data warehouse with multiple fact tables", "dimensions": ["dim_customer", "dim_product", "dim_date", "dim_store", "dim_supplier"], "domain": "retail", "fact_tables": ["fact_sales", "fact_inventory"], "schema_pattern": "star_schema", "seed_value": None, "target_rows": 10000000}
+dataset_config = {"chunk_size": 1000000, "dataset_id": "retail_star_large", "dataset_name": "Retail Star Schema - Large", "dataset_type": "analytical", "description": "Large retail data warehouse with multiple fact tables", "dimensions": ["dim_customer", "dim_product", "dim_date", "dim_store", "dim_supplier"], "domain": "retail", "fact_tables": ["fact_sales", "fact_inventory"], "schema_pattern": "star_schema", "seed_value": None, "target_rows": 100000000}
 generation_mode = "pyspark"
-target_rows = 10000000
+target_rows = 100000000
 chunk_size = 1000000
 seed_value = None
+output_mode = "table"  # "table" or "parquet"
 
 # variableLibraryInjectionStart: var_lib
+
+# All variables as a dictionary
+configs_dict = {'fabric_environment': 'local', 'fabric_deployment_workspace_id': 'REPLACE_WITH_YOUR_WORKSPACE_GUID', 'config_workspace_name': 'REPLACE_WITH_CONFIG_WORKSPACE_NAME', 'config_workspace_id': 'REPLACE_WITH_CONFIG_WORKSPACE_GUID', 'config_wh_workspace_id': 'REPLACE_WITH_CONFIG_WH_WORKSPACE_GUID', 'config_lakehouse_name': 'config', 'config_lakehouse_id': 'REPLACE_WITH_CONFIG_LAKEHOUSE_GUID', 'config_wh_warehouse_name': 'config_wh', 'config_wh_warehouse_id': 'REPLACE_WITH_CONFIG_WAREHOUSE_GUID', 'sample_lakehouse_name': 'sample', 'sample_lakehouse_id': 'REPLACE_WITH_SAMPLE_LAKEHOUSE_GUID', 'sample_wh_workspace_id': 'REPLACE_WITH_SAMPLE_WH_WORKSPACE_GUID', 'sample_wh_warehouse_name': 'sample_wh', 'sample_wh_warehouse_id': 'REPLACE_WITH_SAMPLE_WAREHOUSE_GUID', 'raw_workspace_id': 'REPLACE_WITH_RAW_WORKSPACE_GUID', 'raw_datastore_id': 'REPLACE_WITH_RAW_DATASTORE_GUID', 'edw_workspace_id': 'REPLACE_WITH_EDW_WORKSPACE_GUID', 'edw_lakehouse_name': 'edw', 'edw_lakehouse_id': 'REPLACE_WITH_EDW_LAKEHOUSE_GUID', 'edw_warehouse_name': 'edw', 'edw_warehouse_id': 'REPLACE_WITH_EDW_WAREHOUSE_GUID'}
+# All variables as an object
+from dataclasses import dataclass
+@dataclass
+class ConfigsObject:
+    fabric_environment: str 
+    fabric_deployment_workspace_id: str 
+    config_workspace_name: str 
+    config_workspace_id: str 
+    config_wh_workspace_id: str 
+    config_lakehouse_name: str 
+    config_lakehouse_id: str 
+    config_wh_warehouse_name: str 
+    config_wh_warehouse_id: str 
+    sample_lakehouse_name: str 
+    sample_lakehouse_id: str 
+    sample_wh_workspace_id: str 
+    sample_wh_warehouse_name: str 
+    sample_wh_warehouse_id: str 
+    raw_workspace_id: str 
+    raw_datastore_id: str 
+    edw_workspace_id: str 
+    edw_lakehouse_name: str 
+    edw_lakehouse_id: str 
+    edw_warehouse_name: str 
+    edw_warehouse_id: str 
+configs_object: ConfigsObject = ConfigsObject(**configs_dict)
 # variableLibraryInjectionEnd: var_lib
 
 
@@ -210,7 +240,11 @@ lh_utils = lakehouse_utils(
 )
 
 # Initialize synthetic data generator using Spark session from lakehouse_utils
-generator = PySparkSyntheticDataGenerator(lh_utils.spark, seed=seed_value)
+generator = PySparkSyntheticDataGenerator(
+    lakehouse_utils_instance=lh_utils,
+    seed=seed_value
+)
+
 dataset_builder = PySparkDatasetBuilder(generator)
 
 
@@ -264,17 +298,29 @@ else:
     )
     
     # Save dimensions using lakehouse_utils
-    for table_name, df in star_schema.items():
-        if table_name.startswith('dim_'):
-            lh_utils.write_to_table(df, f"retail_star_large_{table_name}", mode="overwrite")
+    if output_mode == "parquet":
+        dataset_dir = f"synthetic_data/{dataset_config['dataset_id']}"
+        for table_name, df in star_schema.items():
+            if table_name.startswith('dim_'):
+                lh_utils.write_file(df, f"{dataset_dir}/{table_name}", "parquet", {"mode": "overwrite"})
+    else:
+        for table_name, df in star_schema.items():
+            if table_name.startswith('dim_'):
+                lh_utils.write_to_table(df, f"retail_star_large_{table_name}", mode="overwrite")
     
     fact_df = star_schema['fact_sales']
 
-# Save fact table with partitioning for large datasets
+# Save fact table
 print("💾 Saving fact table...")
-if target_rows > 10000000:  # 10M+ rows, use partitioning
-    # Note: lakehouse_utils doesn't directly support partitionBy, so we'll use regular write
-    lh_utils.write_to_table(fact_df, "retail_star_large_fact_sales", mode="overwrite")
+if output_mode == "parquet":
+    dataset_dir = f"synthetic_data/{dataset_config['dataset_id']}"
+    # For large datasets, we can still use partitioning with parquet
+    if target_rows > 10000000:  # 10M+ rows
+        # Write with partitioning by date for better organization
+        fact_df.write.partitionBy("sale_date").mode("overwrite").parquet(f"{lh_utils.lakehouse_files_uri()}{dataset_dir}/fact_sales")
+    else:
+        lh_utils.write_file(fact_df, f"{dataset_dir}/fact_sales", "parquet", {"mode": "overwrite"})
+    print(f"📁 Data saved to Files/{dataset_dir}/")
 else:
     lh_utils.write_to_table(fact_df, "retail_star_large_fact_sales", mode="overwrite")
 
@@ -300,26 +346,59 @@ print("✅ Star Schema dataset generation completed!")
 
 print("🔍 Performing data quality validation...")
 
-# Get list of generated tables
-generated_tables = []
-for table in lh_utils.spark.catalog.listTables():
-    if table.name.startswith("retail_star_large"):
-        generated_tables.append(table.name)
-
-print(f"📋 Generated tables: {generated_tables}")
-
-# Validate row counts and basic statistics
 total_generated_rows = 0
-for table_name in generated_tables:
-    df = lh_utils.spark.table(table_name)
-    row_count = df.count()
-    total_generated_rows += row_count
+
+if output_mode == "parquet":
+    # Validate parquet files
+    dataset_dir = f"synthetic_data/{dataset_config['dataset_id']}"
+    print(f"📋 Checking parquet files in: Files/{dataset_dir}/")
     
-    print(f"📊 {table_name}: {row_count:,} rows")
+    # List files in the dataset directory
+    files = lh_utils.list_files(dataset_dir, pattern="*.parquet", recursive=True)
     
-    # Show sample data
-    print(f"📝 Sample data from {table_name}:")
-    df.show(5, truncate=False)
+    # Get unique table names from file paths
+    table_names = set()
+    for file_path in files:
+        # Extract table name from path (handle partitioned and non-partitioned)
+        parts = file_path.split('/')
+        if 'synthetic_data' in parts:
+            idx = parts.index('synthetic_data')
+            if idx + 2 < len(parts):
+                table_name = parts[idx + 2]
+                if not table_name.endswith('.parquet'):
+                    table_names.add(table_name)
+    
+    for table_name in sorted(table_names):
+        # Read the parquet file/directory
+        df = lh_utils.read_file(f"{dataset_dir}/{table_name}", "parquet")
+        row_count = df.count()
+        total_generated_rows += row_count
+        
+        print(f"📊 {table_name}: {row_count:,} rows")
+        
+        # Show sample data
+        print(f"📝 Sample data from {table_name}:")
+        df.show(5, truncate=False)
+else:
+    # Get list of generated tables
+    generated_tables = []
+    for table in lh_utils.list_tables():
+        if table.startswith("retail_star_large"):
+            generated_tables.append(table)
+
+    print(f"📋 Generated tables: {generated_tables}")
+
+    # Validate row counts and basic statistics
+    for table_name in generated_tables:
+        df = lh_utils.read_table(table_name)
+        row_count = df.count()
+        total_generated_rows += row_count
+        
+        print(f"📊 {table_name}: {row_count:,} rows")
+        
+        # Show sample data
+        print(f"📝 Sample data from {table_name}:")
+        df.show(5, truncate=False)
 
 print(f"🎯 Total rows generated: {total_generated_rows:,}")
 print(f"🎯 Target rows: {target_rows:,}")
@@ -349,17 +428,34 @@ print("📈 Performance and storage metrics:")
 
 # Calculate storage usage
 total_size_bytes = 0
-for table_name in generated_tables:
-    try:
-        # Get table details
-        table_details = lh_utils.spark.sql(f"DESCRIBE DETAIL {table_name}").collect()[0]
-        size_bytes = table_details.sizeInBytes if hasattr(table_details, 'sizeInBytes') else 0
-        total_size_bytes += size_bytes
-        
-        size_mb = size_bytes / (1024 * 1024)
-        print(f"💾 {table_name}: {size_mb:.2f} MB")
-    except Exception as e:
-        print(f"⚠️ Could not get size for {table_name}: {e}")
+
+if output_mode == "parquet":
+    # Calculate size for parquet files
+    dataset_dir = f"synthetic_data/{dataset_config['dataset_id']}"
+    files = lh_utils.list_files(dataset_dir, pattern="*.parquet", recursive=True)
+    
+    for file_path in files:
+        try:
+            file_info = lh_utils.get_file_info(file_path)
+            if 'size' in file_info:
+                total_size_bytes += file_info['size']
+        except Exception as e:
+            print(f"⚠️ Could not get size for {file_path}: {e}")
+    
+    print(f"💾 Total parquet files size: {total_size_bytes / (1024 * 1024):.2f} MB")
+else:
+    # Calculate size for Delta tables
+    for table_name in generated_tables:
+        try:
+            # Get table details
+            table_details = lh_utils.execute_query(f"DESCRIBE DETAIL {table_name}").collect()[0]
+            size_bytes = table_details.sizeInBytes if hasattr(table_details, 'sizeInBytes') else 0
+            total_size_bytes += size_bytes
+            
+            size_mb = size_bytes / (1024 * 1024)
+            print(f"💾 {table_name}: {size_mb:.2f} MB")
+        except Exception as e:
+            print(f"⚠️ Could not get size for {table_name}: {e}")
 
 total_size_mb = total_size_bytes / (1024 * 1024)
 total_size_gb = total_size_mb / 1024
@@ -390,8 +486,12 @@ print("🎉 Synthetic Data Generation Completed Successfully!")
 print(f"📊 Dataset: {dataset_config['dataset_name']}")
 print(f"🏷️ Dataset ID: {dataset_config['dataset_id']}")
 print(f"📈 Schema Pattern: {dataset_config['schema_pattern']}")
+print(f"💾 Output Mode: {output_mode.upper()}")
 print(f"🎯 Rows Generated: {total_generated_rows:,}")
-print(f"📋 Tables Created: {len(generated_tables)}")
+if output_mode == "parquet":
+    print(f"📁 Location: Files/synthetic_data/{dataset_config['dataset_id']}/")
+else:
+    print(f"📋 Tables Created: {len(generated_tables)}")
 print(f"💾 Total Storage: {total_size_gb:.2f} GB")
 
 # Return success
