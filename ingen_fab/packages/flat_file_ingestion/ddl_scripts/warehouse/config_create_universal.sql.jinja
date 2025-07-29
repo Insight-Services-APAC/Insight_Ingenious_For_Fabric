@@ -19,6 +19,17 @@ CREATE TABLE config.config_flat_file_ingestion (
     date_format NVARCHAR(50) NULL, -- for date columns
     timestamp_format NVARCHAR(50) NULL, -- for timestamp columns
     schema_inference BIT NOT NULL, -- whether to infer schema
+    -- Advanced CSV handling options
+    quote_character NVARCHAR(2) NULL, -- character used to quote fields (default: ")
+    escape_character NVARCHAR(2) NULL, -- character used to escape quotes (default: \)
+    multiline_values BIT NULL, -- allow newlines within quoted fields (default: TRUE)
+    ignore_leading_whitespace BIT NULL, -- trim leading whitespace (default: FALSE)
+    ignore_trailing_whitespace BIT NULL, -- trim trailing whitespace (default: FALSE)
+    null_value NVARCHAR(50) NULL, -- custom null value representation
+    empty_value NVARCHAR(50) NULL, -- custom empty value representation
+    comment_character NVARCHAR(2) NULL, -- character that starts comment lines
+    max_columns INT NULL, -- maximum number of columns allowed
+    max_chars_per_column INT NULL, -- maximum characters per column (-1 for unlimited)
     custom_schema_json NVARCHAR(MAX) NULL, -- custom schema definition
     partition_columns NVARCHAR(500) NULL, -- comma-separated list
     sort_columns NVARCHAR(500) NULL, -- comma-separated list

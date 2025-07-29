@@ -45,7 +45,7 @@ import sys
 if "notebookutils" in sys.modules:
     import sys
     
-    notebookutils.fs.mount("abfss://REPLACE_WITH_CONFIG_WORKSPACE_NAME@onelake.dfs.fabric.microsoft.com/config.Lakehouse/Files/", "/config_files")  # type: ignore # noqa: F821
+    notebookutils.fs.mount("abfss://{{varlib:config_workspace_name}}@onelake.dfs.fabric.microsoft.com/{{varlib:config_lakehouse_name}}.Lakehouse/Files/", "/config_files")  # type: ignore # noqa: F821
     mount_path = notebookutils.fs.getMountPath("/config_files")  # type: ignore # noqa: F821
     
     run_mode = "fabric"
@@ -274,7 +274,18 @@ def script_to_execute():
         StructField("created_date", StringType(), nullable=False),
         StructField("modified_date", StringType(), nullable=True),
         StructField("created_by", StringType(), nullable=False),
-        StructField("modified_by", StringType(), nullable=True)
+        StructField("modified_by", StringType(), nullable=True),
+        # Advanced CSV configuration fields
+        StructField("quote_character", StringType(), nullable=True),  # Default: '"'
+        StructField("escape_character", StringType(), nullable=True),  # Default: '"' (Excel style)
+        StructField("multiline_values", BooleanType(), nullable=True),  # Default: True
+        StructField("ignore_leading_whitespace", BooleanType(), nullable=True),  # Default: False
+        StructField("ignore_trailing_whitespace", BooleanType(), nullable=True),  # Default: False
+        StructField("null_value", StringType(), nullable=True),  # Default: ""
+        StructField("empty_value", StringType(), nullable=True),  # Default: ""
+        StructField("comment_character", StringType(), nullable=True),  # Default: None
+        StructField("max_columns", IntegerType(), nullable=True),  # Default: 100
+        StructField("max_chars_per_column", IntegerType(), nullable=True)  # Default: 50000
     ])
     
     target_lakehouse.create_table(
@@ -416,7 +427,7 @@ du.print_log()
 
 
 
-notebookutils.exit_notebook("success")
+notebookutils.mssparkutils.notebook.exit("success")
 
 
 

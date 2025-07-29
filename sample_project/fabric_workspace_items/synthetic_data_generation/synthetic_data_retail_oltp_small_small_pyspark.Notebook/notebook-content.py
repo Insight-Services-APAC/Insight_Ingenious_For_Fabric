@@ -44,7 +44,7 @@ import sys
 if "notebookutils" in sys.modules:
     import sys
     
-    notebookutils.fs.mount("abfss://{{varlib:config_workspace_name}}@onelake.dfs.fabric.microsoft.com/{{varlib:config_lakehouse_name}}.Lakehouse/Files/", "/config_files")  # type: ignore # noqa: F821
+    notebookutils.fs.mount("abfss://metcash_demo@onelake.dfs.fabric.microsoft.com/config.Lakehouse/Files/", "/config_files")  # type: ignore # noqa: F821
     mount_path = notebookutils.fs.getMountPath("/config_files")  # type: ignore # noqa: F821
     
     run_mode = "fabric"
@@ -176,9 +176,38 @@ generation_mode = "pyspark"
 target_rows = 1000000
 chunk_size = 1000000
 seed_value = None
-output_mode = "table"  # "table" or "parquet"
+output_mode = "parquet"  # "table" or "parquet"
 
 # variableLibraryInjectionStart: var_lib
+
+# All variables as a dictionary
+configs_dict = {'fabric_environment': 'development', 'fabric_deployment_workspace_id': '544530ea-a8c9-4464-8878-f666d2a8f418', 'config_workspace_name': 'metcash_demo', 'config_workspace_id': '544530ea-a8c9-4464-8878-f666d2a8f418', 'config_wh_workspace_id': '544530ea-a8c9-4464-8878-f666d2a8f418', 'config_lakehouse_name': 'config', 'config_lakehouse_id': '514ebe8f-2bf9-4a31-88f7-13d84706431c', 'config_wh_warehouse_name': 'config_wh', 'config_wh_warehouse_id': '51226772-4e8f-4034-9cd2-1afd020d2773', 'sample_lakehouse_name': 'sample', 'sample_lakehouse_id': 'REPLACE_WITH_SAMPLE_LAKEHOUSE_GUID', 'sample_wh_workspace_id': 'REPLACE_WITH_SAMPLE_WH_WORKSPACE_GUID', 'sample_wh_warehouse_name': 'sample_wh', 'sample_wh_warehouse_id': 'REPLACE_WITH_SAMPLE_WAREHOUSE_GUID', 'raw_workspace_id': '544530ea-a8c9-4464-8878-f666d2a8f418', 'raw_datastore_id': 'REPLACE_WITH_RAW_DATASTORE_GUID', 'edw_workspace_id': '544530ea-a8c9-4464-8878-f666d2a8f418', 'edw_lakehouse_name': 'edw', 'edw_lakehouse_id': 'REPLACE_WITH_EDW_LAKEHOUSE_GUID', 'edw_warehouse_name': 'edw', 'edw_warehouse_id': 'REPLACE_WITH_EDW_WAREHOUSE_GUID'}
+# All variables as an object
+from dataclasses import dataclass
+@dataclass
+class ConfigsObject:
+    fabric_environment: str 
+    fabric_deployment_workspace_id: str 
+    config_workspace_name: str 
+    config_workspace_id: str 
+    config_wh_workspace_id: str 
+    config_lakehouse_name: str 
+    config_lakehouse_id: str 
+    config_wh_warehouse_name: str 
+    config_wh_warehouse_id: str 
+    sample_lakehouse_name: str 
+    sample_lakehouse_id: str 
+    sample_wh_workspace_id: str 
+    sample_wh_warehouse_name: str 
+    sample_wh_warehouse_id: str 
+    raw_workspace_id: str 
+    raw_datastore_id: str 
+    edw_workspace_id: str 
+    edw_lakehouse_name: str 
+    edw_lakehouse_id: str 
+    edw_warehouse_name: str 
+    edw_warehouse_id: str 
+configs_object: ConfigsObject = ConfigsObject(**configs_dict)
 # variableLibraryInjectionEnd: var_lib
 
 

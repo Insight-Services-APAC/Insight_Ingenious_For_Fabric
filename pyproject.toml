@@ -14,6 +14,7 @@ dependencies = [
     "pyarrow==20.0.0",
     "fabric_cicd @ https://github.com/jrampono/fabric-cicd/archive/refs/tags/v0.0.1.tar.gz",
     "azure-storage-file-datalake==12.20.0",
+    "azure-storage-blob>=12.0.0",
     "lazy-import>=0.2.2",
     "sqlglot>=25.30.2",
     "psycopg2-binary>=2.9.9",

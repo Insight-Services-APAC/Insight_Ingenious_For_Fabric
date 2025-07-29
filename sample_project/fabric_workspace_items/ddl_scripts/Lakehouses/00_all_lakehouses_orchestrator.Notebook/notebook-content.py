@@ -45,7 +45,7 @@ import sys
 if "notebookutils" in sys.modules:
     import sys
     
-    notebookutils.fs.mount("abfss://REPLACE_WITH_CONFIG_WORKSPACE_NAME@onelake.dfs.fabric.microsoft.com/config.Lakehouse/Files/", "/config_files")  # type: ignore # noqa: F821
+    notebookutils.fs.mount("abfss://{{varlib:config_workspace_name}}@onelake.dfs.fabric.microsoft.com/{{varlib:config_lakehouse_name}}.Lakehouse/Files/", "/config_files")  # type: ignore # noqa: F821
     mount_path = notebookutils.fs.getMountPath("/config_files")  # type: ignore # noqa: F821
     
     run_mode = "fabric"
@@ -240,8 +240,8 @@ def run_lakehouse_orchestrator(lakehouse_name, orchestrator_name, stagger_delay=
         # Run the lakehouse orchestrator
         notebook_result = notebookutils.mssparkutils.notebook.run(
             f"{orchestrator_name}",
-            timeout=7200,  # 2 hour timeout per lakehouse
-            params=params
+            7200,
+            params
         )
         
         result['end_time'] = datetime.now()
@@ -310,9 +310,9 @@ print(f"Total execution time: {total_duration}")
 print(f"Total lakehouses: 1")
 
 # Count results
-success_count = sum(1 for r in results.values() if r['status'] == 'Success')
-failed_count = sum(1 for r in results.values() if r['status'] == 'Failed')
-exception_count = sum(1 for r in results.values() if r['status'] == 'Exception')
+success_count = sum(1 for r in results.values() if r['status'].lower() == 'success')
+failed_count = sum(1 for r in results.values() if r['status'].lower() == 'failed')
+exception_count = sum(1 for r in results.values() if r['status'].lower() == 'exception')
 
 print(f"Successful: {success_count}")
 print(f"Failed: {failed_count}")
@@ -364,13 +364,13 @@ print(markdown_table)
 if failed_count == 0 and exception_count == 0:
     final_message = f"✓ All {success_count} lakehouses processed successfully!"
     print(f"\n{final_message}")
-    notebookutils.exit_notebook("success")
+    notebookutils.mssparkutils.notebook.exit("success")
 else:
     final_message = f"Completed with {failed_count + exception_count} failures out of 1 lakehouses"
     print(f"\n✗ {final_message}")
     # Exit with failure status - this will be caught by parent orchestrator as non-"success"
     error_summary = f"failed: {failed_count + exception_count} of 1 lakehouses failed"
-    notebookutils.exit_notebook(error_summary)
+    notebookutils.mssparkutils.notebook.exit(error_summary)
 
 # METADATA ********************
 

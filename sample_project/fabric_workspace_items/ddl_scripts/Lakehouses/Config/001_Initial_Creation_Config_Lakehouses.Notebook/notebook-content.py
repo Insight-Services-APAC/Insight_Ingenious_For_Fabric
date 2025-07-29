@@ -45,7 +45,7 @@ import sys
 if "notebookutils" in sys.modules:
     import sys
     
-    notebookutils.fs.mount("abfss://REPLACE_WITH_CONFIG_WORKSPACE_NAME@onelake.dfs.fabric.microsoft.com/config.Lakehouse/Files/", "/config_files")  # type: ignore # noqa: F821
+    notebookutils.fs.mount("abfss://{{varlib:config_workspace_name}}@onelake.dfs.fabric.microsoft.com/{{varlib:config_lakehouse_name}}.Lakehouse/Files/", "/config_files")  # type: ignore # noqa: F821
     mount_path = notebookutils.fs.getMountPath("/config_files")  # type: ignore # noqa: F821
     
     run_mode = "fabric"
@@ -249,7 +249,7 @@ def script_to_execute():
             StructField("first_name", StringType(), nullable=True),
             StructField("last_name", StringType(), nullable=True),
             StructField("email", StringType(), nullable=True),
-            StructField("created_date", TimestampType(), nullable=True),
+            StructField("created_at", TimestampType(), nullable=True),
             StructField("is_active", BooleanType(), nullable=True)
         ]
     )
@@ -260,8 +260,8 @@ def script_to_execute():
     # Write the empty DataFrame to create the table
     target_lakehouse.write_to_table(
         df=empty_df,
-        table_name="sample_customers",
-        schema_name="default")
+        table_name="customers",
+        schema_name="sample")
     
 
 du.run_once(script_to_execute, "001_sample_customer_table_create","97cf4ee0b247")
@@ -288,6 +288,7 @@ guid="3eaad0cf2eeb"
 object_name = "002_sample_customer_table_create_insert"
 
 def script_to_execute():
+    from pyspark.pandas.generic import LongType
     from pyspark.sql.types import StructType, StructField, IntegerType, StringType, TimestampType, BooleanType
     from datetime import datetime
     
@@ -295,7 +296,7 @@ def script_to_execute():
     # This demonstrates the basic pattern for creating Delta tables
     # Define schema for customer table
     schema = StructType([
-        StructField("customer_id", IntegerType(), nullable=False),
+        StructField("customer_id", LongType(), nullable=False),
         StructField("first_name", StringType(), nullable=False),
         StructField("last_name", StringType(), nullable=False),
         StructField("email", StringType(), nullable=False),
@@ -314,7 +315,7 @@ def script_to_execute():
     
     target_lakehouse.write_to_table(
         df=df,
-        table_name="sample_customers",
+        table_name="customers",
         schema_name="sample")
     
     
@@ -405,7 +406,7 @@ du.print_log()
 
 
 
-notebookutils.exit_notebook("success")
+notebookutils.mssparkutils.notebook.exit("success")
 
 
 

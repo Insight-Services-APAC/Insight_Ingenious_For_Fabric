@@ -19,7 +19,12 @@ from ingen_fab.python_libs.pyspark.lakehouse_utils import lakehouse_utils
 
 
 class ddl_utils(DDLUtilsInterface):
-    def __init__(self, target_workspace_id: str, target_lakehouse_id: str, spark: SparkSession = None) -> None:
+    def __init__(
+        self,
+        target_workspace_id: str,
+        target_lakehouse_id: str,
+        spark: SparkSession = None,
+    ) -> None:
         """
         Initializes the DDLUtils class with the target workspace and lakehouse IDs.
         """
@@ -29,7 +34,9 @@ class ddl_utils(DDLUtilsInterface):
         )
         self.target_workspace_id = target_workspace_id
         self.target_lakehouse_id = target_lakehouse_id
-        self.lakehouse_utils: lakehouse_utils = lakehouse_utils(target_workspace_id, target_lakehouse_id, spark=spark)
+        self.lakehouse_utils: lakehouse_utils = lakehouse_utils(
+            target_workspace_id, target_lakehouse_id, spark=spark
+        )
         self.execution_log_table_name = "ddl_script_executions"
         self.initialise_ddl_script_executions_table()
 
@@ -118,7 +125,9 @@ class ddl_utils(DDLUtilsInterface):
                 )
                 logger.info(f"Successfully executed work_fn for guid={guid}")
             except Exception as e:
-                error_message = f"Error in work_fn for {guid}: {e}\n{traceback.format_exc()}"
+                error_message = (
+                    f"Error in work_fn for {guid}: {e}\n{traceback.format_exc()}"
+                )
                 logger.error(error_message)
 
                 self.write_to_execution_log(
@@ -126,6 +135,7 @@ class ddl_utils(DDLUtilsInterface):
                 )
                 # Print the error message to stderr and raise a RuntimeError
                 import sys
+
                 print(error_message, file=sys.stderr)
                 raise RuntimeError(error_message) from e
         else:
@@ -150,13 +160,12 @@ class ddl_utils(DDLUtilsInterface):
             )
 
             self.lakehouse_utils.write_to_table(
-                empty_df, self.execution_log_table_name,
+                empty_df,
+                self.execution_log_table_name,
                 mode="errorIfExists",  # will error if table exists; change to "overwrite" to replace.
-                options={
-                    "parquet.vorder.default": "true"
-                }
+                options={"parquet.vorder.default": "true"},
             )
-      
+
             self.write_to_execution_log(
                 object_guid=guid, object_name=object_name, script_status="Success"
             )

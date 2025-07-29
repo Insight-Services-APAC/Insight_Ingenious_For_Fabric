@@ -11,7 +11,7 @@ schema = StructType(
         StructField("first_name", StringType(), nullable=True),
         StructField("last_name", StringType(), nullable=True),
         StructField("email", StringType(), nullable=True),
-        StructField("created_date", TimestampType(), nullable=True),
+        StructField("created_at", TimestampType(), nullable=True),
         StructField("is_active", BooleanType(), nullable=True)
     ]
 )

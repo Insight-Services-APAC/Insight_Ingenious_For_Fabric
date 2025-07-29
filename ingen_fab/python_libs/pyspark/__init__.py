@@ -9,11 +9,6 @@ from .notebook_utils_abstraction import (
     LocalNotebookUtils,
     NotebookUtilsFactory,
     NotebookUtilsInterface,
-    connect_to_artifact,
-    display,
-    exit_notebook,
-    get_notebook_utils,
-    get_secret,
 )
 from .parquet_load_utils import testing_code_replacement
 
@@ -23,14 +18,7 @@ __all__ = [
     "lakehouse_utils",
     # Notebook utilities
     "NotebookUtilsInterface",
-    "FabricNotebookUtils", 
+    "FabricNotebookUtils",
     "LocalNotebookUtils",
-    "NotebookUtilsFactory",
-    "get_notebook_utils",
-    "connect_to_artifact",
-    "display",
-    "exit_notebook",
-    "get_secret",
-    # Parquet utilities
-    "testing_code_replacement",
+    "NotebookUtilsFactory"
 ]

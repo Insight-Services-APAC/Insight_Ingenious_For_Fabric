@@ -41,7 +41,7 @@ def list_templates(directory: str) -> List[dict[str, str]]:
 if __name__ == "__main__":
     script_dir = Path("ingen_fab/python_libs/python/sql_template_factory")
     project_root = Path(".")
-    templates_directory = script_dir 
+    templates_directory = script_dir
     print(f"Scanning directory: {templates_directory}")
 
     templates_list = list_templates(templates_directory)

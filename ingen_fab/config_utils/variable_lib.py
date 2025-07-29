@@ -68,11 +68,17 @@ class VariableLibraryUtils:
 
         return content
       
-    def inject_variables_into_template(self, target_file: Path = None) -> None:
+    def inject_variables_into_template(self, target_file: Path = None, output_dir: Path = None, preserve_structure: bool = True, replace_placeholders: bool = True, inject_code: bool = True) -> None:
         """Main function to inject variables into the template and replace variable placeholders.
         
         Args:
             target_file: Optional specific file to update. If None, updates all notebook-content files.
+            output_dir: Optional directory to save updated files instead of modifying in place.
+                       If None, files are updated in place (default behavior).
+            preserve_structure: When using output_dir, whether to preserve the directory structure
+                              relative to project_path (default: True).
+            replace_placeholders: Whether to replace {{varlib:...}} placeholders (default: True).
+            inject_code: Whether to inject code between markers (default: True).
         """
         variables = self.variables
 
@@ -92,6 +98,11 @@ class VariableLibraryUtils:
                 print(f"No notebook-content files found in {workspace_items_path}")
                 return
 
+        # Create output directory if specified
+        if output_dir:
+            output_dir = Path(output_dir)
+            output_dir.mkdir(parents=True, exist_ok=True)
+
         updated_files = []
         for file_path in files_to_update:
             # Skip if file doesn't exist
@@ -102,22 +113,58 @@ class VariableLibraryUtils:
             with open(file_path, "r", encoding="utf-8") as f:
                 content = f.read()
 
-            updated_content = self.perform_code_replacements(content)
+            updated_content = self.perform_code_replacements(content, replace_placeholders=replace_placeholders, inject_code=inject_code)
 
-            # Write the updated content back to the file if changed
+            # Only process if content changed
             if updated_content != content:
-                with open(file_path, "w", encoding="utf-8") as f:
-                    f.write(updated_content)
-                updated_files.append(file_path)
+                if output_dir:
+                    # Determine output file path
+                    if preserve_structure and self.project_path:
+                        # Calculate relative path from project root
+                        try:
+                            rel_path = file_path.relative_to(self.project_path)
+                            output_file_path = output_dir / rel_path
+                        except ValueError:
+                            # If file is not under project path, just use filename
+                            output_file_path = output_dir / file_path.name
+                    else:
+                        # Just use the filename without preserving structure
+                        output_file_path = output_dir / file_path.name
+                    
+                    # Create parent directories if needed
+                    output_file_path.parent.mkdir(parents=True, exist_ok=True)
+                    
+                    # Write to output directory
+                    with open(output_file_path, "w", encoding="utf-8") as f:
+                        f.write(updated_content)
+                    updated_files.append((file_path, output_file_path))
+                else:
+                    # Write back to original file (in-place update)
+                    with open(file_path, "w", encoding="utf-8") as f:
+                        f.write(updated_content)
+                    updated_files.append((file_path, file_path))
 
         # Report results
         if updated_files:
-            if target_file:
-                print(f"Updated specific file with values from {self.environment} environment:")
+            if output_dir:
+                print(f"Saved {len(updated_files)} updated file(s) to {output_dir} with values from {self.environment} environment:")
+                for orig_file, output_file in updated_files:
+                    if self.project_path:
+                        try:
+                            orig_rel = orig_file.relative_to(self.project_path)
+                            print(f"  - {orig_rel} -> {output_file.relative_to(output_dir)}")
+                        except ValueError:
+                            print(f"  - {orig_file.name} -> {output_file.relative_to(output_dir)}")
+                    else:
+                        print(f"  - {orig_file.name} -> {output_file.relative_to(output_dir)}")
             else:
-                print(f"Updated {len(updated_files)} file(s) with values from {self.environment} environment:")
-            for file in updated_files:
-                print(f"  - {file.relative_to(self.project_path) if self.project_path else file}")
+                if target_file:
+                    print(f"Updated specific file with values from {self.environment} environment:")
+                else:
+                    print(f"Updated {len(updated_files)} file(s) with values from {self.environment} environment:")
+                for file_tuple in updated_files:
+                    file_path = file_tuple[0]  # Get the original file path
+                    print(f"  - {file_path.relative_to(self.project_path) if self.project_path else file_path}")
         else:
             if target_file:
                 print(f"No changes needed for target file: {target_file}")
@@ -144,9 +191,15 @@ class VariableLibraryUtils:
             )
         return ret_val
 
-    def perform_code_replacements(self, content: str) -> str:
-        """Replace variable placeholders in the content with actual values."""
-        # 1. Replace variable placeholders throughout the file
+    def replace_variable_placeholders(self, content: str) -> str:
+        """Replace variable placeholders like {{varlib:variable_name}} with actual values.
+        
+        Args:
+            content: The content containing variable placeholders
+            
+        Returns:
+            Content with placeholders replaced by actual values
+        """
         def replace_placeholder(match):
             var_name = match.group(1)
             if var_name in self.variables:
@@ -155,9 +208,17 @@ class VariableLibraryUtils:
 
         # Regex to match placeholders like {{varlib:variable_name}}
         placeholder_pattern = re.compile(r"\{\{varlib:([a-zA-Z0-9_]+)\}\}")
-        content_with_vars = placeholder_pattern.sub(replace_placeholder, content)
+        return placeholder_pattern.sub(replace_placeholder, content)
 
-        # 2. Replace the content between injection markers (if present)
+    def inject_code_between_markers(self, content: str) -> str:
+        """Replace content between injection markers with generated code.
+        
+        Args:
+            content: The content containing injection markers
+            
+        Returns:
+            Content with code between markers replaced
+        """
         pattern = r"(# variableLibraryInjectionStart: var_lib\n)(.*?)(# variableLibraryInjectionEnd: var_lib)"
 
         def replace_block(match):
@@ -185,18 +246,46 @@ class VariableLibraryUtils:
             new_content = start_marker + "\n".join(new_lines) + "\n" + end_marker
             return new_content
 
-        if re.search(pattern, content_with_vars, re.DOTALL):
-            updated_content = re.sub(pattern, replace_block, content_with_vars, flags=re.DOTALL)
+        if re.search(pattern, content, re.DOTALL):
+            return re.sub(pattern, replace_block, content, flags=re.DOTALL)
         else:
-            updated_content = content_with_vars
+            return content
 
-        return updated_content
+    def perform_code_replacements(self, content: str, replace_placeholders: bool = True, inject_code: bool = True) -> str:
+        """Replace variable placeholders and/or inject code between markers.
+        
+        This method maintains backward compatibility while allowing separate control
+        over placeholder replacement and code injection.
+        
+        Args:
+            content: The content to process
+            replace_placeholders: Whether to replace {{varlib:...}} placeholders (default: True)
+            inject_code: Whether to inject code between markers (default: True)
+            
+        Returns:
+            Processed content with requested replacements
+        """
+        result = content
+        
+        # 1. Replace variable placeholders if requested
+        if replace_placeholders:
+            result = self.replace_variable_placeholders(result)
+        
+        # 2. Inject code between markers if requested
+        if inject_code:
+            result = self.inject_code_between_markers(result)
+        
+        return result
 
 
 def inject_variables_into_file(
     project_path: Path,
     target_file: Path,
-    environment: str = "local"
+    environment: str = "local",
+    output_dir: Path = None,
+    preserve_structure: bool = True,
+    replace_placeholders: bool = True,
+    inject_code: bool = True
 ) -> None:
     """Convenience function to inject variables into a specific file.
     
@@ -204,6 +293,10 @@ def inject_variables_into_file(
         project_path: Path to the project root
         target_file: Path to the specific file to update
         environment: Environment name for variable library lookup
+        output_dir: Optional directory to save updated files instead of modifying in place
+        preserve_structure: When using output_dir, whether to preserve the directory structure
+        replace_placeholders: Whether to replace {{varlib:...}} placeholders
+        inject_code: Whether to inject code between markers
     """
     varlib_utils = VariableLibraryUtils(project_path, environment)
-    varlib_utils.inject_variables_into_template(target_file)
+    varlib_utils.inject_variables_into_template(target_file, output_dir, preserve_structure, replace_placeholders, inject_code)

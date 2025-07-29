@@ -2,10 +2,11 @@
   "$schema": "https://developer.microsoft.com/json-schemas/fabric/gitIntegration/platformProperties/2.0.0/schema.json",
   "metadata": {
     "type": "Notebook",
-    "displayName": "001_Initial_Creation_Ingestion_Config_Lakehouses_ddl_scripts"
+    "displayName": "Synthetic Data Generation - Retail OLTP - Large",
+    "description": "Generate synthetic data for retail_oltp_large using pyspark"
   },
   "config": {
     "version": "2.0",
-    "logicalId": "743f265e-fd15-43c3-b22f-660cbac82039"
+    "logicalId": "ae8d64a1-0703-431e-a947-09f4fe558759"
   }
 }

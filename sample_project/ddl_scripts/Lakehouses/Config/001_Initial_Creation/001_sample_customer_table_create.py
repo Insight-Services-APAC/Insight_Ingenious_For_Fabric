@@ -11,7 +11,7 @@ schema = StructType(
         StructField("first_name", StringType(), nullable=True),
         StructField("last_name", StringType(), nullable=True),
         StructField("email", StringType(), nullable=True),
-        StructField("created_date", TimestampType(), nullable=True),
+        StructField("created_at", TimestampType(), nullable=True),
         StructField("is_active", BooleanType(), nullable=True)
     ]
 )
@@ -22,5 +22,5 @@ empty_df = target_lakehouse.spark.createDataFrame([], schema)
 # Write the empty DataFrame to create the table
 target_lakehouse.write_to_table(
     df=empty_df,
-    table_name="sample_customers",
-    schema_name="default")
+    table_name="customers",
+    schema_name="sample")

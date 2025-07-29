@@ -47,7 +47,7 @@ import sys
 if "notebookutils" in sys.modules:
     import sys
     
-    notebookutils.fs.mount("abfss://REPLACE_WITH_CONFIG_WORKSPACE_NAME@onelake.dfs.fabric.microsoft.com/config.Lakehouse/Files/", "/config_files")  # type: ignore # noqa: F821
+    notebookutils.fs.mount("abfss://{{varlib:config_workspace_name}}@onelake.dfs.fabric.microsoft.com/{{varlib:config_lakehouse_name}}.Lakehouse/Files/", "/config_files")  # type: ignore # noqa: F821
     mount_path = notebookutils.fs.getMountPath("/config_files")  # type: ignore # noqa: F821
     
     run_mode = "fabric"
@@ -374,11 +374,11 @@ print(markdown_table)
 if failed_count == 0 and exception_count == 0:
     final_message = f"✓ All {success_count} lakehouses processed successfully!"
     print(f"\n{final_message}")
-    notebookutils.exit_notebook(final_message)
+    notebookutils.notebook.exit(final_message)
 else:
     final_message = f"Completed with {failed_count + exception_count} failures out of 2 lakehouses"
     print(f"\n✗ {final_message}")
-    notebookutils.exit_notebook(final_message)
+    notebookutils.notebook.exit(final_message)
     raise Exception(final_message)
 
 # METADATA ********************

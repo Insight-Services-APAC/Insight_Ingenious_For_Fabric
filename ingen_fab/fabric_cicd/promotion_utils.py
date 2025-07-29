@@ -109,7 +109,7 @@ class SyncToFabricEnvironment:
         return hasher.hexdigest()
 
     def find_platform_folders(
-        self, base_path: Path
+        self, base_path: Path, adjust_paths: bool = False
     ) -> list[SyncToFabricEnvironment.manifest_item]:
         """Find all folders containing platform files and calculate their hashes."""
         platform_folders: list[SyncToFabricEnvironment.manifest_item] = []
@@ -127,10 +127,25 @@ class SyncToFabricEnvironment:
                         # Get the name from the platform file
                         display_name = platform_json.get("metadata").get("displayName")
                         item_type = platform_json.get("metadata").get("type")
+                        # Normalize path to be relative to fabric_workspace_items for consistent comparison
+                        # This handles both original and output directory paths
+                        if adjust_paths: # Paths are adjusted for manifest files during publishing
+                            if "output" in str(folder):
+                                # For output directory, convert back to fabric_workspace_items relative path
+                                relative_path = folder.relative_to(Path("./output"))
+                                normalized_path = f"fabric_workspace_items/{relative_path}"
+                            else:
+                                # For original directory, make it relative to project path
+                                relative_path = folder.relative_to(self.project_path)
+                                normalized_path = str(relative_path)
+                        else:
+                            # For original directory, make it relative to project path
+                            normalized_path = folder
+                        
                         platform_folders.append(
                             SyncToFabricEnvironment.manifest_item(
                                 name=f"{display_name}.{item_type}",
-                                path=str(folder),
+                                path=normalized_path,
                                 hash=folder_hash,
                                 status="new",  # Default status for new folders
                                 environment=self.environment,
@@ -262,19 +277,64 @@ class SyncToFabricEnvironment:
         # Get the target workspace ID from the variables
         self.target_workspace_id = vlu.get_workspace_id()
 
-        ConsoleStyles.print_info(self.console, "Injecting variables into template...")
-        vlu.inject_variables_into_template()
+        # Copy files from fabric_workspace_items to output directory
+        source_dir = self.project_path / "fabric_workspace_items"
+        output_dir = Path("./output")
+        
+        if source_dir.exists():
+            # Remove existing output directory if it exists
+            if output_dir.exists():
+                shutil.rmtree(output_dir)
+            
+            # Copy entire directory tree
+            shutil.copytree(source_dir, output_dir)
+            ConsoleStyles.print_success(self.console, f"Copied workspace items to {output_dir}")
+        else:
+            ConsoleStyles.print_warning(self.console, f"Source directory {source_dir} does not exist")
+            return
 
-        # 2) Find folders with platform files and generate hashes
-        fabric_items_path = self.project_path / "fabric_workspace_items"
-        # Before publishig remove all __pycache__ folders
+        # Inject variables into template files in the OUTPUT directory
+        ConsoleStyles.print_info(self.console, "Injecting variables into template...")
+        
+        # Create a new VariableLibraryUtils instance that will process files in the output directory
+        output_vlu = VariableLibraryUtils(
+            project_path=self.project_path,  # Still use original project path for variable library lookup
+            environment=self.environment,
+        )
+        
+        # Process all notebook-content.py files in the output directory
+        updated_count = 0
+        for notebook_file in output_dir.rglob("notebook-content.py"):
+            with open(notebook_file, "r", encoding="utf-8") as f:
+                content = f.read()
+            
+            # Perform variable substitution (replace placeholders) and code injection
+            updated_content = output_vlu.perform_code_replacements(
+                content, 
+                replace_placeholders=True,  # Replace {{varlib:...}} placeholders during deployment
+                inject_code=True           # Also inject code between markers
+            )
+            
+            if updated_content != content:
+                with open(notebook_file, "w", encoding="utf-8") as f:
+                    f.write(updated_content)
+                updated_count += 1
+        
+        if updated_count > 0:
+            ConsoleStyles.print_success(self.console, f"Updated {updated_count} notebook files with variable substitution")
+        else:
+            ConsoleStyles.print_info(self.console, "No notebook files needed variable substitution")
+
+        # 2) Find folders with platform files and generate hashes - SCAN THE OUTPUT DIRECTORY
+        fabric_items_path = output_dir  # Changed: scan the output directory, not the original
+        # Before publishing remove all __pycache__ folders from OUTPUT directory
         for pycache in fabric_items_path.rglob("__pycache__"):
             if pycache.is_dir():
                 ConsoleStyles.print_dim(self.console, f"Removing __pycache__ folder: {pycache}")
                 shutil.rmtree(pycache)
         ConsoleStyles.print_info(self.console, f"\nScanning for platform folders in: {fabric_items_path}")
 
-        platform_folders = self.find_platform_folders(fabric_items_path)
+        platform_folders = self.find_platform_folders(fabric_items_path, adjust_paths=True)
         manifest_path = Path(
             f"{self.project_path}/platform_manifest_{self.environment}.yml"
         )
@@ -322,9 +382,7 @@ class SyncToFabricEnvironment:
                 try:
                     fw = FabricWorkspace(
                         workspace_id=self.target_workspace_id,
-                        repository_directory=str(
-                            self.project_path / "fabric_workspace_items"
-                        ),
+                        repository_directory=str(output_dir),  # Changed: publish from output directory
                         item_type_in_scope=[
                             "VariableLibrary",
                             "DataPipeline",

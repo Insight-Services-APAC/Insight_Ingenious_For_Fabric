@@ -44,7 +44,7 @@ import sys
 if "notebookutils" in sys.modules:
     import sys
     
-    notebookutils.fs.mount("abfss://{{varlib:config_workspace_name}}@onelake.dfs.fabric.microsoft.com/{{varlib:config_lakehouse_name}}.Lakehouse/Files/", "/config_files")  # type: ignore # noqa: F821
+    notebookutils.fs.mount("abfss://metcash_demo@onelake.dfs.fabric.microsoft.com/config.Lakehouse/Files/", "/config_files")  # type: ignore # noqa: F821
     mount_path = notebookutils.fs.getMountPath("/config_files")  # type: ignore # noqa: F821
     
     run_mode = "fabric"
@@ -171,7 +171,7 @@ else:
 
 
 # Dataset Configuration
-dataset_config = {"chunk_size": 1000000, "dataset_id": "retail_star_large", "dataset_name": "Retail Star Schema - Large", "dataset_type": "analytical", "description": "Large retail data warehouse with multiple fact tables", "dimensions": ["dim_customer", "dim_product", "dim_date", "dim_store", "dim_supplier"], "domain": "retail", "fact_tables": ["fact_sales", "fact_inventory"], "schema_pattern": "star_schema", "seed_value": None, "target_rows": 10000000}
+dataset_config = {"chunk_size": 1000000, "dataset_id": "retail_oltp_large", "dataset_name": "Retail OLTP - Large", "dataset_type": "transactional", "description": "Large-scale retail transactional system", "domain": "retail", "partitioning": "date", "relationships": "normalized", "schema_pattern": "oltp", "seed_value": None, "tables": ["customers", "products", "orders", "order_items"], "target_rows": 10000000}
 generation_mode = "pyspark"
 target_rows = 10000000
 chunk_size = 1000000
@@ -179,6 +179,35 @@ seed_value = None
 output_mode = "parquet"  # "table" or "parquet"
 
 # variableLibraryInjectionStart: var_lib
+
+# All variables as a dictionary
+configs_dict = {'fabric_environment': 'development', 'fabric_deployment_workspace_id': '544530ea-a8c9-4464-8878-f666d2a8f418', 'config_workspace_name': 'metcash_demo', 'config_workspace_id': '544530ea-a8c9-4464-8878-f666d2a8f418', 'config_wh_workspace_id': '544530ea-a8c9-4464-8878-f666d2a8f418', 'config_lakehouse_name': 'config', 'config_lakehouse_id': '514ebe8f-2bf9-4a31-88f7-13d84706431c', 'config_wh_warehouse_name': 'config_wh', 'config_wh_warehouse_id': '51226772-4e8f-4034-9cd2-1afd020d2773', 'sample_lakehouse_name': 'sample', 'sample_lakehouse_id': 'REPLACE_WITH_SAMPLE_LAKEHOUSE_GUID', 'sample_wh_workspace_id': 'REPLACE_WITH_SAMPLE_WH_WORKSPACE_GUID', 'sample_wh_warehouse_name': 'sample_wh', 'sample_wh_warehouse_id': 'REPLACE_WITH_SAMPLE_WAREHOUSE_GUID', 'raw_workspace_id': '544530ea-a8c9-4464-8878-f666d2a8f418', 'raw_datastore_id': 'REPLACE_WITH_RAW_DATASTORE_GUID', 'edw_workspace_id': '544530ea-a8c9-4464-8878-f666d2a8f418', 'edw_lakehouse_name': 'edw', 'edw_lakehouse_id': 'REPLACE_WITH_EDW_LAKEHOUSE_GUID', 'edw_warehouse_name': 'edw', 'edw_warehouse_id': 'REPLACE_WITH_EDW_WAREHOUSE_GUID'}
+# All variables as an object
+from dataclasses import dataclass
+@dataclass
+class ConfigsObject:
+    fabric_environment: str 
+    fabric_deployment_workspace_id: str 
+    config_workspace_name: str 
+    config_workspace_id: str 
+    config_wh_workspace_id: str 
+    config_lakehouse_name: str 
+    config_lakehouse_id: str 
+    config_wh_warehouse_name: str 
+    config_wh_warehouse_id: str 
+    sample_lakehouse_name: str 
+    sample_lakehouse_id: str 
+    sample_wh_workspace_id: str 
+    sample_wh_warehouse_name: str 
+    sample_wh_warehouse_id: str 
+    raw_workspace_id: str 
+    raw_datastore_id: str 
+    edw_workspace_id: str 
+    edw_lakehouse_name: str 
+    edw_lakehouse_id: str 
+    edw_warehouse_name: str 
+    edw_warehouse_id: str 
+configs_object: ConfigsObject = ConfigsObject(**configs_dict)
 # variableLibraryInjectionEnd: var_lib
 
 
@@ -240,62 +269,49 @@ print(f"🔧 Generation mode: {generation_mode}")
 print(f"🌱 Seed value: {seed_value}")
 
 
-# Generate Star Schema (Analytical) Dataset
-print("⭐ Generating Star Schema dataset...")
+# Generate OLTP (Transactional) Dataset
+print("📋 Generating OLTP dataset...")
 
-# Calculate dimension sizes
-customer_count = max(10000, target_rows // 100)
-product_count = max(1000, target_rows // 1000)
-store_count = max(100, target_rows // 10000)
-
-print(f"📊 Fact table rows: {target_rows:,}")
-print(f"👥 Customer dimension: {customer_count:,}")
-print(f"📦 Product dimension: {product_count:,}")
-print(f"🏪 Store dimension: {store_count:,}")
-
-# Generate complete star schema
-if target_rows > 100000000:  # 100M+ rows
-    print("🚀 Using chunked generation for large dataset...")
-    fact_df = dataset_builder.build_billion_row_fact_table(
-        target_rows=target_rows,
-        chunk_size=chunk_size
-    )
+# Calculate appropriate table sizes based on target rows
+if target_rows <= 100000:
+    # Small dataset
+    customers_count = max(1000, target_rows // 50)
+    products_count = max(100, target_rows // 100)
+    orders_count = target_rows // 5
 else:
-    star_schema = dataset_builder.build_complete_star_schema(
-        fact_rows=target_rows,
-        customer_count=customer_count,
-        product_count=product_count,
-        store_count=store_count
-    )
-    
-    # Save dimensions using lakehouse_utils
-    if output_mode == "parquet":
-        dataset_dir = f"synthetic_data/{dataset_config['dataset_id']}"
-        for table_name, df in star_schema.items():
-            if table_name.startswith('dim_'):
-                lh_utils.write_file(df, f"{dataset_dir}/{table_name}", "parquet", {"mode": "overwrite"})
-    else:
-        for table_name, df in star_schema.items():
-            if table_name.startswith('dim_'):
-                lh_utils.write_to_table(df, f"retail_star_large_{table_name}", mode="overwrite")
-    
-    fact_df = star_schema['fact_sales']
+    # Large dataset
+    customers_count = max(10000, target_rows // 500)
+    products_count = max(1000, target_rows // 1000)
+    orders_count = target_rows // 10
 
-# Save fact table
-print("💾 Saving fact table...")
+print(f"👥 Customers: {customers_count:,}")
+print(f"📦 Products: {products_count:,}")
+print(f"🛒 Orders: {orders_count:,}")
+
+# Generate tables
+customers_df = generator.generate_customers_table(customers_count)
+products_df = generator.generate_products_table(products_count)
+orders_df = generator.generate_orders_table(orders_count, customers_count)
+
+# Save data using lakehouse_utils
 if output_mode == "parquet":
+    print("💾 Saving to Parquet files...")
+    # Create dataset directory structure
     dataset_dir = f"synthetic_data/{dataset_config['dataset_id']}"
-    # For large datasets, we can still use partitioning with parquet
-    if target_rows > 10000000:  # 10M+ rows
-        # Write with partitioning by date for better organization
-        fact_df.write.partitionBy("sale_date").mode("overwrite").parquet(f"{lh_utils.lakehouse_files_uri()}{dataset_dir}/fact_sales")
-    else:
-        lh_utils.write_file(fact_df, f"{dataset_dir}/fact_sales", "parquet", {"mode": "overwrite"})
+    
+    # Write to parquet files
+    lh_utils.write_file(customers_df, f"{dataset_dir}/customers", "parquet", {"mode": "overwrite"})
+    lh_utils.write_file(products_df, f"{dataset_dir}/products", "parquet", {"mode": "overwrite"})
+    lh_utils.write_file(orders_df, f"{dataset_dir}/orders", "parquet", {"mode": "overwrite"})
+    
     print(f"📁 Data saved to Files/{dataset_dir}/")
 else:
-    lh_utils.write_to_table(fact_df, "retail_star_large_fact_sales", mode="overwrite")
+    print("💾 Saving to Delta tables...")
+    lh_utils.write_to_table(customers_df, "retail_oltp_large_customers", mode="overwrite")
+    lh_utils.write_to_table(products_df, "retail_oltp_large_products", mode="overwrite")
+    lh_utils.write_to_table(orders_df, "retail_oltp_large_orders", mode="overwrite")
 
-print("✅ Star Schema dataset generation completed!")
+print("✅ OLTP dataset generation completed!")
 
 
 
@@ -354,7 +370,7 @@ else:
     # Get list of generated tables
     generated_tables = []
     for table in lh_utils.list_tables():
-        if table.startswith("retail_star_large"):
+        if table.startswith("retail_oltp_large"):
             generated_tables.append(table)
 
     print(f"📋 Generated tables: {generated_tables}")

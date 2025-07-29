@@ -14,7 +14,12 @@ from ingen_fab.python_libs.python.warehouse_utils import warehouse_utils
 class ddl_utils:
     """Run DDL scripts once and track execution in a warehouse table."""
 
-    def __init__(self, target_workspace_id: str, target_warehouse_id: str, notebookutils: Optional[Any] = None) -> None:
+    def __init__(
+        self,
+        target_workspace_id: str,
+        target_warehouse_id: str,
+        notebookutils: Optional[Any] = None,
+    ) -> None:
         super().__init__(
             target_datastore_id=target_warehouse_id,
             target_workspace_id=target_workspace_id,
@@ -26,7 +31,7 @@ class ddl_utils:
         self.warehouse_utils = warehouse_utils(
             target_workspace_id=target_workspace_id,
             target_warehouse_id=target_warehouse_id,
-            notebookutils=notebookutils
+            notebookutils=notebookutils,
         )
         # Use the same notebook utils instance as warehouse_utils
         self.notebook_utils = self.warehouse_utils.notebook_utils
@@ -39,18 +44,22 @@ class ddl_utils:
 
     def print_log(self):
         conn = self.warehouse_utils.get_connection()
-        query = self.sql.render("read_table", 
-                               schema_name=self.execution_log_table_schema,
-                               table_name=self.execution_log_table_name)
+        query = self.sql.render(
+            "read_table",
+            schema_name=self.execution_log_table_schema,
+            table_name=self.execution_log_table_name,
+        )
         df = self.warehouse_utils.execute_query(conn=conn, query=query)
         self.notebook_utils.display(df)
 
     def check_if_script_has_run(self, script_id) -> bool:
         conn = self.warehouse_utils.get_connection()
-        query = self.sql.render("check_script_executed",
-                               schema_name=self.execution_log_table_schema,
-                               table_name=self.execution_log_table_name,
-                               script_id=script_id)
+        query = self.sql.render(
+            "check_script_executed",
+            schema_name=self.execution_log_table_schema,
+            table_name=self.execution_log_table_name,
+            script_id=script_id,
+        )
         df = self.warehouse_utils.execute_query(conn=conn, query=query)
         if df is not None and not df.empty:
             if int(df.iloc[0, 0]) > 0:
@@ -59,7 +68,7 @@ class ddl_utils:
                 return False
         else:
             return False
-        
+
     def print_skipped_script_execution(self, guid, object_name):
         print(
             f"skipping {guid}:{object_name} as the script has already run on workspace_id:"
@@ -69,13 +78,15 @@ class ddl_utils:
     def write_to_execution_log(self, object_guid, object_name, script_status):
         conn = self.warehouse_utils.get_connection()
         current_timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-        insert_query = self.sql.render("insert_ddl_log",
-                                      schema_name=self.execution_log_table_schema,
-                                      table_name=self.execution_log_table_name,
-                                      script_id=object_guid,
-                                      script_name=object_name,
-                                      execution_status=script_status,
-                                      update_date=current_timestamp)
+        insert_query = self.sql.render(
+            "insert_ddl_log",
+            schema_name=self.execution_log_table_schema,
+            table_name=self.execution_log_table_name,
+            script_id=object_guid,
+            script_name=object_name,
+            execution_status=script_status,
+            update_date=current_timestamp,
+        )
         self.warehouse_utils.execute_query(conn=conn, query=insert_query)
 
     def run_once(self, work_fn: callable, object_name: str, guid: str):
@@ -107,7 +118,9 @@ class ddl_utils:
                 )
                 logger.info(f"Successfully executed work_fn for guid={guid}")
             except Exception as e:
-                error_message = f"Error in work_fn for {guid}: {e}\n{traceback.format_exc()}"
+                error_message = (
+                    f"Error in work_fn for {guid}: {e}\n{traceback.format_exc()}"
+                )
                 logger.error(error_message)
 
                 self.write_to_execution_log(
@@ -115,6 +128,7 @@ class ddl_utils:
                 )
                 # Print the error message to stderr and raise a RuntimeError
                 import sys
+
                 print(error_message, file=sys.stderr)
                 raise RuntimeError(error_message) from e
         else:
@@ -138,9 +152,11 @@ class ddl_utils:
                     schema_name=self.execution_log_table_schema
                 )
                 # Create the table using SQL template
-                create_table_query = self.sql.render("create_ddl_log_table",
-                                                    schema_name=self.execution_log_table_schema,
-                                                    table_name=self.execution_log_table_name)
+                create_table_query = self.sql.render(
+                    "create_ddl_log_table",
+                    schema_name=self.execution_log_table_schema,
+                    table_name=self.execution_log_table_name,
+                )
                 self.warehouse_utils.execute_query(conn=conn, query=create_table_query)
                 self.write_to_execution_log(
                     object_guid=guid, object_name=object_name, script_status="Success"

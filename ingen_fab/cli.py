@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import os
 from pathlib import Path
+from typing import Optional
 
 import lazy_import
 import typer
@@ -420,8 +421,22 @@ def scan_notebook_blocks(
 
 
 @notebook_app.command()
-def perform_code_replacements(ctx: typer.Context):
-    deploy_commands.perform_code_replacements(ctx)
+def perform_code_replacements(
+    ctx: typer.Context,
+    output_dir: Optional[Path] = typer.Option(
+        None,
+        "--output-dir",
+        "-o",
+        help="Directory to save updated files instead of modifying in place.",
+    ),
+    no_preserve_structure: bool = typer.Option(
+        False,
+        "--no-preserve-structure",
+        help="When using --output-dir, don't preserve the directory structure (save all files to the root of output directory).",
+    ),
+):
+    """Inject code between markers in notebook files (modifies files in place by default)."""
+    deploy_commands.perform_code_replacements(ctx, output_dir=output_dir, preserve_structure=not no_preserve_structure)
 
 
 # Package commands

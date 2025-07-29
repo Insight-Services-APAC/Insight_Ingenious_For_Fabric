@@ -216,11 +216,11 @@ print(markdown_table)
 if failed_count == 0 and exception_count == 0:
     final_message = f"✓ All {success_count} lakehouses processed successfully!"
     print(f"\n{final_message}")
-    notebookutils.exit_notebook(final_message)
+    notebookutils.notebook.exit(final_message)
 else:
     final_message = f"Completed with {failed_count + exception_count} failures out of {{ total_lakehouses }} lakehouses"
     print(f"\n✗ {final_message}")
-    notebookutils.exit_notebook(final_message)
+    notebookutils.notebook.exit(final_message)
     raise Exception(final_message)
 
 {%include "shared/notebook/cells/footer.py.jinja" %}
