@@ -18,7 +18,7 @@
 
 # Default parameters
 config_id = ""
-execution_group = 1
+execution_group = None
 environment = "development"
 
 {{ macros.pyspark_cell_with_heading("## 📄 Flat File Ingestion Notebook") }}
@@ -72,6 +72,17 @@ class FlatFileIngestionConfig:
         self.date_format = config_row.get("date_format", "yyyy-MM-dd")
         self.timestamp_format = config_row.get("timestamp_format", "yyyy-MM-dd HH:mm:ss")
         self.schema_inference = config_row.get("schema_inference", True)
+        # Advanced CSV handling options
+        self.quote_character = config_row.get("quote_character", '"')
+        self.escape_character = config_row.get("escape_character", "\\")
+        self.multiline_values = config_row.get("multiline_values", True)
+        self.ignore_leading_whitespace = config_row.get("ignore_leading_whitespace", False)
+        self.ignore_trailing_whitespace = config_row.get("ignore_trailing_whitespace", False)
+        self.null_value = config_row.get("null_value", "")
+        self.empty_value = config_row.get("empty_value", "")
+        self.comment_character = config_row.get("comment_character", None)
+        self.max_columns = config_row.get("max_columns", 20480)
+        self.max_chars_per_column = config_row.get("max_chars_per_column", -1)
         self.custom_schema_json = config_row.get("custom_schema_json")
         self.partition_columns = config_row.get("partition_columns", "").split(",") if config_row.get("partition_columns") else []
         self.sort_columns = config_row.get("sort_columns", "").split(",") if config_row.get("sort_columns") else []
@@ -103,10 +114,14 @@ config_df = config_lakehouse.read_table("config_flat_file_ingestion").toPandas()
 if config_id:
     config_df = config_df[config_df["config_id"] == config_id]
 else:
-    config_df = config_df[
-        (config_df["execution_group"] == execution_group) & 
-        (config_df["active_yn"] == "Y")
-    ]
+    # If execution_group is not set or is empty, process all execution groups
+    if execution_group and str(execution_group).strip():
+        config_df = config_df[
+            (config_df["execution_group"] == execution_group) & 
+            (config_df["active_yn"] == "Y")
+        ]
+    else:
+        config_df = config_df[config_df["active_yn"] == "Y"]
 
 if config_df.empty:
     raise ValueError(f"No active configurations found for config_id: {config_id}, execution_group: {execution_group}")
@@ -132,12 +147,36 @@ class FlatFileProcessor:
         options = {}
         
         if config.source_file_format.lower() == "csv":
+            # Basic CSV options
             options["header"] = config.has_header
             options["delimiter"] = config.file_delimiter
             options["encoding"] = config.encoding
             options["inferSchema"] = config.schema_inference
             options["dateFormat"] = config.date_format
             options["timestampFormat"] = config.timestamp_format
+            
+            # Advanced CSV options for handling complex scenarios
+            options["quote"] = config.quote_character
+            options["escape"] = config.escape_character
+            options["multiLine"] = config.multiline_values  # Allows newlines within quoted fields
+            options["ignoreLeadingWhiteSpace"] = config.ignore_leading_whitespace
+            options["ignoreTrailingWhiteSpace"] = config.ignore_trailing_whitespace
+            options["nullValue"] = config.null_value
+            options["emptyValue"] = config.empty_value
+            
+            # Handle comment character (only if specified)
+            if config.comment_character:
+                options["comment"] = config.comment_character
+            
+            # Set column and character limits for safety
+            options["maxColumns"] = config.max_columns
+            if config.max_chars_per_column > 0:
+                options["maxCharsPerColumn"] = config.max_chars_per_column
+            
+            # Additional safety options for complex CSV files
+            options["unescapedQuoteHandling"] = "STOP_AT_DELIMITER"  # Handle unescaped quotes safely
+            options["enforceSchema"] = False  # Allow flexible schema when inferring
+            options["columnNameOfCorruptRecord"] = "_corrupt_record"  # Track corrupt records
             
         elif config.source_file_format.lower() == "json":
             options["dateFormat"] = config.date_format
@@ -157,15 +196,34 @@ class FlatFileProcessor:
             options=options
         )
         
+        # For CSV files with complex parsing, check for corrupt records
+        corrupt_records_count = 0
+        if config.source_file_format.lower() == "csv" and "_corrupt_record" in df.columns:
+            corrupt_records_count = df.filter(col("_corrupt_record").isNotNull()).count()
+            if corrupt_records_count > 0:
+                print(f"⚠️ Warning: Found {corrupt_records_count} corrupt records in CSV file")
+                if config.error_handling_strategy == "fail":
+                    # Show a sample of corrupt records for debugging
+                    corrupt_sample = df.filter(col("_corrupt_record").isNotNull()).select("_corrupt_record").limit(5)
+                    print("Sample corrupt records:")
+                    corrupt_sample.show(truncate=False)
+                    raise ValueError(f"CSV parsing failed with {corrupt_records_count} corrupt records")
+                elif config.error_handling_strategy == "log":
+                    print("Continuing with corrupt records logged...")
+                else:  # skip corrupt records
+                    df = df.filter(col("_corrupt_record").isNull()).drop("_corrupt_record")
+                    print(f"Skipped {corrupt_records_count} corrupt records")
+        
         # Calculate read duration
         read_duration_ms = int((time.time() - read_start) * 1000)
         
-        # Get source row count
+        # Get source row count (after filtering corrupt records if applicable)
         source_row_count = df.count()
         
         read_stats = {
             "data_read_duration_ms": read_duration_ms,
-            "source_row_count": source_row_count
+            "source_row_count": source_row_count,
+            "corrupt_records_count": corrupt_records_count
         }
         
         return df, read_stats
@@ -190,6 +248,137 @@ class FlatFileProcessor:
             else:  # skip
                 return df.limit(0)
     
+    def perform_merge(self, df: DataFrame, config: FlatFileIngestionConfig, target_lakehouse: Any, full_table_name: str) -> Dict[str, Any]:
+        """Perform merge operation using Delta merge"""
+        from delta.tables import DeltaTable
+        
+        # Build the table path using lakehouse_utils abstraction
+        table_path = f"{target_lakehouse.lakehouse_tables_uri()}{full_table_name}"
+        
+        # Check if table exists by trying to read it
+        table_exists = False
+        try:
+            target_lakehouse.read_table(full_table_name)
+            table_exists = True
+        except:
+            pass
+        
+        if not table_exists:
+            # First load - create table
+            target_lakehouse.write_to_table(
+                df=df,
+                table_name=full_table_name,
+                mode="overwrite",
+                options={"partitionBy": config.partition_columns} if config.partition_columns else {}
+            )
+            return {"matched": 0, "inserted": df.count(), "updated": 0}
+        
+        # Build merge condition
+        if not config.merge_keys:
+            raise ValueError(f"Merge keys must be specified for merge write mode in config: {config.config_id}")
+        
+        merge_conditions = " AND ".join([
+            f"target.{key.strip()} = source.{key.strip()}" 
+            for key in config.merge_keys if key.strip()
+        ])
+        
+        # Get the Delta table reference
+        deltaTable = DeltaTable.forPath(self.spark, table_path)
+        
+        # Perform merge
+        merge_builder = deltaTable.alias("target").merge(
+            df.alias("source"),
+            merge_conditions
+        )
+        
+        # Update all columns when matched
+        merge_builder = merge_builder.whenMatchedUpdateAll()
+        
+        # Insert all columns when not matched
+        merge_builder = merge_builder.whenNotMatchedInsertAll()
+        
+        # Execute merge and get metrics
+        merge_builder.execute()
+        
+        # Get merge metrics from Delta history
+        history_df = deltaTable.history(1)
+        operation_metrics = history_df.select("operationMetrics").collect()[0][0]
+        
+        return {
+            "matched": operation_metrics.get("numTargetRowsMatched", 0),
+            "inserted": operation_metrics.get("numTargetRowsInserted", 0),
+            "updated": operation_metrics.get("numTargetRowsUpdated", 0)
+        }
+    
+    def perform_partition_swap(self, df: DataFrame, config: FlatFileIngestionConfig, target_lakehouse: Any, full_table_name: str) -> Dict[str, Any]:
+        """Perform partition swap operation - replace entire partitions atomically"""
+        
+        if not config.partition_columns:
+            raise ValueError(f"Partition columns must be specified for partition_swap write mode in config: {config.config_id}")
+        
+        # Build the table path using lakehouse_utils abstraction
+        table_path = f"{target_lakehouse.lakehouse_tables_uri()}{full_table_name}"
+        
+        # Check if table exists by trying to read it
+        table_exists = False
+        try:
+            target_lakehouse.read_table(full_table_name)
+            table_exists = True
+        except:
+            pass
+        
+        if not table_exists:
+            # First load - create partitioned table
+            target_lakehouse.write_to_table(
+                df=df,
+                table_name=full_table_name,
+                mode="overwrite",
+                options={"partitionBy": config.partition_columns}
+            )
+            return {"partitions_affected": 0, "rows_deleted": 0, "rows_inserted": df.count()}
+        
+        # Get unique partition values from source data
+        partition_cols = [col.strip() for col in config.partition_columns if col.strip()]
+        partition_df = df.select(*partition_cols).distinct()
+        partition_values = partition_df.collect()
+        
+        rows_deleted = 0
+        partitions_affected = len(partition_values)
+        
+        # Delete matching partitions from target table
+        for row in partition_values:
+            conditions = []
+            for col in partition_cols:
+                value = row[col]
+                if value is None:
+                    conditions.append(f"{col} IS NULL")
+                elif isinstance(value, str):
+                    conditions.append(f"{col} = '{value}'")
+                else:
+                    conditions.append(f"{col} = {value}")
+            
+            delete_condition = " AND ".join(conditions)
+            
+            # Count rows before deletion
+            count_before = self.spark.sql(f"SELECT COUNT(*) FROM {full_table_name} WHERE {delete_condition}").collect()[0][0]
+            rows_deleted += count_before
+            
+            # Delete the partition
+            self.spark.sql(f"DELETE FROM {full_table_name} WHERE {delete_condition}")
+        
+        # Append new data for the affected partitions
+        target_lakehouse.write_to_table(
+            df=df,
+            table_name=full_table_name,
+            mode="append"
+        )
+        
+        return {
+            "partitions_affected": partitions_affected,
+            "rows_deleted": rows_deleted,
+            "rows_inserted": df.count()
+        }
+    
     def write_data(self, df: DataFrame, config: FlatFileIngestionConfig, target_lakehouse: Any, source_row_count: int) -> Dict[str, Any]:
         """Write data to target table using lakehouse_utils abstraction"""
         
@@ -202,8 +391,10 @@ class FlatFileProcessor:
         try:
             target_df_before = target_lakehouse.read_table(full_table_name)
             target_count_before = target_df_before.count()
+            table_exists = True
         except:
             target_count_before = 0  # Table doesn't exist yet
+            table_exists = False
         
         # Add metadata columns for traceability
         df_with_metadata = df.withColumn("_ingestion_timestamp", current_timestamp()) \
@@ -212,49 +403,92 @@ class FlatFileProcessor:
         
         staging_row_count = df_with_metadata.count()
         
-        # Handle different write modes using lakehouse_utils
-        write_options = {}
-        if config.partition_columns:
-            write_options["partitionBy"] = config.partition_columns
+        # Handle different write modes
+        if config.write_mode == "merge":
+            # Perform merge operation
+            merge_stats = self.perform_merge(df_with_metadata, config, target_lakehouse, full_table_name)
+            
+            # Get target count after merge
+            target_df_after = target_lakehouse.read_table(full_table_name)
+            target_count_after = target_df_after.count()
+            
+            write_stats = {
+                "records_processed": target_count_after,
+                "records_inserted": merge_stats["inserted"],
+                "records_updated": merge_stats["updated"],
+                "records_deleted": 0,
+                "records_matched": merge_stats["matched"],
+                "staging_row_count": staging_row_count,
+                "target_row_count_before": target_count_before,
+                "target_row_count_after": target_count_after,
+                "write_mode_details": merge_stats
+            }
+            
+        elif config.write_mode == "partition_swap":
+            # Perform partition swap operation
+            swap_stats = self.perform_partition_swap(df_with_metadata, config, target_lakehouse, full_table_name)
+            
+            # Get target count after swap
+            target_df_after = target_lakehouse.read_table(full_table_name)
+            target_count_after = target_df_after.count()
+            
+            write_stats = {
+                "records_processed": target_count_after,
+                "records_inserted": swap_stats["rows_inserted"],
+                "records_updated": 0,
+                "records_deleted": swap_stats["rows_deleted"],
+                "partitions_affected": swap_stats["partitions_affected"],
+                "staging_row_count": staging_row_count,
+                "target_row_count_before": target_count_before,
+                "target_row_count_after": target_count_after,
+                "write_mode_details": swap_stats
+            }
+            
+        else:
+            # Standard overwrite/append modes using lakehouse_utils
+            write_options = {}
+            if config.partition_columns:
+                write_options["partitionBy"] = config.partition_columns
+            
+            target_lakehouse.write_to_table(
+                df=df_with_metadata,
+                table_name=full_table_name,
+                mode=config.write_mode,
+                options=write_options
+            )
+            
+            # Get target count after write
+            target_df_after = target_lakehouse.read_table(full_table_name)
+            target_count_after = target_df_after.count()
+            
+            # Calculate actual records inserted/updated
+            if config.write_mode == "overwrite":
+                records_inserted = target_count_after
+                records_updated = 0
+                records_deleted = target_count_before
+            elif config.write_mode == "append":
+                records_inserted = target_count_after - target_count_before
+                records_updated = 0
+                records_deleted = 0
+            else:
+                # Unknown mode - default behavior
+                records_inserted = max(0, target_count_after - target_count_before)
+                records_updated = 0
+                records_deleted = 0
+            
+            write_stats = {
+                "records_processed": target_count_after,
+                "records_inserted": records_inserted,
+                "records_updated": records_updated,
+                "records_deleted": records_deleted,
+                "staging_row_count": staging_row_count,
+                "target_row_count_before": target_count_before,
+                "target_row_count_after": target_count_after
+            }
         
-        # Use the abstracted write_to_table method
-        target_lakehouse.write_to_table(
-            df=df_with_metadata,
-            table_name=full_table_name,
-            mode=config.write_mode,
-            options=write_options
-        )
-        
+        # Calculate write duration
         write_duration_ms = int((time.time() - write_start) * 1000)
-        
-        # Get target row count after write
-        target_df_after = target_lakehouse.read_table(full_table_name)
-        target_count_after = target_df_after.count()
-        
-        # Calculate actual records inserted/updated
-        if config.write_mode == "overwrite":
-            records_inserted = target_count_after
-            records_updated = 0
-            records_deleted = target_count_before
-        elif config.write_mode == "append":
-            records_inserted = target_count_after - target_count_before
-            records_updated = 0
-            records_deleted = 0
-        else:  # merge or other modes
-            records_inserted = max(0, target_count_after - target_count_before)
-            records_updated = min(staging_row_count, target_count_before)
-            records_deleted = 0
-        
-        write_stats = {
-            "records_processed": target_count_after,
-            "records_inserted": records_inserted,
-            "records_updated": records_updated,
-            "records_deleted": records_deleted,
-            "staging_row_count": staging_row_count,
-            "target_row_count_before": target_count_before,
-            "target_row_count_after": target_count_after,
-            "staging_write_duration_ms": write_duration_ms
-        }
+        write_stats["staging_write_duration_ms"] = write_duration_ms
         
         return write_stats
 
@@ -437,16 +671,31 @@ for _, config_row in config_df.iterrows():
         print(f"Records processed: {write_stats['records_processed']}")
         print(f"Records inserted: {write_stats['records_inserted']}")
         print(f"Records updated: {write_stats['records_updated']}")
+        if write_stats.get('records_deleted', 0) > 0:
+            print(f"Records deleted: {write_stats['records_deleted']}")
+        if config.write_mode == "merge" and 'records_matched' in write_stats:
+            print(f"Records matched: {write_stats['records_matched']}")
+        if config.write_mode == "partition_swap" and 'partitions_affected' in write_stats:
+            print(f"Partitions affected: {write_stats['partitions_affected']}")
         print(f"Source rows: {read_stats['source_row_count']}")
         print(f"Target rows before: {write_stats['target_row_count_before']}")
         print(f"Target rows after: {write_stats['target_row_count_after']}")
         
-        # Check reconciliation
+        # Check reconciliation based on write mode
         recon_status = "matched"
         if config.write_mode == "overwrite" and read_stats['source_row_count'] != write_stats['target_row_count_after']:
             recon_status = "mismatched"
         elif config.write_mode == "append" and read_stats['source_row_count'] != (write_stats['target_row_count_after'] - write_stats['target_row_count_before']):
             recon_status = "mismatched"
+        elif config.write_mode == "merge":
+            # For merge, check if all source rows were processed (either matched or inserted)
+            total_processed = write_stats.get('records_matched', 0) + write_stats.get('records_inserted', 0)
+            if read_stats['source_row_count'] != total_processed:
+                recon_status = "mismatched"
+        elif config.write_mode == "partition_swap":
+            # For partition swap, check if all source rows were inserted
+            if read_stats['source_row_count'] != write_stats.get('records_inserted', 0):
+                recon_status = "mismatched"
         print(f"Row count reconciliation: {recon_status}")
         
         # Log success with all metrics
@@ -519,9 +768,9 @@ if failed:
         print(f"  - {result['config_name']}: {result['error']}")
 
 # Create summary dataframe for potential downstream use
-if results:
-    summary_df = config_lakehouse.get_connection.createDataFrame(results)
-    summary_df.show(truncate=False)
+#if results:
+#    summary_df = config_lakehouse.get_connection.createDataFrame(results)
+#    summary_df.show(truncate=False)
 
 print(f"\nExecution completed at: {datetime.now()}")
 

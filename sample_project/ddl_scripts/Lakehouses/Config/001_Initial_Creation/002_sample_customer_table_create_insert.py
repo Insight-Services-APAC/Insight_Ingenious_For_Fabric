@@ -1,3 +1,4 @@
+from pyspark.pandas.generic import LongType
 from pyspark.sql.types import StructType, StructField, IntegerType, StringType, TimestampType, BooleanType
 from datetime import datetime
 
@@ -5,7 +6,7 @@ from datetime import datetime
 # This demonstrates the basic pattern for creating Delta tables
 # Define schema for customer table
 schema = StructType([
-    StructField("customer_id", IntegerType(), nullable=False),
+    StructField("customer_id", LongType(), nullable=False),
     StructField("first_name", StringType(), nullable=False),
     StructField("last_name", StringType(), nullable=False),
     StructField("email", StringType(), nullable=False),
@@ -24,5 +25,5 @@ df = target_lakehouse.spark.createDataFrame(data, schema)
 
 target_lakehouse.write_to_table(
     df=df,
-    table_name="sample_customers",
+    table_name="customers",
     schema_name="sample")

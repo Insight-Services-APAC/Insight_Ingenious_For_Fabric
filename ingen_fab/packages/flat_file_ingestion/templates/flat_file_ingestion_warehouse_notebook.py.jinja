@@ -18,7 +18,7 @@
 
 # Default parameters
 config_id = ""
-execution_group = 1
+execution_group = None
 environment = "development"
 
 {{ macros.python_cell_with_heading("## 📄 Flat File Ingestion Notebook (Warehouse)") }}
@@ -77,6 +77,17 @@ class FlatFileIngestionConfig:
         self.date_format = config_row.get("date_format", "yyyy-MM-dd")
         self.timestamp_format = config_row.get("timestamp_format", "yyyy-MM-dd HH:mm:ss")
         self.schema_inference = config_row.get("schema_inference", True)
+        # Advanced CSV handling options
+        self.quote_character = config_row.get("quote_character", '"')
+        self.escape_character = config_row.get("escape_character", "\\")
+        self.multiline_values = config_row.get("multiline_values", True)
+        self.ignore_leading_whitespace = config_row.get("ignore_leading_whitespace", False)
+        self.ignore_trailing_whitespace = config_row.get("ignore_trailing_whitespace", False)
+        self.null_value = config_row.get("null_value", "")
+        self.empty_value = config_row.get("empty_value", "")
+        self.comment_character = config_row.get("comment_character", None)
+        self.max_columns = config_row.get("max_columns", 20480)
+        self.max_chars_per_column = config_row.get("max_chars_per_column", -1)
         self.custom_schema_json = config_row.get("custom_schema_json")
         self.partition_columns = config_row.get("partition_columns", "").split(",") if config_row.get("partition_columns") else []
         self.sort_columns = config_row.get("sort_columns", "").split(",") if config_row.get("sort_columns") else []
@@ -113,11 +124,18 @@ config_df = config_warehouse.read_table("config_flat_file_ingestion", "config")
 if config_id:
     config_df = config_df[config_df["config_id"] == config_id]
 else:
-    config_df = config_df[
-        (config_df["execution_group"] == execution_group) & 
-        (config_df["active_yn"] == "Y") &
-        (config_df["target_datastore_type"] == "warehouse")
-    ]
+    # If execution_group is not set or is empty, process all execution groups
+    if execution_group and str(execution_group).strip():
+        config_df = config_df[
+            (config_df["execution_group"] == execution_group) & 
+            (config_df["active_yn"] == "Y") &
+            (config_df["target_datastore_type"] == "warehouse")
+        ]
+    else:
+        config_df = config_df[
+            (config_df["active_yn"] == "Y") &
+            (config_df["target_datastore_type"] == "warehouse")
+        ]
 
 if config_df.empty:
     raise ValueError(f"No active warehouse configurations found for config_id: {config_id}, execution_group: {execution_group}")
@@ -141,9 +159,34 @@ class FlatFileWarehouseProcessor:
         format_options = []
         
         if config.source_file_format.lower() == "csv":
+            # Basic CSV options
             format_options.append(f"FIELDTERMINATOR = '{config.file_delimiter}'")
             format_options.append(f"FIRSTROW = {2 if config.has_header else 1}")
             format_options.append(f"ENCODING = '{config.encoding.upper()}'")
+            
+            # Advanced CSV options for complex scenarios
+            format_options.append(f"FIELDQUOTE = '{config.quote_character}'")
+            
+            # Handle escape character (SQL Server uses double quotes for escaping quotes)
+            if config.escape_character == config.quote_character:
+                # Excel-style escaping (double quotes)
+                format_options.append(f"ESCAPE_CHAR = '{config.quote_character}{config.quote_character}'")
+            else:
+                # Custom escape character
+                format_options.append(f"ESCAPE_CHAR = '{config.escape_character}'")
+            
+            # Handle null values
+            if config.null_value:
+                format_options.append(f"NULL = '{config.null_value}'")
+            
+            # Set maximum field length if specified
+            if config.max_chars_per_column > 0:
+                format_options.append(f"MAXERRORS = 0")  # Fail on any parsing errors when limits are strict
+            else:
+                format_options.append(f"MAXERRORS = 10")  # Allow some parsing errors for robustness
+            
+            # Additional safety options
+            format_options.append(f"IDENTITY_INSERT = 'OFF'")  # Standard setting for data loading
             
         elif config.source_file_format.lower() == "parquet":
             # Parquet format has fewer options
@@ -175,11 +218,30 @@ class FlatFileWarehouseProcessor:
         
         try:
             # First, try to read a sample to infer schema
-            csv_options = {"header": 0 if config.has_header else None} if config.source_file_format == "csv" else {}
+            options = {}
+            if config.source_file_format.lower() == "csv":
+                # Build comprehensive CSV options for pandas
+                options["header"] = 0 if config.has_header else None
+                options["delimiter"] = config.file_delimiter
+                options["encoding"] = config.encoding
+                options["quotechar"] = config.quote_character
+                options["escapechar"] = config.escape_character if config.escape_character != config.quote_character else None
+                options["skipinitialspace"] = config.ignore_leading_whitespace
+                options["na_values"] = [config.null_value] if config.null_value else []
+                options["keep_default_na"] = False if config.null_value else True
+                
+                # Handle comment lines
+                if config.comment_character:
+                    options["comment"] = config.comment_character
+                
+                # Safety limits
+                if config.max_chars_per_column > 0:
+                    options["dtype"] = str  # Force string type if char limits are specified
+            
             sample_df = self.raw_lakehouse.read_file(
                 file_path=config.source_file_path,
                 file_format=config.source_file_format,
-                options=csv_options
+                options=options
             )
             
             # Convert pandas DataFrame schema to SQL DDL for warehouse
@@ -257,13 +319,46 @@ class FlatFileWarehouseProcessor:
             # Track read performance
             read_start = time.time()
             
-            # Read the source file with pandas
-            csv_options = {"header": 0 if config.has_header else None} if config.source_file_format == "csv" else {}
+            # Read the source file with enhanced CSV options
+            options = {}
+            if config.source_file_format.lower() == "csv":
+                # Build comprehensive CSV options for pandas
+                options["header"] = 0 if config.has_header else None
+                options["delimiter"] = config.file_delimiter
+                options["encoding"] = config.encoding
+                options["quotechar"] = config.quote_character
+                options["escapechar"] = config.escape_character if config.escape_character != config.quote_character else None
+                options["skipinitialspace"] = config.ignore_leading_whitespace
+                options["na_values"] = [config.null_value] if config.null_value else []
+                options["keep_default_na"] = False if config.null_value else True
+                
+                # Handle comment lines
+                if config.comment_character:
+                    options["comment"] = config.comment_character
+                
+                # Safety limits
+                if config.max_chars_per_column > 0:
+                    options["dtype"] = str  # Force string type if char limits are specified
+                
+                # Additional pandas-specific options for robust CSV parsing
+                options["on_bad_lines"] = "warn"  # Handle malformed lines gracefully
+                if config.multiline_values:
+                    options["lineterminator"] = None  # Auto-detect line endings for multiline support
+            
             source_df = self.raw_lakehouse.read_file(
                 file_path=config.source_file_path,
                 file_format=config.source_file_format,
-                options=csv_options
+                options=options
             )
+            
+            # Check for any parsing issues
+            if config.source_file_format.lower() == "csv":
+                initial_row_count = len(source_df)
+                # Remove any completely empty rows that might result from parsing issues
+                source_df = source_df.dropna(how='all')
+                final_row_count = len(source_df)
+                if initial_row_count != final_row_count:
+                    print(f"⚠️ Removed {initial_row_count - final_row_count} empty rows from CSV parsing")
             
             read_duration_ms = int((time.time() - read_start) * 1000)
             source_row_count = len(source_df)
@@ -381,26 +476,118 @@ class FlatFileWarehouseProcessor:
                 """
                 
             elif config.write_mode == "merge" and config.merge_keys:
-                # MERGE operation
-                merge_conditions = " AND ".join([f"target.{key} = source.{key}" for key in config.merge_keys])
+                # MERGE operation with dynamic column mapping
+                merge_conditions = " AND ".join([f"target.[{key.strip()}] = source.[{key.strip()}]" for key in config.merge_keys if key.strip()])
                 
-                merge_sql = f"""
-                MERGE {full_target_table} AS target
-                USING (
-                    SELECT *,
+                # Get column information from target table for dynamic SQL generation
+                columns_result = self.target_warehouse.execute_query(
+                    query=f"""
+                    SELECT COLUMN_NAME 
+                    FROM INFORMATION_SCHEMA.COLUMNS 
+                    WHERE TABLE_NAME = '{config.target_table_name}' 
+                    AND TABLE_SCHEMA = '{config.target_schema_name}'
+                    AND COLUMN_NAME NOT IN ('_ingestion_timestamp', '_ingestion_execution_id', '_source_file_path')
+                    ORDER BY ORDINAL_POSITION
+                    """
+                )
+                
+                if not columns_result.empty:
+                    # Build UPDATE SET clause (exclude metadata columns)
+                    data_columns = columns_result['COLUMN_NAME'].tolist()
+                    update_sets = [f"target.[{col}] = source.[{col}]" for col in data_columns]
+                    update_clause = ",\n                        ".join(update_sets)
+                    
+                    # Add metadata columns to UPDATE
+                    update_clause += f""",
+                        target.[_ingestion_timestamp] = GETDATE(),
+                        target.[_ingestion_execution_id] = '{execution_id}',
+                        target.[_source_file_path] = '{config.source_file_path}'"""
+                    
+                    # Build INSERT VALUES clause (all columns including metadata)
+                    all_columns = data_columns + ['_ingestion_timestamp', '_ingestion_execution_id', '_source_file_path']
+                    insert_columns = ", ".join([f"[{col}]" for col in all_columns])
+                    insert_values = ", ".join([f"source.[{col}]" for col in data_columns]) + f", GETDATE(), '{execution_id}', '{config.source_file_path}'"
+                    
+                    merge_sql = f"""
+                    MERGE {full_target_table} AS target
+                    USING {full_staging_table} AS source
+                    ON {merge_conditions}
+                    WHEN MATCHED THEN
+                        UPDATE SET 
+                        {update_clause}
+                    WHEN NOT MATCHED THEN
+                        INSERT ({insert_columns})
+                        VALUES ({insert_values});
+                    """
+                else:
+                    # Fallback to simple approach if we can't get column info
+                    merge_sql = f"""
+                    DELETE FROM {full_target_table} 
+                    WHERE EXISTS (
+                        SELECT 1 FROM {full_staging_table} s 
+                        WHERE {' AND '.join([f"{full_target_table}.[{key.strip()}] = s.[{key.strip()}]" for key in config.merge_keys if key.strip()])}
+                    );
+                    
+                    INSERT INTO {full_target_table}
+                    SELECT *, 
                            GETDATE() as _ingestion_timestamp,
                            '{execution_id}' as _ingestion_execution_id,
                            '{config.source_file_path}' as _source_file_path
-                    FROM {full_staging_table}
-                ) AS source
-                ON {merge_conditions}
-                WHEN MATCHED THEN
-                    UPDATE SET /* Update all columns */
-                WHEN NOT MATCHED THEN
-                    INSERT VALUES (/* Insert all columns */);
-                """
+                    FROM {full_staging_table};
+                    """
+                    
+            elif config.write_mode == "partition_swap" and config.partition_columns:
+                # Partition swap operation - delete matching partitions and insert new data
+                partition_cols = [col.strip() for col in config.partition_columns if col.strip()]
+                
+                # Get unique partition values from staging table
+                partition_select = ", ".join([f"DISTINCT [{col}]" for col in partition_cols])
+                partition_query = f"SELECT {partition_select} FROM {full_staging_table}"
+                partition_result = self.target_warehouse.execute_query(query=partition_query)
+                
+                delete_conditions = []
+                if not partition_result.empty:
+                    for _, row in partition_result.iterrows():
+                        conditions = []
+                        for col in partition_cols:
+                            value = row[col]
+                            if value is None or str(value).lower() == 'nan':
+                                conditions.append(f"[{col}] IS NULL")
+                            elif isinstance(value, str):
+                                conditions.append(f"[{col}] = '{value.replace(\"'\", \"''\")}'")  # Escape single quotes
+                            else:
+                                conditions.append(f"[{col}] = {value}")
+                        delete_conditions.append(f"({' AND '.join(conditions)})")
+                
+                if delete_conditions:
+                    # Build delete statement for affected partitions
+                    delete_clause = " OR ".join(delete_conditions)
+                    merge_sql = f"""
+                    -- Delete existing data for affected partitions
+                    DELETE FROM {full_target_table} 
+                    WHERE {delete_clause};
+                    
+                    -- Insert new data for these partitions
+                    INSERT INTO {full_target_table}
+                    SELECT *, 
+                           GETDATE() as _ingestion_timestamp,
+                           '{execution_id}' as _ingestion_execution_id,
+                           '{config.source_file_path}' as _source_file_path
+                    FROM {full_staging_table};
+                    """
+                else:
+                    # No partitions to swap, just insert
+                    merge_sql = f"""
+                    INSERT INTO {full_target_table}
+                    SELECT *, 
+                           GETDATE() as _ingestion_timestamp,
+                           '{execution_id}' as _ingestion_execution_id,
+                           '{config.source_file_path}' as _source_file_path
+                    FROM {full_staging_table};
+                    """
+                    
             else:
-                raise ValueError(f"Unsupported write mode: {config.write_mode}")
+                raise ValueError(f"Unsupported write mode: {config.write_mode}. Supported modes: overwrite, append, merge, partition_swap")
             
             print(f"Executing merge operation:\n{merge_sql}")
             result = self.target_warehouse.execute_query(query=merge_sql)
@@ -610,12 +797,26 @@ for _, config_row in config_df.iterrows():
                 # Log success with all metrics
                 log_execution(config, "completed", merge_stats, copy_stats, start_time=start_time, end_time=end_time)
                 
-                # Calculate reconciliation status
+                # Calculate reconciliation status based on write mode
                 recon_status = "matched"
-                if config.write_mode == "overwrite" and copy_stats.get('source_row_count') != merge_stats['target_row_count_after']:
+                source_row_count = copy_stats.get('source_row_count', 0)
+                target_count_before = merge_stats['target_row_count_before']
+                target_count_after = merge_stats['target_row_count_after']
+                
+                if config.write_mode == "overwrite" and source_row_count != target_count_after:
                     recon_status = "mismatched"
-                elif config.write_mode == "append" and copy_stats.get('source_row_count') != (merge_stats['target_row_count_after'] - merge_stats['target_row_count_before']):
+                elif config.write_mode == "append" and source_row_count != (target_count_after - target_count_before):
                     recon_status = "mismatched"
+                elif config.write_mode == "merge":
+                    # For merge, check if the net change makes sense (could be updates + inserts)
+                    # This is more complex as records could be updated rather than just inserted
+                    if source_row_count > 0 and target_count_after < target_count_before:
+                        recon_status = "mismatched"  # Something went wrong if target count decreased
+                elif config.write_mode == "partition_swap":
+                    # For partition swap, we can't easily reconcile as we delete and insert
+                    # But we can check if we have data after the operation
+                    if source_row_count > 0 and target_count_after == 0:
+                        recon_status = "mismatched"  # Should have some data
                 
                 results.append({
                     "config_id": config.config_id,

@@ -38,7 +38,7 @@ def deploy_to_environment(ctx):
     stf.sync_environment()
 
 
-def perform_code_replacements(ctx):
+def perform_code_replacements(ctx, output_dir=None, preserve_structure=True):
     if ctx.obj.get("fabric_workspace_repo_dir") is None:
         ConsoleStyles.print_error(
             Console(),
@@ -51,11 +51,22 @@ def perform_code_replacements(ctx):
             "Fabric environment not set. Use --fabric-environment directly after ingen_fab to specify it.",
         )
         raise SystemExit(1)
+    
     vlu = VariableLibraryUtils(
         environment=ctx.obj.get("fabric_environment"),
         project_path=Path(ctx.obj.get("fabric_workspace_repo_dir")),
     )
-    vlu.inject_variables_into_template()
+    
+    # Call inject_variables_into_template with specific parameters:
+    # - output_dir=None for in-place (default), or specified output directory
+    # - replace_placeholders=False (only inject code, don't replace {{varlib:...}})
+    # - inject_code=True (inject code between markers)
+    vlu.inject_variables_into_template(
+        output_dir=output_dir, 
+        preserve_structure=preserve_structure,
+        replace_placeholders=False,  # Don't replace {{varlib:...}} placeholders
+        inject_code=True             # Only inject code between markers
+    )
 
 
 def upload_python_libs_to_config_lakehouse(environment: str, project_path: str, console: Console = Console()):

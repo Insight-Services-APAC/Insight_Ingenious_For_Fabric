@@ -12,7 +12,17 @@ from datetime import datetime
 from typing import Dict, List, Optional
 
 from pyspark.sql import DataFrame
-from pyspark.sql.functions import col, concat, date_add, expr, greatest, least, lit, lpad, when
+from pyspark.sql.functions import (
+    col,
+    concat,
+    date_add,
+    expr,
+    greatest,
+    least,
+    lit,
+    lpad,
+    when,
+)
 
 
 class PySparkSyntheticDataGenerator:
@@ -248,7 +258,10 @@ class PySparkSyntheticDataGenerator:
             # Order dates (last 2 years)
             date_add(
                 lit("2022-01-01"),
-                least(greatest((col("order_id") % 730).cast("int"), lit(0)), lit(2147483647))
+                least(
+                    greatest((col("order_id") % 730).cast("int"), lit(0)),
+                    lit(2147483647),
+                ),
             ).alias("order_date"),
             # Status
             expr(

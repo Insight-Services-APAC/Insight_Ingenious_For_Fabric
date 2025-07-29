@@ -47,7 +47,7 @@ import sys
 if "notebookutils" in sys.modules:
     import sys
     
-    notebookutils.fs.mount("abfss://REPLACE_WITH_CONFIG_WORKSPACE_NAME@onelake.dfs.fabric.microsoft.com/config.Lakehouse/Files/", "/config_files")  # type: ignore # noqa: F821
+    notebookutils.fs.mount("abfss://{{varlib:config_workspace_name}}@onelake.dfs.fabric.microsoft.com/{{varlib:config_lakehouse_name}}.Lakehouse/Files/", "/config_files")  # type: ignore # noqa: F821
     mount_path = notebookutils.fs.getMountPath("/config_files")  # type: ignore # noqa: F821
     
     run_mode = "fabric"
@@ -281,12 +281,12 @@ if failed_notebooks:
 
 if success_count == 1:
     print("\n✓ All notebooks executed successfully!")
-    notebookutils.exit_notebook("success")
+    notebookutils.notebook.exit("success")
 else:
     print(f"\n✗ Orchestration completed with {failed_count} failure(s)")
     # Exit with failure status - this will be caught by parent orchestrator as non-"success"
     error_summary = f"failed: {failed_count} of 1 notebooks failed"
-    notebookutils.exit_notebook(error_summary)
+    notebookutils.notebook.exit(error_summary)
 
 # METADATA ********************
 

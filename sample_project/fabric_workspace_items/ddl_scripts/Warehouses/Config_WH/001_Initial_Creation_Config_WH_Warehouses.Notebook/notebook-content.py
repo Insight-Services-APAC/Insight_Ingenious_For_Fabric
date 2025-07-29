@@ -48,7 +48,7 @@ import sys
 if "notebookutils" in sys.modules:
     import sys
     
-    notebookutils.fs.mount("abfss://REPLACE_WITH_CONFIG_WORKSPACE_NAME@onelake.dfs.fabric.microsoft.com/config.Lakehouse/Files/", "/config_files")  # type: ignore # noqa: F821
+    notebookutils.fs.mount("abfss://{{varlib:config_workspace_name}}@onelake.dfs.fabric.microsoft.com/{{varlib:config_lakehouse_name}}.Lakehouse/Files/", "/config_files")  # type: ignore # noqa: F821
     mount_path = notebookutils.fs.getMountPath("/config_files")  # type: ignore # noqa: F821
     
     run_mode = "fabric"
@@ -182,34 +182,7 @@ else:
 
 # variableLibraryInjectionStart: var_lib
 
-# All variables as a dictionary
-configs_dict = {'fabric_environment': 'local', 'fabric_deployment_workspace_id': 'REPLACE_WITH_YOUR_WORKSPACE_GUID', 'config_workspace_name': 'REPLACE_WITH_CONFIG_WORKSPACE_NAME', 'config_workspace_id': 'REPLACE_WITH_CONFIG_WORKSPACE_GUID', 'config_wh_workspace_id': 'REPLACE_WITH_CONFIG_WH_WORKSPACE_GUID', 'config_lakehouse_name': 'config', 'config_lakehouse_id': 'REPLACE_WITH_CONFIG_LAKEHOUSE_GUID', 'config_wh_warehouse_name': 'config_wh', 'config_wh_warehouse_id': 'REPLACE_WITH_CONFIG_WAREHOUSE_GUID', 'sample_lakehouse_name': 'sample', 'sample_lakehouse_id': 'REPLACE_WITH_SAMPLE_LAKEHOUSE_GUID', 'sample_wh_workspace_id': 'REPLACE_WITH_SAMPLE_WH_WORKSPACE_GUID', 'sample_wh_warehouse_name': 'sample_wh', 'sample_wh_warehouse_id': 'REPLACE_WITH_SAMPLE_WAREHOUSE_GUID', 'raw_workspace_id': 'REPLACE_WITH_RAW_WORKSPACE_GUID', 'raw_datastore_id': 'REPLACE_WITH_RAW_DATASTORE_GUID', 'edw_workspace_id': 'REPLACE_WITH_EDW_WORKSPACE_GUID', 'edw_lakehouse_name': 'edw', 'edw_lakehouse_id': 'REPLACE_WITH_EDW_LAKEHOUSE_GUID', 'edw_warehouse_name': 'edw', 'edw_warehouse_id': 'REPLACE_WITH_EDW_WAREHOUSE_GUID'}
-# All variables as an object
-from dataclasses import dataclass
-@dataclass
-class ConfigsObject:
-    fabric_environment: str 
-    fabric_deployment_workspace_id: str 
-    config_workspace_name: str 
-    config_workspace_id: str 
-    config_wh_workspace_id: str 
-    config_lakehouse_name: str 
-    config_lakehouse_id: str 
-    config_wh_warehouse_name: str 
-    config_wh_warehouse_id: str 
-    sample_lakehouse_name: str 
-    sample_lakehouse_id: str 
-    sample_wh_workspace_id: str 
-    sample_wh_warehouse_name: str 
-    sample_wh_warehouse_id: str 
-    raw_workspace_id: str 
-    raw_datastore_id: str 
-    edw_workspace_id: str 
-    edw_lakehouse_name: str 
-    edw_lakehouse_id: str 
-    edw_warehouse_name: str 
-    edw_warehouse_id: str 
-configs_object: ConfigsObject = ConfigsObject(**configs_dict)
+
 # variableLibraryInjectionEnd: var_lib
 
 
@@ -375,7 +348,7 @@ du.print_log()
 # CELL ********************
 
 
-notebookutils.exit_notebook("success")
+notebookutils.notebook.exit("success")
 
 
 

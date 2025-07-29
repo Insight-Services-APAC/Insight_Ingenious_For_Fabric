@@ -34,7 +34,12 @@ class lakehouse_utils(DataStoreInterface):
         spark_session = lakehouse.get_connection()
     """
 
-    def __init__(self, target_workspace_id: str, target_lakehouse_id: str, spark: SparkSession = None) -> None:
+    def __init__(
+        self,
+        target_workspace_id: str,
+        target_lakehouse_id: str,
+        spark: SparkSession = None,
+    ) -> None:
         super().__init__()
         self._target_workspace_id = target_workspace_id
         self._target_lakehouse_id = target_lakehouse_id
@@ -45,11 +50,10 @@ class lakehouse_utils(DataStoreInterface):
             if not isinstance(spark, SparkSession):
                 raise TypeError("Provided spark must be a SparkSession instance.")
             print(spark.__dict__)
-            self.spark = spark            
-        else: 
+            self.spark = spark
+        else:
             # If no Spark session is provided, create a new one
             self.spark = self._get_or_create_spark_session()
-            
 
     @property
     def target_workspace_id(self) -> str:
@@ -60,7 +64,7 @@ class lakehouse_utils(DataStoreInterface):
     def target_store_id(self) -> str:
         """Get the target lakehouse ID."""
         return self._target_lakehouse_id
-    
+
     @property
     def get_connection(self) -> SparkSession:
         """Get the Spark session connection."""
@@ -68,7 +72,7 @@ class lakehouse_utils(DataStoreInterface):
 
     def _get_or_create_spark_session(self) -> SparkSession:
         """Get existing Spark session or create a new one."""
-        if (cu.get_configs_as_object().fabric_environment == "local"):
+        if cu.get_configs_as_object().fabric_environment == "local":
             # Check if there's already an active Spark session
             try:
                 existing_spark = SparkSession.getActiveSession()
@@ -78,15 +82,22 @@ class lakehouse_utils(DataStoreInterface):
                     return existing_spark
             except Exception as e:
                 print(f"No active Spark session found: {e}")
-            
+
             # Create new Spark session if none exists
             self.spark_version = "local"
-            print("No active Spark session found, creating a new one with Delta support.")
-            
+            print(
+                "No active Spark session found, creating a new one with Delta support."
+            )
+
             builder = (
                 SparkSession.builder.appName("MyApp")
-                .config("spark.sql.extensions", "io.delta.sql.DeltaSparkSessionExtension")
-                .config("spark.sql.catalog.spark_catalog", "org.apache.spark.sql.delta.catalog.DeltaCatalog")
+                .config(
+                    "spark.sql.extensions", "io.delta.sql.DeltaSparkSessionExtension"
+                )
+                .config(
+                    "spark.sql.catalog.spark_catalog",
+                    "org.apache.spark.sql.delta.catalog.DeltaCatalog",
+                )
             )
             from delta import configure_spark_with_delta_pip
 
@@ -156,13 +167,17 @@ class lakehouse_utils(DataStoreInterface):
 
         # Register the table in the Hive catalog - Only needed if local
         if self.spark_version == "local":
-            print(f"⚠ Alert: Registering table '{table_full_name}' in the Hive catalog for local Spark.")
+            print(
+                f"⚠ Alert: Registering table '{table_full_name}' in the Hive catalog for local Spark."
+            )
             full_table_path = f"{self.lakehouse_tables_uri()}{table_full_name}"
             self.spark.sql(
                 f"CREATE TABLE IF NOT EXISTS {table_full_name} USING DELTA LOCATION '{full_table_path}'"
             )
         else:
-            print(f"No need to register table '{table_full_name}' in Hive catalog for Fabric Spark.")
+            print(
+                f"No need to register table '{table_full_name}' in Hive catalog for Fabric Spark."
+            )
 
     def list_tables(self) -> list[str]:
         """List all tables in the lakehouse."""
@@ -321,10 +336,10 @@ class lakehouse_utils(DataStoreInterface):
         """
         if schema is None:
             raise ValueError("Schema must be provided for table creation.")
-        
+
         empty_df = self.get_connection.createDataFrame([], schema)
         writer = empty_df.write.format("delta").mode(mode)
-        
+
         if partition_by:
             writer = writer.partitionBy(*partition_by)
 
@@ -340,7 +355,6 @@ class lakehouse_utils(DataStoreInterface):
             self.spark.sql(
                 f"CREATE TABLE IF NOT EXISTS {table_name} USING DELTA LOCATION '{full_table_path}'"
             )
-
 
     def drop_table(
         self,
@@ -412,7 +426,7 @@ class lakehouse_utils(DataStoreInterface):
     ) -> Any:
         """
         Read a file from the file system using the appropriate method for the environment.
-        
+
         In local mode, uses standard Spark file access.
         In Fabric mode, uses notebookutils.fs for OneLake file access.
         """
@@ -420,10 +434,10 @@ class lakehouse_utils(DataStoreInterface):
             options = {}
         print(f"Reading file from: {file_path}")
         reader = self.spark.read.format(file_format.lower())
-        
+
         # Apply common options based on file format
         if file_format.lower() == "csv":
-            # Apply CSV-specific options
+            # Apply basic CSV-specific options
             if "header" in options:
                 reader = reader.option("header", str(options["header"]).lower())
             if "delimiter" in options:
@@ -431,27 +445,71 @@ class lakehouse_utils(DataStoreInterface):
             if "encoding" in options:
                 reader = reader.option("encoding", options["encoding"])
             if "inferSchema" in options:
-                reader = reader.option("inferSchema", str(options["inferSchema"]).lower())
+                reader = reader.option(
+                    "inferSchema", str(options["inferSchema"]).lower()
+                )
             if "dateFormat" in options:
                 reader = reader.option("dateFormat", options["dateFormat"])
             if "timestampFormat" in options:
                 reader = reader.option("timestampFormat", options["timestampFormat"])
-                
+
+            # Apply advanced CSV options for complex scenarios
+            if "quote" in options:
+                reader = reader.option("quote", options["quote"])
+            if "escape" in options:
+                reader = reader.option("escape", options["escape"])
+            if "multiLine" in options:
+                reader = reader.option("multiLine", str(options["multiLine"]).lower())
+            if "ignoreLeadingWhiteSpace" in options:
+                reader = reader.option(
+                    "ignoreLeadingWhiteSpace",
+                    str(options["ignoreLeadingWhiteSpace"]).lower(),
+                )
+            if "ignoreTrailingWhiteSpace" in options:
+                reader = reader.option(
+                    "ignoreTrailingWhiteSpace",
+                    str(options["ignoreTrailingWhiteSpace"]).lower(),
+                )
+            if "nullValue" in options:
+                reader = reader.option("nullValue", options["nullValue"])
+            if "emptyValue" in options:
+                reader = reader.option("emptyValue", options["emptyValue"])
+            if "comment" in options:
+                reader = reader.option("comment", options["comment"])
+            if "maxColumns" in options:
+                reader = reader.option("maxColumns", str(options["maxColumns"]))
+            if "maxCharsPerColumn" in options:
+                reader = reader.option(
+                    "maxCharsPerColumn", str(options["maxCharsPerColumn"])
+                )
+            if "unescapedQuoteHandling" in options:
+                reader = reader.option(
+                    "unescapedQuoteHandling", options["unescapedQuoteHandling"]
+                )
+            if "enforceSchema" in options:
+                reader = reader.option(
+                    "enforceSchema", str(options["enforceSchema"]).lower()
+                )
+            if "columnNameOfCorruptRecord" in options:
+                reader = reader.option(
+                    "columnNameOfCorruptRecord", options["columnNameOfCorruptRecord"]
+                )
+
         elif file_format.lower() == "json":
             # Apply JSON-specific options
             if "dateFormat" in options:
                 reader = reader.option("dateFormat", options["dateFormat"])
             if "timestampFormat" in options:
                 reader = reader.option("timestampFormat", options["timestampFormat"])
-                
+
         # Apply custom schema if provided
         if "schema" in options:
             reader = reader.schema(options["schema"])
-            
+
         # Build full file path using the lakehouse files URI
         if not file_path.startswith(("file://", "abfss://")):
             # Relative path - combine with lakehouse files URI
-            
+
             if self.spark_version == "local":
                 # print("Using local Spark file access.")
                 # use path utils to get first part of the path
@@ -460,6 +518,9 @@ class lakehouse_utils(DataStoreInterface):
                 if first_part == "Files":
                     file_path = Path(*Path(file_path).parts[1:])
                 full_file_path = f"{self.lakehouse_files_uri()}{str(file_path)}"
+            else:
+                # print("Using Fabric Spark file access.")
+                full_file_path = f"{self.lakehouse_files_uri()}{file_path}"
 
         else:
             # Already absolute path
@@ -479,27 +540,27 @@ class lakehouse_utils(DataStoreInterface):
         """
         if options is None:
             options = {}
-            
+
         writer = df.write.format(file_format.lower())
-        
+
         # Apply write mode if specified
         if "mode" in options:
             writer = writer.mode(options["mode"])
         else:
             writer = writer.mode("overwrite")  # Default mode
-            
+
         # Apply format-specific options
         if file_format.lower() == "csv":
             if "header" in options:
                 writer = writer.option("header", str(options["header"]).lower())
             if "delimiter" in options:
                 writer = writer.option("sep", options["delimiter"])
-                
+
         # Apply other options
         for key, value in options.items():
             if key not in ["mode", "header", "delimiter", "schema"]:
                 writer = writer.option(key, value)
-                
+
         # Build full file path using the lakehouse files URI
         if not file_path.startswith(("file://", "abfss://")):
             # Relative path - combine with lakehouse files URI
@@ -507,7 +568,7 @@ class lakehouse_utils(DataStoreInterface):
         else:
             # Already absolute path
             full_file_path = file_path
-            
+
         writer.save(full_file_path)
 
     def file_exists(self, file_path: str) -> bool:
@@ -520,7 +581,7 @@ class lakehouse_utils(DataStoreInterface):
                 full_file_path = f"{self.lakehouse_files_uri()}{file_path}"
             else:
                 full_file_path = file_path
-                
+
             if self.spark_version == "local":
                 # Use standard Python file access for local
                 if full_file_path.startswith("file://"):
@@ -529,10 +590,12 @@ class lakehouse_utils(DataStoreInterface):
             else:
                 # Use notebookutils.fs for Fabric environment
                 import sys
+
                 if "notebookutils" in sys.modules:
                     # Try to access the file with notebookutils
                     try:
                         import notebookutils  # type: ignore
+
                         notebookutils.fs.head(full_file_path, 1)  # type: ignore
                         return True
                     except Exception:
@@ -540,7 +603,9 @@ class lakehouse_utils(DataStoreInterface):
                 else:
                     # Fallback to Spark for checking file existence
                     try:
-                        self.spark.read.format("text").load(full_file_path).limit(1).count()
+                        self.spark.read.format("text").load(full_file_path).limit(
+                            1
+                        ).count()
                         return True
                     except Exception:
                         return False
@@ -561,28 +626,30 @@ class lakehouse_utils(DataStoreInterface):
             full_directory_path = f"{self.lakehouse_files_uri()}{directory_path}"
         else:
             full_directory_path = directory_path
-            
+
         if self.spark_version == "local":
             # Use standard Python file operations for local
             if full_directory_path.startswith("file://"):
                 full_directory_path = full_directory_path.replace("file://", "")
-                
+
             dir_path = Path(full_directory_path)
             if not dir_path.exists():
                 return []
-                
+
             if recursive:
                 files = dir_path.rglob(pattern or "*")
             else:
                 files = dir_path.glob(pattern or "*")
-                
+
             return [str(f) for f in files if f.is_file()]
         else:
             # Use notebookutils.fs for Fabric environment
             import sys
+
             if "notebookutils" in sys.modules:
                 try:
                     import notebookutils  # type: ignore
+
                     files = notebookutils.fs.ls(full_directory_path)  # type: ignore
                     file_list = []
                     for file_info in files:
@@ -606,18 +673,19 @@ class lakehouse_utils(DataStoreInterface):
                 full_file_path = f"{self.lakehouse_files_uri()}{file_path}"
             else:
                 full_file_path = file_path
-                
+
             if self.spark_version == "local":
                 # Use standard Python file operations for local
                 if full_file_path.startswith("file://"):
                     full_file_path = full_file_path.replace("file://", "")
-                    
+
                 file_path_obj = Path(full_file_path)
                 if not file_path_obj.exists():
                     return {}
-                    
+
                 stat = file_path_obj.stat()
                 from datetime import datetime
+
                 return {
                     "path": str(file_path_obj),
                     "size": stat.st_size,
@@ -628,9 +696,11 @@ class lakehouse_utils(DataStoreInterface):
             else:
                 # Use notebookutils.fs for Fabric environment
                 import sys
+
                 if "notebookutils" in sys.modules:
                     try:
                         import notebookutils  # type: ignore
+
                         info = notebookutils.fs.ls(full_file_path)[0]  # type: ignore
                         return {
                             "path": info.path,
@@ -650,22 +720,24 @@ class lakehouse_utils(DataStoreInterface):
     def set_spark_config(self, key: str, value: str) -> None:
         """
         Set a Spark configuration property.
-        
+
         Args:
             key: Configuration key (e.g., 'spark.sql.shuffle.partitions')
             value: Configuration value
         """
         self.spark.conf.set(key, value)
-        
-    def create_range_dataframe(self, start: int, end: int, num_partitions: int = None) -> Any:
+
+    def create_range_dataframe(
+        self, start: int, end: int, num_partitions: int = None
+    ) -> Any:
         """
         Create a DataFrame with a single column containing a range of values.
-        
+
         Args:
             start: Start value (inclusive)
             end: End value (exclusive)
             num_partitions: Number of partitions for the DataFrame
-            
+
         Returns:
             DataFrame with a single 'id' column
         """
@@ -673,29 +745,30 @@ class lakehouse_utils(DataStoreInterface):
             return self.spark.range(start, end, numPartitions=num_partitions)
         else:
             return self.spark.range(start, end)
-            
+
     def cache_dataframe(self, df: Any) -> Any:
         """
         Cache a DataFrame in memory.
-        
+
         Args:
             df: DataFrame to cache
-            
+
         Returns:
             The cached DataFrame
         """
         return df.cache()
-        
-    def repartition_dataframe(self, df: Any, num_partitions: int = None, 
-                            partition_cols: list[str] = None) -> Any:
+
+    def repartition_dataframe(
+        self, df: Any, num_partitions: int = None, partition_cols: list[str] = None
+    ) -> Any:
         """
         Repartition a DataFrame.
-        
+
         Args:
             df: DataFrame to repartition
             num_partitions: Number of partitions (optional)
             partition_cols: Columns to partition by (optional)
-            
+
         Returns:
             The repartitioned DataFrame
         """
@@ -705,30 +778,35 @@ class lakehouse_utils(DataStoreInterface):
             return df.repartition(num_partitions)
         else:
             return df.repartition()
-            
+
     def union_dataframes(self, dfs: list[Any]) -> Any:
         """
         Union multiple DataFrames into one.
-        
+
         Args:
             dfs: List of DataFrames to union
-            
+
         Returns:
             The unioned DataFrame
         """
         if not dfs:
             raise ValueError("No DataFrames provided for union")
-            
+
         result = dfs[0]
         for df in dfs[1:]:
             result = result.union(df)
         return result
-        
-    def save_dataframe_as_table(self, df: Any, table_name: str, 
-                               mode: str = "overwrite", partition_cols: list[str] = None) -> None:
+
+    def save_dataframe_as_table(
+        self,
+        df: Any,
+        table_name: str,
+        mode: str = "overwrite",
+        partition_cols: list[str] = None,
+    ) -> None:
         """
         Save a DataFrame as a Delta table using saveAsTable.
-        
+
         Args:
             df: DataFrame to save
             table_name: Name of the table
@@ -736,12 +814,12 @@ class lakehouse_utils(DataStoreInterface):
             partition_cols: Columns to partition by (optional)
         """
         writer = df.write.format("delta").mode(mode)
-        
+
         if partition_cols:
             writer = writer.partitionBy(*partition_cols)
-            
+
         writer.saveAsTable(table_name)
-        
+
         # Log the operation
         try:
             row_count = df.count()

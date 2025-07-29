@@ -61,9 +61,9 @@ class warehouse_utils(DataStoreInterface):
             # Get the fabric_environment to determine which local database to use
             try:
                 config = get_configs_as_object()
-                fabric_env = getattr(config, 'fabric_environment', 'production')
-                
-                if fabric_env == 'local':
+                fabric_env = getattr(config, "fabric_environment", "production")
+
+                if fabric_env == "local":
                     # Use PostgreSQL for local development (matching sql_translator)
                     logger.info(
                         "Running in local environment, using PostgreSQL for database operations."
@@ -134,10 +134,14 @@ class warehouse_utils(DataStoreInterface):
         return conn
 
     def execute_query(
-        self, conn=None, query: str = None, params: tuple | list | None = None, max_retries: int = 3
+        self,
+        conn=None,
+        query: str = None,
+        params: tuple | list | None = None,
+        max_retries: int = 3,
     ):
         """Execute a query and return results as a DataFrame when possible.
-        
+
         Args:
             conn: Database connection. If None, gets a new connection.
             query: SQL query to execute
@@ -146,10 +150,11 @@ class warehouse_utils(DataStoreInterface):
         """
         if not conn:
             conn = self.get_connection()
-            
+
         # Translate SQL if we're using PostgreSQL in local mode
         if get_configs_as_object().fabric_environment == "local" and query:
             from ingen_fab.python_libs.python.sql_translator import get_sql_translator
+
             try:
                 translator = get_sql_translator()
                 query = translator.translate_sql(query)
@@ -157,11 +162,13 @@ class warehouse_utils(DataStoreInterface):
             except Exception as e:
                 logging.warning(f"SQL translation failed: {e}")
                 logging.warning(f"Using original SQL: {query}")
-        
+
         # Retry logic with exponential backoff
         for attempt in range(max_retries + 1):
             try:
-                logging.debug(f"Executing query (attempt {attempt + 1}/{max_retries + 1}): {query}")
+                logging.debug(
+                    f"Executing query (attempt {attempt + 1}/{max_retries + 1}): {query}"
+                )
                 if params:
                     logging.debug(f"Query parameters: {params}")
 
@@ -192,47 +199,51 @@ class warehouse_utils(DataStoreInterface):
                         df = None
                     logging.debug("Query executed successfully.")
                 return df
-                
+
             except Exception as e:
                 error_str = str(e).lower()
-                
+
                 # Check if this is a retryable error
                 retryable_errors = [
-                    'connection reset',
-                    'connection lost',
-                    'timeout',
-                    'connection refused',
-                    'deadlock',
-                    'lock wait timeout',
-                    'connection closed',
-                    'broken pipe',
-                    'network error',
-                    'temporary failure'
+                    "connection reset",
+                    "connection lost",
+                    "timeout",
+                    "connection refused",
+                    "deadlock",
+                    "lock wait timeout",
+                    "connection closed",
+                    "broken pipe",
+                    "network error",
+                    "temporary failure",
                 ]
-                
+
                 is_retryable = any(err in error_str for err in retryable_errors)
-                
+
                 if attempt < max_retries and is_retryable:
                     # Calculate exponential backoff delay (0.5s, 1s, 2s)
-                    delay = 0.5 * (2 ** attempt)
+                    delay = 0.5 * (2**attempt)
                     logging.warning(f"Retryable error on attempt {attempt + 1}: {e}")
                     logging.warning(f"Retrying in {delay:.1f} seconds...")
                     time.sleep(delay)
-                    
+
                     # Try to get a fresh connection for retry
                     try:
                         conn = self.get_connection()
                     except Exception as conn_error:
-                        logging.error(f"Failed to get new connection for retry: {conn_error}")
-                        
+                        logging.error(
+                            f"Failed to get new connection for retry: {conn_error}"
+                        )
+
                     continue
                 else:
                     # Non-retryable error or max retries exceeded
                     if attempt == max_retries:
-                        logging.error(f"Max retries ({max_retries}) exceeded for query: {query}")
+                        logging.error(
+                            f"Max retries ({max_retries}) exceeded for query: {query}"
+                        )
                     else:
                         logging.error(f"Non-retryable error for query: {query}")
-                        
+
                     logging.error(f"Error executing query: {query}. Error: {e}")
                     if params:
                         logging.error(f"Query parameters: {params}")
@@ -377,14 +388,16 @@ class warehouse_utils(DataStoreInterface):
 
             # Default PostgreSQL connection parameters for local development
             connection_params = {
-                'host': os.getenv('POSTGRES_HOST', 'localhost'),
-                'port': int(os.getenv('POSTGRES_PORT', '5432')),
-                'user': os.getenv('POSTGRES_USER', 'postgres'),
-                'password': os.getenv('POSTGRES_PASSWORD', 'postgres'),
-                'database': 'postgres'  # Connect to postgres db first to create target db
+                "host": os.getenv("POSTGRES_HOST", "localhost"),
+                "port": int(os.getenv("POSTGRES_PORT", "5432")),
+                "user": os.getenv("POSTGRES_USER", "postgres"),
+                "password": os.getenv("POSTGRES_PASSWORD", "postgres"),
+                "database": "postgres",  # Connect to postgres db first to create target db
             }
 
-            logger.debug(f"Connecting to local PostgreSQL with params: {connection_params}")
+            logger.debug(
+                f"Connecting to local PostgreSQL with params: {connection_params}"
+            )
 
             # First connect to postgres database to create the target database if needed
             conn = psycopg2.connect(**connection_params)
@@ -396,74 +409,104 @@ class warehouse_utils(DataStoreInterface):
 
             # Close and reconnect to the target database
             conn.close()
-            connection_params['database'] = os.getenv('POSTGRES_DATABASE', 'local')
+            connection_params["database"] = os.getenv("POSTGRES_DATABASE", "local")
             conn = psycopg2.connect(**connection_params)
-            logger.debug(f"Successfully connected to local PostgreSQL database: {connection_params['database']}")
+            logger.debug(
+                f"Successfully connected to local PostgreSQL database: {connection_params['database']}"
+            )
 
             return conn
         except ImportError:
-            logger.error("psycopg2 not available. Please install it with: uv pip install psycopg2-binary")
+            logger.error(
+                "psycopg2 not available. Please install it with: uv pip install psycopg2-binary"
+            )
             return None
         except psycopg2.OperationalError as e:
             error_msg = str(e)
             logger.error(f"Failed to connect to PostgreSQL: {e}")
-            
+
             # Provide helpful messages based on the error
-            if "could not connect to server" in error_msg or "Connection refused" in error_msg:
+            if (
+                "could not connect to server" in error_msg
+                or "Connection refused" in error_msg
+            ):
                 error_message = "\n" + "=" * 70 + "\n"
                 error_message += "PostgreSQL Connection Error - Server Not Available\n"
                 error_message += "=" * 70 + "\n"
-                error_message += "\nPostgreSQL server is not running or not accessible.\n"
+                error_message += (
+                    "\nPostgreSQL server is not running or not accessible.\n"
+                )
                 error_message += "\nTo fix this issue, try one of the following:\n"
                 error_message += "\n1. Start PostgreSQL (if already installed):\n"
                 error_message += "   - Ubuntu/Debian: sudo service postgresql start\n"
-                error_message += "   - macOS (Homebrew): brew services start postgresql\n"
+                error_message += (
+                    "   - macOS (Homebrew): brew services start postgresql\n"
+                )
                 error_message += "   - macOS (Postgres.app): Open Postgres.app\n"
                 error_message += "   - Windows: net start postgresql-x64-15\n"
-                
+
                 error_message += "\n2. Install PostgreSQL (if not installed):\n"
                 error_message += "   - Ubuntu/Debian: sudo apt-get install postgresql\n"
                 error_message += "   - macOS: brew install postgresql\n"
                 error_message += "   - Windows: Download from https://www.postgresql.org/download/windows/\n"
-                
-                error_message += "\n3. Check if PostgreSQL is running on a different port:\n"
-                error_message += f"   Current port: {connection_params.get('port', 5432)}\n"
-                error_message += "   Set custom port: export POSTGRES_PORT=<your_port>\n"
+
+                error_message += (
+                    "\n3. Check if PostgreSQL is running on a different port:\n"
+                )
+                error_message += (
+                    f"   Current port: {connection_params.get('port', 5432)}\n"
+                )
+                error_message += (
+                    "   Set custom port: export POSTGRES_PORT=<your_port>\n"
+                )
                 error_message += "=" * 70 + "\n"
-                
+
                 # Log and print for visibility
                 logger.error(error_message)
                 print(error_message, file=sys.stderr)
-                
-            elif "password authentication failed" in error_msg or "no password supplied" in error_msg:
+
+            elif (
+                "password authentication failed" in error_msg
+                or "no password supplied" in error_msg
+            ):
                 error_message = "\n" + "=" * 70 + "\n"
                 error_message += "PostgreSQL Authentication Error\n"
                 error_message += "=" * 70 + "\n"
                 error_message += "\nFailed to authenticate with PostgreSQL server.\n"
                 error_message += "\nTo fix this issue:\n"
-                error_message += "\n1. Set the PostgreSQL password for the 'postgres' user:\n"
+                error_message += (
+                    "\n1. Set the PostgreSQL password for the 'postgres' user:\n"
+                )
                 error_message += "   sudo -u postgres psql -c \"ALTER USER postgres PASSWORD 'password';\"\n"
-                
+
                 error_message += "\n2. Configure environment variables:\n"
                 error_message += "   export POSTGRES_USER=postgres\n"
                 error_message += "   export POSTGRES_PASSWORD=password\n"
                 error_message += "   export POSTGRES_DATABASE=local\n"
-                
-                error_message += "\n3. Or use a different user with proper credentials:\n"
+
+                error_message += (
+                    "\n3. Or use a different user with proper credentials:\n"
+                )
                 error_message += "   export POSTGRES_USER=<your_username>\n"
                 error_message += "   export POSTGRES_PASSWORD=<your_password>\n"
-                
+
                 error_message += "\nCurrent connection parameters:\n"
-                error_message += f"   Host: {connection_params.get('host', 'localhost')}\n"
+                error_message += (
+                    f"   Host: {connection_params.get('host', 'localhost')}\n"
+                )
                 error_message += f"   Port: {connection_params.get('port', 5432)}\n"
-                error_message += f"   User: {connection_params.get('user', 'postgres')}\n"
-                error_message += f"   Database: {connection_params.get('database', 'postgres')}\n"
+                error_message += (
+                    f"   User: {connection_params.get('user', 'postgres')}\n"
+                )
+                error_message += (
+                    f"   Database: {connection_params.get('database', 'postgres')}\n"
+                )
                 error_message += "=" * 70 + "\n"
-                
+
                 # Log and print for visibility
                 logger.error(error_message)
                 print(error_message, file=sys.stderr)
-                
+
             elif "database" in error_msg and "does not exist" in error_msg:
                 error_message = "\n" + "=" * 70 + "\n"
                 error_message += "PostgreSQL Database Error\n"
@@ -472,7 +515,7 @@ class warehouse_utils(DataStoreInterface):
                 error_message += "\nTo create it, run:\n"
                 error_message += f"   sudo -u postgres createdb {connection_params.get('database')}\n"
                 error_message += "=" * 70 + "\n"
-                
+
                 # Log and print for visibility
                 logger.error(error_message)
                 print(error_message, file=sys.stderr)
@@ -489,23 +532,27 @@ class warehouse_utils(DataStoreInterface):
                 error_message += "   - macOS: /usr/local/var/log/\n"
                 error_message += "   - Windows: Check Event Viewer\n"
                 error_message += "=" * 70 + "\n"
-                
+
                 # Log and print for visibility
                 logger.error(error_message)
                 print(error_message, file=sys.stderr)
-                
+
             return None
         except Exception as e:
             logger.error(f"Unexpected error connecting to PostgreSQL: {e}")
-            logger.error("\nFor local development with ingen_fab, PostgreSQL is required.")
-            logger.error("Please ensure PostgreSQL is properly installed and configured.")
+            logger.error(
+                "\nFor local development with ingen_fab, PostgreSQL is required."
+            )
+            logger.error(
+                "Please ensure PostgreSQL is properly installed and configured."
+            )
             return None
 
     def _create_local_postgresql_database_with_connection(self, conn) -> None:
         """Create a database called 'local' using the provided PostgreSQL connection."""
         try:
-            target_db = os.getenv('POSTGRES_DATABASE', 'local')
-            
+            target_db = os.getenv("POSTGRES_DATABASE", "local")
+
             # Check if database exists
             cursor = conn.cursor()
             cursor.execute("SELECT 1 FROM pg_database WHERE datname = %s", (target_db,))
@@ -561,43 +608,56 @@ class warehouse_utils(DataStoreInterface):
 
                 # Create schema if it doesn't exist
                 if not schema_exists:
-                    create_schema_query = self.sql.render("create_schema", schema_name=schema_name)
+                    create_schema_query = self.sql.render(
+                        "create_schema", schema_name=schema_name
+                    )
                     self.execute_query(conn, create_schema_query)
                     logging.info(f"Created schema '{schema_name}'.")
 
                 logging.info(f"Schema {schema_name} created or already exists.")
                 return  # Success, exit the retry loop
-                
+
             except Exception as e:
                 error_str = str(e).lower()
-                
+
                 # Check if this is a schema already exists error (race condition)
                 schema_exists_errors = [
-                    'already exists',
-                    'duplicate key',
-                    'already been used',
-                    'schema with name',
-                    'cannot create schema'
+                    "already exists",
+                    "duplicate key",
+                    "already been used",
+                    "schema with name",
+                    "cannot create schema",
                 ]
-                
-                is_schema_exists_error = any(err in error_str for err in schema_exists_errors)
-                
+
+                is_schema_exists_error = any(
+                    err in error_str for err in schema_exists_errors
+                )
+
                 if is_schema_exists_error:
                     # Schema was created by another process - this is actually success
-                    logging.info(f"Schema '{schema_name}' already exists (created by another process).")
+                    logging.info(
+                        f"Schema '{schema_name}' already exists (created by another process)."
+                    )
                     return
-                    
+
                 elif attempt < max_retries:
                     # Other error, retry with exponential backoff
-                    delay = 0.5 * (2 ** attempt)
-                    logging.warning(f"Error creating schema '{schema_name}' on attempt {attempt + 1}: {e}")
+                    delay = 0.5 * (2**attempt)
+                    logging.warning(
+                        f"Error creating schema '{schema_name}' on attempt {attempt + 1}: {e}"
+                    )
                     logging.warning(f"Retrying in {delay:.1f} seconds...")
                     time.sleep(delay)
                     continue
                 else:
                     # Max retries exceeded
-                    logging.error(f"Error creating schema {schema_name} after {max_retries} retries: {e}")
-                    print(f"Error creating schema for ddl log table {schema_name}: {e}", file=sys.stderr)
+                    logging.error(
+                        f"Error creating schema {schema_name} after {max_retries} retries: {e}"
+                    )
+                    print(
+                        f"Error creating schema for ddl log table {schema_name}: {e}",
+                        file=sys.stderr,
+                    )
                     raise
 
     def check_if_table_exists(self, table_name, schema_name: str = "dbo") -> bool:

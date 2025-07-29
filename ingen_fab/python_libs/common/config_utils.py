@@ -1,4 +1,3 @@
-
 """Configuration utilities for managing application settings.
 
 This module provides utilities for accessing configuration values
@@ -11,74 +10,106 @@ from typing import Any, Dict
 # variableLibraryInjectionStart: var_lib
 
 # All variables as a dictionary
-configs_dict = {'fabric_environment': 'local', 'fabric_deployment_workspace_id': 'REPLACE_WITH_YOUR_WORKSPACE_GUID', 'config_workspace_name': 'REPLACE_WITH_CONFIG_WORKSPACE_NAME', 'config_workspace_id': 'REPLACE_WITH_CONFIG_WORKSPACE_GUID', 'config_wh_workspace_id': 'REPLACE_WITH_CONFIG_WH_WORKSPACE_GUID', 'config_lakehouse_name': 'config', 'config_lakehouse_id': 'REPLACE_WITH_CONFIG_LAKEHOUSE_GUID', 'config_wh_warehouse_name': 'config_wh', 'config_wh_warehouse_id': 'REPLACE_WITH_CONFIG_WAREHOUSE_GUID', 'sample_lakehouse_name': 'sample', 'sample_lakehouse_id': 'REPLACE_WITH_SAMPLE_LAKEHOUSE_GUID', 'sample_wh_workspace_id': 'REPLACE_WITH_SAMPLE_WH_WORKSPACE_GUID', 'sample_wh_warehouse_name': 'sample_wh', 'sample_wh_warehouse_id': 'REPLACE_WITH_SAMPLE_WAREHOUSE_GUID', 'raw_workspace_id': 'REPLACE_WITH_RAW_WORKSPACE_GUID', 'raw_datastore_id': 'REPLACE_WITH_RAW_DATASTORE_GUID', 'edw_workspace_id': 'REPLACE_WITH_EDW_WORKSPACE_GUID', 'edw_lakehouse_name': 'edw', 'edw_lakehouse_id': 'REPLACE_WITH_EDW_LAKEHOUSE_GUID', 'edw_warehouse_name': 'edw', 'edw_warehouse_id': 'REPLACE_WITH_EDW_WAREHOUSE_GUID'}
+configs_dict = {
+    "fabric_environment": "local",
+    "fabric_deployment_workspace_id": "REPLACE_WITH_YOUR_WORKSPACE_GUID",
+    "config_workspace_name": "REPLACE_WITH_CONFIG_WORKSPACE_NAME",
+    "config_workspace_id": "REPLACE_WITH_CONFIG_WORKSPACE_GUID",
+    "config_wh_workspace_id": "REPLACE_WITH_CONFIG_WH_WORKSPACE_GUID",
+    "config_lakehouse_name": "config",
+    "config_lakehouse_id": "REPLACE_WITH_CONFIG_LAKEHOUSE_GUID",
+    "config_wh_warehouse_name": "config_wh",
+    "config_wh_warehouse_id": "REPLACE_WITH_CONFIG_WAREHOUSE_GUID",
+    "sample_lakehouse_name": "sample",
+    "sample_lakehouse_id": "REPLACE_WITH_SAMPLE_LAKEHOUSE_GUID",
+    "sample_wh_workspace_id": "REPLACE_WITH_SAMPLE_WH_WORKSPACE_GUID",
+    "sample_wh_warehouse_name": "sample_wh",
+    "sample_wh_warehouse_id": "REPLACE_WITH_SAMPLE_WAREHOUSE_GUID",
+    "raw_workspace_id": "REPLACE_WITH_RAW_WORKSPACE_GUID",
+    "raw_datastore_id": "REPLACE_WITH_RAW_DATASTORE_GUID",
+    "edw_workspace_id": "REPLACE_WITH_EDW_WORKSPACE_GUID",
+    "edw_lakehouse_name": "edw",
+    "edw_lakehouse_id": "REPLACE_WITH_EDW_LAKEHOUSE_GUID",
+    "edw_warehouse_name": "edw",
+    "edw_warehouse_id": "REPLACE_WITH_EDW_WAREHOUSE_GUID",
+}
 # All variables as an object
 from dataclasses import dataclass
+
+
 @dataclass
 class ConfigsObject:
-    fabric_environment: str 
-    fabric_deployment_workspace_id: str 
-    config_workspace_name: str 
-    config_workspace_id: str 
-    config_wh_workspace_id: str 
-    config_lakehouse_name: str 
-    config_lakehouse_id: str 
-    config_wh_warehouse_name: str 
-    config_wh_warehouse_id: str 
-    sample_lakehouse_name: str 
-    sample_lakehouse_id: str 
-    sample_wh_workspace_id: str 
-    sample_wh_warehouse_name: str 
-    sample_wh_warehouse_id: str 
-    raw_workspace_id: str 
-    raw_datastore_id: str 
-    edw_workspace_id: str 
-    edw_lakehouse_name: str 
-    edw_lakehouse_id: str 
-    edw_warehouse_name: str 
-    edw_warehouse_id: str 
+    fabric_environment: str
+    fabric_deployment_workspace_id: str
+    config_workspace_name: str
+    config_workspace_id: str
+    config_wh_workspace_id: str
+    config_lakehouse_name: str
+    config_lakehouse_id: str
+    config_wh_warehouse_name: str
+    config_wh_warehouse_id: str
+    sample_lakehouse_name: str
+    sample_lakehouse_id: str
+    sample_wh_workspace_id: str
+    sample_wh_warehouse_name: str
+    sample_wh_warehouse_id: str
+    raw_workspace_id: str
+    raw_datastore_id: str
+    edw_workspace_id: str
+    edw_lakehouse_name: str
+    edw_lakehouse_id: str
+    edw_warehouse_name: str
+    edw_warehouse_id: str
+
+
 configs_object: ConfigsObject = ConfigsObject(**configs_dict)
 # variableLibraryInjectionEnd: var_lib
 
 # Module-level configuration constants
 fabric_environments_table_name = "fabric_environments"
 fabric_environments_table_schema = "config"
-fabric_environments_table = f"{fabric_environments_table_schema}.{fabric_environments_table_name}"
+fabric_environments_table = (
+    f"{fabric_environments_table_schema}.{fabric_environments_table_name}"
+)
+
 
 def get_configs_as_dict() -> Dict[str, Any]:
     """Get all configuration values as a dictionary.
-    
+
     Returns:
         Dictionary containing all configuration key-value pairs.
     """
     return configs_dict
 
+
 def get_configs_as_object() -> ConfigsObject:
     """Get all configuration values as a strongly-typed object.
-    
+
     Returns:
         ConfigsObject instance with all configuration values accessible as attributes.
     """
     return configs_object
 
-def _is_local_environment() -> bool:        
+
+def _is_local_environment() -> bool:
     """Check if the current environment is local.
-    
+
     Returns:
         True if the environment is local, False otherwise.
     """
-    print (configs_dict.get("fabric_environment", "development"))
+    print(configs_dict.get("fabric_environment", "development"))
     return configs_dict.get("fabric_environment", "development") == "local"
+
 
 def get_config_value(key: str) -> Any:
     """Get a specific configuration value by key.
-    
+
     Args:
         key: The configuration key to retrieve.
-        
+
     Returns:
         The configuration value.
-        
+
     Raises:
         KeyError: If the configuration key does not exist.
     """
@@ -86,12 +117,13 @@ def get_config_value(key: str) -> Any:
         raise KeyError(f"Configuration key '{key}' not found")
     return configs_dict[key]
 
+
 def has_config(key: str) -> bool:
     """Check if a configuration key exists.
-    
+
     Args:
         key: The configuration key to check.
-        
+
     Returns:
         True if the key exists, False otherwise.
     """

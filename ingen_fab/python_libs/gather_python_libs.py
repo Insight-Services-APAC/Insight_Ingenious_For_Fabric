@@ -117,7 +117,7 @@ class GatherPythonLibs:
                     # Handle cross-directory imports like "from ..interfaces.module_name import ..."
                     elif node.module and node.level > 1:
                         # Extract the module name from paths like "interfaces.data_store_interface"
-                        parts = node.module.split('.')
+                        parts = node.module.split(".")
                         if len(parts) > 1:
                             # Add the final module name (e.g., "data_store_interface")
                             dependencies.add(parts[-1])
@@ -195,53 +195,65 @@ class GatherPythonLibs:
 
         return sorted_files
 
-    def _discover_additional_dependencies(self, target_files: List[Path], base_python_libs_path: Path) -> List[Path]:
+    def _discover_additional_dependencies(
+        self, target_files: List[Path], base_python_libs_path: Path
+    ) -> List[Path]:
         """
         Discover additional files from common and interfaces directories that are referenced
         by the target files or their dependencies.
         """
         additional_files = []
         discovered_dependencies = set()
-        
+
         # Get common and interfaces directories
         common_dir = base_python_libs_path / "common"
         interfaces_dir = base_python_libs_path / "interfaces"
-        
+
         # Get all available files in common and interfaces directories
         available_files = {}
-        
+
         if common_dir.exists():
             for file_path in common_dir.iterdir():
-                if file_path.is_file() and file_path.suffix == ".py" and not file_path.name.startswith("__"):
+                if (
+                    file_path.is_file()
+                    and file_path.suffix == ".py"
+                    and not file_path.name.startswith("__")
+                ):
                     available_files[file_path.stem] = file_path
-        
+
         if interfaces_dir.exists():
             for file_path in interfaces_dir.iterdir():
-                if file_path.is_file() and file_path.suffix == ".py" and not file_path.name.startswith("__"):
+                if (
+                    file_path.is_file()
+                    and file_path.suffix == ".py"
+                    and not file_path.name.startswith("__")
+                ):
                     available_files[file_path.stem] = file_path
-        
+
         # Recursively discover dependencies
         files_to_check = target_files.copy()
         checked_files = set()
-        
+
         while files_to_check:
             current_file = files_to_check.pop(0)
-            
+
             if current_file in checked_files:
                 continue
-                
+
             checked_files.add(current_file)
-            
+
             # Analyze dependencies of current file
             deps = self.analyze_file_dependencies(current_file)
-            
+
             for dep in deps:
                 if dep in available_files and dep not in discovered_dependencies:
                     discovered_dependencies.add(dep)
                     dep_file = available_files[dep]
                     additional_files.append(dep_file)
-                    files_to_check.append(dep_file)  # Check dependencies of this file too
-        
+                    files_to_check.append(
+                        dep_file
+                    )  # Check dependencies of this file too
+
         return additional_files
 
     def gather_files(self, python_libs_path: Path, libs_to_include: List[str]) -> []:
@@ -253,19 +265,19 @@ class GatherPythonLibs:
         try:
             base_python_libs_path = PathUtils.get_package_resource_path("python_libs")
             target_python_libs_path = base_python_libs_path / python_libs_path
-            
+
             if not target_python_libs_path.exists():
                 self.console.print(
                     f"[yellow]Warning: Python libs path not found: {target_python_libs_path}[/yellow]"
                 )
                 return
-                
+
         except FileNotFoundError:
             self.console.print(
                 f"[yellow]Warning: Could not locate python_libs package resources[/yellow]"
             )
             return
-        
+
         # Get all Python files from the target directory
         target_python_files = []
         if libs_to_include:
@@ -296,7 +308,7 @@ class GatherPythonLibs:
         additional_files = self._discover_additional_dependencies(
             target_python_files, base_python_libs_path
         )
-        
+
         # Combine all files
         all_python_files = target_python_files + additional_files
 
@@ -327,7 +339,7 @@ class GatherPythonLibs:
         combined_content = []
         if self.include_jinja_raw_tags:
             combined_content.append("{% raw %}")
-        
+
         # Check if any file uses from __future__ import annotations
         has_future_annotations = False
         for file_path in sorted_files:
@@ -339,11 +351,11 @@ class GatherPythonLibs:
                         break
             except Exception:
                 continue
-        
+
         # Add future annotations import at the top if needed
         if has_future_annotations:
             combined_content.append("from __future__ import annotations\n")
-        
+
         combined_content.append("# Auto-generated library code from python_libs")
         combined_content.append("# Files are ordered based on dependency analysis\n")
 
@@ -358,11 +370,13 @@ class GatherPythonLibs:
 
                 for line in lines:  # Skip relative import lines and future annotations
                     stripped_line = line.strip()
-                    if (stripped_line.startswith("from .") or 
-                        stripped_line.startswith("import .") or
-                        stripped_line.startswith("from ..interfaces.") or
-                        stripped_line.startswith("from ..common.") or
-                        stripped_line == "from __future__ import annotations"):
+                    if (
+                        stripped_line.startswith("from .")
+                        or stripped_line.startswith("import .")
+                        or stripped_line.startswith("from ..interfaces.")
+                        or stripped_line.startswith("from ..common.")
+                        or stripped_line == "from __future__ import annotations"
+                    ):
                         continue
                     filtered_lines.append(line)
 

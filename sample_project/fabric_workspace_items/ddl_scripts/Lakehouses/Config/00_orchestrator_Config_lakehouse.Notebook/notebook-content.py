@@ -45,7 +45,7 @@ import sys
 if "notebookutils" in sys.modules:
     import sys
     
-    notebookutils.fs.mount("abfss://REPLACE_WITH_CONFIG_WORKSPACE_NAME@onelake.dfs.fabric.microsoft.com/config.Lakehouse/Files/", "/config_files")  # type: ignore # noqa: F821
+    notebookutils.fs.mount("abfss://{{varlib:config_workspace_name}}@onelake.dfs.fabric.microsoft.com/{{varlib:config_lakehouse_name}}.Lakehouse/Files/", "/config_files")  # type: ignore # noqa: F821
     mount_path = notebookutils.fs.getMountPath("/config_files")  # type: ignore # noqa: F821
     
     run_mode = "fabric"
@@ -215,10 +215,10 @@ def execute_notebook(notebook_name, index, total, timeout_seconds=3600):
         # Use notebook utils abstraction for cross-environment compatibility
         result = notebookutils.mssparkutils.notebook.run(
             notebook_name,
-            timeout=timeout_seconds,
-            params=params
+            timeout_seconds,
+            params
         )
-        
+        print(f"Exit value$$: {result}")
         if (result == 'success'):
             success_count += 1
             print(f"✓ Successfully executed: {notebook_name}")
@@ -281,12 +281,12 @@ if failed_notebooks:
 
 if success_count == 4:
     print("✓ All notebooks executed successfully!")
-    notebookutils.exit_notebook("success")
+    notebookutils.mssparkutils.notebook.exit("success")
 else:
     print(f"\n✗ Orchestration completed with {failed_count} failure(s)")
     # Exit with failure status - this will be caught by parent orchestrator as non-"success"
     error_summary = f"failed: {failed_count} of 4 notebooks failed"
-    notebookutils.exit_notebook(error_summary)
+    notebookutils.mssparkutils.notebook.exit(error_summary)
 
 # METADATA ********************
 

@@ -49,16 +49,17 @@ class lakehouse_utils(DataStoreInterface):
     ) -> bool:
         """Check if a Delta table exists at the given table name."""
         table_path = f"{self.lakehouse_tables_uri()}{table_name}"
-        
+
         # For local environment, check if directory exists with _delta_log
         if config_utils._is_local_environment():
             import os
+
             local_path = table_path.replace("file://", "")
             if os.path.exists(local_path):
                 delta_log_path = os.path.join(local_path, "_delta_log")
                 return os.path.exists(delta_log_path)
             return False
-        
+
         try:
             # delta-rs: DeltaTable will raise if not found
             DeltaTable(table_path)
@@ -88,16 +89,17 @@ class lakehouse_utils(DataStoreInterface):
     def list_tables(self) -> list[str]:
         """List all tables in the lakehouse directory using delta-rs."""
         import os
-        tables_path = self.lakehouse_tables_uri().replace('file://', '')
+
+        tables_path = self.lakehouse_tables_uri().replace("file://", "")
         if not os.path.exists(tables_path):
             return []
-        
+
         tables = []
         for item in os.listdir(tables_path):
             item_path = os.path.join(tables_path, item)
             if os.path.isdir(item_path):
                 # Check if it's a Delta table by looking for _delta_log directory
-                delta_log_path = os.path.join(item_path, '_delta_log')
+                delta_log_path = os.path.join(item_path, "_delta_log")
                 if os.path.exists(delta_log_path):
                     tables.append(item)
         return tables
@@ -108,25 +110,25 @@ class lakehouse_utils(DataStoreInterface):
         """Drop all Delta tables in the lakehouse directory using filesystem operations."""
         import shutil
         from pathlib import Path
-        
+
         # Get the tables directory path
         tables_uri = self.lakehouse_tables_uri()
         tables_path = Path(tables_uri.replace("file://", ""))
-        
+
         # Check if the tables directory exists
         if not tables_path.exists():
             return
-        
+
         # List all directories in the tables path
         dropped_tables = []
         for item in tables_path.iterdir():
             if item.is_dir():
                 table_name = item.name
-                
+
                 # Apply table prefix filter if specified
                 if table_prefix and not table_name.startswith(table_prefix):
                     continue
-                
+
                 # Check if it's a valid Delta table by looking for _delta_log directory
                 delta_log_path = item / "_delta_log"
                 if delta_log_path.exists():
@@ -138,9 +140,11 @@ class lakehouse_utils(DataStoreInterface):
                         # Continue dropping other tables even if one fails
                         print(f"Warning: Failed to drop table {table_name}: {e}")
                         continue
-        
+
         if dropped_tables:
-            print(f"Successfully dropped {len(dropped_tables)} tables: {dropped_tables}")
+            print(
+                f"Successfully dropped {len(dropped_tables)} tables: {dropped_tables}"
+            )
         else:
             print("No tables found to drop")
 
@@ -165,7 +169,9 @@ class lakehouse_utils(DataStoreInterface):
         filters: dict[str, Any] | None = None,
     ) -> Any:
         """Read data from a table using delta-rs API."""
-        print(f"Reading table: {table_name} with columns: {columns}, limit: {limit}, filters: {filters}")
+        print(
+            f"Reading table: {table_name} with columns: {columns}, limit: {limit}, filters: {filters}"
+        )
         print(f"Table path: {self.lakehouse_tables_uri()}{table_name}")
         table_path = f"{self.lakehouse_tables_uri()}{table_name}"
         delta_table = DeltaTable(table_path)
@@ -173,6 +179,7 @@ class lakehouse_utils(DataStoreInterface):
         if columns:
             df = df.select(columns)
         import pyarrow.compute as pc
+
         if filters:
             for col, val in filters.items():
                 mask = pc.equal(df[col], val)
@@ -190,7 +197,9 @@ class lakehouse_utils(DataStoreInterface):
     ) -> int:
         """Delete rows from a table matching filters using delta-rs API. Returns number of rows deleted."""
         # delta-rs does not support row-level deletes via Python API as of now.
-        raise NotImplementedError("delta-rs does not support row-level deletes via Python API.")
+        raise NotImplementedError(
+            "delta-rs does not support row-level deletes via Python API."
+        )
 
     def rename_table(
         self,
@@ -213,7 +222,9 @@ class lakehouse_utils(DataStoreInterface):
         options: dict[str, Any] | None = None,
     ) -> None:
         """Create a new table with a given schema (delta-rs does not support this directly)."""
-        raise NotImplementedError("delta-rs does not support creating tables from schema directly.")
+        raise NotImplementedError(
+            "delta-rs does not support creating tables from schema directly."
+        )
 
     def drop_table(
         self,
@@ -277,7 +288,7 @@ class lakehouse_utils(DataStoreInterface):
     ) -> Any:
         """Read a file from the file system."""
         import pandas as pd
-        
+
         if file_format.lower() == "csv":
             return pd.read_csv(file_path, **(options or {}))
         elif file_format.lower() == "json":
@@ -307,6 +318,7 @@ class lakehouse_utils(DataStoreInterface):
     def file_exists(self, file_path: str) -> bool:
         """Check if a file exists."""
         import os
+
         return os.path.exists(file_path.replace("file://", ""))
 
     def list_files(
@@ -318,9 +330,9 @@ class lakehouse_utils(DataStoreInterface):
         """List files in a directory."""
         import os
         import glob
-        
+
         dir_path = directory_path.replace("file://", "")
-        
+
         if pattern:
             if recursive:
                 return glob.glob(os.path.join(dir_path, "**", pattern), recursive=True)
@@ -334,17 +346,21 @@ class lakehouse_utils(DataStoreInterface):
                         files.append(os.path.join(root, filename))
                 return files
             else:
-                return [os.path.join(dir_path, f) for f in os.listdir(dir_path) if os.path.isfile(os.path.join(dir_path, f))]
+                return [
+                    os.path.join(dir_path, f)
+                    for f in os.listdir(dir_path)
+                    if os.path.isfile(os.path.join(dir_path, f))
+                ]
 
     def get_file_info(self, file_path: str) -> dict[str, Any]:
         """Get information about a file."""
         import os
         from datetime import datetime
-        
+
         path = file_path.replace("file://", "")
         if not os.path.exists(path):
             raise FileNotFoundError(f"File not found: {file_path}")
-        
+
         stat = os.stat(path)
         return {
             "size": stat.st_size,

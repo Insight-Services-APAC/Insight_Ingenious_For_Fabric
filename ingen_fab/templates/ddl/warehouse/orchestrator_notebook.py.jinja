@@ -125,11 +125,11 @@ if failed_notebooks:
 
 if success_count == {{ total_notebooks }}:
     print("\n✓ All notebooks executed successfully!")
-    notebookutils.exit_notebook("success")
+    notebookutils.notebook.exit("success")
 else:
     print(f"\n✗ Orchestration completed with {failed_count} failure(s)")
     # Exit with failure status - this will be caught by parent orchestrator as non-"success"
     error_summary = f"failed: {failed_count} of {{ total_notebooks }} notebooks failed"
-    notebookutils.exit_notebook(error_summary)
+    notebookutils.notebook.exit(error_summary)
 
 {%include "shared/notebook/cells/footer.py.jinja" %}
