@@ -654,288 +654,261 @@ def synthetic_data_generate(
         raise typer.Exit(1)
 
 
-@ingest_app.command("compile")
-def ingest_app_compile(
+@synthetic_data_app.command("generate-incremental")
+def synthetic_data_generate_incremental(
     ctx: typer.Context,
-    template_vars: Annotated[str, typer.Option("--template-vars", "-t", help="JSON string of template variables")] = None,
-    include_samples: Annotated[bool, typer.Option("--include-samples", "-s", help="Include sample data DDL and files")] = False,
-    target_datastore: Annotated[str, typer.Option("--target-datastore", "-d", help="Target datastore type: lakehouse, warehouse, or both")] = "lakehouse",
+    dataset_id: Annotated[str, typer.Argument(help="Dataset ID to generate incremental data for")],
+    generation_date: Annotated[str, typer.Option("--date", "-d", help="Generation date (YYYY-MM-DD). Defaults to today")] = None,
+    target_environment: Annotated[str, typer.Option("--target-environment", "-e", help="Target environment (lakehouse or warehouse)")] = "lakehouse",
+    generation_mode: Annotated[str, typer.Option("--generation-mode", "-m", help="Generation mode (python, pyspark, or auto)")] = "auto",
+    path_format: Annotated[str, typer.Option("--path-format", "-p", help="Path format (nested: /YYYY/MM/DD/ or flat: YYYYMMDD_)")] = "nested",
+    seed_value: Annotated[int, typer.Option("--seed", "-s", help="Seed value for reproducible generation")] = None,
+    execute_notebook: Annotated[bool, typer.Option("--execute", help="Execute the notebook after compilation")] = False,
 ):
-    """Compile flat file ingestion package templates and DDL scripts."""
-    import json
-
-    from ingen_fab.packages.flat_file_ingestion.flat_file_ingestion import (
-        compile_flat_file_ingestion_package,
-    )
+    """Generate incremental synthetic data for a specific date."""
+    import datetime
     
-    # Parse template variables if provided
-    vars_dict = {}
-    if template_vars:
-        try:
-            vars_dict = json.loads(template_vars)
-        except json.JSONDecodeError as e:
-            console.print(f"[red]Error parsing template variables: {e}[/red]")
-            raise typer.Exit(code=1)
+    # Default to today if no date provided
+    if generation_date is None:
+        generation_date = datetime.date.today().isoformat()
     
-    # Get fabric workspace repo directory from context
-    fabric_workspace_repo_dir = str(ctx.obj["fabric_workspace_repo_dir"])
+    console.print(f"[blue]🎲 Generating incremental synthetic data for dataset: {dataset_id}[/blue]")
+    console.print(f"📅 Generation date: {generation_date}")
+    console.print(f"🏗️ Target environment: {target_environment}")
+    console.print(f"🔧 Generation mode: {generation_mode}")
+    console.print(f"📁 Path format: {path_format}")
+    if seed_value:
+        console.print(f"🌱 Seed value: {seed_value}")
     
-    # Validate target datastore parameter
-    valid_datastores = ["lakehouse", "warehouse", "both"]
-    if target_datastore not in valid_datastores:
-        console.print(f"[red]Error: Invalid target datastore '{target_datastore}'. Must be one of: {', '.join(valid_datastores)}[/red]")
+    # Validate parameters
+    valid_generation_modes = ["python", "pyspark", "auto"]
+    if generation_mode not in valid_generation_modes:
+        console.print(f"[red]Error: Invalid generation mode '{generation_mode}'[/red]")
+        console.print(f"[yellow]Valid generation modes: {', '.join(valid_generation_modes)}[/yellow]")
+        raise typer.Exit(code=1)
+    
+    valid_target_environments = ["lakehouse", "warehouse"]
+    if target_environment not in valid_target_environments:
+        console.print(f"[red]Error: Invalid target environment '{target_environment}'[/red]")
+        console.print(f"[yellow]Valid target environments: {', '.join(valid_target_environments)}[/yellow]")
+        raise typer.Exit(code=1)
+    
+    valid_path_formats = ["nested", "flat"]
+    if path_format not in valid_path_formats:
+        console.print(f"[red]Error: Invalid path format '{path_format}'[/red]")
+        console.print(f"[yellow]Valid path formats: {', '.join(valid_path_formats)}[/yellow]")
         raise typer.Exit(code=1)
     
     try:
-        results = compile_flat_file_ingestion_package(
-            fabric_workspace_repo_dir=fabric_workspace_repo_dir,
-            template_vars=vars_dict,
-            include_samples=include_samples,
-            target_datastore=target_datastore
-        )
-        
-        if results["success"]:
-            console.print("[green]✓ Flat file ingestion package compiled successfully![/green]")
-        else:
-            console.print(f"[red]✗ Compilation failed: {results['errors']}[/red]")
-            raise typer.Exit(code=1)
-            
-    except Exception as e:
-        console.print(f"[red]Error compiling package: {e}[/red]")
+        # Validate date format
+        datetime.datetime.strptime(generation_date, "%Y-%m-%d")
+    except ValueError:
+        console.print(f"[red]Error: Invalid date format '{generation_date}'. Use YYYY-MM-DD format.[/red]")
         raise typer.Exit(code=1)
-
-
-@ingest_app.command()
-def run(
-    ctx: typer.Context,
-    config_id: Annotated[str, typer.Option("--config-id", "-c", help="Specific configuration ID to process")] = "",
-    execution_group: Annotated[int, typer.Option("--execution-group", "-g", help="Execution group number")] = 1,
-    environment: Annotated[str, typer.Option("--environment", "-e", help="Environment name")] = "development",
-):
-    """Run flat file ingestion for specified configuration or execution group."""
-    console.print(f"[blue]Running flat file ingestion...[/blue]")
-    console.print(f"Config ID: {config_id}")
-    console.print(f"Execution Group: {execution_group}")
-    console.print(f"Environment: {environment}")
-    console.print(f"Fabric Workspace Repo Dir: {ctx.obj['fabric_workspace_repo_dir']}")
     
-    console.print("[yellow]Note: This command would typically execute the compiled notebook with the specified parameters.[/yellow]")
-    console.print("[yellow]In a production environment, this would submit the notebook to Fabric for execution.[/yellow]")
-
-
-@synapse_app.command("compile")
-def synapse_app_compile(
-    ctx: typer.Context,
-    template_vars: Annotated[str, typer.Option("--template-vars", "-t", help="JSON string of template variables")] = None,
-    include_samples: Annotated[bool, typer.Option("--include-samples", "-s", help="Include sample data DDL and files")] = False,
-):
-    """Compile synapse sync package templates and DDL scripts."""
-    import json
-
-    from ingen_fab.packages.synapse_sync.synapse_sync import (
-        compile_synapse_sync_package,
+    from ingen_fab.packages.synthetic_data_generation.incremental_data_generation import IncrementalSyntheticDataGenerationCompiler
+    
+    # Initialize compiler
+    compiler = IncrementalSyntheticDataGenerationCompiler(
+        fabric_workspace_repo_dir=ctx.obj["fabric_workspace_repo_dir"],
+        fabric_environment=ctx.obj["fabric_environment"]
     )
     
-    # Parse template variables if provided
-    vars_dict = {}
-    if template_vars:
-        try:
-            vars_dict = json.loads(template_vars)
-        except json.JSONDecodeError as e:
-            console.print(f"[red]Error parsing template variables: {e}[/red]")
-            raise typer.Exit(code=1)
-    
-    # Get fabric workspace repo directory from context
-    fabric_workspace_repo_dir = str(ctx.obj["fabric_workspace_repo_dir"])
-    
     try:
-        results = compile_synapse_sync_package(
-            fabric_workspace_repo_dir=fabric_workspace_repo_dir,
-            template_vars=vars_dict,
-            include_samples=include_samples
+        # Get enhanced predefined configurations
+        predefined_configs = compiler.get_enhanced_predefined_dataset_configs()
+        
+        if dataset_id not in predefined_configs:
+            console.print(f"[red]Error: Unknown dataset_id '{dataset_id}'[/red]")
+            console.print(f"[yellow]Available datasets: {', '.join(predefined_configs.keys())}[/yellow]")
+            raise typer.Exit(code=1)
+        
+        # Get the dataset configuration
+        dataset_config = predefined_configs[dataset_id].copy()
+        if seed_value:
+            dataset_config["incremental_config"]["seed_value"] = seed_value
+        
+        # Compile the notebook
+        notebook_path = compiler.compile_incremental_dataset_notebook(
+            dataset_config=dataset_config,
+            generation_date=generation_date,
+            target_environment=target_environment,
+            generation_mode=generation_mode,
+            path_format=path_format,
+            state_management=True
         )
         
-        if results["success"]:
-            console.print("[green]✓ Synapse sync package compiled successfully![/green]")
+        console.print(f"[green]✅ Incremental notebook compiled: {notebook_path}[/green]")
+        
+        if execute_notebook:
+            console.print("[yellow]📓 Executing notebook...[/yellow]")
+            console.print("[yellow]Note: In a production environment, this would submit the notebook to Fabric for execution.[/yellow]")
         else:
-            console.print(f"[red]✗ Compilation failed: {results['errors']}[/red]")
-            raise typer.Exit(code=1)
+            console.print(f"[dim]💡 To execute the notebook, add --execute flag or run it manually in your environment[/dim]")
+        
+        # Show path format information
+        if path_format == "nested":
+            console.print(f"[dim]📁 Files will be saved to: Files/synthetic_data/{dataset_id}/YYYY/MM/DD/[table_name].parquet[/dim]")
+        else:
+            console.print(f"[dim]📁 Files will be saved to: Files/synthetic_data/{dataset_id}/YYYYMMDD_[table_name].parquet[/dim]")
             
     except Exception as e:
-        console.print(f"[red]Error compiling package: {e}[/red]")
-        raise typer.Exit(code=1)
+        console.print(f"[red]❌ Error during incremental generation: {e}[/red]")
+        raise typer.Exit(1)
 
 
-@synapse_app.command()
-def run(
+@synthetic_data_app.command("generate-series")
+def synthetic_data_generate_series(
     ctx: typer.Context,
-    master_execution_id: Annotated[str, typer.Option("--master-execution-id", "-m", help="Master execution ID")] = "",
-    work_items_json: Annotated[str, typer.Option("--work-items-json", "-w", help="JSON string of work items for historical mode")] = "",
-    max_concurrency: Annotated[int, typer.Option("--max-concurrency", "-c", help="Maximum concurrency level")] = 10,
-    include_snapshots: Annotated[bool, typer.Option("--include-snapshots", "-s", help="Include snapshot tables")] = True,
-    environment: Annotated[str, typer.Option("--environment", "-e", help="Environment name")] = "development",
+    dataset_id: Annotated[str, typer.Argument(help="Dataset ID to generate incremental series for")],
+    start_date: Annotated[str, typer.Option("--start-date", "-s", help="Start date (YYYY-MM-DD)")],
+    end_date: Annotated[str, typer.Option("--end-date", "-e", help="End date (YYYY-MM-DD)")],
+    target_environment: Annotated[str, typer.Option("--target-environment", "-t", help="Target environment (lakehouse or warehouse)")] = "lakehouse",
+    generation_mode: Annotated[str, typer.Option("--generation-mode", "-m", help="Generation mode (python, pyspark, or auto)")] = "auto",
+    path_format: Annotated[str, typer.Option("--path-format", "-p", help="Path format (nested: /YYYY/MM/DD/ or flat: YYYYMMDD_)")] = "nested",
+    batch_size: Annotated[int, typer.Option("--batch-size", "-b", help="Number of days to process in each batch")] = 30,
+    seed_value: Annotated[int, typer.Option("--seed", help="Seed value for reproducible generation")] = None,
+    execute_notebook: Annotated[bool, typer.Option("--execute", help="Execute the notebook after compilation")] = False,
 ):
-    """Run synapse sync extraction for specified configuration."""
-    console.print(f"[blue]Running synapse sync extraction...[/blue]")
-    console.print(f"Master Execution ID: {master_execution_id}")
-    console.print(f"Work Items JSON: {work_items_json}")
-    console.print(f"Max Concurrency: {max_concurrency}")
-    console.print(f"Include Snapshots: {include_snapshots}")
-    console.print(f"Environment: {environment}")
-    console.print(f"Fabric Workspace Repo Dir: {ctx.obj['fabric_workspace_repo_dir']}")
+    """Generate incremental synthetic data for a series of dates."""
+    import datetime
     
-    console.print("[yellow]Note: This command would typically execute the compiled notebook with the specified parameters.[/yellow]")
-    console.print("[yellow]In a production environment, this would submit the notebook to Fabric for execution.[/yellow]")
-
-
-# Extract generation commands
-@extract_app.command("compile")
-def extract_app_compile(
-    ctx: typer.Context,
-    template_vars: Annotated[str, typer.Option("--template-vars", "-t", help="JSON string of template variables")] = None,
-    include_samples: Annotated[bool, typer.Option("--include-samples", "-s", help="Include sample data DDL and source tables")] = False,
-    target_datastore: Annotated[str, typer.Option("--target-datastore", "-d", help="Target datastore type (warehouse)")] = "warehouse",
-):
-    """Compile extract generation package templates and DDL scripts."""
-    import json
-
-    from ingen_fab.packages.extract_generation.extract_generation import (
-        compile_extract_generation_package,
+    console.print(f"[blue]🎲 Generating incremental synthetic data series for dataset: {dataset_id}[/blue]")
+    console.print(f"📅 Date range: {start_date} to {end_date}")
+    console.print(f"🏗️ Target environment: {target_environment}")
+    console.print(f"🔧 Generation mode: {generation_mode}")
+    console.print(f"📁 Path format: {path_format}")
+    console.print(f"📦 Batch size: {batch_size} days")
+    if seed_value:
+        console.print(f"🌱 Seed value: {seed_value}")
+    
+    # Validate date formats
+    try:
+        start_date_obj = datetime.datetime.strptime(start_date, "%Y-%m-%d").date()
+        end_date_obj = datetime.datetime.strptime(end_date, "%Y-%m-%d").date()
+    except ValueError:
+        console.print(f"[red]Error: Invalid date format. Use YYYY-MM-DD format.[/red]")
+        raise typer.Exit(code=1)
+    
+    if start_date_obj > end_date_obj:
+        console.print(f"[red]Error: Start date must be before or equal to end date.[/red]")
+        raise typer.Exit(code=1)
+    
+    total_days = (end_date_obj - start_date_obj).days + 1
+    console.print(f"📊 Total days to generate: {total_days}")
+    
+    # Validate other parameters
+    valid_generation_modes = ["python", "pyspark", "auto"]
+    if generation_mode not in valid_generation_modes:
+        console.print(f"[red]Error: Invalid generation mode '{generation_mode}'[/red]")
+        raise typer.Exit(code=1)
+    
+    valid_target_environments = ["lakehouse", "warehouse"]
+    if target_environment not in valid_target_environments:
+        console.print(f"[red]Error: Invalid target environment '{target_environment}'[/red]")
+        raise typer.Exit(code=1)
+    
+    valid_path_formats = ["nested", "flat"]
+    if path_format not in valid_path_formats:
+        console.print(f"[red]Error: Invalid path format '{path_format}'[/red]")
+        raise typer.Exit(code=1)
+    
+    if batch_size <= 0:
+        console.print(f"[red]Error: Batch size must be positive.[/red]")
+        raise typer.Exit(code=1)
+    
+    from ingen_fab.packages.synthetic_data_generation.incremental_data_generation import IncrementalSyntheticDataGenerationCompiler
+    
+    # Initialize compiler
+    compiler = IncrementalSyntheticDataGenerationCompiler(
+        fabric_workspace_repo_dir=ctx.obj["fabric_workspace_repo_dir"],
+        fabric_environment=ctx.obj["fabric_environment"]
     )
     
-    # Parse template variables if provided
-    vars_dict = {}
-    if template_vars:
-        try:
-            vars_dict = json.loads(template_vars)
-        except json.JSONDecodeError as e:
-            console.print(f"[red]Error parsing template variables: {e}[/red]")
-            raise typer.Exit(code=1)
-    
-    # Get fabric workspace repo directory from context
-    fabric_workspace_repo_dir = str(ctx.obj["fabric_workspace_repo_dir"])
-    
     try:
-        results = compile_extract_generation_package(
-            fabric_workspace_repo_dir=fabric_workspace_repo_dir,
-            template_vars=vars_dict,
-            include_samples=include_samples,
-            target_datastore=target_datastore
+        # Get enhanced predefined configurations
+        predefined_configs = compiler.get_enhanced_predefined_dataset_configs()
+        
+        if dataset_id not in predefined_configs:
+            console.print(f"[red]Error: Unknown dataset_id '{dataset_id}'[/red]")
+            console.print(f"[yellow]Available datasets: {', '.join(predefined_configs.keys())}[/yellow]")
+            raise typer.Exit(code=1)
+        
+        # Get the dataset configuration
+        dataset_config = predefined_configs[dataset_id].copy()
+        if seed_value:
+            dataset_config["incremental_config"]["seed_value"] = seed_value
+        
+        # Compile the series notebook
+        notebook_path = compiler.compile_incremental_dataset_series_notebook(
+            dataset_config=dataset_config,
+            start_date=start_date,
+            end_date=end_date,
+            target_environment=target_environment,
+            generation_mode=generation_mode,
+            path_format=path_format,
+            batch_size=batch_size
         )
         
-        if results["success"]:
-            console.print("[green]✓ Extract generation package compiled successfully![/green]")
+        console.print(f"[green]✅ Incremental series notebook compiled: {notebook_path}[/green]")
+        
+        if execute_notebook:
+            console.print("[yellow]📓 Executing notebook...[/yellow]")
+            console.print("[yellow]Note: In a production environment, this would submit the notebook to Fabric for execution.[/yellow]")
         else:
-            console.print(f"[red]✗ Compilation failed: {results['errors']}[/red]")
-            raise typer.Exit(code=1)
+            console.print(f"[dim]💡 To execute the notebook, add --execute flag or run it manually in your environment[/dim]")
+        
+        # Show estimated work
+        estimated_batches = (total_days + batch_size - 1) // batch_size  # Ceiling division
+        console.print(f"[dim]📊 Will process in approximately {estimated_batches} batches[/dim]")
+        
+        # Show path format information
+        if path_format == "nested":
+            console.print(f"[dim]📁 Files will be saved to: Files/synthetic_data/{dataset_id}/YYYY/MM/DD/[table_name].parquet[/dim]")
+        else:
+            console.print(f"[dim]📁 Files will be saved to: Files/synthetic_data/{dataset_id}/YYYYMMDD_[table_name].parquet[/dim]")
             
     except Exception as e:
-        console.print(f"[red]Error compiling package: {e}[/red]")
-        raise typer.Exit(code=1)
+        console.print(f"[red]❌ Error during series generation: {e}[/red]")
+        raise typer.Exit(1)
 
 
-@extract_app.command()
-def extract_run(
-    ctx: typer.Context,
-    extract_name: Annotated[str, typer.Option("--extract-name", "-n", help="Specific extract configuration to process")] = "",
-    execution_group: Annotated[str, typer.Option("--execution-group", "-g", help="Execution group to process")] = "",
-    environment: Annotated[str, typer.Option("--environment", "-e", help="Environment name")] = "development",
-    run_type: Annotated[str, typer.Option("--run-type", "-r", help="Run type: FULL or INCREMENTAL")] = "FULL",
-):
-    """Run extract generation for specified configuration or execution group."""
-    console.print(f"[blue]Running extract generation...[/blue]")
-    console.print(f"Extract Name: {extract_name}")
-    console.print(f"Execution Group: {execution_group}")
-    console.print(f"Environment: {environment}")
-    console.print(f"Run Type: {run_type}")
-    console.print(f"Fabric Workspace Repo Dir: {ctx.obj['fabric_workspace_repo_dir']}")
+@synthetic_data_app.command("list-incremental-datasets")
+def synthetic_data_list_incremental_datasets():
+    """List available predefined dataset configurations with incremental capabilities."""
+    from ingen_fab.packages.synthetic_data_generation.incremental_data_generation import IncrementalSyntheticDataGenerationCompiler
     
-    console.print("[yellow]Note: This command would typically execute the compiled notebook with the specified parameters.[/yellow]")
-    console.print("[yellow]In a production environment, this would submit the notebook to Fabric for execution.[/yellow]")
-
-
-# Library compilation commands
-@libs_app.command()
-def compile(
-    ctx: typer.Context,
-    target_file: Annotated[str, typer.Option("--target-file", "-f", help="Specific python file to compile (relative to project root)")] = None,
-):
-    """Compile Python libraries by injecting variables from the variable library."""
-    from pathlib import Path
-    from ingen_fab.config_utils.variable_lib import inject_variables_into_file, VariableLibraryUtils
+    compiler = IncrementalSyntheticDataGenerationCompiler()
+    configs = compiler.get_enhanced_predefined_dataset_configs()
     
-    project_path = Path(ctx.obj["fabric_workspace_repo_dir"])
-    environment = str(ctx.obj["fabric_environment"])
+    console.print("[bold blue]📊 Available Incremental Synthetic Dataset Configurations[/bold blue]")
+    console.print()
     
-    console.print(f"[blue]Compiling Python libraries...[/blue]")
-    console.print(f"Project path: {project_path}")
-    console.print(f"Environment: {environment}")
-    
-    if target_file:
-        # Compile specific file
-        target_path = project_path / target_file
-        console.print(f"Target file: {target_path}")
+    for dataset_id, config in configs.items():
+        console.print(f"[bold]{dataset_id}[/bold]")
+        console.print(f"  Name: {config['dataset_name']}")
+        console.print(f"  Type: {config['dataset_type']} ({config['schema_pattern']})")
+        console.print(f"  Domain: {config['domain']}")
+        console.print(f"  Description: {config['description']}")
         
-        if not target_path.exists():
-            console.print(f"[red]Error: Target file not found: {target_path}[/red]")
-            raise typer.Exit(code=1)
+        # Show table configuration summary
+        table_configs = config.get('table_configs', {})
+        if table_configs:
+            snapshot_tables = [name for name, tconfig in table_configs.items() if tconfig.get('type') == 'snapshot']
+            incremental_tables = [name for name, tconfig in table_configs.items() if tconfig.get('type') == 'incremental']
             
-        try:
-            # Create a VariableLibraryUtils instance and directly call perform_code_replacements
-            varlib_utils = VariableLibraryUtils(project_path, environment)
-            
-            # Read the file content
-            with open(target_path, "r", encoding="utf-8") as f:
-                content = f.read()
-            
-            # Perform the replacements
-            updated_content = varlib_utils.perform_code_replacements(content)
-            
-            # Write back if changed
-            if updated_content != content:
-                with open(target_path, "w", encoding="utf-8") as f:
-                    f.write(updated_content)
-                console.print(f"[green]✓ Successfully compiled: {target_file} with values from {environment} environment[/green]")
-            else:
-                console.print(f"[yellow]No changes needed for {target_file}[/yellow]")
-                
-        except Exception as e:
-            console.print(f"[red]Error compiling {target_file}: {e}[/red]")
-            raise typer.Exit(code=1)
-    else:
-        # Compile config_utils.py as default - use absolute path since we're in the ingen_fab directory
-        from pathlib import Path as PathlibPath
-        current_dir = PathlibPath.cwd()
-        config_utils_path = current_dir / "ingen_fab" / "python_libs" / "common" / "config_utils.py"
-        console.print(f"Target file: {config_utils_path}")
+            if snapshot_tables:
+                console.print(f"  Snapshot Tables: {', '.join(snapshot_tables)}")
+            if incremental_tables:
+                console.print(f"  Incremental Tables: {', '.join(incremental_tables)}")
         
-        if not config_utils_path.exists():
-            console.print(f"[red]Error: config_utils.py not found at: {config_utils_path}[/red]")
-            raise typer.Exit(code=1)
-            
-        try:
-            # Create a VariableLibraryUtils instance and directly call perform_code_replacements
-            varlib_utils = VariableLibraryUtils(project_path, environment)
-            
-            # Read the file content
-            with open(config_utils_path, "r", encoding="utf-8") as f:
-                content = f.read()
-            
-            # Perform the replacements
-            updated_content = varlib_utils.perform_code_replacements(content)
-            
-            # Write back if changed
-            if updated_content != content:
-                with open(config_utils_path, "w", encoding="utf-8") as f:
-                    f.write(updated_content)
-                console.print(f"[green]✓ Successfully compiled config_utils.py with values from {environment} environment[/green]")
-            else:
-                console.print(f"[yellow]No changes needed for config_utils.py[/yellow]")
-                
-        except Exception as e:
-            console.print(f"[red]Error compiling config_utils.py: {e}[/red]")
-            raise typer.Exit(code=1)
-
-
-if __name__ == "__main__":
-    app()
+        # Show incremental configuration highlights
+        incremental_config = config.get('incremental_config', {})
+        if incremental_config:
+            growth_rate = incremental_config.get('growth_rate', 0) * 100
+            console.print(f"  Daily Growth Rate: {growth_rate:.2f}%")
+            seasonal = incremental_config.get('enable_seasonal_patterns', False)
+            console.print(f"  Seasonal Patterns: {'Yes' if seasonal else 'No'}")
+        
+        console.print()
+```
