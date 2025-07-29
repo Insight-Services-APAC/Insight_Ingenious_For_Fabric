@@ -390,6 +390,140 @@ ingen_fab package synapse run --master-execution-id MASTER_ID
 
 **Note:** The run commands currently display what parameters would be used for execution in a production environment.
 
+#### Package Extract Subcommands
+
+##### `package extract compile`
+
+Compile extract generation package templates and DDL scripts.
+
+```bash
+ingen_fab package extract compile
+```
+
+**Options:**
+- `--template-vars` / `-t`: JSON string of template variables
+- `--include-samples` / `-s`: Include sample data DDL and files
+
+**Examples:**
+```bash
+# Basic compilation
+ingen_fab package extract compile
+
+# With sample configurations
+ingen_fab package extract compile --include-samples
+
+# With custom template variables
+ingen_fab package extract compile --template-vars '{"output_path": "exports"}'
+```
+
+##### `package extract run`
+
+Run extract generation for specified configuration.
+
+```bash
+ingen_fab package extract run --extract-name EXTRACT_NAME
+```
+
+**Options:**
+- `--extract-name` / `-n`: Name of the extract configuration to run
+- `--execution-group` / `-g`: Execution group number
+- `--environment` / `-e`: Environment name (default: development)
+- `--run-type` / `-r`: Run type: FULL or INCREMENTAL
+
+**Examples:**
+```bash
+# Run specific extract
+ingen_fab package extract run --extract-name CUSTOMER_DAILY_EXPORT
+
+# Run all extracts in execution group
+ingen_fab package extract run --execution-group 1
+
+# Run incremental extract
+ingen_fab package extract run --extract-name ORDERS_INCREMENTAL --run-type INCREMENTAL
+```
+
+#### Package Synthetic Data Subcommands
+
+##### `package synthetic-data list-datasets`
+
+List all available predefined synthetic datasets.
+
+```bash
+ingen_fab package synthetic-data list-datasets
+```
+
+**Examples:**
+```bash
+# Show all available datasets
+ingen_fab package synthetic-data list-datasets
+```
+
+##### `package synthetic-data compile`
+
+Compile synthetic data generation notebook for a specific dataset.
+
+```bash
+ingen_fab package synthetic-data compile --dataset-id DATASET_ID
+```
+
+**Options:**
+- `--dataset-id` / `-d`: Predefined dataset ID to compile
+- `--size` / `-s`: Dataset size preset: small, medium, large
+- `--target-rows` / `-r`: Target number of rows to generate
+- `--generation-mode` / `-m`: Generation mode: python, pyspark, or auto (default: auto)
+- `--include-ddl`: Include DDL scripts for configuration tables
+- `--target-environment` / `-e`: Target environment: lakehouse or warehouse (default: lakehouse)
+
+**Examples:**
+```bash
+# Compile small retail dataset
+ingen_fab package synthetic-data compile --dataset-id retail_oltp_small --size small
+
+# Compile with specific row count
+ingen_fab package synthetic-data compile --dataset-id retail_star_large --target-rows 1000000
+
+# Compile for warehouse with DDL
+ingen_fab package synthetic-data compile --dataset-id finance_oltp_small --target-environment warehouse --include-ddl
+
+# Force PySpark mode for large dataset
+ingen_fab package synthetic-data compile --dataset-id retail_star_large --target-rows 1000000000 --generation-mode pyspark
+```
+
+##### `package synthetic-data generate`
+
+Generate synthetic data for a specific dataset (compile and run).
+
+```bash
+ingen_fab package synthetic-data generate DATASET_ID --target-rows ROWS
+```
+
+**Options:**
+- `dataset_id`: Predefined dataset ID to generate (positional argument)
+- `--target-rows` / `-r`: Target number of rows to generate
+- `--seed` / `-s`: Random seed for reproducible data
+- `--generation-mode` / `-m`: Generation mode: python, pyspark, or auto
+- `--chunk-size` / `-c`: Rows per chunk for large datasets
+- `--partition-by` / `-p`: Columns to partition output by
+- `--optimize-delta` / `-o`: Enable Delta Lake optimizations
+- `--sample-percent` / `-sp`: Generate only a percentage of target rows
+
+**Examples:**
+```bash
+# Generate 10K rows of retail data
+ingen_fab package synthetic-data generate retail_oltp_small --target-rows 10000
+
+# Generate with seed for reproducibility
+ingen_fab package synthetic-data generate retail_oltp_small --target-rows 10000 --seed 42
+
+# Generate 100M rows with optimizations
+ingen_fab package synthetic-data generate retail_star_large --target-rows 100000000 --optimize-delta --partition-by year,month
+
+# Generate 10% sample of billion-row dataset
+ingen_fab package synthetic-data generate retail_star_large --target-rows 1000000000 --sample-percent 10
+```
+
+**Note:** The run commands currently display what parameters would be used for execution in a production environment.
+
 ## libs {#libs}
 
 Compile and manage Python libraries.
@@ -487,18 +621,25 @@ done
 ### Working with Packages
 
 ```bash
-# Compile the flat file ingestion package (lakehouse)
+# Flat File Ingestion
 ingen_fab package ingest compile --include-samples
-
-# Compile the flat file ingestion package (warehouse)
 ingen_fab package ingest compile --target-datastore warehouse --include-samples
-
-# Compile the synapse sync package
-ingen_fab package synapse compile --include-samples
-
-# Note: The run commands are not yet fully implemented and will show what parameters would be used
 ingen_fab package ingest run --config-id "customers_import" --environment development
+
+# Extract Generation
+ingen_fab package extract compile --include-samples
+ingen_fab package extract run --extract-name CUSTOMER_DAILY_EXPORT
+
+# Synapse Sync
+ingen_fab package synapse compile --include-samples
 ingen_fab package synapse run --master-execution-id "12345"
+
+# Synthetic Data Generation
+ingen_fab package synthetic-data list-datasets
+ingen_fab package synthetic-data generate retail_oltp_small --target-rows 10000 --seed 42
+ingen_fab package synthetic-data compile --dataset-id retail_star_large --target-rows 1000000
+
+# Note: The run commands display what parameters would be used for execution in a production environment
 ```
 
 ## Error Handling

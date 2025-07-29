@@ -1,0 +1,486 @@
+# Extract Generation Package
+
+The Extract Generation package provides automated file extract capabilities from Microsoft Fabric warehouses and lakehouses. It enables configurable, scheduled data exports with comprehensive logging and monitoring.
+
+## Overview
+
+The Extract Generation package allows you to:
+- Export data from tables, views, and stored procedures
+- Generate multiple file formats (CSV, TSV, Parquet, JSON)
+- Apply compression (ZIP, GZIP) with configurable levels
+- Split large files into manageable chunks
+- Create trigger files for downstream processes
+- Track extraction history and performance metrics
+
+## Installation & Setup
+
+### 1. Compile the Package
+
+```bash
+# Compile extract generation package with sample configurations
+ingen_fab package extract compile --include-samples
+
+# Compile without samples
+ingen_fab package extract compile
+```
+
+### 2. Deploy DDL Scripts
+
+The package creates the following configuration tables:
+- `config.config_extract_details` - File format and output specifications
+- `config.config_extract_generation` - Extract job definitions
+- `config.log_extract_generation` - Execution history and metrics
+- `config.vw_extract_generation_latest_runs` - Latest run status view
+
+### 3. Configure Extracts
+
+Insert extract configurations into the metadata tables or use the provided sample data.
+
+## Configuration
+
+### Extract Generation Configuration
+
+Define extract jobs in `config.config_extract_generation`:
+
+```sql
+INSERT INTO config.config_extract_generation (
+    extract_name,
+    extract_description,
+    active_yn,
+    extract_type,
+    fabric_workspace_id,
+    fabric_lakehouse_id,
+    fabric_warehouse_id,
+    source_type,
+    source_schema,
+    source_object,
+    extract_sql,
+    incremental_yn,
+    incremental_column,
+    incremental_days_back,
+    validation_procedure,
+    execution_group,
+    extract_details_id
+) VALUES (
+    'CUSTOMER_DAILY_EXPORT',
+    'Daily customer data export',
+    'Y',
+    'TABLE',
+    'workspace-guid',
+    NULL,
+    'warehouse-guid',
+    'TABLE',
+    'dbo',
+    'customers',
+    NULL,
+    'N',
+    NULL,
+    NULL,
+    NULL,
+    1,
+    'CUST_DETAIL_001'
+);
+```
+
+### Extract Details Configuration
+
+Define file output specifications in `config.config_extract_details`:
+
+```sql
+INSERT INTO config.config_extract_details (
+    extract_details_id,
+    extract_details_name,
+    extract_details_description,
+    active_yn,
+    file_format,
+    file_properties_compression_type,
+    file_properties_compression_level,
+    file_properties_include_headers,
+    file_properties_delimiter,
+    file_properties_quote_character,
+    file_properties_escape_character,
+    file_properties_encoding,
+    file_properties_max_rows_per_file,
+    file_path_pattern,
+    file_name_pattern,
+    trigger_file_yn,
+    trigger_file_extension
+) VALUES (
+    'CUST_DETAIL_001',
+    'Customer CSV Export',
+    'Standard customer CSV format',
+    'Y',
+    'CSV',
+    'NONE',
+    NULL,
+    'Y',
+    ',',
+    '"',
+    '\\',
+    'UTF-8',
+    1000000,
+    'exports/customers/{year}/{month}',
+    'customers_{timestamp}.csv',
+    'N',
+    NULL
+);
+```
+
+## Usage
+
+### Running Extracts
+
+```bash
+# Run a specific extract
+ingen_fab package extract run --extract-name CUSTOMER_DAILY_EXPORT
+
+# Run all extracts in an execution group
+ingen_fab package extract run --execution-group 1
+
+# Run with specific environment
+ingen_fab package extract run --extract-name CUSTOMER_DAILY_EXPORT --environment production
+```
+
+### Extract Types
+
+#### 1. Table Extract
+Direct export from a table:
+```python
+extract_type = 'TABLE'
+source_type = 'TABLE'
+source_schema = 'dbo'
+source_object = 'customers'
+```
+
+#### 2. View Extract
+Export from a view:
+```python
+extract_type = 'VIEW'
+source_type = 'VIEW'
+source_schema = 'reporting'
+source_object = 'v_sales_summary'
+```
+
+#### 3. Stored Procedure Extract
+Execute a procedure and export results:
+```python
+extract_type = 'PROCEDURE'
+source_type = 'PROCEDURE'
+source_schema = 'dbo'
+source_object = 'sp_generate_report'
+```
+
+#### 4. Custom SQL Extract
+Export using custom SQL:
+```python
+extract_type = 'SQL'
+extract_sql = '''
+    SELECT 
+        c.customer_id,
+        c.customer_name,
+        SUM(o.order_total) as total_spent
+    FROM customers c
+    JOIN orders o ON c.customer_id = o.customer_id
+    GROUP BY c.customer_id, c.customer_name
+'''
+```
+
+## File Formats
+
+### Supported Formats
+
+- **CSV** - Comma-separated values with configurable delimiters
+- **TSV** - Tab-separated values
+- **PARQUET** - Columnar storage format for analytics
+- **JSON** - JSON Lines format (one JSON object per line)
+- **AVRO** - Apache Avro format with schema
+
+### Compression Options
+
+- **NONE** - No compression
+- **GZIP** - GNU zip compression
+- **ZIP** - Standard ZIP archive
+- **BZIP2** - Better compression ratio
+- **LZ4** - Fast compression
+- **SNAPPY** - Balanced speed/ratio
+
+Compression levels: `MINIMUM`, `NORMAL`, `MAXIMUM`
+
+## Advanced Features
+
+### File Splitting
+
+For large datasets, configure file splitting:
+
+```python
+file_properties_max_rows_per_file = 500000  # Split at 500K rows
+```
+
+Output files will be named:
+- `customers_20240725_142530_part0001.csv`
+- `customers_20240725_142530_part0002.csv`
+- `customers_20240725_142530_part0003.csv`
+
+### Incremental Extracts
+
+Configure incremental loading:
+
+```python
+incremental_yn = 'Y'
+incremental_column = 'modified_date'
+incremental_days_back = 7  # Extract last 7 days
+```
+
+### Validation Procedures
+
+Run validation before extraction:
+
+```python
+validation_procedure = 'dbo.sp_validate_customer_data'
+```
+
+The procedure should return 0 for success, non-zero for failure.
+
+### Trigger Files
+
+Generate trigger files for downstream processes:
+
+```python
+trigger_file_yn = 'Y'
+trigger_file_extension = '.done'
+```
+
+Creates: `customers_20240725_142530.csv.done`
+
+## File Path Patterns
+
+Use placeholders in path and filename patterns:
+
+### Path Placeholders
+- `{year}` - Current year (YYYY)
+- `{month}` - Current month (MM)
+- `{day}` - Current day (DD)
+- `{hour}` - Current hour (HH)
+- `{execution_group}` - Execution group number
+
+### Filename Placeholders
+- `{timestamp}` - Full timestamp (YYYYMMDD_HHMMSS)
+- `{date}` - Date only (YYYYMMDD)
+- `{extract_name}` - Extract configuration name
+- `{run_id}` - Unique run identifier
+
+Example patterns:
+```python
+file_path_pattern = 'exports/{year}/{month}/{extract_name}'
+file_name_pattern = '{extract_name}_{timestamp}.{format}'
+```
+
+## Monitoring & Logging
+
+### Execution Logs
+
+Query extraction history:
+
+```sql
+-- View latest runs
+SELECT * FROM config.vw_extract_generation_latest_runs;
+
+-- Detailed execution history
+SELECT 
+    extract_name,
+    run_id,
+    start_time,
+    end_time,
+    status,
+    rows_extracted,
+    files_generated,
+    total_file_size_mb,
+    error_message
+FROM config.log_extract_generation
+WHERE extract_name = 'CUSTOMER_DAILY_EXPORT'
+ORDER BY start_time DESC;
+```
+
+### Performance Metrics
+
+Monitor extraction performance:
+
+```sql
+-- Average extraction time by extract
+SELECT 
+    extract_name,
+    AVG(DATEDIFF(SECOND, start_time, end_time)) as avg_duration_seconds,
+    AVG(rows_extracted) as avg_rows,
+    AVG(total_file_size_mb) as avg_size_mb
+FROM config.log_extract_generation
+WHERE status = 'SUCCESS'
+GROUP BY extract_name;
+```
+
+## Best Practices
+
+### Performance Optimization
+
+1. **Use appropriate file formats**
+   - CSV/TSV for human-readable exports
+   - Parquet for analytical workloads
+   - JSON for API integrations
+
+2. **Configure file splitting**
+   - Prevents memory issues with large datasets
+   - Enables parallel processing downstream
+   - Improves transfer reliability
+
+3. **Enable compression**
+   - Reduces storage costs
+   - Faster network transfers
+   - Use GZIP for compatibility, LZ4 for speed
+
+### Reliability
+
+1. **Enable validation procedures**
+   - Verify data quality before extraction
+   - Prevent incomplete or corrupted exports
+   - Implement business rule checks
+
+2. **Use trigger files**
+   - Signal completion to downstream processes
+   - Enable event-driven workflows
+   - Provide processing guarantees
+
+3. **Monitor execution logs**
+   - Set up alerts for failures
+   - Track performance trends
+   - Identify optimization opportunities
+
+### Security
+
+1. **Leverage Fabric permissions**
+   - Extract jobs run under workspace identity
+   - Inherit source object permissions
+   - Control access to output locations
+
+2. **Secure file paths**
+   - Use dedicated export directories
+   - Implement retention policies
+   - Consider encryption for sensitive data
+
+3. **Audit trail**
+   - All extractions are logged
+   - Track who ran what and when
+   - Maintain compliance records
+
+## Troubleshooting
+
+### Common Issues
+
+#### Extract Fails with Permission Error
+- Verify workspace has access to source objects
+- Check output path permissions
+- Ensure service principal has required roles
+
+#### Large Extract Runs Out of Memory
+- Configure file splitting (`file_properties_max_rows_per_file`)
+- Use streaming-friendly formats (CSV, JSON Lines)
+- Increase compute resources
+
+#### Incremental Extract Missing Data
+- Verify incremental column has proper index
+- Check for NULL values in incremental column
+- Adjust `incremental_days_back` for safety margin
+
+#### Compression Takes Too Long
+- Use faster compression (LZ4, SNAPPY)
+- Reduce compression level
+- Consider uncompressed for time-sensitive exports
+
+### Debug Mode
+
+Enable detailed logging in the notebook:
+
+```python
+# Set in notebook parameters
+debug_mode = True
+log_level = "DEBUG"
+```
+
+## Examples
+
+### Example 1: Daily Customer Export
+
+Simple daily export of customer data to CSV:
+
+```sql
+-- Extract configuration
+INSERT INTO config.config_extract_generation VALUES (
+    'CUSTOMERS_DAILY', 'Daily customer export', 'Y', 'TABLE',
+    'workspace-id', NULL, 'warehouse-id', 'TABLE', 'dbo', 'customers',
+    NULL, 'N', NULL, NULL, NULL, 1, 'DETAIL_001'
+);
+
+-- File details
+INSERT INTO config.config_extract_details VALUES (
+    'DETAIL_001', 'Customer CSV', 'Standard CSV format', 'Y', 'CSV',
+    'GZIP', 'NORMAL', 'Y', ',', '"', '\\', 'UTF-8', NULL,
+    'exports/customers/{year}/{month}', 'customers_{date}.csv.gz',
+    'Y', '.done'
+);
+```
+
+### Example 2: Monthly Sales Report
+
+Complex query with aggregation, exported to Parquet:
+
+```sql
+-- Extract configuration with custom SQL
+INSERT INTO config.config_extract_generation VALUES (
+    'SALES_MONTHLY', 'Monthly sales summary', 'Y', 'SQL',
+    'workspace-id', NULL, 'warehouse-id', NULL, NULL, NULL,
+    'SELECT 
+        DATE_TRUNC(''month'', order_date) as month,
+        product_category,
+        SUM(quantity) as units_sold,
+        SUM(revenue) as total_revenue
+     FROM sales.fact_sales
+     WHERE order_date >= DATEADD(month, -1, GETDATE())
+     GROUP BY DATE_TRUNC(''month'', order_date), product_category',
+    'N', NULL, NULL, NULL, 2, 'DETAIL_002'
+);
+
+-- Parquet format for analytics
+INSERT INTO config.config_extract_details VALUES (
+    'DETAIL_002', 'Sales Parquet', 'Parquet for analytics', 'Y', 'PARQUET',
+    'SNAPPY', NULL, 'N', NULL, NULL, NULL, NULL, NULL,
+    'exports/sales/monthly', 'sales_summary_{timestamp}.parquet',
+    'N', NULL
+);
+```
+
+### Example 3: Incremental Transaction Export
+
+Export only new transactions with file splitting:
+
+```sql
+-- Incremental configuration
+INSERT INTO config.config_extract_generation VALUES (
+    'TRANSACTIONS_INCREMENTAL', 'New transactions export', 'Y', 'TABLE',
+    'workspace-id', NULL, 'warehouse-id', 'TABLE', 'finance', 'transactions',
+    NULL, 'Y', 'created_timestamp', 1, 'finance.sp_validate_transactions', 
+    3, 'DETAIL_003'
+);
+
+-- Split large files
+INSERT INTO config.config_extract_details VALUES (
+    'DETAIL_003', 'Transaction Chunks', 'Split transaction files', 'Y', 'CSV',
+    'ZIP', 'MAXIMUM', 'Y', '|', '"', '\\', 'UTF-8', 100000,
+    'exports/transactions/{year}/{month}/{day}', 
+    'transactions_{timestamp}_part{part}.csv',
+    'Y', '.complete'
+);
+```
+
+## Next Steps
+
+- Review the [sample configurations](https://github.com/your-repo/tree/main/packages/extract_generation/sample_project)
+- Explore [advanced patterns](../examples/extract_patterns.md)
+- Learn about [integration with orchestration tools](../user_guide/workflows.md#extract-orchestration)
