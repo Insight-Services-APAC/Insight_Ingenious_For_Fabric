@@ -242,9 +242,13 @@ class PySparkSyntheticDataGenerator:
         return products_df
 
     def generate_orders_table(
-        self, num_rows: int, customer_count: int, num_partitions: int = None
+        self, num_rows: int, customers_df: DataFrame, products_df: DataFrame = None, **kwargs
     ) -> DataFrame:
         """Generate an orders table with realistic order data using PySpark."""
+        # Get customer count from the DataFrame
+        customer_count = customers_df.count()
+        
+        num_partitions = kwargs.get('num_partitions')
         if num_partitions is None:
             num_partitions = max(1, num_rows // 50000)  # 50k rows per partition
 
@@ -300,6 +304,40 @@ class PySparkSyntheticDataGenerator:
         )
 
         return orders_df
+
+    def generate_order_items_table(
+        self, orders_df: DataFrame, products_df: DataFrame = None, **kwargs
+    ) -> DataFrame:
+        """Generate an order items table linking orders to products using PySpark."""
+        # Get product count from the DataFrame
+        if products_df is not None:
+            product_count = products_df.count()
+        else:
+            product_count = 100  # Default number of products
+        
+        # Generate order items based on orders
+        # Each order gets 1-5 items
+        order_items_df = orders_df.select(
+            col("order_id"),
+            # Generate multiple items per order using array_repeat and explode
+            expr("explode(sequence(1, cast((order_id % 5) + 1 as int)))").alias("item_sequence")
+        ).select(
+            # Create unique order item IDs
+            expr("row_number() OVER (ORDER BY order_id, item_sequence)").alias("order_item_id"),
+            col("order_id"),
+            # Random product selection
+            ((col("order_id") * 13 + col("item_sequence") * 17) % product_count + 1).alias("product_id"),
+            # Random quantities between 1-5
+            ((col("order_id") * 7 + col("item_sequence") * 11) % 5 + 1).alias("quantity"),
+            # Random unit prices between $5-$200
+            (((col("order_id") * 23 + col("item_sequence") * 29) % 19500 + 500) / 100.0).alias("unit_price")
+        ).withColumn(
+            # Calculate line total
+            "line_total", 
+            col("quantity") * col("unit_price")
+        )
+        
+        return order_items_df
 
     def generate_large_fact_table(
         self,
@@ -396,6 +434,37 @@ class PySparkSyntheticDataGenerator:
 
         return date_df
 
+    def generate_fact_sales(
+        self, num_rows: int, dimensions: Dict[str, DataFrame], **kwargs
+    ) -> DataFrame:
+        """Generate a fact sales table using provided dimensions.
+        
+        Args:
+            num_rows: Number of sales fact records to generate
+            dimensions: Dictionary of dimension DataFrames (dim_customer, dim_product, etc.)
+            **kwargs: Additional parameters
+            
+        Returns:
+            DataFrame containing sales fact data
+        """
+        num_partitions = kwargs.get('num_partitions')
+        if num_partitions is None:
+            num_partitions = max(1, num_rows // 50000)  # 50k rows per partition
+        
+        # Get dimension counts
+        customer_count = dimensions.get("dim_customer", {}).count() if "dim_customer" in dimensions else 50000
+        product_count = dimensions.get("dim_product", {}).count() if "dim_product" in dimensions else 5000
+        store_count = 100  # Default store count
+        
+        # Generate fact table using existing method
+        return self.generate_large_fact_table(
+            num_rows=num_rows,
+            customer_count=customer_count,
+            product_count=product_count,
+            store_count=store_count,
+            num_partitions=num_partitions
+        )
+
     def write_to_delta_table(
         self,
         df: DataFrame,
@@ -404,8 +473,8 @@ class PySparkSyntheticDataGenerator:
         mode: str = "overwrite",
     ):
         """Write DataFrame to Delta table with optional partitioning."""
-        self.lakehouse_utils.save_dataframe_as_table(
-            df, table_name, mode, partition_cols
+        self.lakehouse_utils.write_to_table(
+            df, table_name, mode=mode, partition_by=partition_cols
         )
         self.logger.info(f"Written to Delta table {table_name}")
 
@@ -449,6 +518,26 @@ class PySparkSyntheticDataGenerator:
     def union_chunks(self, chunks: List[DataFrame]) -> DataFrame:
         """Union multiple DataFrame chunks into a single DataFrame."""
         return self.lakehouse_utils.union_dataframes(chunks)
+
+    def export_to_csv(self, tables: Dict[str, DataFrame], output_path: str) -> None:
+        """Export generated tables to CSV files."""
+        for table_name, df in tables.items():
+            file_path = f"{output_path}/{table_name}.csv"
+            self.lakehouse_utils.write_file(
+                df, file_path, "csv", 
+                options={"header": "true", "mode": "overwrite"}
+            )
+            self.logger.info(f"Exported {table_name} to CSV: {file_path}")
+
+    def export_to_parquet(self, tables: Dict[str, DataFrame], output_path: str) -> None:
+        """Export generated tables to Parquet files."""
+        for table_name, df in tables.items():
+            file_path = f"{output_path}/{table_name}.parquet"
+            self.lakehouse_utils.write_file(
+                df, file_path, "parquet", 
+                options={"mode": "overwrite"}
+            )
+            self.logger.info(f"Exported {table_name} to Parquet: {file_path}")
 
 
 class PySparkDatasetBuilder:

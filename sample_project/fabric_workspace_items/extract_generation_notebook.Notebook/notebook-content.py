@@ -4,12 +4,12 @@
 
 # META {
 # META   "kernel_info": {
-# META     "name": "synapse_python",
-# META     "display_name": "Python (Synapse)"
+# META     "name": "synapse_pyspark",
+# META     "display_name": "Synapse PySpark"
 # META   },
 # META   "language_info": {
 # META     "name": "python",
-# META     "language_group": "synapse_python"
+# META     "language_group": "synapse_pyspark"
 # META   }
 # META }
 
@@ -39,12 +39,12 @@ run_type = "FULL"  # FULL or INCREMENTAL
 
 # Add markdown content here
 
-# ## 📤 Extract Generation Notebook (Warehouse)
+# ## 📤 Extract Generation Notebook (Lakehouse)
 
 # CELL ********************
 
 
-# This notebook generates extract files from warehouse tables, views, or stored procedures
+# This notebook generates extract files from lakehouse tables and views
 # based on configuration metadata, supporting multiple formats and compression options.
 
 
@@ -54,7 +54,7 @@ run_type = "FULL"  # FULL or INCREMENTAL
 
 # META {
 # META   "language": "python",
-# META   "language_group": "synapse_python"
+# META   "language_group": "synapse_pyspark"
 # META }
 
 # MARKDOWN ********************
@@ -69,23 +69,22 @@ import sys
 if "notebookutils" in sys.modules:
     import sys
     
-    notebookutils.fs.mount("abfss://REPLACE_WITH_CONFIG_WORKSPACE_NAME@onelake.dfs.fabric.microsoft.com/config.Lakehouse/Files/", "/config_files")  # type: ignore # noqa: F821
+    notebookutils.fs.mount("abfss://{{varlib:config_workspace_name}}@onelake.dfs.fabric.microsoft.com/{{varlib:config_lakehouse_name}}.Lakehouse/Files/", "/config_files")  # type: ignore # noqa: F821
     mount_path = notebookutils.fs.getMountPath("/config_files")  # type: ignore # noqa: F821
     
     run_mode = "fabric"
     sys.path.insert(0, mount_path)
 
     
-    # Python environment - no spark session needed
-    spark = None
+    # PySpark environment - spark session should be available
     
 else:
     print("NotebookUtils not available, assumed running in local mode.")
-    from ingen_fab.python_libs.python.notebook_utils_abstraction import (
+    from ingen_fab.python_libs.pyspark.notebook_utils_abstraction import (
         NotebookUtilsFactory,
     )
     notebookutils = NotebookUtilsFactory.create_instance()
-    
+        
     spark = None
     
     mount_path = None
@@ -165,7 +164,7 @@ if run_mode == "fabric":
 
 # META {
 # META   "language": "python",
-# META   "language_group": "synapse_python"
+# META   "language_group": "synapse_pyspark"
 # META }
 
 # MARKDOWN ********************
@@ -177,20 +176,20 @@ if run_mode == "fabric":
 
 if run_mode == "local":
     from ingen_fab.python_libs.common.config_utils import get_configs_as_object, ConfigsObject
-    from ingen_fab.python_libs.python.lakehouse_utils import lakehouse_utils
+    from ingen_fab.python_libs.pyspark.lakehouse_utils import lakehouse_utils
     
-    from ingen_fab.python_libs.python.ddl_utils import ddl_utils
+    from ingen_fab.python_libs.pyspark.ddl_utils import ddl_utils
     
-    from ingen_fab.python_libs.python.notebook_utils_abstraction import NotebookUtilsFactory
+    from ingen_fab.python_libs.pyspark.notebook_utils_abstraction import NotebookUtilsFactory
     notebookutils = NotebookUtilsFactory.get_instance()
 else:
     files_to_load = [
         "ingen_fab/python_libs/common/config_utils.py",
-        "ingen_fab/python_libs/python/lakehouse_utils.py",
+        "ingen_fab/python_libs/pyspark/lakehouse_utils.py",
         
-        "ingen_fab/python_libs/python/ddl_utils.py",
+        "ingen_fab/python_libs/pyspark/ddl_utils.py",
         
-        "ingen_fab/python_libs/python/notebook_utils_abstraction.py"
+        "ingen_fab/python_libs/pyspark/notebook_utils_abstraction.py"
     ]
     load_python_modules_from_path(mount_path, files_to_load)
 
@@ -209,13 +208,15 @@ import zipfile
 from datetime import datetime, timedelta
 from typing import Dict, List, Optional, Any, Tuple
 import pandas as pd
+from pyspark.sql import functions as F
+from pyspark.sql.types import *
 
-# Import warehouse_utils and sql_templates for warehouse operations
+# Import lakehouse_utils and sql_templates for lakehouse operations
 if run_mode == "local":
-    from ingen_fab.python_libs.python.warehouse_utils import warehouse_utils
+    from ingen_fab.python_libs.pyspark.lakehouse_utils import lakehouse_utils
     from ingen_fab.python_libs.python.sql_templates import SQLTemplates
 else:
-    files_to_load = ["ingen_fab/python_libs/python/warehouse_utils.py", "ingen_fab/python_libs/python/sql_templates.py"]
+    files_to_load = ["ingen_fab/python_libs/pyspark/lakehouse_utils.py", "ingen_fab/python_libs/python/sql_templates.py"]
     load_python_modules_from_path(mount_path, files_to_load)
 
 import time
@@ -255,16 +256,18 @@ class ExtractConfiguration:
         self.extract_pipeline_name = config_row.get("extract_pipeline_name")
         
         # Source configuration
-        self.extract_sp_name = config_row.get("extract_sp_name")
-        self.extract_sp_schema = config_row.get("extract_sp_schema")
         self.extract_table_name = config_row.get("extract_table_name")
         self.extract_table_schema = config_row.get("extract_table_schema")
         self.extract_view_name = config_row.get("extract_view_name")
         self.extract_view_schema = config_row.get("extract_view_schema")
         
-        # Validation configuration
-        self.validation_table_sp_name = config_row.get("validation_table_sp_name")
-        self.validation_table_sp_schema = config_row.get("validation_table_sp_schema")
+        # Note: Stored procedures not supported in lakehouse
+        self.extract_sp_name = None
+        self.extract_sp_schema = None
+        
+        # Validation configuration (simplified for lakehouse)
+        self.validation_table_sp_name = None
+        self.validation_table_sp_schema = None
         
         # Load configuration
         self.is_full_load = config_row["is_full_load"]
@@ -310,13 +313,18 @@ class ExtractConfiguration:
         self.fabric_lakehouse_path = details_row.get("fabric_lakehouse_path")
         
     def get_source_query(self) -> Tuple[str, str]:
-        """Get the SQL query to extract data and the source type"""
+        """Get the Spark SQL query to extract data and the source type"""
         if self.extract_table_name:
-            return f"SELECT * FROM [{self.extract_table_schema}].[{self.extract_table_name}]", "TABLE"
+            # For lakehouse, we don't use schema prefixes typically
+            table_ref = self.extract_table_name
+            if self.extract_table_schema and self.extract_table_schema != "default":
+                table_ref = f"{self.extract_table_schema}.{self.extract_table_name}"
+            return f"SELECT * FROM {table_ref}", "TABLE"
         elif self.extract_view_name:
-            return f"SELECT * FROM [{self.extract_view_schema}].[{self.extract_view_name}]", "VIEW"
-        elif self.extract_sp_name:
-            return f"EXEC [{self.extract_sp_schema}].[{self.extract_sp_name}]", "STORED_PROCEDURE"
+            view_ref = self.extract_view_name
+            if self.extract_view_schema and self.extract_view_schema != "default":
+                view_ref = f"{self.extract_view_schema}.{self.extract_view_name}"
+            return f"SELECT * FROM {view_ref}", "VIEW"
         else:
             raise ValueError("No source object defined for extract")
     
@@ -355,52 +363,220 @@ class ExtractConfiguration:
         
         return file_name
 
-# Initialize warehouse utilities and SQL templates
-warehouse = warehouse_utils(
+# Initialize lakehouse utilities
+lakehouse = lakehouse_utils(
     target_workspace_id=configs.config_workspace_id,
-    target_warehouse_id=configs.config_wh_warehouse_id
-)
-sql_templates = SQLTemplates()
-
-# Load all active extract configurations using SQL templates
-extracts_query = sql_templates.render(
-    "get_all_active_extracts",
-    config_schema="config",
-    execution_group=execution_group if execution_group else None
+    target_lakehouse_id=configs.config_lakehouse_id
 )
 
-extracts_df = warehouse.execute_query(query=extracts_query)
+# For lakehouse, we'll use a simplified configuration loading approach
+# Since we don't have a full warehouse setup, we'll simulate loading configurations
+print("📋 Loading extract configurations from lakehouse...")
 
-if extracts_df.empty:
-    filter_msg = f" for execution group '{execution_group}'" if execution_group else ""
-    raise ValueError(f"No active extract configurations found{filter_msg}")
+# In a real scenario, configurations would be stored in lakehouse tables
+# For now, we'll create sample configurations that work with synthetic data
+sample_configs = [
+    {
+        # Main config
+        "extract_name": "SAMPLE_CUSTOMERS_LAKEHOUSE",
+        "is_active": True,
+        "extract_table_name": "customers",
+        "extract_table_schema": "default",
+        "is_full_load": True,
+        "execution_group": "LAKEHOUSE_EXTRACTS",
+        
+        # Details config  
+        "file_generation_group": "CUSTOMER_DATA",
+        "extract_container": "Files/extracts",
+        "extract_directory": "customers",
+        "extract_file_name": "customers_lakehouse",
+        "extract_file_name_timestamp_format": "yyyyMMdd_HHmmss",
+        "extract_file_name_extension": "csv",
+        "file_properties_column_delimiter": ",",
+        "file_properties_header": True,
+        "output_format": "csv",
+        "is_trigger_file": False,
+        "is_compressed": False
+    },
+    {
+        # Products export
+        "extract_name": "SAMPLE_PRODUCTS_LAKEHOUSE",
+        "is_active": True,
+        "extract_table_name": "products",
+        "extract_table_schema": "default",
+        "is_full_load": True,
+        "execution_group": "LAKEHOUSE_EXTRACTS",
+        
+        # Details
+        "file_generation_group": "PRODUCT_DATA",
+        "extract_container": "Files/extracts",
+        "extract_directory": "products",
+        "extract_file_name": "products_catalog",
+        "extract_file_name_timestamp_format": "yyyyMMdd",
+        "extract_file_name_extension": "parquet",
+        "output_format": "parquet",
+        "is_trigger_file": True,
+        "trigger_file_extension": ".done",
+        "is_compressed": False
+    },
+    {
+        # Orders with compression
+        "extract_name": "SAMPLE_ORDERS_LAKEHOUSE",
+        "is_active": True,
+        "extract_table_name": "orders",
+        "extract_table_schema": "default", 
+        "is_full_load": True,
+        "execution_group": "LAKEHOUSE_EXTRACTS",
+        
+        # Details
+        "file_generation_group": "ORDER_DATA",
+        "extract_container": "Files/extracts",
+        "extract_directory": "orders",
+        "extract_file_name": "orders_daily",
+        "extract_file_name_timestamp_format": "yyyyMMdd_HHmmss",
+        "extract_file_name_extension": "csv",
+        "file_properties_column_delimiter": ",",
+        "file_properties_header": True,
+        "output_format": "csv",
+        "is_compressed": True,
+        "compressed_type": "GZIP",
+        "compressed_level": "NORMAL",
+        "compressed_extension": ".gz",
+        "is_trigger_file": False
+    }
+]
 
-# Process column name conflicts (both tables have same column names)
-# We'll create separate config and details dictionaries
+# Filter by execution group if specified
+if execution_group:
+    sample_configs = [c for c in sample_configs if c.get("execution_group") == execution_group]
+
+# Create extract configuration objects
 extract_configs = []
-for _, row in extracts_df.iterrows():
-    row_dict = row.to_dict()
+for config_data in sample_configs:
+    # Split data into config and details parts
+    config_part = {k: v for k, v in config_data.items() if k in [
+        'extract_name', 'is_active', 'extract_table_name', 'extract_table_schema',
+        'extract_view_name', 'extract_view_schema', 'is_full_load', 'execution_group'
+    ]}
+    details_part = {k: v for k, v in config_data.items() if k not in config_part}
     
-    # Split into config and details based on expected columns
-    config_columns = ['extract_name', 'is_active', 'trigger_name', 'extract_pipeline_name',
-                     'extract_sp_name', 'extract_sp_schema', 'extract_table_name', 
-                     'extract_table_schema', 'extract_view_name', 'extract_view_schema',
-                     'validation_table_sp_name', 'validation_table_sp_schema', 
-                     'is_full_load', 'execution_group']
-    
-    config_data = {col: row_dict.get(col) for col in config_columns if col in row_dict}
-    details_data = {col: val for col, val in row_dict.items() if col not in config_columns}
-    
-    # Ensure extract_name is in both
-    config_data['extract_name'] = row_dict['extract_name']
-    details_data['extract_name'] = row_dict['extract_name']
-    
-    config = ExtractConfiguration(config_data, details_data)
+    config = ExtractConfiguration(config_part, details_part)
     extract_configs.append(config)
 
 print(f"Found {len(extract_configs)} active extracts to process")
 for config in extract_configs:
     print(f"  - {config.extract_name} ({config.get_source_query()[1]}, {config.output_format})")
+
+
+
+# METADATA ********************
+
+# META {
+# META   "language": "python"
+# META }
+# MARKDOWN ********************
+
+# Add markdown content here
+
+# ## 💾 Helper Functions
+
+# CELL ********************
+
+
+def write_dataframe_to_lakehouse_file(df: pd.DataFrame, file_path: str, output_format: str, config: ExtractConfiguration) -> dict:
+    """Write DataFrame to lakehouse Files using lakehouse_utils abstraction"""
+    
+    # Convert Pandas DataFrame back to Spark DataFrame for lakehouse operations
+    spark_df = lakehouse.spark.createDataFrame(df)
+    
+    # Prepare write options based on configuration
+    options = {
+        "mode": "overwrite"
+    }
+    
+    # Add compression options if configured
+    if config.is_compressed:
+        if config.compressed_type == "GZIP":
+            if output_format.lower() in ["csv", "tsv", "json", "text"]:
+                options["compression"] = "gzip"
+            elif output_format.lower() == "parquet":
+                options["compression"] = "gzip"
+        elif config.compressed_type == "SNAPPY":
+            if output_format.lower() == "parquet":
+                options["compression"] = "snappy"
+        elif config.compressed_type == "LZ4":
+            if output_format.lower() == "parquet":
+                options["compression"] = "lz4"
+        elif config.compressed_type == "BROTLI":
+            if output_format.lower() == "parquet":
+                options["compression"] = "brotli"
+    
+    if output_format.lower() == "csv":
+        options.update({
+            "header": str(config.file_properties_header).lower(),
+            "delimiter": config.file_properties_column_delimiter,
+            "encoding": config.file_properties_encoding,
+            "quote": config.file_properties_quote_character,
+            "escape": config.file_properties_escape_character,
+            "nullValue": config.file_properties_null_value
+        })
+    elif output_format.lower() == "parquet":
+        # Parquet has built-in compression support
+        if not config.is_compressed:
+            options["compression"] = "snappy"  # Default for Parquet
+    elif output_format.lower() == "tsv":
+        options.update({
+            "header": str(config.file_properties_header).lower(),
+            "delimiter": "\t",
+            "encoding": config.file_properties_encoding,
+            "nullValue": config.file_properties_null_value
+        })
+    
+    # Use lakehouse_utils to write the file
+    try:
+        lakehouse.write_file(
+            df=spark_df,
+            file_path=file_path,
+            file_format=output_format,
+            options=options
+        )
+        
+        # Return metadata about the written file
+        return {
+            "file_path": file_path,
+            "rows": len(df),
+            "format": output_format,
+            "success": True,
+            "compressed": config.is_compressed,
+            "compression_type": config.compressed_type if config.is_compressed else None
+        }
+    except Exception as e:
+        print(f"❌ Error writing file {file_path}: {str(e)}")
+        return {
+            "file_path": file_path,
+            "rows": len(df),
+            "format": output_format,
+            "success": False,
+            "error": str(e)
+        }
+
+def create_trigger_file(file_path: str) -> bool:
+    """Create a trigger file using lakehouse_utils"""
+    try:
+        # Create an empty DataFrame for the trigger file
+        empty_df = lakehouse.spark.createDataFrame([], "dummy STRING")
+        
+        # Write empty file as trigger
+        lakehouse.write_file(
+            df=empty_df,
+            file_path=file_path,
+            file_format="text",
+            options={"mode": "overwrite"}
+        )
+        return True
+    except Exception as e:
+        print(f"❌ Error creating trigger file {file_path}: {str(e)}")
+        return False
 
 
 
@@ -419,7 +595,7 @@ for config in extract_configs:
 
 
 def log_extract_run(extract_config, status: str, extract_start_time, error_message: str = None, **kwargs):
-    """Log extract run to log table"""
+    """Log extract run (simplified for lakehouse - just print)"""
     log_data = {
         "extract_name": extract_config.extract_name,
         "execution_group": extract_config.execution_group,
@@ -432,14 +608,14 @@ def log_extract_run(extract_config, status: str, extract_start_time, error_messa
         "duration_seconds": int((datetime.utcnow() - extract_start_time).total_seconds()),
         "error_message": error_message,
         "workspace_id": configs.config_workspace_id,
-        "warehouse_id": configs.config_wh_warehouse_id,
-        "created_by": "extract_generation_notebook"
+        "lakehouse_id": configs.config_lakehouse_id,
+        "created_by": "extract_generation_lakehouse_notebook"
     }
     
     # Add optional fields
     log_data.update(kwargs)
     
-    # For now, just print the log data since write_to_table method needs to be checked
+    # For lakehouse, just print the log data
     print(f"📝 LOG: {extract_config.extract_name} - {status}")
     if error_message:
         print(f"    Error: {error_message}")
@@ -463,40 +639,38 @@ for extract_index, config in enumerate(extract_configs, 1):
     print(f"Output: {config.output_format} | Compression: {'Yes' if config.is_compressed else 'No'}")
     
     try:
-        # Run validation if configured
-        if config.validation_table_sp_name:
-            print(f"Running validation procedure: [{config.validation_table_sp_schema}].[{config.validation_table_sp_name}]")
-            validation_query = f"EXEC [{config.validation_table_sp_schema}].[{config.validation_table_sp_name}]"
-            warehouse.execute_query(validation_query)
-        
         # Get source query
         source_query, source_type = config.get_source_query()
         
-        print(f"Executing query: {source_query[:100]}...")
+        # Execute query using lakehouse_utils abstraction
+        print(f"Executing query using lakehouse_utils: {source_query[:100]}...")
+        spark_df = lakehouse.execute_query(query=source_query)
         
-        # Execute query and get results
-        if source_type == "STORED_PROCEDURE":
-            # For stored procedures, we need to capture the result set
-            # This assumes the SP returns a result set
-            data_df = warehouse.execute_query(query=source_query)
-        else:
-            data_df = warehouse.execute_query(query=source_query)
-        
-        total_rows = len(data_df)
+        # Get row count from PySpark DataFrame
+        total_rows = spark_df.count()
         print(f"Retrieved {total_rows:,} rows from source")
+        
+        # Convert to Pandas DataFrame for file generation
+        data_df = spark_df.toPandas()
         
         # Log initial status
         log_extract_run(
             config, "IN_PROGRESS", extract_start_time,
             source_type=source_type,
-            source_object=config.extract_table_name or config.extract_view_name or config.extract_sp_name,
-            source_schema=config.extract_table_schema or config.extract_view_schema or config.extract_sp_schema,
+            source_object=config.extract_table_name or config.extract_view_name,
+            source_schema=config.extract_table_schema or config.extract_view_schema,
             rows_extracted=total_rows
         )
         
-        # Generate extract files for this extract
+        # Generate extract files for this extract using lakehouse_utils
         files_generated = []
         total_rows_written = 0
+        
+        # Show compression status
+        if config.is_compressed:
+            print(f"🗜️ Compression enabled: {config.compressed_type} ({config.compressed_level})")
+        else:
+            print(f"📄 No compression specified")
         
         # Check if we need to split files
         max_rows = config.file_properties_max_rows_per_file
@@ -514,55 +688,63 @@ for extract_index, config in enumerate(extract_configs, 1):
                 # Generate file name
                 file_name = config.generate_file_name(sequence=i+1)
                 
-                # Convert to specified format
-                file_data = write_dataframe_to_format(df_chunk, config.output_format, config)
-                
-                # Compress if needed
-                if config.is_compressed:
-                    compressed_name = f"{file_name}.{config.compressed_extension}"
-                    file_data = compress_file(file_data, file_name, config.compressed_type, config.compressed_level)
-                    file_name = compressed_name
-                
-                # Write to lakehouse
+                # Build full file path for lakehouse Files
                 file_path = f"{config.extract_container}/{config.extract_directory}/{file_name}".replace("//", "/")
                 
-                # For now, we'll simulate file writing
-                print(f"📄 Writing file: {file_path} ({len(file_data):,} bytes)")
+                compression_info = f" ({config.compressed_type})" if config.is_compressed else ""
+                print(f"📄 Writing file chunk {i+1}/{num_files}: {file_path}{compression_info}")
                 
-                files_generated.append({
-                    "file_name": file_name,
-                    "file_path": file_path,
-                    "file_size": len(file_data),
-                    "rows": len(df_chunk)
-                })
+                # Write using lakehouse_utils abstraction
+                write_result = write_dataframe_to_lakehouse_file(
+                    df=df_chunk,
+                    file_path=file_path,
+                    output_format=config.output_format,
+                    config=config
+                )
+                
+                if write_result["success"]:
+                    files_generated.append({
+                        "file_name": file_name,
+                        "file_path": file_path,
+                        "file_size": 0,  # Size not available with lakehouse_utils
+                        "rows": len(df_chunk),
+                        "compressed": write_result.get("compressed", False),
+                        "compression_type": write_result.get("compression_type")
+                    })
+                else:
+                    print(f"❌ Failed to write file chunk {i+1}: {write_result.get('error', 'Unknown error')}")
                 
                 total_rows_written += len(df_chunk)
         else:
             # Single file
             file_name = config.generate_file_name()
             
-            # Convert to specified format
-            file_data = write_dataframe_to_format(data_df, config.output_format, config)
-            
-            # Compress if needed
-            if config.is_compressed:
-                compressed_name = f"{file_name}.{config.compressed_extension}"
-                file_data = compress_file(file_data, file_name, config.compressed_type, config.compressed_level)
-                file_name = compressed_name
-            
-            # Write to lakehouse
+            # Build full file path for lakehouse Files
             file_path = f"{config.extract_container}/{config.extract_directory}/{file_name}".replace("//", "/")
             
-            print(f"📄 Writing file: {file_path} ({len(file_data):,} bytes)")
+            compression_info = f" ({config.compressed_type})" if config.is_compressed else ""
+            print(f"📄 Writing single file: {file_path}{compression_info}")
             
-            files_generated.append({
-                "file_name": file_name,
-                "file_path": file_path,
-                "file_size": len(file_data),
-                "rows": total_rows
-            })
+            # Write using lakehouse_utils abstraction
+            write_result = write_dataframe_to_lakehouse_file(
+                df=data_df,
+                file_path=file_path,
+                output_format=config.output_format,
+                config=config
+            )
             
-            total_rows_written = total_rows
+            if write_result["success"]:
+                files_generated.append({
+                    "file_name": file_name,
+                    "file_path": file_path,
+                    "file_size": 0,  # Size not available with lakehouse_utils
+                    "rows": total_rows,
+                    "compressed": write_result.get("compressed", False),
+                    "compression_type": write_result.get("compression_type")
+                })
+                total_rows_written = total_rows
+            else:
+                print(f"❌ Failed to write file: {write_result.get('error', 'Unknown error')}")
         
         # Generate trigger file if configured
         if config.is_trigger_file:
@@ -570,14 +752,16 @@ for extract_index, config in enumerate(extract_configs, 1):
             trigger_file_path = f"{config.extract_container}/{config.extract_directory}/{trigger_file_name}".replace("//", "/")
             
             print(f"🎯 Creating trigger file: {trigger_file_path}")
-            # In production, create empty file in lakehouse
-            
+            trigger_success = create_trigger_file(trigger_file_path)
+            if not trigger_success:
+                print(f"⚠️  Warning: Failed to create trigger file {trigger_file_path}")
+        
         # Log successful completion
         log_extract_run(
             config, "SUCCESS", extract_start_time,
             source_type=source_type,
-            source_object=config.extract_table_name or config.extract_view_name or config.extract_sp_name,
-            source_schema=config.extract_table_schema or config.extract_view_schema or config.extract_sp_schema,
+            source_object=config.extract_table_name or config.extract_view_name,
+            source_schema=config.extract_table_schema or config.extract_view_schema,
             rows_extracted=total_rows,
             rows_written=total_rows_written,
             files_generated=len(files_generated),
@@ -596,9 +780,39 @@ for extract_index, config in enumerate(extract_configs, 1):
         successful_extracts += 1
         
     except Exception as e:
+        # Enhanced error reporting with line numbers and stack trace
+        import traceback
+        import sys
+        
+        # Get the current frame info for line number
+        exc_type, exc_value, exc_traceback = sys.exc_info()
+        
+        # Format the full traceback
+        full_traceback = ''.join(traceback.format_exception(exc_type, exc_value, exc_traceback))
+        
+        # Get the line number where the error occurred
+        if exc_traceback:
+            line_number = exc_traceback.tb_lineno
+            filename = exc_traceback.tb_frame.f_code.co_filename
+        else:
+            line_number = "Unknown"
+            filename = "Unknown"
+        
         error_msg = f"Error extracting data from {config.extract_name}: {str(e)}"
-        print(f"❌ {error_msg}")
-        log_extract_run(config, "FAILED", extract_start_time, error_message=error_msg)
+        detailed_error = f"""
+❌ EXTRACT GENERATION ERROR DETAILS (LAKEHOUSE):
+   Extract Name: {config.extract_name}
+   Error Type: {type(e).__name__}
+   Error Message: {str(e)}
+   File: {filename}
+   Line Number: {line_number}
+   
+📋 Full Traceback:
+{full_traceback}
+        """
+        
+        print(detailed_error)
+        log_extract_run(config, "FAILED", extract_start_time, error_message=f"{str(e)} (Line: {line_number})")
         failed_extracts += 1
         continue
 
@@ -617,72 +831,6 @@ else:
 
 
 
-# METADATA ********************
-
-# META {
-# META   "language": "python"
-# META }
-# MARKDOWN ********************
-
-# Add markdown content here
-
-# ## 💾 File Generation Helper Functions
-
-# CELL ********************
-
-
-def write_dataframe_to_format(df: pd.DataFrame, output_format: str, config: ExtractConfiguration) -> bytes:
-    """Convert DataFrame to specified format and return as bytes"""
-    buffer = io.BytesIO()
-    
-    if output_format == "csv":
-        df.to_csv(
-            buffer,
-            index=False,
-            sep=config.file_properties_column_delimiter,
-            header=config.file_properties_header,
-            encoding=config.file_properties_encoding,
-            quotechar=config.file_properties_quote_character,
-            escapechar=config.file_properties_escape_character,
-            na_rep=config.file_properties_null_value
-        )
-    elif output_format == "tsv":
-        df.to_csv(
-            buffer,
-            index=False,
-            sep='\t',
-            header=config.file_properties_header,
-            encoding=config.file_properties_encoding,
-            na_rep=config.file_properties_null_value
-        )
-    elif output_format == "parquet":
-        df.to_parquet(buffer, index=False, engine='pyarrow')
-    else:
-        raise ValueError(f"Unsupported output format: {output_format}")
-    
-    buffer.seek(0)
-    return buffer.getvalue()
-
-def compress_file(file_data: bytes, file_name: str, compression_type: str, compression_level: str) -> bytes:
-    """Compress file data based on configuration"""
-    if compression_type == "GZIP":
-        # Map compression levels
-        level_map = {"MINIMUM": 1, "NORMAL": 6, "MAXIMUM": 9}
-        compress_level = level_map.get(compression_level, 6)
-        
-        return gzip.compress(file_data, compresslevel=compress_level)
-    
-    elif compression_type == "ZIP":
-        buffer = io.BytesIO()
-        with zipfile.ZipFile(buffer, 'w', zipfile.ZIP_DEFLATED) as zip_file:
-            zip_file.writestr(file_name, file_data)
-        buffer.seek(0)
-        return buffer.getvalue()
-    
-    else:
-        raise ValueError(f"Unsupported compression type: {compression_type}")
-
-
 
 # METADATA ********************
 
@@ -699,7 +847,7 @@ def compress_file(file_data: bytes, file_name: str, compression_type: str, compr
 
 
 # Display final batch summary
-print(f"🔄 Batch Extract Run Complete")
+print(f"🔄 Batch Extract Run Complete (Lakehouse)")
 print(f"Run ID: {run_id}")
 print(f"⏱️ Total Duration: {int((datetime.utcnow() - start_time).total_seconds())} seconds")
 print(f"📈 Execution Summary:")
@@ -711,23 +859,4 @@ print(f"   • 📊 Success Rate: {(successful_extracts/total_extracts*100):.1f}
 if execution_group:
     print(f"   • 🎯 Execution Group Filter: {execution_group}")
 
-# Display recent run history for all extracts processed
-if successful_extracts > 0:
-    print(f"\n📋 Recent Extract Activity:")
-    for config in extract_configs[:5]:  # Show first 5 extracts
-        try:
-            history_query = sql_templates.render(
-                "get_extract_history",
-                extract_name=config.extract_name,
-                log_schema="log",
-                limit=3
-            )
-            
-            history_df = warehouse.execute_query(query=history_query)
-            if not history_df.empty:
-                latest_run = history_df.iloc[0]
-                print(f"   • {config.extract_name}: {latest_run['run_status']} ({latest_run.get('rows_extracted', 0):,} rows)")
-        except Exception:
-            print(f"   • {config.extract_name}: Status unavailable")
-            
-print(f"\n🏁 Extract generation batch processing completed at {datetime.utcnow().strftime('%Y-%m-%d %H:%M:%S')} UTC")
+print(f"\n🏁 Lakehouse extract generation batch processing completed at {datetime.utcnow().strftime('%Y-%m-%d %H:%M:%S')} UTC")

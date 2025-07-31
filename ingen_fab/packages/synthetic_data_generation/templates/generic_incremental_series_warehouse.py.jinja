@@ -1,0 +1,284 @@
+{%- import 'shared/notebook/macros/notebook_macros.py.jinja' as macros -%}
+{%- include "shared/notebook/headers/python.py.jinja" %}
+
+{% include "shared/notebook/environment/library_loader.py.jinja" %}
+
+{{macros.python_cell_with_heading("## 🗂️ Load Custom Python Libraries")}}
+
+if run_mode == "local":
+    from ingen_fab.python_libs.common.config_utils import *
+    from ingen_fab.python_libs.python.lakehouse_utils import lakehouse_utils
+    from ingen_fab.python_libs.python.ddl_utils import ddl_utils
+    from ingen_fab.python_libs.python.notebook_utils_abstraction import NotebookUtilsFactory
+    from ingen_fab.python_libs.python.warehouse_utils import warehouse_utils
+    from ingen_fab.python_libs.python.synthetic_data_utils import SyntheticDataGenerator, DatasetBuilder
+    from ingen_fab.python_libs.common.synthetic_data_dataset_configs import DatasetConfigurationRepository
+    notebookutils = NotebookUtilsFactory.create_instance() 
+else:
+    files_to_load = [
+        "ingen_fab/python_libs/common/config_utils.py",
+        "ingen_fab/python_libs/python/lakehouse_utils.py",
+        "ingen_fab/python_libs/python/ddl_utils.py",
+        "ingen_fab/python_libs/python/notebook_utils_abstraction.py",
+        "ingen_fab/python_libs/python/warehouse_utils.py",
+        "ingen_fab/python_libs/python/synthetic_data_utils.py",
+        "ingen_fab/python_libs/common/synthetic_data_dataset_configs.py"
+    ]
+
+    load_python_modules_from_path(mount_path, files_to_load)
+
+{{macros.parameters_cell()}}
+
+# Default parameter values - will be overridden at runtime via Fabric parameters
+dataset_id = "retail_oltp_small_incremental"  # Dataset to generate
+start_date = "2024-01-01"                     # Start date (YYYY-MM-DD)
+end_date = "2024-01-30"                       # End date (YYYY-MM-DD)  
+batch_size = 10                               # Number of days per batch
+path_format = "nested"                        # Path format: "nested" (/YYYY/MM/DD/) or "flat" (YYYYMMDD_)
+output_mode = "table"                         # Output mode: "table", "parquet", or "csv"
+ignore_state = False                          # Whether to ignore existing state
+seed_value = None                             # Seed for reproducible generation
+generation_mode = "python"                   # Generation mode (fixed for warehouse)
+target_environment = "warehouse"              # Target environment (fixed for this template)
+
+# Advanced parameters
+enable_data_drift = True                     # Enable data drift simulation
+drift_percentage = 0.05                      # Data drift percentage
+enable_seasonal_patterns = True             # Enable seasonal pattern simulation
+
+{{macros.python_cell_with_heading("## ⚙️ Dynamic Configuration Resolution")}}
+
+import time
+from datetime import datetime, timedelta
+
+print("🔧 Resolving runtime configuration...")
+
+# Validate and parse parameters  
+try:
+    start_dt = datetime.strptime(start_date, "%Y-%m-%d").date()
+    end_dt = datetime.strptime(end_date, "%Y-%m-%d").date()
+    if end_dt < start_dt:
+        raise ValueError("End date must be after start date")
+    total_days = (end_dt - start_dt).days + 1
+except ValueError as e:
+    raise ValueError(f"Invalid date format or range: {e}")
+
+# Resolve dataset configuration dynamically
+try:
+    dataset_config = DatasetConfigurationRepository.get_predefined_dataset(dataset_id)
+    incremental_config = DatasetConfigurationRepository.get_incremental_config(dataset_id)
+    table_configs = DatasetConfigurationRepository.get_table_configs(dataset_id)
+except ValueError as e:
+    available_datasets = DatasetConfigurationRepository.list_available_datasets()
+    raise ValueError(f"Dataset '{dataset_id}' not found. Available: {list(available_datasets.keys())}")
+
+# Apply runtime parameter overrides
+dataset_config["incremental_config"] = incremental_config
+dataset_config["table_configs"] = table_configs
+
+# Override configuration with runtime parameters
+if enable_data_drift is not None:
+    dataset_config["incremental_config"]["enable_data_drift"] = enable_data_drift
+if drift_percentage is not None:
+    dataset_config["incremental_config"]["drift_percentage"] = drift_percentage
+if enable_seasonal_patterns is not None:
+    dataset_config["incremental_config"]["enable_seasonal_patterns"] = enable_seasonal_patterns
+
+print(f"📊 Dataset: {dataset_config['dataset_name']}")
+print(f"📅 Date range: {start_date} to {end_date} ({total_days} days)")
+print(f"📦 Batch size: {batch_size} days")
+print(f"📁 Path format: {path_format}")
+print(f"💾 Output mode: {output_mode}")
+print(f"⚙️ Generation mode: {generation_mode}")
+print(f"🔄 Processing {len(table_configs)} tables")
+
+# variableLibraryInjectionStart: var_lib
+# variableLibraryInjectionEnd: var_lib
+
+{{macros.python_cell_with_heading("## 🆕 Initialize Components")}}
+
+# Get configurations
+configs: ConfigsObject = get_configs_as_object()
+
+# Initialize synthetic data generator
+generator = SyntheticDataGenerator(seed=seed_value)
+dataset_builder = DatasetBuilder(generator)
+
+# Initialize warehouse utils
+target_warehouse_id = get_config_value("config_wh_warehouse_id")
+target_workspace_id = get_config_value("config_wh_workspace_id")
+
+wh_utils = warehouse_utils(
+    target_workspace_id=target_workspace_id,
+    target_warehouse_id=target_warehouse_id,
+    mount_path=mount_path
+)
+
+# SQL client for DDL operations
+sql_client = wh_utils.get_sql_client()
+
+{{macros.python_cell_with_heading("## 📊 Dataset Information")}}
+
+# Display comprehensive dataset information
+print("=" * 80)
+print("INCREMENTAL SYNTHETIC DATA GENERATION - SERIES MODE (WAREHOUSE)")
+print("=" * 80)
+print(f"{'Dataset ID':<25}: {dataset_config.get('dataset_id', 'N/A')}")
+print(f"{'Dataset Name':<25}: {dataset_config.get('dataset_name', 'N/A')}")
+print(f"{'Domain':<25}: {dataset_config.get('domain', 'N/A')}")
+print(f"{'Schema Pattern':<25}: {dataset_config.get('schema_pattern', 'N/A')}")
+print(f"{'Description':<25}: {dataset_config.get('description', 'N/A')}")
+print(f"{'Date Range':<25}: {start_date} to {end_date}")
+print(f"{'Total Days':<25}: {total_days}")
+print(f"{'Batch Size':<25}: {batch_size} days")
+print(f"{'Path Format':<25}: {path_format}")
+print(f"{'Output Mode':<25}: {output_mode}")
+print(f"{'Generation Mode':<25}: {generation_mode}")
+print(f"{'Ignore State':<25}: {ignore_state}")
+print("=" * 80)
+
+{{macros.python_cell_with_heading("## 🔄 Generate Date Batches")}}
+
+# Generate date batches for processing
+date_batches = []
+current_date = start_dt
+
+while current_date <= end_dt:
+    batch_end = min(current_date + timedelta(days=batch_size-1), end_dt)
+    date_batches.append({
+        "start_date": current_date,
+        "end_date": batch_end,
+        "days": (batch_end - current_date).days + 1
+    })
+    current_date = batch_end + timedelta(days=1)
+
+print(f"📦 Generated {len(date_batches)} date batches:")
+for i, batch in enumerate(date_batches, 1):
+    print(f"  Batch {i}: {batch['start_date']} to {batch['end_date']} ({batch['days']} days)")
+
+{{macros.python_cell_with_heading("## 🎯 Process Incremental Data Generation")}}
+
+# Track overall progress
+total_tables_generated = 0
+total_rows_generated = 0
+execution_start_time = time.time()
+generation_log = []
+
+print(f"🚀 Starting incremental data generation for {len(date_batches)} batches...")
+
+# Process each date batch
+for batch_num, batch in enumerate(date_batches, 1):
+    batch_start_time = time.time()
+    batch_tables = {}
+    batch_rows = 0
+    
+    print(f"\n📦 Processing Batch {batch_num}/{len(date_batches)}: {batch['start_date']} to {batch['end_date']}")
+    print("-" * 60)
+    
+    # Generate data for each day in the batch
+    current_date = batch['start_date']
+    while current_date <= batch['end_date']:
+        print(f"📅 Generating data for {current_date.strftime('%Y-%m-%d')}...")
+        
+        # Process each table
+        for table_name, table_config in table_configs.items():
+            table_type = table_config.get("type", "snapshot")
+            
+            if table_type == "incremental":
+                # Generate incremental data for this date
+                base_rows = table_config.get("base_rows_per_day", 10000)
+                
+                # Apply seasonal patterns if enabled
+                if enable_seasonal_patterns and table_config.get("seasonal_multipliers_enabled", False):
+                    day_of_week = current_date.strftime("%A").lower()
+                    seasonal_multipliers = incremental_config.get("seasonal_multipliers", {})
+                    multiplier = seasonal_multipliers.get(day_of_week, 1.0)
+                    adjusted_rows = int(base_rows * multiplier)
+                else:
+                    adjusted_rows = base_rows
+                
+                # Generate table data
+                if table_name == "customers":
+                    table_df = generator.generate_customers_table(adjusted_rows)
+                elif table_name == "products":
+                    table_df = generator.generate_products_table(adjusted_rows)
+                elif table_name == "orders":
+                    # For orders, we need customers data
+                    customers_df = batch_tables.get("customers")
+                    products_df = batch_tables.get("products")
+                    table_df = generator.generate_orders_table(adjusted_rows, customers_df, products_df)
+                elif table_name == "order_items":
+                    # For order items, we need orders and products
+                    orders_df = batch_tables.get("orders")
+                    products_df = batch_tables.get("products")
+                    if orders_df is not None:
+                        table_df = generator.generate_order_items_table(orders_df, products_df)
+                    else:
+                        continue
+                else:
+                    # Generic table generation
+                    table_df = generator.generate_customers_table(adjusted_rows)  # Fallback
+                
+                # Store in batch tables for dependencies
+                batch_tables[table_name] = table_df
+                
+                # Save based on output mode
+                if output_mode == "table":
+                    final_table_name = f"{table_name}_{current_date.strftime('%Y%m%d')}"
+                    sql_client.create_table_from_dataframe(table_df, final_table_name, overwrite=True)
+                    print(f"    ✅ {table_name}: {len(table_df):,} rows → table '{final_table_name}'")
+                elif output_mode == "csv":
+                    # Save as CSV with date in filename
+                    output_path = f"synthetic_data_output/{table_name}_{current_date.strftime('%Y%m%d')}.csv"
+                    generator.export_to_csv({table_name: table_df}, output_path)
+                    print(f"    ✅ {table_name}: {len(table_df):,} rows → {output_path}")
+                elif output_mode == "parquet":
+                    # Save as Parquet with date in filename
+                    output_path = f"synthetic_data_output/{table_name}_{current_date.strftime('%Y%m%d')}.parquet"
+                    generator.export_to_parquet({table_name: table_df}, output_path)
+                    print(f"    ✅ {table_name}: {len(table_df):,} rows → {output_path}")
+                
+                batch_rows += len(table_df)
+                total_rows_generated += len(table_df)
+                
+        current_date += timedelta(days=1)
+    
+    # Log batch completion
+    batch_duration = time.time() - batch_start_time
+    generation_log.append({
+        "batch": batch_num,
+        "start_date": batch['start_date'].isoformat(),
+        "end_date": batch['end_date'].isoformat(), 
+        "days": batch['days'],
+        "rows_generated": batch_rows,
+        "duration_seconds": batch_duration
+    })
+    
+    print(f"✅ Batch {batch_num} complete: {batch_rows:,} rows in {batch_duration:.1f}s")
+    total_tables_generated += len(batch_tables)
+
+{{macros.python_cell_with_heading("## ✅ Generation Complete - Summary")}}
+
+execution_time = time.time() - execution_start_time
+
+# Display comprehensive summary
+print("=" * 80)
+print("INCREMENTAL SYNTHETIC DATA SERIES GENERATION COMPLETE (WAREHOUSE)")
+print("=" * 80)
+print(f"{'Dataset':<25}: {dataset_config.get('dataset_name', 'N/A')}")
+print(f"{'Generation Mode':<25}: {generation_mode}")
+print(f"{'Date Range':<25}: {start_date} to {end_date}")
+print(f"{'Total Days':<25}: {total_days}")
+print(f"{'Batches Processed':<25}: {len(date_batches)}")
+print(f"{'Tables Generated':<25}: {total_tables_generated}")
+print(f"{'Total Rows':<25}: {total_rows_generated:,}")
+print(f"{'Execution Time':<25}: {execution_time:.2f} seconds")
+print(f"{'Output Mode':<25}: {output_mode}")
+print(f"{'Path Format':<25}: {path_format}")
+print("=" * 80)
+
+# Log completion
+if 'notebookutils' in globals() and hasattr(notebookutils, 'log'):
+    notebookutils.log(f"Incremental series generation completed: {dataset_id}, {total_rows_generated:,} rows, {execution_time:.1f}s")
+
+print(f"\n🎉 Incremental synthetic data series generation completed successfully!")

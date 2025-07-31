@@ -13,6 +13,8 @@ import random
 from datetime import datetime, timedelta
 from typing import Any, Dict, List, Optional, Union
 
+from ..interfaces.synthetic_data_generator_interface import ISyntheticDataGenerator, IDatasetBuilder
+
 try:
     import numpy as np
     import pandas as pd
@@ -29,11 +31,13 @@ except ImportError as e:
 
 if _DEPENDENCIES_AVAILABLE:
 
-    class SyntheticDataGenerator:
+    class SyntheticDataGenerator(ISyntheticDataGenerator):
         """Python-based synthetic data generator for small to medium datasets."""
 
         def __init__(self, seed: Optional[int] = None, locale: str = "en_US"):
             """Initialize the generator with optional seed for reproducibility."""
+            super().__init__(seed)
+            
             if Faker is None:
                 raise ImportError(
                     "faker library is required. Install with: pip install faker"
@@ -47,7 +51,6 @@ if _DEPENDENCIES_AVAILABLE:
                     "numpy library is required. Install with: pip install numpy"
                 )
 
-            self.seed = seed
             if seed:
                 random.seed(seed)
                 np.random.seed(seed)
@@ -87,7 +90,7 @@ if _DEPENDENCIES_AVAILABLE:
                         start_date="-5y", end_date="today"
                     ),
                     "customer_segment": random.choice(["Premium", "Standard", "Basic"]),
-                    "is_active": random.choice([True, False], weights=[0.85, 0.15]),
+                    "is_active": random.choices([True, False], weights=[0.85, 0.15])[0],
                 }
                 customers.append(customer)
 
@@ -131,7 +134,7 @@ if _DEPENDENCIES_AVAILABLE:
                     "stock_quantity": random.randint(0, 1000),
                     "reorder_level": random.randint(10, 100),
                     "supplier_id": random.randint(1, 50),
-                    "is_active": random.choice([True, False], weights=[0.9, 0.1]),
+                    "is_active": random.choices([True, False], weights=[0.9, 0.1])[0],
                     "created_date": self.fake.date_between(
                         start_date="-3y", end_date="today"
                     ),

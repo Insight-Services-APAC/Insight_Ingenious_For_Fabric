@@ -151,8 +151,9 @@ class lakehouse_utils(DataStoreInterface):
         schema_name: str | None = None,
         mode: str = "overwrite",
         options: dict[str, str] | None = None,
+        partition_by: list[str] | None = None,
     ) -> None:
-        """Write a DataFrame to a lakehouse table."""
+        """Write a DataFrame to a lakehouse table with optional partitioning."""
 
         # For lakehouse, schema_name is not used as tables are in the Tables directory
         writer = df.write.format("delta").mode(mode)
@@ -162,6 +163,8 @@ class lakehouse_utils(DataStoreInterface):
         if options:
             for k, v in options.items():
                 writer = writer.option(k, v)
+        if partition_by:
+            writer = writer.partitionBy(*partition_by)
 
         writer.save(f"{self.lakehouse_tables_uri()}{table_full_name}")
 
@@ -507,7 +510,16 @@ class lakehouse_utils(DataStoreInterface):
             reader = reader.schema(options["schema"])
 
         # Build full file path using the lakehouse files URI
-        if not file_path.startswith(("file://", "abfss://")):
+        if file_path.startswith("/"):
+            # Absolute local path - convert to file:// URI
+            if self.spark_version == "local":
+                # Clean up any double slashes that might come from list_files
+                clean_path = file_path.replace("//", "/")
+                full_file_path = f"file://{clean_path}"
+            else:
+                # For Fabric, absolute paths shouldn't happen, treat as relative
+                full_file_path = f"{self.lakehouse_files_uri()}{file_path}"
+        elif not file_path.startswith(("file://", "abfss://")):
             # Relative path - combine with lakehouse files URI
 
             if self.spark_version == "local":
@@ -562,7 +574,16 @@ class lakehouse_utils(DataStoreInterface):
                 writer = writer.option(key, value)
 
         # Build full file path using the lakehouse files URI
-        if not file_path.startswith(("file://", "abfss://")):
+        if file_path.startswith("/"):
+            # Absolute local path - convert to file:// URI
+            if self.spark_version == "local":
+                # Clean up any double slashes that might come from list_files
+                clean_path = file_path.replace("//", "/")
+                full_file_path = f"file://{clean_path}"
+            else:
+                # For Fabric, absolute paths shouldn't happen, treat as relative
+                full_file_path = f"{self.lakehouse_files_uri()}{file_path}"
+        elif not file_path.startswith(("file://", "abfss://")):
             # Relative path - combine with lakehouse files URI
             full_file_path = f"{self.lakehouse_files_uri()}{file_path}"
         else:
@@ -577,7 +598,14 @@ class lakehouse_utils(DataStoreInterface):
         """
         try:
             # Build full file path using the lakehouse files URI
-            if not file_path.startswith(("file://", "abfss://")):
+            if file_path.startswith("/"):
+                # Absolute local path - convert to file:// URI
+                if self.spark_version == "local":
+                    full_file_path = f"file://{file_path}"
+                else:
+                    # For Fabric, absolute paths shouldn't happen, treat as relative
+                    full_file_path = f"{self.lakehouse_files_uri()}{file_path}"
+            elif not file_path.startswith(("file://", "abfss://")):
                 full_file_path = f"{self.lakehouse_files_uri()}{file_path}"
             else:
                 full_file_path = file_path
@@ -669,7 +697,14 @@ class lakehouse_utils(DataStoreInterface):
         """
         try:
             # Build full file path using the lakehouse files URI
-            if not file_path.startswith(("file://", "abfss://")):
+            if file_path.startswith("/"):
+                # Absolute local path - convert to file:// URI
+                if self.spark_version == "local":
+                    full_file_path = f"file://{file_path}"
+                else:
+                    # For Fabric, absolute paths shouldn't happen, treat as relative
+                    full_file_path = f"{self.lakehouse_files_uri()}{file_path}"
+            elif not file_path.startswith(("file://", "abfss://")):
                 full_file_path = f"{self.lakehouse_files_uri()}{file_path}"
             else:
                 full_file_path = file_path

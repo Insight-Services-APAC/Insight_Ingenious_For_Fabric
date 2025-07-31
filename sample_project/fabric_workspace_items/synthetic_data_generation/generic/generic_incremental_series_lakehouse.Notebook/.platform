@@ -1,0 +1,12 @@
+{
+  "$schema": "https://developer.microsoft.com/json-schemas/fabric/gitIntegration/platformProperties/2.0.0/schema.json",
+  "metadata": {
+    "type": "Notebook",
+    "displayName": "Generic Incremental Series - Lakehouse",
+    "description": "Generic runtime-parameterized template for incremental synthetic data series generation in lakehouse environment"
+  },
+  "config": {
+    "version": "2.0",
+    "logicalId": "b323ea55-6113-43d9-a871-f2f6ce6f7231"
+  }
+}

@@ -28,6 +28,7 @@
 
 
 
+
 # METADATA ********************
 
 # META {
@@ -143,6 +144,7 @@ if run_mode == "fabric":
 
 if run_mode == "local":
     from ingen_fab.python_libs.common.config_utils import *
+    from ingen_fab.python_libs.python.lakehouse_utils import lakehouse_utils
     from ingen_fab.python_libs.python.ddl_utils import ddl_utils
     from ingen_fab.python_libs.python.notebook_utils_abstraction import NotebookUtilsFactory
     from ingen_fab.python_libs.python.sql_templates import SQLTemplates
@@ -152,13 +154,37 @@ if run_mode == "local":
 else:
     files_to_load = [
         "ingen_fab/python_libs/common/config_utils.py",
+        "ingen_fab/python_libs/python/lakehouse_utils.py",
         "ingen_fab/python_libs/python/ddl_utils.py",
         "ingen_fab/python_libs/python/notebook_utils_abstraction.py",
         "ingen_fab/python_libs/python/sql_templates.py",
         "ingen_fab/python_libs/python/warehouse_utils.py",
         "ingen_fab/python_libs/python/pipeline_utils.py"
     ]
+
     load_python_modules_from_path(mount_path, files_to_load)
+
+
+
+# METADATA ********************
+
+# META {
+# META   "language": "python"
+# META }
+# MARKDOWN ********************
+
+# Add markdown content here
+
+# ## ⚙️ Configuration Settings
+
+# CELL ********************
+
+
+# variableLibraryInjectionStart: var_lib
+
+
+# variableLibraryInjectionEnd: var_lib
+
 
 
 # METADATA ********************
@@ -175,8 +201,21 @@ else:
 # CELL ********************
 
 
-
+target_lakehouse_config_prefix = "Config_WH"
 configs: ConfigsObject = get_configs_as_object()
+target_warehouse_id = get_config_value(f"{target_lakehouse_config_prefix.lower()}_warehouse_id")
+target_workspace_id = get_config_value(f"{target_lakehouse_config_prefix.lower()}_workspace_id")
+
+du = ddl_utils(
+    target_workspace_id=target_workspace_id,
+    target_warehouse_id=target_warehouse_id,
+    notebookutils=notebookutils
+)
+
+wu = warehouse_utils(
+    target_workspace_id=target_workspace_id,
+    target_warehouse_id=target_warehouse_id
+)
 
 
 
@@ -190,105 +229,54 @@ configs: ConfigsObject = get_configs_as_object()
 
 # Add markdown content here
 
-# ## 🏃‍♂️‍➡️ Run All Warehouse DDL
+# ## 🏃‍♂️‍➡️ Run DDL Cells 
 
 # CELL ********************
 
-# Import required libraries
-import sys
-from datetime import datetime
 
-# Initialize variables
-success_count = 0
-failed_notebooks = []
-start_time = datetime.now()
+# DDL cells are injected below:
 
-# Define execution function
-def execute_notebook(notebook_name, index, total, timeout_seconds=3600):
-    """Execute a single notebook and handle success/failure."""
-    global success_count, failed_notebooks
-    
-    try:
-        
-        print(f"{'='*60}")
-        print(f"Executing notebook {index}/{total}: {notebook_name}")
-        print(f"{'='*60}")
-        params = {}
-        
-        # Use notebook utils abstraction for cross-environment compatibility
-        result = notebookutils.mssparkutils.notebook.run(
-            notebook_name,
-            timeout=timeout_seconds,
-            params=params
-        )
-        
-        if (result == 'success'):
-            success_count += 1
-            print(f"✓ Successfully executed: {notebook_name}")
-            print(f"Exit value: {result}")
-            return True
-        else: 
-            # Record the failure but continue execution to get full picture
-            failed_notebooks.append({
-                'name': notebook_name,
-                'error': f"Notebook returned: {result}",
-                'index': index
-            })
-            print(f"✗ Failed to execute: {notebook_name}")
-            print(f"Result: {result}")
-            return False
 
-    except Exception as e:
-        # Record the failure but continue execution to get full picture
-        failed_notebooks.append({
-            'name': notebook_name,
-            'error': str(e),
-            'index': index
-        })
-        print(f"✗ Failed to execute: {notebook_name}")
-        print(f"Error: {str(e)}")
-        return False
 
-print(f"Starting orchestration for  warehouse")
-print(f"Start time: {start_time}")
-print(f"Total notebooks to execute: 3")
-print("="*60)
-execute_notebook("001_Initial_Creation_Config_WH_Warehouses_ddl_scripts", 1, 3)
-execute_notebook("001_Initial_Creation_ExtractGeneration_Config_WH_Warehouses_ddl_scripts", 2, 3)
-execute_notebook("002_Sample_Data_Ingestion_Config_WH_Warehouses_ddl_scripts", 3, 3)
 
-# Final Summary
-end_time = datetime.now()
-duration = end_time - start_time
-failed_count = 3 - success_count
 
-print(f"{'='*60}")
-print(f"Orchestration Complete!")
-print(f"{'='*60}")
-print(f"End time: {end_time}")
-print(f"Duration: {duration}")
-print(f"Total notebooks: 3")
-print(f"Successfully executed: {success_count}")
-print(f"Failed: {failed_count}")
 
-# Show details of failed notebooks if any
-if failed_notebooks:
-    print(f"\n{'='*60}")
-    print("FAILED NOTEBOOKS DETAILS:")
-    print(f"{'='*60}")
-    for i, failure in enumerate(failed_notebooks, 1):
-        print(f"{i}. {failure['name']}")
-        print(f"   Error: {failure['error']}")
-        print()
+# METADATA ********************
 
-if success_count == 3:
-    print("\n✓ All notebooks executed successfully!")
-    notebookutils.notebook.exit("success")
-else:
-    print(f"\n✗ Orchestration completed with {failed_count} failure(s)")
-    # Exit with failure status - this will be caught by parent orchestrator as non-"success"
-    error_summary = f"failed: {failed_count} of 3 notebooks failed"
-    notebookutils.notebook.exit(error_summary)
+# META {
+# META   "language": "python"
+# META }
+# MARKDOWN ********************
+
+# Add markdown content here
+
+# ## 📇 Print the execution log
+
+# CELL ********************
+
+
+du.print_log() 
+
+
+
+# METADATA ********************
+
+# META {
+# META   "language": "python"
+# META }
+# MARKDOWN ********************
+
+# Add markdown content here
+
+# ## ✔️ If we make it to the end return a successful result
+
+# CELL ********************
+
+
+notebookutils.notebook.exit("success")
+
+
+
 
 # METADATA ********************
 

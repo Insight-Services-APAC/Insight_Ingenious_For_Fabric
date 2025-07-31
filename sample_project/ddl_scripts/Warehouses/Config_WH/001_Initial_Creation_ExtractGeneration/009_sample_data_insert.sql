@@ -1,5 +1,6 @@
 -- Sample data for Extract Generation package
 -- This script inserts sample configurations for testing various extract scenarios
+-- NOTE: For synthetic data compatibility, use 009_sample_data_insert_aligned.sql instead
 
 -- Clear existing sample data
 DELETE FROM [config].[config_extract_details] WHERE extract_name LIKE 'SAMPLE_%';

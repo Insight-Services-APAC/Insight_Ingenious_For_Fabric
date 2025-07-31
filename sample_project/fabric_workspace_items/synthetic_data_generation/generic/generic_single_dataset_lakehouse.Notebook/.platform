@@ -1,0 +1,12 @@
+{
+  "$schema": "https://developer.microsoft.com/json-schemas/fabric/gitIntegration/platformProperties/2.0.0/schema.json",
+  "metadata": {
+    "type": "Notebook",
+    "displayName": "Generic Single Dataset - Lakehouse",
+    "description": "Generic runtime-parameterized template for single synthetic dataset generation in lakehouse environment"
+  },
+  "config": {
+    "version": "2.0",
+    "logicalId": "ad747c9c-4b1a-450f-ba51-38e8ffea1c0f"
+  }
+}
