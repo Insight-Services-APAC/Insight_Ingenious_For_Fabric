@@ -49,8 +49,8 @@ class FlatFileIngestionCompiler(BaseNotebookCompiler):
         
         # Select template based on target datastore
         template_mapping = {
-            "lakehouse": "flat_file_ingestion_notebook.py.jinja",
-            "warehouse": "flat_file_ingestion_warehouse_notebook.py.jinja"
+            "lakehouse": "flat_file_ingestion_lakehouse.py.jinja",
+            "warehouse": "flat_file_ingestion_warehouse.py.jinja"
         }
         
         template_name = template_mapping.get(target_datastore)

@@ -11,12 +11,12 @@
 
 # META {
 # META   "kernel_info": {
-# META     "name": "synapse_pyspark",
-# META     "display_name": "PySpark (Synapse)"
+# META     "name": "synapse_python",
+# META     "display_name": "Python (Synapse)"
 # META   },
 # META   "language_info": {
 # META     "name": "python",
-# META     "language_group": "synapse_pyspark"
+# META     "language_group": "synapse_python"
 # META   }
 # META }
 
@@ -37,22 +37,23 @@ environment = "development"
 
 
 
+
 # METADATA ********************
 
 # META {
-# META   "language": "python",
-# META   "language_group": "synapse_pyspark"
+# META   "language": "python"
 # META }
-
 # MARKDOWN ********************
 
-# ## ## 📄 Flat File Ingestion Notebook (Lakehouse)
+# Add markdown content here
+
+# ## 📄 Flat File Ingestion Notebook (Warehouse)
 
 # CELL ********************
 
 
 
-# This notebook processes flat files (CSV, JSON, Parquet, Avro, XML) and loads them into lakehouse tables based on configuration metadata.
+# This notebook processes flat files (CSV, JSON, Parquet, Avro, XML) and loads them into warehouse tables based on configuration metadata.
 # Uses modularized components from python_libs for maintainable and reusable code.
 
 
@@ -62,7 +63,7 @@ environment = "development"
 
 # META {
 # META   "language": "python",
-# META   "language_group": "synapse_pyspark"
+# META   "language_group": "synapse_python"
 # META }
 
 # MARKDOWN ********************
@@ -84,15 +85,16 @@ if "notebookutils" in sys.modules:
     sys.path.insert(0, mount_path)
 
     
-    # PySpark environment - spark session should be available
+    # Python environment - no spark session needed
+    spark = None
     
 else:
     print("NotebookUtils not available, assumed running in local mode.")
-    from ingen_fab.python_libs.pyspark.notebook_utils_abstraction import (
+    from ingen_fab.python_libs.python.notebook_utils_abstraction import (
         NotebookUtilsFactory,
     )
     notebookutils = NotebookUtilsFactory.create_instance()
-        
+    
     spark = None
     
     mount_path = None
@@ -155,16 +157,17 @@ if run_mode == "fabric":
 
 
 
+
 # METADATA ********************
 
 # META {
-# META   "language": "python",
-# META   "language_group": "synapse_pyspark"
+# META   "language": "python"
 # META }
-
 # MARKDOWN ********************
 
-# ## ## 🔧 Load Configuration and Initialize
+# Add markdown content here
+
+# ## 🔧 Load Configuration and Initialize
 
 # CELL ********************
 
@@ -173,7 +176,7 @@ if run_mode == "fabric":
 
 # META {
 # META   "language": "python",
-# META   "language_group": "synapse_pyspark"
+# META   "language_group": "synapse_python"
 # META }
 
 # MARKDOWN ********************
@@ -185,16 +188,20 @@ if run_mode == "fabric":
 
 if run_mode == "local":
     from ingen_fab.python_libs.common.config_utils import get_configs_as_object, ConfigsObject
-    from ingen_fab.python_libs.pyspark.lakehouse_utils import lakehouse_utils
+    from ingen_fab.python_libs.python.lakehouse_utils import lakehouse_utils
     
-    from ingen_fab.python_libs.pyspark.notebook_utils_abstraction import NotebookUtilsFactory
+    from ingen_fab.python_libs.python.ddl_utils import ddl_utils
+    
+    from ingen_fab.python_libs.python.notebook_utils_abstraction import NotebookUtilsFactory
     notebookutils = NotebookUtilsFactory.get_instance()
 else:
     files_to_load = [
         "ingen_fab/python_libs/common/config_utils.py",
-        "ingen_fab/python_libs/pyspark/lakehouse_utils.py",
+        "ingen_fab/python_libs/python/lakehouse_utils.py",
         
-        "ingen_fab/python_libs/pyspark/notebook_utils_abstraction.py"
+        "ingen_fab/python_libs/python/ddl_utils.py",
+        
+        "ingen_fab/python_libs/python/notebook_utils_abstraction.py"
     ]
     load_python_modules_from_path(mount_path, files_to_load)
 
@@ -211,24 +218,24 @@ import time
 from datetime import datetime
 from typing import Dict, List, Optional, Any
 
+# Import modularized flat file ingestion components
+from python_libs.interfaces.flat_file_ingestion_interface import FlatFileIngestionConfig
 
-# Load flat file ingestion components
+
+# Import Python/warehouse-specific flat file ingestion components
+from python_libs.python.flat_file_ingestion_python import (
+    PythonFlatFileDiscovery,
+    PythonFlatFileProcessor,
+    PythonFlatFileLogging,
+    PythonFlatFileIngestionOrchestrator
+)
+
+# Import warehouse_utils for warehouse operations
 if run_mode == "local":
-    from ingen_fab.python_libs.interfaces.flat_file_ingestion_interface import FlatFileIngestionConfig
-    from ingen_fab.python_libs.pyspark.flat_file_ingestion_pyspark import (
-        PySparkFlatFileDiscovery,
-        PySparkFlatFileProcessor,
-        PySparkFlatFileLogging,
-        PySparkFlatFileIngestionOrchestrator
-    )
+    from ingen_fab.python_libs.python.warehouse_utils import warehouse_utils
 else:
-    # Additional files for flat file ingestion modular components
-    flat_file_ingestion_files = [
-        "ingen_fab/python_libs/interfaces/flat_file_ingestion_interface.py",
-        "ingen_fab/python_libs/common/flat_file_ingestion_utils.py",
-        "ingen_fab/python_libs/pyspark/flat_file_ingestion_pyspark.py"
-    ]
-    load_python_modules_from_path(mount_path, flat_file_ingestion_files)
+    files_to_load = ["ingen_fab/python_libs/python/warehouse_utils.py"]
+    load_python_modules_from_path(mount_path, files_to_load)
 
 
 execution_id = str(uuid.uuid4())
@@ -240,40 +247,41 @@ print(f"Environment: {environment}")
 
 
 
+
 # METADATA ********************
 
 # META {
-# META   "language": "python",
-# META   "language_group": "synapse_pyspark"
+# META   "language": "python"
 # META }
-
 # MARKDOWN ********************
 
-# ## ## 📋 Load Configuration Data
+# Add markdown content here
+
+# ## 📋 Load Configuration Data
 
 # CELL ********************
 
 
 
 
-# Initialize config lakehouse utilities
-config_lakehouse = lakehouse_utils(
+# Initialize config warehouse utilities
+config_warehouse = warehouse_utils(
     target_workspace_id=configs.config_workspace_id,
-    target_lakehouse_id=configs.config_lakehouse_id,
-    spark=spark
+    target_warehouse_id=configs.config_warehouse_id
 )
 
-# Initialize raw data lakehouse utilities for file access
-raw_lakehouse = lakehouse_utils(
+# Initialize raw data warehouse utilities for file access
+raw_warehouse = warehouse_utils(
     target_workspace_id=configs.raw_workspace_id,
-    target_lakehouse_id=configs.raw_datastore_id,
-    spark=spark
+    target_warehouse_id=configs.raw_datastore_id
 )
 
 
 # Load configuration
 
-config_df = config_lakehouse.read_table("config_flat_file_ingestion").toPandas()
+# Load configuration from warehouse table
+config_query = "SELECT * FROM config_flat_file_ingestion"
+config_df = config_warehouse.execute_query_to_dataframe(config_query)
 
 
 # Filter configurations
@@ -296,29 +304,30 @@ print(f"Found {len(config_df)} configurations to process")
 
 
 
+
 # METADATA ********************
 
 # META {
-# META   "language": "python",
-# META   "language_group": "synapse_pyspark"
+# META   "language": "python"
 # META }
-
 # MARKDOWN ********************
 
-# ## ## 🚀 Initialize Modular Services
+# Add markdown content here
+
+# ## 🚀 Initialize Modular Services
 
 # CELL ********************
 
 
 
 
-# Initialize the modular flat file ingestion services for lakehouse
-discovery_service = PySparkFlatFileDiscovery(raw_lakehouse)
-processor_service = PySparkFlatFileProcessor(spark, raw_lakehouse)
-logging_service = PySparkFlatFileLogging(config_lakehouse)
+# Initialize the modular flat file ingestion services for warehouse
+discovery_service = PythonFlatFileDiscovery(raw_warehouse)
+processor_service = PythonFlatFileProcessor(raw_warehouse)
+logging_service = PythonFlatFileLogging(config_warehouse)
 
 # Initialize the orchestrator with all services
-orchestrator = PySparkFlatFileIngestionOrchestrator(
+orchestrator = PythonFlatFileIngestionOrchestrator(
     discovery_service=discovery_service,
     processor_service=processor_service,
     logging_service=logging_service
@@ -327,16 +336,17 @@ orchestrator = PySparkFlatFileIngestionOrchestrator(
 
 
 
+
 # METADATA ********************
 
 # META {
-# META   "language": "python",
-# META   "language_group": "synapse_pyspark"
+# META   "language": "python"
 # META }
-
 # MARKDOWN ********************
 
-# ## ## 📊 Process Configurations
+# Add markdown content here
+
+# ## 📊 Process Configurations
 
 # CELL ********************
 
@@ -353,16 +363,17 @@ results = orchestrator.process_configurations(configurations, execution_id)
 
 
 
+
 # METADATA ********************
 
 # META {
-# META   "language": "python",
-# META   "language_group": "synapse_pyspark"
+# META   "language": "python"
 # META }
-
 # MARKDOWN ********************
 
-# ## ## 📈 Execution Summary
+# Add markdown content here
+
+# ## 📈 Execution Summary
 
 # CELL ********************
 
@@ -430,6 +441,6 @@ notebookutils.mssparkutils.notebook.exit("success")
 
 # META {
 # META   "language": "python",
-# META   "language_group": "synapse_pyspark"
+# META   "language_group": "synapse_python"
 # META }
 

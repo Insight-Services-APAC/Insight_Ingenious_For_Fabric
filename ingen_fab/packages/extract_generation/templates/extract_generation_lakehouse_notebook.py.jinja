@@ -102,9 +102,14 @@ class ExtractConfiguration:
         # File naming
         self.extract_file_name = details_row.get("extract_file_name", self.extract_name)
         self.extract_file_name_timestamp_format = details_row.get("extract_file_name_timestamp_format")
-        self.extract_file_name_period_end_day = details_row.get("extract_file_name_period_end_day")
+        # Convert to int if not None and not NaN to handle float values from DataFrame
+        import math
+        period_end_day = details_row.get("extract_file_name_period_end_day")
+        self.extract_file_name_period_end_day = int(period_end_day) if period_end_day is not None and not (isinstance(period_end_day, float) and math.isnan(period_end_day)) else None
         self.extract_file_name_extension = details_row.get("extract_file_name_extension", "csv")
-        self.extract_file_name_ordering = details_row.get("extract_file_name_ordering", 1)
+        # Convert to int if not None and not NaN to handle float values from DataFrame  
+        ordering = details_row.get("extract_file_name_ordering", 1)
+        self.extract_file_name_ordering = int(ordering) if ordering is not None and not (isinstance(ordering, float) and math.isnan(ordering)) else 1
         
         # File properties
         self.file_properties_column_delimiter = details_row.get("file_properties_column_delimiter", ",")
@@ -114,7 +119,9 @@ class ExtractConfiguration:
         self.file_properties_escape_character = details_row.get("file_properties_escape_character", "\\")
         self.file_properties_header = details_row.get("file_properties_header", True)
         self.file_properties_null_value = details_row.get("file_properties_null_value", "")
-        self.file_properties_max_rows_per_file = details_row.get("file_properties_max_rows_per_file")
+        # Convert to int if not None and not NaN to handle float values from DataFrame
+        max_rows = details_row.get("file_properties_max_rows_per_file")
+        self.file_properties_max_rows_per_file = int(max_rows) if max_rows is not None and not (isinstance(max_rows, float) and math.isnan(max_rows)) else None
         
         # Output format
         self.output_format = details_row.get("output_format", "csv")
@@ -133,6 +140,10 @@ class ExtractConfiguration:
         # Fabric paths
         self.fabric_lakehouse_path = details_row.get("fabric_lakehouse_path")
         
+        # Performance options
+        # Default to True for backward compatibility - most extracts expect single file output
+        self.force_single_file = details_row.get("force_single_file", True)
+        
     def get_source_query(self) -> Tuple[str, str]:
         """Get the Spark SQL query to extract data and the source type"""
         if self.extract_table_name:
@@ -149,6 +160,30 @@ class ExtractConfiguration:
         else:
             raise ValueError("No source object defined for extract")
     
+    def _convert_datetime_format(self, format_str: str) -> str:
+        """Convert Java/C# datetime format to Python strftime format"""
+        if not format_str:
+            return format_str
+            
+        # Common datetime format conversions
+        conversions = {
+            'yyyy': '%Y',
+            'yy': '%y',
+            'MM': '%m',
+            'dd': '%d',
+            'HH': '%H',
+            'mm': '%M',
+            'ss': '%S',
+            'SSS': '%f',  # milliseconds to microseconds (will need truncation)
+        }
+        
+        result = format_str
+        # Replace in order of longest to shortest to avoid partial replacements
+        for old, new in sorted(conversions.items(), key=lambda x: -len(x[0])):
+            result = result.replace(old, new)
+            
+        return result
+    
     def generate_file_name(self, sequence: int = 1) -> str:
         """Generate file name based on configuration"""
         parts = []
@@ -158,6 +193,9 @@ class ExtractConfiguration:
         
         # Timestamp
         if self.extract_file_name_timestamp_format:
+            # Convert Java/C# format to Python format
+            python_format = self._convert_datetime_format(self.extract_file_name_timestamp_format)
+            
             if self.extract_file_name_period_end_day:
                 # Calculate period end date
                 today = datetime.utcnow()
@@ -168,9 +206,9 @@ class ExtractConfiguration:
                 else:
                     # Current month
                     period_end = today.replace(day=self.extract_file_name_period_end_day)
-                timestamp_str = period_end.strftime(self.extract_file_name_timestamp_format)
+                timestamp_str = period_end.strftime(python_format)
             else:
-                timestamp_str = datetime.utcnow().strftime(self.extract_file_name_timestamp_format)
+                timestamp_str = datetime.utcnow().strftime(python_format)
             parts.append(timestamp_str)
         
         # Sequence number for file splitting
@@ -190,98 +228,89 @@ lakehouse = lakehouse_utils(
     target_lakehouse_id=configs.config_lakehouse_id
 )
 
-# For lakehouse, we'll use a simplified configuration loading approach
-# Since we don't have a full warehouse setup, we'll simulate loading configurations
-print("📋 Loading extract configurations from lakehouse...")
+# Load extract configurations from lakehouse configuration tables
+print("📋 Loading extract configurations from lakehouse tables...")
 
-# In a real scenario, configurations would be stored in lakehouse tables
-# For now, we'll create sample configurations that work with synthetic data
-sample_configs = [
-    {
-        # Main config
-        "extract_name": "SAMPLE_CUSTOMERS_LAKEHOUSE",
-        "is_active": True,
-        "extract_table_name": "customers",
-        "extract_table_schema": "default",
-        "is_full_load": True,
-        "execution_group": "LAKEHOUSE_EXTRACTS",
-        
-        # Details config  
-        "file_generation_group": "CUSTOMER_DATA",
-        "extract_container": "Files/extracts",
-        "extract_directory": "customers",
-        "extract_file_name": "customers_lakehouse",
-        "extract_file_name_timestamp_format": "yyyyMMdd_HHmmss",
-        "extract_file_name_extension": "csv",
-        "file_properties_column_delimiter": ",",
-        "file_properties_header": True,
-        "output_format": "csv",
-        "is_trigger_file": False,
-        "is_compressed": False
-    },
-    {
-        # Products export
-        "extract_name": "SAMPLE_PRODUCTS_LAKEHOUSE",
-        "is_active": True,
-        "extract_table_name": "products",
-        "extract_table_schema": "default",
-        "is_full_load": True,
-        "execution_group": "LAKEHOUSE_EXTRACTS",
-        
-        # Details
-        "file_generation_group": "PRODUCT_DATA",
-        "extract_container": "Files/extracts",
-        "extract_directory": "products",
-        "extract_file_name": "products_catalog",
-        "extract_file_name_timestamp_format": "yyyyMMdd",
-        "extract_file_name_extension": "parquet",
-        "output_format": "parquet",
-        "is_trigger_file": True,
-        "trigger_file_extension": ".done",
-        "is_compressed": False
-    },
-    {
-        # Orders with compression
-        "extract_name": "SAMPLE_ORDERS_LAKEHOUSE",
-        "is_active": True,
-        "extract_table_name": "orders",
-        "extract_table_schema": "default", 
-        "is_full_load": True,
-        "execution_group": "LAKEHOUSE_EXTRACTS",
-        
-        # Details
-        "file_generation_group": "ORDER_DATA",
-        "extract_container": "Files/extracts",
-        "extract_directory": "orders",
-        "extract_file_name": "orders_daily",
-        "extract_file_name_timestamp_format": "yyyyMMdd_HHmmss",
-        "extract_file_name_extension": "csv",
-        "file_properties_column_delimiter": ",",
-        "file_properties_header": True,
-        "output_format": "csv",
-        "is_compressed": True,
-        "compressed_type": "GZIP",
-        "compressed_level": "NORMAL",
-        "compressed_extension": ".gz",
-        "is_trigger_file": False
-    }
-]
+# Check if configuration tables exist
+if not lakehouse.check_if_table_exists("config_extract_generation"):
+    raise ValueError("Configuration table 'config_extract_generation' not found. Please run DDL scripts first.")
 
-# Filter by execution group if specified
+if not lakehouse.check_if_table_exists("config_extract_generation_details"):
+    raise ValueError("Configuration table 'config_extract_generation_details' not found. Please run DDL scripts first.")
+
+# Build query to load active extract configurations
+config_query = """
+SELECT 
+    c.extract_name,
+    c.is_active,
+    c.trigger_name,
+    c.extract_pipeline_name,
+    c.extract_table_name,
+    c.extract_table_schema,
+    c.extract_view_name,
+    c.extract_view_schema,
+    c.is_full_load,
+    c.execution_group,
+    d.file_generation_group,
+    d.extract_container,
+    d.extract_directory,
+    d.extract_file_name,
+    d.extract_file_name_timestamp_format,
+    d.extract_file_name_period_end_day,
+    d.extract_file_name_extension,
+    d.extract_file_name_ordering,
+    d.file_properties_column_delimiter,
+    d.file_properties_row_delimiter,
+    d.file_properties_encoding,
+    d.file_properties_quote_character,
+    d.file_properties_escape_character,
+    d.file_properties_header,
+    d.file_properties_null_value,
+    d.file_properties_max_rows_per_file,
+    d.output_format,
+    d.is_trigger_file,
+    d.trigger_file_extension,
+    d.is_compressed,
+    d.compressed_type,
+    d.compressed_level,
+    d.compressed_file_name,
+    d.compressed_extension,
+    d.fabric_lakehouse_path
+FROM config_extract_generation c
+INNER JOIN config_extract_generation_details d ON c.extract_name = d.extract_name
+WHERE c.is_active = true
+"""
+
+# Add execution group filter if specified
 if execution_group:
-    sample_configs = [c for c in sample_configs if c.get("execution_group") == execution_group]
+    config_query += f" AND c.execution_group = '{execution_group}'"
+
+config_query += " ORDER BY c.extract_name"
+
+print(f"Executing query: {config_query[:100]}...")
+configs_df = lakehouse.execute_query(query=config_query)
+
+if configs_df.count() == 0:
+    filter_msg = f" for execution group '{execution_group}'" if execution_group else ""
+    raise ValueError(f"No active extract configurations found{filter_msg}")
+
+# Convert to Pandas for easier processing
+configs_pandas_df = configs_df.toPandas()
 
 # Create extract configuration objects
 extract_configs = []
-for config_data in sample_configs:
-    # Split data into config and details parts
-    config_part = {k: v for k, v in config_data.items() if k in [
-        'extract_name', 'is_active', 'extract_table_name', 'extract_table_schema',
-        'extract_view_name', 'extract_view_schema', 'is_full_load', 'execution_group'
-    ]}
-    details_part = {k: v for k, v in config_data.items() if k not in config_part}
+for _, row in configs_pandas_df.iterrows():
+    row_dict = row.to_dict()
     
-    config = ExtractConfiguration(config_part, details_part)
+    # Split into config and details based on expected columns
+    config_columns = ['extract_name', 'is_active', 'trigger_name', 'extract_pipeline_name',
+                     'extract_table_name', 'extract_table_schema', 'extract_view_name', 'extract_view_schema',
+                     'is_full_load', 'execution_group']
+    
+    config_data = {col: row_dict.get(col) for col in config_columns if col in row_dict}
+    details_data = {col: val for col, val in row_dict.items() if col not in config_columns}
+    
+    config = ExtractConfiguration(config_data, details_data)
     extract_configs.append(config)
 
 print(f"Found {len(extract_configs)} active extracts to process")
@@ -295,6 +324,18 @@ def write_dataframe_to_lakehouse_file(df: pd.DataFrame, file_path: str, output_f
     
     # Convert Pandas DataFrame back to Spark DataFrame for lakehouse operations
     spark_df = lakehouse.spark.createDataFrame(df)
+    
+    # Check if single file output is required (default to True for backward compatibility)
+    force_single_file = getattr(config, 'force_single_file', True)
+    
+    if force_single_file:
+        # Coalesce to 1 partition to ensure single file output
+        # This creates a directory with only one part file inside
+        spark_df = spark_df.coalesce(1)
+        print(f"📄 Using single file output (coalesce to 1 partition)")
+    else:
+        # Allow Spark to use its default partitioning for better performance on large datasets
+        print(f"📁 Using distributed file output (multiple part files)")
     
     # Prepare write options based on configuration
     options = {
@@ -341,6 +382,9 @@ def write_dataframe_to_lakehouse_file(df: pd.DataFrame, file_path: str, output_f
     
     # Use lakehouse_utils to write the file
     try:
+        # Note: Spark will create a directory with the file_path name containing part files
+        # With coalesce(1), there will be only one part file (e.g., part-00000-xxx.csv)
+        # This is standard Spark behavior and expected for lakehouse environments
         lakehouse.write_file(
             df=spark_df,
             file_path=file_path,
@@ -355,7 +399,8 @@ def write_dataframe_to_lakehouse_file(df: pd.DataFrame, file_path: str, output_f
             "format": output_format,
             "success": True,
             "compressed": config.is_compressed,
-            "compression_type": config.compressed_type if config.is_compressed else None
+            "compression_type": config.compressed_type if config.is_compressed else None,
+            "note": "Output is a directory containing a single part file due to Spark's distributed nature"
         }
     except Exception as e:
         print(f"❌ Error writing file {file_path}: {str(e)}")

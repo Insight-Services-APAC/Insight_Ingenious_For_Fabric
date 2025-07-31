@@ -81,17 +81,19 @@ class ExtractGenerationCompiler(BaseNotebookCompiler):
     def get_ddl_scripts(self, generation_mode: str = "warehouse") -> List[Path]:
         """Get DDL scripts for the specified generation mode"""
         
-        # Lakehouse doesn't typically need DDL scripts since it uses Spark tables
-        if generation_mode.lower() == "lakehouse":
-            return []
-        
         mode_dir = self.ddl_scripts_dir / generation_mode.lower()
         
         if not mode_dir.exists():
             raise ValueError(f"DDL scripts directory not found for mode: {generation_mode}")
         
-        # order by name
-        script_order = sorted([f.name for f in mode_dir.glob("*.sql")])
+        # For lakehouse, look for Python files; for warehouse, look for SQL files
+        if generation_mode.lower() == "lakehouse":
+            script_pattern = "*.py"
+        else:
+            script_pattern = "*.sql"
+        
+        # Order by name
+        script_order = sorted([f.name for f in mode_dir.glob(script_pattern)])
 
         scripts = []
         for script_name in script_order:
@@ -114,9 +116,14 @@ class ExtractGenerationCompiler(BaseNotebookCompiler):
         if template_vars:
             default_vars.update(template_vars)
         
-        # Create DDL scripts directory structure
-        # Following the pattern: ddl_scripts/Warehouses/Config/001_Initial_Creation_ExtractGeneration/
-        ddl_base_dir = Path(self.fabric_workspace_repo_dir) / "ddl_scripts" / "Warehouses" / "Config_WH" / "001_Initial_Creation_ExtractGeneration"
+        # Create DDL scripts directory structure based on generation mode
+        if generation_mode.lower() == "lakehouse":
+            # Following the pattern: ddl_scripts/Lakehouses/Config/001_Initial_Creation_ExtractGeneration/
+            ddl_base_dir = Path(self.fabric_workspace_repo_dir) / "ddl_scripts" / "Lakehouses" / "Config" / "001_Initial_Creation_ExtractGeneration"
+        else:
+            # Following the pattern: ddl_scripts/Warehouses/Config_WH/001_Initial_Creation_ExtractGeneration/
+            ddl_base_dir = Path(self.fabric_workspace_repo_dir) / "ddl_scripts" / "Warehouses" / "Config_WH" / "001_Initial_Creation_ExtractGeneration"
+        
         ddl_base_dir.mkdir(parents=True, exist_ok=True)
         
         # Get DDL scripts and copy/compile them
@@ -131,15 +138,20 @@ class ExtractGenerationCompiler(BaseNotebookCompiler):
             
             if script.suffix == ".jinja":
                 # Compile Jinja template
+                if generation_mode.lower() == "lakehouse":
+                    output_ext = '.py'  # Lakehouse templates become Python files
+                else:
+                    output_ext = '.sql'  # Warehouse templates become SQL files
+                
                 self._compile_template(
                     template_name=script.name,
-                    output_path=target_path.with_suffix('.sql'),
+                    output_path=target_path.with_suffix(output_ext),
                     template_vars=default_vars,
                     search_paths=[script.parent]
                 )
-                compiled_scripts.append(target_path.with_suffix('.sql'))
+                compiled_scripts.append(target_path.with_suffix(output_ext))
             else:
-                # Copy SQL file directly
+                # Copy file directly (preserving original extension)
                 target_path.write_text(script.read_text())
                 compiled_scripts.append(target_path)
                 if self.console:
@@ -206,7 +218,7 @@ class ExtractGenerationCompiler(BaseNotebookCompiler):
             notebook_path = self.compile_notebook(template_vars, target_datastore)
             results["notebook_file"] = notebook_path
             
-            # Compile DDL scripts
+            # Compile DDL scripts (use target_datastore as generation_mode)
             ddl_scripts = self.compile_ddl_scripts(template_vars, target_datastore)
             results["ddl_files"] = ddl_scripts
             

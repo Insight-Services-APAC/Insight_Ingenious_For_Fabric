@@ -4,14 +4,15 @@
 
 # META {
 # META   "kernel_info": {
-# META     "name": "synapse_pyspark",
-# META     "display_name": "PySpark (Synapse)"
+# META     "name": "jupyter",
+# META     "jupyter_kernel_name": "python3.11"
 # META   },
 # META   "language_info": {
-# META     "name": "python",
-# META     "language_group": "synapse_pyspark"
+# META     "name": "python"
 # META   }
 # META }
+
+
 
 # MARKDOWN ********************
 
@@ -21,7 +22,8 @@
 # PARAMETERS CELL ********************
 
 
-# Default parameters
+
+# Default parameters  
 # Add default parameters here
 
 
@@ -30,7 +32,7 @@
 
 # META {
 # META   "language": "python",
-# META   "language_group": "synapse_pyspark"
+# META   "language_group": "jupyter_python"
 # META }
 
 # MARKDOWN ********************
@@ -52,15 +54,16 @@ if "notebookutils" in sys.modules:
     sys.path.insert(0, mount_path)
 
     
-    # PySpark environment - spark session should be available
+    # Python environment - no spark session needed
+    spark = None
     
 else:
     print("NotebookUtils not available, assumed running in local mode.")
-    from ingen_fab.python_libs.pyspark.notebook_utils_abstraction import (
+    from ingen_fab.python_libs.python.notebook_utils_abstraction import (
         NotebookUtilsFactory,
     )
     notebookutils = NotebookUtilsFactory.create_instance()
-        
+    
     spark = None
     
     mount_path = None
@@ -140,20 +143,22 @@ if run_mode == "fabric":
 
 if run_mode == "local":
     from ingen_fab.python_libs.common.config_utils import *
-    from ingen_fab.python_libs.pyspark.lakehouse_utils import lakehouse_utils
-    from ingen_fab.python_libs.pyspark.ddl_utils import ddl_utils
-    from ingen_fab.python_libs.pyspark.notebook_utils_abstraction import NotebookUtilsFactory
+    from ingen_fab.python_libs.python.ddl_utils import ddl_utils
+    from ingen_fab.python_libs.python.notebook_utils_abstraction import NotebookUtilsFactory
+    from ingen_fab.python_libs.python.sql_templates import SQLTemplates
+    from ingen_fab.python_libs.python.warehouse_utils import warehouse_utils
+    from ingen_fab.python_libs.python.pipeline_utils import PipelineUtils
     notebookutils = NotebookUtilsFactory.create_instance() 
 else:
     files_to_load = [
         "ingen_fab/python_libs/common/config_utils.py",
-        "ingen_fab/python_libs/pyspark/lakehouse_utils.py",
-        "ingen_fab/python_libs/pyspark/ddl_utils.py",
-        "ingen_fab/python_libs/pyspark/notebook_utils_abstraction.py"
+        "ingen_fab/python_libs/python/ddl_utils.py",
+        "ingen_fab/python_libs/python/notebook_utils_abstraction.py",
+        "ingen_fab/python_libs/python/sql_templates.py",
+        "ingen_fab/python_libs/python/warehouse_utils.py",
+        "ingen_fab/python_libs/python/pipeline_utils.py"
     ]
-
     load_python_modules_from_path(mount_path, files_to_load)
-
 
 
 # METADATA ********************
@@ -170,8 +175,8 @@ else:
 # CELL ********************
 
 
-configs: ConfigsObject = get_configs_as_object()
 
+configs: ConfigsObject = get_configs_as_object()
 
 
 
@@ -185,10 +190,9 @@ configs: ConfigsObject = get_configs_as_object()
 
 # Add markdown content here
 
-# ## 🏃‍♂️‍➡️ Run the lakehouse DDL Notebooks
+# ## 🏃‍♂️‍➡️ Run All Warehouse DDL
 
 # CELL ********************
-
 
 # Import required libraries
 import sys
@@ -207,18 +211,17 @@ def execute_notebook(notebook_name, index, total, timeout_seconds=3600):
     try:
         
         print(f"{'='*60}")
-        print(f"Executing notebook {index}/{total}:{notebook_name}")
+        print(f"Executing notebook {index}/{total}: {notebook_name}")
         print(f"{'='*60}")
-        
         params = {}
         
         # Use notebook utils abstraction for cross-environment compatibility
         result = notebookutils.mssparkutils.notebook.run(
             notebook_name,
-            timeout_seconds,
-            params
+            timeout=timeout_seconds,
+            params=params
         )
-        print(f"Exit value$$: {result}")
+        
         if (result == 'success'):
             success_count += 1
             print(f"✓ Successfully executed: {notebook_name}")
@@ -246,27 +249,24 @@ def execute_notebook(notebook_name, index, total, timeout_seconds=3600):
         print(f"Error: {str(e)}")
         return False
 
-print(f"Starting orchestration for Config lakehouse")
+print(f"Starting orchestration for  warehouse")
 print(f"Start time: {start_time}")
-print(f"Total notebooks to execute: 5")
+print(f"Total notebooks to execute: 2")
 print("="*60)
-execute_notebook("001_Initial_Creation_SyntheticData_Config_Lakehouses_ddl_scripts", 1, 5)
-execute_notebook("001_Initial_Creation_Ingestion_Config_Lakehouses_ddl_scripts", 2, 5)
-execute_notebook("001_Initial_Creation_Config_Lakehouses_ddl_scripts", 3, 5)
-execute_notebook("001_Initial_Creation_ExtractGeneration_Config_Lakehouses_ddl_scripts", 4, 5)
-execute_notebook("002_Sample_Data_Ingestion_Config_Lakehouses_ddl_scripts", 5, 5)
+execute_notebook("000_Initial_Schema_Creation_Config_Warehouses_ddl_scripts", 1, 2)
+execute_notebook("001_Initial_Creation_Ingestion_Config_Warehouses_ddl_scripts", 2, 2)
 
 # Final Summary
 end_time = datetime.now()
 duration = end_time - start_time
-failed_count = 5 - success_count
+failed_count = 2 - success_count
 
 print(f"{'='*60}")
 print(f"Orchestration Complete!")
 print(f"{'='*60}")
 print(f"End time: {end_time}")
 print(f"Duration: {duration}")
-print(f"Total notebooks: 5")
+print(f"Total notebooks: 2")
 print(f"Successfully executed: {success_count}")
 print(f"Failed: {failed_count}")
 
@@ -280,19 +280,19 @@ if failed_notebooks:
         print(f"   Error: {failure['error']}")
         print()
 
-if success_count == 5:
-    print("✓ All notebooks executed successfully!")
-    notebookutils.mssparkutils.notebook.exit("success")
+if success_count == 2:
+    print("\n✓ All notebooks executed successfully!")
+    notebookutils.notebook.exit("success")
 else:
     print(f"\n✗ Orchestration completed with {failed_count} failure(s)")
     # Exit with failure status - this will be caught by parent orchestrator as non-"success"
-    error_summary = f"failed: {failed_count} of 5 notebooks failed"
-    notebookutils.mssparkutils.notebook.exit(error_summary)
+    error_summary = f"failed: {failed_count} of 2 notebooks failed"
+    notebookutils.notebook.exit(error_summary)
 
 # METADATA ********************
 
 # META {
 # META   "language": "python",
-# META   "language_group": "synapse_pyspark"
+# META   "language_group": "jupyter_python"
 # META }
 
