@@ -42,7 +42,8 @@
       "Bash(export POSTGRES_PASSWORD=\"wrongpassword\")",
       "Bash(export PYTHONUNBUFFERED=1)",
       "Bash(export POSTGRES_PASSWORD=\"password\")",
-      "Bash(export extract_name=\"SAMPLE_CUSTOMERS_DAILY\")"
+      "Bash(export extract_name=\"SAMPLE_CUSTOMERS_DAILY\")",
+      "Bash(bash:*)"
     ],
     "deny": []
   }

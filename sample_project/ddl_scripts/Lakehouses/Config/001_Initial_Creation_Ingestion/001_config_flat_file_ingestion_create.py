@@ -57,7 +57,8 @@ schema = StructType([
     StructField("import_sequence_order", IntegerType(), nullable=True),  # Order for related table imports
     StructField("date_range_start", StringType(), nullable=True),  # Start date for batch import
     StructField("date_range_end", StringType(), nullable=True),  # End date for batch import
-    StructField("skip_existing_dates", BooleanType(), nullable=True)  # Skip already imported dates
+    StructField("skip_existing_dates", BooleanType(), nullable=True),  # Skip already imported dates
+    StructField("source_is_folder", BooleanType(), nullable=True)  # True for folder with part files, False for single file
 ])
 
 target_lakehouse.create_table(

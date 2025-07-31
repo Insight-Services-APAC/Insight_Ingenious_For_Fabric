@@ -691,6 +691,57 @@ class lakehouse_utils(DataStoreInterface):
                 # Fallback - this is limited but better than nothing
                 return []
 
+    def list_directories(
+        self,
+        directory_path: str,
+        pattern: str | None = None,
+        recursive: bool = False,
+    ) -> list[str]:
+        """
+        List directories in a directory using the appropriate method for the environment.
+        """
+        # Build full directory path using the lakehouse files URI
+        if not directory_path.startswith(("file://", "abfss://")):
+            full_directory_path = f"{self.lakehouse_files_uri()}{directory_path}"
+        else:
+            full_directory_path = directory_path
+
+        if self.spark_version == "local":
+            # Use standard Python file operations for local
+            if full_directory_path.startswith("file://"):
+                full_directory_path = full_directory_path.replace("file://", "")
+
+            dir_path = Path(full_directory_path)
+            if not dir_path.exists():
+                return []
+
+            if recursive:
+                dirs = dir_path.rglob(pattern or "*")
+            else:
+                dirs = dir_path.glob(pattern or "*")
+
+            return [str(d) for d in dirs if d.is_dir()]
+        else:
+            # Use notebookutils.fs for Fabric environment
+            import sys
+
+            if "notebookutils" in sys.modules:
+                try:
+                    import notebookutils  # type: ignore
+
+                    files = notebookutils.fs.ls(full_directory_path)  # type: ignore
+                    dir_list = []
+                    for file_info in files:
+                        if file_info.isDir:
+                            if pattern is None or pattern in file_info.name:
+                                dir_list.append(file_info.path)
+                    return dir_list
+                except Exception:
+                    return []
+            else:
+                # Fallback - this is limited but better than nothing
+                return []
+
     def get_file_info(self, file_path: str) -> dict[str, Any]:
         """
         Get information about a file (size, modification time, etc.).

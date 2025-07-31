@@ -1,0 +1,168 @@
+{%- import 'shared/notebook/macros/notebook_macros.py.jinja' as macros -%}
+# Fabric notebook source
+
+# METADATA ********************
+
+# META {
+# META   "kernel_info": {
+# META     "name": "{{ kernel_name }}",
+# META     "display_name": "{{ kernel_display_name }}"
+# META   },
+# META   "language_info": {
+# META     "name": "python",
+# META     "language_group": "{{ language_group }}"
+# META   }
+# META }
+
+{{ macros.parameters_cell() }}
+
+# Default parameters
+config_id = ""
+execution_group = None
+environment = "development"
+
+{% if datastore_type == "lakehouse" %}
+{{ macros.pyspark_cell_with_heading("## 📄 Flat File Ingestion Notebook (Lakehouse)") }}
+{% else %}
+{{ macros.python_cell_with_heading("## 📄 Flat File Ingestion Notebook (Warehouse)") }}
+{% endif %}
+
+# This notebook processes flat files (CSV, JSON, Parquet, Avro, XML) and loads them into {{ datastore_type }} tables based on configuration metadata.
+# Uses modularized components from python_libs for maintainable and reusable code.
+
+{% set runtime_type = runtime_type %}
+{% set language_group = language_group %}
+{% set include_ddl_utils = include_ddl_utils %}
+{% include 'shared/notebook/environment/library_loader.py.jinja' %}
+
+{% if datastore_type == "lakehouse" %}
+{{ macros.pyspark_cell_with_heading("## 🔧 Load Configuration and Initialize") }}
+{% else %}
+{{ macros.python_cell_with_heading("## 🔧 Load Configuration and Initialize") }}
+{% endif %}
+{% include 'shared/notebook/environment/config_loader.py.jinja' %}
+
+# Additional imports for flat file ingestion
+import uuid
+import json
+import time
+from datetime import datetime
+from typing import Dict, List, Optional, Any
+
+{% block datastore_specific_imports %}
+# Datastore-specific imports will be defined in child templates
+{% endblock %}
+
+execution_id = str(uuid.uuid4())
+
+print(f"Execution ID: {execution_id}")
+print(f"Config ID: {config_id}")
+print(f"Execution Group: {execution_group}")
+print(f"Environment: {environment}")
+
+{% if datastore_type == "lakehouse" %}
+{{ macros.pyspark_cell_with_heading("## 📋 Load Configuration Data") }}
+{% else %}
+{{ macros.python_cell_with_heading("## 📋 Load Configuration Data") }}
+{% endif %}
+
+{% block configuration_setup %}
+# Configuration setup will be defined in child templates
+{% endblock %}
+
+# Load configuration
+{% block load_configuration %}
+# Configuration loading will be defined in child templates
+{% endblock %}
+
+# Filter configurations
+if config_id:
+    config_df = config_df[config_df["config_id"] == config_id]
+else:
+    # If execution_group is not set or is empty, process all execution groups
+    if execution_group and str(execution_group).strip():
+        config_df = config_df[
+            (config_df["execution_group"] == execution_group) & 
+            (config_df["active_yn"] == "Y")
+        ]
+    else:
+        config_df = config_df[config_df["active_yn"] == "Y"]
+
+if config_df.empty:
+    raise ValueError(f"No active configurations found for config_id: {config_id}, execution_group: {execution_group}")
+
+print(f"Found {len(config_df)} configurations to process")
+
+{% if datastore_type == "lakehouse" %}
+{{ macros.pyspark_cell_with_heading("## 🚀 Initialize Modular Services") }}
+{% else %}
+{{ macros.python_cell_with_heading("## 🚀 Initialize Modular Services") }}
+{% endif %}
+
+{% block initialize_services %}
+# Service initialization will be defined in child templates
+{% endblock %}
+
+{% if datastore_type == "lakehouse" %}
+{{ macros.pyspark_cell_with_heading("## 📊 Process Configurations") }}
+{% else %}
+{{ macros.python_cell_with_heading("## 📊 Process Configurations") }}
+{% endif %}
+
+# Convert pandas DataFrame rows to FlatFileIngestionConfig objects
+configurations = []
+for _, config_row in config_df.iterrows():
+    config = FlatFileIngestionConfig.from_dict(config_row.to_dict())
+    configurations.append(config)
+
+# Process all configurations using the orchestrator
+results = orchestrator.process_configurations(configurations, execution_id)
+
+{% if datastore_type == "lakehouse" %}
+{{ macros.pyspark_cell_with_heading("## 📈 Execution Summary") }}
+{% else %}
+{{ macros.python_cell_with_heading("## 📈 Execution Summary") }}
+{% endif %}
+
+# Print comprehensive summary
+print("\n=== EXECUTION SUMMARY ===")
+print(f"Execution ID: {results['execution_id']}")
+print(f"Total configurations processed: {results['total_configurations']}")
+print(f"Successful: {results['successful']}")
+print(f"Failed: {results['failed']}")
+print(f"No data found: {results['no_data_found']}")
+
+# Display successful configurations
+successful_configs = [r for r in results['configurations'] if r['status'] == 'completed']
+if successful_configs:
+    print("\nSuccessful configurations:")
+    for result in successful_configs:
+        metrics = result['metrics']
+        duration_sec = metrics.total_duration_ms / 1000 if metrics.total_duration_ms > 0 else 0
+        print(f"  - {result['config_name']}: {metrics.records_processed} records in {duration_sec:.2f}s")
+        print(f"    Performance: {metrics.avg_rows_per_second:.0f} rows/sec")
+        print(f"    Read time: {metrics.read_duration_ms}ms, Write time: {metrics.write_duration_ms}ms")
+        print(f"    Row count reconciliation: {metrics.row_count_reconciliation_status}")
+
+# Display failed configurations
+failed_configs = [r for r in results['configurations'] if r['status'] == 'failed']
+if failed_configs:
+    print("\nFailed configurations:")
+    for result in failed_configs:
+        print(f"  - {result['config_name']}: {'; '.join(result['errors'])}")
+
+# Display configurations with no data
+no_data_configs = [r for r in results['configurations'] if r['status'] in ['no_data_found', 'no_data_processed']]
+if no_data_configs:
+    print("\nConfigurations with no data found:")
+    for result in no_data_configs:
+        metrics = result['metrics']
+        print(f"  - {result['config_name']}: No source files discovered")
+        print(f"    Read time: {metrics.read_duration_ms}ms")
+        print(f"    Row count reconciliation: {metrics.row_count_reconciliation_status}")
+
+print(f"\nExecution completed at: {datetime.now()}")
+
+{{ macros.exit_notebook("success") }}
+
+{% include 'shared/notebook/cells/footer.py.jinja' %}

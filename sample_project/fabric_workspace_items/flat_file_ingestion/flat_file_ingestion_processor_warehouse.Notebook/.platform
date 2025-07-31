@@ -1,0 +1,12 @@
+{
+  "$schema": "https://developer.microsoft.com/json-schemas/fabric/gitIntegration/platformProperties/2.0.0/schema.json",
+  "metadata": {
+    "type": "Notebook",
+    "displayName": "Flat File Ingestion Processor (Warehouse)",
+    "description": "Processes flat files and loads them into warehouse tables based on configuration metadata using COPY INTO operations"
+  },
+  "config": {
+    "version": "2.0",
+    "logicalId": "8900c360-26e0-4398-bb3e-529f3f592ce3"
+  }
+}

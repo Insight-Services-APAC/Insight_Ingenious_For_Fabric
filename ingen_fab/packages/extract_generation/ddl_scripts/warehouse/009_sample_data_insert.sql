@@ -1,18 +1,18 @@
 -- Sample data for Extract Generation package
--- This script inserts sample configurations for testing various extract scenarios
--- NOTE: For synthetic data compatibility, use 009_sample_data_insert_aligned.sql instead
+-- This script inserts sample configurations based on synthetic retail OLTP data
+-- Tables: customers (snapshot), products (snapshot), orders (incremental), order_items (incremental)
 
 -- Clear existing sample data
 DELETE FROM [config].[config_extract_details] WHERE extract_name LIKE 'SAMPLE_%';
 DELETE FROM [config].[config_extract_generation] WHERE extract_name LIKE 'SAMPLE_%';
 
--- Sample 1: Simple table extract to CSV
+-- Sample 1: Customers snapshot extract to Parquet
 INSERT INTO [config].[config_extract_generation] (
     creation_time, extract_name, is_active, extract_table_name, extract_table_schema, 
     is_full_load, execution_group, created_by, created_timestamp
 ) VALUES (
-    GETDATE(), 'SAMPLE_CUSTOMERS_DAILY', 1, 'customers', 'dbo', 
-    1, 'DAILY_EXTRACTS', SYSTEM_USER, GETDATE()
+    GETDATE(), 'SAMPLE_CUSTOMERS_SNAPSHOT', 1, 'customers', 'dbo', 
+    1, 'SNAPSHOT_EXTRACTS', SYSTEM_USER, GETDATE()
 );
 
 INSERT INTO [config].[config_extract_details] (
@@ -26,24 +26,24 @@ INSERT INTO [config].[config_extract_details] (
     encrypt_api_is_encrypt, encrypt_api_is_create_trigger_file,
     created_by, created_timestamp
 ) VALUES (
-    GETDATE(), 'SAMPLE_CUSTOMERS_DAILY', 1, 'CUSTOMER_DATA',
-    'extracts', 'customers', 'customers',
-    'yyyyMMdd_HHmmss', 'csv',
+    GETDATE(), 'SAMPLE_CUSTOMERS_SNAPSHOT', 1, 'CUSTOMER_SNAPSHOT',
+    'extracts', 'snapshot/customers', 'customers',
+    'yyyyMMdd', 'parquet',
     ',', '\n',
-    'UTF-8', 1, 'csv',
+    'UTF-8', 1, 'parquet',
     0, 0, 0, 0,
     0, 1, 0,
     0, 0,
     SYSTEM_USER, GETDATE()
 );
 
--- Sample 2: View extract with ZIP compression
+-- Sample 2: Products snapshot extract to Parquet with trigger file
 INSERT INTO [config].[config_extract_generation] (
-    creation_time, extract_name, is_active, extract_view_name, extract_view_schema, 
+    creation_time, extract_name, is_active, extract_table_name, extract_table_schema, 
     is_full_load, execution_group, created_by, created_timestamp
 ) VALUES (
-    GETDATE(), 'SAMPLE_SALES_SUMMARY_MONTHLY', 1, 'v_sales_summary', 'reporting', 
-    1, 'MONTHLY_REPORTS', SYSTEM_USER, GETDATE()
+    GETDATE(), 'SAMPLE_PRODUCTS_SNAPSHOT', 1, 'products', 'dbo', 
+    1, 'SNAPSHOT_EXTRACTS', SYSTEM_USER, GETDATE()
 );
 
 INSERT INTO [config].[config_extract_details] (
@@ -53,30 +53,30 @@ INSERT INTO [config].[config_extract_details] (
     file_properties_column_delimiter, file_properties_header,
     is_compressed, compressed_type, compressed_level,
     compressed_file_name, compressed_extension, output_format,
-    is_trigger_file, is_encrypt_api, is_validation_table,
+    is_trigger_file, trigger_file_extension, is_encrypt_api, is_validation_table,
     compressed_is_compress_multiple_files, compressed_is_delete_old_files, compressed_is_trigger_file,
     encrypt_api_is_encrypt, encrypt_api_is_create_trigger_file,
     created_by, created_timestamp
 ) VALUES (
-    GETDATE(), 'SAMPLE_SALES_SUMMARY_MONTHLY', 1, 'SALES_REPORTS',
-    'extracts', 'sales/monthly', 'sales_summary',
-    'yyyyMM', 'csv',
+    GETDATE(), 'SAMPLE_PRODUCTS_SNAPSHOT', 1, 'PRODUCT_SNAPSHOT',
+    'extracts', 'snapshot/products', 'products',
+    'yyyyMMdd', 'parquet',
     ',', 1,
-    1, 'ZIP', 'NORMAL',
-    'sales_summary_archive', '.zip', 'csv',
-    0, 0, 0,
+    0, NULL, NULL,
+    NULL, NULL, 'parquet',
+    1, '.done', 0, 0,
     0, 1, 0,
     0, 0,
     SYSTEM_USER, GETDATE()
 );
 
--- Sample 3: Stored procedure extract with trigger file  
+-- Sample 3: Orders incremental extract with Snappy compression 
 INSERT INTO [config].[config_extract_generation] (
-    creation_time, extract_name, is_active, extract_sp_name, extract_sp_schema, 
+    creation_time, extract_name, is_active, extract_table_name, extract_table_schema, 
     is_full_load, execution_group, created_by, created_timestamp
 ) VALUES (
-    GETDATE(), 'SAMPLE_FINANCIAL_REPORT', 1, 'sp_generate_financial_report', 'finance', 
-    0, 'FINANCIAL_REPORTS', SYSTEM_USER, GETDATE()
+    GETDATE(), 'SAMPLE_ORDERS_INCREMENTAL', 1, 'orders', 'dbo', 
+    0, 'INCREMENTAL_EXTRACTS', SYSTEM_USER, GETDATE()
 );
 
 INSERT INTO [config].[config_extract_details] (
@@ -85,31 +85,31 @@ INSERT INTO [config].[config_extract_details] (
     extract_file_name_timestamp_format, extract_file_name_extension,
     is_trigger_file, trigger_file_extension,
     output_format, file_properties_max_rows_per_file,
-    is_compressed, is_encrypt_api, is_validation_table,
+    is_compressed, compressed_type, compressed_level, is_encrypt_api, is_validation_table,
     file_properties_header,
     compressed_is_compress_multiple_files, compressed_is_delete_old_files, compressed_is_trigger_file,
     encrypt_api_is_encrypt, encrypt_api_is_create_trigger_file,
     created_by, created_timestamp
 ) VALUES (
-    GETDATE(), 'SAMPLE_FINANCIAL_REPORT', 1, 'FINANCE',
-    'extracts', 'finance/reports', 'financial_report',
+    GETDATE(), 'SAMPLE_ORDERS_INCREMENTAL', 1, 'ORDER_INCREMENTAL',
+    'extracts', 'incremental/orders', 'orders',
     'yyyyMMdd', 'parquet',
-    1, '.done',
-    'parquet', 1000000,
-    0, 0, 0,
+    0, NULL,
+    'parquet', NULL,
+    1, 'SNAPPY', 'NORMAL', 0, 0,
     1,
     0, 1, 0,
     0, 0,
     SYSTEM_USER, GETDATE()
 );
 
--- Sample 4: Large table extract with file splitting and GZIP compression
+-- Sample 4: Order items incremental extract with Snappy compression
 INSERT INTO [config].[config_extract_generation] (
     creation_time, extract_name, is_active, extract_table_name, extract_table_schema, 
     is_full_load, execution_group, created_by, created_timestamp
 ) VALUES (
-    GETDATE(), 'SAMPLE_TRANSACTIONS_EXPORT', 1, 'transactions', 'dbo', 
-    1, 'LARGE_EXPORTS', SYSTEM_USER, GETDATE()
+    GETDATE(), 'SAMPLE_ORDER_ITEMS_INCREMENTAL', 1, 'order_items', 'dbo', 
+    0, 'INCREMENTAL_EXTRACTS', SYSTEM_USER, GETDATE()
 );
 
 INSERT INTO [config].[config_extract_details] (
@@ -125,51 +125,17 @@ INSERT INTO [config].[config_extract_details] (
     encrypt_api_is_encrypt, encrypt_api_is_create_trigger_file,
     created_by, created_timestamp
 ) VALUES (
-    GETDATE(), 'SAMPLE_TRANSACTIONS_EXPORT', 1, 'TRANSACTIONS',
-    'extracts', 'transactions/daily', 'transactions',
-    'yyyyMMdd_HHmmss', 'tsv',
-    '\t', 1,
-    500000,
-    1, 'GZIP', 'MAXIMUM',
-    1, 'tsv',
+    GETDATE(), 'SAMPLE_ORDER_ITEMS_INCREMENTAL', 1, 'ORDER_ITEMS_INCREMENTAL',
+    'extracts', 'incremental/order_items', 'order_items',
+    'yyyyMMdd', 'parquet',
+    ',', 1,
+    NULL,
+    1, 'SNAPPY', 'NORMAL',
+    0, 'parquet',
     0, 0, 0,
     1, 0,
     0, 0,
     SYSTEM_USER, GETDATE()
 );
 
--- Sample 5: Incremental extract with validation
-INSERT INTO [config].[config_extract_generation] (
-    creation_time, extract_name, is_active, extract_table_name, extract_table_schema,
-    validation_table_sp_name, validation_table_sp_schema,
-    is_full_load, execution_group, created_by, created_timestamp
-) VALUES (
-    GETDATE(), 'SAMPLE_ORDERS_INCREMENTAL', 1, 'orders', 'dbo',
-    'sp_validate_orders_extract', 'dbo',
-    0, 'INCREMENTAL_EXTRACTS', SYSTEM_USER, GETDATE()
-);
-
-INSERT INTO [config].[config_extract_details] (
-    creation_time, extract_name, is_active, file_generation_group,
-    extract_container, extract_directory, extract_file_name,
-    extract_file_name_timestamp_format, extract_file_name_extension,
-    file_properties_column_delimiter, file_properties_quote_character,
-    file_properties_escape_character, file_properties_header,
-    file_properties_null_value, output_format,
-    is_validation_table, is_trigger_file, is_compressed, is_encrypt_api,
-    compressed_is_compress_multiple_files, compressed_is_delete_old_files, compressed_is_trigger_file,
-    encrypt_api_is_encrypt, encrypt_api_is_create_trigger_file,
-    created_by, created_timestamp
-) VALUES (
-    GETDATE(), 'SAMPLE_ORDERS_INCREMENTAL', 1, 'ORDERS',
-    'extracts', 'orders/incremental', 'orders_delta',
-    'yyyyMMdd_HHmmss', 'csv',
-    ',', '"',
-    '|', 1,
-    'NULL', 'csv',
-    1, 0, 0, 0,
-    0, 1, 0,
-    0, 0,
-    SYSTEM_USER, GETDATE()
-);
 
