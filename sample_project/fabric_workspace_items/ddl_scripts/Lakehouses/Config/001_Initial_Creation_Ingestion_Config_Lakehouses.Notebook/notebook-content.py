@@ -285,7 +285,17 @@ def script_to_execute():
         StructField("empty_value", StringType(), nullable=True),  # Default: ""
         StructField("comment_character", StringType(), nullable=True),  # Default: None
         StructField("max_columns", IntegerType(), nullable=True),  # Default: 100
-        StructField("max_chars_per_column", IntegerType(), nullable=True)  # Default: 50000
+        StructField("max_chars_per_column", IntegerType(), nullable=True),  # Default: 50000
+        # New fields for incremental synthetic data import support
+        StructField("import_pattern", StringType(), nullable=True),  # 'single_file', 'date_partitioned', 'wildcard_pattern'
+        StructField("date_partition_format", StringType(), nullable=True),  # Date partition format (e.g., 'YYYY/MM/DD')
+        StructField("table_relationship_group", StringType(), nullable=True),  # Group for related table imports
+        StructField("batch_import_enabled", BooleanType(), nullable=True),  # Enable batch processing
+        StructField("file_discovery_pattern", StringType(), nullable=True),  # Pattern for automatic file discovery
+        StructField("import_sequence_order", IntegerType(), nullable=True),  # Order for related table imports
+        StructField("date_range_start", StringType(), nullable=True),  # Start date for batch import
+        StructField("date_range_end", StringType(), nullable=True),  # End date for batch import
+        StructField("skip_existing_dates", BooleanType(), nullable=True)  # Skip already imported dates
     ])
     
     target_lakehouse.create_table(

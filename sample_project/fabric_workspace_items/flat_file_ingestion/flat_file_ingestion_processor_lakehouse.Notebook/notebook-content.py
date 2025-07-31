@@ -67,7 +67,7 @@ import sys
 if "notebookutils" in sys.modules:
     import sys
     
-    notebookutils.fs.mount("abfss://REPLACE_WITH_CONFIG_WORKSPACE_NAME@onelake.dfs.fabric.microsoft.com/config.Lakehouse/Files/", "/config_files")  # type: ignore # noqa: F821
+    notebookutils.fs.mount("abfss://{{varlib:config_workspace_name}}@onelake.dfs.fabric.microsoft.com/{{varlib:config_lakehouse_name}}.Lakehouse/Files/", "/config_files")  # type: ignore # noqa: F821
     mount_path = notebookutils.fs.getMountPath("/config_files")  # type: ignore # noqa: F821
     
     run_mode = "fabric"
@@ -264,6 +264,16 @@ class FlatFileIngestionConfig:
         self.error_handling_strategy = config_row.get("error_handling_strategy", "fail")
         self.execution_group = config_row["execution_group"]
         self.active_yn = config_row["active_yn"]
+        # New fields for incremental synthetic data import support
+        self.import_pattern = config_row.get("import_pattern", "single_file")
+        self.date_partition_format = config_row.get("date_partition_format", "YYYY/MM/DD")
+        self.table_relationship_group = config_row.get("table_relationship_group")
+        self.batch_import_enabled = config_row.get("batch_import_enabled", False)
+        self.file_discovery_pattern = config_row.get("file_discovery_pattern")
+        self.import_sequence_order = config_row.get("import_sequence_order", 1)
+        self.date_range_start = config_row.get("date_range_start")
+        self.date_range_end = config_row.get("date_range_end")
+        self.skip_existing_dates = config_row.get("skip_existing_dates", True)
 
 # Initialize config lakehouse utilities
 config_lakehouse = lakehouse_utils(
@@ -321,12 +331,148 @@ class FlatFileProcessor:
     def __init__(self, spark_session: SparkSession, raw_lakehouse_utils):
         self.spark = spark_session
         self.raw_lakehouse = raw_lakehouse_utils
+    
+    def discover_date_partitioned_files(self, config: FlatFileIngestionConfig) -> List[Dict[str, str]]:
+        """Discover files in date-partitioned directory structure using lakehouse_utils abstraction"""
+        
+        if config.import_pattern != "date_partitioned":
+            # For non-date-partitioned imports, return single file path
+            return [{"file_path": config.source_file_path, "date_partition": None}]
+        
+        discovered_files = []
+        base_path = config.source_file_path
+        
+        try:
+            # Parse date partition format to understand directory structure
+            # Support formats like "YYYY/MM/DD" or "YYYY-MM-DD"
+            date_format = config.date_partition_format.replace("YYYY", "*").replace("MM", "*").replace("DD", "*")
+            
+            # Build search pattern for file discovery
+            if config.file_discovery_pattern:
+                # Use custom discovery pattern
+                search_pattern = config.file_discovery_pattern
+            else:
+                # Build pattern based on base path and date format
+                search_pattern = f"{base_path}/{date_format}/**/*.{config.source_file_format}"
+            
+            print(f"🔍 Discovering files with pattern: {search_pattern}")
+            
+            # Use lakehouse_utils to list files matching the pattern
+            # Split the pattern to extract directory and file pattern
+            import os
+            if config.file_discovery_pattern:
+                # For custom patterns, we need to handle them differently
+                # Extract the base directory and pattern
+                if '**' in search_pattern:
+                    # Split at the first **
+                    parts = search_pattern.split('**', 1)
+                    dir_path = parts[0].rstrip('/')
+                    file_pattern = '**' + parts[1]
+                else:
+                    dir_path = os.path.dirname(search_pattern)
+                    file_pattern = os.path.basename(search_pattern)
+            else:
+                # For standard patterns, use the base path as directory
+                dir_path = base_path
+                file_pattern = f"{date_format}/**/*.{config.source_file_format}"
+            
+            print(f"📂 Searching in directory: {dir_path}")
+            print(f"🔍 With pattern: {file_pattern}")
+            
+            file_list = self.raw_lakehouse.list_files(dir_path, pattern=file_pattern, recursive=True)
+            
+            for file_path in file_list:
+                # Convert string path to dictionary format
+                file_info = {"path": file_path}
+                
+                # Extract date partition from file path
+                date_partition = self._extract_date_from_path(file_path, base_path, config.date_partition_format)
+                
+                # Apply date range filtering if specified
+                if self._is_date_in_range(date_partition, config.date_range_start, config.date_range_end):
+                    discovered_files.append({
+                        "file_path": file_path,
+                        "date_partition": date_partition,
+                        "size": 0,  # Size info not available from list_files
+                        "modified_time": None  # Modified time not available from list_files
+                    })
+            
+            # Sort by date partition for consistent processing order
+            discovered_files.sort(key=lambda x: x["date_partition"] or "")
+            
+            print(f"📁 Discovered {len(discovered_files)} files for processing")
+            
+        except Exception as e:
+            print(f"⚠️ Warning: File discovery failed: {e}")
+            # Fallback to single file processing
+            discovered_files = [{"file_path": config.source_file_path, "date_partition": None}]
+        
+        return discovered_files
+    
+    def _extract_date_from_path(self, file_path: str, base_path: str, date_format: str) -> str:
+        """Extract date partition from file path based on format"""
+        try:
+            # Remove base path to get relative path
+            relative_path = file_path.replace(base_path, "").strip("/")
+            
+            # Parse date based on format
+            if date_format == "YYYY/MM/DD":
+                # Extract YYYY/MM/DD pattern
+                path_parts = relative_path.split("/")
+                if len(path_parts) >= 3:
+                    return f"{path_parts[0]}-{path_parts[1]}-{path_parts[2]}"
+            elif date_format == "YYYY-MM-DD":
+                # Extract YYYY-MM-DD pattern
+                path_parts = relative_path.split("/")
+                for part in path_parts:
+                    if len(part) == 10 and part.count("-") == 2:
+                        return part
+            
+            # Fallback: try to extract any date-like pattern
+            import re
+            date_match = re.search(r"(\d{4})[/-](\d{2})[/-](\d{2})", relative_path)
+            if date_match:
+                return f"{date_match.group(1)}-{date_match.group(2)}-{date_match.group(3)}"
+            
+        except Exception as e:
+            print(f"⚠️ Could not extract date from path {file_path}: {e}")
+        
+        return None
+    
+    def _is_date_in_range(self, date_str: str, start_date: str, end_date: str) -> bool:
+        """Check if date is within specified range"""
+        if not date_str:
+            return True  # Include files without date partitions
+        
+        try:
+            from datetime import datetime
+            file_date = datetime.strptime(date_str, "%Y-%m-%d").date()
+            
+            if start_date:
+                start = datetime.strptime(start_date, "%Y-%m-%d").date()
+                if file_date < start:
+                    return False
+            
+            if end_date:
+                end = datetime.strptime(end_date, "%Y-%m-%d").date()
+                if file_date > end:
+                    return False
+            
+            return True
+        except Exception as e:
+            print(f"⚠️ Date range check failed for {date_str}: {e}")
+            return True
         
     def read_file(self, config: FlatFileIngestionConfig) -> tuple[DataFrame, Dict[str, Any]]:
         """Read file based on format and configuration using abstracted file access"""
         
         # Track read performance
         read_start = time.time()
+        
+        # Check if this is a date-partitioned import that needs special handling
+        if getattr(config, 'import_pattern', None) == "date_partitioned" and getattr(config, 'batch_import_enabled', None):
+            print(f"🔍 Detected date-partitioned import for {config.config_name}")
+            return self._read_date_partitioned_files(config, read_start)
         
         # Build options dictionary for the abstracted read_file method
         options = {}
@@ -413,6 +559,143 @@ class FlatFileProcessor:
         
         return df, read_stats
     
+    def _read_date_partitioned_files(self, config: FlatFileIngestionConfig, read_start: float) -> tuple[DataFrame, Dict[str, Any]]:
+        """Read date-partitioned files using the discovery method"""
+        from pyspark.sql.functions import lit
+        
+        # Discover files to process
+        discovered_files = self.discover_date_partitioned_files(config)
+        
+        if not discovered_files:
+            print(f"⚠️ No files discovered for date-partitioned import {config.config_name}")
+            # Return empty DataFrame with proper schema
+            from pyspark.sql.types import StructType
+            empty_df = self.raw_lakehouse.get_connection.createDataFrame([], StructType([]))
+            return empty_df, {
+                "data_read_duration_ms": int((time.time() - read_start) * 1000),
+                "source_row_count": 0,
+                "corrupt_records_count": 0,
+                "files_processed": 0
+            }
+        
+        print(f"📁 Processing {len(discovered_files)} date-partitioned files")
+        
+        # Build options for file reading
+        options = {}
+        if config.source_file_format.lower() == "csv":
+            options["header"] = config.has_header
+            options["delimiter"] = config.file_delimiter
+            options["encoding"] = config.encoding
+            options["inferSchema"] = config.schema_inference
+            options["dateFormat"] = config.date_format
+            options["timestampFormat"] = config.timestamp_format
+            options["quote"] = config.quote_character
+            options["escape"] = config.escape_character
+            options["multiLine"] = config.multiline_values
+            options["ignoreLeadingWhiteSpace"] = config.ignore_leading_whitespace
+            options["ignoreTrailingWhiteSpace"] = config.ignore_trailing_whitespace
+            options["nullValue"] = config.null_value
+            options["emptyValue"] = config.empty_value
+            if config.comment_character:
+                options["comment"] = config.comment_character
+            options["maxColumns"] = config.max_columns
+            if config.max_chars_per_column > 0:
+                options["maxCharsPerColumn"] = config.max_chars_per_column
+        elif config.source_file_format.lower() == "json":
+            options["dateFormat"] = config.date_format
+            options["timestampFormat"] = config.timestamp_format
+        
+        # Add custom schema if provided
+        if config.custom_schema_json:
+            import json
+            from pyspark.sql.types import StructType
+            schema = StructType.fromJson(json.loads(config.custom_schema_json))
+            options["schema"] = schema
+        
+        # Read and union all discovered files
+        dataframes = []
+        total_files_processed = 0
+        
+        for file_info in discovered_files:
+            file_path = file_info["file_path"]
+            date_partition = file_info["date_partition"]
+            
+            try:
+                # Validate that the file format matches the configuration
+                actual_format = self._detect_file_format_from_path(file_path)
+                if actual_format and actual_format != config.source_file_format:
+                    error_msg = f"Format mismatch: Configuration expects {config.source_file_format} but found {actual_format} file: {file_path}"
+                    print(f"❌ {error_msg}")
+                    raise ValueError(error_msg)
+                
+                print(f"  📄 Reading {file_path} (date: {date_partition or 'N/A'})")
+                
+                # Read the individual file using configured format
+                df_file = self.raw_lakehouse.read_file(
+                    file_path=file_path,
+                    file_format=config.source_file_format,
+                    options=options
+                )
+                
+                # Add date partition as a column if available
+                if date_partition:
+                    df_file = df_file.withColumn("_partition_date", lit(date_partition))
+                
+                dataframes.append(df_file)
+                total_files_processed += 1
+                
+            except Exception as e:
+                print(f"⚠️ Failed to read {file_path}: {e}")
+                if config.error_handling_strategy == "fail":
+                    raise
+                # Continue with other files for 'log' or 'skip' strategies
+        
+        if not dataframes:
+            print(f"⚠️ No files successfully read for {config.config_name}")
+            from pyspark.sql.types import StructType
+            empty_df = self.raw_lakehouse.get_connection.createDataFrame([], StructType([]))
+            return empty_df, {
+                "data_read_duration_ms": int((time.time() - read_start) * 1000),
+                "source_row_count": 0,
+                "corrupt_records_count": 0,
+                "files_processed": 0
+            }
+        
+        # Union all dataframes
+        combined_df = dataframes[0]
+        for df in dataframes[1:]:
+            combined_df = combined_df.union(df)
+        
+        # Calculate final stats
+        read_duration_ms = int((time.time() - read_start) * 1000)
+        source_row_count = combined_df.count()
+        
+        print(f"✅ Successfully processed {total_files_processed} files with {source_row_count} total records")
+        
+        return combined_df, {
+            "data_read_duration_ms": read_duration_ms,
+            "source_row_count": source_row_count,
+            "corrupt_records_count": 0,  # TODO: Handle corrupt records in batch processing
+            "files_processed": total_files_processed
+        }
+    
+    def _detect_file_format_from_path(self, file_path: str) -> str:
+        """Detect file format from file extension"""
+        file_path_lower = file_path.lower()
+        
+        if file_path_lower.endswith('.parquet'):
+            return 'parquet'
+        elif file_path_lower.endswith('.json'):
+            return 'json'
+        elif file_path_lower.endswith(('.csv', '.tsv')):
+            return 'csv'
+        elif file_path_lower.endswith('.avro'):
+            return 'avro'
+        elif file_path_lower.endswith('.xml'):
+            return 'xml'
+        else:
+            # Return None for unknown formats - will use configured format
+            return None
     
     def validate_data(self, df: DataFrame, config: FlatFileIngestionConfig) -> DataFrame:
         """Apply data validation rules"""
@@ -718,7 +1001,11 @@ def log_execution(config: FlatFileIngestionConfig, status: str, write_stats: Dic
     # Row count reconciliation
     row_count_reconciliation_status = "not_verified"
     row_count_difference = None
-    if status == "completed" and source_row_count > 0:
+    if status == "completed" and source_row_count == 0:
+        # No source data - reconciliation is skipped
+        row_count_reconciliation_status = "skipped"
+        row_count_difference = 0
+    elif status == "completed" and source_row_count > 0:
         if config.write_mode == "overwrite" and source_row_count == target_count_after:
             row_count_reconciliation_status = "matched"
             row_count_difference = 0
@@ -734,10 +1021,10 @@ def log_execution(config: FlatFileIngestionConfig, status: str, write_stats: Dic
     data_size_mb = None
     throughput_mb_per_second = None
     if total_duration_ms and total_duration_ms > 0:
-        avg_rows_per_second = (source_row_count / total_duration_ms) * 1000 if source_row_count else 0
+        avg_rows_per_second = float((source_row_count / total_duration_ms) * 1000) if source_row_count else 0.0
         if file_info.get("size"):
-            data_size_mb = file_info["size"] / (1024 * 1024)
-            throughput_mb_per_second = (data_size_mb / total_duration_ms) * 1000
+            data_size_mb = float(file_info["size"] / (1024 * 1024))
+            throughput_mb_per_second = float((data_size_mb / total_duration_ms) * 1000)
     
     log_data = {
         "log_id": str(uuid.uuid4()),
@@ -856,6 +1143,48 @@ for _, config_row in config_df.iterrows():
         df, read_stats = processor.read_file(config)
         print(f"Read {read_stats['source_row_count']} records from source file in {read_stats['data_read_duration_ms']}ms")
         
+        # Handle case where no source data was found
+        if read_stats['source_row_count'] == 0:
+            print(f"⚠️ No source data found for {config.config_name}. Skipping write and reconciliation operations.")
+            
+            # Create minimal write stats for logging
+            write_stats = {
+                "records_processed": 0,
+                "records_inserted": 0,
+                "records_updated": 0,
+                "records_deleted": 0,
+                "staging_row_count": 0,
+                "target_row_count_before": 0,
+                "target_row_count_after": 0,
+                "staging_write_duration_ms": 0
+            }
+            
+            end_time = datetime.now()
+            duration = (end_time - start_time).total_seconds()
+            
+            print(f"Processing completed in {duration:.2f} seconds (no data processed)")
+            print("Row count reconciliation: skipped (no source data)")
+            
+            # Log completion with no data processed
+            log_execution(config, "completed", write_stats, read_stats, start_time=start_time, end_time=end_time)
+            
+            results.append({
+                "config_id": config.config_id,
+                "config_name": config.config_name,
+                "status": "no_data",
+                "duration": duration,
+                "records_processed": 0,
+                "reconciliation_status": "skipped",
+                "performance": {
+                    "source_rows": 0,
+                    "avg_rows_per_second": 0.0,
+                    "read_duration_ms": read_stats['data_read_duration_ms'],
+                    "write_duration_ms": 0
+                }
+            })
+            
+            continue  # Skip to next configuration
+        
         # Validate data
         df_validated = processor.validate_data(df, config)
         
@@ -908,7 +1237,7 @@ for _, config_row in config_df.iterrows():
             "reconciliation_status": recon_status,
             "performance": {
                 "source_rows": read_stats['source_row_count'],
-                "avg_rows_per_second": (read_stats['source_row_count'] / duration) if duration > 0 else 0,
+                "avg_rows_per_second": float(read_stats['source_row_count'] / duration) if duration > 0 else 0.0,
                 "read_duration_ms": read_stats['data_read_duration_ms'],
                 "write_duration_ms": write_stats['staging_write_duration_ms']
             }
@@ -959,9 +1288,11 @@ print(f"Total configurations processed: {len(results)}")
 
 successful = [r for r in results if r["status"] == "success"]
 failed = [r for r in results if r["status"] == "failed"]
+no_data = [r for r in results if r["status"] == "no_data"]
 
 print(f"Successful: {len(successful)}")
 print(f"Failed: {len(failed)}")
+print(f"No data found: {len(no_data)}")
 
 if successful:
     print("\nSuccessful configurations:")
@@ -977,6 +1308,15 @@ if failed:
     print("\nFailed configurations:")
     for result in failed:
         print(f"  - {result['config_name']}: {result['error']}")
+
+if no_data:
+    print("\nConfigurations with no data found:")
+    for result in no_data:
+        print(f"  - {result['config_name']}: No source files discovered")
+        if 'performance' in result:
+            perf = result['performance']
+            print(f"    Read time: {perf['read_duration_ms']}ms")
+        print(f"    Row count reconciliation: {result.get('reconciliation_status', 'N/A')}")
 
 # Create summary dataframe for potential downstream use
 #if results:

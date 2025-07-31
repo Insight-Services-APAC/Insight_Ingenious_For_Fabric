@@ -3,13 +3,28 @@ Synthetic Data Generation Package Compiler
 
 This module provides the main compiler for the synthetic data generation package,
 extending BaseNotebookCompiler to generate notebooks for creating synthetic datasets.
+
+Enhanced with support for:
+- Runtime configurable parameters
+- Flexible file path patterns
+- Enhanced logging capabilities
+- New template system
 """
 
 import json
 from pathlib import Path
-from typing import Dict, List, Optional, Any, Union
+from typing import Dict, List, Optional, Any, Union, Literal
 
 from ...notebook_utils.base_notebook_compiler import BaseNotebookCompiler
+from ...python_libs.common.synthetic_data_dataset_configs import DatasetConfigurationRepository
+
+# Import enhanced configuration if available
+try:
+    from ...python_libs.common.synthetic_data_config import DatasetConfiguration, ConfigurationManager
+    from ...python_libs.common.file_path_utils import DateBasedFilePathGenerator
+    ENHANCED_CONFIG_AVAILABLE = True
+except ImportError:
+    ENHANCED_CONFIG_AVAILABLE = False
 
 
 class SyntheticDataGenerationCompiler(BaseNotebookCompiler):
@@ -29,6 +44,14 @@ class SyntheticDataGenerationCompiler(BaseNotebookCompiler):
             fabric_workspace_repo_dir=fabric_workspace_repo_dir,
             **kwargs
         )
+        
+        # Initialize enhanced configuration manager if available
+        if ENHANCED_CONFIG_AVAILABLE:
+            self.config_manager = ConfigurationManager()
+            self.file_path_generator = DateBasedFilePathGenerator()
+        else:
+            self.config_manager = None
+            self.file_path_generator = None
     
     def compile_synthetic_data_generation_notebook(
         self,
@@ -60,14 +83,11 @@ class SyntheticDataGenerationCompiler(BaseNotebookCompiler):
         if target_environment == "warehouse":
             generation_mode = "python"
         
-        # Select template based on generation mode and environment
+        # Use unified template for all generation modes
+        template_name = "synthetic_data_base_notebook.py.jinja"
         if generation_mode == "pyspark":
-            template_name = "synthetic_data_lakehouse_notebook.py.jinja"
             language_group = "synapse_pyspark"
         else:
-            # Use warehouse template for python mode regardless of environment
-            # This ensures proper library imports
-            template_name = "synthetic_data_warehouse_notebook.py.jinja"
             language_group = "python"
         
         target_datastore_config_prefix = "config"
@@ -108,6 +128,160 @@ class SyntheticDataGenerationCompiler(BaseNotebookCompiler):
             output_subdir=output_subdir
         )
     
+    def compile_enhanced_synthetic_data_notebook(
+        self,
+        dataset_config: Union[DatasetConfiguration, Dict[str, Any]],
+        target_environment: str = "lakehouse",
+        generation_mode: str = "auto",
+        output_subdir: str = None,
+        use_enhanced_template: bool = True,
+        runtime_overrides: Dict[str, Any] = None
+    ) -> Path:
+        """
+        Compile an enhanced synthetic data generation notebook with runtime configuration support.
+        
+        Args:
+            dataset_config: Enhanced dataset configuration or legacy dict
+            target_environment: Target environment ("lakehouse" or "warehouse")
+            generation_mode: Generation mode ("python", "pyspark", or "auto")
+            output_subdir: Optional subdirectory for output
+            use_enhanced_template: Whether to use the enhanced template
+            runtime_overrides: Runtime parameter overrides
+            
+        Returns:
+            Path to the generated notebook
+        """
+        if not ENHANCED_CONFIG_AVAILABLE:
+            # Fall back to legacy method
+            if isinstance(dataset_config, dict):
+                return self.compile_synthetic_data_generation_notebook(
+                    dataset_config=dataset_config,
+                    target_environment=target_environment,
+                    generation_mode=generation_mode,
+                    output_subdir=output_subdir
+                )
+            else:
+                return self.compile_synthetic_data_generation_notebook(
+                    dataset_config=dataset_config.to_dict(),
+                    target_environment=target_environment,
+                    generation_mode=generation_mode,
+                    output_subdir=output_subdir
+                )
+        
+        # Handle configuration
+        if isinstance(dataset_config, dict):
+            config = DatasetConfiguration.from_dict(dataset_config)
+        else:
+            config = dataset_config
+        
+        # Apply runtime overrides if provided
+        if runtime_overrides:
+            config.apply_runtime_overrides(runtime_overrides)
+        
+        # Auto-select generation mode based on configuration
+        if generation_mode == "auto":
+            from datetime import date
+            total_rows = config.calculate_total_rows_for_date(date.today())
+            generation_mode = "pyspark" if total_rows > 1000000 else "python"
+        
+        # Override for warehouse environment
+        if target_environment == "warehouse":
+            generation_mode = "python"
+        
+        # Use unified template for all modes
+        template_name = "synthetic_data_base_notebook.py.jinja"
+        language_group = "synapse_pyspark" if generation_mode == "pyspark" else "python"
+        
+        # Prepare template variables
+        from datetime import date
+        template_vars = {
+            "target_lakehouse_config_prefix": "config_wh" if target_environment == "warehouse" else "config",
+            "dataset_config": config.to_dict(),
+            "generation_mode": generation_mode,
+            "target_environment": target_environment,
+            "language_group": language_group,
+            "dataset_id": config.dataset_id,
+            "seed_value": config.incremental_config.get("seed_value"),
+            "runtime_overrides": runtime_overrides or {},
+            "enhanced_features_enabled": True,
+            "generation_date": date.today().isoformat()
+        }
+        
+        # Generate notebook name
+        from datetime import date
+        scale = "large" if config.calculate_total_rows_for_date(date.today()) > 1000000 else "small"
+        notebook_name = f"enhanced_synthetic_data_{config.dataset_id}_{scale}_{generation_mode}"
+        
+        # Set default output_subdir
+        if output_subdir is None:
+            output_subdir = f"synthetic_data_generation/enhanced/{config.dataset_id}"
+        
+        return self.compile_notebook_from_template(
+            template_name=template_name,
+            output_notebook_name=notebook_name,
+            template_vars=template_vars,
+            display_name=f"Enhanced Synthetic Data - {config.dataset_name}",
+            description=f"Enhanced synthetic data generation for {config.dataset_id} with runtime configuration",
+            output_subdir=output_subdir
+        )
+    
+    def compile_configurable_dataset_notebook(
+        self,
+        config_template_id: str,
+        dataset_id: str,
+        customizations: Dict[str, Any] = None,
+        target_environment: str = "lakehouse",
+        output_subdir: str = None
+    ) -> Path:
+        """
+        Compile a notebook using a predefined configuration template.
+        
+        Args:
+            config_template_id: ID of the predefined configuration template
+            dataset_id: New dataset ID for the generated notebook
+            customizations: Custom overrides for the template
+            target_environment: Target environment
+            output_subdir: Output subdirectory
+            
+        Returns:
+            Path to the generated notebook
+        """
+        if not ENHANCED_CONFIG_AVAILABLE:
+            raise RuntimeError("Enhanced configuration system not available")
+        
+        # Create configuration from template
+        config = self.config_manager.create_config_from_template(
+            template_id=config_template_id,
+            dataset_id=dataset_id,
+            overrides=customizations
+        )
+        
+        return self.compile_enhanced_synthetic_data_notebook(
+            dataset_config=config,
+            target_environment=target_environment,
+            output_subdir=output_subdir or f"synthetic_data_generation/configured/{dataset_id}"
+        )
+    
+    def get_available_configuration_templates(self) -> Dict[str, str]:
+        """Get available configuration templates."""
+        if not ENHANCED_CONFIG_AVAILABLE or not self.config_manager:
+            # Fall back to repository configurations
+            return DatasetConfigurationRepository.list_available_datasets()
+        
+        templates = {}
+        for config_id in self.config_manager.get_available_configs():
+            config = self.config_manager.get_predefined_config(config_id)
+            templates[config_id] = config.description if config else "No description"
+        
+        return templates
+    
+    def get_available_file_path_patterns(self) -> Dict[str, str]:
+        """Get available file path patterns."""
+        if not self.file_path_generator:
+            return {}
+        
+        return self.file_path_generator.get_available_patterns()
+    
     def compile_predefined_dataset_notebook(
         self,
         dataset_id: str,
@@ -133,20 +307,20 @@ class SyntheticDataGenerationCompiler(BaseNotebookCompiler):
         Returns:
             Path to the generated notebook
         """
-        # Load predefined dataset configurations
-        predefined_configs = self._get_predefined_dataset_configs()
-        
-        if dataset_id not in predefined_configs:
-            raise ValueError(f"Unknown dataset_id: {dataset_id}. Available: {list(predefined_configs.keys())}")
-        
-        # Create dataset configuration
-        base_config = predefined_configs[dataset_id]
+        # Load predefined dataset configuration from repository
+        base_config = DatasetConfigurationRepository.get_predefined_dataset(dataset_id)
         dataset_config = {
             **base_config,
             "target_rows": target_rows,
             "seed_value": seed_value,
             "chunk_size": min(target_rows, 1000000) if target_rows > 1000000 else target_rows
         }
+        
+        print("💡 [NOTICE] Consider using the new generic template system for better flexibility!")
+        print("   Use 'compile-generic-templates' and 'execute-with-parameters' commands.")
+        print(f"   Example: python -m ingen_fab.cli package synthetic-data compile-generic-templates --target-environment {target_environment}")
+        print(f"   Then: python -m ingen_fab.cli package synthetic-data execute-with-parameters generic_single_dataset_{target_environment} --dataset-id {dataset_id} --target-rows {target_rows}")
+        print()
         
         return self.compile_synthetic_data_generation_notebook(
             dataset_config=dataset_config,
@@ -240,68 +414,72 @@ class SyntheticDataGenerationCompiler(BaseNotebookCompiler):
             header_title=f"🎲 Compiling Synthetic Data Generation Package for {target_environment.title()}"
         )
     
+    def compile_all_enhanced_synthetic_data_notebooks(
+        self,
+        configuration_templates: List[str] = None,
+        target_environment: str = "lakehouse",
+        customizations: Dict[str, Dict[str, Any]] = None,
+        output_mode: str = "parquet"
+    ) -> Dict[str, Any]:
+        """
+        Compile enhanced synthetic data notebooks using configuration templates.
+        
+        Args:
+            configuration_templates: List of configuration template IDs to use
+            target_environment: Target environment ("lakehouse" or "warehouse")
+            customizations: Per-template customizations
+            output_mode: Output mode ("table" or "parquet")
+            
+        Returns:
+            Dictionary with compilation results
+        """
+        if not ENHANCED_CONFIG_AVAILABLE:
+            # Fall back to standard compilation
+            return self.compile_all_synthetic_data_notebooks(
+                target_environment=target_environment,
+                output_mode=output_mode
+            )
+        
+        # Use default templates if none provided
+        if configuration_templates is None:
+            configuration_templates = ["retail_oltp_enhanced", "retail_star_enhanced"]
+        
+        compile_functions = []
+        
+        # Add DDL compilation
+        compile_functions.append((
+            self.compile_ddl_scripts,
+            [target_environment],
+            {}
+        ))
+        
+        # Add enhanced notebook compilations
+        for template_id in configuration_templates:
+            # Get base configuration
+            config = self.config_manager.get_predefined_config(template_id)
+            if not config:
+                print(f"⚠️ Warning: Configuration template '{template_id}' not found, skipping...")
+                continue
+            
+            # Apply customizations
+            template_customizations = customizations.get(template_id, {}) if customizations else {}
+            if template_customizations:
+                config.apply_runtime_overrides(template_customizations)
+            
+            # Add output mode to config
+            config.output_settings["output_mode"] = output_mode
+            
+            compile_functions.append((
+                self.compile_enhanced_synthetic_data_notebook,
+                [config, target_environment],
+                {"output_subdir": f"synthetic_data_generation/enhanced/{config.dataset_id}"}
+            ))
+        
+        return self.compile_all_with_results(
+            compile_functions,
+            header_title=f"🚀 Compiling Enhanced Synthetic Data Generation Package for {target_environment.title()}"
+        )
+    
     def _get_predefined_dataset_configs(self) -> Dict[str, Dict[str, Any]]:
-        """Get predefined dataset configurations."""
-        return {
-            "retail_oltp_small": {
-                "dataset_id": "retail_oltp_small",
-                "dataset_name": "Retail OLTP - Small",
-                "dataset_type": "transactional",
-                "schema_pattern": "oltp",
-                "domain": "retail",
-                "description": "Small retail transactional system with customers, orders, products",
-                "tables": ["customers", "products", "orders", "order_items"],
-                "relationships": "normalized"
-            },
-            "retail_oltp_large": {
-                "dataset_id": "retail_oltp_large",
-                "dataset_name": "Retail OLTP - Large",
-                "dataset_type": "transactional",
-                "schema_pattern": "oltp",
-                "domain": "retail",
-                "description": "Large-scale retail transactional system",
-                "tables": ["customers", "products", "orders", "order_items"],
-                "relationships": "normalized",
-                "partitioning": "date"
-            },
-            "retail_star_small": {
-                "dataset_id": "retail_star_small",
-                "dataset_name": "Retail Star Schema - Small",
-                "dataset_type": "analytical",
-                "schema_pattern": "star_schema",
-                "domain": "retail",
-                "description": "Small retail data warehouse with fact_sales and dimensions",
-                "fact_tables": ["fact_sales"],
-                "dimensions": ["dim_customer", "dim_product", "dim_date", "dim_store"]
-            },
-            "retail_star_large": {
-                "dataset_id": "retail_star_large",
-                "dataset_name": "Retail Star Schema - Large",
-                "dataset_type": "analytical",
-                "schema_pattern": "star_schema",
-                "domain": "retail",
-                "description": "Large retail data warehouse with multiple fact tables",
-                "fact_tables": ["fact_sales", "fact_inventory"],
-                "dimensions": ["dim_customer", "dim_product", "dim_date", "dim_store", "dim_supplier"]
-            },
-            "finance_oltp_small": {
-                "dataset_id": "finance_oltp_small",
-                "dataset_name": "Financial OLTP - Small",
-                "dataset_type": "transactional",
-                "schema_pattern": "oltp",
-                "domain": "finance",
-                "description": "Small financial system with accounts, transactions, customers",
-                "tables": ["customers", "accounts", "transactions", "account_types"],
-                "compliance": "pci_dss"
-            },
-            "ecommerce_star_small": {
-                "dataset_id": "ecommerce_star_small",
-                "dataset_name": "E-commerce Star Schema - Small",
-                "dataset_type": "analytical",
-                "schema_pattern": "star_schema",
-                "domain": "ecommerce",
-                "description": "E-commerce analytics with web events and sales",
-                "fact_tables": ["fact_web_events", "fact_orders"],
-                "dimensions": ["dim_customer", "dim_product", "dim_session", "dim_date"]
-            }
-        }
+        """Get predefined dataset configurations from the centralized repository."""
+        return DatasetConfigurationRepository._get_all_predefined_datasets()

@@ -50,10 +50,11 @@ class ExtractGenerationCompiler(BaseNotebookCompiler):
         # Select template based on target datastore
         if target_datastore == "warehouse":
             template_name = "extract_generation_warehouse_notebook.py.jinja"
+        elif target_datastore == "lakehouse":
+            template_name = "extract_generation_lakehouse_notebook.py.jinja"
         else:
-            # For now, we'll use the same template for lakehouse
-            # In future, we might have a separate lakehouse template
-            template_name = "extract_generation_notebook.py.jinja"
+            # Fallback to warehouse template for unknown datastores
+            template_name = "extract_generation_warehouse_notebook.py.jinja"
         
         # Merge template variables with defaults
         default_vars = {
@@ -79,6 +80,10 @@ class ExtractGenerationCompiler(BaseNotebookCompiler):
     
     def get_ddl_scripts(self, generation_mode: str = "warehouse") -> List[Path]:
         """Get DDL scripts for the specified generation mode"""
+        
+        # Lakehouse doesn't typically need DDL scripts since it uses Spark tables
+        if generation_mode.lower() == "lakehouse":
+            return []
         
         mode_dir = self.ddl_scripts_dir / generation_mode.lower()
         

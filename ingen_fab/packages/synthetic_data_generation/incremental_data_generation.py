@@ -14,6 +14,7 @@ from pathlib import Path
 from typing import Dict, List, Optional, Any, Union, Literal
 
 from .synthetic_data_generation import SyntheticDataGenerationCompiler
+from ...python_libs.common.synthetic_data_dataset_configs import DatasetConfigurationRepository
 
 
 class IncrementalSyntheticDataGenerationCompiler(SyntheticDataGenerationCompiler):
@@ -56,22 +57,16 @@ class IncrementalSyntheticDataGenerationCompiler(SyntheticDataGenerationCompiler
         # Enhance dataset config with incremental settings
         enhanced_config = self._enhance_config_for_incremental(dataset_config, generation_date, path_format)
         
-        # Auto-select generation mode based on target rows
-        if generation_mode == "auto":
-            total_incremental_rows = self._calculate_total_incremental_rows(enhanced_config)
-            generation_mode = "pyspark" if total_incremental_rows > 1000000 else "python"
-        
-        # Override generation mode for warehouse (always use python)
-        if target_environment == "warehouse":
-            generation_mode = "python"
-        
-        # Select template based on generation mode and environment
-        if generation_mode == "pyspark":
-            template_name = "incremental_synthetic_data_lakehouse_notebook.py.jinja"
+        # Set generation mode based on target environment
+        if target_environment == "lakehouse":
+            generation_mode = "pyspark"
             language_group = "synapse_pyspark"
-        else:
-            template_name = "incremental_synthetic_data_warehouse_notebook.py.jinja"
+        else:  # warehouse
+            generation_mode = "python"
             language_group = "python"
+        
+        # Use unified template
+        template_name = "synthetic_data_base_notebook.py.jinja"
         
         target_datastore_config_prefix = "config"
         if target_environment == "warehouse":
@@ -119,7 +114,9 @@ class IncrementalSyntheticDataGenerationCompiler(SyntheticDataGenerationCompiler
         generation_mode: str = "auto",
         output_subdir: str = None,
         path_format: Literal["nested", "flat"] = "nested",
-        batch_size: int = 30  # Generate 30 days at a time by default
+        batch_size: int = 30,  # Generate 30 days at a time by default
+        output_mode: str = "parquet",
+        ignore_state: bool = False
     ) -> Path:
         """
         Compile a notebook that generates a series of incremental datasets.
@@ -133,6 +130,8 @@ class IncrementalSyntheticDataGenerationCompiler(SyntheticDataGenerationCompiler
             output_subdir: Optional subdirectory for output
             path_format: Path format ("nested" for /YYYY/MM/DD/ or "flat" for YYYYMMDD_)
             batch_size: Number of days to process in each batch
+            output_mode: Output format ("parquet", "csv", or "table")
+            ignore_state: Whether to ignore existing state and regenerate all files
             
         Returns:
             Path to the generated notebook
@@ -155,23 +154,16 @@ class IncrementalSyntheticDataGenerationCompiler(SyntheticDataGenerationCompiler
         enhanced_config["date_range"] = date_range
         enhanced_config["series_generation"] = True
         
-        # Auto-select generation mode
-        if generation_mode == "auto":
-            total_days = date_range["total_days"]
-            total_incremental_rows = self._calculate_total_incremental_rows(enhanced_config) * total_days
-            generation_mode = "pyspark" if total_incremental_rows > 1000000 else "python"
-        
-        # Override for warehouse
-        if target_environment == "warehouse":
-            generation_mode = "python"
-        
-        # Select template
-        if generation_mode == "pyspark":
-            template_name = "incremental_series_synthetic_data_lakehouse_notebook.py.jinja"
+        # Set generation mode based on target environment
+        if target_environment == "lakehouse":
+            generation_mode = "pyspark"
             language_group = "synapse_pyspark"
-        else:
-            template_name = "incremental_series_synthetic_data_warehouse_notebook.py.jinja"
+        else:  # warehouse
+            generation_mode = "python"
             language_group = "python"
+        
+        # Use unified template
+        template_name = "synthetic_data_base_notebook.py.jinja"
         
         target_datastore_config_prefix = "config"
         if target_environment == "warehouse":
@@ -185,8 +177,13 @@ class IncrementalSyntheticDataGenerationCompiler(SyntheticDataGenerationCompiler
             "target_environment": target_environment,
             "language_group": language_group,
             "dataset_id": enhanced_config.get("dataset_id", "custom_dataset"),
+            "batch_size": batch_size,
+            "start_date": start_date.strftime("%Y-%m-%d"),
+            "end_date": end_date.strftime("%Y-%m-%d"),
             "date_range": date_range,
             "path_format": path_format,
+            "output_mode": output_mode,
+            "ignore_state": ignore_state,
             "incremental_config": enhanced_config.get("incremental_config", {}),
             "table_configs": enhanced_config.get("table_configs", {})
         }
@@ -200,6 +197,12 @@ class IncrementalSyntheticDataGenerationCompiler(SyntheticDataGenerationCompiler
         # Set default output_subdir if not provided
         if output_subdir is None:
             output_subdir = f"synthetic_data_generation/incremental_series/{dataset_id}"
+        
+        print("💡 [NOTICE] Consider using the new generic template system for better flexibility!")
+        print("   Use 'compile-generic-templates' and 'execute-with-parameters' commands.")
+        print(f"   Example: python -m ingen_fab.cli package synthetic-data compile-generic-templates --target-environment {target_environment}")
+        print(f"   Then: python -m ingen_fab.cli package synthetic-data execute-with-parameters generic_incremental_series_{target_environment} --dataset-id {dataset_id} --start-date {start_date} --end-date {end_date}")
+        print()
             
         return self.compile_notebook_from_template(
             template_name=template_name,
@@ -218,10 +221,15 @@ class IncrementalSyntheticDataGenerationCompiler(SyntheticDataGenerationCompiler
     ) -> Dict[str, Any]:
         """Enhance dataset configuration with incremental settings."""
         enhanced_config = dataset_config.copy()
+        dataset_id = enhanced_config.get("dataset_id", "custom")
         
         # Add incremental configuration if not present
         if "incremental_config" not in enhanced_config:
-            enhanced_config["incremental_config"] = self._get_default_incremental_config()
+            # Get from repository with domain-specific adjustments
+            enhanced_config["incremental_config"] = DatasetConfigurationRepository.get_incremental_config(
+                dataset_id, 
+                enhanced_config.get("incremental_config")
+            )
         
         # Add table configurations if not present
         if "table_configs" not in enhanced_config:
@@ -234,118 +242,29 @@ class IncrementalSyntheticDataGenerationCompiler(SyntheticDataGenerationCompiler
         return enhanced_config
     
     def _get_default_incremental_config(self) -> Dict[str, Any]:
-        """Get default incremental configuration."""
-        return {
-            "snapshot_frequency": "daily",  # daily, weekly, monthly
-            "state_table_name": "synthetic_data_state",
-            "enable_data_drift": True,
-            "drift_percentage": 0.05,  # 5% drift per time period
-            "enable_seasonal_patterns": True,
-            "seasonal_multipliers": {
-                "monday": 0.8,
-                "tuesday": 0.9,
-                "wednesday": 1.0,
-                "thursday": 1.1,
-                "friday": 1.3,
-                "saturday": 1.2,
-                "sunday": 0.7
-            },
-            "growth_rate": 0.001,  # 0.1% daily growth
-            "churn_rate": 0.0005   # 0.05% daily churn
-        }
+        """Get default incremental configuration from repository."""
+        return DatasetConfigurationRepository.DEFAULT_INCREMENTAL_CONFIG.copy()
     
     def _get_default_table_configs(self, dataset_config: Dict[str, Any]) -> Dict[str, Dict[str, Any]]:
         """Get default table configurations based on dataset type."""
-        schema_pattern = dataset_config.get("schema_pattern", "oltp")
-        
-        if schema_pattern == "oltp":
-            return {
-                "customers": {
-                    "type": "snapshot",
-                    "frequency": "daily",
-                    "growth_enabled": True,
-                    "churn_enabled": True,
-                    "base_rows": 10000,
-                    "daily_growth_rate": 0.002,  # 0.2% daily growth
-                    "daily_churn_rate": 0.001    # 0.1% daily churn
-                },
-                "products": {
-                    "type": "snapshot",
-                    "frequency": "weekly",
-                    "growth_enabled": True,
-                    "churn_enabled": False,
-                    "base_rows": 1000,
-                    "weekly_growth_rate": 0.01   # 1% weekly growth
-                },
-                "orders": {
-                    "type": "incremental",
-                    "frequency": "daily",
-                    "base_rows_per_day": 5000,
-                    "seasonal_multipliers_enabled": True,
-                    "weekend_multiplier": 1.5,
-                    "holiday_multiplier": 2.0
-                },
-                "order_items": {
-                    "type": "incremental",
-                    "frequency": "daily",
-                    "base_rows_per_day": 12000,  # Avg 2.4 items per order
-                    "seasonal_multipliers_enabled": True,
-                    "weekend_multiplier": 1.5
+        dataset_id = dataset_config.get("dataset_id", "custom")
+        try:
+            # Try to get table configs from repository
+            return DatasetConfigurationRepository.get_table_configs(dataset_id)
+        except ValueError:
+            # Fall back to generic configs based on schema pattern
+            schema_pattern = dataset_config.get("schema_pattern", "oltp")
+            return DatasetConfigurationRepository.TABLE_CONFIGS_BY_PATTERN.get(
+                schema_pattern, 
+                {
+                    "main_table": {
+                        "type": "incremental",
+                        "frequency": "daily",
+                        "base_rows_per_day": 10000,
+                        "seasonal_multipliers_enabled": True
+                    }
                 }
-            }
-        elif schema_pattern == "star_schema":
-            return {
-                "dim_customer": {
-                    "type": "snapshot",
-                    "frequency": "weekly",
-                    "growth_enabled": True,
-                    "base_rows": 100000,
-                    "weekly_growth_rate": 0.005
-                },
-                "dim_product": {
-                    "type": "snapshot",
-                    "frequency": "monthly",
-                    "growth_enabled": True,
-                    "base_rows": 10000,
-                    "monthly_growth_rate": 0.02
-                },
-                "dim_store": {
-                    "type": "snapshot",
-                    "frequency": "quarterly",
-                    "growth_enabled": True,
-                    "base_rows": 1000,
-                    "quarterly_growth_rate": 0.05
-                },
-                "dim_date": {
-                    "type": "snapshot",
-                    "frequency": "once",
-                    "base_rows": 3653  # 10 years of dates
-                },
-                "fact_sales": {
-                    "type": "incremental",
-                    "frequency": "daily",
-                    "base_rows_per_day": 100000,
-                    "seasonal_multipliers_enabled": True,
-                    "weekend_multiplier": 1.3,
-                    "holiday_multiplier": 2.5
-                },
-                "fact_inventory": {
-                    "type": "incremental",
-                    "frequency": "daily",
-                    "base_rows_per_day": 50000,
-                    "seasonal_multipliers_enabled": False
-                }
-            }
-        else:
-            # Custom schema
-            return {
-                "main_table": {
-                    "type": "incremental",
-                    "frequency": "daily",
-                    "base_rows_per_day": 10000,
-                    "seasonal_multipliers_enabled": True
-                }
-            }
+            )
     
     def _calculate_total_incremental_rows(self, dataset_config: Dict[str, Any]) -> int:
         """Calculate total incremental rows for a single day."""
@@ -367,11 +286,34 @@ class IncrementalSyntheticDataGenerationCompiler(SyntheticDataGenerationCompiler
         enhanced_configs = {}
         for dataset_id, config in base_configs.items():
             enhanced_config = config.copy()
-            enhanced_config["incremental_config"] = self._get_default_incremental_config()
-            enhanced_config["table_configs"] = self._get_default_table_configs(enhanced_config)
+            enhanced_config["incremental_config"] = DatasetConfigurationRepository.get_incremental_config(dataset_id)
+            enhanced_config["table_configs"] = DatasetConfigurationRepository.get_table_configs(dataset_id)
             enhanced_configs[dataset_id] = enhanced_config
         
         return enhanced_configs
+    
+    def _get_incremental_dataset_configs(self) -> Dict[str, Dict[str, Any]]:
+        """Get predefined incremental dataset configurations."""
+        # For incremental-specific datasets, we can enhance base configs
+        base_configs = self._get_predefined_dataset_configs()
+        incremental_configs = {}
+        
+        # Add incremental suffix to existing configs and enhance them
+        for dataset_id, config in base_configs.items():
+            if "_incremental" not in dataset_id:
+                incremental_id = f"{dataset_id}_incremental"
+                incremental_config = config.copy()
+                incremental_config["dataset_id"] = incremental_id
+                incremental_config["dataset_name"] = config["dataset_name"].replace(" -", " Incremental -")
+                incremental_config["description"] = config["description"] + " with incremental generation"
+                
+                # Add incremental-specific configurations
+                incremental_config["incremental_config"] = DatasetConfigurationRepository.get_incremental_config(dataset_id)
+                incremental_config["table_configs"] = DatasetConfigurationRepository.get_table_configs(dataset_id, scale_factor=5.0)  # Scale up for incremental
+                
+                incremental_configs[incremental_id] = incremental_config
+        
+        return incremental_configs
 
 
 def compile_incremental_synthetic_data_package(
