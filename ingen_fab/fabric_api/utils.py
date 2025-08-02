@@ -1,10 +1,19 @@
+import logging
 from pathlib import Path
 from typing import Optional
 
 import requests
 from azure.identity import DefaultAzureCredential
 
-from ingen_fab.config_utils.variable_lib import VariableLibraryUtils
+from ingen_fab.config_utils.variable_lib_factory import (
+    get_workspace_id_from_environment,
+)
+
+# Suppress verbose Azure SDK logging
+logging.getLogger("azure.core.pipeline.policies.http_logging_policy").setLevel(
+    logging.WARNING
+)
+logging.getLogger("azure.identity").setLevel(logging.WARNING)
 
 
 class FabricApiUtils:
@@ -13,7 +22,12 @@ class FabricApiUtils:
     """
 
     def __init__(
-        self, environment: str, project_path: Path, *, credential: Optional[DefaultAzureCredential] = None, workspace_id: Optional[str] = None
+        self,
+        environment: str,
+        project_path: Path,
+        *,
+        credential: Optional[DefaultAzureCredential] = None,
+        workspace_id: Optional[str] = None,
     ) -> None:
         self.environment = environment
         self.project_path = project_path
@@ -24,7 +38,6 @@ class FabricApiUtils:
             self.workspace_id = workspace_id
         else:
             self.workspace_id = self._get_workspace_id()
-        
 
     def _get_token(self) -> str:
         scope = "https://api.fabric.microsoft.com/.default"
@@ -35,11 +48,9 @@ class FabricApiUtils:
         """
         Set the workspace ID for API requests.
         """
-        vlu = VariableLibraryUtils(environment=self.environment, project_path=self.project_path)
-        return vlu.get_workspace_id()
+        return get_workspace_id_from_environment(self.environment, self.project_path)
 
     def get_workspace_id_from_name(self, workspace_name: str) -> Optional[str]:
-        
         headers = {
             "Authorization": f"Bearer {self._get_token()}",
             "Content-Type": "application/json",
@@ -47,15 +58,17 @@ class FabricApiUtils:
 
         url = "https://api.fabric.microsoft.com/v1/workspaces"
         response = requests.get(url, headers=headers)
-        
+
         if response.status_code == 200:
             workspaces = response.json()
-            for ws in workspaces.get('value', []):
-                if ws['displayName'] == workspace_name:
-                    return ws['id']
+            for ws in workspaces.get("value", []):
+                if ws["displayName"] == workspace_name:
+                    return ws["id"]
         return None
 
-    def get_lakehouse_id_from_name(self, workspace_id: str, lakehouse_name: str) -> Optional[str]:
+    def get_lakehouse_id_from_name(
+        self, workspace_id: str, lakehouse_name: str
+    ) -> Optional[str]:
         headers = {
             "Authorization": f"Bearer {self._get_token()}",
             "Content-Type": "application/json",
@@ -63,15 +76,20 @@ class FabricApiUtils:
 
         url = f"https://api.fabric.microsoft.com/v1/workspaces/{workspace_id}/items"
         response = requests.get(url, headers=headers)
-        
+
         if response.status_code == 200:
             items = response.json()
-            for item in items.get('value', []):
-                if item['displayName'] == lakehouse_name and item['type'] == 'Lakehouse':
-                    return item['id']
+            for item in items.get("value", []):
+                if (
+                    item["displayName"] == lakehouse_name
+                    and item["type"] == "Lakehouse"
+                ):
+                    return item["id"]
         return None
-    
-    def get_lakehouse_name_from_id(self, workspace_id: str, lakehouse_id: str) -> Optional[str]:
+
+    def get_lakehouse_name_from_id(
+        self, workspace_id: str, lakehouse_id: str
+    ) -> Optional[str]:
         headers = {
             "Authorization": f"Bearer {self._get_token()}",
             "Content-Type": "application/json",
@@ -82,10 +100,10 @@ class FabricApiUtils:
 
         if response.status_code == 200:
             item = response.json()
-            if item.get('type') == 'Lakehouse':
-                return item.get('displayName')
-        return None 
-    
+            if item.get("type") == "Lakehouse":
+                return item.get("displayName")
+        return None
+
     def get_workspace_name_from_id(self, workspace_id: str) -> Optional[str]:
         """
         Get the workspace name from its ID.
@@ -225,18 +243,20 @@ class FabricApiUtils:
         print(f"SQL Endpoint: {sql_endpoint}")
 
         return sql_endpoint
-    
-    def create_workspace(self, workspace_name: str, description: Optional[str] = None) -> str:
+
+    def create_workspace(
+        self, workspace_name: str, description: Optional[str] = None
+    ) -> str:
         """
         Create a new Fabric workspace and return its ID.
-        
+
         Args:
             workspace_name: Name of the workspace to create
             description: Optional description for the workspace
-            
+
         Returns:
             The ID of the created workspace
-            
+
         Raises:
             Exception: If workspace creation fails
         """
@@ -244,20 +264,21 @@ class FabricApiUtils:
             "Authorization": f"Bearer {self._get_token()}",
             "Content-Type": "application/json",
         }
-        
+
         # Prepare the workspace creation payload
         create_payload = {
             "displayName": workspace_name,
-            "description": description or "Workspace created by Ingenious Fabric Accelerator"
+            "description": description
+            or "Workspace created by Ingenious Fabric Accelerator",
         }
-        
+
         create_url = "https://api.fabric.microsoft.com/v1/workspaces"
-        
+
         response = requests.post(create_url, json=create_payload, headers=headers)
-        
+
         if response.status_code == 201:
             workspace_data = response.json()
-            workspace_id = workspace_data.get('id')
+            workspace_id = workspace_data.get("id")
             if workspace_id:
                 return workspace_id
             else:
@@ -268,20 +289,20 @@ class FabricApiUtils:
             error_msg = f"Failed to create workspace. Status: {response.status_code}"
             try:
                 error_detail = response.json()
-                if 'error' in error_detail:
+                if "error" in error_detail:
                     error_msg += f", Error: {error_detail['error']}"
             except (ValueError, KeyError):
                 error_msg += f", Response: {response.text}"
-            
+
             raise Exception(f"Workspace creation failed: {error_msg}")
-    
+
     def list_lakehouses(self, workspace_id: str) -> list[dict]:
         """
         List all lakehouses in a workspace.
-        
+
         Args:
             workspace_id: The ID of the workspace
-            
+
         Returns:
             List of lakehouse dictionaries with 'id', 'displayName', and other properties
         """
@@ -289,22 +310,24 @@ class FabricApiUtils:
             "Authorization": f"Bearer {self._get_token()}",
             "Content-Type": "application/json",
         }
-        
+
         url = f"{self.base_url}/{workspace_id}/items?type=Lakehouse"
         response = requests.get(url, headers=headers)
-        
+
         if response.status_code == 200:
             return response.json().get("value", [])
         else:
-            raise Exception(f"Failed to list lakehouses: {response.status_code} - {response.text}")
-    
+            raise Exception(
+                f"Failed to list lakehouses: {response.status_code} - {response.text}"
+            )
+
     def list_warehouses(self, workspace_id: str) -> list[dict]:
         """
         List all warehouses in a workspace.
-        
+
         Args:
             workspace_id: The ID of the workspace
-            
+
         Returns:
             List of warehouse dictionaries with 'id', 'displayName', and other properties
         """
@@ -312,12 +335,13 @@ class FabricApiUtils:
             "Authorization": f"Bearer {self._get_token()}",
             "Content-Type": "application/json",
         }
-        
+
         url = f"{self.base_url}/{workspace_id}/items?type=Warehouse"
         response = requests.get(url, headers=headers)
-        
+
         if response.status_code == 200:
             return response.json().get("value", [])
         else:
-            raise Exception(f"Failed to list warehouses: {response.status_code} - {response.text}")
-
+            raise Exception(
+                f"Failed to list warehouses: {response.status_code} - {response.text}"
+            )

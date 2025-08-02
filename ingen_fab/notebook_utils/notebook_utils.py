@@ -13,7 +13,7 @@ try:
 except ImportError:
     get_configs_as_object = None
 
-from ingen_fab.utils.path_utils import PathUtils
+from ingen_fab.python_libs.common.utils.path_utils import PathUtils
 
 
 def required_filter(value, var_name=""):

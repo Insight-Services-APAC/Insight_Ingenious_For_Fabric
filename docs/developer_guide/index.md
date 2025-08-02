@@ -33,6 +33,9 @@ Environment-agnostic utilities that work in both local development and Fabric ru
 ### [SQL Templates](sql_templates.md)
 Jinja-based SQL template system supporting multiple database dialects.
 
+### [Variable Replacement System](variable_replacement.md)
+Environment-specific configuration management through placeholder replacement and code injection.
+
 ## Development Setup
 
 ### Prerequisites
@@ -397,6 +400,7 @@ Setting up comprehensive integration tests with Fabric.
 - [DDL Scripts](ddl_scripts.md) - Template system guide
 - [Notebook Utils](notebook_utils.md) - Utility abstractions
 - [SQL Templates](sql_templates.md) - SQL template reference
+- [Variable Replacement System](variable_replacement.md) - Configuration management guide
 
 ### External Resources
 

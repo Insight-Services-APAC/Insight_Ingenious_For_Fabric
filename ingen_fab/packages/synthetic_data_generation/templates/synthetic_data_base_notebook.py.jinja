@@ -92,7 +92,7 @@ target_workspace_id = get_config_value(f"{target_datastore_config_prefix}_worksp
 lh_utils = lakehouse_utils(
     target_workspace_id=target_workspace_id,
     target_lakehouse_id=target_lakehouse_id,
-    mount_path=mount_path
+    spark=spark
 )
 
 # Now initialize PySpark synthetic data generator with the lakehouse utils instance
@@ -309,3 +309,7 @@ print("=" * 60)
 # Log completion
 if 'notebookutils' in globals() and hasattr(notebookutils, 'log'):
     notebookutils.log(f"Synthetic data generation completed for {dataset_config.get('dataset_id')}")
+
+{{ macros.exit_notebook("success") }}
+
+{% include 'shared/notebook/cells/footer.py.jinja' %}

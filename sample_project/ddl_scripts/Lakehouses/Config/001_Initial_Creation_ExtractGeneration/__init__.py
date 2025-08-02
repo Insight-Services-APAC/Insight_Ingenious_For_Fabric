@@ -1,1 +1,0 @@
-# Lakehouse DDL scripts for extract generation package

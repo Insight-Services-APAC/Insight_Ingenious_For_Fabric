@@ -1,14 +1,15 @@
 # Common utilities for flat file ingestion
 # Shared logic between PySpark and Python implementations
 
-import re
 import os
+import re
 from datetime import datetime
-from typing import Dict, List, Optional, Any, Tuple
-from ..interfaces.flat_file_ingestion_interface import (
-    FlatFileIngestionConfig, 
-    FileDiscoveryResult, 
-    ProcessingMetrics
+from typing import Any, Dict, List, Optional, Tuple
+
+from ingen_fab.python_libs.interfaces.flat_file_ingestion_interface import (
+    FileDiscoveryResult,
+    FlatFileIngestionConfig,
+    ProcessingMetrics,
 )
 
 
@@ -106,6 +107,70 @@ class DatePartitionUtils:
         except Exception as e:
             print(f"⚠️ Date range check failed for {date_str}: {e}")
             return True
+    
+    @staticmethod
+    def discover_nested_date_table_paths(base_path: str, date_format: str, table_subfolder: Optional[str] = None) -> List[Tuple[str, str, str]]:
+        """
+        Discover nested date/table paths in hierarchical structure
+        
+        Args:
+            base_path: Base directory to search
+            date_format: Date format pattern (e.g., "YYYY/MM/DD")
+            table_subfolder: Specific table name to filter for (optional)
+            
+        Returns:
+            List of tuples: (full_path, date_partition, table_name)
+        """
+        results = []
+        
+        try:
+            import os
+            
+            if not os.path.exists(base_path):
+                print(f"⚠️ Base path does not exist: {base_path}")
+                return results
+            
+            # For YYYY/MM/DD structure, look for year folders first
+            if date_format == "YYYY/MM/DD":
+                for year_item in os.listdir(base_path):
+                    year_path = os.path.join(base_path, year_item)
+                    if not os.path.isdir(year_path) or not year_item.isdigit() or len(year_item) != 4:
+                        continue
+                    
+                    # Look for month folders
+                    for month_item in os.listdir(year_path):
+                        month_path = os.path.join(year_path, month_item)
+                        if not os.path.isdir(month_path) or not month_item.isdigit() or len(month_item) > 2:
+                            continue
+                        
+                        # Look for day folders
+                        for day_item in os.listdir(month_path):
+                            day_path = os.path.join(month_path, day_item)
+                            if not os.path.isdir(day_path) or not day_item.isdigit() or len(day_item) > 2:
+                                continue
+                            
+                            # Construct date partition
+                            date_partition = f"{year_item}-{month_item.zfill(2)}-{day_item.zfill(2)}"
+                            
+                            # Look for table folders within the date folder
+                            for table_item in os.listdir(day_path):
+                                table_path = os.path.join(day_path, table_item)
+                                if not os.path.isdir(table_path):
+                                    continue
+                                
+                                # Filter by table_subfolder if specified
+                                if table_subfolder and table_item != table_subfolder:
+                                    continue
+                                
+                                results.append((table_path, date_partition, table_item))
+            
+            else:
+                print(f"⚠️ Unsupported date format for nested discovery: {date_format}")
+                
+        except Exception as e:
+            print(f"⚠️ Error during nested path discovery: {e}")
+        
+        return results
 
 
 class FilePatternUtils:
@@ -228,7 +293,7 @@ class ProcessingMetricsUtils:
     """Utilities for working with processing metrics"""
     
     @staticmethod
-    def calculate_performance_metrics(metrics: ProcessingMetrics) -> ProcessingMetrics:
+    def calculate_performance_metrics(metrics: ProcessingMetrics, write_mode: str = "append") -> ProcessingMetrics:
         """Calculate derived performance metrics"""
         # Calculate total duration if not set
         if metrics.total_duration_ms == 0:
@@ -242,19 +307,37 @@ class ProcessingMetricsUtils:
         if metrics.total_duration_ms > 0 and metrics.data_size_mb > 0:
             metrics.throughput_mb_per_second = (metrics.data_size_mb * 1000) / metrics.total_duration_ms
         
-        # Set row count reconciliation status
-        if metrics.source_row_count > 0 and metrics.target_row_count_after > 0:
-            if metrics.source_row_count == (metrics.target_row_count_after - metrics.target_row_count_before):
-                metrics.row_count_reconciliation_status = "matched"
+        # Set row count reconciliation status based on write mode
+        if metrics.source_row_count > 0 and metrics.target_row_count_after >= 0:
+            if write_mode.lower() == "overwrite":
+                # For overwrite mode, source rows should equal final target rows
+                if metrics.source_row_count == metrics.target_row_count_after:
+                    metrics.row_count_reconciliation_status = "matched"
+                else:
+                    metrics.row_count_reconciliation_status = "mismatched"
+            elif write_mode.lower() == "append":
+                # For append mode, source rows should equal the difference
+                if metrics.source_row_count == (metrics.target_row_count_after - metrics.target_row_count_before):
+                    metrics.row_count_reconciliation_status = "matched"
+                else:
+                    metrics.row_count_reconciliation_status = "mismatched"
+            elif write_mode.lower() == "merge":
+                # For merge mode, we can't easily determine reconciliation without more info
+                # So we'll mark as verified if target count increased or stayed same
+                if metrics.target_row_count_after >= metrics.target_row_count_before:
+                    metrics.row_count_reconciliation_status = "verified"
+                else:
+                    metrics.row_count_reconciliation_status = "mismatched"
             else:
-                metrics.row_count_reconciliation_status = "mismatched"
+                # Unknown write mode
+                metrics.row_count_reconciliation_status = "not_verified"
         else:
             metrics.row_count_reconciliation_status = "not_verified"
         
         return metrics
     
     @staticmethod
-    def merge_metrics(metrics_list: List[ProcessingMetrics]) -> ProcessingMetrics:
+    def merge_metrics(metrics_list: List[ProcessingMetrics], write_mode: str = "append") -> ProcessingMetrics:
         """Merge multiple metrics into a single aggregated metric"""
         if not metrics_list:
             return ProcessingMetrics()
@@ -276,7 +359,7 @@ class ProcessingMetricsUtils:
         merged.data_size_mb = sum(m.data_size_mb for m in metrics_list)
         
         # Calculate performance metrics
-        return ProcessingMetricsUtils.calculate_performance_metrics(merged)
+        return ProcessingMetricsUtils.calculate_performance_metrics(merged, write_mode)
 
 
 class ErrorHandlingUtils:

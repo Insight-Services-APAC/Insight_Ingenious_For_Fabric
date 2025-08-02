@@ -90,6 +90,10 @@ def load_python_modules_from_path(base_path: str, relative_files: list[str], max
         except Exception as e:
             failed_files.append(relative_path)
             print(f"❌ Error loading {relative_path}")
+            print(f"   Error type: {type(e).__name__}")
+            print(f"   Error message: {str(e)}")
+            print(f"   Stack trace:")
+            traceback.print_exc()
 
     print("\n✅ Successfully loaded:")
     for f in success_files:

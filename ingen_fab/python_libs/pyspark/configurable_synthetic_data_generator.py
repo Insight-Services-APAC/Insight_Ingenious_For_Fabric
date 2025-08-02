@@ -9,23 +9,38 @@ from __future__ import annotations
 
 import logging
 import time
-from datetime import datetime, date, timedelta
-from typing import Dict, List, Optional, Any, Union, Literal
+from datetime import date, datetime, timedelta
+from typing import Any, Dict, List, Literal, Optional, Union
 
 try:
     from pyspark.sql import DataFrame
-    from pyspark.sql.functions import col, lit, when, expr, concat, rand, randn
+    from pyspark.sql.functions import col, concat, expr, lit, rand, randn, when
     PYSPARK_AVAILABLE = True
 except ImportError:
     PYSPARK_AVAILABLE = False
 
 # Import enhanced utilities
 try:
-    from ..common.synthetic_data_config import DatasetConfiguration, TableGenerationConfig, ConfigurationManager
-    from ..common.file_path_utils import DateBasedFilePathGenerator, FilePathManager
-    from ..common.synthetic_data_logger import SyntheticDataLogger, TableGenerationMetrics
-    from .synthetic_data_utils import PySparkSyntheticDataGenerator, PySparkDatasetBuilder
-    from .incremental_synthetic_data_utils import IncrementalSyntheticDataGenerator
+    from ingen_fab.python_libs.common.file_path_utils import (
+        DateBasedFilePathGenerator,
+        FilePathManager,
+    )
+    from ingen_fab.python_libs.common.synthetic_data_config import (
+        ConfigurationManager,
+        DatasetConfiguration,
+        TableGenerationConfig,
+    )
+    from ingen_fab.python_libs.common.synthetic_data_logger import (
+        SyntheticDataLogger,
+        TableGenerationMetrics,
+    )
+    from ingen_fab.python_libs.pyspark.incremental_synthetic_data_utils import (
+        IncrementalSyntheticDataGenerator,
+    )
+    from ingen_fab.python_libs.pyspark.synthetic_data_utils import (
+        PySparkDatasetBuilder,
+        PySparkSyntheticDataGenerator,
+    )
     ENHANCED_UTILS_AVAILABLE = True
 except ImportError:
     ENHANCED_UTILS_AVAILABLE = False

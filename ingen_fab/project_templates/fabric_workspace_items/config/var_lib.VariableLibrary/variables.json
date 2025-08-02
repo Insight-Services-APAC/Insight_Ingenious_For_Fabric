@@ -86,14 +86,32 @@
       "value": ""
     },
     {
-      "name": "raw_workspace_id",
-      "note": "GUID of the workspace containing raw/staging data.",
+      "name": "raw_lh_workspace_id",
+      "note": "GUID of the workspace containing raw/staging lakehouse.",
       "type": "String",
       "value": ""
     },
     {
-      "name": "raw_datastore_id",
-      "note": "GUID of the datastore (lakehouse/warehouse) for raw/staging data.",
+      "name": "raw_lh_lakehouse_name",
+      "note": "Name of the raw/staging lakehouse.",
+      "type": "String",
+      "value": ""
+    },
+    {
+      "name": "raw_lh_lakehouse_id",
+      "note": "GUID of the raw/staging lakehouse.",
+      "type": "String",
+      "value": ""
+    },
+    {
+      "name": "raw_wh_workspace_id",
+      "note": "GUID of the workspace containing raw/staging warehouse.",
+      "type": "String",
+      "value": ""
+    },
+    {
+      "name": "raw_wh_warehouse_id",
+      "note": "GUID of the raw/staging warehouse.",
       "type": "String",
       "value": ""
     },

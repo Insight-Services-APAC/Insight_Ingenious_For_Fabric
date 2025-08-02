@@ -40,9 +40,9 @@ except ImportError:
 
 # Import enhanced utilities
 try:
-    from ..common.synthetic_data_config import DatasetConfiguration, TableGenerationConfig, ConfigurationManager
-    from ..common.file_path_utils import DateBasedFilePathGenerator, FilePathManager
-    from ..common.synthetic_data_logger import SyntheticDataLogger, TableGenerationMetrics, DatasetGenerationSummary
+    from ingen_fab.python_libs.common.synthetic_data_config import DatasetConfiguration, TableGenerationConfig, ConfigurationManager
+    from ingen_fab.python_libs.common.file_path_utils import DateBasedFilePathGenerator, FilePathManager
+    from ingen_fab.python_libs.common.synthetic_data_logger import SyntheticDataLogger, TableGenerationMetrics, DatasetGenerationSummary
     ENHANCED_UTILS_AVAILABLE = True
 except ImportError:
     ENHANCED_UTILS_AVAILABLE = False

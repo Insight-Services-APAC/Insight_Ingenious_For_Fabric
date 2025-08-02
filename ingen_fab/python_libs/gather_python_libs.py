@@ -4,7 +4,7 @@ import traceback
 from pathlib import Path
 from typing import List, Set
 
-from ..utils.path_utils import PathUtils
+from ingen_fab.python_libs.common.utils.path_utils import PathUtils
 
 
 class GatherPythonLibs:

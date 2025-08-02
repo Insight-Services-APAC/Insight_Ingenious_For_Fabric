@@ -99,6 +99,7 @@ nav:
     - DDL Scripts: developer_guide/ddl_scripts.md
     - Notebook Utils: developer_guide/notebook_utils.md
     - SQL Templates: developer_guide/sql_templates.md
+    - Variable Replacement: developer_guide/variable_replacement.md
     - Packages: developer_guide/packages.md
   - Examples:
     - examples/index.md

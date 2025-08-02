@@ -126,7 +126,7 @@ class PipelineUtils:
     def _get_pipeline_client(self):
         # Check if we should use local testing mode
         try:
-            from ..common.config_utils import get_configs_as_object
+            from ingen_fab.python_libs.common.config_utils import get_configs_as_object
 
             config = get_configs_as_object()
             if config.fabric_environment == "local":

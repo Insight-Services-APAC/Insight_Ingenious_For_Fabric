@@ -1,29 +1,33 @@
 # PySpark-specific implementations for flat file ingestion
 # Uses PySpark DataFrame API and lakehouse_utils
 
+import os
 import time
 import uuid
-from typing import Dict, List, Optional, Any, Tuple
-from pyspark.sql import DataFrame, SparkSession
-from pyspark.sql.functions import lit, current_timestamp, col, when, coalesce
+from typing import Any, Dict, List, Optional, Tuple
 
-from ..interfaces.flat_file_ingestion_interface import (
-    FlatFileIngestionConfig,
-    FileDiscoveryResult,
-    ProcessingMetrics,
-    FlatFileDiscoveryInterface,
-    FlatFileProcessorInterface,
-    FlatFileLoggingInterface,
-    FlatFileIngestionOrchestrator,
-)
-from ..common.flat_file_ingestion_utils import (
-    DatePartitionUtils,
-    FilePatternUtils,
+from pyspark.sql import DataFrame, SparkSession
+from pyspark.sql.functions import coalesce, col, current_timestamp, lit, when
+
+from ingen_fab.python_libs.common.flat_file_ingestion_utils import (
     ConfigurationUtils,
-    ProcessingMetricsUtils,
+    DatePartitionUtils,
     ErrorHandlingUtils,
+    FilePatternUtils,
+    ProcessingMetricsUtils,
 )
-from ..common.flat_file_logging_schema import get_flat_file_ingestion_log_schema
+from ingen_fab.python_libs.common.flat_file_logging_schema import (
+    get_flat_file_ingestion_log_schema,
+)
+from ingen_fab.python_libs.interfaces.flat_file_ingestion_interface import (
+    FileDiscoveryResult,
+    FlatFileDiscoveryInterface,
+    FlatFileIngestionConfig,
+    FlatFileIngestionOrchestrator,
+    FlatFileLoggingInterface,
+    FlatFileProcessorInterface,
+    ProcessingMetrics,
+)
 
 
 class PySparkFlatFileDiscovery(FlatFileDiscoveryInterface):
@@ -49,6 +53,115 @@ class PySparkFlatFileDiscovery(FlatFileDiscoveryInterface):
             print(f"🔍 Discovering files with pattern: {config.file_discovery_pattern}")
             print(f"🔍 Base path: {base_path}")
 
+            # Check if hierarchical nested structure is enabled
+            if config.hierarchical_date_structure and config.table_subfolder:
+                print(
+                    f"🏗️ Using hierarchical structure with table: {config.table_subfolder}"
+                )
+                return self._discover_nested_hierarchical_files(config, base_path)
+
+            # Original flat structure discovery
+            return self._discover_flat_date_partitioned_files(config, base_path)
+
+        except Exception as e:
+            print(f"⚠️ Warning: File discovery failed: {e}")
+            # Fallback to single file processing
+            discovered_files = [FileDiscoveryResult(file_path=config.source_file_path)]
+
+        return discovered_files
+
+    def _discover_nested_hierarchical_files(
+        self, config: FlatFileIngestionConfig, base_path: str
+    ) -> List[FileDiscoveryResult]:
+        """Discover files in hierarchical nested structure (YYYY/MM/DD/table_name/)"""
+        discovered_files = []
+
+        try:
+            # Convert base_path to absolute local path for file system operations
+            if hasattr(self.lakehouse_utils, "lakehouse_files_uri"):
+                files_uri = self.lakehouse_utils.lakehouse_files_uri()
+                if files_uri.startswith("file:///"):
+                    # Extract the local path
+                    local_base_path = files_uri.replace("file:///", "/")
+                    if not base_path.startswith("/"):
+                        full_local_path = os.path.join(local_base_path, base_path)
+                    else:
+                        full_local_path = base_path
+                else:
+                    full_local_path = base_path
+            else:
+                full_local_path = base_path
+
+            print(f"🔍 Searching hierarchical structure at: {full_local_path}")
+
+            # Use the new utility to discover nested paths
+            nested_paths = DatePartitionUtils.discover_nested_date_table_paths(
+                base_path=full_local_path,
+                date_format=config.date_partition_format,
+                table_subfolder=config.table_subfolder,
+            )
+
+            print(f"📁 Found {len(nested_paths)} nested date/table combinations")
+
+            for table_path, date_partition, table_name in nested_paths:
+                # Check if date is within the specified range
+                if self.is_date_in_range(
+                    date_partition,
+                    config.date_range_start,
+                    config.date_range_end,
+                ):
+                    # Check if we should skip existing dates
+                    if config.skip_existing_dates and self.date_already_processed(
+                        date_partition, config
+                    ):
+                        print(f"⏭️ Skipping already processed date: {date_partition}")
+                        continue
+
+                    # Convert back to relative path for processing
+                    if full_local_path in table_path:
+                        relative_table_path = table_path.replace(
+                            full_local_path, ""
+                        ).lstrip("/")
+                        if not relative_table_path.startswith(config.source_file_path):
+                            relative_table_path = f"{config.source_file_path.rstrip('/')}/{relative_table_path}"
+                    else:
+                        relative_table_path = table_path
+
+                    discovered_files.append(
+                        FileDiscoveryResult(
+                            file_path=relative_table_path,
+                            date_partition=date_partition,
+                            folder_name=f"{date_partition}_{table_name}",
+                        )
+                    )
+                    print(
+                        f"📁 Added nested path: {relative_table_path} (date: {date_partition}, table: {table_name})"
+                    )
+                else:
+                    print(
+                        f"📅 Date {date_partition} from table {table_name} is outside range ({config.date_range_start} to {config.date_range_end})"
+                    )
+
+        except Exception as e:
+            print(f"⚠️ Error in nested hierarchical discovery: {e}")
+            import traceback
+
+            traceback.print_exc()
+
+        # Sort by date partition for sequential processing (same as flat discovery)
+        discovered_files.sort(key=lambda x: x.date_partition or "")
+
+        print(f"📅 Sorted {len(discovered_files)} nested files chronologically")
+
+        return discovered_files
+
+    def _discover_flat_date_partitioned_files(
+        self, config: FlatFileIngestionConfig, base_path: str
+    ) -> List[FileDiscoveryResult]:
+        """Discover files in flat date-partitioned structure (original logic)"""
+        discovered_files = []
+
+        try:
             # List all directories in the source directory to find folders matching the pattern
             try:
                 directory_items = self.lakehouse_utils.list_directories(
@@ -239,77 +352,99 @@ class PySparkFlatFileProcessor(FlatFileProcessorInterface):
     def _read_folder_contents(
         self, config: FlatFileIngestionConfig, folder_path: str, options: Dict[str, Any]
     ) -> DataFrame:
-        """Read all files in a folder using wildcard pattern first, with fallback"""
+        """Read all files in a folder using direct folder reading first, with fallback to wildcard"""
         print(f"📁 Reading folder: {folder_path}")
 
         try:
-            # Try wildcard pattern first
-            wildcard_path = f"{folder_path}/part-*"
-            print(f"Reading file from: {wildcard_path}")
+            # Try reading the folder directly first - Spark can handle this automatically
+            print(f"Reading folder directly: {folder_path}")
 
             df = self.lakehouse_utils.read_file(
-                file_path=wildcard_path,
+                file_path=folder_path,
                 file_format=config.source_file_format,
                 options=options,
             )
 
-            print(f"✓ Successfully read folder using wildcard pattern: {wildcard_path}")
+            print(f"✓ Successfully read folder directly: {folder_path}")
             return df
 
-        except Exception as wildcard_error:
-            print(f"⚠️ Wildcard pattern failed: {wildcard_error}")
+        except Exception as direct_error:
+            print(f"⚠️ Direct folder read failed: {direct_error}")
 
             try:
-                # Fallback: list files and read individually, then union
-                file_list = self.lakehouse_utils.list_files(
-                    folder_path, recursive=False
-                )
+                # Fallback 1: Try wildcard pattern
+                wildcard_path = f"{folder_path}/*"
+                print(f"Trying wildcard pattern: {wildcard_path}")
 
-                if not file_list:
-                    raise Exception(f"No data files found in folder: {folder_path}")
-
-                # Filter for relevant files (e.g., part-* files)
-                data_files = [
-                    f for f in file_list if "part-" in f and not f.endswith("_SUCCESS")
-                ]
-
-                if not data_files:
-                    raise Exception(f"No data files found in folder: {folder_path}")
-
-                print(f"📂 Found {len(data_files)} data files in folder")
-
-                # Read first file to get schema
-                first_df = self.lakehouse_utils.read_file(
-                    file_path=data_files[0],
+                df = self.lakehouse_utils.read_file(
+                    file_path=wildcard_path,
                     file_format=config.source_file_format,
                     options=options,
                 )
 
-                # If only one file, return it
-                if len(data_files) == 1:
-                    return first_df
+                print(
+                    f"✓ Successfully read folder using wildcard pattern: {wildcard_path}"
+                )
+                return df
 
-                # Read remaining files and union them
-                all_dfs = [first_df]
-                for file_path in data_files[1:]:
-                    df = self.lakehouse_utils.read_file(
-                        file_path=file_path,
+            except Exception as wildcard_error:
+                print(f"⚠️ Wildcard pattern failed: {wildcard_error}")
+
+                try:
+                    # Fallback 2: list files and read individually, then union
+                    file_list = self.lakehouse_utils.list_files(
+                        folder_path, recursive=False
+                    )
+
+                    if not file_list:
+                        raise Exception(f"No data files found in folder: {folder_path}")
+
+                    # Filter for relevant files (e.g., part-* files)
+                    data_files = [
+                        f
+                        for f in file_list
+                        if "part-" in f and not f.endswith("_SUCCESS")
+                    ]
+
+                    if not data_files:
+                        raise Exception(f"No data files found in folder: {folder_path}")
+
+                    print(f"📂 Found {len(data_files)} data files in folder")
+
+                    # Read first file to get schema
+                    first_df = self.lakehouse_utils.read_file(
+                        file_path=data_files[0],
                         file_format=config.source_file_format,
                         options=options,
                     )
-                    all_dfs.append(df)
 
-                # Union all dataframes
-                result_df = all_dfs[0]
-                for df in all_dfs[1:]:
-                    result_df = result_df.union(df)
+                    # If only one file, return it
+                    if len(data_files) == 1:
+                        return first_df
 
-                print(f"✓ Successfully read folder by unioning {len(data_files)} files")
-                return result_df
+                    # Read remaining files and union them
+                    all_dfs = [first_df]
+                    for file_path in data_files[1:]:
+                        df = self.lakehouse_utils.read_file(
+                            file_path=file_path,
+                            file_format=config.source_file_format,
+                            options=options,
+                        )
+                        all_dfs.append(df)
 
-            except Exception as fallback_error:
-                print(f"❌ Error reading folder {folder_path}: {fallback_error}")
-                raise Exception(f"No data files found in folder: {folder_path}")
+                    # Union all dataframes
+                    result_df = all_dfs[0]
+                    for df in all_dfs[1:]:
+                        result_df = result_df.union(df)
+
+                    print(
+                        f"✓ Successfully read folder by unioning {len(data_files)} files"
+                    )
+                    return result_df
+
+                except Exception as fallback_error:
+                    print(f"❌ Error reading folder {folder_path}: {fallback_error}")
+                    raise Exception(f"No data files found in folder: {folder_path}")
 
     def write_data(
         self, data: DataFrame, config: FlatFileIngestionConfig
@@ -357,7 +492,9 @@ class PySparkFlatFileProcessor(FlatFileProcessorInterface):
                 f"Wrote data to {config.target_table_name} in {metrics.write_duration_ms}ms"
             )
 
-            return ProcessingMetricsUtils.calculate_performance_metrics(metrics)
+            return ProcessingMetricsUtils.calculate_performance_metrics(
+                metrics, config.write_mode
+            )
 
         except Exception as e:
             write_end = time.time()
@@ -947,7 +1084,9 @@ class PySparkFlatFileIngestionOrchestrator(FlatFileIngestionOrchestrator):
 
             # Aggregate metrics
             if all_metrics:
-                result["metrics"] = ProcessingMetricsUtils.merge_metrics(all_metrics)
+                result["metrics"] = ProcessingMetricsUtils.merge_metrics(
+                    all_metrics, config.write_mode
+                )
                 result["status"] = "completed"
 
                 # Calculate processing time
@@ -996,7 +1135,11 @@ class PySparkFlatFileIngestionOrchestrator(FlatFileIngestionOrchestrator):
     def process_configurations(
         self, configs: List[FlatFileIngestionConfig], execution_id: str
     ) -> Dict[str, Any]:
-        """Process multiple configurations"""
+        """Process multiple configurations with parallel execution within groups"""
+        from concurrent.futures import ThreadPoolExecutor, as_completed
+        from collections import defaultdict
+        import threading
+
         results = {
             "execution_id": execution_id,
             "total_configurations": len(configs),
@@ -1004,17 +1147,121 @@ class PySparkFlatFileIngestionOrchestrator(FlatFileIngestionOrchestrator):
             "failed": 0,
             "no_data_found": 0,
             "configurations": [],
+            "execution_groups_processed": [],
         }
 
-        for config in configs:
-            config_result = self.process_configuration(config, execution_id)
-            results["configurations"].append(config_result)
+        if not configs:
+            return results
 
-            if config_result["status"] == "completed":
-                results["successful"] += 1
-            elif config_result["status"] == "failed":
-                results["failed"] += 1
-            elif config_result["status"] in ["no_data_found", "no_data_processed"]:
-                results["no_data_found"] += 1
+        # Group configurations by execution_group
+        grouped_configs = defaultdict(list)
+        for config in configs:
+            grouped_configs[config.execution_group].append(config)
+
+        # Process execution groups in ascending order
+        execution_groups = sorted(grouped_configs.keys())
+        print(
+            f"\n🔄 Processing {len(execution_groups)} execution groups: {execution_groups}"
+        )
+
+        for group_num in execution_groups:
+            group_configs = grouped_configs[group_num]
+            print(f"\n=== Execution Group {group_num} ===")
+            print(f"Processing {len(group_configs)} configurations in parallel")
+
+            # Process configurations in this group in parallel
+            group_results = self._process_execution_group_parallel(
+                group_configs, execution_id, group_num
+            )
+
+            # Aggregate results
+            results["configurations"].extend(group_results)
+            results["execution_groups_processed"].append(group_num)
+
+            # Count statuses
+            for config_result in group_results:
+                if config_result["status"] == "completed":
+                    results["successful"] += 1
+                elif config_result["status"] == "failed":
+                    results["failed"] += 1
+                elif config_result["status"] in ["no_data_found", "no_data_processed"]:
+                    results["no_data_found"] += 1
+
+            print(f"✓ Execution Group {group_num} completed")
 
         return results
+
+    def _process_execution_group_parallel(
+        self, configs: List[FlatFileIngestionConfig], execution_id: str, group_num: int
+    ) -> List[Dict[str, Any]]:
+        """Process configurations within an execution group in parallel"""
+        import threading
+        from concurrent.futures import ThreadPoolExecutor, as_completed
+
+        results = []
+
+        if len(configs) == 1:
+            # Single configuration - no need for parallel processing
+            print(f"  📄 Processing single configuration: {configs[0].config_name}")
+            result = self.process_configuration(configs[0], execution_id)
+            return [result]
+
+        # Multiple configurations - process in parallel
+        max_workers = min(len(configs), 4)  # Limit concurrent threads
+        print(
+            f"  🔀 Using {max_workers} parallel workers for {len(configs)} configurations"
+        )
+
+        with ThreadPoolExecutor(
+            max_workers=max_workers, thread_name_prefix=f"FlatFileGroup{group_num}"
+        ) as executor:
+            # Submit all configurations for processing
+            future_to_config = {
+                executor.submit(
+                    self._process_configuration_with_thread_info, config, execution_id
+                ): config
+                for config in configs
+            }
+
+            # Collect results as they complete
+            for future in as_completed(future_to_config):
+                config = future_to_config[future]
+                try:
+                    result = future.result()
+                    results.append(result)
+                    print(f"  ✓ Completed: {config.config_name} ({result['status']})")
+                except Exception as e:
+                    error_result = {
+                        "config_id": config.config_id,
+                        "config_name": config.config_name,
+                        "status": "failed",
+                        "metrics": ProcessingMetrics(),
+                        "errors": [f"Thread execution error: {str(e)}"],
+                    }
+                    results.append(error_result)
+                    print(f"  ❌ Failed: {config.config_name} - {str(e)}")
+
+        return results
+
+    def _process_configuration_with_thread_info(
+        self, config: FlatFileIngestionConfig, execution_id: str
+    ) -> Dict[str, Any]:
+        """Process a single configuration with thread information"""
+        import threading
+
+        thread_name = threading.current_thread().name
+        print(
+            f"  🧵 [{thread_name}] Starting: {config.config_name}"
+        )
+
+        try:
+            result = self.process_configuration(config, execution_id)
+            print(
+                f"  🧵 [{thread_name}] Finished: {config.config_name} ({result['status']})"
+            )
+            return result
+        except Exception as e:
+            print(
+                f"  🧵 [{thread_name}] Error: {config.config_name} - {str(e)}"
+            )
+            raise

@@ -13,7 +13,7 @@ import random
 from datetime import datetime, timedelta
 from typing import Any, Dict, List, Optional, Union
 
-from ..interfaces.synthetic_data_generator_interface import ISyntheticDataGenerator, IDatasetBuilder
+from ingen_fab.python_libs.interfaces.synthetic_data_generator_interface import ISyntheticDataGenerator, IDatasetBuilder
 
 try:
     import numpy as np

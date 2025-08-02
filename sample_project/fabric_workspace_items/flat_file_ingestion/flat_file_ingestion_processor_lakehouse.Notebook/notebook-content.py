@@ -1,10 +1,3 @@
-
-
-
-
-
-
-
 # Fabric notebook source
 
 # METADATA ********************
@@ -19,6 +12,19 @@
 # META     "language_group": "synapse_pyspark"
 # META   }
 # META }
+
+# MARKDOWN ********************
+
+# ## 『』Parameters
+
+
+# PARAMETERS CELL ********************
+
+
+# Default parameters
+# Add default parameters here
+
+
 
 
 # MARKDOWN ********************
@@ -122,6 +128,10 @@ def load_python_modules_from_path(base_path: str, relative_files: list[str], max
         except Exception as e:
             failed_files.append(relative_path)
             print(f"❌ Error loading {relative_path}")
+            print(f"   Error type: {type(e).__name__}")
+            print(f"   Error message: {str(e)}")
+            print(f"   Stack trace:")
+            traceback.print_exc()
 
     print("\n✅ Successfully loaded:")
     for f in success_files:
@@ -265,8 +275,8 @@ config_lakehouse = lakehouse_utils(
 
 # Initialize raw data lakehouse utilities for file access
 raw_lakehouse = lakehouse_utils(
-    target_workspace_id=configs.raw_workspace_id,
-    target_lakehouse_id=configs.raw_datastore_id,
+    target_workspace_id=configs.raw_lh_workspace_id,
+    target_lakehouse_id=configs.raw_wh_lakehouse_id,
     spark=spark
 )
 
@@ -274,6 +284,97 @@ raw_lakehouse = lakehouse_utils(
 # Load configuration
 
 config_df = config_lakehouse.read_table("config_flat_file_ingestion").toPandas()
+
+
+
+
+
+# METADATA ********************
+
+# META {
+# META   "language": "python",
+# META   "language_group": "synapse_pyspark"
+# META }
+
+# MARKDOWN ********************
+
+# ## ## 🐛 Debug Configuration Override
+
+# CELL ********************
+
+
+
+# Debug mode - override configurations with embedded test data
+debug_mode = True  # Set to False to use normal database configurations
+
+if debug_mode:
+    import pandas as pd
+    from datetime import datetime
+    
+    # Define debug configurations directly in the notebook
+    debug_configs = [
+        {
+            "config_id": "debug_test_001",
+            "config_name": "Debug Test - CSV File",
+            "source_file_path": "test_data/sample.csv",
+            "source_file_format": "csv",
+            "target_workspace_id": configs.raw_lh_workspace_id,
+            "target_datastore_id": configs.raw_wh_lakehouse_id,
+            "target_datastore_type": "lakehouse",
+            "target_schema_name": "debug",
+            "target_table_name": "debug_test_table",
+            "staging_table_name": None,
+            "file_delimiter": ",",
+            "has_header": True,
+            "encoding": "utf-8",
+            "date_format": "yyyy-MM-dd",
+            "timestamp_format": "yyyy-MM-dd HH:mm:ss",
+            "schema_inference": True,
+            "custom_schema_json": None,
+            "partition_columns": "",
+            "sort_columns": "",
+            "write_mode": "overwrite",
+            "merge_keys": "",
+            "data_validation_rules": None,
+            "error_handling_strategy": "log",
+            "execution_group": 1,
+            "active_yn": "Y",
+            "created_date": datetime.now().strftime("%Y-%m-%d"),
+            "modified_date": None,
+            "created_by": "debug_user",
+            "modified_by": None,
+            "quote_character": '"',
+            "escape_character": '"',
+            "multiline_values": True,
+            "ignore_leading_whitespace": False,
+            "ignore_trailing_whitespace": False,
+            "null_value": "",
+            "empty_value": "",
+            "comment_character": None,
+            "max_columns": 100,
+            "max_chars_per_column": 50000,
+            "import_pattern": "single_file",
+            "date_partition_format": None,
+            "table_relationship_group": None,
+            "batch_import_enabled": False,
+            "file_discovery_pattern": None,
+            "import_sequence_order": 1,
+            "date_range_start": None,
+            "date_range_end": None,
+            "skip_existing_dates": None,
+            "source_is_folder": False
+        }
+    ]
+    
+    # Override config_df with debug configurations
+    config_df = pd.DataFrame(debug_configs)
+    print("🐛 DEBUG MODE ACTIVE - Using embedded test configurations")
+    print(f"Debug configurations loaded: {len(config_df)} items")
+    
+    # Display debug configurations
+    display(config_df[["config_id", "config_name", "source_file_path", "target_table_name"]])
+else:
+    print("📋 Using standard database configurations")
 
 
 # Filter configurations
@@ -293,6 +394,89 @@ if config_df.empty:
     raise ValueError(f"No active configurations found for config_id: {config_id}, execution_group: {execution_group}")
 
 print(f"Found {len(config_df)} configurations to process")
+
+
+
+
+# METADATA ********************
+
+# META {
+# META   "language": "python",
+# META   "language_group": "synapse_pyspark"
+# META }
+
+# MARKDOWN ********************
+
+# ## ## 🧪 Create Debug Test Data
+
+# CELL ********************
+
+
+
+# Create test data files for debug mode
+if debug_mode:
+    import os
+    from pyspark.sql import Row
+    
+    # Create test data directory
+    test_data_dir = "Files/test_data"
+    
+    # Create sample CSV data
+    sample_data = [
+        Row(id=1, name="Test User 1", email="test1@example.com", created_date="2024-01-01"),
+        Row(id=2, name="Test User 2", email="test2@example.com", created_date="2024-01-02"),
+        Row(id=3, name="Test User 3", email="test3@example.com", created_date="2024-01-03"),
+    ]
+    
+    # Create DataFrame and write to test location
+    test_df = spark.createDataFrame(sample_data)
+    
+    
+    # For lakehouse, write to the raw lakehouse Files location
+    raw_lakehouse.write_file(
+        df=test_df,
+        file_path=test_data_dir + "/sample.csv",
+        file_format="csv",
+        options={"header": True}
+    )
+    print(f"✅ Created test CSV file at: {test_data_dir}/sample.csv")
+    
+    # Also create a JSON test file
+    json_data = [
+        Row(product_id=101, product_name="Widget A", price=19.99, category="Electronics"),
+        Row(product_id=102, product_name="Widget B", price=29.99, category="Electronics"),
+        Row(product_id=103, product_name="Gadget X", price=39.99, category="Accessories"),
+    ]
+    json_df = spark.createDataFrame(json_data)
+    raw_lakehouse.write_file(
+        df=json_df,
+        file_path=test_data_dir + "/products.json",
+        file_format="json"
+    )
+    print(f"✅ Created test JSON file at: {test_data_dir}/products.json")
+    
+    
+    # Display sample data
+    print("\n📄 Sample test data:")
+    test_df.show()
+    
+    # Update debug configurations to use multiple test files
+    if len(debug_configs) == 1:
+        # Add a second configuration for JSON file
+        debug_configs.append({
+            **debug_configs[0],  # Copy all fields from first config
+            "config_id": "debug_test_002",
+            "config_name": "Debug Test - JSON File",
+            "source_file_path": "test_data/products.json",
+            "source_file_format": "json",
+            "target_table_name": "debug_products_table",
+            "file_delimiter": None,
+            "has_header": None,
+        })
+        # Re-create config_df with updated configurations
+        config_df = pd.DataFrame(debug_configs)
+        print(f"\n🔄 Updated debug configurations: {len(config_df)} items")
+
 
 
 
@@ -406,6 +590,52 @@ if no_data_configs:
         print(f"    Row count reconciliation: {metrics.row_count_reconciliation_status}")
 
 print(f"\nExecution completed at: {datetime.now()}")
+
+
+
+
+# METADATA ********************
+
+# META {
+# META   "language": "python",
+# META   "language_group": "synapse_pyspark"
+# META }
+
+# MARKDOWN ********************
+
+# ## ## 🔍 Debug Results Verification
+
+# CELL ********************
+
+
+
+# Verify debug results if in debug mode
+if debug_mode and successful_configs:
+    print("🔍 Verifying debug ingestion results...\n")
+    
+    for result in successful_configs:
+        table_name = result['config'].target_table_name
+        schema_name = result['config'].target_schema_name
+        
+        try:
+            
+            # Read the ingested table
+            ingested_df = raw_lakehouse.read_table(f"{schema_name}.{table_name}")
+            record_count = ingested_df.count()
+            
+            print(f"✅ Table {schema_name}.{table_name}:")
+            print(f"   - Records: {record_count}")
+            print(f"   - Columns: {', '.join(ingested_df.columns)}")
+            print(f"   - Sample data:")
+            ingested_df.show(5, truncate=False)
+            
+            
+        except Exception as e:
+            print(f"❌ Error verifying table {schema_name}.{table_name}: {str(e)}")
+    
+    print("\n🎯 Debug verification complete!")
+    print("💡 To disable debug mode, set 'debug_mode = False' in the Debug Configuration Override cell")
+
 
 
 # METADATA ********************
