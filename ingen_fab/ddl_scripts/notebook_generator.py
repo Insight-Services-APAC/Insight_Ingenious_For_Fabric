@@ -14,7 +14,7 @@ from rich.table import Table
 
 from ingen_fab.notebook_utils.base_notebook_compiler import BaseNotebookCompiler
 from ingen_fab.python_libs.gather_python_libs import GatherPythonLibs
-from ingen_fab.utils.path_utils import PathUtils
+from ingen_fab.python_libs.common.utils.path_utils import PathUtils
 
 
 class NotebookGenerator(BaseNotebookCompiler):

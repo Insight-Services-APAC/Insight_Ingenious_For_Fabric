@@ -3,24 +3,25 @@
 
 import time
 import uuid
-import pandas as pd
-from typing import Dict, List, Optional, Any, Tuple
+from typing import Any, Dict, List, Optional, Tuple
 
-from ..interfaces.flat_file_ingestion_interface import (
-    FlatFileIngestionConfig,
-    FileDiscoveryResult,
-    ProcessingMetrics,
-    FlatFileDiscoveryInterface,
-    FlatFileProcessorInterface,
-    FlatFileLoggingInterface,
-    FlatFileIngestionOrchestrator
-)
-from ..common.flat_file_ingestion_utils import (
-    DatePartitionUtils,
-    FilePatternUtils,
+import pandas as pd
+
+from ingen_fab.python_libs.common.flat_file_ingestion_utils import (
     ConfigurationUtils,
+    DatePartitionUtils,
+    ErrorHandlingUtils,
+    FilePatternUtils,
     ProcessingMetricsUtils,
-    ErrorHandlingUtils
+)
+from ingen_fab.python_libs.interfaces.flat_file_ingestion_interface import (
+    FileDiscoveryResult,
+    FlatFileDiscoveryInterface,
+    FlatFileIngestionConfig,
+    FlatFileIngestionOrchestrator,
+    FlatFileLoggingInterface,
+    FlatFileProcessorInterface,
+    ProcessingMetrics,
 )
 
 
@@ -200,7 +201,7 @@ class PythonFlatFileProcessor(FlatFileProcessorInterface):
             
             print(f"Wrote data to {table_name} in {metrics.write_duration_ms}ms")
             
-            return ProcessingMetricsUtils.calculate_performance_metrics(metrics)
+            return ProcessingMetricsUtils.calculate_performance_metrics(metrics, config.write_mode)
             
         except Exception as e:
             write_end = time.time()
@@ -430,7 +431,7 @@ class PythonFlatFileIngestionOrchestrator(FlatFileIngestionOrchestrator):
             
             # Aggregate metrics
             if all_metrics:
-                result['metrics'] = ProcessingMetricsUtils.merge_metrics(all_metrics)
+                result['metrics'] = ProcessingMetricsUtils.merge_metrics(all_metrics, config.write_mode)
                 result['status'] = 'completed'
                 
                 # Calculate processing time
@@ -468,25 +469,121 @@ class PythonFlatFileIngestionOrchestrator(FlatFileIngestionOrchestrator):
         return result
     
     def process_configurations(self, configs: List[FlatFileIngestionConfig], execution_id: str) -> Dict[str, Any]:
-        """Process multiple configurations"""
+        """Process multiple configurations with parallel execution within groups"""
+        from concurrent.futures import ThreadPoolExecutor, as_completed
+        from collections import defaultdict
+        import threading
+        
         results = {
             'execution_id': execution_id,
             'total_configurations': len(configs),
             'successful': 0,
             'failed': 0,
             'no_data_found': 0,
-            'configurations': []
+            'configurations': [],
+            'execution_groups_processed': []
         }
-        
+
+        if not configs:
+            return results
+
+        # Group configurations by execution_group
+        grouped_configs = defaultdict(list)
         for config in configs:
-            config_result = self.process_configuration(config, execution_id)
-            results['configurations'].append(config_result)
+            grouped_configs[config.execution_group].append(config)
+
+        # Process execution groups in ascending order
+        execution_groups = sorted(grouped_configs.keys())
+        print(f"\n🔄 Processing {len(execution_groups)} execution groups: {execution_groups}")
+        
+        for group_num in execution_groups:
+            group_configs = grouped_configs[group_num]
+            print(f"\n=== Execution Group {group_num} ===")
+            print(f"Processing {len(group_configs)} configurations in parallel")
             
-            if config_result['status'] == 'completed':
-                results['successful'] += 1
-            elif config_result['status'] == 'failed':
-                results['failed'] += 1
-            elif config_result['status'] in ['no_data_found', 'no_data_processed']:
-                results['no_data_found'] += 1
+            # Process configurations in this group in parallel
+            group_results = self._process_execution_group_parallel(
+                group_configs, execution_id, group_num
+            )
+            
+            # Aggregate results
+            results['configurations'].extend(group_results)
+            results['execution_groups_processed'].append(group_num)
+            
+            # Count statuses
+            for config_result in group_results:
+                if config_result['status'] == 'completed':
+                    results['successful'] += 1
+                elif config_result['status'] == 'failed':
+                    results['failed'] += 1
+                elif config_result['status'] in ['no_data_found', 'no_data_processed']:
+                    results['no_data_found'] += 1
+            
+            print(f"✓ Execution Group {group_num} completed")
+
+        return results
+
+    def _process_execution_group_parallel(
+        self, 
+        configs: List[FlatFileIngestionConfig], 
+        execution_id: str,
+        group_num: int
+    ) -> List[Dict[str, Any]]:
+        """Process configurations within an execution group in parallel"""
+        from concurrent.futures import ThreadPoolExecutor, as_completed
+        import threading
+        
+        results = []
+        
+        if len(configs) == 1:
+            # Single configuration - no need for parallel processing
+            print(f"  📄 Processing single configuration: {configs[0].config_name}")
+            result = self.process_configuration(configs[0], execution_id)
+            return [result]
+        
+        # Multiple configurations - process in parallel
+        max_workers = min(len(configs), 4)  # Limit concurrent threads
+        print(f"  🔀 Using {max_workers} parallel workers for {len(configs)} configurations")
+        
+        with ThreadPoolExecutor(max_workers=max_workers, thread_name_prefix=f"FlatFileGroup{group_num}") as executor:
+            # Submit all configurations for processing
+            future_to_config = {
+                executor.submit(self._process_configuration_with_thread_info, config, execution_id): config 
+                for config in configs
+            }
+            
+            # Collect results as they complete
+            for future in as_completed(future_to_config):
+                config = future_to_config[future]
+                try:
+                    result = future.result()
+                    results.append(result)
+                    print(f"  ✓ Completed: {config.config_name} ({result['status']})")
+                except Exception as e:
+                    error_result = {
+                        'config_id': config.config_id,
+                        'config_name': config.config_name,
+                        'status': 'failed',
+                        'metrics': ProcessingMetrics(),
+                        'errors': [f"Thread execution error: {str(e)}"]
+                    }
+                    results.append(error_result)
+                    print(f"  ❌ Failed: {config.config_name} - {str(e)}")
         
         return results
+
+    def _process_configuration_with_thread_info(
+        self, config: FlatFileIngestionConfig, execution_id: str
+    ) -> Dict[str, Any]:
+        """Process a single configuration with thread information"""
+        import threading
+        thread_name = threading.current_thread().name
+        print(f"  🧵 [{thread_name}] Starting: {config.config_name}")
+        
+        try:
+            result = self.process_configuration(config, execution_id)
+            print(f"  🧵 [{thread_name}] Finished: {config.config_name} ({result['status']})")
+            return result
+        except Exception as e:
+            print(f"  🧵 [{thread_name}] Error: {config.config_name} - {str(e)}")
+            raise

@@ -28,7 +28,8 @@
 # METADATA ********************
 
 # META {
-# META   "language": "python"
+# META   "language": "python",
+# META   "language_group": "synapse_pyspark"
 # META }
 
 # MARKDOWN ********************
@@ -50,16 +51,15 @@ if "notebookutils" in sys.modules:
     sys.path.insert(0, mount_path)
 
     
-    # Python environment - no spark session needed
-    spark = None
+    # PySpark environment - spark session should be available
     
 else:
     print("NotebookUtils not available, assumed running in local mode.")
-    from ingen_fab.python_libs.python.notebook_utils_abstraction import (
+    from ingen_fab.python_libs.pyspark.notebook_utils_abstraction import (
         NotebookUtilsFactory,
     )
     notebookutils = NotebookUtilsFactory.create_instance()
-    
+        
     spark = None
     
     mount_path = None
@@ -89,6 +89,10 @@ def load_python_modules_from_path(base_path: str, relative_files: list[str], max
         except Exception as e:
             failed_files.append(relative_path)
             print(f"❌ Error loading {relative_path}")
+            print(f"   Error type: {type(e).__name__}")
+            print(f"   Error message: {str(e)}")
+            print(f"   Stack trace:")
+            traceback.print_exc()
 
     print("\n✅ Successfully loaded:")
     for f in success_files:
@@ -284,7 +288,8 @@ target_workspace_id = get_config_value("config_workspace_id")
 
 lh_utils = lakehouse_utils(
     target_workspace_id=target_workspace_id,
-    target_lakehouse_id=target_lakehouse_id
+    target_lakehouse_id=target_lakehouse_id,
+    spark=spark
 )
 
 # Initialize PySpark synthetic data generator
@@ -587,3 +592,31 @@ if 'notebookutils' in globals() and hasattr(notebookutils, 'log'):
     notebookutils.log(f"Incremental series generation completed: {dataset_id}, {total_rows_generated:,} rows, {execution_time:.1f}s")
 
 print(f"\n🎉 Incremental synthetic data series generation completed successfully!")
+
+
+
+# METADATA ********************
+
+# META {
+# META   "language": "python",
+# META   "language_group": "synapse_pyspark"
+# META }
+
+# MARKDOWN ********************
+
+# ## ✔️ Exit notebook with result
+
+# CELL ********************
+
+
+notebookutils.mssparkutils.notebook.exit("success")
+
+
+
+# METADATA ********************
+
+# META {
+# META   "language": "python",
+# META   "language_group": "synapse_pyspark"
+# META }
+

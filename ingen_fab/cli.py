@@ -18,8 +18,8 @@ workspace_commands = lazy_import.lazy_module("ingen_fab.cli_utils.workspace_comm
 from ingen_fab.cli_utils.console_styles import ConsoleStyles
 
 # Lazy import for heavyweight modules
-NotebookGenerator = lazy_import.lazy_callable("ingen_fab.ddl_scripts.notebook_generator.NotebookGenerator")
-PathUtils = lazy_import.lazy_callable("ingen_fab.utils.path_utils.PathUtils")
+notebook_generator = lazy_import.lazy_module("ingen_fab.ddl_scripts.notebook_generator")
+PathUtils = lazy_import.lazy_callable("ingen_fab.python_libs.common.utils.path_utils.PathUtils")
 
 console = Console()
 console_styles = ConsoleStyles()
@@ -116,7 +116,7 @@ def main(
             fabric_workspace_repo_dir = Path(env_val)
             fabric_workspace_repo_dir_source = "env"
         else:
-            from ingen_fab.utils.path_utils import PathUtils
+            from ingen_fab.python_libs.common.utils.path_utils import PathUtils
             fabric_workspace_repo_dir = PathUtils.get_workspace_repo_dir()
             fabric_workspace_repo_dir_source = "default"
     
@@ -198,23 +198,22 @@ def compile(
     """Compile the DDL notebooks in the specified project directory."""
     
     # Convert string parameters to enums with proper error handling
-    # Import the actual class when we need it
-    from ingen_fab.ddl_scripts.notebook_generator import NotebookGenerator
+    # notebook_generator module is already lazy imported at the top of the file
     
     if output_mode:
         try:
-            output_mode = NotebookGenerator.OutputMode(output_mode)
+            output_mode = notebook_generator.NotebookGenerator.OutputMode(output_mode)
         except ValueError:
-            valid_modes = [mode.value for mode in NotebookGenerator.OutputMode]
+            valid_modes = [mode.value for mode in notebook_generator.NotebookGenerator.OutputMode]
             console.print(f"[red]Error: Invalid output mode '{output_mode}'[/red]")
             console.print(f"[yellow]Valid output modes: {', '.join(valid_modes)}[/yellow]")
             raise typer.Exit(code=1)
     
     if generation_mode:
         try:
-            generation_mode = NotebookGenerator.GenerationMode(generation_mode)
+            generation_mode = notebook_generator.NotebookGenerator.GenerationMode(generation_mode)
         except ValueError:
-            valid_modes = [mode.value for mode in NotebookGenerator.GenerationMode]
+            valid_modes = [mode.value for mode in notebook_generator.NotebookGenerator.GenerationMode]
             console.print(f"[red]Error: Invalid generation mode '{generation_mode}'[/red]")
             console.print(f"[yellow]Valid generation modes: {', '.join(valid_modes)}[/yellow]")
             raise typer.Exit(code=1)
@@ -267,7 +266,7 @@ def delete_all(
 def upload_python_libs(
     ctx: typer.Context
 ):
-    """Upload python_libs directory to Fabric config lakehouse using OneLakeUtils."""
+    """Inject code into python_libs (in-place) and upload to Fabric config lakehouse."""
     deploy_commands.upload_python_libs_to_config_lakehouse(
         environment=ctx.obj['fabric_environment'],
         project_path=ctx.obj['fabric_workspace_repo_dir'],
@@ -1062,6 +1061,7 @@ def ingest_app_compile(
     template_vars: Annotated[str, typer.Option("--template-vars", "-t", help="JSON string of template variables")] = None,
     include_samples: Annotated[bool, typer.Option("--include-samples", "-s", help="Include sample data DDL and files")] = False,
     target_datastore: Annotated[str, typer.Option("--target-datastore", "-d", help="Target datastore type: lakehouse, warehouse, or both")] = "lakehouse",
+    add_debug_cells: Annotated[bool, typer.Option("--add-debug-cells", help="Add debug cells with embedded configurations for testing")] = False,
 ):
     """Compile flat file ingestion package templates and DDL scripts."""
     import json
@@ -1093,7 +1093,8 @@ def ingest_app_compile(
             fabric_workspace_repo_dir=fabric_workspace_repo_dir,
             template_vars=vars_dict,
             include_samples=include_samples,
-            target_datastore=target_datastore
+            target_datastore=target_datastore,
+            add_debug_cells=add_debug_cells
         )
         
         if results["success"]:
@@ -1264,7 +1265,7 @@ def compile(
 ):
     """Compile Python libraries by injecting variables from the variable library."""
     from pathlib import Path
-    from ingen_fab.config_utils.variable_lib import inject_variables_into_file, VariableLibraryUtils
+    from ingen_fab.config_utils.variable_lib_factory import VariableLibraryFactory, process_file_content_from_cli
     
     project_path = Path(ctx.obj["fabric_workspace_repo_dir"])
     environment = str(ctx.obj["fabric_environment"])
@@ -1274,7 +1275,7 @@ def compile(
     console.print(f"Environment: {environment}")
     
     if target_file:
-        # Compile specific file
+        # Compile specific file using modern factory approach
         target_path = project_path / target_file
         console.print(f"Target file: {target_path}")
         
@@ -1283,20 +1284,15 @@ def compile(
             raise typer.Exit(code=1)
             
         try:
-            # Create a VariableLibraryUtils instance and directly call perform_code_replacements
-            varlib_utils = VariableLibraryUtils(project_path, environment)
+            # Use the modern factory method for processing single files
+            was_updated = process_file_content_from_cli(
+                ctx, 
+                target_path, 
+                replace_placeholders=True,  # For compilation, we want to replace placeholders
+                inject_code=True
+            )
             
-            # Read the file content
-            with open(target_path, "r", encoding="utf-8") as f:
-                content = f.read()
-            
-            # Perform the replacements
-            updated_content = varlib_utils.perform_code_replacements(content)
-            
-            # Write back if changed
-            if updated_content != content:
-                with open(target_path, "w", encoding="utf-8") as f:
-                    f.write(updated_content)
+            if was_updated:
                 console.print(f"[green]✓ Successfully compiled: {target_file} with values from {environment} environment[/green]")
             else:
                 console.print(f"[yellow]No changes needed for {target_file}[/yellow]")
@@ -1316,20 +1312,15 @@ def compile(
             raise typer.Exit(code=1)
             
         try:
-            # Create a VariableLibraryUtils instance and directly call perform_code_replacements
-            varlib_utils = VariableLibraryUtils(project_path, environment)
+            # Use the modern factory method for processing single files
+            was_updated = process_file_content_from_cli(
+                ctx, 
+                config_utils_path, 
+                replace_placeholders=True,  # For compilation, we want to replace placeholders
+                inject_code=True
+            )
             
-            # Read the file content
-            with open(config_utils_path, "r", encoding="utf-8") as f:
-                content = f.read()
-            
-            # Perform the replacements
-            updated_content = varlib_utils.perform_code_replacements(content)
-            
-            # Write back if changed
-            if updated_content != content:
-                with open(config_utils_path, "w", encoding="utf-8") as f:
-                    f.write(updated_content)
+            if was_updated:
                 console.print(f"[green]✓ Successfully compiled config_utils.py with values from {environment} environment[/green]")
             else:
                 console.print(f"[yellow]No changes needed for config_utils.py[/yellow]")
@@ -1373,6 +1364,7 @@ def compile_generic_templates(
                     output_notebook_name="generic_incremental_series_lakehouse",
                     template_vars={
                         "target_environment": "lakehouse",
+                        "language_group": "synapse_pyspark",
                         "default_dataset_id": "retail_oltp_small_incremental",
                         "default_start_date": "2024-01-01",
                         "default_end_date": "2024-01-30",
@@ -1394,6 +1386,7 @@ def compile_generic_templates(
                     output_notebook_name="generic_incremental_series_warehouse",
                     template_vars={
                         "target_environment": "warehouse",
+                        "language_group": "python",
                         "default_dataset_id": "retail_oltp_small_incremental",
                         "default_start_date": "2024-01-01",
                         "default_end_date": "2024-01-30",
@@ -1417,6 +1410,7 @@ def compile_generic_templates(
                     output_notebook_name="generic_single_dataset_lakehouse",
                     template_vars={
                         "target_environment": "lakehouse",
+                        "language_group": "synapse_pyspark",
                         "default_dataset_id": "retail_oltp_small",
                         "default_target_rows": 10000,
                         "default_scale_factor": 1.0,

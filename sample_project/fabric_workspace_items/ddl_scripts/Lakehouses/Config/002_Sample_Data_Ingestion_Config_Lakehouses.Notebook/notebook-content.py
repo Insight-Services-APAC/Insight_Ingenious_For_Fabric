@@ -90,6 +90,10 @@ def load_python_modules_from_path(base_path: str, relative_files: list[str], max
         except Exception as e:
             failed_files.append(relative_path)
             print(f"❌ Error loading {relative_path}")
+            print(f"   Error type: {type(e).__name__}")
+            print(f"   Error message: {str(e)}")
+            print(f"   Stack trace:")
+            traceback.print_exc()
 
     print("\n✅ Successfully loaded:")
     for f in success_files:
@@ -328,7 +332,7 @@ def script_to_execute():
             merge_keys="",
             data_validation_rules=None,
             error_handling_strategy="log",
-            execution_group=1,
+            execution_group=1,  # Folder-based snapshot processing (Group 1)
             active_yn="Y",
             created_date="2024-01-15",
             modified_date=None,
@@ -359,7 +363,7 @@ def script_to_execute():
         Row(
             config_id="synthetic_customers_file_001", 
             config_name="Synthetic Data - Customers Single File (Retail OLTP Small)",
-            source_file_path="Files/synthetic_data/single/retail_oltp_small/customers.csv/part-00000-51f889c5-7ce6-41ed-b41e-f772a1e181a9-c000.csv",
+            source_file_path="synthetic_data/single/retail_oltp_small/customers.csv/part-00000-51f889c5-7ce6-41ed-b41e-f772a1e181a9-c000.csv",
             source_file_format="csv",
             target_workspace_id="{{varlib:config_workspace_id}}",
             target_datastore_id="{{varlib:config_lakehouse_id}}",
@@ -380,8 +384,8 @@ def script_to_execute():
             merge_keys="",
             data_validation_rules=None,
             error_handling_strategy="log",
-            execution_group=2,
-            active_yn="N",  # Disabled by default to test folder read first
+            execution_group=2,  # Single file processing (Group 2)
+            active_yn="Y",  
             created_date="2024-01-15",
             modified_date=None,
             created_by="system",
@@ -433,7 +437,7 @@ def script_to_execute():
             merge_keys="order_id",
             data_validation_rules=None,
             error_handling_strategy="log",
-            execution_group=3,
+            execution_group=3,  # Incremental processing (Group 3)
             active_yn="Y",
             created_date="2024-01-15",
             modified_date=None,

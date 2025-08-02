@@ -8,19 +8,19 @@
     },
     {
       "name": "fabric_deployment_workspace_id",
-      "value": "REPLACE_WITH_YOUR_WORKSPACE_GUID"
+      "value": "544530ea-a8c9-4464-8878-f666d2a8f418"
     },
     {
       "name": "config_workspace_name",
-      "value": "REPLACE_WITH_CONFIG_WORKSPACE_NAME"
+      "value": "metcash_demo"
     },
     {
       "name": "config_workspace_id",
-      "value": "REPLACE_WITH_CONFIG_WORKSPACE_GUID"
+      "value": "544530ea-a8c9-4464-8878-f666d2a8f418"
     },
     {
       "name": "config_wh_workspace_id",
-      "value": "REPLACE_WITH_CONFIG_WH_WORKSPACE_GUID"
+      "value": "544530ea-a8c9-4464-8878-f666d2a8f418"
     },
     {
       "name": "config_lakehouse_name",
@@ -28,7 +28,7 @@
     },
     {
       "name": "config_lakehouse_id",
-      "value": "REPLACE_WITH_CONFIG_LAKEHOUSE_GUID"
+      "value": "514ebe8f-2bf9-4a31-88f7-13d84706431c"
     },
     {
       "name": "config_wh_warehouse_name",
@@ -36,7 +36,7 @@
     },
     {
       "name": "config_wh_warehouse_id",
-      "value": "REPLACE_WITH_CONFIG_WAREHOUSE_GUID"
+      "value": "51226772-4e8f-4034-9cd2-1afd020d2773"
     },
     {
       "name": "sample_lakehouse_name",
@@ -48,7 +48,7 @@
     },
     {
       "name": "sample_wh_workspace_id",
-      "value": "REPLACE_WITH_SAMPLE_WH_WORKSPACE_GUID"
+      "value": "544530ea-a8c9-4464-8878-f666d2a8f418"
     },
     {
       "name": "sample_wh_warehouse_name",
@@ -56,19 +56,31 @@
     },
     {
       "name": "sample_wh_warehouse_id",
-      "value": "REPLACE_WITH_SAMPLE_WAREHOUSE_GUID"
+      "value": "1a4135f4-ad95-44b7-bdd4-9ee610adf2c1"
     },
     {
-      "name": "raw_workspace_id",
-      "value": "REPLACE_WITH_RAW_WORKSPACE_GUID"
+      "name": "raw_lh_workspace_id",
+      "value": "544530ea-a8c9-4464-8878-f666d2a8f418"
     },
     {
-      "name": "raw_datastore_id",
-      "value": "REPLACE_WITH_RAW_DATASTORE_GUID"
+      "name": "raw_lh_lakehouse_name",
+      "value": "raw_lh"
+    },
+    {
+      "name": "raw_lh_lakehouse_id",
+      "value": "9fb2d1d0-1342-452e-9ed8-716d59463ba4"
+    },
+    {
+      "name": "raw_wh_workspace_id",
+      "value": "544530ea-a8c9-4464-8878-f666d2a8f418"
+    },
+    {
+      "name": "raw_wh_warehouse_id",
+      "value": "REPLACE_WITH_RAW_WAREHOUSE_GUID"
     },
     {
       "name": "edw_workspace_id",
-      "value": "REPLACE_WITH_EDW_WORKSPACE_GUID"
+      "value": "544530ea-a8c9-4464-8878-f666d2a8f418"
     },
     {
       "name": "edw_lakehouse_name",

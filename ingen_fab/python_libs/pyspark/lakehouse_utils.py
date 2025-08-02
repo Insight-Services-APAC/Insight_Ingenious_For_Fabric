@@ -480,10 +480,10 @@ class lakehouse_utils(DataStoreInterface):
             if "comment" in options:
                 reader = reader.option("comment", options["comment"])
             if "maxColumns" in options:
-                reader = reader.option("maxColumns", str(options["maxColumns"]))
+                reader = reader.option("maxColumns", int(options["maxColumns"]))
             if "maxCharsPerColumn" in options:
                 reader = reader.option(
-                    "maxCharsPerColumn", str(options["maxCharsPerColumn"])
+                    "maxCharsPerColumn", int(options["maxCharsPerColumn"])
                 )
             if "unescapedQuoteHandling" in options:
                 reader = reader.option(

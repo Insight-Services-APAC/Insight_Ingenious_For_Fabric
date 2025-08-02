@@ -2,15 +2,15 @@
 
 from __future__ import annotations
 
-from .ddl_utils import ddl_utils
-from .lakehouse_utils import lakehouse_utils
-from .notebook_utils_abstraction import (
+from ingen_fab.python_libs.pyspark.ddl_utils import ddl_utils
+from ingen_fab.python_libs.pyspark.lakehouse_utils import lakehouse_utils
+from ingen_fab.python_libs.pyspark.notebook_utils_abstraction import (
     FabricNotebookUtils,
     LocalNotebookUtils,
     NotebookUtilsFactory,
     NotebookUtilsInterface,
 )
-from .parquet_load_utils import testing_code_replacement
+from ingen_fab.python_libs.pyspark.parquet_load_utils import testing_code_replacement
 
 __all__ = [
     # Main utility classes

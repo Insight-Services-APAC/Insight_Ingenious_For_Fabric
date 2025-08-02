@@ -93,6 +93,10 @@ def load_python_modules_from_path(base_path: str, relative_files: list[str], max
         except Exception as e:
             failed_files.append(relative_path)
             print(f"❌ Error loading {relative_path}")
+            print(f"   Error type: {type(e).__name__}")
+            print(f"   Error message: {str(e)}")
+            print(f"   Stack trace:")
+            traceback.print_exc()
 
     print("\n✅ Successfully loaded:")
     for f in success_files:
@@ -251,22 +255,23 @@ def execute_notebook(notebook_name, index, total, timeout_seconds=3600):
 
 print(f"Starting orchestration for  warehouse")
 print(f"Start time: {start_time}")
-print(f"Total notebooks to execute: 2")
+print(f"Total notebooks to execute: 3")
 print("="*60)
-execute_notebook("000_Initial_Schema_Creation_Config_Warehouses_ddl_scripts", 1, 2)
-execute_notebook("001_Initial_Creation_Ingestion_Config_Warehouses_ddl_scripts", 2, 2)
+execute_notebook("000_Initial_Schema_Creation_Config_Warehouses_ddl_scripts", 1, 3)
+execute_notebook("001_Initial_Creation_Ingestion_Config_Warehouses_ddl_scripts", 2, 3)
+execute_notebook("002_Sample_Data_Ingestion_Config_Warehouses_ddl_scripts", 3, 3)
 
 # Final Summary
 end_time = datetime.now()
 duration = end_time - start_time
-failed_count = 2 - success_count
+failed_count = 3 - success_count
 
 print(f"{'='*60}")
 print(f"Orchestration Complete!")
 print(f"{'='*60}")
 print(f"End time: {end_time}")
 print(f"Duration: {duration}")
-print(f"Total notebooks: 2")
+print(f"Total notebooks: 3")
 print(f"Successfully executed: {success_count}")
 print(f"Failed: {failed_count}")
 
@@ -280,13 +285,13 @@ if failed_notebooks:
         print(f"   Error: {failure['error']}")
         print()
 
-if success_count == 2:
+if success_count == 3:
     print("\n✓ All notebooks executed successfully!")
     notebookutils.notebook.exit("success")
 else:
     print(f"\n✗ Orchestration completed with {failed_count} failure(s)")
     # Exit with failure status - this will be caught by parent orchestrator as non-"success"
-    error_summary = f"failed: {failed_count} of 2 notebooks failed"
+    error_summary = f"failed: {failed_count} of 3 notebooks failed"
     notebookutils.notebook.exit(error_summary)
 
 # METADATA ********************

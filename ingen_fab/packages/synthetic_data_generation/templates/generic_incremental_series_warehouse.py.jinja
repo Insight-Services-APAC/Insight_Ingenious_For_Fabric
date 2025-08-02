@@ -282,3 +282,8 @@ if 'notebookutils' in globals() and hasattr(notebookutils, 'log'):
     notebookutils.log(f"Incremental series generation completed: {dataset_id}, {total_rows_generated:,} rows, {execution_time:.1f}s")
 
 print(f"\n🎉 Incremental synthetic data series generation completed successfully!")
+
+
+{{ macros.exit_notebook("success") }}
+
+{% include 'shared/notebook/cells/footer.py.jinja' %}

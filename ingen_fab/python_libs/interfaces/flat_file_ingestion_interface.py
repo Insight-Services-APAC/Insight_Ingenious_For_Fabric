@@ -65,6 +65,11 @@ class FlatFileIngestionConfig:
     date_range_end: Optional[str] = None
     skip_existing_dates: bool = True
     source_is_folder: bool = False
+    
+    # Hierarchical nested structure support
+    table_subfolder: Optional[str] = None  # Table name within date partition (e.g., "orders", "customers")
+    hierarchical_date_structure: bool = False  # Enable YYYY/MM/DD hierarchical date discovery
+    nested_path_separator: str = "/"  # Path separator for nested structures
 
     def __post_init__(self):
         """Post-initialization processing"""
@@ -129,7 +134,11 @@ class FlatFileIngestionConfig:
             date_range_start=config_row.get("date_range_start"),
             date_range_end=config_row.get("date_range_end"),
             skip_existing_dates=config_row.get("skip_existing_dates", True),
-            source_is_folder=config_row.get("source_is_folder", False)
+            source_is_folder=config_row.get("source_is_folder", False),
+            # Hierarchical nested structure support
+            table_subfolder=config_row.get("table_subfolder"),
+            hierarchical_date_structure=config_row.get("hierarchical_date_structure", False),
+            nested_path_separator=config_row.get("nested_path_separator", "/")
         )
 
 

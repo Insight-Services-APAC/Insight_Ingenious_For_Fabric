@@ -1,24 +1,32 @@
-
-
-
-
-
-
-
 # Fabric notebook source
 
 # METADATA ********************
 
 # META {
 # META   "kernel_info": {
-# META     "name": "synapse_python",
-# META     "display_name": "Python (Synapse)"
+# META     "name": "jupyter",
+# META     "jupyter_kernel_name": "python3.11"
 # META   },
 # META   "language_info": {
-# META     "name": "python",
-# META     "language_group": "synapse_python"
+# META     "name": "python"
 # META   }
 # META }
+
+
+
+# MARKDOWN ********************
+
+# ## 『』Parameters
+
+
+# PARAMETERS CELL ********************
+
+
+
+# Default parameters  
+# Add default parameters here
+
+
 
 
 # MARKDOWN ********************
@@ -63,7 +71,7 @@ environment = "development"
 
 # META {
 # META   "language": "python",
-# META   "language_group": "synapse_python"
+# META   "language_group": "jupyter_python"
 # META }
 
 # MARKDOWN ********************
@@ -124,6 +132,10 @@ def load_python_modules_from_path(base_path: str, relative_files: list[str], max
         except Exception as e:
             failed_files.append(relative_path)
             print(f"❌ Error loading {relative_path}")
+            print(f"   Error type: {type(e).__name__}")
+            print(f"   Error message: {str(e)}")
+            print(f"   Stack trace:")
+            traceback.print_exc()
 
     print("\n✅ Successfully loaded:")
     for f in success_files:
@@ -176,7 +188,7 @@ if run_mode == "fabric":
 
 # META {
 # META   "language": "python",
-# META   "language_group": "synapse_python"
+# META   "language_group": "jupyter_python"
 # META }
 
 # MARKDOWN ********************
@@ -218,24 +230,26 @@ import time
 from datetime import datetime
 from typing import Dict, List, Optional, Any
 
-# Import modularized flat file ingestion components
-from python_libs.interfaces.flat_file_ingestion_interface import FlatFileIngestionConfig
 
-
-# Import Python/warehouse-specific flat file ingestion components
-from python_libs.python.flat_file_ingestion_python import (
-    PythonFlatFileDiscovery,
-    PythonFlatFileProcessor,
-    PythonFlatFileLogging,
-    PythonFlatFileIngestionOrchestrator
-)
-
-# Import warehouse_utils for warehouse operations
+# Load flat file ingestion components and warehouse utils
 if run_mode == "local":
+    from ingen_fab.python_libs.interfaces.flat_file_ingestion_interface import FlatFileIngestionConfig
+    from ingen_fab.python_libs.python.flat_file_ingestion_python import (
+        PythonFlatFileDiscovery,
+        PythonFlatFileProcessor,
+        PythonFlatFileLogging,
+        PythonFlatFileIngestionOrchestrator
+    )
     from ingen_fab.python_libs.python.warehouse_utils import warehouse_utils
 else:
-    files_to_load = ["ingen_fab/python_libs/python/warehouse_utils.py"]
-    load_python_modules_from_path(mount_path, files_to_load)
+    # Additional files for flat file ingestion modular components and warehouse utils
+    flat_file_ingestion_files = [
+        "ingen_fab/python_libs/interfaces/flat_file_ingestion_interface.py",
+        "ingen_fab/python_libs/common/flat_file_ingestion_utils.py",
+        "ingen_fab/python_libs/python/flat_file_ingestion_python.py",
+        "ingen_fab/python_libs/python/warehouse_utils.py"
+    ]
+    load_python_modules_from_path(mount_path, flat_file_ingestion_files)
 
 
 execution_id = str(uuid.uuid4())
@@ -272,8 +286,8 @@ config_warehouse = warehouse_utils(
 
 # Initialize raw data warehouse utilities for file access
 raw_warehouse = warehouse_utils(
-    target_workspace_id=configs.raw_workspace_id,
-    target_warehouse_id=configs.raw_datastore_id
+    target_workspace_id=configs.raw_wh_workspace_id,
+    target_warehouse_id=configs.raw_wh_warehouse_id
 )
 
 
@@ -282,6 +296,98 @@ raw_warehouse = warehouse_utils(
 # Load configuration from warehouse table
 config_query = "SELECT * FROM config_flat_file_ingestion"
 config_df = config_warehouse.execute_query_to_dataframe(config_query)
+
+
+
+
+
+
+# METADATA ********************
+
+# META {
+# META   "language": "python"
+# META }
+# MARKDOWN ********************
+
+# Add markdown content here
+
+# ## 🐛 Debug Configuration Override
+
+# CELL ********************
+
+
+
+# Debug mode - override configurations with embedded test data
+debug_mode = True  # Set to False to use normal database configurations
+
+if debug_mode:
+    import pandas as pd
+    from datetime import datetime
+    
+    # Define debug configurations directly in the notebook
+    debug_configs = [
+        {
+            "config_id": "debug_test_001",
+            "config_name": "Debug Test - CSV File",
+            "source_file_path": "test_data/sample.csv",
+            "source_file_format": "csv",
+            "target_workspace_id": configs.raw_wh_workspace_id,
+            "target_datastore_id": configs.raw_wh_warehouse_id,
+            "target_datastore_type": "warehouse",
+            "target_schema_name": "debug",
+            "target_table_name": "debug_test_table",
+            "staging_table_name": None,
+            "file_delimiter": ",",
+            "has_header": True,
+            "encoding": "utf-8",
+            "date_format": "yyyy-MM-dd",
+            "timestamp_format": "yyyy-MM-dd HH:mm:ss",
+            "schema_inference": True,
+            "custom_schema_json": None,
+            "partition_columns": "",
+            "sort_columns": "",
+            "write_mode": "overwrite",
+            "merge_keys": "",
+            "data_validation_rules": None,
+            "error_handling_strategy": "log",
+            "execution_group": 1,
+            "active_yn": "Y",
+            "created_date": datetime.now().strftime("%Y-%m-%d"),
+            "modified_date": None,
+            "created_by": "debug_user",
+            "modified_by": None,
+            "quote_character": '"',
+            "escape_character": '"',
+            "multiline_values": True,
+            "ignore_leading_whitespace": False,
+            "ignore_trailing_whitespace": False,
+            "null_value": "",
+            "empty_value": "",
+            "comment_character": None,
+            "max_columns": 100,
+            "max_chars_per_column": 50000,
+            "import_pattern": "single_file",
+            "date_partition_format": None,
+            "table_relationship_group": None,
+            "batch_import_enabled": False,
+            "file_discovery_pattern": None,
+            "import_sequence_order": 1,
+            "date_range_start": None,
+            "date_range_end": None,
+            "skip_existing_dates": None,
+            "source_is_folder": False
+        }
+    ]
+    
+    # Override config_df with debug configurations
+    config_df = pd.DataFrame(debug_configs)
+    print("🐛 DEBUG MODE ACTIVE - Using embedded test configurations")
+    print(f"Debug configurations loaded: {len(config_df)} items")
+    
+    # Display debug configurations
+    display(config_df[["config_id", "config_name", "source_file_path", "target_table_name"]])
+else:
+    print("📋 Using standard database configurations")
 
 
 # Filter configurations
@@ -301,6 +407,72 @@ if config_df.empty:
     raise ValueError(f"No active configurations found for config_id: {config_id}, execution_group: {execution_group}")
 
 print(f"Found {len(config_df)} configurations to process")
+
+
+
+
+
+# METADATA ********************
+
+# META {
+# META   "language": "python"
+# META }
+# MARKDOWN ********************
+
+# Add markdown content here
+
+# ## 🧪 Create Debug Test Data
+
+# CELL ********************
+
+
+
+# Create test data files for debug mode
+if debug_mode:
+    import os
+    from pyspark.sql import Row
+    
+    # Create test data directory
+    test_data_dir = "Files/test_data"
+    
+    # Create sample CSV data
+    sample_data = [
+        Row(id=1, name="Test User 1", email="test1@example.com", created_date="2024-01-01"),
+        Row(id=2, name="Test User 2", email="test2@example.com", created_date="2024-01-02"),
+        Row(id=3, name="Test User 3", email="test3@example.com", created_date="2024-01-03"),
+    ]
+    
+    # Create DataFrame and write to test location
+    test_df = spark.createDataFrame(sample_data)
+    
+    
+    # For warehouse, write to staging location
+    staging_path = f"/lakehouse/default/{test_data_dir}/sample.csv"
+    test_df.coalesce(1).write.mode("overwrite").option("header", True).csv(staging_path)
+    print(f"✅ Created test CSV file at: {staging_path}")
+    
+    
+    # Display sample data
+    print("\n📄 Sample test data:")
+    test_df.show()
+    
+    # Update debug configurations to use multiple test files
+    if len(debug_configs) == 1:
+        # Add a second configuration for JSON file
+        debug_configs.append({
+            **debug_configs[0],  # Copy all fields from first config
+            "config_id": "debug_test_002",
+            "config_name": "Debug Test - JSON File",
+            "source_file_path": "test_data/products.json",
+            "source_file_format": "json",
+            "target_table_name": "debug_products_table",
+            "file_delimiter": None,
+            "has_header": None,
+        })
+        # Re-create config_df with updated configurations
+        config_df = pd.DataFrame(debug_configs)
+        print(f"\n🔄 Updated debug configurations: {len(config_df)} items")
+
 
 
 
@@ -419,6 +591,57 @@ if no_data_configs:
 print(f"\nExecution completed at: {datetime.now()}")
 
 
+
+
+
+# METADATA ********************
+
+# META {
+# META   "language": "python"
+# META }
+# MARKDOWN ********************
+
+# Add markdown content here
+
+# ## 🔍 Debug Results Verification
+
+# CELL ********************
+
+
+
+# Verify debug results if in debug mode
+if debug_mode and successful_configs:
+    print("🔍 Verifying debug ingestion results...\n")
+    
+    for result in successful_configs:
+        table_name = result['config'].target_table_name
+        schema_name = result['config'].target_schema_name
+        
+        try:
+            
+            # For warehouse, use SQL query
+            query = f"SELECT COUNT(*) as count FROM {schema_name}.{table_name}"
+            result_df = spark.sql(query)
+            record_count = result_df.collect()[0]['count']
+            
+            print(f"✅ Table {schema_name}.{table_name}:")
+            print(f"   - Records: {record_count}")
+            
+            # Show sample data
+            sample_query = f"SELECT * FROM {schema_name}.{table_name} LIMIT 5"
+            sample_df = spark.sql(sample_query)
+            print(f"   - Sample data:")
+            sample_df.show(truncate=False)
+            
+            
+        except Exception as e:
+            print(f"❌ Error verifying table {schema_name}.{table_name}: {str(e)}")
+    
+    print("\n🎯 Debug verification complete!")
+    print("💡 To disable debug mode, set 'debug_mode = False' in the Debug Configuration Override cell")
+
+
+
 # METADATA ********************
 
 # META {
@@ -441,6 +664,6 @@ notebookutils.mssparkutils.notebook.exit("success")
 
 # META {
 # META   "language": "python",
-# META   "language_group": "synapse_python"
+# META   "language_group": "jupyter_python"
 # META }
 

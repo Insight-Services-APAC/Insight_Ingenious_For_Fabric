@@ -9,7 +9,7 @@ from rich.console import Console
 
 from ingen_fab.cli_utils.console_styles import ConsoleStyles
 from ingen_fab.fabric_api.utils import FabricApiUtils
-from ingen_fab.utils.path_utils import PathUtils
+from ingen_fab.python_libs.common.utils.path_utils import PathUtils
 
 
 def init_solution(project_name: str | None, path: Path):
@@ -294,14 +294,40 @@ def init_workspace(
                 console,
                 f"  {project_path}/fabric_workspace_items/config/var_lib.VariableLibrary/valueSets/{environment}.json",
             )
-            ConsoleStyles.print_info(console, "\nWorkspace IDs to configure:")
-            ConsoleStyles.print_info(
-                console, "  - fabric_deployment_workspace_id (already set)"
+            # Dynamically find all workspace ID variables to show to user
+            workspace_id_vars = []
+            valueset_path = (
+                project_path
+                / "fabric_workspace_items"
+                / "config"
+                / "var_lib.VariableLibrary"
+                / "valueSets"
+                / f"{environment}.json"
             )
-            ConsoleStyles.print_info(console, "  - config_workspace_id")
-            ConsoleStyles.print_info(console, "  - config_wh_workspace_id")
-            ConsoleStyles.print_info(console, "  - raw_workspace_id")
-            ConsoleStyles.print_info(console, "  - edw_workspace_id")
+            try:
+                with open(valueset_path, "r", encoding="utf-8") as f:
+                    valueset_data = json.load(f)
+                if "variableOverrides" in valueset_data:
+                    for override in valueset_data["variableOverrides"]:
+                        var_name = override.get("name", "")
+                        if var_name.endswith("_workspace_id"):
+                            workspace_id_vars.append(var_name)
+            except Exception:
+                # Fall back to common workspace IDs if we can't read the file
+                workspace_id_vars = [
+                    "fabric_deployment_workspace_id",
+                    "config_workspace_id",
+                    "config_wh_workspace_id", 
+                    "raw_workspace_id",
+                    "edw_workspace_id"
+                ]
+            
+            ConsoleStyles.print_info(console, "\nWorkspace IDs to configure:")
+            for var in sorted(workspace_id_vars):
+                if var == "fabric_deployment_workspace_id":
+                    ConsoleStyles.print_info(console, f"  - {var} (already set)")
+                else:
+                    ConsoleStyles.print_info(console, f"  - {var}")
 
             # Still update just the deployment workspace ID
             _update_valueset_workspace_id(
@@ -428,23 +454,15 @@ def _update_all_workspace_ids(
         with open(valueset_path, "r", encoding="utf-8") as f:
             valueset_data = json.load(f)
 
-        # List of all workspace ID variables to update
-        workspace_id_vars = [
-            "fabric_deployment_workspace_id",
-            "config_workspace_id",
-            "config_wh_workspace_id",
-            "raw_workspace_id",
-            "edw_workspace_id",
-        ]
-
         # Update each workspace ID in variableOverrides
         if "variableOverrides" in valueset_data:
             variable_overrides = valueset_data["variableOverrides"]
             updated_vars = []
-
+            
+            # Dynamically find and update all variables ending with _workspace_id
             for override in variable_overrides:
-                var_name = override.get("name")
-                if var_name in workspace_id_vars:
+                var_name = override.get("name", "")
+                if var_name.endswith("_workspace_id"):
                     old_value = override.get("value")
                     override["value"] = workspace_id
                     updated_vars.append(var_name)
@@ -459,12 +477,18 @@ def _update_all_workspace_ids(
                             console, f"  ✓ {var_name} already set to: {workspace_id}"
                         )
 
-            # Check if any expected variables were missing
-            missing_vars = set(workspace_id_vars) - set(updated_vars)
-            if missing_vars:
+            # Report how many workspace ID variables were updated
+            if updated_vars:
+                ConsoleStyles.print_info(
+                    console,
+                    f"\n  Updated {len(updated_vars)} workspace ID variable(s):",
+                )
+                for var in sorted(updated_vars):
+                    ConsoleStyles.print_info(console, f"    - {var}")
+            else:
                 ConsoleStyles.print_warning(
                     console,
-                    f"  ⚠️  Some workspace ID variables were not found: {', '.join(missing_vars)}",
+                    "  ⚠️  No variables ending with '_workspace_id' were found",
                 )
 
             # Write updated configuration back
@@ -541,6 +565,7 @@ def _check_and_update_artifacts(
             console,
             f"  Found {len(lakehouses)} lakehouses and {len(warehouses)} warehouses",
         )
+        
 
         # Track what needs to be deployed
         missing_artifacts = []
@@ -564,15 +589,23 @@ def _check_and_update_artifacts(
                         f"  ✓ Updated config_workspace_name: {old_name} → {workspace_name}",
                     )
 
-            # Check and update lakehouse IDs
-            lakehouse_mappings = [
-                ("config_lakehouse_name", "config_lakehouse_id"),
-                ("sample_lakehouse_name", "sample_lakehouse_id"),
-                ("edw_lakehouse_name", "edw_lakehouse_id"),
-            ]
-
-            for name_var, id_var in lakehouse_mappings:
-                if name_var in var_map and id_var in var_map:
+            # Dynamically discover and update lakehouse IDs
+            # Find all variables ending with _lakehouse_id and their corresponding _lakehouse_name
+            lakehouse_id_vars = [var_name for var_name in var_map.keys() if var_name.endswith("_lakehouse_id")]
+            
+            if lakehouse_id_vars:
+                ConsoleStyles.print_info(
+                    console,
+                    f"\n  Checking {len(lakehouse_id_vars)} lakehouse variables dynamically:",
+                )
+                for var in sorted(lakehouse_id_vars):
+                    ConsoleStyles.print_info(console, f"    - {var}")
+            
+            for id_var in lakehouse_id_vars:
+                # Derive the corresponding name variable
+                name_var = id_var.replace("_lakehouse_id", "_lakehouse_name")
+                
+                if name_var in var_map:
                     lakehouse_name = var_map[name_var]["value"]
                     # Skip empty lakehouse names (optional lakehouses)
                     if not lakehouse_name:
@@ -591,16 +624,28 @@ def _check_and_update_artifacts(
                             )
                     else:
                         missing_artifacts.append(f"Lakehouse '{lakehouse_name}'")
+                else:
+                    ConsoleStyles.print_warning(
+                        console, f"  ⚠️  Found {id_var} but no corresponding {name_var}"
+                    )
 
-            # Check and update warehouse IDs
-            warehouse_mappings = [
-                ("config_wh_warehouse_name", "config_wh_warehouse_id"),
-                ("sample_warehouse_name", "sample_warehouse_id"),
-                ("edw_warehouse_name", "edw_warehouse_id"),
-            ]
-
-            for name_var, id_var in warehouse_mappings:
-                if name_var in var_map and id_var in var_map:
+            # Dynamically discover and update warehouse IDs
+            # Find all variables ending with _warehouse_id and their corresponding _warehouse_name
+            warehouse_id_vars = [var_name for var_name in var_map.keys() if var_name.endswith("_warehouse_id")]
+            
+            if warehouse_id_vars:
+                ConsoleStyles.print_info(
+                    console,
+                    f"\n  Checking {len(warehouse_id_vars)} warehouse variables dynamically:",
+                )
+                for var in sorted(warehouse_id_vars):
+                    ConsoleStyles.print_info(console, f"    - {var}")
+            
+            for id_var in warehouse_id_vars:
+                # Derive the corresponding name variable
+                name_var = id_var.replace("_warehouse_id", "_warehouse_name")
+                
+                if name_var in var_map:
                     warehouse_name = var_map[name_var]["value"]
                     # Skip empty warehouse names (optional warehouses)
                     if not warehouse_name:
@@ -619,6 +664,10 @@ def _check_and_update_artifacts(
                             )
                     else:
                         missing_artifacts.append(f"Warehouse '{warehouse_name}'")
+                else:
+                    ConsoleStyles.print_warning(
+                        console, f"  ⚠️  Found {id_var} but no corresponding {name_var}"
+                    )
 
             # Write updated configuration back if any changes were made
             if updated_artifacts:

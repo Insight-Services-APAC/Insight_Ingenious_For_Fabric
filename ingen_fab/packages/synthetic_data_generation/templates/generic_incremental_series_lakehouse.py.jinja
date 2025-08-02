@@ -117,7 +117,8 @@ target_workspace_id = get_config_value("config_workspace_id")
 
 lh_utils = lakehouse_utils(
     target_workspace_id=target_workspace_id,
-    target_lakehouse_id=target_lakehouse_id
+    target_lakehouse_id=target_lakehouse_id,
+    spark=spark
 )
 
 # Initialize PySpark synthetic data generator
@@ -364,3 +365,8 @@ if 'notebookutils' in globals() and hasattr(notebookutils, 'log'):
     notebookutils.log(f"Incremental series generation completed: {dataset_id}, {total_rows_generated:,} rows, {execution_time:.1f}s")
 
 print(f"\n🎉 Incremental synthetic data series generation completed successfully!")
+
+
+{{ macros.exit_notebook("success") }}
+
+{% include 'shared/notebook/cells/footer.py.jinja' %}

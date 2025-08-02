@@ -1,18 +1,9 @@
 {%- import 'shared/notebook/macros/notebook_macros.py.jinja' as macros -%}
-# Fabric notebook source
-
-# METADATA ********************
-
-# META {
-# META   "kernel_info": {
-# META     "name": "{{ kernel_name }}",
-# META     "display_name": "{{ kernel_display_name }}"
-# META   },
-# META   "language_info": {
-# META     "name": "python",
-# META     "language_group": "{{ language_group }}"
-# META   }
-# META }
+{% if language_group == "synapse_pyspark" %}
+{%- include "shared/notebook/headers/pyspark.py.jinja" %}
+{% else %}
+{%- include "shared/notebook/headers/python.py.jinja" %}
+{% endif %}
 
 {{ macros.parameters_cell() }}
 
@@ -75,6 +66,86 @@ print(f"Environment: {environment}")
 # Configuration loading will be defined in child templates
 {% endblock %}
 
+{% if add_debug_cells %}
+{% if datastore_type == "lakehouse" %}
+{{ macros.pyspark_cell_with_heading("## 🐛 Debug Configuration Override") }}
+{% else %}
+{{ macros.python_cell_with_heading("## 🐛 Debug Configuration Override") }}
+{% endif %}
+
+# Debug mode - override configurations with embedded test data
+debug_mode = True  # Set to False to use normal database configurations
+
+if debug_mode:
+    import pandas as pd
+    from datetime import datetime
+    
+    # Define debug configurations directly in the notebook
+    debug_configs = [
+        {
+            "config_id": "debug_test_001",
+            "config_name": "Debug Test - CSV File",
+            "source_file_path": "test_data/sample.csv",
+            "source_file_format": "csv",
+            "target_workspace_id": configs.{% if datastore_type == "lakehouse" %}raw_lh_workspace_id{% else %}raw_wh_workspace_id{% endif %},
+            "target_datastore_id": configs.{% if datastore_type == "lakehouse" %}raw_lh_lakehouse_id{% else %}raw_wh_warehouse_id{% endif %},
+            "target_datastore_type": "{{ datastore_type }}",
+            "target_schema_name": "debug",
+            "target_table_name": "debug_test_table",
+            "staging_table_name": None,
+            "file_delimiter": ",",
+            "has_header": True,
+            "encoding": "utf-8",
+            "date_format": "yyyy-MM-dd",
+            "timestamp_format": "yyyy-MM-dd HH:mm:ss",
+            "schema_inference": True,
+            "custom_schema_json": None,
+            "partition_columns": "",
+            "sort_columns": "",
+            "write_mode": "overwrite",
+            "merge_keys": "",
+            "data_validation_rules": None,
+            "error_handling_strategy": "log",
+            "execution_group": 1,
+            "active_yn": "Y",
+            "created_date": datetime.now().strftime("%Y-%m-%d"),
+            "modified_date": None,
+            "created_by": "debug_user",
+            "modified_by": None,
+            "quote_character": '"',
+            "escape_character": '"',
+            "multiline_values": True,
+            "ignore_leading_whitespace": False,
+            "ignore_trailing_whitespace": False,
+            "null_value": "",
+            "empty_value": "",
+            "comment_character": None,
+            "max_columns": 100,
+            "max_chars_per_column": 50000,
+            "import_pattern": "single_file",
+            "date_partition_format": None,
+            "table_relationship_group": None,
+            "batch_import_enabled": False,
+            "file_discovery_pattern": None,
+            "import_sequence_order": 1,
+            "date_range_start": None,
+            "date_range_end": None,
+            "skip_existing_dates": None,
+            "source_is_folder": False
+        }
+    ]
+    
+    # Override config_df with debug configurations
+    config_df = pd.DataFrame(debug_configs)
+    print("🐛 DEBUG MODE ACTIVE - Using embedded test configurations")
+    print(f"Debug configurations loaded: {len(config_df)} items")
+    
+    # Display debug configurations
+    display(config_df[["config_id", "config_name", "source_file_path", "target_table_name"]])
+else:
+    print("📋 Using standard database configurations")
+{% endif %}
+
 # Filter configurations
 if config_id:
     config_df = config_df[config_df["config_id"] == config_id]
@@ -92,6 +163,83 @@ if config_df.empty:
     raise ValueError(f"No active configurations found for config_id: {config_id}, execution_group: {execution_group}")
 
 print(f"Found {len(config_df)} configurations to process")
+
+{% if add_debug_cells %}
+{% if datastore_type == "lakehouse" %}
+{{ macros.pyspark_cell_with_heading("## 🧪 Create Debug Test Data") }}
+{% else %}
+{{ macros.python_cell_with_heading("## 🧪 Create Debug Test Data") }}
+{% endif %}
+
+# Create test data files for debug mode
+if debug_mode:
+    import os
+    from pyspark.sql import Row
+    
+    # Create test data directory
+    test_data_dir = "test_data"
+    
+    # Create sample CSV data
+    sample_data = [
+        Row(id=1, name="Test User 1", email="test1@example.com", created_date="2024-01-01"),
+        Row(id=2, name="Test User 2", email="test2@example.com", created_date="2024-01-02"),
+        Row(id=3, name="Test User 3", email="test3@example.com", created_date="2024-01-03"),
+    ]
+    
+    # Create DataFrame and write to test location
+    test_df = spark.createDataFrame(sample_data)
+    
+    {% if datastore_type == "lakehouse" %}
+    # For lakehouse, write to the raw lakehouse Files location
+    raw_lakehouse.write_file(
+        df=test_df,
+        file_path=test_data_dir + "/sample.csv",
+        file_format="csv",
+        options={"header": True}
+    )
+    print(f"✅ Created test CSV file at: {test_data_dir}/sample.csv")
+    
+    # Also create a JSON test file
+    json_data = [
+        Row(product_id=101, product_name="Widget A", price=19.99, category="Electronics"),
+        Row(product_id=102, product_name="Widget B", price=29.99, category="Electronics"),
+        Row(product_id=103, product_name="Gadget X", price=39.99, category="Accessories"),
+    ]
+    json_df = spark.createDataFrame(json_data)
+    raw_lakehouse.write_file(
+        df=json_df,
+        file_path=test_data_dir + "/products.json",
+        file_format="json"
+    )
+    print(f"✅ Created test JSON file at: {test_data_dir}/products.json")
+    {% else %}
+    # For warehouse, write to staging location
+    staging_path = f"/lakehouse/default/{test_data_dir}/sample.csv"
+    test_df.coalesce(1).write.mode("overwrite").option("header", True).csv(staging_path)
+    print(f"✅ Created test CSV file at: {staging_path}")
+    {% endif %}
+    
+    # Display sample data
+    print("\n📄 Sample test data:")
+    test_df.show()
+    
+    # Update debug configurations to use multiple test files
+    if len(debug_configs) == 1:
+        # Add a second configuration for JSON file
+        debug_configs.append({
+            **debug_configs[0],  # Copy all fields from first config
+            "config_id": "debug_test_002",
+            "config_name": "Debug Test - JSON File",
+            "source_file_path": "test_data/products.json",
+            "source_file_format": "json",
+            "target_table_name": "debug_products_table",
+            "file_delimiter": None,
+            "has_header": None,
+        })
+        # Re-create config_df with updated configurations
+        config_df = pd.DataFrame(debug_configs)
+        print(f"\n🔄 Updated debug configurations: {len(config_df)} items")
+{% endif %}
 
 {% if datastore_type == "lakehouse" %}
 {{ macros.pyspark_cell_with_heading("## 🚀 Initialize Modular Services") }}

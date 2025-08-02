@@ -73,14 +73,16 @@ target_lakehouse_config_prefix = "EDW"
 configs: ConfigsObject = get_configs_as_object()
 config_lakehouse = lakehouse_utils(
     target_workspace_id=configs.edw_workspace_id,
-    target_lakehouse_id=configs.edw_lakehouse_id
+    target_lakehouse_id=configs.edw_lakehouse_id,
+    spark=spark
 )
 
 
 
 target_lakehouse = lakehouse_utils(
     target_workspace_id=configs.get_attribute(f"{target_lakehouse_config_prefix.lower()}_workspace_id"),
-    target_lakehouse_id=configs.get_attribute(f"{target_lakehouse_config_prefix.lower()}_lakehouse_id")
+    target_lakehouse_id=configs.get_attribute(f"{target_lakehouse_config_prefix.lower()}_lakehouse_id"),
+    spark=spark
 )
 
 du = ddl_utils(

@@ -7,7 +7,7 @@ This module provides validation for runtime parameters used in generic synthetic
 import json
 from datetime import datetime, date, timedelta
 from typing import Dict, Any, List, Optional, Union, Tuple
-from .synthetic_data_dataset_configs import DatasetConfigurationRepository
+from ingen_fab.python_libs.common.synthetic_data_dataset_configs import DatasetConfigurationRepository
 
 
 class NotebookParameterValidator:

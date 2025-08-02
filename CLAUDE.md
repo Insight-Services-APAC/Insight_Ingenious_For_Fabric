@@ -116,7 +116,10 @@ Python libraries follow interface-based design:
 - PySpark implementations in `python_libs/pyspark/`
 - Common utilities in `python_libs/common/`
 
-***IMPORTANT**: never use standard spark or file operations directly. Always use the provided utility functions and abstractions.
+### Abstraction Libraries and their Usage
+- ***IMPORTANT**: never use standard spark or file operations directly. Always use the provided utility functions and abstractions contained in `python_libs/` to ensure compatibility across environments.*
+- NEVER use relative imports in the `python_libs/` directory. Always use absolute imports to ensure compatibility with both PySpark and CPython environments.
+
 
 ## Testing Strategy
 
