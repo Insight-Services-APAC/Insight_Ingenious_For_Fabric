@@ -4,11 +4,17 @@ Synthetic Data Generation Package Compiler
 This module provides the main compiler for the synthetic data generation package,
 extending BaseNotebookCompiler to generate notebooks for creating synthetic datasets.
 
+MIGRATION NOTICE:
+This module has been redesigned with a unified architecture. The old API is maintained
+for backward compatibility but will be removed in a future version. Please migrate
+to the new UnifiedSyntheticDataGenerator for new development.
+
 Enhanced with support for:
 - Runtime configurable parameters
 - Flexible file path patterns
 - Enhanced logging capabilities
 - New template system
+- Unified command interface
 """
 
 import json

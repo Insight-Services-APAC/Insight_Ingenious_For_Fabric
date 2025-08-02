@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 import os
 from pathlib import Path
 from typing import Optional
@@ -463,6 +464,144 @@ package_app.add_typer(
 )
 
 
+# ===== NEW UNIFIED COMMANDS =====
+
+@synthetic_data_app.command("generate")
+def synthetic_data_unified_generate(
+    ctx: typer.Context,
+    config: Annotated[str, typer.Argument(help="Dataset ID or template path")],
+    mode: Annotated[str, typer.Option("--mode", "-m", help="Generation mode: single, incremental, or series")] = "single",
+    parameters: Annotated[str, typer.Option("--parameters", "-p", help="JSON string of runtime parameters")] = None,
+    output_path: Annotated[str, typer.Option("--output-path", "-o", help="Optional output path override")] = None,
+    dry_run: Annotated[bool, typer.Option("--dry-run", help="Validate parameters without generating files")] = False,
+    target_environment: Annotated[str, typer.Option("--target-environment", "-e", help="Target environment")] = "lakehouse",
+):
+    """Unified synthetic data generation command for all modes."""
+    from ingen_fab.packages.synthetic_data_generation.unified_commands import (
+        UnifiedSyntheticDataGenerator, GenerationMode
+    )
+    
+    # Parse parameters if provided
+    params_dict = {}
+    if parameters:
+        try:
+            params_dict = json.loads(parameters)
+        except json.JSONDecodeError as e:
+            console.print(f"[red]Error parsing parameters JSON: {e}[/red]")
+            raise typer.Exit(code=1)
+    
+    # Validate mode
+    try:
+        mode_enum = GenerationMode(mode)
+    except ValueError:
+        console.print(f"[red]Error: Invalid mode '{mode}'. Must be one of: single, incremental, series[/red]")
+        raise typer.Exit(code=1)
+    
+    # Initialize generator
+    generator = UnifiedSyntheticDataGenerator(
+        fabric_workspace_repo_dir=ctx.obj["fabric_workspace_repo_dir"],
+        fabric_environment=ctx.obj["fabric_environment"]
+    )
+    
+    # Generate
+    result = generator.generate(
+        config=config,
+        mode=mode_enum,
+        parameters=params_dict,
+        output_path=output_path,
+        dry_run=dry_run,
+        target_environment=target_environment
+    )
+    
+    if result["success"]:
+        console.print(f"[green]✅ Generation successful![/green]")
+        console.print(f"Mode: {result['mode']}")
+        console.print(f"Config: {result['config']}")
+        if "result" in result:
+            console.print(f"Output: {result['result']}")
+        if dry_run:
+            console.print("[yellow]This was a dry run - no files were generated[/yellow]")
+    else:
+        console.print(f"[red]❌ Generation failed![/red]")
+        for error in result.get("errors", []):
+            console.print(f"[red]  • {error}[/red]")
+        raise typer.Exit(code=1)
+
+
+@synthetic_data_app.command("list")
+def synthetic_data_unified_list(
+    list_type: Annotated[str, typer.Option("--type", "-t", help="Type to list: datasets, templates, or all")] = "all",
+    output_format: Annotated[str, typer.Option("--format", "-f", help="Output format: table or json")] = "table",
+):
+    """List available datasets and templates."""
+    from ingen_fab.packages.synthetic_data_generation.unified_commands import (
+        UnifiedSyntheticDataGenerator, ListType, format_list_output
+    )
+    
+    # Validate type
+    try:
+        list_type_enum = ListType(list_type)
+    except ValueError:
+        console.print(f"[red]Error: Invalid type '{list_type}'. Must be one of: datasets, templates, all[/red]")
+        raise typer.Exit(code=1)
+    
+    # Initialize generator (no context needed for listing)
+    generator = UnifiedSyntheticDataGenerator()
+    
+    # Get items
+    items = generator.list_items(list_type_enum)
+    
+    # Format output
+    format_list_output(items, output_format)
+
+
+@synthetic_data_app.command("compile-unified")
+def synthetic_data_unified_compile(
+    ctx: typer.Context,
+    template: Annotated[str, typer.Argument(help="Template ID or path")],
+    runtime_config: Annotated[str, typer.Option("--runtime-config", "-c", help="JSON runtime configuration")] = None,
+    output_format: Annotated[str, typer.Option("--output-format", "-f", help="Output format: notebook, ddl, or all")] = "all",
+    target_environment: Annotated[str, typer.Option("--target-environment", "-e", help="Target environment")] = "lakehouse",
+):
+    """Compile synthetic data generation artifacts with unified approach."""
+    from ingen_fab.packages.synthetic_data_generation.unified_commands import UnifiedSyntheticDataGenerator
+    
+    # Parse runtime config if provided
+    config_dict = {}
+    if runtime_config:
+        try:
+            config_dict = json.loads(runtime_config)
+        except json.JSONDecodeError as e:
+            console.print(f"[red]Error parsing runtime config JSON: {e}[/red]")
+            raise typer.Exit(code=1)
+    
+    # Initialize generator
+    generator = UnifiedSyntheticDataGenerator(
+        fabric_workspace_repo_dir=ctx.obj["fabric_workspace_repo_dir"],
+        fabric_environment=ctx.obj["fabric_environment"]
+    )
+    
+    # Compile
+    result = generator.compile(
+        template=template,
+        runtime_config=config_dict,
+        output_format=output_format,
+        target_environment=target_environment
+    )
+    
+    if result["success"]:
+        console.print(f"[green]✅ Compilation successful![/green]")
+        for item_type, item_path in result["compiled_items"].items():
+            console.print(f"[dim]  • {item_type}: {item_path}[/dim]")
+    else:
+        console.print(f"[red]❌ Compilation failed![/red]")
+        for error in result.get("errors", []):
+            console.print(f"[red]  • {error}[/red]")
+        raise typer.Exit(code=1)
+
+
+# ===== DEPRECATED COMMANDS (with warnings) =====
+
 @synthetic_data_app.command("compile")
 def synthetic_data_app_compile(
     ctx: typer.Context,
@@ -477,7 +616,20 @@ def synthetic_data_app_compile(
     config_template: Annotated[str, typer.Option("--config-template", "-t", help="Configuration template ID for enhanced mode")] = None,
     path_pattern: Annotated[str, typer.Option("--path-pattern", "-p", help="File path pattern (nested_daily, flat_with_date, hive_partitioned, etc.)")] = None,
 ):
-    """Compile synthetic data generation notebooks and DDL scripts."""
+    """[DEPRECATED] Compile synthetic data generation notebooks and DDL scripts.
+    
+    This command is deprecated. Please use the unified commands instead:
+    - 'synthetic-data generate' for generation
+    - 'synthetic-data compile-unified' for compilation
+    - 'synthetic-data list' for listing datasets and templates
+    """
+    console.print("[yellow]⚠️  WARNING: This command is deprecated![/yellow]")
+    console.print("[yellow]Please use the new unified commands:[/yellow]")
+    console.print("  • synthetic-data generate <dataset-id> [OPTIONS]")
+    console.print("  • synthetic-data compile-unified <template> [OPTIONS]")
+    console.print("  • synthetic-data list [OPTIONS]")
+    console.print()
+    
     from ingen_fab.packages.synthetic_data_generation.synthetic_data_generation import SyntheticDataGenerationCompiler
     
     # Validate parameters
@@ -675,7 +827,14 @@ def synthetic_data_app_compile(
 
 @synthetic_data_app.command("list-datasets")
 def synthetic_data_list_datasets():
-    """List available predefined dataset configurations."""
+    """[DEPRECATED] List available predefined dataset configurations.
+    
+    This command is deprecated. Please use 'synthetic-data list --type datasets' instead.
+    """
+    console.print("[yellow]⚠️  WARNING: This command is deprecated![/yellow]")
+    console.print("[yellow]Please use: synthetic-data list --type datasets[/yellow]")
+    console.print()
+    
     from ingen_fab.packages.synthetic_data_generation.synthetic_data_generation import SyntheticDataGenerationCompiler
     
     compiler = SyntheticDataGenerationCompiler()
@@ -703,7 +862,14 @@ def synthetic_data_list_datasets():
 
 @synthetic_data_app.command("list-enhanced")
 def synthetic_data_list_enhanced():
-    """List available enhanced configuration templates and file path patterns."""
+    """[DEPRECATED] List available enhanced configuration templates and file path patterns.
+    
+    This command is deprecated. Please use 'synthetic-data list --type templates' instead.
+    """
+    console.print("[yellow]⚠️  WARNING: This command is deprecated![/yellow]")
+    console.print("[yellow]Please use: synthetic-data list --type templates[/yellow]")
+    console.print()
+    
     from ingen_fab.packages.synthetic_data_generation.synthetic_data_generation import SyntheticDataGenerationCompiler
     
     compiler = SyntheticDataGenerationCompiler()
@@ -749,8 +915,8 @@ def synthetic_data_list_enhanced():
         console.print("[dim]Make sure all dependencies are installed and accessible[/dim]")
 
 
-@synthetic_data_app.command("generate")
-def synthetic_data_generate(
+@synthetic_data_app.command("generate-legacy")
+def synthetic_data_generate_legacy(
     ctx: typer.Context,
     dataset_id: Annotated[str, typer.Argument(help="Dataset ID to generate")],
     target_rows: Annotated[int, typer.Option("--target-rows", "-r", help="Number of rows to generate")] = 10000,
@@ -760,7 +926,14 @@ def synthetic_data_generate(
     execute_notebook: Annotated[bool, typer.Option("--execute", help="Execute the notebook after compilation")] = False,
     output_mode: Annotated[str, typer.Option("--output-mode", "-o", help="Output mode (table, parquet, or csv)")] = "table",
 ):
-    """Generate synthetic data for a specific dataset configuration."""
+    """[DEPRECATED] Generate synthetic data for a specific dataset configuration.
+    
+    This command is deprecated. Please use 'synthetic-data generate' instead.
+    """
+    console.print("[yellow]⚠️  WARNING: This command is deprecated![/yellow]")
+    console.print("[yellow]Please use: synthetic-data generate <dataset-id> --mode single[/yellow]")
+    console.print()
+    
     console.print(f"[blue]🎲 Generating synthetic data for dataset: {dataset_id}[/blue]")
     console.print(f"📊 Target rows: {target_rows:,}")
     console.print(f"🏗️ Target environment: {target_environment}")
@@ -833,7 +1006,14 @@ def synthetic_data_generate_incremental(
     state_management: Annotated[bool, typer.Option("--state-management", help="Enable state management for consistent IDs")] = True,
     execute_notebook: Annotated[bool, typer.Option("--execute", help="Execute the notebook after compilation")] = False,
 ):
-    """Generate incremental synthetic data for a specific date."""
+    """[DEPRECATED] Generate incremental synthetic data for a specific date.
+    
+    This command is deprecated. Please use 'synthetic-data generate' with mode=incremental instead.
+    """
+    console.print("[yellow]⚠️  WARNING: This command is deprecated![/yellow]")
+    console.print("[yellow]Please use: synthetic-data generate <dataset-id> --mode incremental[/yellow]")
+    console.print()
+    
     from datetime import datetime, date as dt_date
     from ingen_fab.packages.synthetic_data_generation.incremental_data_generation import IncrementalSyntheticDataGenerationCompiler
     
@@ -919,7 +1099,14 @@ def synthetic_data_generate_series(
     ignore_state: Annotated[bool, typer.Option("--ignore-state", help="Ignore existing state and regenerate all files")] = False,
     execute_notebook: Annotated[bool, typer.Option("--execute", help="Execute the notebook after compilation")] = False,
 ):
-    """Generate a series of incremental synthetic data for a date range."""
+    """[DEPRECATED] Generate a series of incremental synthetic data for a date range.
+    
+    This command is deprecated. Please use 'synthetic-data generate' with mode=series instead.
+    """
+    console.print("[yellow]⚠️  WARNING: This command is deprecated![/yellow]")
+    console.print("[yellow]Please use: synthetic-data generate <dataset-id> --mode series[/yellow]")
+    console.print()
+    
     from datetime import datetime, date as dt_date, timedelta
     from ingen_fab.packages.synthetic_data_generation.incremental_data_generation import IncrementalSyntheticDataGenerationCompiler
     
@@ -1019,7 +1206,14 @@ def synthetic_data_generate_series(
 
 @synthetic_data_app.command("list-incremental-datasets")
 def synthetic_data_list_incremental_datasets():
-    """List available incremental dataset configurations."""
+    """[DEPRECATED] List available incremental dataset configurations.
+    
+    This command is deprecated. Please use 'synthetic-data list' instead.
+    """
+    console.print("[yellow]⚠️  WARNING: This command is deprecated![/yellow]")
+    console.print("[yellow]Please use: synthetic-data list --type datasets[/yellow]")
+    console.print()
+    
     from ingen_fab.packages.synthetic_data_generation.incremental_data_generation import IncrementalSyntheticDataGenerationCompiler
     
     compiler = IncrementalSyntheticDataGenerationCompiler()
@@ -1339,7 +1533,14 @@ def compile_generic_templates(
     force_recompile: Annotated[bool, typer.Option("--force", help="Force recompilation even if templates exist")] = False,
     template_type: Annotated[str, typer.Option("--template-type", help="Template type (all, series, single)")] = "all"
 ):
-    """Compile generic runtime-parameterized templates."""
+    """[DEPRECATED] Compile generic runtime-parameterized templates.
+    
+    This command is deprecated. Please use 'synthetic-data compile-unified' instead.
+    """
+    console.print("[yellow]⚠️  WARNING: This command is deprecated![/yellow]")
+    console.print("[yellow]Please use: synthetic-data compile-unified generic_<template-type>_<environment>[/yellow]")
+    console.print()
+    
     from .packages.synthetic_data_generation.synthetic_data_generation import SyntheticDataGenerationCompiler
     from .python_libs.common.notebook_parameter_validator import SmartDefaultProvider
     
@@ -1460,7 +1661,14 @@ def execute_with_parameters(
     validate_only: Annotated[bool, typer.Option("--validate-only", help="Only validate parameters, don't execute")] = False,
     show_recommendations: Annotated[bool, typer.Option("--show-recommendations", help="Show parameter recommendations")] = False
 ):
-    """Execute a generic notebook with runtime parameters."""
+    """[DEPRECATED] Execute a generic notebook with runtime parameters.
+    
+    This command is deprecated. Please use 'synthetic-data generate' with appropriate parameters instead.
+    """
+    console.print("[yellow]⚠️  WARNING: This command is deprecated![/yellow]")
+    console.print("[yellow]Please use: synthetic-data generate <dataset-id> --parameters '{...}'[/yellow]")
+    console.print()
+    
     from .python_libs.common.notebook_parameter_validator import NotebookParameterValidator, SmartDefaultProvider
     import json
     
@@ -1585,7 +1793,14 @@ def list_generic_templates(
     ctx: typer.Context,
     target_environment: Annotated[str, typer.Option("--target-environment", "-t", help="Filter by target environment")] = None
 ):
-    """List available generic templates."""
+    """[DEPRECATED] List available generic templates.
+    
+    This command is deprecated. Please use 'synthetic-data list --type templates' instead.
+    """
+    console.print("[yellow]⚠️  WARNING: This command is deprecated![/yellow]")
+    console.print("[yellow]Please use: synthetic-data list --type templates[/yellow]")
+    console.print()
+    
     console.print("📄 Available Generic Templates:")
     console.print("=" * 80)
     
