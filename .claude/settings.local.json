@@ -44,7 +44,10 @@
       "Bash(export POSTGRES_PASSWORD=\"password\")",
       "Bash(export extract_name=\"SAMPLE_CUSTOMERS_DAILY\")",
       "Bash(bash:*)",
-      "Bash(ruff format:*)"
+      "Bash(ruff format:*)",
+      "Bash(FABRIC_ENVIRONMENT=local FABRIC_WORKSPACE_REPO_DIR=sample_project python -m ingen_fab.cli package synthetic-data list --type datasets)",
+      "Bash(export FABRIC_ENVIRONMENT=local)",
+      "Bash(export FABRIC_WORKSPACE_REPO_DIR=sample_project)"
     ],
     "deny": []
   }
