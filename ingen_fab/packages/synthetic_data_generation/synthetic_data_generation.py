@@ -144,7 +144,9 @@ class SyntheticDataGenerationCompiler(BaseNotebookCompiler):
         runtime_overrides: Dict[str, Any] = None
     ) -> Path:
         """
-        Compile an enhanced synthetic data generation notebook with runtime configuration support.
+        [DEPRECATED] Compile an enhanced synthetic data generation notebook with runtime configuration support.
+        
+        This method is deprecated. Please use the UnifiedSyntheticDataGenerator instead.
         
         Args:
             dataset_config: Enhanced dataset configuration or legacy dict
@@ -157,6 +159,12 @@ class SyntheticDataGenerationCompiler(BaseNotebookCompiler):
         Returns:
             Path to the generated notebook
         """
+        import warnings
+        warnings.warn(
+            "compile_enhanced_synthetic_data_notebook is deprecated. Use UnifiedSyntheticDataGenerator instead.",
+            DeprecationWarning,
+            stacklevel=2
+        )
         if not ENHANCED_CONFIG_AVAILABLE:
             # Fall back to legacy method
             if isinstance(dataset_config, dict):
@@ -240,7 +248,9 @@ class SyntheticDataGenerationCompiler(BaseNotebookCompiler):
         output_subdir: str = None
     ) -> Path:
         """
-        Compile a notebook using a predefined configuration template.
+        [DEPRECATED] Compile a notebook using a predefined configuration template.
+        
+        This method is deprecated. Please use the UnifiedSyntheticDataGenerator instead.
         
         Args:
             config_template_id: ID of the predefined configuration template
@@ -252,6 +262,12 @@ class SyntheticDataGenerationCompiler(BaseNotebookCompiler):
         Returns:
             Path to the generated notebook
         """
+        import warnings
+        warnings.warn(
+            "compile_configurable_dataset_notebook is deprecated. Use UnifiedSyntheticDataGenerator instead.",
+            DeprecationWarning,
+            stacklevel=2
+        )
         if not ENHANCED_CONFIG_AVAILABLE:
             raise RuntimeError("Enhanced configuration system not available")
         
@@ -379,7 +395,9 @@ class SyntheticDataGenerationCompiler(BaseNotebookCompiler):
         output_mode: str = "table"
     ) -> Dict[str, Any]:
         """
-        Compile notebooks for multiple synthetic datasets.
+        [DEPRECATED] Compile notebooks for multiple synthetic datasets.
+        
+        This method is deprecated. Please use the UnifiedSyntheticDataGenerator for batch operations.
         
         Args:
             datasets: List of dataset configurations. If None, uses predefined datasets.
@@ -389,6 +407,12 @@ class SyntheticDataGenerationCompiler(BaseNotebookCompiler):
         Returns:
             Dictionary with compilation results
         """
+        import warnings
+        warnings.warn(
+            "compile_all_synthetic_data_notebooks is deprecated. Use UnifiedSyntheticDataGenerator for batch operations.",
+            DeprecationWarning,
+            stacklevel=2
+        )
         if datasets is None:
             # Use sample predefined datasets
             predefined = self._get_predefined_dataset_configs()
@@ -428,7 +452,9 @@ class SyntheticDataGenerationCompiler(BaseNotebookCompiler):
         output_mode: str = "parquet"
     ) -> Dict[str, Any]:
         """
-        Compile enhanced synthetic data notebooks using configuration templates.
+        [DEPRECATED] Compile enhanced synthetic data notebooks using configuration templates.
+        
+        This method is deprecated. Please use the UnifiedSyntheticDataGenerator for batch operations.
         
         Args:
             configuration_templates: List of configuration template IDs to use
@@ -439,6 +465,12 @@ class SyntheticDataGenerationCompiler(BaseNotebookCompiler):
         Returns:
             Dictionary with compilation results
         """
+        import warnings
+        warnings.warn(
+            "compile_all_enhanced_synthetic_data_notebooks is deprecated. Use UnifiedSyntheticDataGenerator for batch operations.",
+            DeprecationWarning,
+            stacklevel=2
+        )
         if not ENHANCED_CONFIG_AVAILABLE:
             # Fall back to standard compilation
             return self.compile_all_synthetic_data_notebooks(

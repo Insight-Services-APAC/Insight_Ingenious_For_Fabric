@@ -1,6 +1,11 @@
 """
 Incremental Synthetic Data Generation Module
 
+DEPRECATION NOTICE:
+This module is deprecated and will be removed in a future version. 
+The functionality has been moved to the unified synthetic data generation system.
+Please use UnifiedSyntheticDataGenerator from unified_commands.py instead.
+
 This module extends the existing synthetic data generation package to support
 time-based incremental data generation with configurable snapshot and incremental
 table types, date-partitioned folder structures, and state management.
@@ -18,10 +23,20 @@ from ...python_libs.common.synthetic_data_dataset_configs import DatasetConfigur
 
 
 class IncrementalSyntheticDataGenerationCompiler(SyntheticDataGenerationCompiler):
-    """Compiler for incremental synthetic data generation notebooks and configurations."""
+    """
+    [DEPRECATED] Compiler for incremental synthetic data generation notebooks and configurations.
+    
+    This class is deprecated. Please use UnifiedSyntheticDataGenerator from unified_commands.py instead.
+    """
     
     def __init__(self, fabric_workspace_repo_dir: str = None, fabric_environment: str = None, **kwargs):
         """Initialize the incremental synthetic data generation compiler."""
+        import warnings
+        warnings.warn(
+            "IncrementalSyntheticDataGenerationCompiler is deprecated. Use UnifiedSyntheticDataGenerator instead.",
+            DeprecationWarning,
+            stacklevel=2
+        )
         super().__init__(fabric_workspace_repo_dir, fabric_environment, **kwargs)
     
     def compile_incremental_dataset_notebook(
