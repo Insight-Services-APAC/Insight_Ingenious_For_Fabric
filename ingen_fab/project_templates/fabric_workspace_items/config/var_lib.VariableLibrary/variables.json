@@ -56,13 +56,19 @@
       "value": ""
     },
     {
-      "name": "sample_lakehouse_name",
+      "name": "sample_lh_lakehouse_name",
       "note": "Name of your sample/main lakehouse for data tables.",
       "type": "String",
       "value": ""
     },
     {
-      "name": "sample_lakehouse_id",
+      "name": "sample_lh_workspace_id",
+      "note": "GUID of your sample/main lakehouse workspace.",
+      "type": "String",
+      "value": ""
+    },
+    {
+      "name": "sample_lh_lakehouse_id",
       "note": "GUID of your sample/main lakehouse for data tables.",
       "type": "String",
       "value": ""

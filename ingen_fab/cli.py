@@ -15,6 +15,10 @@ deploy_commands = lazy_import.lazy_module("ingen_fab.cli_utils.deploy_commands")
 init_commands = lazy_import.lazy_module("ingen_fab.cli_utils.init_commands")
 notebook_commands = lazy_import.lazy_module("ingen_fab.cli_utils.notebook_commands")
 workspace_commands = lazy_import.lazy_module("ingen_fab.cli_utils.workspace_commands")
+synthetic_data_commands = lazy_import.lazy_module("ingen_fab.cli_utils.synthetic_data_commands")
+package_commands = lazy_import.lazy_module("ingen_fab.cli_utils.package_commands")
+test_commands = lazy_import.lazy_module("ingen_fab.cli_utils.test_commands")
+libs_commands = lazy_import.lazy_module("ingen_fab.cli_utils.libs_commands")
 
 from ingen_fab.cli_utils.console_styles import ConsoleStyles
 
@@ -303,13 +307,7 @@ def run_livy_notebook(
 @test_platform_app.command()
 def generate(ctx: typer.Context):
     """Generate platform tests using the script in python_libs_tests."""
-    from ingen_fab.python_libs_tests import generate_platform_tests
-
-    gpt = generate_platform_tests.GeneratePlatformTests(
-        environment=ctx.obj["fabric_environment"],
-        project_directory=ctx.obj["fabric_workspace_repo_dir"],
-    )
-    gpt.generate()
+    test_commands.test_platform_generate(ctx)
 
 
 # Pytest execution command for python_libs_tests/pyspark
@@ -325,25 +323,7 @@ def pyspark(
     ] = None,
 ):
     """Run pytest on ingen_fab/python_libs_tests/pyspark or a specific test file if provided."""
-    import pytest
-    
-    # Check that FABRIC_ENVIRONMENT is set to "local" for local tests
-    fabric_env = os.getenv("FABRIC_ENVIRONMENT")
-    if fabric_env != "local":
-        console.print(
-            f"[red]Error: FABRIC_ENVIRONMENT must be set to 'local' for local tests. "
-            f"Current value: {fabric_env}[/red]"
-        )
-        console.print("[yellow]Please set: FABRIC_ENVIRONMENT=local[/yellow]")
-        raise typer.Exit(code=1)
-
-    base = "ingen_fab/python_libs_tests/pyspark"
-    if lib:
-        test_file = f"{base}/{lib}_pytest.py"
-        exit_code = pytest.main([test_file, "-v"])
-    else:
-        exit_code = pytest.main([base, "-v"])
-    raise typer.Exit(code=exit_code)
+    test_commands.test_local_pyspark(lib)
 
 
 @test_local_app.command()
@@ -356,25 +336,7 @@ def python(
     ] = None,
 ):
     """Run pytest on ingen_fab/python_libs_tests/python or a specific test file if provided."""
-    import pytest
-    
-    # Check that FABRIC_ENVIRONMENT is set to "local" for local tests
-    fabric_env = os.getenv("FABRIC_ENVIRONMENT")
-    if fabric_env != "local":
-        console.print(
-            f"[red]Error: FABRIC_ENVIRONMENT must be set to 'local' for local tests. "
-            f"Current value: {fabric_env}[/red]"
-        )
-        console.print("[yellow]Please set: FABRIC_ENVIRONMENT=local[/yellow]")
-        raise typer.Exit(code=1)
-
-    base = "ingen_fab/python_libs_tests/python"
-    if lib:
-        test_file = f"{base}/{lib}_pytest.py"
-        exit_code = pytest.main([test_file])
-    else:
-        exit_code = pytest.main([base])
-    raise typer.Exit(code=exit_code)
+    test_commands.test_local_python(lib)
 
 
 @test_local_app.command()
@@ -387,15 +349,7 @@ def common(
     ] = None,
 ):
     """Run pytest on ingen_fab/python_libs_tests/common or a specific test file if provided."""
-    import pytest
-
-    base = "ingen_fab/python_libs_tests/common"
-    if lib:
-        test_file = f"{base}/{lib}_pytest.py"
-        exit_code = pytest.main([test_file, "-v"])
-    else:
-        exit_code = pytest.main([base, "-v"])
-    raise typer.Exit(code=exit_code)
+    test_commands.test_local_common(lib)
 
 
 # Notebook commands
@@ -496,73 +450,16 @@ def synthetic_data_unified_generate(
       # Custom parameters with higher row count
       ingen_fab package synthetic-data generate retail_oltp_small --parameters '{"target_rows": 100000, "seed_value": 42}'
     """
-    from ingen_fab.packages.synthetic_data_generation.unified_commands import (
-        UnifiedSyntheticDataGenerator, GenerationMode
-    )
-    
-    # Parse parameters if provided
-    params_dict = {}
-    if parameters:
-        try:
-            params_dict = json.loads(parameters)
-        except json.JSONDecodeError as e:
-            console.print(f"[red]Error parsing parameters JSON: {e}[/red]")
-            raise typer.Exit(code=1)
-    
-    # Validate mode
-    try:
-        mode_enum = GenerationMode(mode)
-    except ValueError:
-        console.print(f"[red]Error: Invalid mode '{mode}'. Must be one of: single, incremental, series[/red]")
-        raise typer.Exit(code=1)
-    
-    # Initialize generator
-    generator = UnifiedSyntheticDataGenerator(
-        fabric_workspace_repo_dir=ctx.obj["fabric_workspace_repo_dir"],
-        fabric_environment=ctx.obj["fabric_environment"]
-    )
-    
-    # Generate (and optionally execute)
-    result = generator.generate(
+    synthetic_data_commands.unified_generate(
+        ctx=ctx,
         config=config,
-        mode=mode_enum,
-        parameters=params_dict,
+        mode=mode,
+        parameters=parameters,
         output_path=output_path,
         dry_run=dry_run,
         target_environment=target_environment,
-        execute=not no_execute
+        no_execute=no_execute
     )
-    
-    if result["success"]:
-        console.print(f"[green]✅ Generation successful![/green]")
-        console.print(f"Mode: {result['mode']}")
-        console.print(f"Config: {result['config']}")
-        if "notebook_path" in result:
-            console.print(f"Notebook: {result['notebook_path']}")
-        
-        # Handle execution results
-        if not no_execute and not dry_run:
-            if result.get("execution_success"):
-                console.print(f"[green]🚀 Notebook executed successfully![/green]")
-                if result.get("execution_output"):
-                    console.print(f"[blue]Execution Output:[/blue]")
-                    console.print(result["execution_output"])
-            else:
-                console.print(f"[red]❌ Notebook execution failed![/red]")
-                for error in result.get("execution_errors", []):
-                    console.print(f"[red]  • {error}[/red]")
-                if result.get("execution_stderr"):
-                    console.print(f"[red]Error output:[/red]")
-                    console.print(result["execution_stderr"])
-                raise typer.Exit(code=1)
-        
-        if dry_run:
-            console.print("[yellow]This was a dry run - no files were generated[/yellow]")
-    else:
-        console.print(f"[red]❌ Generation failed![/red]")
-        for error in result.get("errors", []):
-            console.print(f"[red]  • {error}[/red]")
-        raise typer.Exit(code=1)
 
 
 @synthetic_data_app.command("list")
@@ -586,31 +483,16 @@ def synthetic_data_unified_list(
       # Output in JSON format for scripting
       ingen_fab package synthetic-data list --format json
     """
-    from ingen_fab.packages.synthetic_data_generation.unified_commands import (
-        UnifiedSyntheticDataGenerator, ListType, format_list_output
+    synthetic_data_commands.unified_list(
+        list_type=list_type,
+        output_format=output_format
     )
-    
-    # Validate type
-    try:
-        list_type_enum = ListType(list_type)
-    except ValueError:
-        console.print(f"[red]Error: Invalid type '{list_type}'. Must be one of: datasets, templates, all[/red]")
-        raise typer.Exit(code=1)
-    
-    # Initialize generator (no context needed for listing)
-    generator = UnifiedSyntheticDataGenerator()
-    
-    # Get items
-    items = generator.list_items(list_type_enum)
-    
-    # Format output
-    format_list_output(items, output_format)
 
 
 @synthetic_data_app.command("compile")
 def synthetic_data_unified_compile(
     ctx: typer.Context,
-    template: Annotated[str, typer.Argument(help="Template name (e.g. 'generic_single_dataset_lakehouse') or dataset ID for standard compilation")],
+    template: Annotated[Optional[str], typer.Argument(help="Template name (e.g. 'generic_single_dataset_lakehouse') or dataset ID for standard compilation. If not provided, compiles all available templates.")] = None,
     runtime_config: Annotated[str, typer.Option("--runtime-config", "-c", help="JSON configuration for template compilation (e.g. '{\"target_rows\": 50000}')")] = None,
     output_format: Annotated[str, typer.Option("--output-format", "-f", help="Output artifacts: 'notebook' (only notebook), 'ddl' (only DDL), or 'all' (both)")] = "all",
     target_environment: Annotated[str, typer.Option("--target-environment", "-e", help="Target environment: 'lakehouse' or 'warehouse'")] = "lakehouse",
@@ -625,52 +507,28 @@ def synthetic_data_unified_compile(
     parameterized at runtime in different environments.
     
     Examples:
-      # Compile a generic template for lakehouse
+      # Compile all available templates
+      ingen_fab package synthetic-data compile
+      
+      # Compile a specific generic template for lakehouse
       ingen_fab package synthetic-data compile generic_single_dataset_lakehouse
       
       # Compile with runtime configuration
       ingen_fab package synthetic-data compile generic_single_dataset_lakehouse --runtime-config '{"language_group": "python"}'
       
-      # Compile only notebook (no DDL)
-      ingen_fab package synthetic-data compile generic_incremental_series_warehouse --output-format notebook
+      # Compile only notebooks for all templates (no DDL)
+      ingen_fab package synthetic-data compile --output-format notebook
       
-      # Compile for warehouse environment
-      ingen_fab package synthetic-data compile generic_single_dataset_warehouse --target-environment warehouse
+      # Compile all templates for warehouse environment
+      ingen_fab package synthetic-data compile --target-environment warehouse
     """
-    from ingen_fab.packages.synthetic_data_generation.unified_commands import UnifiedSyntheticDataGenerator
-    
-    # Parse runtime config if provided
-    config_dict = {}
-    if runtime_config:
-        try:
-            config_dict = json.loads(runtime_config)
-        except json.JSONDecodeError as e:
-            console.print(f"[red]Error parsing runtime config JSON: {e}[/red]")
-            raise typer.Exit(code=1)
-    
-    # Initialize generator
-    generator = UnifiedSyntheticDataGenerator(
-        fabric_workspace_repo_dir=ctx.obj["fabric_workspace_repo_dir"],
-        fabric_environment=ctx.obj["fabric_environment"]
-    )
-    
-    # Compile
-    result = generator.compile(
+    synthetic_data_commands.unified_compile(
+        ctx=ctx,
         template=template,
-        runtime_config=config_dict,
+        runtime_config=runtime_config,
         output_format=output_format,
         target_environment=target_environment
     )
-    
-    if result["success"]:
-        console.print(f"[green]✅ Compilation successful![/green]")
-        for item_type, item_path in result["compiled_items"].items():
-            console.print(f"[dim]  • {item_type}: {item_path}[/dim]")
-    else:
-        console.print(f"[red]❌ Compilation failed![/red]")
-        for error in result.get("errors", []):
-            console.print(f"[red]  • {error}[/red]")
-        raise typer.Exit(code=1)
 
 
 @ingest_app.command("compile")
@@ -682,48 +540,13 @@ def ingest_app_compile(
     add_debug_cells: Annotated[bool, typer.Option("--add-debug-cells", help="Add debug cells with embedded configurations for testing")] = False,
 ):
     """Compile flat file ingestion package templates and DDL scripts."""
-    import json
-
-    from ingen_fab.packages.flat_file_ingestion.flat_file_ingestion import (
-        compile_flat_file_ingestion_package,
+    package_commands.ingest_compile(
+        ctx=ctx,
+        template_vars=template_vars,
+        include_samples=include_samples,
+        target_datastore=target_datastore,
+        add_debug_cells=add_debug_cells
     )
-    
-    # Parse template variables if provided
-    vars_dict = {}
-    if template_vars:
-        try:
-            vars_dict = json.loads(template_vars)
-        except json.JSONDecodeError as e:
-            console.print(f"[red]Error parsing template variables: {e}[/red]")
-            raise typer.Exit(code=1)
-    
-    # Get fabric workspace repo directory from context
-    fabric_workspace_repo_dir = str(ctx.obj["fabric_workspace_repo_dir"])
-    
-    # Validate target datastore parameter
-    valid_datastores = ["lakehouse", "warehouse", "both"]
-    if target_datastore not in valid_datastores:
-        console.print(f"[red]Error: Invalid target datastore '{target_datastore}'. Must be one of: {', '.join(valid_datastores)}[/red]")
-        raise typer.Exit(code=1)
-    
-    try:
-        results = compile_flat_file_ingestion_package(
-            fabric_workspace_repo_dir=fabric_workspace_repo_dir,
-            template_vars=vars_dict,
-            include_samples=include_samples,
-            target_datastore=target_datastore,
-            add_debug_cells=add_debug_cells
-        )
-        
-        if results["success"]:
-            console.print("[green]✓ Flat file ingestion package compiled successfully![/green]")
-        else:
-            console.print(f"[red]✗ Compilation failed: {results['errors']}[/red]")
-            raise typer.Exit(code=1)
-            
-    except Exception as e:
-        console.print(f"[red]Error compiling package: {e}[/red]")
-        raise typer.Exit(code=1)
 
 
 @ingest_app.command()
@@ -734,14 +557,12 @@ def run(
     environment: Annotated[str, typer.Option("--environment", "-e", help="Environment name")] = "development",
 ):
     """Run flat file ingestion for specified configuration or execution group."""
-    console.print(f"[blue]Running flat file ingestion...[/blue]")
-    console.print(f"Config ID: {config_id}")
-    console.print(f"Execution Group: {execution_group}")
-    console.print(f"Environment: {environment}")
-    console.print(f"Fabric Workspace Repo Dir: {ctx.obj['fabric_workspace_repo_dir']}")
-    
-    console.print("[yellow]Note: This command would typically execute the compiled notebook with the specified parameters.[/yellow]")
-    console.print("[yellow]In a production environment, this would submit the notebook to Fabric for execution.[/yellow]")
+    package_commands.ingest_run(
+        ctx=ctx,
+        config_id=config_id,
+        execution_group=execution_group,
+        environment=environment
+    )
 
 
 @synapse_app.command("compile")
@@ -751,40 +572,11 @@ def synapse_app_compile(
     include_samples: Annotated[bool, typer.Option("--include-samples", "-s", help="Include sample data DDL and files")] = False,
 ):
     """Compile synapse sync package templates and DDL scripts."""
-    import json
-
-    from ingen_fab.packages.synapse_sync.synapse_sync import (
-        compile_synapse_sync_package,
+    package_commands.synapse_compile(
+        ctx=ctx,
+        template_vars=template_vars,
+        include_samples=include_samples
     )
-    
-    # Parse template variables if provided
-    vars_dict = {}
-    if template_vars:
-        try:
-            vars_dict = json.loads(template_vars)
-        except json.JSONDecodeError as e:
-            console.print(f"[red]Error parsing template variables: {e}[/red]")
-            raise typer.Exit(code=1)
-    
-    # Get fabric workspace repo directory from context
-    fabric_workspace_repo_dir = str(ctx.obj["fabric_workspace_repo_dir"])
-    
-    try:
-        results = compile_synapse_sync_package(
-            fabric_workspace_repo_dir=fabric_workspace_repo_dir,
-            template_vars=vars_dict,
-            include_samples=include_samples
-        )
-        
-        if results["success"]:
-            console.print("[green]✓ Synapse sync package compiled successfully![/green]")
-        else:
-            console.print(f"[red]✗ Compilation failed: {results['errors']}[/red]")
-            raise typer.Exit(code=1)
-            
-    except Exception as e:
-        console.print(f"[red]Error compiling package: {e}[/red]")
-        raise typer.Exit(code=1)
 
 
 @synapse_app.command()
@@ -797,16 +589,14 @@ def run(
     environment: Annotated[str, typer.Option("--environment", "-e", help="Environment name")] = "development",
 ):
     """Run synapse sync extraction for specified configuration."""
-    console.print(f"[blue]Running synapse sync extraction...[/blue]")
-    console.print(f"Master Execution ID: {master_execution_id}")
-    console.print(f"Work Items JSON: {work_items_json}")
-    console.print(f"Max Concurrency: {max_concurrency}")
-    console.print(f"Include Snapshots: {include_snapshots}")
-    console.print(f"Environment: {environment}")
-    console.print(f"Fabric Workspace Repo Dir: {ctx.obj['fabric_workspace_repo_dir']}")
-    
-    console.print("[yellow]Note: This command would typically execute the compiled notebook with the specified parameters.[/yellow]")
-    console.print("[yellow]In a production environment, this would submit the notebook to Fabric for execution.[/yellow]")
+    package_commands.synapse_run(
+        ctx=ctx,
+        master_execution_id=master_execution_id,
+        work_items_json=work_items_json,
+        max_concurrency=max_concurrency,
+        include_snapshots=include_snapshots,
+        environment=environment
+    )
 
 
 # Extract generation commands
@@ -818,41 +608,12 @@ def extract_app_compile(
     target_datastore: Annotated[str, typer.Option("--target-datastore", "-d", help="Target datastore type (warehouse)")] = "warehouse",
 ):
     """Compile extract generation package templates and DDL scripts."""
-    import json
-
-    from ingen_fab.packages.extract_generation.extract_generation import (
-        compile_extract_generation_package,
+    package_commands.extract_compile(
+        ctx=ctx,
+        template_vars=template_vars,
+        include_samples=include_samples,
+        target_datastore=target_datastore
     )
-    
-    # Parse template variables if provided
-    vars_dict = {}
-    if template_vars:
-        try:
-            vars_dict = json.loads(template_vars)
-        except json.JSONDecodeError as e:
-            console.print(f"[red]Error parsing template variables: {e}[/red]")
-            raise typer.Exit(code=1)
-    
-    # Get fabric workspace repo directory from context
-    fabric_workspace_repo_dir = str(ctx.obj["fabric_workspace_repo_dir"])
-    
-    try:
-        results = compile_extract_generation_package(
-            fabric_workspace_repo_dir=fabric_workspace_repo_dir,
-            template_vars=vars_dict,
-            include_samples=include_samples,
-            target_datastore=target_datastore
-        )
-        
-        if results["success"]:
-            console.print("[green]✓ Extract generation package compiled successfully![/green]")
-        else:
-            console.print(f"[red]✗ Compilation failed: {results['errors']}[/red]")
-            raise typer.Exit(code=1)
-            
-    except Exception as e:
-        console.print(f"[red]Error compiling package: {e}[/red]")
-        raise typer.Exit(code=1)
 
 
 @extract_app.command()
@@ -864,15 +625,13 @@ def extract_run(
     run_type: Annotated[str, typer.Option("--run-type", "-r", help="Run type: FULL or INCREMENTAL")] = "FULL",
 ):
     """Run extract generation for specified configuration or execution group."""
-    console.print(f"[blue]Running extract generation...[/blue]")
-    console.print(f"Extract Name: {extract_name}")
-    console.print(f"Execution Group: {execution_group}")
-    console.print(f"Environment: {environment}")
-    console.print(f"Run Type: {run_type}")
-    console.print(f"Fabric Workspace Repo Dir: {ctx.obj['fabric_workspace_repo_dir']}")
-    
-    console.print("[yellow]Note: This command would typically execute the compiled notebook with the specified parameters.[/yellow]")
-    console.print("[yellow]In a production environment, this would submit the notebook to Fabric for execution.[/yellow]")
+    package_commands.extract_run(
+        ctx=ctx,
+        extract_name=extract_name,
+        execution_group=execution_group,
+        environment=environment,
+        run_type=run_type
+    )
 
 
 # Library compilation commands
@@ -882,70 +641,10 @@ def compile(
     target_file: Annotated[str, typer.Option("--target-file", "-f", help="Specific python file to compile (relative to project root)")] = None,
 ):
     """Compile Python libraries by injecting variables from the variable library."""
-    from pathlib import Path
-    from ingen_fab.config_utils.variable_lib_factory import VariableLibraryFactory, process_file_content_from_cli
-    
-    project_path = Path(ctx.obj["fabric_workspace_repo_dir"])
-    environment = str(ctx.obj["fabric_environment"])
-    
-    console.print(f"[blue]Compiling Python libraries...[/blue]")
-    console.print(f"Project path: {project_path}")
-    console.print(f"Environment: {environment}")
-    
-    if target_file:
-        # Compile specific file using modern factory approach
-        target_path = project_path / target_file
-        console.print(f"Target file: {target_path}")
-        
-        if not target_path.exists():
-            console.print(f"[red]Error: Target file not found: {target_path}[/red]")
-            raise typer.Exit(code=1)
-            
-        try:
-            # Use the modern factory method for processing single files
-            was_updated = process_file_content_from_cli(
-                ctx, 
-                target_path, 
-                replace_placeholders=True,  # For compilation, we want to replace placeholders
-                inject_code=True
-            )
-            
-            if was_updated:
-                console.print(f"[green]✓ Successfully compiled: {target_file} with values from {environment} environment[/green]")
-            else:
-                console.print(f"[yellow]No changes needed for {target_file}[/yellow]")
-                
-        except Exception as e:
-            console.print(f"[red]Error compiling {target_file}: {e}[/red]")
-            raise typer.Exit(code=1)
-    else:
-        # Compile config_utils.py as default - use absolute path since we're in the ingen_fab directory
-        from pathlib import Path as PathlibPath
-        current_dir = PathlibPath.cwd()
-        config_utils_path = current_dir / "ingen_fab" / "python_libs" / "common" / "config_utils.py"
-        console.print(f"Target file: {config_utils_path}")
-        
-        if not config_utils_path.exists():
-            console.print(f"[red]Error: config_utils.py not found at: {config_utils_path}[/red]")
-            raise typer.Exit(code=1)
-            
-        try:
-            # Use the modern factory method for processing single files
-            was_updated = process_file_content_from_cli(
-                ctx, 
-                config_utils_path, 
-                replace_placeholders=True,  # For compilation, we want to replace placeholders
-                inject_code=True
-            )
-            
-            if was_updated:
-                console.print(f"[green]✓ Successfully compiled config_utils.py with values from {environment} environment[/green]")
-            else:
-                console.print(f"[yellow]No changes needed for config_utils.py[/yellow]")
-                
-        except Exception as e:
-            console.print(f"[red]Error compiling config_utils.py: {e}[/red]")
-            raise typer.Exit(code=1)
+    libs_commands.libs_compile(
+        ctx=ctx,
+        target_file=target_file
+    )
 
 
 if __name__ == "__main__":
