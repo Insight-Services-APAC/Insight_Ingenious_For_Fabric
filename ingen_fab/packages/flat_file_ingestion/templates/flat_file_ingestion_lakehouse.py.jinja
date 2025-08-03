@@ -11,6 +11,7 @@
 # Load flat file ingestion components
 if run_mode == "local":
     from ingen_fab.python_libs.interfaces.flat_file_ingestion_interface import FlatFileIngestionConfig
+    from ingen_fab.python_libs.common.location_resolver import LocationResolver
     from ingen_fab.python_libs.pyspark.flat_file_ingestion_pyspark import (
         PySparkFlatFileDiscovery,
         PySparkFlatFileProcessor,
@@ -21,6 +22,7 @@ else:
     # Additional files for flat file ingestion modular components
     flat_file_ingestion_files = [
         "ingen_fab/python_libs/interfaces/flat_file_ingestion_interface.py",
+        "ingen_fab/python_libs/common/location_resolver.py",
         "ingen_fab/python_libs/common/flat_file_ingestion_utils.py",
         "ingen_fab/python_libs/pyspark/flat_file_ingestion_pyspark.py"
     ]
@@ -28,18 +30,20 @@ else:
 {% endblock %}
 
 {% block configuration_setup %}
-# Initialize config lakehouse utilities
+# Initialize config lakehouse utilities (for metadata)
 config_lakehouse = lakehouse_utils(
     target_workspace_id=configs.config_workspace_id,
     target_lakehouse_id=configs.config_lakehouse_id,
     spark=spark
 )
 
-# Initialize raw data lakehouse utilities for file access
-raw_lakehouse = lakehouse_utils(
-    target_workspace_id=configs.raw_lh_workspace_id,
-    target_lakehouse_id=configs.raw_lh_lakehouse_id,
-    spark=spark
+# Initialize unified location resolver with defaults for both source and target
+location_resolver = LocationResolver(
+    default_workspace_id=configs.sample_lh_workspace_id,  # Default to target workspace
+    default_datastore_id=configs.sample_lh_lakehouse_id,  # Default to target lakehouse
+    default_datastore_type="lakehouse",
+    default_file_root_path="Files",
+    default_schema_name="default"
 )
 {% endblock %}
 
@@ -48,9 +52,9 @@ config_df = config_lakehouse.read_table("config_flat_file_ingestion").toPandas()
 {% endblock %}
 
 {% block initialize_services %}
-# Initialize the modular flat file ingestion services for lakehouse
-discovery_service = PySparkFlatFileDiscovery(raw_lakehouse)
-processor_service = PySparkFlatFileProcessor(spark, raw_lakehouse)
+# Initialize the modular flat file ingestion services with unified location resolution
+discovery_service = PySparkFlatFileDiscovery(location_resolver, spark)
+processor_service = PySparkFlatFileProcessor(spark, location_resolver)
 logging_service = PySparkFlatFileLogging(config_lakehouse)
 
 # Initialize the orchestrator with all services

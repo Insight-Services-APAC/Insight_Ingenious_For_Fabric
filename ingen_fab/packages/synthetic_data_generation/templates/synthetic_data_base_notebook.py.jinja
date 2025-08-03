@@ -56,8 +56,6 @@ generation_mode = "{{generation_mode}}"
 {% if path_format is defined %}path_format = "{{path_format}}"{% endif %}
 {% if state_management is defined %}state_management = {{state_management | lower}}{% endif %}
 
-# variableLibraryInjectionStart: var_lib
-# variableLibraryInjectionEnd: var_lib
 
 {{macros.python_cell_with_heading("## 🆕 Initialize Components")}}
 

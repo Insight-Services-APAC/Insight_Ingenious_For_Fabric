@@ -16,6 +16,10 @@ from ingen_fab.python_libs.common.flat_file_ingestion_utils import (
     FilePatternUtils,
     ProcessingMetricsUtils,
 )
+from ingen_fab.python_libs.common.source_location_resolver import (
+    SourceLocationResolver,
+    SourceLocationConfig,
+)
 from ingen_fab.python_libs.common.flat_file_logging_schema import (
     get_flat_file_ingestion_log_schema,
 )
@@ -31,22 +35,29 @@ from ingen_fab.python_libs.interfaces.flat_file_ingestion_interface import (
 
 
 class PySparkFlatFileDiscovery(FlatFileDiscoveryInterface):
-    """PySpark implementation of file discovery using lakehouse_utils"""
+    """PySpark implementation of file discovery using dynamic location resolution"""
 
-    def __init__(self, lakehouse_utils):
-        self.lakehouse_utils = lakehouse_utils
+    def __init__(self, location_resolver, spark=None):
+        self.location_resolver = location_resolver
+        self.spark = spark
 
     def discover_files(
         self, config: FlatFileIngestionConfig
     ) -> List[FileDiscoveryResult]:
-        """Discover files based on configuration using lakehouse_utils"""
+        """Discover files based on configuration using dynamic source resolution"""
 
+        # Get source utilities for this configuration
+        source_utils = self.location_resolver.get_source_utils(config, spark=self.spark)
+        
+        # Resolve full source path
+        full_source_path = self.location_resolver.resolve_full_source_path(config)
+        
         if config.import_pattern != "date_partitioned":
             # For non-date-partitioned imports, return single file path
-            return [FileDiscoveryResult(file_path=config.source_file_path)]
+            return [FileDiscoveryResult(file_path=full_source_path)]
 
         discovered_files = []
-        base_path = config.source_file_path.rstrip("/")
+        base_path = full_source_path.rstrip("/")
 
         try:
             print(f"🔍 Detected date-partitioned import for {config.config_name}")
@@ -77,9 +88,12 @@ class PySparkFlatFileDiscovery(FlatFileDiscoveryInterface):
         discovered_files = []
 
         try:
+            # Get source utilities for this configuration
+            source_utils = self.location_resolver.get_source_utils(config, spark=self.spark)
+            
             # Convert base_path to absolute local path for file system operations
-            if hasattr(self.lakehouse_utils, "lakehouse_files_uri"):
-                files_uri = self.lakehouse_utils.lakehouse_files_uri()
+            if hasattr(source_utils, "lakehouse_files_uri"):
+                files_uri = source_utils.lakehouse_files_uri()
                 if files_uri.startswith("file:///"):
                     # Extract the local path
                     local_base_path = files_uri.replace("file:///", "/")
@@ -298,11 +312,11 @@ class PySparkFlatFileDiscovery(FlatFileDiscoveryInterface):
 
 
 class PySparkFlatFileProcessor(FlatFileProcessorInterface):
-    """PySpark implementation of flat file processing using lakehouse_utils"""
+    """PySpark implementation of flat file processing using dynamic location resolution"""
 
-    def __init__(self, spark_session: SparkSession, lakehouse_utils):
+    def __init__(self, spark_session: SparkSession, location_resolver):
         self.spark = spark_session
-        self.lakehouse_utils = lakehouse_utils
+        self.location_resolver = location_resolver
 
     def read_file(
         self, config: FlatFileIngestionConfig, file_path: str
@@ -312,14 +326,17 @@ class PySparkFlatFileProcessor(FlatFileProcessorInterface):
         metrics = ProcessingMetrics()
 
         try:
+            # Get source utilities for this configuration
+            source_utils = self.location_resolver.get_source_utils(config, spark=self.spark)
+            
             # Get file reading options based on configuration
             options = ConfigurationUtils.get_file_read_options(config)
 
-            # Read file using lakehouse_utils abstraction
+            # Read file using dynamic source utilities
             if config.source_is_folder:
-                df = self._read_folder_contents(config, file_path, options)
+                df = self._read_folder_contents(config, file_path, options, source_utils)
             else:
-                df = self.lakehouse_utils.read_file(
+                df = source_utils.read_file(
                     file_path=file_path,
                     file_format=config.source_file_format,
                     options=options,
@@ -350,7 +367,7 @@ class PySparkFlatFileProcessor(FlatFileProcessorInterface):
         return self.read_file(config, folder_path)
 
     def _read_folder_contents(
-        self, config: FlatFileIngestionConfig, folder_path: str, options: Dict[str, Any]
+        self, config: FlatFileIngestionConfig, folder_path: str, options: Dict[str, Any], source_utils
     ) -> DataFrame:
         """Read all files in a folder using direct folder reading first, with fallback to wildcard"""
         print(f"📁 Reading folder: {folder_path}")
@@ -359,7 +376,7 @@ class PySparkFlatFileProcessor(FlatFileProcessorInterface):
             # Try reading the folder directly first - Spark can handle this automatically
             print(f"Reading folder directly: {folder_path}")
 
-            df = self.lakehouse_utils.read_file(
+            df = source_utils.read_file(
                 file_path=folder_path,
                 file_format=config.source_file_format,
                 options=options,
@@ -376,7 +393,7 @@ class PySparkFlatFileProcessor(FlatFileProcessorInterface):
                 wildcard_path = f"{folder_path}/*"
                 print(f"Trying wildcard pattern: {wildcard_path}")
 
-                df = self.lakehouse_utils.read_file(
+                df = source_utils.read_file(
                     file_path=wildcard_path,
                     file_format=config.source_file_format,
                     options=options,
@@ -392,7 +409,7 @@ class PySparkFlatFileProcessor(FlatFileProcessorInterface):
 
                 try:
                     # Fallback 2: list files and read individually, then union
-                    file_list = self.lakehouse_utils.list_files(
+                    file_list = source_utils.list_files(
                         folder_path, recursive=False
                     )
 
@@ -412,7 +429,7 @@ class PySparkFlatFileProcessor(FlatFileProcessorInterface):
                     print(f"📂 Found {len(data_files)} data files in folder")
 
                     # Read first file to get schema
-                    first_df = self.lakehouse_utils.read_file(
+                    first_df = source_utils.read_file(
                         file_path=data_files[0],
                         file_format=config.source_file_format,
                         options=options,
@@ -425,7 +442,7 @@ class PySparkFlatFileProcessor(FlatFileProcessorInterface):
                     # Read remaining files and union them
                     all_dfs = [first_df]
                     for file_path in data_files[1:]:
-                        df = self.lakehouse_utils.read_file(
+                        df = source_utils.read_file(
                             file_path=file_path,
                             file_format=config.source_file_format,
                             options=options,
@@ -449,20 +466,23 @@ class PySparkFlatFileProcessor(FlatFileProcessorInterface):
     def write_data(
         self, data: DataFrame, config: FlatFileIngestionConfig
     ) -> ProcessingMetrics:
-        """Write data to target destination using lakehouse_utils"""
+        """Write data to target destination using dynamic target resolution"""
         write_start = time.time()
         metrics = ProcessingMetrics()
 
         try:
+            # Get target utilities for this configuration
+            target_utils = self.location_resolver.get_target_utils(config, spark=self.spark)
+            
             # Get target row count before write (for reconciliation)
             try:
-                existing_df = self.lakehouse_utils.read_table(config.target_table_name)
+                existing_df = target_utils.read_table(config.target_table_name)
                 metrics.target_row_count_before = existing_df.count()
             except Exception:
                 metrics.target_row_count_before = 0
 
-            # Write data using lakehouse_utils abstraction
-            self.lakehouse_utils.write_to_table(
+            # Write data using dynamic target utilities
+            target_utils.write_to_table(
                 df=data,
                 table_name=config.target_table_name,
                 mode=config.write_mode,
@@ -471,7 +491,7 @@ class PySparkFlatFileProcessor(FlatFileProcessorInterface):
 
             # Get target row count after write
             try:
-                result_df = self.lakehouse_utils.read_table(config.target_table_name)
+                result_df = target_utils.read_table(config.target_table_name)
                 metrics.target_row_count_after = result_df.count()
             except Exception:
                 metrics.target_row_count_after = 0

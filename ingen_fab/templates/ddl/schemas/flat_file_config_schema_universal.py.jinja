@@ -11,6 +11,12 @@ schema = StructType([
     StructField("config_name", StringType(), nullable=False),
     StructField("source_file_path", StringType(), nullable=False),
     StructField("source_file_format", StringType(), nullable=False),  # csv, json, parquet, avro, xml
+    # Source location fields (optional - defaults to target or raw workspace)
+    StructField("source_workspace_id", StringType(), nullable=True),  # Source workspace (defaults to target if null)
+    StructField("source_datastore_id", StringType(), nullable=True),  # Source lakehouse/warehouse (defaults to raw if null)
+    StructField("source_datastore_type", StringType(), nullable=True),  # 'lakehouse' or 'warehouse' (defaults to lakehouse)
+    StructField("source_file_root_path", StringType(), nullable=True),  # Root path override (e.g., "Files", "Tables")
+    # Target location fields
     StructField("target_workspace_id", StringType(), nullable=False),  # Universal field for workspace
     StructField("target_datastore_id", StringType(), nullable=False),  # Universal field for lakehouse/warehouse
     StructField("target_datastore_type", StringType(), nullable=False),  # 'lakehouse' or 'warehouse'

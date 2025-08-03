@@ -176,7 +176,7 @@ start_date = "2024-01-01"                     # Start date (YYYY-MM-DD)
 end_date = "2024-01-30"                       # End date (YYYY-MM-DD)  
 batch_size = 10                               # Number of days per batch
 path_format = "nested"                        # Path format: "nested" (/YYYY/MM/DD/) or "flat" (YYYYMMDD_)
-output_mode = "table"                         # Output mode: "table", "parquet", or "csv"
+output_mode = "parquet"                         # Output mode: "table", "parquet", or "csv"
 ignore_state = False                          # Whether to ignore existing state
 seed_value = None                             # Seed for reproducible generation
 generation_mode = "auto"                      # Generation mode: "python", "pyspark", or "auto"
@@ -260,9 +260,6 @@ print(f"💾 Output mode: {output_mode}")
 print(f"⚙️ Generation mode: {generation_mode}")
 print(f"🔄 Processing {len(table_configs)} tables")
 
-# variableLibraryInjectionStart: var_lib
-# variableLibraryInjectionEnd: var_lib
-
 
 
 # METADATA ********************
@@ -283,8 +280,8 @@ print(f"🔄 Processing {len(table_configs)} tables")
 configs: ConfigsObject = get_configs_as_object()
 
 # Initialize lakehouse utils
-target_lakehouse_id = get_config_value("config_lakehouse_id")
-target_workspace_id = get_config_value("config_workspace_id")
+target_lakehouse_id = get_config_value("sample_lh_lakehouse_id")
+target_workspace_id = get_config_value("sample_lh_workspace_id")
 
 lh_utils = lakehouse_utils(
     target_workspace_id=target_workspace_id,
@@ -476,9 +473,12 @@ for batch_num, batch in enumerate(date_batches, 1):
                 elif output_mode in ["parquet", "csv"]:
                     # For file outputs, save with consistent path structure
                     if path_format == "flat":
-                        file_path = f"synthetic_data/incremental/{dataset_id}/files/incremental/{table_name}_{current_date.strftime('%Y%m%d')}.{output_mode}"
+                        file_path = f"synthetic_data/{output_mode}/series/{dataset_id}/flat/{table_name}/{table_name}_{current_date.strftime('%Y%m%d')}.{output_mode}"
                     else:  # nested
-                        file_path = f"synthetic_data/incremental/{dataset_id}/files/incremental/{table_name}/{current_date.strftime('%Y%m%d')}/data.{output_mode}"
+                        year = current_date.strftime('%Y')
+                        month = current_date.strftime('%m')
+                        day = current_date.strftime('%d')
+                        file_path = f"synthetic_data/{output_mode}/series/{dataset_id}/nested/{table_name}/{year}/{month}/{day}/data.{output_mode}"
                     
                     lh_utils.write_file(table_df, file_path, output_mode, options={"header": "true", "mode": "overwrite"})
                     print(f"    ✅ {table_name}: {table_df.count():,} rows → {file_path}")
@@ -510,9 +510,12 @@ for batch_num, batch in enumerate(date_batches, 1):
                     elif output_mode in ["parquet", "csv"]:
                         # For snapshot files, use consistent path structure
                         if path_format == "flat":
-                            file_path = f"synthetic_data/incremental/{dataset_id}/files/snapshot/{table_name}_{current_date.strftime('%Y%m%d')}.{output_mode}"
+                            file_path = f"synthetic_data/{output_mode}/series/{dataset_id}/flat/snapshot_{table_name}/snapshot_{table_name}_{current_date.strftime('%Y%m%d')}.{output_mode}"
                         else:  # nested
-                            file_path = f"synthetic_data/incremental/{dataset_id}/files/snapshot/{table_name}/{current_date.strftime('%Y%m%d')}/data.{output_mode}"
+                            year = current_date.strftime('%Y')
+                            month = current_date.strftime('%m')
+                            day = current_date.strftime('%d')
+                            file_path = f"synthetic_data/{output_mode}/series/{dataset_id}/nested/snapshot_{table_name}/{year}/{month}/{day}/data.{output_mode}"
                         
                         lh_utils.write_file(table_df, file_path, output_mode, options={"header": "true", "mode": "overwrite"})
                         print(f"    ✅ {table_name} (snapshot): {table_df.count():,} rows → {file_path}")

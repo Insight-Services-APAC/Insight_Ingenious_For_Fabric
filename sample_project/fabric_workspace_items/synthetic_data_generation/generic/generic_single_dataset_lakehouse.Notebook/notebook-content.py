@@ -174,7 +174,7 @@ else:
 dataset_id = "retail_oltp_small"              # Dataset to generate
 target_rows = 10000                           # Number of rows to generate
 chunk_size = 1000000                         # Chunk size for large datasets
-output_mode = "table"                         # Output mode: "table", "parquet", or "csv"
+output_mode = "parquet"                         # Output mode: "table", "parquet", or "csv"
 seed_value = None                             # Seed for reproducible generation
 generation_mode = "auto"                      # Generation mode: "python", "pyspark", or "auto"
 target_environment = "lakehouse"              # Target environment (fixed for this template)
@@ -249,9 +249,6 @@ print(f"⚙️ Generation mode: {generation_mode}")
 print(f"💾 Output mode: {output_mode}")
 print(f"🧩 Schema pattern: {schema_pattern}")
 
-# variableLibraryInjectionStart: var_lib
-# variableLibraryInjectionEnd: var_lib
-
 
 
 # METADATA ********************
@@ -272,8 +269,8 @@ print(f"🧩 Schema pattern: {schema_pattern}")
 configs: ConfigsObject = get_configs_as_object()
 
 # Initialize lakehouse utils
-target_lakehouse_id = get_config_value("config_lakehouse_id")
-target_workspace_id = get_config_value("config_workspace_id")
+target_lakehouse_id = get_config_value("sample_lh_lakehouse_id")
+target_workspace_id = get_config_value("sample_lh_workspace_id")
 
 lh_utils = lakehouse_utils(
     target_workspace_id=target_workspace_id,
@@ -471,14 +468,14 @@ if output_mode == "table":
 
 elif output_mode == "parquet":
     print("  📄 Saving as Parquet files...")
-    output_path = f"synthetic_data/single/{dataset_id}"
+    output_path = f"synthetic_data/parquet/single/{dataset_id}"
     generator.export_to_parquet(generated_tables, output_path)
     for table_name, table_df in generated_tables.items():
         print(f"    ✅ Saved {output_path}/{table_name}.parquet with {table_df.count():,} rows")
 
 elif output_mode == "csv":
     print("  📄 Saving as CSV files...")
-    output_path = f"synthetic_data/single/{dataset_id}"
+    output_path = f"synthetic_data/csv/single/{dataset_id}"
     generator.export_to_csv(generated_tables, output_path)
     for table_name, table_df in generated_tables.items():
         print(f"    ✅ Saved {output_path}/{table_name}.csv with {table_df.count():,} rows")

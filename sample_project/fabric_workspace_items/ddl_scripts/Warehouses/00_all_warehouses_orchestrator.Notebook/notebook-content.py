@@ -205,7 +205,6 @@ configs: ConfigsObject = get_configs_as_object()
 
 # Define the lakehouses and their orchestrators
 lakehouses_to_run = [
-    {'name': 'Config', 'orchestrator': '00_orchestrator_Config_warehouse_ddl_scripts'},
     {'name': 'Config_WH', 'orchestrator': '00_orchestrator_Config_WH_warehouse_ddl_scripts'},
     {'name': 'Sample_WH', 'orchestrator': '00_orchestrator_Sample_WH_warehouse_ddl_scripts'},
 ]
@@ -223,7 +222,7 @@ results = {}
 print(f"Starting parallel orchestration for all lakehouses")
 print(f"Start time: {start_time}")
 
-print(f"Total lakehouses to process: 3")
+print(f"Total lakehouses to process: 2")
 print("="*60)
 
 
@@ -286,7 +285,7 @@ print("="*60)
 
 
 # Run orchestrators in parallel using ThreadPoolExecutor with staggered execution
-with ThreadPoolExecutor(max_workers=3) as executor:
+with ThreadPoolExecutor(max_workers=2) as executor:
     # Submit all tasks with staggered delays (0.2 seconds apart)
     future_to_lakehouse = {}
     for i, lakehouse in enumerate(lakehouses_to_run):
@@ -322,7 +321,7 @@ print("\n" + "="*60)
 print("ORCHESTRATION SUMMARY REPORT")
 print("="*60)
 print(f"Total execution time: {total_duration}")
-print(f"Total lakehouses: 3")
+print(f"Total lakehouses: 2")
 
 # Count results
 success_count = sum(1 for r in results.values() if r['status'] == 'Success')
@@ -381,7 +380,7 @@ if failed_count == 0 and exception_count == 0:
     print(f"\n{final_message}")
     notebookutils.notebook.exit(final_message)
 else:
-    final_message = f"Completed with {failed_count + exception_count} failures out of 3 lakehouses"
+    final_message = f"Completed with {failed_count + exception_count} failures out of 2 lakehouses"
     print(f"\n✗ {final_message}")
     notebookutils.notebook.exit(final_message)
     raise Exception(final_message)

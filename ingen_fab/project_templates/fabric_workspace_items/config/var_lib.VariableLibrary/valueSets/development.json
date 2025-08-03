@@ -39,11 +39,15 @@
       "value": "REPLACE_WITH_CONFIG_WAREHOUSE_GUID"
     },
     {
-      "name": "sample_lakehouse_name",
-      "value": "sample"
+      "name": "sample_lh_workspace_id",
+      "value": "REPLACE_WITH_SAMPLE_LAKEHOUSE_WORKSPACE_GUID"
     },
     {
-      "name": "sample_lakehouse_id",
+      "name": "sample_lh_lakehouse_name",
+      "value": "sample_lh"
+    },
+    {
+      "name": "sample_lh_lakehouse_id",
       "value": "REPLACE_WITH_SAMPLE_LAKEHOUSE_GUID"
     },
     {

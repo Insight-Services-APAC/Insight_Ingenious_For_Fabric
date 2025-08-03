@@ -92,9 +92,6 @@ print(f"💾 Output mode: {output_mode}")
 print(f"⚙️ Generation mode: {generation_mode}")
 print(f"🔄 Processing {len(table_configs)} tables")
 
-# variableLibraryInjectionStart: var_lib
-# variableLibraryInjectionEnd: var_lib
-
 {{macros.python_cell_with_heading("## 🆕 Initialize Components")}}
 
 # Get configurations
@@ -228,13 +225,25 @@ for batch_num, batch in enumerate(date_batches, 1):
                     sql_client.create_table_from_dataframe(table_df, final_table_name, overwrite=True)
                     print(f"    ✅ {table_name}: {len(table_df):,} rows → table '{final_table_name}'")
                 elif output_mode == "csv":
-                    # Save as CSV with date in filename
-                    output_path = f"synthetic_data_output/{table_name}_{current_date.strftime('%Y%m%d')}.csv"
+                    # Save as CSV with proper path structure
+                    if path_format == "flat":
+                        output_path = f"synthetic_data/csv/series/{dataset_id}/flat/{table_name}/{table_name}_{current_date.strftime('%Y%m%d')}.csv"
+                    else:  # nested
+                        year = current_date.strftime('%Y')
+                        month = current_date.strftime('%m')
+                        day = current_date.strftime('%d')
+                        output_path = f"synthetic_data/csv/series/{dataset_id}/nested/{table_name}/{year}/{month}/{day}/data.csv"
                     generator.export_to_csv({table_name: table_df}, output_path)
                     print(f"    ✅ {table_name}: {len(table_df):,} rows → {output_path}")
                 elif output_mode == "parquet":
-                    # Save as Parquet with date in filename
-                    output_path = f"synthetic_data_output/{table_name}_{current_date.strftime('%Y%m%d')}.parquet"
+                    # Save as Parquet with proper path structure
+                    if path_format == "flat":
+                        output_path = f"synthetic_data/parquet/series/{dataset_id}/flat/{table_name}/{table_name}_{current_date.strftime('%Y%m%d')}.parquet"
+                    else:  # nested
+                        year = current_date.strftime('%Y')
+                        month = current_date.strftime('%m')
+                        day = current_date.strftime('%d')
+                        output_path = f"synthetic_data/parquet/series/{dataset_id}/nested/{table_name}/{year}/{month}/{day}/data.parquet"
                     generator.export_to_parquet({table_name: table_df}, output_path)
                     print(f"    ✅ {table_name}: {len(table_df):,} rows → {output_path}")
                 

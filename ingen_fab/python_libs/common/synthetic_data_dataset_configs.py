@@ -93,7 +93,7 @@ class DatasetConfigurationRepository:
             "orders": {
                 "type": "incremental",
                 "frequency": "daily",
-                "base_rows_per_day": 10000,
+                "base_rows_per_day": 1_000_000,
                 "seasonal_multipliers_enabled": True,
                 "weekend_multiplier": 1.5,
                 "holiday_multiplier": 2.0
@@ -101,7 +101,7 @@ class DatasetConfigurationRepository:
             "order_items": {
                 "type": "incremental",
                 "frequency": "daily",
-                "base_rows_per_day": 25000,
+                "base_rows_per_day": 2_000_000,
                 "seasonal_multipliers_enabled": True,
                 "weekend_multiplier": 1.5
             },
@@ -143,7 +143,7 @@ class DatasetConfigurationRepository:
             "fact_sales": {
                 "type": "incremental",
                 "frequency": "daily",
-                "base_rows_per_day": 100000,
+                "base_rows_per_day": 1_000_000,
                 "seasonal_multipliers_enabled": True,
                 "weekend_multiplier": 1.3,
                 "holiday_multiplier": 2.5
