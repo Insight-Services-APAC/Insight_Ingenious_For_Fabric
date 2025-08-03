@@ -1,6 +1,10 @@
 #!/usr/bin/env python3
 """
 Test script for incremental synthetic data generation functionality
+
+MIGRATION NOTICE:
+This test file uses the deprecated IncrementalSyntheticDataGenerationCompiler.
+Please update tests to use UnifiedSyntheticDataGenerator from unified_commands.py instead.
 """
 
 import sys

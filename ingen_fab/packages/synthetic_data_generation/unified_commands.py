@@ -69,7 +69,8 @@ class UnifiedSyntheticDataGenerator:
         parameters: Optional[Dict[str, Any]] = None,
         output_path: Optional[str] = None,
         dry_run: bool = False,
-        target_environment: str = "lakehouse"
+        target_environment: str = "lakehouse",
+        execute: bool = True
     ) -> Dict[str, Any]:
         """
         Unified generation method that handles all modes.
@@ -81,6 +82,7 @@ class UnifiedSyntheticDataGenerator:
             output_path: Optional output path override
             dry_run: If True, only validate and show what would be generated
             target_environment: Target environment (lakehouse or warehouse)
+            execute: If True, execute the generated notebook after compilation
             
         Returns:
             Dictionary with generation results
@@ -110,21 +112,28 @@ class UnifiedSyntheticDataGenerator:
         # Route to appropriate generation method
         try:
             if mode == GenerationMode.SINGLE:
-                result = self._generate_single(config, params, target_environment, output_path)
+                notebook_path = self._generate_single(config, params, target_environment, output_path)
             elif mode == GenerationMode.INCREMENTAL:
-                result = self._generate_incremental(config, params, target_environment, output_path)
+                notebook_path = self._generate_incremental(config, params, target_environment, output_path)
             elif mode == GenerationMode.SERIES:
-                result = self._generate_series(config, params, target_environment, output_path)
+                notebook_path = self._generate_series(config, params, target_environment, output_path)
             else:
                 raise ValueError(f"Unknown generation mode: {mode}")
             
-            return {
+            result = {
                 "success": True,
                 "mode": mode,
                 "config": config,
                 "parameters": params,
-                "result": result
+                "notebook_path": notebook_path
             }
+            
+            # Execute the notebook if requested
+            if execute and not dry_run:
+                execution_result = self._execute_notebook(notebook_path)
+                result.update(execution_result)
+            
+            return result
             
         except Exception as e:
             return {
@@ -417,6 +426,67 @@ class UnifiedSyntheticDataGenerator:
             description=f"Runtime-parameterized synthetic data generation",
             output_subdir="synthetic_data_generation/generic"
         )
+    
+    def _execute_notebook(self, notebook_path: Path) -> Dict[str, Any]:
+        """
+        Execute a generated notebook as a Python script.
+        
+        Args:
+            notebook_path: Path to the notebook directory
+            
+        Returns:
+            Dictionary with execution results
+        """
+        import subprocess
+        import sys
+        from pathlib import Path
+        
+        # Find the notebook-content.py file
+        if isinstance(notebook_path, str):
+            notebook_path = Path(notebook_path)
+        
+        notebook_content_path = notebook_path / "notebook-content.py"
+        
+        if not notebook_content_path.exists():
+            return {
+                "execution_success": False,
+                "execution_errors": [f"Notebook content file not found: {notebook_content_path}"]
+            }
+        
+        try:
+            # Execute the notebook using subprocess for better isolation
+            result = subprocess.run(
+                [sys.executable, str(notebook_content_path)],
+                capture_output=True,
+                text=True,
+                timeout=300,  # 5 minute timeout
+                cwd=str(notebook_path.parent)  # Run from notebook directory
+            )
+            
+            if result.returncode == 0:
+                return {
+                    "execution_success": True,
+                    "execution_output": result.stdout,
+                    "execution_stderr": result.stderr if result.stderr else None
+                }
+            else:
+                return {
+                    "execution_success": False,
+                    "execution_errors": [f"Execution failed with return code {result.returncode}"],
+                    "execution_output": result.stdout,
+                    "execution_stderr": result.stderr
+                }
+                
+        except subprocess.TimeoutExpired:
+            return {
+                "execution_success": False,
+                "execution_errors": ["Notebook execution timed out after 5 minutes"]
+            }
+        except Exception as e:
+            return {
+                "execution_success": False,
+                "execution_errors": [f"Execution error: {str(e)}"]
+            }
 
 
 def format_list_output(items: Dict[str, Any], format_type: str = "table") -> None:
