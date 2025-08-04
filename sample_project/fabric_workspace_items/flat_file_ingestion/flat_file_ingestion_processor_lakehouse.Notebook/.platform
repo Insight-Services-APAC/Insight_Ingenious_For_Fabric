@@ -1,0 +1,12 @@
+{
+  "$schema": "https://developer.microsoft.com/json-schemas/fabric/gitIntegration/platformProperties/2.0.0/schema.json",
+  "metadata": {
+    "type": "Notebook",
+    "displayName": "Flat File Ingestion Processor (Lakehouse)",
+    "description": "Processes flat files and loads them into lakehouse tables based on configuration metadata"
+  },
+  "config": {
+    "version": "2.0",
+    "logicalId": "a46ca9ad-b3be-4f77-ae64-c9a786c99149"
+  }
+}
