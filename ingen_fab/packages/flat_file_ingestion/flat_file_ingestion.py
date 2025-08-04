@@ -31,8 +31,13 @@ class FlatFileIngestionCompiler(BaseNotebookCompiler):
             self.ddl_scripts_dir = self.package_dir / "ddl_scripts"
 
         # Set up template directories - include package templates and unified templates
-        root_dir = Path.cwd()
-        unified_templates_dir = root_dir / "ingen_fab" / "templates"
+        # Use PathUtils to properly resolve the templates directory
+        try:
+            unified_templates_dir = PathUtils.get_package_resource_path("templates")
+        except FileNotFoundError:
+            # Fallback for compatibility
+            unified_templates_dir = Path(__file__).parent.parent.parent / "templates"
+        
         template_search_paths = [self.templates_dir, unified_templates_dir]
 
         super().__init__(
@@ -191,10 +196,12 @@ class FlatFileIngestionCompiler(BaseNotebookCompiler):
                             # Create a template environment that includes our DDL scripts directory and
                             # unified templates
                             template_paths = [ddl_source_dir]
-                            # Add the unified templates directory
-                            unified_templates_dir = (
-                                Path.cwd() / "ingen_fab" / "templates"
-                            )
+                            # Add the unified templates directory using PathUtils
+                            try:
+                                unified_templates_dir = PathUtils.get_package_resource_path("templates")
+                            except FileNotFoundError:
+                                # Fallback for compatibility
+                                unified_templates_dir = Path(__file__).parent.parent.parent / "templates"
                             template_paths.append(unified_templates_dir)
 
                             env = jinja2.Environment(
