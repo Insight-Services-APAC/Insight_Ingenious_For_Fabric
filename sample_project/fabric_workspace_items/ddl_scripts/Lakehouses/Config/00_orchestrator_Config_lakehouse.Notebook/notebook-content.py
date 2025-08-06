@@ -48,6 +48,7 @@ if "notebookutils" in sys.modules:
     notebookutils.fs.mount("abfss://{{varlib:config_workspace_name}}@onelake.dfs.fabric.microsoft.com/{{varlib:config_lakehouse_name}}.Lakehouse/Files/", "/config_files")  # type: ignore # noqa: F821
     mount_path = notebookutils.fs.getMountPath("/config_files")  # type: ignore # noqa: F821
     
+    
     run_mode = "fabric"
     sys.path.insert(0, mount_path)
 
@@ -81,7 +82,10 @@ def load_python_modules_from_path(base_path: str, relative_files: list[str], max
     failed_files = []
 
     for relative_path in relative_files:
-        full_path = f"file:{base_path}/{relative_path}"
+        if base_path.startswith("file:") or base_path.startswith("abfss:"):
+            full_path = f"{base_path}/{relative_path}"
+        else:
+            full_path = f"file:{base_path}/{relative_path}"
         try:
             print(f"🔄 Loading: {full_path}")
             code = notebookutils.fs.head(full_path, max_chars)
@@ -252,22 +256,24 @@ def execute_notebook(notebook_name, index, total, timeout_seconds=3600):
 
 print(f"Starting orchestration for Config lakehouse")
 print(f"Start time: {start_time}")
-print(f"Total notebooks to execute: 2")
+print(f"Total notebooks to execute: 4")
 print("="*60)
-execute_notebook("001_Initial_Creation_SyntheticData_Config_Lakehouses_ddl_scripts", 1, 2)
-execute_notebook("001_Initial_Creation_Config_Lakehouses_ddl_scripts", 2, 2)
+execute_notebook("001_Initial_Creation_SyntheticData_Config_Lakehouses_ddl_scripts", 1, 4)
+execute_notebook("001_Initial_Creation_Ingestion_Config_Lakehouses_ddl_scripts", 2, 4)
+execute_notebook("001_Initial_Creation_Config_Lakehouses_ddl_scripts", 3, 4)
+execute_notebook("002_Sample_Data_Ingestion_Config_Lakehouses_ddl_scripts", 4, 4)
 
 # Final Summary
 end_time = datetime.now()
 duration = end_time - start_time
-failed_count = 2 - success_count
+failed_count = 4 - success_count
 
 print(f"{'='*60}")
 print(f"Orchestration Complete!")
 print(f"{'='*60}")
 print(f"End time: {end_time}")
 print(f"Duration: {duration}")
-print(f"Total notebooks: 2")
+print(f"Total notebooks: 4")
 print(f"Successfully executed: {success_count}")
 print(f"Failed: {failed_count}")
 
@@ -281,13 +287,13 @@ if failed_notebooks:
         print(f"   Error: {failure['error']}")
         print()
 
-if success_count == 2:
+if success_count == 4:
     print("✓ All notebooks executed successfully!")
     notebookutils.mssparkutils.notebook.exit("success")
 else:
     print(f"\n✗ Orchestration completed with {failed_count} failure(s)")
     # Exit with failure status - this will be caught by parent orchestrator as non-"success"
-    error_summary = f"failed: {failed_count} of 2 notebooks failed"
+    error_summary = f"failed: {failed_count} of 4 notebooks failed"
     notebookutils.mssparkutils.notebook.exit(error_summary)
 
 # METADATA ********************

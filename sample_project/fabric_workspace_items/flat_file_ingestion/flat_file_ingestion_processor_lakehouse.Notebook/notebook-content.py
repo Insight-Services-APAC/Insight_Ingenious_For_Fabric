@@ -284,7 +284,7 @@ location_resolver = LocationResolver(
     default_workspace_id=configs.sample_lh_workspace_id,  # Default to target workspace
     default_datastore_id=configs.sample_lh_lakehouse_id,  # Default to target lakehouse
     default_datastore_type="lakehouse",
-    default_file_root_path="Files",
+    default_file_root_path=".",
     default_schema_name="default"
 )
 

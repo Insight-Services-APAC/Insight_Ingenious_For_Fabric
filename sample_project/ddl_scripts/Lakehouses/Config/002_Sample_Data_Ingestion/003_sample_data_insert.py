@@ -75,7 +75,7 @@ sample_configs = [
     Row(
         config_id="synthetic_customers_folder_001",
         config_name="Synthetic Data - Customers Folder (Retail OLTP Small)",
-        source_file_path="synthetic_data/csv/single/retail_oltp_small/customers.csv",
+        source_file_path="synthetic_data/csv/series/retail_oltp_small/test_data_feb_small/flat/snapshot_customers/snapshot_customers_20240201.csv",
         source_file_format="csv",
         target_workspace_id="{{varlib:config_workspace_id}}",
         target_datastore_id="{{varlib:config_lakehouse_id}}",
@@ -127,7 +127,7 @@ sample_configs = [
     Row(
         config_id="synthetic_customers_file_001", 
         config_name="Synthetic Data - Customers Single File (Retail OLTP Small)",
-        source_file_path="synthetic_data/csv/single/retail_oltp_small/customers.csv/part-00000-48ab6836-0e35-4f77-be9a-b12ef9cd388b-c000.csv",
+        source_file_path="Files/synthetic_data/csv/series/retail_oltp_small/test_data_feb_small/flat/snapshot_customers/snapshot_customers_20240201.csv/part-00000-542fdb30-a52e-447b-ab32-df49d909d873-c000.csv",
         source_file_format="csv",
         target_workspace_id="{{varlib:config_workspace_id}}",
         target_datastore_id="{{varlib:config_lakehouse_id}}",
@@ -180,7 +180,7 @@ sample_configs = [
     Row(
         config_id="synthetic_orders_incremental_001",
         config_name="Synthetic Data - Orders Incremental (Retail OLTP Small)",
-        source_file_path="synthetic_data/csv/series/retail_oltp_small/nested/orders/",
+        source_file_path="synthetic_data/csv/series/retail_oltp_small/test_data_feb_small/flat/orders/",
         source_file_format="csv",
         target_workspace_id="{{varlib:config_workspace_id}}",
         target_datastore_id="{{varlib:config_lakehouse_id}}",
@@ -218,11 +218,11 @@ sample_configs = [
         max_columns=100,
         max_chars_per_column=50000,
         # Incremental data import configuration
-        import_pattern="date_partitioned",
+        import_pattern="wildcard_pattern",
         date_partition_format="YYYY/MM/DD",
         table_relationship_group="retail_oltp_incremental",
         batch_import_enabled=True,
-        file_discovery_pattern="**/*.csv",
+        file_discovery_pattern="orders_*.csv",
         import_sequence_order=1,
         date_range_start="2024-01-01",
         date_range_end="2024-01-30",
@@ -255,7 +255,7 @@ sample_configs = [
         data_validation_rules=None,
         error_handling_strategy="log",
         execution_group=4,  # Large dataset processing (Group 4)
-        active_yn="Y",
+        active_yn="N",  # Disabled by default - enable when data is available
         created_date="2024-01-15",
         modified_date=None,
         created_by="system",
@@ -308,7 +308,7 @@ sample_configs = [
         data_validation_rules=None,
         error_handling_strategy="log",
         execution_group=5,  # Parquet processing (Group 5)
-        active_yn="Y",
+        active_yn="N",  # Disabled by default - enable when data is available
         created_date="2024-01-15",
         modified_date=None,
         created_by="system",
@@ -463,11 +463,13 @@ target_lakehouse.write_to_table(
     mode="append"
 )
 
-print("✓ Inserted " + str(len(sample_configs)) + " sample configuration records using synthetic data generator files")
-print("✓ Includes configurations demonstrating:")
-print("  - Folder reading: Read all part files from a Spark-generated folder")
-print("  - Single file reading: Read a specific part file")
-print("  - Incremental data processing: Date-partitioned orders with append mode")
+print("✓ Inserted " + str(len(sample_configs)) + " sample configuration records")
+print("✓ Active configurations:")
+print("  - Customers Folder: Read all part files from a Spark-generated CSV folder")
+print("  - Customers Single File: Read a specific CSV part file")
+print("  - Orders Incremental: Date-partitioned CSV orders with wildcard pattern")
+print("✓ Inactive configurations (enable when data is available):")
 print("  - Large dataset support: Configuration for retail_oltp_large dataset")
-print("  - Multiple formats: Both CSV and Parquet file formats")
-print("  - All configurations use files from tmp/spark/Files/synthetic_data directory")
+print("  - Parquet format: Customers data in Parquet format")
+print("  - Cross-workspace and Delta table examples")
+print("✓ Files use synthetic data from test_data_feb_small directory")

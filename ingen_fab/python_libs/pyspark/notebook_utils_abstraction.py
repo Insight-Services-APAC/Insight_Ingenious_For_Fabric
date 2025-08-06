@@ -62,15 +62,15 @@ class FabricNotebookUtils(NotebookUtilsInterface):
 
         return self._notebookutils.lakehouse.get(artifact_id)
 
-    def display(self, obj: Any) -> None:
-        """Display an object in the notebook."""
-        if not self._available:
-            # Fallback to print for local development
-            print(obj)
-            return
+    #def display(self, obj: Any) -> None:
+    #    """Display an object in the notebook."""
+    #    if not self._available:
+    #        # Fallback to print for local development
+    #        print(obj)
+    #        return
 
         # Use the built-in display function in Fabric
-        display(obj)  # type: ignore # noqa: F821
+    #    display(obj)  # type: ignore # noqa: F821
 
     def exit_notebook(self, value: Any = None) -> None:
         """Exit the notebook with an optional return value."""

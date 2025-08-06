@@ -50,6 +50,7 @@ if "notebookutils" in sys.modules:
     notebookutils.fs.mount("abfss://{{varlib:config_workspace_name}}@onelake.dfs.fabric.microsoft.com/{{varlib:config_lakehouse_name}}.Lakehouse/Files/", "/config_files")  # type: ignore # noqa: F821
     mount_path = notebookutils.fs.getMountPath("/config_files")  # type: ignore # noqa: F821
     
+    
     run_mode = "fabric"
     sys.path.insert(0, mount_path)
 
@@ -84,7 +85,10 @@ def load_python_modules_from_path(base_path: str, relative_files: list[str], max
     failed_files = []
 
     for relative_path in relative_files:
-        full_path = f"file:{base_path}/{relative_path}"
+        if base_path.startswith("file:") or base_path.startswith("abfss:"):
+            full_path = f"{base_path}/{relative_path}"
+        else:
+            full_path = f"file:{base_path}/{relative_path}"
         try:
             print(f"🔄 Loading: {full_path}")
             code = notebookutils.fs.head(full_path, max_chars)
@@ -205,6 +209,7 @@ configs: ConfigsObject = get_configs_as_object()
 
 # Define the lakehouses and their orchestrators
 lakehouses_to_run = [
+    {'name': 'Config', 'orchestrator': '00_orchestrator_Config_warehouse_ddl_scripts'},
     {'name': 'Config_WH', 'orchestrator': '00_orchestrator_Config_WH_warehouse_ddl_scripts'},
     {'name': 'Sample_WH', 'orchestrator': '00_orchestrator_Sample_WH_warehouse_ddl_scripts'},
 ]
@@ -222,7 +227,7 @@ results = {}
 print(f"Starting parallel orchestration for all lakehouses")
 print(f"Start time: {start_time}")
 
-print(f"Total lakehouses to process: 2")
+print(f"Total lakehouses to process: 3")
 print("="*60)
 
 
@@ -285,7 +290,7 @@ print("="*60)
 
 
 # Run orchestrators in parallel using ThreadPoolExecutor with staggered execution
-with ThreadPoolExecutor(max_workers=2) as executor:
+with ThreadPoolExecutor(max_workers=3) as executor:
     # Submit all tasks with staggered delays (0.2 seconds apart)
     future_to_lakehouse = {}
     for i, lakehouse in enumerate(lakehouses_to_run):
@@ -321,7 +326,7 @@ print("\n" + "="*60)
 print("ORCHESTRATION SUMMARY REPORT")
 print("="*60)
 print(f"Total execution time: {total_duration}")
-print(f"Total lakehouses: 2")
+print(f"Total lakehouses: 3")
 
 # Count results
 success_count = sum(1 for r in results.values() if r['status'] == 'Success')
@@ -380,7 +385,7 @@ if failed_count == 0 and exception_count == 0:
     print(f"\n{final_message}")
     notebookutils.notebook.exit(final_message)
 else:
-    final_message = f"Completed with {failed_count + exception_count} failures out of 2 lakehouses"
+    final_message = f"Completed with {failed_count + exception_count} failures out of 3 lakehouses"
     print(f"\n✗ {final_message}")
     notebookutils.notebook.exit(final_message)
     raise Exception(final_message)

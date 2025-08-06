@@ -159,8 +159,8 @@ class LocationResolver:
             return self._utils_cache[cache_key]
 
         if location_config.datastore_type == "lakehouse":
-            if spark is None:
-                raise ValueError("Spark session is required for lakehouse operations")
+            #if spark is None:
+            #    raise ValueError("Spark session is required for lakehouse operations")
 
             # Import here to avoid circular dependencies
             from ingen_fab.python_libs.pyspark.lakehouse_utils import lakehouse_utils
