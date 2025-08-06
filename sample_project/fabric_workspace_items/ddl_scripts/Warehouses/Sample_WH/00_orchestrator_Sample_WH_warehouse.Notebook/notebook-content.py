@@ -50,6 +50,7 @@ if "notebookutils" in sys.modules:
     notebookutils.fs.mount("abfss://{{varlib:config_workspace_name}}@onelake.dfs.fabric.microsoft.com/{{varlib:config_lakehouse_name}}.Lakehouse/Files/", "/config_files")  # type: ignore # noqa: F821
     mount_path = notebookutils.fs.getMountPath("/config_files")  # type: ignore # noqa: F821
     
+    
     run_mode = "fabric"
     sys.path.insert(0, mount_path)
 
@@ -84,7 +85,10 @@ def load_python_modules_from_path(base_path: str, relative_files: list[str], max
     failed_files = []
 
     for relative_path in relative_files:
-        full_path = f"file:{base_path}/{relative_path}"
+        if base_path.startswith("file:") or base_path.startswith("abfss:"):
+            full_path = f"{base_path}/{relative_path}"
+        else:
+            full_path = f"file:{base_path}/{relative_path}"
         try:
             print(f"🔄 Loading: {full_path}")
             code = notebookutils.fs.head(full_path, max_chars)

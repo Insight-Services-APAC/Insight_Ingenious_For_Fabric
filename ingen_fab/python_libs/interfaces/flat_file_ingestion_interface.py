@@ -164,6 +164,7 @@ class FileDiscoveryResult:
     folder_name: Optional[str] = None
     size: int = 0
     modified_time: Optional[datetime] = None
+    nested_structure: bool = False
 
 
 @dataclass
@@ -219,7 +220,7 @@ class FlatFileProcessorInterface(ABC):
     """Interface for flat file processing operations"""
     
     @abstractmethod
-    def read_file(self, config: FlatFileIngestionConfig, file_path: str) -> Tuple[Any, ProcessingMetrics]:
+    def read_file(self, config: FlatFileIngestionConfig, file: FileDiscoveryResult) -> Tuple[Any, ProcessingMetrics]:
         """Read a file based on configuration and return DataFrame with metrics"""
         pass
     
