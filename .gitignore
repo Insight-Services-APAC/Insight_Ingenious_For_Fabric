@@ -22,6 +22,7 @@ ModuleAnalysisCache-AE0255EC
 StartupProfileData-Interactive
 /metastore_db/**/*/
 /node_modules/**/*/
+/sample_*/**/*/
 *.egg-info
 derby.log
 
