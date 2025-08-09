@@ -1,724 +1,291 @@
 # Synthetic Data Generation Package
 
-The Synthetic Data Generation package is a comprehensive framework for creating realistic test datasets at any scale. It supports multiple data patterns, runtime configuration, and both single-dataset and incremental time-series generation with sophisticated business logic.
+The Synthetic Data Generation package creates realistic test datasets at any scale. It supports multiple data patterns and both single-dataset and incremental time-series generation.
 
 ## Overview
 
-The Synthetic Data Generation package provides:
-
-- **Multi-Scale Generation**: From thousands to billions of rows with automatic mode selection
+The package provides:
+- **Multi-Scale Generation**: From thousands to billions of rows
 - **Domain-Specific Datasets**: Pre-configured datasets for retail, finance, healthcare, and e-commerce
 - **Flexible Schema Support**: OLTP (transactional) and OLAP (star schema) patterns
-- **Incremental Generation**: Time-based data generation with state management
-- **Runtime Configuration**: Modify parameters without recompilation
-- **Enhanced Templates**: Generic templates with full runtime parameterization
-- **Intelligent Defaults**: Auto-detection of optimal generation mode based on data size
+- **Single and Series Generation**: One-time datasets or time-based incremental data
+- **Runtime Configuration**: Modify parameters through notebook configuration
 
-## Architecture
+## Current CLI Commands
 
-### Core Components
+The package currently supports three main commands:
 
-1. **SyntheticDataGenerationCompiler**: Main compiler for single datasets
-2. **IncrementalSyntheticDataGenerationCompiler**: Specialized for time-series data
-3. **DatasetConfigurationRepository**: Centralized configuration management
-4. **Enhanced Configuration System**: Runtime parameter modification (when available)
-5. **Template System**: Unified Jinja2 templates supporting all scenarios
-
-### Generation Modes
-
-- **Python Mode**: For datasets < 1M rows using pandas/faker
-- **PySpark Mode**: For large-scale generation using distributed computing
-- **Auto Mode**: Automatically selects based on target rows
-
-## Installation & Setup
-
-### 1. List Available Datasets
-
+### 1. `generate` - Create Ready-to-Run Notebooks
 ```bash
-# View all predefined dataset configurations
-ingen_fab package synthetic-data list-datasets
-
-# View incremental datasets
-ingen_fab package synthetic-data list-incremental-datasets
-
-# View enhanced templates (if available)
-ingen_fab package synthetic-data list-enhanced
-```
-
-### 2. Compile Notebooks
-
-#### Standard Compilation
-```bash
-# Compile for a specific dataset
-ingen_fab package synthetic-data compile \
-    --dataset-id retail_oltp_small \
-    --target-rows 10000 \
-    --target-environment lakehouse
-
-# Compile with specific generation mode
-ingen_fab package synthetic-data compile \
-    --dataset-id finance_star_large \
-    --target-rows 1000000 \
-    --generation-mode pyspark
-```
-
-#### Enhanced Compilation
-```bash
-# Use enhanced template with runtime parameters
-ingen_fab package synthetic-data compile \
-    --enhanced \
-    --config-template retail_oltp_enhanced \
-    --path-pattern nested_daily
-
-# List available enhanced templates
-ingen_fab package synthetic-data compile \
-    --enhanced \
-    --config-template list
-```
-
-### 3. Deploy DDL Scripts
-
-The package creates these configuration tables:
-
-**Lakehouse Tables:**
-```
-config_synthetic_data_datasets
-config_synthetic_data_generation_jobs
-log_synthetic_data_generation
-sample_dataset_configurations
-```
-
-**Warehouse Tables:**
-```
-config.config_synthetic_data_datasets
-config.config_synthetic_data_generation_jobs
-config.log_synthetic_data_generation
-config.sample_dataset_configurations
-```
-
-## CLI Commands
-
-### Core Commands
-
-#### `compile`
-Compile synthetic data generation notebooks and DDL scripts.
-
-```bash
-ingen_fab package synthetic-data compile [OPTIONS]
+ingen_fab package synthetic-data generate <config> [OPTIONS]
 
 Options:
-  --dataset-id, -d          Predefined dataset ID to compile
-  --target-rows, -r         Number of rows to generate [default: 10000]
-  --target-environment, -e  Target environment (lakehouse/warehouse) [default: lakehouse]
-  --generation-mode, -m     Generation mode (python/pyspark/auto) [default: auto]
-  --seed, -s               Seed value for reproducible generation
-  --include-ddl            Include DDL scripts [default: True]
-  --output-mode, -o        Output mode (table/parquet/csv) [default: table]
-  --enhanced               Use enhanced template system
-  --config-template, -t    Configuration template ID for enhanced mode
-  --path-pattern, -p       File path pattern for outputs
+  --mode              Generation mode: 'single' or 'series' [default: single]
+  --parameters        JSON string with generation parameters
+  --output-path       Custom output path for generated files
+  --dry-run          Preview without generating files
+  --target-environment Target: 'lakehouse' or 'warehouse' [default: lakehouse]  
+  --no-execute       Don't execute the notebook after generation
 ```
 
-#### `generate`
-Generate synthetic data for a specific dataset.
-
+### 2. `list` - Show Available Configurations
 ```bash
-ingen_fab package synthetic-data generate DATASET_ID [OPTIONS]
+ingen_fab package synthetic-data list [OPTIONS]
 
 Options:
-  --target-rows, -r         Number of rows to generate [default: 10000]
-  --target-environment, -e  Target environment [default: lakehouse]
-  --generation-mode, -m     Generation mode [default: auto]
-  --seed, -s               Seed value for reproducibility
-  --execute                Execute notebook after compilation
-  --output-mode, -o        Output mode [default: table]
+  --type, -t         What to list: 'datasets', 'templates', or 'all' [default: all]
+  --format, -f       Output format: 'table' or 'json' [default: table]
 ```
 
-#### `generate-incremental`
-Generate incremental synthetic data for a specific date.
-
+### 3. `compile` - Create Template Notebooks
 ```bash
-ingen_fab package synthetic-data generate-incremental DATASET_ID [OPTIONS]
+ingen_fab package synthetic-data compile [TEMPLATE] [OPTIONS]
 
 Options:
-  --date, -d               Generation date (YYYY-MM-DD)
-  --path-format, -p        Path format (nested/flat) [default: nested]
-  --target-environment, -e  Target environment [default: lakehouse]
-  --generation-mode, -m     Generation mode [default: auto]
-  --seed, -s               Seed value
-  --state-management       Enable state management [default: True]
-  --execute                Execute notebook after compilation
-```
-
-#### `generate-series`
-Generate a series of incremental data for a date range.
-
-```bash
-ingen_fab package synthetic-data generate-series DATASET_ID [OPTIONS]
-
-Options:
-  --start-date, -s         Start date (YYYY-MM-DD)
-  --end-date, -e           End date (YYYY-MM-DD)
-  --batch-size, -b         Days per batch [default: 10]
-  --path-format, -p        Path format [default: nested]
-  --target-environment, -t  Target environment [default: lakehouse]
-  --generation-mode, -m     Generation mode [default: auto]
-  --output-mode, -o        Output mode [default: parquet]
-  --seed                   Seed value
-  --ignore-state           Ignore existing state
-  --execute                Execute notebook
-```
-
-### Generic Template Commands
-
-#### `compile-generic-templates`
-Compile runtime-parameterized generic templates.
-
-```bash
-ingen_fab package synthetic-data compile-generic-templates [OPTIONS]
-
-Options:
-  --target-environment, -t  Target environment [default: lakehouse]
-  --force                  Force recompilation
-  --template-type          Template type (all/series/single) [default: all]
-```
-
-#### `execute-with-parameters`
-Execute generic templates with runtime parameters.
-
-```bash
-ingen_fab package synthetic-data execute-with-parameters NOTEBOOK_NAME [OPTIONS]
-
-Options:
-  --dataset-id             Dataset ID to generate
-  --start-date             Start date for series
-  --end-date               End date for series
-  --batch-size             Days per batch
-  --target-rows            Target rows for single dataset
-  --scale-factor           Scale factor for size
-  --path-format            Path format
-  --output-mode            Output mode
-  --seed                   Seed value
-  --generation-mode        Generation mode
-  --custom-schema          Custom schema JSON
-  --enable-partitioning    Enable table partitioning
+  --runtime-config   JSON configuration for compilation
+  --output-format    Output: 'notebook', 'ddl', or 'all' [default: all]
+  --target-environment Target: 'lakehouse' or 'warehouse' [default: lakehouse]
 ```
 
 ## Available Datasets
 
 ### Retail Domain
+- `retail_oltp_small` / `retail_oltp_large` - Transactional system
+- `retail_star_small` / `retail_star_large` - Analytics star schema
 
-#### `retail_oltp_small` / `retail_oltp_large`
-Transactional retail system with normalized schema:
-- **customers**: Customer profiles with demographics
-- **products**: Product catalog with categories and pricing
-- **stores**: Physical store locations
-- **orders**: Order transactions
-- **order_items**: Order line items
-- **inventory**: Stock levels by store and product
-
-#### `retail_star_small` / `retail_star_large`
-Star schema for retail analytics:
-- **fact_sales**: Sales transactions with measures
-- **dim_customer**: Customer dimension (SCD Type 2)
-- **dim_product**: Product hierarchy
-- **dim_store**: Store locations and attributes
-- **dim_date**: Date dimension with fiscal calendar
-- **dim_time**: Time of day analysis
-
-### Financial Domain
-
-#### `finance_oltp_small` / `finance_oltp_large`
-Banking/financial services system:
-- **customers**: Account holders
-- **accounts**: Bank accounts
-- **transactions**: Financial transactions
-- **merchants**: Transaction endpoints
-- **cards**: Payment instruments
-- **branches**: Physical locations
-
-#### `finance_star_small` / `finance_star_large`
-Financial analytics star schema:
-- **fact_transactions**: Transaction metrics
-- **dim_account**: Account attributes
-- **dim_customer**: Customer dimension (SCD Type 2)
-- **dim_merchant**: Merchant categories
-- **dim_transaction_type**: Transaction classifications
-- **dim_date**: Banking calendar
+### Financial Domain  
+- `finance_oltp_small` / `finance_oltp_large` - Banking system
+- `finance_star_small` / `finance_star_large` - Financial analytics
 
 ### E-commerce Domain
-
-#### `ecommerce_star_small` / `ecommerce_star_large`
-E-commerce analytics schema:
-- **fact_page_views**: Clickstream data
-- **fact_orders**: Order transactions
-- **dim_user**: User profiles
-- **dim_product**: Product catalog
-- **dim_session**: Session tracking
-- **dim_campaign**: Marketing attribution
+- `ecommerce_star_small` / `ecommerce_star_large` - E-commerce analytics
 
 ### Healthcare Domain
+- `healthcare_oltp_small` - Healthcare system (anonymized)
 
-#### `healthcare_oltp_small`
-Healthcare system (anonymized):
-- **patients**: Patient records
-- **providers**: Healthcare professionals
-- **appointments**: Scheduled visits
-- **diagnoses**: Medical diagnoses
-- **prescriptions**: Medications
-- **procedures**: Medical procedures
+## Single Dataset Generation
 
-### Incremental Datasets
+### Basic Usage
 
-All standard datasets have incremental variants with `_incremental` suffix:
-- `retail_oltp_small_incremental`
-- `retail_star_large_incremental`
-- `finance_oltp_small_incremental`
-- etc.
-
-## Configuration System
-
-### Dataset Configuration Structure
-
-```python
-{
-    "dataset_id": "retail_oltp_small",
-    "dataset_name": "Retail OLTP - Small",
-    "dataset_type": "transactional",
-    "schema_pattern": "oltp",
-    "domain": "retail",
-    "tables": ["customers", "products", "orders", "order_items"],
-    "target_rows": 10000,
-    "generation_config": {
-        "mode": "auto",
-        "chunk_size": 10000,
-        "parallel_tables": True
-    },
-    "relationships": [
-        {
-            "parent": "customers.customer_id",
-            "child": "orders.customer_id",
-            "type": "one_to_many"
-        }
-    ]
-}
-```
-
-### Incremental Configuration
-
-```python
-{
-    "incremental_config": {
-        "snapshot_frequency": "daily",
-        "file_path_pattern": "nested",
-        "state_management": True,
-        "table_types": {
-            "customers": "snapshot",
-            "orders": "incremental",
-            "products": "slowly_changing_dimension"
-        },
-        "seasonal_patterns": {
-            "monday": 0.8,
-            "tuesday": 0.9,
-            "wednesday": 1.0,
-            "thursday": 1.1,
-            "friday": 1.3,
-            "saturday": 1.5,
-            "sunday": 1.2
-        }
-    }
-}
-```
-
-## File Path Patterns
-
-### Built-in Patterns
-
-1. **`nested_daily`**: `/YYYY/MM/DD/table_name/`
-   ```
-   /2024/03/15/orders/data.parquet
-   ```
-
-2. **`flat_with_date`**: `table_name_YYYYMMDD`
-   ```
-   orders_20240315.parquet
-   ```
-
-3. **`hive_partitioned`**: `/table_name/year=YYYY/month=MM/day=DD/`
-   ```
-   /orders/year=2024/month=03/day=15/data.parquet
-   ```
-
-4. **`custom`**: User-defined patterns using placeholders
-
-## Enhanced Features
-
-### Runtime Parameters
-
-When using enhanced templates, parameters can be modified at runtime:
-
-```python
-runtime_params = {
-    "dataset_id": "retail_oltp_small",
-    "target_rows": 50000,
-    "scale_factor": 2.0,
-    "seed_value": 12345,
-    "output_settings": {
-        "output_mode": "parquet",
-        "path_format": "hive_partitioned",
-        "compression": "snappy"
-    },
-    "generation_settings": {
-        "chunk_size": 10000,
-        "parallel_workers": 4,
-        "memory_fraction": 0.8
-    }
-}
-```
-
-### Data Quality Features
-
-#### Referential Integrity
-Maintains relationships between tables:
-```python
-"enable_relationships": True,
-"relationship_null_percentage": 0.05  # 5% orphaned records
-```
-
-#### Data Distributions
-Realistic value distributions:
-```python
-"distributions": {
-    "order_amount": {
-        "type": "lognormal",
-        "mean": 100,
-        "sigma": 50
-    },
-    "customer_age": {
-        "type": "normal",
-        "mean": 42,
-        "stddev": 15,
-        "min": 18,
-        "max": 95
-    }
-}
-```
-
-#### Temporal Patterns
-Time-based variations:
-```python
-"temporal_patterns": {
-    "hourly_distribution": {
-        "09-12": 1.2,  # Morning peak
-        "12-14": 1.5,  # Lunch peak
-        "14-17": 1.0,  # Afternoon
-        "17-20": 1.8,  # Evening peak
-        "default": 0.3
-    },
-    "seasonal_multipliers": {
-        "black_friday": 5.0,
-        "christmas_week": 3.0,
-        "summer_sale": 2.0
-    }
-}
-```
-
-## Performance Optimization
-
-### Chunking Strategy
-
-For very large datasets:
-```python
-"chunking_config": {
-    "enabled": True,
-    "chunk_size": 1000000,
-    "parallel_chunks": 10,
-    "memory_fraction": 0.8,
-    "spill_to_disk": True
-}
-```
-
-### Partitioning
-
-Optimize query performance:
-```python
-"partition_config": {
-    "partition_columns": ["year", "month", "day"],
-    "bucketing": {
-        "columns": ["customer_id"],
-        "buckets": 200
-    },
-    "sorting": {
-        "columns": ["order_date", "customer_id"]
-    }
-}
-```
-
-### Delta Lake Optimizations
-
-```python
-"delta_config": {
-    "optimize_write": True,
-    "auto_compact": True,
-    "z_order_columns": ["customer_id", "order_date"],
-    "data_skipping": True,
-    "stats_collection": True
-}
-```
-
-## State Management
-
-### Generation State Tracking
-
-The system tracks generation history to prevent duplicates:
-
-```sql
--- View generation state
-SELECT 
-    dataset_id,
-    generation_date,
-    tables_generated,
-    total_rows,
-    file_paths,
-    status
-FROM log_synthetic_data_generation
-WHERE dataset_id = 'retail_oltp_small_incremental'
-ORDER BY generation_date DESC;
-```
-
-### State Recovery
-
-Resume interrupted generation:
+Generate a single dataset with default parameters:
 ```bash
-# Continue from last successful date
-ingen_fab package synthetic-data generate-series \
-    retail_oltp_small_incremental \
-    --start-date 2024-01-01 \
-    --end-date 2024-12-31 \
-    --resume  # Automatically detects last successful date
+# Generate small retail dataset
+ingen_fab package synthetic-data generate retail_oltp_small
+
+# Generate with custom parameters
+ingen_fab package synthetic-data generate retail_oltp_small \
+  --parameters '{"target_rows": 100000, "seed_value": 42}'
 ```
 
-## Monitoring & Logging
+### Configuration Parameters
 
-### Performance Metrics
+#### Working Parameters for Single Dataset
 
-Track generation performance:
-```sql
--- Average generation speed by dataset
-SELECT 
-    dataset_id,
-    generation_mode,
-    AVG(rows_per_second) as avg_rows_per_sec,
-    AVG(duration_seconds) as avg_duration,
-    MIN(rows_per_second) as min_speed,
-    MAX(rows_per_second) as max_speed
-FROM log_synthetic_data_generation
-WHERE status = 'COMPLETED'
-GROUP BY dataset_id, generation_mode;
-```
+| Parameter | Description | Default | Example |
+|-----------|-------------|---------|---------|
+| `target_rows` | Number of rows to generate | 10000 | 100000 |
+| `seed_value` | Random seed for reproducibility | None | 42 |
+| `output_mode` | Output format | "table" | "parquet", "csv" |
+| `generation_mode` | Generation engine | "auto" | "pyspark" |
+| `scale_factor` | Multiplier for all table sizes | 1.0 | 2.5 |
 
-### Resource Usage
+#### Parameters That Exist But Don't Work
 
-Monitor resource consumption:
-```sql
--- Peak memory usage by dataset size
-SELECT 
-    dataset_id,
-    target_rows,
-    MAX(peak_memory_gb) as max_memory,
-    MAX(cpu_cores_used) as max_cores,
-    AVG(duration_seconds) as avg_duration
-FROM log_synthetic_data_generation
-GROUP BY dataset_id, target_rows
-ORDER BY target_rows;
-```
+These parameters may appear in configurations but have no effect:
+- `chunk_size` - Not implemented in generation logic
+- `parallel_tables` - Tables are always generated sequentially
+- `memory_fraction` - Memory management not configurable
+- `enable_spill` - Disk spilling not implemented
+- `compression` - Compression settings ignored
+- `parallel_workers` - No parallel processing
 
-## Best Practices
+### Generation Modes
 
-### Development
+- **`auto`**: Automatically selects PySpark (always uses PySpark currently)
+- **`pyspark`**: Uses distributed Spark for generation
+- **`python`**: Not actually available (falls back to PySpark)
 
-1. **Start Small**: Test with 1K-10K rows first
-2. **Validate Schemas**: Check relationships and constraints
-3. **Use Consistent Seeds**: Ensure reproducibility
-4. **Profile Output**: Verify data distributions
+## Series/Incremental Generation
 
-### Testing
+For time-based data generation, see [Incremental Synthetic Data Generation](incremental_synthetic_data_generation.md).
 
-1. **Scale Gradually**: 10K → 100K → 1M → 10M → 100M
-2. **Monitor Resources**: Track memory and CPU usage
-3. **Validate Integrity**: Check referential constraints
-4. **Test Edge Cases**: Null values, duplicates, outliers
+Key points:
+- Generates data day-by-day for date ranges
+- `batch_size` groups days for memory management
+- Each day's data has correct date values embedded
 
-### Production
+## Generic Templates
 
-1. **Resource Planning**: 
-   - Estimate memory: ~10GB per billion rows
-   - Plan cluster size: 4+ cores for > 100M rows
-   - Schedule during off-peak hours
+The package includes generic notebook templates that can be parameterized at runtime:
 
-2. **Output Optimization**:
-   - Partition by query patterns
-   - Enable compression (70-90% reduction)
-   - Use columnar formats (Parquet/Delta)
+### Available Templates
+- `generic_single_dataset_lakehouse` - Single dataset for lakehouse
+- `generic_single_dataset_warehouse` - Single dataset for warehouse  
+- `generic_incremental_series_lakehouse` - Time series for lakehouse
+- `generic_incremental_series_warehouse` - Time series for warehouse
 
-3. **Operational Excellence**:
-   - Document configurations
-   - Version control templates
-   - Monitor generation logs
-   - Set up alerting
+### Using Generic Templates
 
-## Troubleshooting
-
-### Common Issues
-
-#### Out of Memory
 ```bash
-# Reduce chunk size
---chunk-size 100000
+# Compile all generic templates
+ingen_fab package synthetic-data compile
 
-# Increase memory allocation
---memory-fraction 0.9
+# Compile specific template
+ingen_fab package synthetic-data compile generic_single_dataset_lakehouse
 
-# Use disk spilling
---enable-spill
+# Generate using generic template  
+ingen_fab package synthetic-data generate generic_single_dataset_lakehouse \
+  --parameters '{"dataset_id": "retail_oltp_small", "target_rows": 50000}'
 ```
 
-#### Slow Generation
-- Check data complexity (relationships, calculations)
-- Enable parallel processing
-- Use PySpark for large datasets
-- Optimize chunking strategy
+## File Organization
 
-#### Data Quality Issues
-- Verify generator configurations
-- Check seed consistency
-- Review distribution parameters
-- Validate temporal logic
+### Table Output Mode
+Creates Delta/Parquet tables in the lakehouse:
+```
+Tables/
+├── customers
+├── products  
+├── orders
+└── order_items
+```
+
+### Parquet/CSV Output Mode
+Creates files in the Files section:
+```
+Files/synthetic_data/
+└── retail_oltp_small/
+    ├── customers.parquet
+    ├── products.parquet
+    ├── orders.parquet
+    └── order_items.parquet
+```
+
+## DDL Scripts Created
+
+The package creates configuration and logging tables:
+
+**Lakehouse:**
+- `config_synthetic_data_datasets` - Dataset configurations
+- `log_synthetic_data_generation` - Generation history
+
+**Warehouse:**
+- `config.config_synthetic_data_datasets`
+- `config.log_synthetic_data_generation`
+
+## Data Characteristics
+
+### Table Relationships
+The generated data maintains referential integrity:
+- Orders reference valid customer IDs
+- Order items reference valid order and product IDs
+- Foreign key relationships are preserved
+
+### Data Distributions
+- **Customer ages**: Normal distribution (18-95 years)
+- **Order amounts**: Log-normal distribution  
+- **Dates**: Evenly distributed or seasonal patterns
+- **Categories**: Realistic category distributions
+
+### Limitations
+1. **No NULL handling**: All fields are populated (no realistic NULL patterns)
+2. **No data evolution**: Customer/product attributes don't change over time
+3. **Simple distributions**: No complex multi-modal distributions
+4. **No data quality issues**: No duplicates, conflicts, or anomalies unless explicitly coded
+
+## Performance Considerations
+
+### Memory Usage
+- Approximate memory needed: ~1GB per 10M rows
+- Larger datasets may require cluster scaling
+- No automatic memory management or spilling
+
+### Generation Speed
+- Small datasets (<100K rows): 1-5 seconds
+- Medium datasets (1M rows): 10-30 seconds  
+- Large datasets (100M rows): 5-15 minutes
+- Very large (1B+ rows): 1-2 hours
+
+### Best Practices
+1. Start with small datasets for testing
+2. Use consistent seeds for reproducibility
+3. Monitor cluster resources for large generations
+4. Use parquet format for better compression
+
+## Common Issues and Solutions
+
+### Issue: Out of Memory
+**Solution**: 
+- Reduce `target_rows`
+- Scale up cluster
+- Generate tables individually
+
+### Issue: Slow Generation
+**Solution**:
+- Ensure sufficient cluster cores
+- Use `generation_mode: "pyspark"`
+- Reduce data complexity
+
+### Issue: Cannot Find Dataset
+**Solution**:
+- Run `ingen_fab package synthetic-data list` to see available datasets
+- Check spelling of dataset_id
+- Ensure dataset is in configuration
 
 ## Examples
 
-### Example 1: Quick Development Dataset
-
+### Example 1: Quick Test Dataset
 ```bash
-# Generate small OLTP dataset for testing
-ingen_fab package synthetic-data generate \
-    retail_oltp_small \
-    --target-rows 1000 \
-    --seed 42 \
-    --output-mode table
+# Generate small dataset for unit testing
+ingen_fab package synthetic-data generate retail_oltp_small \
+  --parameters '{"target_rows": 1000, "seed_value": 42}'
 ```
 
-### Example 2: Large Analytics Dataset
-
+### Example 2: Large Analytics Dataset  
 ```bash
-# Generate 100M row star schema
-ingen_fab package synthetic-data compile \
-    --dataset-id retail_star_large \
-    --target-rows 100000000 \
-    --generation-mode pyspark \
-    --output-mode parquet
+# Generate large star schema
+ingen_fab package synthetic-data generate retail_star_large \
+  --parameters '{"target_rows": 10000000, "output_mode": "parquet"}'
 ```
 
-### Example 3: Incremental Time Series
-
+### Example 3: Reproducible Dataset
 ```bash
-# Generate daily data for Q1 2024
-ingen_fab package synthetic-data generate-series \
-    retail_oltp_small_incremental \
-    --start-date 2024-01-01 \
-    --end-date 2024-03-31 \
-    --batch-size 7 \
-    --path-format nested_daily
+# Always generates identical data
+ingen_fab package synthetic-data generate finance_oltp_small \
+  --parameters '{"seed_value": 12345, "target_rows": 50000}'
 ```
 
-### Example 4: Enhanced Runtime Configuration
+## Features Not Yet Implemented
 
-```bash
-# Compile with enhanced template
-ingen_fab package synthetic-data compile \
-    --enhanced \
-    --config-template retail_oltp_enhanced \
-    --path-pattern hive_partitioned
+The following features are mentioned in configurations but not functional:
 
-# Execute with runtime parameters
-ingen_fab package synthetic-data execute-with-parameters \
-    generic_single_dataset_lakehouse \
-    --dataset-id retail_oltp_small \
-    --target-rows 50000 \
-    --enable-partitioning \
-    --output-mode parquet
-```
+### CLI Commands
+- `generate-incremental` - Use `generate` with mode='series' instead
+- `generate-series` - Use `generate` with mode='series' instead  
+- `execute-with-parameters` - Not implemented
+- `--resume` flag - No resume capability
 
-## Integration Examples
+### Configuration Options
+- State management between runs
+- Growth and churn rates
+- Holiday detection and multipliers
+- Data drift simulation
+- Parallel table generation
+- Memory management settings
+- Custom schema definitions
+- Data quality patterns (nulls, duplicates)
+- Temporal patterns beyond day-of-week
 
-### With Testing Frameworks
-
-```python
-# pytest fixture for test data
-@pytest.fixture
-def synthetic_test_data():
-    """Generate test data for each test"""
-    from ingen_fab.synthetic_data import SyntheticDataGenerator
-    
-    generator = SyntheticDataGenerator(
-        dataset_id="retail_oltp_small",
-        target_rows=100,
-        seed=12345
-    )
-    return generator.generate()
-```
-
-### With CI/CD Pipelines
-
-```yaml
-# GitHub Actions workflow
-name: Generate Test Data
-on: [push]
-
-jobs:
-  generate-data:
-    runs-on: ubuntu-latest
-    steps:
-      - name: Generate Synthetic Data
-        run: |
-          ingen_fab package synthetic-data generate \
-            retail_oltp_small \
-            --target-rows 10000 \
-            --seed ${{ github.run_number }}
-      
-      - name: Run Tests
-        run: pytest tests/ --test-data-path=./synthetic_data/
-```
-
-### With Data Pipelines
-
-```python
-# Airflow DAG for daily incremental generation
-from airflow import DAG
-from airflow.operators.bash import BashOperator
-from datetime import datetime, timedelta
-
-dag = DAG(
-    'synthetic_data_daily',
-    schedule_interval='@daily',
-    start_date=datetime(2024, 1, 1)
-)
-
-generate_task = BashOperator(
-    task_id='generate_daily_data',
-    bash_command="""
-    ingen_fab package synthetic-data generate-incremental \
-        retail_oltp_small_incremental \
-        --date {{ ds }} \
-        --execute
-    """,
-    dag=dag
-)
-```
+### Performance Features  
+- Chunking for very large datasets
+- Disk spilling for memory management
+- Parallel processing
+- Delta Lake optimizations (Z-ordering, compaction)
+- Adaptive query execution
 
 ## Next Steps
 
-- Review [incremental generation patterns](incremental_synthetic_data_generation.md)
-- Explore [enhanced configuration options](synthetic_data_generation_enhancements.md)
-- Learn about [custom data generators](../developer_guide/synthetic_data_generators.md)
-- See [performance tuning guide](../user_guide/performance.md#synthetic-data)
+- For time-series data, see [Incremental Generation](incremental_synthetic_data_generation.md)
+- Review available datasets with `ingen_fab package synthetic-data list`
+- Start with small datasets to understand the data structure
+- Scale up gradually for performance testing

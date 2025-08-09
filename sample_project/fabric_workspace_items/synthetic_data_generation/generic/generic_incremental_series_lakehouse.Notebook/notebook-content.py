@@ -150,6 +150,7 @@ if run_mode == "local":
     from ingen_fab.python_libs.pyspark.ddl_utils import ddl_utils
     from ingen_fab.python_libs.pyspark.notebook_utils_abstraction import NotebookUtilsFactory
     from ingen_fab.python_libs.pyspark.synthetic_data_utils import PySparkSyntheticDataGenerator, PySparkDatasetBuilder
+    from ingen_fab.python_libs.pyspark.incremental_synthetic_data_utils import IncrementalSyntheticDataGenerator
     from ingen_fab.python_libs.common.synthetic_data_dataset_configs import DatasetConfigurationRepository
     notebookutils = NotebookUtilsFactory.create_instance() 
 else:
@@ -159,6 +160,7 @@ else:
         "ingen_fab/python_libs/pyspark/ddl_utils.py",
         "ingen_fab/python_libs/pyspark/notebook_utils_abstraction.py",
         "ingen_fab/python_libs/pyspark/synthetic_data_utils.py",
+        "ingen_fab/python_libs/pyspark/incremental_synthetic_data_utils.py",
         "ingen_fab/python_libs/common/synthetic_data_dataset_configs.py"
     ]
 
@@ -177,6 +179,24 @@ else:
 # Job configurations - can be a single dict or list of dicts
 # Multiple job configurations example - generate different datasets across time periods
 job_configs = [
+    
+    {
+        "job_name": "test_data_feb_small",
+        "dataset_id": "retail_oltp_small",
+        "start_date": "2024-02-01",
+        "end_date": "2024-02-07",
+        "batch_size": 1,                            # Daily batches for testing
+        "path_format": "flat",
+        "output_mode": "csv",
+        "ignore_state": True,
+        "seed_value": 99999,
+        "generation_mode": "auto",
+        "parallel_workers": 1,
+        "chunk_size": 100000,
+        "enable_data_drift": False,
+        "drift_percentage": 0.0,
+        "enable_seasonal_patterns": False
+    },
     {
         "job_name": "q1_2024_retail_daily",
         "dataset_id": "retail_oltp_small",
@@ -227,23 +247,6 @@ job_configs = [
         "enable_data_drift": False,                 # Stable patterns during holidays
         "drift_percentage": 0.0,
         "enable_seasonal_patterns": True
-    },
-    {
-        "job_name": "test_data_feb_small",
-        "dataset_id": "retail_oltp_small",
-        "start_date": "2024-02-01",
-        "end_date": "2024-02-07",
-        "batch_size": 1,                            # Daily batches for testing
-        "path_format": "flat",
-        "output_mode": "csv",
-        "ignore_state": True,
-        "seed_value": 99999,
-        "generation_mode": "auto",
-        "parallel_workers": 1,
-        "chunk_size": 100000,
-        "enable_data_drift": False,
-        "drift_percentage": 0.0,
-        "enable_seasonal_patterns": False
     },
     {
         "job_name": "backfill_missing_april",
@@ -437,12 +440,18 @@ lh_utils = lakehouse_utils(
     spark=spark
 )
 
-# Initialize PySpark synthetic data generator
-generator = PySparkSyntheticDataGenerator(
+# Initialize incremental synthetic data generator
+base_generator = PySparkSyntheticDataGenerator(
     lakehouse_utils_instance=lh_utils,
     seed=seed_value
 )
-dataset_builder = PySparkDatasetBuilder(generator)
+generator = IncrementalSyntheticDataGenerator(
+    lakehouse_utils_instance=lh_utils,
+    seed=seed_value
+)
+# Set the base generator after initialization
+generator.base_generator = base_generator
+dataset_builder = PySparkDatasetBuilder(base_generator)
 
 
 
@@ -620,27 +629,23 @@ for job_idx, job_batch_info in enumerate(all_job_batches, 1):
                     else:
                         adjusted_rows = base_rows
                     
-                    # Generate table data
+                    # Generate table data using incremental generator with correct date
+                    # Pass the current_date as the generation_date
+                    state = {}  # You can maintain state across batches if needed
+                    
                     if table_name == "customers":
-                        table_df = generator.generate_customers_table(adjusted_rows)
+                        table_df = generator._generate_customers_incremental(adjusted_rows, current_date, state)
                     elif table_name == "products":
-                        table_df = generator.generate_products_table(adjusted_rows)
+                        table_df = generator._generate_products_incremental(adjusted_rows, current_date, state)
                     elif table_name == "orders":
-                        # For orders, we need customers data
-                        customers_df = batch_tables.get("customers")
-                        products_df = batch_tables.get("products")
-                        table_df = generator.generate_orders_table(adjusted_rows, customers_df, products_df)
+                        # For orders, use incremental generator with proper date
+                        table_df = generator._generate_orders_incremental(adjusted_rows, current_date, state)
                     elif table_name == "order_items":
-                        # For order items, we need orders and products
-                        orders_df = batch_tables.get("orders")
-                        products_df = batch_tables.get("products")
-                        if orders_df is not None:
-                            table_df = generator.generate_order_items_table(orders_df, products_df)
-                        else:
-                            continue
+                        # For order items, use incremental generator
+                        table_df = generator._generate_order_items_incremental(adjusted_rows, current_date, state)
                     else:
                         # Generic table generation
-                        table_df = generator.generate_customers_table(adjusted_rows)  # Fallback
+                        table_df = generator._generate_generic_table_incremental(table_name, adjusted_rows, current_date, state)
                     
                     # Store in batch tables for dependencies
                     batch_tables[table_name] = table_df
@@ -680,7 +685,8 @@ for job_idx, job_batch_info in enumerate(all_job_batches, 1):
                     
                     if should_generate:
                         base_rows = table_config.get("base_rows", 10000)
-                        table_df = generator.generate_customers_table(base_rows)  # Generic snapshot
+                        # Use incremental generator's snapshot method
+                        table_df = generator._generate_generic_snapshot(table_name, base_rows, current_date)
                         batch_tables[table_name] = table_df
                         
                         if job['output_mode'] == "table":

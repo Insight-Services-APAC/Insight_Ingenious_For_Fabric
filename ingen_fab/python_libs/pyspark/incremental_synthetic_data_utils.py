@@ -992,24 +992,75 @@ class IncrementalSyntheticDataGenerator:
     
     def _generate_orders_incremental(self, num_rows: int, generation_date: date, state: Dict[str, Any]):
         """Generate incremental orders data."""
-        if not self.base_generator:
-            raise RuntimeError("Base generator not initialized")
+        if not PYSPARK_AVAILABLE or not self.lakehouse_utils:
+            raise RuntimeError("PySpark not available or lakehouse utils not initialized")
         
         # Get customer count from state or use default
         customer_count = state.get("tables", {}).get("customers", {}).get("current_size", num_rows // 10)
         
-        # Use base generator to create orders
-        df = self.base_generator.generate_orders_table(num_rows, customer_count)
+        # Generate orders directly with the correct date
+        base_df = self.lakehouse_utils.create_range_dataframe(
+            1, num_rows + 1, max(1, num_rows // 50000)
+        ).toDF("order_id")
         
-        # Add incremental-specific columns
-        if PYSPARK_AVAILABLE:
-            df = df.withColumn("order_date", lit(generation_date.isoformat()))
-            from pyspark.sql.functions import from_unixtime, unix_timestamp
-            base_timestamp = unix_timestamp(lit(f"{generation_date.isoformat()} 00:00:00"))
-            df = df.withColumn("created_timestamp", 
-                from_unixtime(base_timestamp + (col("order_id") % 86400)))
+        from pyspark.sql.functions import from_unixtime, unix_timestamp, date_add, when, expr
         
-        return df
+        # Set the order_date to the generation_date for all records
+        order_date_lit = lit(generation_date.isoformat())
+        
+        orders_df = base_df.select(
+            col("order_id"),
+            (col("order_id") % customer_count + 1).alias("customer_id"),
+            # Use the generation_date for all orders
+            order_date_lit.alias("order_date"),
+            # Status
+            expr(
+                "CASE WHEN order_id % 100 < 15 THEN 'Pending' "
+                + "WHEN order_id % 100 < 25 THEN 'Processing' "
+                + "WHEN order_id % 100 < 45 THEN 'Shipped' "
+                + "WHEN order_id % 100 < 80 THEN 'Delivered' "
+                + "WHEN order_id % 100 < 90 THEN 'Cancelled' "
+                + "ELSE 'Returned' END"
+            ).alias("status"),
+            # Payment methods
+            expr(
+                "CASE WHEN order_id % 5 = 0 THEN 'Credit Card' "
+                + "WHEN order_id % 5 = 1 THEN 'Debit Card' "
+                + "WHEN order_id % 5 = 2 THEN 'PayPal' "
+                + "WHEN order_id % 5 = 3 THEN 'Bank Transfer' "
+                + "ELSE 'Cash' END"
+            ).alias("payment_method"),
+            # Financial amounts
+            ((col("order_id") % 9900 + 100) / 10.0).alias("order_total"),
+            ((col("order_id") % 250) / 10.0).alias("shipping_cost"),
+            when(col("order_id") % 10 < 3, (col("order_id") % 500) / 10.0)
+            .otherwise(0.0)
+            .alias("discount_amount"),
+        )
+        
+        # Add calculated shipping dates based on generation_date
+        orders_df = orders_df.withColumn(
+            "shipped_date",
+            when(
+                expr("status IN ('Shipped', 'Delivered')"),
+                date_add(order_date_lit, (col("order_id") % 5 + 1).cast("int"))
+            )
+        ).withColumn(
+            "delivered_date",
+            when(
+                expr("status = 'Delivered'"),
+                date_add(order_date_lit, (col("order_id") % 7 + 3).cast("int"))
+            )
+        )
+        
+        # Add timestamp for when the order was created (varying times within the day)
+        base_timestamp = unix_timestamp(lit(f"{generation_date.isoformat()} 00:00:00"))
+        orders_df = orders_df.withColumn(
+            "created_timestamp", 
+            from_unixtime(base_timestamp + (col("order_id") % 86400))
+        )
+        
+        return orders_df
     
     def _generate_order_items_incremental(self, num_rows: int, generation_date: date, state: Dict[str, Any]):
         """Generate incremental order items data."""
