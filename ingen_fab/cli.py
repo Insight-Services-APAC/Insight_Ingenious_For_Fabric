@@ -22,6 +22,7 @@ synthetic_data_commands = lazy_import.lazy_module(
 package_commands = lazy_import.lazy_module("ingen_fab.cli_utils.package_commands")
 test_commands = lazy_import.lazy_module("ingen_fab.cli_utils.test_commands")
 libs_commands = lazy_import.lazy_module("ingen_fab.cli_utils.libs_commands")
+dbt_commands = lazy_import.lazy_module("ingen_fab.cli_utils.dbt_commands")
 
 from ingen_fab.cli_utils.console_styles import ConsoleStyles
 
@@ -101,7 +102,7 @@ app.add_typer(
 def main(
     ctx: typer.Context,
     fabric_workspace_repo_dir: Annotated[
-        Path | None,
+        Optional[Path],
         typer.Option(
             "--fabric-workspace-repo-dir",
             "-fwd",
@@ -109,7 +110,7 @@ def main(
         ),
     ] = None,
     fabric_environment: Annotated[
-        Path | None,
+        Optional[Path],
         typer.Option(
             "--fabric-environment",
             "-fe",
@@ -274,7 +275,7 @@ def compile(
 @init_app.command("new")
 def init_solution(
     project_name: Annotated[
-        str | None,
+        Optional[str],
         typer.Option("--project-name", "-p", help="Name of the project to create"),
     ] = None,
     path: Annotated[
@@ -388,7 +389,7 @@ def pyspark(
 @test_local_app.command()
 def python(
     lib: Annotated[
-        str | None,
+        Optional[str],
         typer.Argument(
             help="Optional test file (without _pytest.py) to run, e.g. 'ddl_utils'"
         ),
@@ -452,6 +453,27 @@ def perform_code_replacements(
     deploy_commands.perform_code_replacements(
         ctx, output_dir=output_dir, preserve_structure=not no_preserve_structure
     )
+
+
+# DBT commands
+@dbt_app.command("create-notebooks")
+def dbt_create_notebooks(
+    ctx: typer.Context,
+    dbt_project: Annotated[
+        str,
+        typer.Option(
+            "--dbt-project",
+            "-p",
+            help="Name of the dbt project directory under the workspace repo",
+        ),
+    ],
+):
+    """Create Fabric notebooks from dbt-generated Python notebooks.
+
+    Scans {workspace}/{dbt_project}/target/notebooks_fabric_py and creates notebooks under
+    {workspace}/fabric_workspace_items/{dbt_project}/.
+    """
+    dbt_commands.create_additional_notebooks(ctx, dbt_project)
 
 
 # Package commands
