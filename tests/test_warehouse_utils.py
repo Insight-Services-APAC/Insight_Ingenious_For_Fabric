@@ -67,7 +67,7 @@ def test_get_connection_sqlserver():
 
 
 def test_execute_query_fabric():
-    wu = warehouse_utils("ws", "wh")
+    wu = warehouse_utils("ws", "wh")  # noqa: F841
 
     def test_create_schema_if_not_exists_schema_exists():
         wu = warehouse_utils("ws", "wh")

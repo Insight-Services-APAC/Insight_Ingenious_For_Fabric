@@ -193,7 +193,7 @@ def test_multiple_table_management(
 def test_overwrite_and_append_modes(utils, customers_schema, customers_data):
     customers_df = utils.spark.createDataFrame(customers_data, customers_schema)
     utils.write_to_table(customers_df, "customers", mode="overwrite")
-    pre_count = utils.get_table_row_count("customers")
+    pre_count = utils.get_table_row_count("customers")  # noqa: F841
     utils.write_to_table(customers_df, "customers", mode="overwrite")
     post_count = utils.get_table_row_count("customers")
     assert post_count == len(customers_data)

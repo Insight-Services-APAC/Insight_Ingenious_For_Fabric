@@ -1,7 +1,5 @@
 import html
-import os
 import re
-import sys
 import time
 from pathlib import Path
 
@@ -10,13 +8,9 @@ from rich.console import Console
 from rich.panel import Panel
 from rich.table import Table
 from rich.theme import Theme
-from typing_extensions import Annotated
 
 from ingen_fab.cli_utils.console_styles import ConsoleStyles
-from ingen_fab.config_utils.variable_lib import VariableLibraryUtils
 from ingen_fab.ddl_scripts.notebook_generator import NotebookGenerator
-from ingen_fab.fabric_api.utils import FabricApiUtils
-from ingen_fab.fabric_cicd.promotion_utils import SyncToFabricEnvironment
 from ingen_fab.notebook_utils.fabric_cli_notebook import (
     FabricCLINotebook,
     FabricLivyNotebook,
@@ -78,7 +72,7 @@ def compile_ddl_notebooks(
 
     if output_mode is None:
         output_mode = NotebookGenerator.OutputMode.fabric_workspace_repo
-    
+
     generation_modes = []
     if generation_mode is None:
         generation_modes.append(NotebookGenerator.GenerationMode.lakehouse)
@@ -87,27 +81,20 @@ def compile_ddl_notebooks(
         generation_modes.append(generation_mode)
 
     for generation_mode_loop in generation_modes:
-        print (f"Running notebook generation for mode: {generation_mode_loop.name}")
+        print(f"Running notebook generation for mode: {generation_mode_loop.name}")
         nbg = NotebookGenerator(
             generation_mode=generation_mode_loop,
             output_mode=output_mode,
             fabric_workspace_repo_dir=fabric_workspace_repo_dir,
         )
         nbg.run_all()
-    
-    # After generating all notebooks, inject variables using variable_lib
-    fabric_environment = ctx.obj.get("fabric_environment", "local") if ctx.obj else "local"
-    if fabric_workspace_repo_dir:
-        try:
-            varlib_utils = VariableLibraryUtils(
-                project_path=Path(fabric_workspace_repo_dir),
-                environment=fabric_environment
-            )
-            varlib_utils.inject_variables_into_template()
-            console.print(f"[green]✓[/green] Variable injection completed for environment: {fabric_environment}")
-        except Exception as e:
-            console.print(f"[yellow]⚠[/yellow] Variable injection failed: {str(e)}")
-            console.print("[dim]This may be expected if no variable library is configured[/dim]")
+
+    # Note: Variable injection should only happen during deployment, not compilation
+    # The {{varlib:...}} placeholders should be preserved in compiled notebooks
+    # and only replaced during deployment via fabric_cicd/promotion_utils.py
+    console.print(
+        "[dim]Notebooks compiled with variable placeholders preserved for deployment-time substitution[/dim]"
+    )
 
 
 def test_python_block():

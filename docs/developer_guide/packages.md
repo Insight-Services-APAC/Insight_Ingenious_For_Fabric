@@ -328,13 +328,79 @@ Processes various file formats (CSV, JSON, Parquet, Avro, XML) and loads them in
 **Usage:**
 ```bash
 # Compile package
-ingen_fab run package flat-file-ingestion compile
+ingen_fab package ingest compile --target-datastore lakehouse
 
 # Run ingestion
-ingen_fab run package flat-file-ingestion run --config-id=my-config
+ingen_fab package ingest run --config-id=my-config
 ```
 
 See [Flat File Ingestion Package](../packages/flat_file_ingestion.md) for detailed documentation.
+
+### Extract Generation
+
+Manages automated file extracts from Fabric warehouses and lakehouses with flexible formatting options.
+
+**Features:**
+- Multiple file formats (CSV, TSV, Parquet, JSON)
+- Compression support
+- File splitting for large datasets
+- Incremental extracts
+- Trigger file generation
+
+**Usage:**
+```bash
+# Compile package
+ingen_fab package extract compile --include-samples
+
+# Run extraction
+ingen_fab package extract run --extract-name=CUSTOMER_EXPORT
+```
+
+See [Extract Generation Package](../packages/extract_generation.md) for detailed documentation.
+
+### Synapse Sync
+
+Enables bidirectional data synchronization between Microsoft Fabric and Azure Synapse Analytics.
+
+**Features:**
+- Bidirectional sync capabilities
+- Incremental updates
+- Schema mapping
+- Conflict resolution
+- Performance optimization
+
+**Usage:**
+```bash
+# Compile package
+ingen_fab package synapse compile --include-samples
+
+# Run synchronization
+ingen_fab package synapse run --object-id=CUSTOMER_SYNC
+```
+
+See [Synapse Sync Package](../packages/synapse_sync.md) for detailed documentation.
+
+### Synthetic Data Generation
+
+Generates realistic synthetic datasets for testing and development at any scale.
+
+**Features:**
+- Predefined industry datasets
+- Scalable generation (thousands to billions of rows)
+- Referential integrity
+- Reproducible with seeds
+- Multiple output formats
+
+**Usage:**
+```bash
+# List available datasets
+ingen_fab package synthetic-data list-datasets
+
+# Generate dataset
+ingen_fab package synthetic-data generate retail_oltp_small --target-rows 10000
+```
+
+See [Synthetic Data Generation Package](../packages/synthetic_data_generation.md) for detailed documentation.
 
 ## Package Lifecycle
 

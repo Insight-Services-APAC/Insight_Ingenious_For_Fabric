@@ -121,4 +121,4 @@ When analyzing and refining:
 ## ENVIRONMENT TROUBLESHOOTING
 - Ensure that hive metastore is running: sudo mysqld_safe --user=mysql --datadir=/var/lib/mysql --socket=/var/run/mysqld/mysqld.sock --pid-file=/var/run/mysqld/mysqld.pid &
 
-- Ensure that SQL Server is running: /opt/mssql/bin/sqlservr &
+- Ensure that Postgres is Running

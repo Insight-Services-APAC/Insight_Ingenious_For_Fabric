@@ -1,8 +1,9 @@
 """Tests for notebook utils abstraction."""
 
 import os
-import pytest
 from unittest.mock import MagicMock, patch
+
+import pytest
 
 from ingen_fab.python_libs.python.notebook_utils_abstraction import (
     FabricNotebookUtils,
@@ -28,9 +29,9 @@ class TestFabricNotebookUtils:
     def test_fabric_utils_structure(self):
         """Test that Fabric utils has the correct structure."""
         fabric_utils = FabricNotebookUtils()
-        assert hasattr(fabric_utils, '_notebookutils')
-        assert hasattr(fabric_utils, '_mssparkutils')
-        assert hasattr(fabric_utils, '_available')
+        assert hasattr(fabric_utils, "_notebookutils")
+        assert hasattr(fabric_utils, "_mssparkutils")
+        assert hasattr(fabric_utils, "_available")
 
 
 class TestLocalNotebookUtils:
@@ -64,11 +65,11 @@ class TestLocalNotebookUtils:
     def test_display_dataframe(self):
         """Test displaying a DataFrame."""
         local_utils = LocalNotebookUtils()
-        
+
         # Mock a DataFrame-like object
         mock_df = MagicMock()
         mock_df.to_string.return_value = "   A  B\n0  1  3\n1  2  4"
-        
+
         with patch("builtins.print") as mock_print:
             local_utils.display(mock_df)
             mock_print.assert_called_once_with("   A  B\n0  1  3\n1  2  4")
@@ -76,7 +77,7 @@ class TestLocalNotebookUtils:
     def test_display_regular_object(self):
         """Test displaying a regular object."""
         local_utils = LocalNotebookUtils()
-        
+
         with patch("builtins.print") as mock_print:
             local_utils.display("test string")
             mock_print.assert_called_once_with("test string")
@@ -84,20 +85,22 @@ class TestLocalNotebookUtils:
     def test_exit_notebook_logs_value(self):
         """Test that exit_notebook logs the value."""
         local_utils = LocalNotebookUtils()
-        
+
         with patch("builtins.print") as mock_print:
             local_utils.exit_notebook("test_value")
-            mock_print.assert_called_once_with("Notebook would exit with value: test_value")
+            mock_print.assert_called_once_with(
+                "Notebook would exit with value: test_value"
+            )
 
     def test_connect_to_artifact_returns_pyodbc_connection(self):
         """Test that connect_to_artifact returns a pyodbc connection."""
         with patch("pyodbc.connect") as mock_connect:
             mock_conn = MagicMock()
             mock_connect.return_value = mock_conn
-            
+
             local_utils = LocalNotebookUtils()
             conn = local_utils.connect_to_artifact("test_artifact", "test_workspace")
-            
+
             assert conn == mock_conn
             mock_connect.assert_called_once_with(local_utils.connection_string)
 
@@ -131,8 +134,8 @@ class TestNotebookUtilsFactory:
         NotebookUtilsFactory.reset_instance()
         utils = get_notebook_utils()
         assert utils is not None
-        assert hasattr(utils, 'connect_to_artifact')
-        assert hasattr(utils, 'display')
-        assert hasattr(utils, 'exit_notebook')
-        assert hasattr(utils, 'get_secret')
-        assert hasattr(utils, 'is_available')
+        assert hasattr(utils, "connect_to_artifact")
+        assert hasattr(utils, "display")
+        assert hasattr(utils, "exit_notebook")
+        assert hasattr(utils, "get_secret")
+        assert hasattr(utils, "is_available")

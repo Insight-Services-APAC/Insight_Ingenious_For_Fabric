@@ -1,6 +1,9 @@
 import logging
 import os
-from datetime import datetime, date
+import platform
+import sys
+import time
+from datetime import date, datetime
 from typing import Any, Optional
 
 import pandas as pd
@@ -16,12 +19,14 @@ logger = logging.getLogger(__name__)
 
 
 class warehouse_utils(DataStoreInterface):
-
-    def _is_notebookutils_available(self, notebookutils: Optional[Any] = None, mssparkutils: Optional[Any] = None) -> bool:
+    def _is_notebookutils_available(
+        self, notebookutils: Optional[Any] = None, mssparkutils: Optional[Any] = None
+    ) -> bool:
         """Check if notebookutils is importable (for Fabric dialect)."""
         return NotebookUtilsFactory.create_instance(
             notebookutils=notebookutils
         ).is_available()
+
     """Utilities for interacting with Fabric or local SQL Server warehouses."""
 
     def __init__(
@@ -30,33 +35,78 @@ class warehouse_utils(DataStoreInterface):
         target_warehouse_id: Optional[str] = None,
         *,
         dialect: str = "fabric",
-        connection_string: Optional[str] = f"DRIVER={{ODBC Driver 18 for SQL Server}};SERVER=localhost,1433;UID=sa;PWD={os.getenv('SQL_SERVER_PASSWORD', 'YourStrong!Passw0rd')};TrustServerCertificate=yes;",
-        notebookutils: Optional[Any] = None
+        connection_string: Optional[str] = None,
+        notebookutils: Optional[Any] = None,
     ):
-        
         self._target_workspace_id = target_workspace_id
         self._target_warehouse_id = target_warehouse_id
         self.dialect = dialect
 
-        if dialect not in ["fabric", "sql_server"]:
+        if dialect not in ["fabric", "sql_server", "mysql", "postgres"]:
             raise ValueError(
-                f"Unsupported dialect: {dialect}. Supported dialects are 'fabric' and 'sql_server'."
+                f"Unsupported dialect: {dialect}. Supported dialects are 'fabric', 'sql_server', 'mysql', and 'postgres'."
             )
-        
+
         # Initialize notebook utils abstraction
         self.notebook_utils = NotebookUtilsFactory.get_instance(
             notebookutils=notebookutils
         )
 
-        # Look for the existence of notebookutils and if not found, assume local SQL Server
-        if dialect == "fabric" and not self.notebook_utils.is_available():
-            logger.warning(
-                "notebookutils not found, falling back to local SQL Server connection."
-            )
-            self.dialect = "sql_server"
+        # Use fabric_environment from config_utils to determine local database dialect
+        # This ensures consistency with sql_translator and other parts of the codebase
+        if (
+            dialect == "fabric"
+            and type(self.notebook_utils).__name__ == "LocalNotebookUtils"
+        ):
+            # Get the fabric_environment to determine which local database to use
+            try:
+                config = get_configs_as_object()
+                fabric_env = getattr(config, "fabric_environment", "production")
 
-        self.connection_string = connection_string
-        self.sql = SQLTemplates(dialect)
+                if fabric_env == "local":
+                    # Use PostgreSQL for local development (matching sql_translator)
+                    logger.info(
+                        "Running in local environment, using PostgreSQL for database operations."
+                    )
+                    self.dialect = "postgres"
+                else:
+                    # Non-local environments without notebookutils shouldn't happen
+                    logger.warning(
+                        f"Environment '{fabric_env}' detected but notebookutils not available. "
+                        "This configuration is not supported."
+                    )
+                    self.dialect = "sql_server"
+            except Exception as e:
+                # Fallback to architecture-based detection if config fails
+                logger.warning(f"Could not get fabric_environment from config: {e}")
+                machine_arch = platform.machine().lower()
+                is_arm = machine_arch in ["arm64", "aarch64", "arm"]
+
+                if is_arm:
+                    logger.warning(
+                        f"Falling back to MySQL for ARM architecture ({machine_arch})."
+                    )
+                    self.dialect = "mysql"
+                else:
+                    logger.warning(
+                        f"Falling back to SQL Server for {machine_arch} architecture."
+                    )
+                    self.dialect = "sql_server"
+
+        # Set default connection string based on final dialect if not provided
+        if connection_string is None:
+            if self.dialect == "sql_server":
+                self.connection_string = f"DRIVER={{ODBC Driver 18 for SQL Server}};SERVER=localhost,1433;UID=sa;PWD={os.getenv('SQL_SERVER_PASSWORD', 'YourStrong!Passw0rd')};TrustServerCertificate=yes;"
+            elif self.dialect == "mysql":
+                self.connection_string = f"host=localhost,port=3306,user=root,password={os.getenv('MYSQL_PASSWORD', 'password')},database=local"
+            elif self.dialect == "postgres":
+                self.connection_string = f"host=localhost,port=5432,user=postgres,password={os.getenv('POSTGRES_PASSWORD', 'postgres')},database=local"
+            else:
+                self.connection_string = ""
+        else:
+            self.connection_string = connection_string
+
+        self.sql = SQLTemplates(self.dialect)
 
     @property
     def target_workspace_id(self) -> str:
@@ -73,67 +123,141 @@ class warehouse_utils(DataStoreInterface):
         return self._target_warehouse_id
 
     def get_connection(self):
-        """Return a connection object depending on the configured dialect."""        
+        """Return a connection object depending on the configured dialect."""
         if get_configs_as_object().fabric_environment == "local":
-            # For local SQL Server, use pyodbc
-            conn = self._connect_to_local_sql_server()
+            # Use PostgreSQL for local development
+            conn = self._connect_to_local_postgresql()
         else:
             conn = self.notebook_utils.connect_to_artifact(
                 self._target_warehouse_id, self._target_workspace_id
             )
         return conn
-        
 
-    def execute_query(self, conn = None, query: str = None, params: tuple | list | None = None):
-        """Execute a query and return results as a DataFrame when possible."""
+    def execute_query(
+        self,
+        conn=None,
+        query: str = None,
+        params: tuple | list | None = None,
+        max_retries: int = 3,
+    ):
+        """Execute a query and return results as a DataFrame when possible.
+
+        Args:
+            conn: Database connection. If None, gets a new connection.
+            query: SQL query to execute
+            params: Query parameters
+            max_retries: Maximum number of retry attempts for transient failures
+        """
         if not conn:
             conn = self.get_connection()
-        # Check if the connection is of type pyodbc.Connection
-        try:
-            logging.debug(f"Executing query: {query}")
-            if params:
-                logging.debug(f"Query parameters: {params}")
-            
-            if hasattr(conn, "query"):
-                # For Fabric connections that have a query method
+
+        # Translate SQL if we're using PostgreSQL in local mode
+        if get_configs_as_object().fabric_environment == "local" and query:
+            from ingen_fab.python_libs.python.sql_translator import get_sql_translator
+
+            try:
+                translator = get_sql_translator()
+                query = translator.translate_sql(query)
+                logging.debug(f"Translated SQL for PostgreSQL: {query}")
+            except Exception as e:
+                logging.warning(f"SQL translation failed: {e}")
+                logging.warning(f"Using original SQL: {query}")
+
+        # Retry logic with exponential backoff
+        for attempt in range(max_retries + 1):
+            try:
+                logging.debug(
+                    f"Executing query (attempt {attempt + 1}/{max_retries + 1}): {query}"
+                )
                 if params:
-                    result = conn.query(query, params)
+                    logging.debug(f"Query parameters: {params}")
+
+                if hasattr(conn, "query"):
+                    # For Fabric connections that have a query method
+                    if params:
+                        result = conn.query(query, params)
+                    else:
+                        result = conn.query(query)
+                    logging.debug("Query executed successfully.")
+                    return result
                 else:
-                    result = conn.query(query)
-                logging.debug("Query executed successfully.")
-                return result
-            else:
-                cursor = conn.cursor()
-                logger.debug(f"Executing query: {query}")
-                
-                # Execute with or without parameters
-                if params:
-                    cursor.execute(query, params)
+                    cursor = conn.cursor()
+                    logger.debug(f"Executing query: {query}")
+
+                    # Execute with or without parameters
+                    if params:
+                        cursor.execute(query, params)
+                    else:
+                        cursor.execute(query)
+
+                    if cursor.description:
+                        rows = cursor.fetchall()
+                        columns = [d[0] for d in cursor.description]
+                        df = pd.DataFrame.from_records(rows, columns=columns)
+                    else:
+                        conn.commit()
+                        df = None
+                    logging.debug("Query executed successfully.")
+                return df
+
+            except Exception as e:
+                error_str = str(e).lower()
+
+                # Check if this is a retryable error
+                retryable_errors = [
+                    "connection reset",
+                    "connection lost",
+                    "timeout",
+                    "connection refused",
+                    "deadlock",
+                    "lock wait timeout",
+                    "connection closed",
+                    "broken pipe",
+                    "network error",
+                    "temporary failure",
+                ]
+
+                is_retryable = any(err in error_str for err in retryable_errors)
+
+                if attempt < max_retries and is_retryable:
+                    # Calculate exponential backoff delay (0.5s, 1s, 2s)
+                    delay = 0.5 * (2**attempt)
+                    logging.warning(f"Retryable error on attempt {attempt + 1}: {e}")
+                    logging.warning(f"Retrying in {delay:.1f} seconds...")
+                    time.sleep(delay)
+
+                    # Try to get a fresh connection for retry
+                    try:
+                        conn = self.get_connection()
+                    except Exception as conn_error:
+                        logging.error(
+                            f"Failed to get new connection for retry: {conn_error}"
+                        )
+
+                    continue
                 else:
-                    cursor.execute(query)
-                    
-                if cursor.description:
-                    rows = cursor.fetchall()
-                    columns = [d[0] for d in cursor.description]
-                    df = pd.DataFrame.from_records(rows, columns=columns)
-                else:
-                    conn.commit()
-                    df = None
-                logging.debug("Query executed successfully.")
-            return df
-        except Exception as e:            
-            logging.error(f"Error executing query: {query}. Error: {e}")
-            if params:
-                logging.error(f"Query parameters: {params}")
-            logging.error("Connection details: %s", conn)
-            raise
+                    # Non-retryable error or max retries exceeded
+                    if attempt == max_retries:
+                        logging.error(
+                            f"Max retries ({max_retries}) exceeded for query: {query}"
+                        )
+                    else:
+                        logging.error(f"Non-retryable error for query: {query}")
+
+                    logging.error(f"Error executing query: {query}. Error: {e}")
+                    if params:
+                        logging.error(f"Query parameters: {params}")
+                    logging.error("Connection details: %s", conn)
+                    error_message = f"Error executing query: {query}. Error: {e}"
+                    print(error_message, file=sys.stderr)
+                    raise
 
     def create_local_database(self) -> None:
         """Create a database called 'local' if it does not already exist."""
         try:
             conn = self.get_connection()
             self._create_local_database_with_connection(conn)
-                
+
         except Exception as e:
             logging.error(f"Error creating database 'local': {e}")
             raise
@@ -154,11 +278,11 @@ class warehouse_utils(DataStoreInterface):
             if not db_exists:
                 # CREATE DATABASE must be executed outside of a transaction
                 cursor = conn.cursor()
-                
+
                 # Set autocommit to True to avoid transaction issues
                 old_autocommit = conn.autocommit
                 conn.autocommit = True
-                
+
                 try:
                     create_db_sql = "CREATE DATABASE [local];"
                     logger.debug(f"Executing CREATE DATABASE: {create_db_sql}")
@@ -170,60 +294,371 @@ class warehouse_utils(DataStoreInterface):
                     cursor.close()
             else:
                 logging.info("Database 'local' already exists.")
-                
+
         except Exception as e:
             logging.error(f"Error creating database 'local': {e}")
             logging.exception("Stack trace:", exc_info=True)
             raise
-    
+
     def _connect_to_local_sql_server(self):
         """Connect to local SQL Server using pyodbc, or return mock connection for testing."""
         try:
             import pyodbc
-            logger.debug(f"Connecting to local SQL Server with connection string: {self.connection_string}")
-            
+
+            logger.debug(
+                f"Connecting to local SQL Server with connection string: {self.connection_string}"
+            )
+
             # First connect without database specified to create the database
             conn = pyodbc.connect(self.connection_string)
             logger.debug("Successfully connected to local SQL Server")
-            
+
             # Create local database if it doesn't exist
             self._create_local_database_with_connection(conn)
-            
+
             # Check if database is already in connection string
-            if "DATABASE=" not in self.connection_string.upper() and "INITIAL CATALOG=" not in self.connection_string.upper():
+            if (
+                "DATABASE=" not in self.connection_string.upper()
+                and "INITIAL CATALOG=" not in self.connection_string.upper()
+            ):
                 # Add local database to connection string and reconnect
-                local_connection_string = self.connection_string.rstrip(';') + ";DATABASE=local;"
-                logger.debug(f"Reconnecting with local database: {local_connection_string}")
+                local_connection_string = (
+                    self.connection_string.rstrip(";") + ";DATABASE=local;"
+                )
+                logger.debug(
+                    f"Reconnecting with local database: {local_connection_string}"
+                )
                 conn.close()
                 conn = pyodbc.connect(local_connection_string)
-                logger.debug(f"Successfully connected to local database: {local_connection_string}")
+                logger.debug(
+                    f"Successfully connected to local database: {local_connection_string}"
+                )
             else:
-                logger.debug(f"Local database already specified in connection string, using existing connection: {self.connection_string}")
-            
+                logger.debug(
+                    f"Local database already specified in connection string, using existing connection: {self.connection_string}"
+                )
+
             return conn
         except ImportError:
             logger.error("pyodbc not available, using mock connection for testing")
 
-    
-
-    def create_schema_if_not_exists(self, schema_name: str):
-        """Create a schema if it does not already exist."""
+    def _connect_to_local_mysql(self):
+        """Connect to local MySQL using mysql-connector-python, or return mock connection for testing."""
         try:
-            conn = self.get_connection()
-            query = self.sql.render("check_schema_exists", schema_name=schema_name)
-            result = self.execute_query(conn, query)
-            schema_exists = len(result) > 0 if result is not None else False
+            import mysql.connector
 
-            # Create schema if it doesn't exist
-            if not schema_exists:
-                create_schema_sql = f"CREATE SCHEMA {schema_name};"
-                self.execute_query(conn, create_schema_sql)
-                logging.info(f"Created schema '{schema_name}'.")
+            # Parse connection string to mysql.connector format
+            connection_params = {}
+            for param in self.connection_string.split(","):
+                if "=" in param:
+                    key, value = param.split("=", 1)
+                    connection_params[key.strip()] = value.strip()
 
-            logging.info(f"Schema {schema_name} created or already exists.")
+            logger.debug(f"Connecting to local MySQL with params: {connection_params}")
+
+            # First connect without database specified to create the database if needed
+            conn_params_no_db = connection_params.copy()
+            if "database" in conn_params_no_db:
+                del conn_params_no_db["database"]
+
+            conn = mysql.connector.connect(**conn_params_no_db)
+            logger.debug("Successfully connected to local MySQL")
+
+            # Create local database if it doesn't exist
+            self._create_local_mysql_database_with_connection(conn)
+
+            # Reconnect with database specified
+            conn.close()
+            conn = mysql.connector.connect(**connection_params)
+            logger.debug(
+                f"Successfully connected to local MySQL database: {connection_params.get('database', 'local')}"
+            )
+
+            return conn
+        except ImportError:
+            logger.error(
+                "mysql-connector-python not available, using mock connection for testing"
+            )
+
+    def _connect_to_local_postgresql(self):
+        """Connect to local PostgreSQL using psycopg2, or return mock connection for testing."""
+        try:
+            import psycopg2
+            from psycopg2.extensions import ISOLATION_LEVEL_AUTOCOMMIT
+
+            # Default PostgreSQL connection parameters for local development
+            connection_params = {
+                "host": os.getenv("POSTGRES_HOST", "localhost"),
+                "port": int(os.getenv("POSTGRES_PORT", "5432")),
+                "user": os.getenv("POSTGRES_USER", "postgres"),
+                "password": os.getenv("POSTGRES_PASSWORD", "postgres"),
+                "database": "postgres",  # Connect to postgres db first to create target db
+            }
+
+            logger.debug(
+                f"Connecting to local PostgreSQL with params: {connection_params}"
+            )
+
+            # First connect to postgres database to create the target database if needed
+            conn = psycopg2.connect(**connection_params)
+            conn.set_isolation_level(ISOLATION_LEVEL_AUTOCOMMIT)
+            logger.debug("Successfully connected to local PostgreSQL")
+
+            # Create local database if it doesn't exist
+            self._create_local_postgresql_database_with_connection(conn)
+
+            # Close and reconnect to the target database
+            conn.close()
+            connection_params["database"] = os.getenv("POSTGRES_DATABASE", "local")
+            conn = psycopg2.connect(**connection_params)
+            logger.debug(
+                f"Successfully connected to local PostgreSQL database: {connection_params['database']}"
+            )
+
+            return conn
+        except ImportError:
+            logger.error(
+                "psycopg2 not available. Please install it with: uv pip install psycopg2-binary"
+            )
+            return None
+        except psycopg2.OperationalError as e:
+            error_msg = str(e)
+            logger.error(f"Failed to connect to PostgreSQL: {e}")
+
+            # Provide helpful messages based on the error
+            if (
+                "could not connect to server" in error_msg
+                or "Connection refused" in error_msg
+            ):
+                error_message = "\n" + "=" * 70 + "\n"
+                error_message += "PostgreSQL Connection Error - Server Not Available\n"
+                error_message += "=" * 70 + "\n"
+                error_message += (
+                    "\nPostgreSQL server is not running or not accessible.\n"
+                )
+                error_message += "\nTo fix this issue, try one of the following:\n"
+                error_message += "\n1. Start PostgreSQL (if already installed):\n"
+                error_message += "   - Ubuntu/Debian: sudo service postgresql start\n"
+                error_message += (
+                    "   - macOS (Homebrew): brew services start postgresql\n"
+                )
+                error_message += "   - macOS (Postgres.app): Open Postgres.app\n"
+                error_message += "   - Windows: net start postgresql-x64-15\n"
+
+                error_message += "\n2. Install PostgreSQL (if not installed):\n"
+                error_message += "   - Ubuntu/Debian: sudo apt-get install postgresql\n"
+                error_message += "   - macOS: brew install postgresql\n"
+                error_message += "   - Windows: Download from https://www.postgresql.org/download/windows/\n"
+
+                error_message += (
+                    "\n3. Check if PostgreSQL is running on a different port:\n"
+                )
+                error_message += (
+                    f"   Current port: {connection_params.get('port', 5432)}\n"
+                )
+                error_message += (
+                    "   Set custom port: export POSTGRES_PORT=<your_port>\n"
+                )
+                error_message += "=" * 70 + "\n"
+
+                # Log and print for visibility
+                logger.error(error_message)
+                print(error_message, file=sys.stderr)
+
+            elif (
+                "password authentication failed" in error_msg
+                or "no password supplied" in error_msg
+            ):
+                error_message = "\n" + "=" * 70 + "\n"
+                error_message += "PostgreSQL Authentication Error\n"
+                error_message += "=" * 70 + "\n"
+                error_message += "\nFailed to authenticate with PostgreSQL server.\n"
+                error_message += "\nTo fix this issue:\n"
+                error_message += (
+                    "\n1. Set the PostgreSQL password for the 'postgres' user:\n"
+                )
+                error_message += "   sudo -u postgres psql -c \"ALTER USER postgres PASSWORD 'password';\"\n"
+
+                error_message += "\n2. Configure environment variables:\n"
+                error_message += "   export POSTGRES_USER=postgres\n"
+                error_message += "   export POSTGRES_PASSWORD=password\n"
+                error_message += "   export POSTGRES_DATABASE=local\n"
+
+                error_message += (
+                    "\n3. Or use a different user with proper credentials:\n"
+                )
+                error_message += "   export POSTGRES_USER=<your_username>\n"
+                error_message += "   export POSTGRES_PASSWORD=<your_password>\n"
+
+                error_message += "\nCurrent connection parameters:\n"
+                error_message += (
+                    f"   Host: {connection_params.get('host', 'localhost')}\n"
+                )
+                error_message += f"   Port: {connection_params.get('port', 5432)}\n"
+                error_message += (
+                    f"   User: {connection_params.get('user', 'postgres')}\n"
+                )
+                error_message += (
+                    f"   Database: {connection_params.get('database', 'postgres')}\n"
+                )
+                error_message += "=" * 70 + "\n"
+
+                # Log and print for visibility
+                logger.error(error_message)
+                print(error_message, file=sys.stderr)
+
+            elif "database" in error_msg and "does not exist" in error_msg:
+                error_message = "\n" + "=" * 70 + "\n"
+                error_message += "PostgreSQL Database Error\n"
+                error_message += "=" * 70 + "\n"
+                error_message += f"\nThe database '{connection_params.get('database')}' does not exist.\n"
+                error_message += "\nTo create it, run:\n"
+                error_message += f"   sudo -u postgres createdb {connection_params.get('database')}\n"
+                error_message += "=" * 70 + "\n"
+
+                # Log and print for visibility
+                logger.error(error_message)
+                print(error_message, file=sys.stderr)
+            else:
+                error_message = "\n" + "=" * 70 + "\n"
+                error_message += "PostgreSQL Connection Error\n"
+                error_message += "=" * 70 + "\n"
+                error_message += "\nCheck your PostgreSQL configuration and ensure:\n"
+                error_message += "1. PostgreSQL service is running\n"
+                error_message += "2. Connection parameters are correct\n"
+                error_message += "3. PostgreSQL is configured to accept connections\n"
+                error_message += "\nFor more details, check PostgreSQL logs:\n"
+                error_message += "   - Ubuntu/Debian: /var/log/postgresql/\n"
+                error_message += "   - macOS: /usr/local/var/log/\n"
+                error_message += "   - Windows: Check Event Viewer\n"
+                error_message += "=" * 70 + "\n"
+
+                # Log and print for visibility
+                logger.error(error_message)
+                print(error_message, file=sys.stderr)
+
+            return None
         except Exception as e:
-            logging.error(f"Error creating schema {schema_name}: {e}")
+            logger.error(f"Unexpected error connecting to PostgreSQL: {e}")
+            logger.error(
+                "\nFor local development with ingen_fab, PostgreSQL is required."
+            )
+            logger.error(
+                "Please ensure PostgreSQL is properly installed and configured."
+            )
+            return None
+
+    def _create_local_postgresql_database_with_connection(self, conn) -> None:
+        """Create a database called 'local' using the provided PostgreSQL connection."""
+        try:
+            target_db = os.getenv("POSTGRES_DATABASE", "local")
+
+            # Check if database exists
+            cursor = conn.cursor()
+            cursor.execute("SELECT 1 FROM pg_database WHERE datname = %s", (target_db,))
+            db_exists = cursor.fetchone() is not None
+
+            # Create database if it doesn't exist
+            if not db_exists:
+                # Database names cannot be parameterized in PostgreSQL
+                create_db_sql = f'CREATE DATABASE "{target_db}"'
+                logger.debug(f"Executing CREATE DATABASE: {create_db_sql}")
+                cursor.execute(create_db_sql)
+                logging.info(f"Created database '{target_db}'.")
+            else:
+                logging.info(f"Database '{target_db}' already exists.")
+
+            cursor.close()
+        except Exception as e:
+            logging.error(f"Error creating PostgreSQL database 'local': {e}")
+            logging.exception("Stack trace:", exc_info=True)
             raise
+
+    def _create_local_mysql_database_with_connection(self, conn) -> None:
+        """Create a database called 'local' using the provided MySQL connection."""
+        try:
+            # Check if database exists
+            cursor = conn.cursor()
+            cursor.execute("SHOW DATABASES LIKE 'local'")
+            db_exists = len(cursor.fetchall()) > 0
+
+            # Create database if it doesn't exist
+            if not db_exists:
+                create_db_sql = "CREATE DATABASE `local`"
+                logger.debug(f"Executing CREATE DATABASE: {create_db_sql}")
+                cursor.execute(create_db_sql)
+                logging.info("Created database 'local'.")
+            else:
+                logging.info("Database 'local' already exists.")
+
+            cursor.close()
+        except Exception as e:
+            logging.error(f"Error creating MySQL database 'local': {e}")
+            logging.exception("Stack trace:", exc_info=True)
+            raise
+
+    def create_schema_if_not_exists(self, schema_name: str, max_retries: int = 3):
+        """Create a schema if it does not already exist."""
+        for attempt in range(max_retries + 1):
+            try:
+                conn = self.get_connection()
+                query = self.sql.render("check_schema_exists", schema_name=schema_name)
+                result = self.execute_query(conn, query)
+                schema_exists = len(result) > 0 if result is not None else False
+
+                # Create schema if it doesn't exist
+                if not schema_exists:
+                    create_schema_query = self.sql.render(
+                        "create_schema", schema_name=schema_name
+                    )
+                    self.execute_query(conn, create_schema_query)
+                    logging.info(f"Created schema '{schema_name}'.")
+
+                logging.info(f"Schema {schema_name} created or already exists.")
+                return  # Success, exit the retry loop
+
+            except Exception as e:
+                error_str = str(e).lower()
+
+                # Check if this is a schema already exists error (race condition)
+                schema_exists_errors = [
+                    "already exists",
+                    "duplicate key",
+                    "already been used",
+                    "schema with name",
+                    "cannot create schema",
+                ]
+
+                is_schema_exists_error = any(
+                    err in error_str for err in schema_exists_errors
+                )
+
+                if is_schema_exists_error:
+                    # Schema was created by another process - this is actually success
+                    logging.info(
+                        f"Schema '{schema_name}' already exists (created by another process)."
+                    )
+                    return
+
+                elif attempt < max_retries:
+                    # Other error, retry with exponential backoff
+                    delay = 0.5 * (2**attempt)
+                    logging.warning(
+                        f"Error creating schema '{schema_name}' on attempt {attempt + 1}: {e}"
+                    )
+                    logging.warning(f"Retrying in {delay:.1f} seconds...")
+                    time.sleep(delay)
+                    continue
+                else:
+                    # Max retries exceeded
+                    logging.error(
+                        f"Error creating schema {schema_name} after {max_retries} retries: {e}"
+                    )
+                    print(
+                        f"Error creating schema for ddl log table {schema_name}: {e}",
+                        file=sys.stderr,
+                    )
+                    raise
 
     def check_if_table_exists(self, table_name, schema_name: str = "dbo") -> bool:
         try:
@@ -274,7 +709,14 @@ class warehouse_utils(DataStoreInterface):
                 values = []
                 for _, row in pandas_df.iterrows():
                     row_values = ", ".join(
-                        ["NULL" if pd.isna(v) or v is None else f"'{v}'" if isinstance(v, (str, datetime, date)) else str(v) for v in row]
+                        [
+                            "NULL"
+                            if pd.isna(v) or v is None
+                            else f"'{v}'"
+                            if isinstance(v, (str, datetime, date))
+                            else str(v)
+                            for v in row
+                        ]
                     )
                     values.append(f"({row_values})")
 
@@ -295,7 +737,14 @@ class warehouse_utils(DataStoreInterface):
                 # Insert data into existing table
                 for _, row in pandas_df.iterrows():
                     row_values = ", ".join(
-                        ["NULL" if pd.isna(v) or v is None else f"'{v}'" if isinstance(v, (str, datetime, date)) else str(v) for v in row]
+                        [
+                            "NULL"
+                            if pd.isna(v) or v is None
+                            else f"'{v}'"
+                            if isinstance(v, (str, datetime, date))
+                            else str(v)
+                            for v in row
+                        ]
                     )
                     insert_query = self.sql.render(
                         "insert_row",
@@ -313,7 +762,14 @@ class warehouse_utils(DataStoreInterface):
                 values = []
                 for _, row in pandas_df.iterrows():
                     row_values = ", ".join(
-                        ["NULL" if pd.isna(v) or v is None else f"'{v}'" if isinstance(v, (str, datetime, date)) else str(v) for v in row]
+                        [
+                            "NULL"
+                            if pd.isna(v) or v is None
+                            else f"'{v}'"
+                            if isinstance(v, (str, datetime, date))
+                            else str(v)
+                            for v in row
+                        ]
                     )
                     values.append(f"({row_values})")
 
@@ -405,7 +861,9 @@ class warehouse_utils(DataStoreInterface):
         result = self.execute_query(conn, query)
         if result is not None and not result.empty:
             # Expect columns: COLUMN_NAME, DATA_TYPE
-            return {row['COLUMN_NAME']: row['DATA_TYPE'] for _, row in result.iterrows()}
+            return {
+                row["COLUMN_NAME"]: row["DATA_TYPE"] for _, row in result.iterrows()
+            }
         return {}
 
     def read_table(
@@ -565,7 +1023,7 @@ class warehouse_utils(DataStoreInterface):
         pass
 
     # File system methods (required by DataStoreInterface but not typical for warehouses)
-    
+
     def read_file(
         self,
         file_path: str,
@@ -573,7 +1031,9 @@ class warehouse_utils(DataStoreInterface):
         options: dict[str, Any] | None = None,
     ) -> Any:
         """Implements DataStoreInterface: Read a file (not applicable for warehouses)."""
-        raise NotImplementedError("File operations not supported for warehouse utilities")
+        raise NotImplementedError(
+            "File operations not supported for warehouse utilities"
+        )
 
     def write_file(
         self,
@@ -583,11 +1043,15 @@ class warehouse_utils(DataStoreInterface):
         options: dict[str, Any] | None = None,
     ) -> None:
         """Implements DataStoreInterface: Write a file (not applicable for warehouses)."""
-        raise NotImplementedError("File operations not supported for warehouse utilities")
+        raise NotImplementedError(
+            "File operations not supported for warehouse utilities"
+        )
 
     def file_exists(self, file_path: str) -> bool:
         """Implements DataStoreInterface: Check if a file exists (not applicable for warehouses)."""
-        raise NotImplementedError("File operations not supported for warehouse utilities")
+        raise NotImplementedError(
+            "File operations not supported for warehouse utilities"
+        )
 
     def list_files(
         self,
@@ -596,14 +1060,16 @@ class warehouse_utils(DataStoreInterface):
         recursive: bool = False,
     ) -> list[str]:
         """Implements DataStoreInterface: List files in a directory (not applicable for warehouses)."""
-        raise NotImplementedError("File operations not supported for warehouse utilities")
+        raise NotImplementedError(
+            "File operations not supported for warehouse utilities"
+        )
 
     def get_file_info(self, file_path: str) -> dict[str, Any]:
         """Implements DataStoreInterface: Get file information (not applicable for warehouses)."""
-        raise NotImplementedError("File operations not supported for warehouse utilities")
+        raise NotImplementedError(
+            "File operations not supported for warehouse utilities"
+        )
 
     # --- End DataStoreInterface required methods ---
 
     # Additional utility methods
-    
-    

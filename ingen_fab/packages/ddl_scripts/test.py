@@ -20,7 +20,6 @@
 # PARAMETERS CELL ********************
 
 
-
 # METADATA ********************
 
 # META {
@@ -40,7 +39,11 @@ import sys
 
 if "notebookutils" in sys.modules:
     import sys
-    notebookutils.fs.mount("abfss://{{varlib:config_workspace_id}}@onelake.dfs.fabric.microsoft.com/{{varlib:config_workspace_name}}.Lakehouse/Files/", "/config_files")  # type: ignore # noqa: F821
+
+    notebookutils.fs.mount(  # noqa: F821
+        "abfss://{{varlib:config_workspace_id}}@onelake.dfs.fabric.microsoft.com/{{varlib:config_workspace_name}}.Lakehouse/Files/",
+        "/config_files",
+    )  # type: ignore # noqa: F821
     new_Path = notebookutils.fs.getMountPath("/config_files")  # type: ignore # noqa: F821
     sys.path.insert(0, new_Path)
 else:
@@ -48,6 +51,7 @@ else:
     from ingen_fab.python_libs.pyspark.notebook_utils_abstraction import (
         NotebookUtilsFactory,
     )
+
     notebookutils = NotebookUtilsFactory.create_instance()
 
 # METADATA ********************
@@ -64,7 +68,10 @@ else:
 
 # CELL ********************
 
-from ingen_fab.python_libs.common.config_utils import get_configs_as_object, ConfigsObject
+from ingen_fab.python_libs.common.config_utils import (
+    ConfigsObject,
+    get_configs_as_object,
+)
 from ingen_fab.python_libs.pyspark.ddl_utils import ddl_utils
 from ingen_fab.python_libs.pyspark.lakehouse_utils import lakehouse_utils
 
@@ -73,19 +80,24 @@ target_lakehouse_config_prefix = "EDW"
 configs: ConfigsObject = get_configs_as_object()
 config_lakehouse = lakehouse_utils(
     target_workspace_id=configs.edw_workspace_id,
-    target_lakehouse_id=configs.edw_lakehouse_id
+    target_lakehouse_id=configs.edw_lakehouse_id,
+    spark=spark,  # noqa: F821
 )
 
 
-
 target_lakehouse = lakehouse_utils(
-    target_workspace_id=configs.get_attribute(f"{target_lakehouse_config_prefix.lower()}_workspace_id"),
-    target_lakehouse_id=configs.get_attribute(f"{target_lakehouse_config_prefix.lower()}_lakehouse_id")
+    target_workspace_id=configs.get_attribute(
+        f"{target_lakehouse_config_prefix.lower()}_workspace_id"
+    ),
+    target_lakehouse_id=configs.get_attribute(
+        f"{target_lakehouse_config_prefix.lower()}_lakehouse_id"
+    ),
+    spark=spark,  # noqa: F821
 )
 
 du = ddl_utils(
     target_workspace_id=target_lakehouse.target_workspace_id,
-    target_lakehouse_id=target_lakehouse.target_store_id
+    target_lakehouse_id=target_lakehouse.target_store_id,
 )
 
 from pyspark.sql.types import (
@@ -93,7 +105,6 @@ from pyspark.sql.types import (
     StringType,
     StructField,
     StructType,
-    TimestampType,
 )
 
 # METADATA ********************
@@ -109,23 +120,30 @@ from pyspark.sql.types import (
 
 # CELL ********************
 
-guid="d4a04b9273bf"
+guid = "d4a04b9273bf"
 object_name = "001_config_parquet_loads_create"
+
 
 def script_to_execute():
     schema = StructType(
         [
-            StructField("cfg_target_lakehouse_workspace_id", StringType(), nullable=False),
+            StructField(
+                "cfg_target_lakehouse_workspace_id", StringType(), nullable=False
+            ),
             StructField("cfg_target_lakehouse_id", StringType(), nullable=False),
             StructField("target_partition_columns", StringType(), nullable=False),
             StructField("target_sort_columns", StringType(), nullable=False),
             StructField("target_replace_where", StringType(), nullable=False),
-            StructField("cfg_source_lakehouse_workspace_id", StringType(), nullable=False),
+            StructField(
+                "cfg_source_lakehouse_workspace_id", StringType(), nullable=False
+            ),
             StructField("cfg_source_lakehouse_id", StringType(), nullable=False),
             StructField("cfg_source_file_path", StringType(), nullable=False),
             StructField("source_file_path", StringType(), nullable=False),
             StructField("source_file_name", StringType(), nullable=False),
-            StructField("cfg_legacy_synapse_connection_name", StringType(), nullable=False),
+            StructField(
+                "cfg_legacy_synapse_connection_name", StringType(), nullable=False
+            ),
             StructField("synapse_source_schema_name", StringType(), nullable=False),
             StructField("synapse_source_table_name", StringType(), nullable=False),
             StructField("synapse_partition_clause", StringType(), nullable=False),
@@ -133,7 +151,7 @@ def script_to_execute():
             StructField("active_yn", StringType(), nullable=False),
         ]
     )
-    
+
     target_lakehouse.create_table(
         table_name="config_parquet_loads",
         schema=schema,
@@ -143,12 +161,12 @@ def script_to_execute():
         },
     )
 
-du.run_once(script_to_execute, "001_config_parquet_loads_create","d4a04b9273bf")
+
+du.run_once(script_to_execute, "001_config_parquet_loads_create", "d4a04b9273bf")
+
 
 def script_to_execute():
     print("Script block is empty. No action taken.")
-
-
 
 
 # METADATA ********************
@@ -165,10 +183,7 @@ def script_to_execute():
 # CELL ********************
 
 
-
-du.print_log() 
-
-
+du.print_log()
 
 
 # METADATA ********************
@@ -185,8 +200,4 @@ du.print_log()
 # CELL ********************
 
 
-
 notebookutils.mssparkutils.notebook.exit("success")
-
-
-

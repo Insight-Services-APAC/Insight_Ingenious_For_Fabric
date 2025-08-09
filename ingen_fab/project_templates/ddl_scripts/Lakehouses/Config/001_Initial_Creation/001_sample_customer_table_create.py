@@ -1,28 +1,32 @@
+from pyspark.sql.types import (
+    BooleanType,
+    LongType,
+    StringType,
+    StructField,
+    StructType,
+    TimestampType,
+)
+
 # Sample DDL script for creating a customer table in lakehouse
 # This demonstrates the basic pattern for creating Delta tables
 
-# Create the sample customer table
-spark.sql("""
-CREATE TABLE IF NOT EXISTS sample.customers (
-    customer_id BIGINT,
-    first_name STRING,
-    last_name STRING,
-    email STRING,
-    created_date TIMESTAMP,
-    is_active BOOLEAN
+
+# Define the schema for the sample customers table
+schema = StructType(
+    [
+        StructField("customer_id", LongType(), nullable=True),
+        StructField("first_name", StringType(), nullable=True),
+        StructField("last_name", StringType(), nullable=True),
+        StructField("email", StringType(), nullable=True),
+        StructField("created_at", TimestampType(), nullable=True),
+        StructField("is_active", BooleanType(), nullable=True),
+    ]
 )
-USING DELTA
-LOCATION 'Tables/customers'
-""")
 
-print("✓ Created sample customers table")
+# Create an empty DataFrame with the schema
+empty_df = target_lakehouse.spark.createDataFrame([], schema)
 
-# Add some sample data
-spark.sql("""
-INSERT INTO sample.customers VALUES
-(1, 'John', 'Doe', 'john.doe@example.com', '2024-01-01 10:00:00', true),
-(2, 'Jane', 'Smith', 'jane.smith@example.com', '2024-01-02 11:00:00', true),
-(3, 'Bob', 'Johnson', 'bob.johnson@example.com', '2024-01-03 12:00:00', false)
-""")
-
-print("✓ Inserted sample data into customers table")
+# Write the empty DataFrame to create the table
+target_lakehouse.write_to_table(
+    df=empty_df, table_name="customers", schema_name="sample"
+)

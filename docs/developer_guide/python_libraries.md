@@ -216,6 +216,148 @@ connection = utils.connect_to_warehouse(warehouse_id, workspace_id)
 # Note: Secret management functionality depends on environment setup
 ```
 
+#### `synthetic_data_utils.py`
+Synthetic data generation utilities:
+
+```python
+from ingen_fab.python_libs.python.synthetic_data_utils import SyntheticDataGenerator
+
+# Create generator instance
+generator = SyntheticDataGenerator(seed=42)
+
+# Generate sample data
+customers_df = generator.generate_customers(num_rows=1000)
+orders_df = generator.generate_orders(customer_ids=customers_df['customer_id'])
+
+# Generate with specific patterns
+time_series_df = generator.generate_time_series(
+    start_date='2024-01-01',
+    end_date='2024-12-31',
+    frequency='daily'
+)
+```
+
+#### `synapse_extract_utils.py`
+Azure Synapse Analytics integration utilities:
+
+```python
+from ingen_fab.python_libs.python.synapse_extract_utils import SynapseExtractUtils
+
+# Initialize with connection details
+synapse_utils = SynapseExtractUtils(
+    server='synapse-server.sql.azuresynapse.net',
+    database='synapse_db',
+    authentication='service_principal'
+)
+
+# Extract data from Synapse
+data = synapse_utils.extract_table('schema.table_name')
+
+# Run extraction query
+result = synapse_utils.extract_query(
+    "SELECT * FROM sales WHERE date >= '2024-01-01'"
+)
+```
+
+#### `synapse_orchestrator.py`
+Synapse sync orchestration and workflow management:
+
+```python
+from ingen_fab.python_libs.python.synapse_orchestrator import SynapseOrchestrator
+
+# Create orchestrator
+orchestrator = SynapseOrchestrator(
+    workspace_id='workspace-guid',
+    synapse_config=synapse_config
+)
+
+# Run sync job
+job_result = orchestrator.run_sync_job(
+    source_table='fabric.schema.table',
+    target_table='synapse.schema.table',
+    sync_type='incremental',
+    sync_column='last_modified'
+)
+
+# Monitor job status
+status = orchestrator.get_job_status(job_result.job_id)
+```
+
+#### `error_categorization.py`
+Error handling and categorization utilities:
+
+```python
+from ingen_fab.python_libs.python.error_categorization import ErrorCategorizer
+
+# Create error categorizer
+error_cat = ErrorCategorizer()
+
+try:
+    # Some operation that might fail
+    pass
+except Exception as e:
+    # Categorize the error
+    error_info = error_cat.categorize(e)
+    
+    # Get error details
+    print(f"Category: {error_info.category}")
+    print(f"Severity: {error_info.severity}")
+    print(f"Action: {error_info.recommended_action}")
+    
+    # Log structured error
+    error_cat.log_error(e, context={'operation': 'data_load'})
+```
+
+#### `sql_translator.py`
+SQL dialect translation utilities:
+
+```python
+from ingen_fab.python_libs.python.sql_translator import SQLTranslator
+
+# Create translator
+translator = SQLTranslator(source_dialect='tsql', target_dialect='spark')
+
+# Translate T-SQL to Spark SQL
+tsql_query = "SELECT TOP 10 * FROM [schema].[table] WITH (NOLOCK)"
+spark_query = translator.translate(tsql_query)
+# Result: "SELECT * FROM schema.table LIMIT 10"
+
+# Batch translate DDL scripts
+ddl_scripts = [
+    "CREATE TABLE [dbo].[customers] (id INT IDENTITY(1,1))",
+    "CREATE INDEX idx_customer ON [dbo].[customers] (id)"
+]
+translated = translator.translate_batch(ddl_scripts)
+```
+
+#### `pipeline_utils.py`
+Data pipeline orchestration utilities:
+
+```python
+from ingen_fab.python_libs.python.pipeline_utils import PipelineUtils
+
+# Create pipeline utilities
+pipeline = PipelineUtils(
+    workspace_id='workspace-guid',
+    pipeline_name='data_processing_pipeline'
+)
+
+# Define pipeline stages
+pipeline.add_stage('extract', extract_function)
+pipeline.add_stage('transform', transform_function)
+pipeline.add_stage('load', load_function)
+
+# Run pipeline with retry logic
+result = pipeline.run(
+    retry_count=3,
+    retry_delay=60,
+    on_failure='continue'
+)
+
+# Check pipeline status
+status = pipeline.get_status()
+```
+
 ### PySpark Implementation
 
 #### `ddl_utils.py`
@@ -262,8 +404,63 @@ from ingen_fab.python_libs.pyspark.parquet_load_utils import ParquetLoadUtils
 
 parquet_utils = ParquetLoadUtils(spark_session=spark)
 
-# The parquet load utilities would provide methods for loading and processing parquet files
-# Note: Specific implementation details may vary
+# Load parquet files with schema inference
+df = parquet_utils.load_parquet(
+    path='Files/data/*.parquet',
+    schema_inference=True
+)
+
+# Load with specific schema
+from pyspark.sql.types import StructType, StructField, StringType, IntegerType
+
+schema = StructType([
+    StructField("id", IntegerType(), nullable=False),
+    StructField("name", StringType(), nullable=True)
+])
+
+df = parquet_utils.load_parquet(
+    path='Files/customers.parquet',
+    schema=schema
+)
+
+# Write with optimizations
+parquet_utils.write_parquet(
+    df=transformed_df,
+    path='Files/output',
+    mode='overwrite',
+    partition_by=['year', 'month'],
+    compression='snappy'
+)
+```
+
+#### `synthetic_data_utils.py` (PySpark)
+Large-scale synthetic data generation using Spark:
+
+```python
+from ingen_fab.python_libs.pyspark.synthetic_data_utils import SparkSyntheticDataGenerator
+
+# Create generator for large datasets
+generator = SparkSyntheticDataGenerator(spark_session=spark, seed=42)
+
+# Generate millions of rows efficiently
+customers_df = generator.generate_customers(
+    num_rows=10_000_000,
+    partitions=100
+)
+
+# Generate related data maintaining referential integrity
+orders_df = generator.generate_orders(
+    customer_df=customers_df,
+    orders_per_customer_range=(1, 10),
+    date_range=('2020-01-01', '2024-12-31')
+)
+
+# Generate star schema datasets
+fact_sales, dim_tables = generator.generate_star_schema(
+    schema_type='retail',
+    fact_rows=100_000_000,
+    dimension_scale='medium'
+)
 ```
 
 ## SQL Template Factory

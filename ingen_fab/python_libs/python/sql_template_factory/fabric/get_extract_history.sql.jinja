@@ -1,0 +1,12 @@
+SELECT TOP {{ limit | default(10) }}
+    run_timestamp,
+    run_status,
+    run_type,
+    rows_extracted,
+    rows_written,
+    files_generated,
+    duration_seconds,
+    error_message
+FROM {{ log_schema | default('log') }}.log_extract_generation
+WHERE extract_name = '{{ extract_name | required }}'
+ORDER BY run_timestamp DESC;

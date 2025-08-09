@@ -12,6 +12,7 @@ fabric_cicd.error.log
 /tmp
 /.ruff_cache
 /.pytest_cache
+/.pre-commit-cache
 /fabric_cicd.error.log
 /.venv_win
 /site/**/*/
@@ -21,9 +22,10 @@ ModuleAnalysisCache-AE0255EC
 StartupProfileData-Interactive
 /metastore_db/**/*/
 /node_modules/**/*/
+/sample_*/**/*/
+/sample_*/*
 *.egg-info
 derby.log
 
 # pip install testing
 pip_install_test/
-
