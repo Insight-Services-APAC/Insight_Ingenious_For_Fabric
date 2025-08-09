@@ -30,7 +30,9 @@ def validate_local_environment() -> None:
         raise typer.Exit(code=1)
 
 
-def run_pytest_command(base_path: str, lib: Optional[str] = None, verbose: bool = True) -> None:
+def run_pytest_command(
+    base_path: str, lib: Optional[str] = None, verbose: bool = True
+) -> None:
     """Run pytest with standardized configuration."""
     if lib:
         test_file = f"{base_path}/{lib}_pytest.py"
@@ -43,13 +45,14 @@ def run_pytest_command(base_path: str, lib: Optional[str] = None, verbose: bool 
             exit_code = pytest.main([base_path, "-v"])
         else:
             exit_code = pytest.main([base_path])
-    
+
     raise typer.Exit(code=exit_code)
 
 
 # =============================================================================
 # TEST LOCAL APP COMMANDS
 # =============================================================================
+
 
 def test_local_pyspark(lib: Optional[str] = None):
     """Run pytest on ingen_fab/python_libs_tests/pyspark or a specific test file if provided."""
@@ -75,6 +78,7 @@ def test_local_common(lib: Optional[str] = None):
 # =============================================================================
 # TEST PLATFORM APP COMMANDS
 # =============================================================================
+
 
 def test_platform_generate(ctx: typer.Context):
     """Generate platform tests using the script in python_libs_tests."""

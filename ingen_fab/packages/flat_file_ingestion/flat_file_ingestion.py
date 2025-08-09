@@ -37,7 +37,7 @@ class FlatFileIngestionCompiler(BaseNotebookCompiler):
         except FileNotFoundError:
             # Fallback for compatibility
             unified_templates_dir = Path(__file__).parent.parent.parent / "templates"
-        
+
         template_search_paths = [self.templates_dir, unified_templates_dir]
 
         super().__init__(
@@ -90,42 +90,42 @@ class FlatFileIngestionCompiler(BaseNotebookCompiler):
             description=description,
             output_subdir="flat_file_ingestion",
         )
-    
+
     def compile_config_generator_notebook(
         self, template_vars: Dict[str, Any] = None, target_datastore: str = "lakehouse"
     ) -> Path:
         """Compile the configuration generator notebook template"""
-        
+
         # Select template based on target datastore
         template_mapping = {
             "lakehouse": "flat_file_config_generator_lakehouse.py.jinja",
             "warehouse": "flat_file_config_generator.py.jinja",  # Python version for warehouse
         }
-        
+
         template_name = template_mapping.get(target_datastore)
         if not template_name:
             raise ValueError(
                 f"Unsupported target datastore: {target_datastore}. Must be 'lakehouse' or 'warehouse'"
             )
-        
+
         # Default template variables for config generation
         default_vars = {
             "scan_folder_path": "synthetic_data",
             "recursive_scan": True,
             "max_files_to_sample": 5,
             "target_schema": "raw",
-            "execution_group_start": 100
+            "execution_group_start": 100,
         }
-        
+
         # Merge with provided template vars
         if template_vars:
             default_vars.update(template_vars)
-        
+
         # Customize output name and description based on target
         output_name = f"flat_file_config_generator_{target_datastore}"
         display_name = f"Flat File Configuration Generator ({target_datastore.title()})"
         description = f"Scans folders to discover files and auto-generates ingestion configurations for {target_datastore}"
-        
+
         return self.compile_notebook_from_template(
             template_name=template_name,
             output_notebook_name=output_name,
@@ -242,10 +242,14 @@ class FlatFileIngestionCompiler(BaseNotebookCompiler):
                             template_paths = [ddl_source_dir]
                             # Add the unified templates directory using PathUtils
                             try:
-                                unified_templates_dir = PathUtils.get_package_resource_path("templates")
+                                unified_templates_dir = (
+                                    PathUtils.get_package_resource_path("templates")
+                                )
                             except FileNotFoundError:
                                 # Fallback for compatibility
-                                unified_templates_dir = Path(__file__).parent.parent.parent / "templates"
+                                unified_templates_dir = (
+                                    Path(__file__).parent.parent.parent / "templates"
+                                )
                             template_paths.append(unified_templates_dir)
 
                             env = jinja2.Environment(
@@ -416,7 +420,10 @@ class FlatFileIngestionCompiler(BaseNotebookCompiler):
                 template_vars, include_samples, "lakehouse", include_config_generator
             )
             warehouse_results = self.compile_all(
-                template_vars, include_samples, "warehouse", include_config_generator  # Include config generator for warehouse too
+                template_vars,
+                include_samples,
+                "warehouse",
+                include_config_generator,  # Include config generator for warehouse too
             )
 
             # Combine results
@@ -433,12 +440,12 @@ class FlatFileIngestionCompiler(BaseNotebookCompiler):
                 f"Lakehouse Notebook: {lakehouse_results['notebook_file']}\n"
                 f"Warehouse Notebook: {warehouse_results['notebook_file']}\n"
             )
-            
+
             if lakehouse_results.get("config_generator_file"):
                 success_message += f"Lakehouse Config Generator: {lakehouse_results['config_generator_file']}\n"
             if warehouse_results.get("config_generator_file"):
                 success_message += f"Warehouse Config Generator: {warehouse_results['config_generator_file']}\n"
-                
+
             success_message += f"DDL Scripts: {len(combined_ddl_files)} files"
 
             if lakehouse_results.get("sample_files"):
@@ -456,7 +463,7 @@ class FlatFileIngestionCompiler(BaseNotebookCompiler):
                 ],
                 "config_generator_file": [
                     lakehouse_results.get("config_generator_file"),
-                    warehouse_results.get("config_generator_file")
+                    warehouse_results.get("config_generator_file"),
                 ],
                 "ddl_files": combined_ddl_files,
                 "sample_files": lakehouse_results.get("sample_files", []),
@@ -479,10 +486,16 @@ class FlatFileIngestionCompiler(BaseNotebookCompiler):
                 },
             ),
         ]
-        
+
         # Add config generator notebook if requested
         if include_config_generator:
-            compile_functions.append((self.compile_config_generator_notebook, [template_vars], {"target_datastore": target_datastore}))
+            compile_functions.append(
+                (
+                    self.compile_config_generator_notebook,
+                    [template_vars],
+                    {"target_datastore": target_datastore},
+                )
+            )
 
         # Add sample files compilation if requested
         if include_samples:
@@ -498,16 +511,18 @@ class FlatFileIngestionCompiler(BaseNotebookCompiler):
             notebook_file = results["compiled_items"].get("compile_notebook")
             ddl_files = results["compiled_items"].get("compile_ddl_scripts", [])
             sample_files = results["compiled_items"].get("compile_sample_files", [])
-            config_generator_file = results["compiled_items"].get("compile_config_generator_notebook")
+            config_generator_file = results["compiled_items"].get(
+                "compile_config_generator_notebook"
+            )
 
             success_message = (
                 f"✓ Successfully compiled flat file ingestion package for {target_datastore}\n"
                 f"Notebook: {notebook_file}\n"
             )
-            
+
             if config_generator_file:
                 success_message += f"Config Generator: {config_generator_file}\n"
-                
+
             success_message += f"DDL Scripts: {len(ddl_files)} files"
 
             if sample_files:

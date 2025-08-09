@@ -627,7 +627,7 @@ class lakehouse_utils(DataStoreInterface):
 
                         notebookutils.fs.head(full_file_path, 1)  # type: ignore
                         return True
-                    except Exception as e:
+                    except Exception:
                         return False
                 else:
                     # Fallback to Spark for checking file existence
@@ -637,7 +637,10 @@ class lakehouse_utils(DataStoreInterface):
                             full_file_path = full_file_path.replace("file://", "")
                         # print to stdout for debugging
                         import sys
-                        sys.stdout.write(f"Checking file existence at: {full_file_path}\n")
+
+                        sys.stdout.write(
+                            f"Checking file existence at: {full_file_path}\n"
+                        )
                         return Path(full_file_path).exists()
                     except Exception:
                         return False
@@ -926,12 +929,12 @@ class lakehouse_utils(DataStoreInterface):
         """
         List both files and directories in a directory using the appropriate method for the environment.
         This method combines the functionality of list_files() and list_directories().
-        
+
         Args:
             directory_path: Path to directory to list
             pattern: Optional pattern to filter results
             recursive: Whether to search recursively
-            
+
         Returns:
             List of paths (both files and directories)
         """
@@ -942,49 +945,57 @@ class lakehouse_utils(DataStoreInterface):
             if directory_path.startswith("Files/"):
                 # Remove the Files/ prefix since lakehouse_files_uri already includes it
                 clean_directory_path = directory_path[6:]  # Remove "Files/"
-                full_directory_path = f"{self.lakehouse_files_uri()}{clean_directory_path}"
+                full_directory_path = (
+                    f"{self.lakehouse_files_uri()}{clean_directory_path}"
+                )
             else:
                 full_directory_path = f"{self.lakehouse_files_uri()}{directory_path}"
         else:
             full_directory_path = directory_path
-            
+
         if self.spark_version == "local":
             # Use standard Python file operations for local
             if full_directory_path.startswith("file://"):
                 # Handle URI path conversion - fix multiple slashes
-                clean_path = full_directory_path.replace("file://", "").replace("//", "/")
+                clean_path = full_directory_path.replace("file://", "").replace(
+                    "//", "/"
+                )
                 # Ensure we don't have triple slashes
                 while "///" in clean_path:
                     clean_path = clean_path.replace("///", "/")
                 dir_path = Path(clean_path)
             else:
                 dir_path = Path(full_directory_path)
-                
+
             if not dir_path.exists():
                 return []
-                
+
             if recursive:
                 items = dir_path.rglob(pattern or "*")
             else:
                 items = dir_path.glob(pattern or "*")
-                
+
             return [str(item) for item in items]
         else:
             # Use notebookutils.fs for Fabric environment
             import sys
+
             if "notebookutils" in sys.modules:
                 try:
                     import notebookutils  # type: ignore
+
                     # Get directory listing from notebookutils
                     files = notebookutils.fs.ls(full_directory_path)  # type: ignore
                     result = []
                     for file_info in files:
                         if pattern is None or Path(file_info.name).match(pattern):
                             result.append(file_info.path)
-                            
+
                         # If recursive and this is a directory, recursively list its contents
                         if recursive and file_info.isDir:
-                            subdirectory_items = self.list_all(file_info.path, pattern, recursive)
+                            subdirectory_items = self.list_all(
+                                file_info.path, pattern, recursive
+                            )
                             result.extend(subdirectory_items)
                     return result
                 except Exception:
@@ -993,23 +1004,31 @@ class lakehouse_utils(DataStoreInterface):
                 # Fallback to Spark file system operations
                 try:
                     hadoop_conf = self.spark._jsc.hadoopConfiguration()
-                    fs = self.spark._jvm.org.apache.hadoop.fs.FileSystem.get(hadoop_conf)
-                    path_obj = self.spark._jvm.org.apache.hadoop.fs.Path(full_directory_path)
-                    
+                    fs = self.spark._jvm.org.apache.hadoop.fs.FileSystem.get(
+                        hadoop_conf
+                    )
+                    path_obj = self.spark._jvm.org.apache.hadoop.fs.Path(
+                        full_directory_path
+                    )
+
                     result = []
                     if fs.exists(path_obj):
                         file_statuses = fs.listStatus(path_obj)
                         for status in file_statuses:
                             file_path = status.getPath().toString()
                             file_name = status.getPath().getName()
-                            
+
                             if pattern is None or Path(file_name).match(pattern):
                                 result.append(file_path)
-                                
+
                             # If recursive and this is a directory, recursively list its contents
                             if recursive and status.isDirectory():
-                                relative_path = file_path.replace(f"{self.lakehouse_files_uri()}", "")
-                                subdirectory_items = self.list_all(relative_path, pattern, recursive)
+                                relative_path = file_path.replace(
+                                    f"{self.lakehouse_files_uri()}", ""
+                                )
+                                subdirectory_items = self.list_all(
+                                    relative_path, pattern, recursive
+                                )
                                 result.extend(subdirectory_items)
                     return result
                 except Exception:

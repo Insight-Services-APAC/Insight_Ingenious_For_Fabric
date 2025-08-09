@@ -1,4 +1,5 @@
 """PySpark utilities package for Fabric data processing and lakehouse operations."""
+# ruff: noqa: I001
 
 from __future__ import annotations
 
@@ -10,7 +11,7 @@ from ingen_fab.python_libs.pyspark.notebook_utils_abstraction import (
     NotebookUtilsFactory,
     NotebookUtilsInterface,
 )
-from ingen_fab.python_libs.pyspark.parquet_load_utils import testing_code_replacement
+from ingen_fab.python_libs.pyspark.parquet_load_utils import testing_code_replacement  # noqa: F401
 
 __all__ = [
     # Main utility classes
@@ -20,5 +21,5 @@ __all__ = [
     "NotebookUtilsInterface",
     "FabricNotebookUtils",
     "LocalNotebookUtils",
-    "NotebookUtilsFactory"
+    "NotebookUtilsFactory",
 ]

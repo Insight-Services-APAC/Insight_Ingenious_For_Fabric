@@ -244,4 +244,3 @@ class PanelBuilder:
             if len(files) > max_files_shown:
                 print(f"  ... and {len(files) - max_files_shown} more files")
             print("---" + "-" * (len(title_prefix) + len(environment) + 3) + "---")
-

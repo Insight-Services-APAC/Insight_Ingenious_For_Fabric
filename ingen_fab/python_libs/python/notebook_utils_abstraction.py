@@ -14,7 +14,6 @@ from ingen_fab.python_libs.common.notebook_utils_base import (
     NotebookUtilsFactoryBase,
 )
 from ingen_fab.python_libs.interfaces.notebook_utils_interface import (
-    NotebookExit,
     NotebookUtilsInterface,
 )
 

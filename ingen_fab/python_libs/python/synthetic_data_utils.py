@@ -7,13 +7,14 @@ optimized for small to medium datasets (up to ~1M rows).
 Dependencies: faker, pandas, numpy
 """
 
-import json
 import logging
 import random
 from datetime import datetime, timedelta
-from typing import Any, Dict, List, Optional, Union
+from typing import Any, Dict, List, Optional
 
-from ingen_fab.python_libs.interfaces.synthetic_data_generator_interface import ISyntheticDataGenerator, IDatasetBuilder
+from ingen_fab.python_libs.interfaces.synthetic_data_generator_interface import (
+    ISyntheticDataGenerator,
+)
 
 try:
     import numpy as np
@@ -37,7 +38,7 @@ if _DEPENDENCIES_AVAILABLE:
         def __init__(self, seed: Optional[int] = None, locale: str = "en_US"):
             """Initialize the generator with optional seed for reproducibility."""
             super().__init__(seed)
-            
+
             if Faker is None:
                 raise ImportError(
                     "faker library is required. Install with: pip install faker"

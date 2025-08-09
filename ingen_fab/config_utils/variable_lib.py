@@ -107,10 +107,10 @@ class VariableLibraryUtils:
         files_count: int = None,
         files_label: str = "Total files",
         mode: str = None,
-        output_dir: str = None
+        output_dir: str = None,
     ) -> None:
         """Create standardized operation setup with panel display.
-        
+
         Args:
             title: Title for the operation panel
             replace_placeholders: Whether placeholder replacement is enabled
@@ -128,9 +128,15 @@ class VariableLibraryUtils:
         # Create operation details using helper methods
         operations = []
         if replace_placeholders:
-            operations.append(self.message_helper.format_check_item("Replace {{varlib:...}} placeholders"))
+            operations.append(
+                self.message_helper.format_check_item(
+                    "Replace {{varlib:...}} placeholders"
+                )
+            )
         if inject_code:
-            operations.append(self.message_helper.format_check_item("Inject code between markers"))
+            operations.append(
+                self.message_helper.format_check_item("Inject code between markers")
+            )
 
         operation_details = self.message_helper.create_operation_details(
             environment=self.environment,
@@ -139,13 +145,13 @@ class VariableLibraryUtils:
             operations=operations,
             output_dir=output_dir,
             mode=mode,
-            files_found_label=files_label
+            files_found_label=files_label,
         )
 
         self.panel_builder.create_operation_panel(
             operation_details,
             title=f"{title.split()[0]} Configuration",  # Extract first word for panel title
-            border_style=border_style
+            border_style=border_style,
         )
 
     def _get_config_block(self, template_path: Path) -> str:
@@ -164,10 +170,10 @@ class VariableLibraryUtils:
         preserve_structure: bool = True,
         track_stats: bool = False,
         stats: dict = None,
-        python_libs_mode: bool = False
+        python_libs_mode: bool = False,
     ):
         """Unified file processing method for variable injection.
-        
+
         Args:
             file_path: Path to the file to process
             replace_placeholders: Whether to replace {{varlib:...}} placeholders
@@ -177,7 +183,7 @@ class VariableLibraryUtils:
             track_stats: Whether to track detailed statistics
             stats: Statistics dictionary to update (required if track_stats=True)
             python_libs_mode: Whether this is processing python_libs (affects return format)
-            
+
         Returns:
             - None if no changes made
             - Path if python_libs_mode=True and file was updated
@@ -188,7 +194,7 @@ class VariableLibraryUtils:
         # Validate stats parameter
         if track_stats and stats is None:
             raise ValueError("stats parameter required when track_stats=True")
-        
+
         # Skip if file doesn't exist
         if not file_path.exists():
             self.message_helper.print_warning(f"File not found: {file_path}")
@@ -244,7 +250,7 @@ class VariableLibraryUtils:
                     # Write back to original file (in-place update)
                     with open(file_path, "w", encoding="utf-8") as f:
                         f.write(result_content)
-                    
+
                     # Return format depends on mode
                     if python_libs_mode:
                         return file_path
@@ -275,7 +281,7 @@ class VariableLibraryUtils:
             inject_code=inject_code,
             output_dir=output_dir,
             preserve_structure=preserve_structure,
-            track_stats=False
+            track_stats=False,
         )
 
     def _process_python_lib_file_with_stats(
@@ -290,7 +296,7 @@ class VariableLibraryUtils:
             preserve_structure=True,
             track_stats=True,
             stats=stats,
-            python_libs_mode=True
+            python_libs_mode=True,
         )
 
     def get_workspace_id(self) -> str:
@@ -353,25 +359,25 @@ class VariableLibraryUtils:
         pattern = r"(# variableLibraryInjectionStart: var_lib\n)(.*?)(# variableLibraryInjectionEnd: var_lib)"
 
         # Check if markers exist in content
-        #matches = list(re.finditer(pattern, content, re.DOTALL))
-    
-        #if matches:
-            #self.message_helper.print_info(
-            #    f"Found {len(matches)} code injection marker(s) to process"
-            #)
+        # matches = list(re.finditer(pattern, content, re.DOTALL))
+
+        # if matches:
+        # self.message_helper.print_info(
+        #    f"Found {len(matches)} code injection marker(s) to process"
+        # )
 
         def replace_block(match):
             start_marker = match.group(1)
             end_marker = match.group(3)
-            #existing_content = match.group(2)
-        
+            # existing_content = match.group(2)
+
             # Debug: show what's being replaced
-            #if existing_content.strip():
+            # if existing_content.strip():
             #    self.message_helper.print_info(
             #        f"Replacing existing code between markers (was {len(existing_content.splitlines())} lines)"
             #    )
             #    self._display_variables_summary()
-            #else:
+            # else:
             #    self.message_helper.print_info(
             #        "Injecting code between empty markers"
             #    )
@@ -434,30 +440,28 @@ class VariableLibraryUtils:
 
     def inject_for_development(self, target_file: Path = None) -> None:
         """Development workflow: inject code only (no placeholder replacement).
-        
+
         This is optimized for the most common development workflow where you want
         to inject variable code between markers but keep placeholders for deployment.
-        
+
         Args:
             target_file: Optional specific file to update. If None, updates all files.
         """
         return self.inject_variables_into_template(
-            target_file=target_file,
-            replace_placeholders=False,
-            inject_code=True
+            target_file=target_file, replace_placeholders=False, inject_code=True
         )
 
     def inject_for_deployment(
-        self, 
-        output_dir: Path, 
+        self,
+        output_dir: Path,
         preserve_structure: bool = True,
-        target_file: Path = None
+        target_file: Path = None,
     ) -> None:
         """Deployment workflow: full variable substitution with output directory.
-        
+
         This performs both placeholder replacement and code injection, saving
         results to an output directory for deployment.
-        
+
         Args:
             output_dir: Directory to save processed files
             preserve_structure: Whether to preserve directory structure (default: True)
@@ -468,17 +472,16 @@ class VariableLibraryUtils:
             output_dir=output_dir,
             preserve_structure=preserve_structure,
             replace_placeholders=True,
-            inject_code=True
+            inject_code=True,
         )
 
     def inject_python_libs_for_development(self) -> None:
         """Development workflow for python_libs: inject code only.
-        
+
         Convenience method for the common python_libs development workflow.
         """
         return self.inject_variables_into_python_libs(
-            replace_placeholders=False,
-            inject_code=True
+            replace_placeholders=False, inject_code=True
         )
 
     def inject_variables_into_template(
@@ -552,7 +555,7 @@ class VariableLibraryUtils:
             border_style="blue",
             files_count=len(files_to_update),
             mode=mode,
-            output_dir=str(output_dir) if output_dir else None
+            output_dir=str(output_dir) if output_dir else None,
         )
 
         # Process files with progress bar
@@ -577,7 +580,7 @@ class VariableLibraryUtils:
                 preserve_structure=preserve_structure,
                 track_stats=True,
                 stats=stats,
-                python_libs_mode=False
+                python_libs_mode=False,
             )
 
             if result:
@@ -668,7 +671,7 @@ class VariableLibraryUtils:
             target_directory=str(python_libs_path),
             files_count=len(python_files),
             files_label="Python files found",
-            mode="In-place modification"
+            mode="In-place modification",
         )
 
         # Process files with enhanced progress tracking
@@ -712,4 +715,3 @@ class VariableLibraryUtils:
             self.message_helper.print_info(
                 "No python_libs files with injection markers or placeholders found"
             )
-

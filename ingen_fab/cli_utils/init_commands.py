@@ -317,11 +317,11 @@ def init_workspace(
                 workspace_id_vars = [
                     "fabric_deployment_workspace_id",
                     "config_workspace_id",
-                    "config_wh_workspace_id", 
+                    "config_wh_workspace_id",
                     "raw_workspace_id",
-                    "edw_workspace_id"
+                    "edw_workspace_id",
                 ]
-            
+
             ConsoleStyles.print_info(console, "\nWorkspace IDs to configure:")
             for var in sorted(workspace_id_vars):
                 if var == "fabric_deployment_workspace_id":
@@ -458,7 +458,7 @@ def _update_all_workspace_ids(
         if "variableOverrides" in valueset_data:
             variable_overrides = valueset_data["variableOverrides"]
             updated_vars = []
-            
+
             # Dynamically find and update all variables ending with _workspace_id
             for override in variable_overrides:
                 var_name = override.get("name", "")
@@ -565,7 +565,6 @@ def _check_and_update_artifacts(
             console,
             f"  Found {len(lakehouses)} lakehouses and {len(warehouses)} warehouses",
         )
-        
 
         # Track what needs to be deployed
         missing_artifacts = []
@@ -591,8 +590,12 @@ def _check_and_update_artifacts(
 
             # Dynamically discover and update lakehouse IDs
             # Find all variables ending with _lakehouse_id and their corresponding _lakehouse_name
-            lakehouse_id_vars = [var_name for var_name in var_map.keys() if var_name.endswith("_lakehouse_id")]
-            
+            lakehouse_id_vars = [
+                var_name
+                for var_name in var_map.keys()
+                if var_name.endswith("_lakehouse_id")
+            ]
+
             if lakehouse_id_vars:
                 ConsoleStyles.print_info(
                     console,
@@ -600,11 +603,11 @@ def _check_and_update_artifacts(
                 )
                 for var in sorted(lakehouse_id_vars):
                     ConsoleStyles.print_info(console, f"    - {var}")
-            
+
             for id_var in lakehouse_id_vars:
                 # Derive the corresponding name variable
                 name_var = id_var.replace("_lakehouse_id", "_lakehouse_name")
-                
+
                 if name_var in var_map:
                     lakehouse_name = var_map[name_var]["value"]
                     # Skip empty lakehouse names (optional lakehouses)
@@ -631,8 +634,12 @@ def _check_and_update_artifacts(
 
             # Dynamically discover and update warehouse IDs
             # Find all variables ending with _warehouse_id and their corresponding _warehouse_name
-            warehouse_id_vars = [var_name for var_name in var_map.keys() if var_name.endswith("_warehouse_id")]
-            
+            warehouse_id_vars = [
+                var_name
+                for var_name in var_map.keys()
+                if var_name.endswith("_warehouse_id")
+            ]
+
             if warehouse_id_vars:
                 ConsoleStyles.print_info(
                     console,
@@ -640,11 +647,11 @@ def _check_and_update_artifacts(
                 )
                 for var in sorted(warehouse_id_vars):
                     ConsoleStyles.print_info(console, f"    - {var}")
-            
+
             for id_var in warehouse_id_vars:
                 # Derive the corresponding name variable
                 name_var = id_var.replace("_warehouse_id", "_warehouse_name")
-                
+
                 if name_var in var_map:
                     warehouse_name = var_map[name_var]["value"]
                     # Skip empty warehouse names (optional warehouses)

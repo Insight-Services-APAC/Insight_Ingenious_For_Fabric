@@ -13,13 +13,14 @@ from ingen_fab.cli_utils.console_styles import MessageHelpers
 from ingen_fab.cli_utils.progress_utils import ProgressTracker
 from ingen_fab.config_utils.variable_lib_factory import (
     VariableLibraryFactory,
-    get_workspace_id_from_environment,
     get_variable_from_environment,
+    get_workspace_id_from_environment,
 )
 from ingen_fab.fabric_api.utils import FabricApiUtils
 
 try:
     from rich.console import Console
+
     RICH_AVAILABLE = True
 except ImportError:
     RICH_AVAILABLE = False
@@ -58,9 +59,13 @@ class OneLakeUtils:
         self.project_path = project_path
         self.credential = credential or DefaultAzureCredential()
         self.onelake_base_url = "https://onelake.dfs.fabric.microsoft.com"
-        
+
         # Initialize console utilities
-        self.console = console if console and RICH_AVAILABLE else (Console() if RICH_AVAILABLE else None)
+        self.console = (
+            console
+            if console and RICH_AVAILABLE
+            else (Console() if RICH_AVAILABLE else None)
+        )
         self.msg_helper = MessageHelpers(self.console)
         self.progress_tracker = ProgressTracker(self.console)
 
@@ -78,7 +83,7 @@ class OneLakeUtils:
             project_path=self.project_path,
             credential=self.credential,
         )
-        
+
         self.workspace_name = self._get_workspace_name()
         self.lakehouses = dict[str, str]()
 
@@ -132,17 +137,17 @@ class OneLakeUtils:
         for lakehouse_name, lakehouse_id_ in self.lakehouses.items():
             if lakehouse_id_ == lakehouse_id:
                 return lakehouse_name
-        
+
         if lakehouse_name is None:
             # If not found in cache, fetch from Fabric API
             lakehouse_name = self.fabric_api.get_lakehouse_name_from_id(
                 self.workspace_id, lakehouse_id
             )
-        
+
             if lakehouse_name is not None:
                 self.lakehouses[lakehouse_name] = lakehouse_id
                 return lakehouse_name
-            
+
         # If still not found, raise an error
         if lakehouse_name is None:
             raise ValueError(
@@ -201,7 +206,9 @@ class OneLakeUtils:
             file_client = file_system_client.get_file_client(full_target_path)
 
             if verbose and self.console:
-                self.console.print(f"[cyan]Uploading:[/cyan] {Path(file_path).name} → OneLake")
+                self.console.print(
+                    f"[cyan]Uploading:[/cyan] {Path(file_path).name} → OneLake"
+                )
 
             # Upload the file
             file_data_raw = ""
@@ -209,11 +216,11 @@ class OneLakeUtils:
                 file_data_raw = f.read()
 
             file_data = self.vlu.perform_code_replacements(file_data_raw)
-            #if file_data_raw != file_data:
+            # if file_data_raw != file_data:
             #    print(
             #        f"[yellow]Injected variables into:[/yellow] {Path(file_path).name}"
             #    )
-            #else:
+            # else:
             #    print(f"[green]No variable replacements needed for:[/green] {Path(file_path).name}")
 
             # Convert to bytes and get correct byte length
@@ -292,12 +299,14 @@ class OneLakeUtils:
                 all_files.append(file_path)
 
         upload_results["total_files"] = len(all_files)
-        
+
         if len(all_files) == 0:
             self.msg_helper.print_warning("No files found to upload")
             return upload_results
-            
-        self.msg_helper.print_info(f"Found {len(all_files)} files to upload from {Path(directory_path).name}")
+
+        self.msg_helper.print_info(
+            f"Found {len(all_files)} files to upload from {Path(directory_path).name}"
+        )
 
         # Create clients once for efficiency if not provided
         if service_client is None:
@@ -344,55 +353,59 @@ class OneLakeUtils:
 
         # Use rich progress bar for tracking uploads
         with self.progress_tracker.create_progress_bar(
-            len(all_files), 
-            description="Uploading files..."
+            len(all_files), description="Uploading files..."
         ) as progress:
-            task_id = self.progress_tracker.add_task("Uploading files...", len(all_files))
-            
+            task_id = self.progress_tracker.add_task(
+                "Uploading files...", len(all_files)
+            )
+
             with ThreadPoolExecutor(max_workers=max_workers) as executor:
                 future_to_file = {
                     executor.submit(upload_one, file_path): file_path
                     for file_path in all_files
                 }
-                
+
                 for future in as_completed(future_to_file):
                     result = future.result()
-                    file_name = Path(result['local_path']).name
-                    
+                    file_name = Path(result["local_path"]).name
+
                     if result["success"]:
                         upload_results["successful"].append(result)
                         if progress:
                             self.progress_tracker.update_task(
-                                task_id, 
-                                description=f"[green]✓[/green] {file_name}"
+                                task_id, description=f"[green]✓[/green] {file_name}"
                             )
                     else:
                         upload_results["failed"].append(result)
                         if progress:
                             self.progress_tracker.update_task(
-                                task_id, 
-                                description=f"[red]✗[/red] {file_name}"
+                                task_id, description=f"[red]✗[/red] {file_name}"
                             )
-                    
+
                     if progress:
                         self.progress_tracker.advance_task(task_id)
 
         # Show final results with rich formatting
-        successful_count = len(upload_results['successful'])
-        failed_count = len(upload_results['failed'])
-        
+        successful_count = len(upload_results["successful"])
+        failed_count = len(upload_results["failed"])
+
         if failed_count == 0:
-            self.msg_helper.print_success(f"Upload completed: {successful_count} files uploaded successfully")
+            self.msg_helper.print_success(
+                f"Upload completed: {successful_count} files uploaded successfully"
+            )
         else:
-            self.msg_helper.print_warning(f"Upload completed: {successful_count} successful, {failed_count} failed")
-            
+            self.msg_helper.print_warning(
+                f"Upload completed: {successful_count} successful, {failed_count} failed"
+            )
+
         # Show summary panel
         if self.console:
             from rich.panel import Panel
+
             summary_content = f"[green]✓ Successful:[/green] {successful_count}\n"
             if failed_count > 0:
                 summary_content += f"[red]✗ Failed:[/red] {failed_count}"
-            
+
             panel = Panel(
                 summary_content,
                 title="[bold]Upload Summary[/bold]",
@@ -427,10 +440,13 @@ class OneLakeUtils:
         config_lakehouse_id = self.get_config_lakehouse_id()
 
         # Show upload info with rich formatting
-        self.msg_helper.print_info(f"Uploading python_libs from: {python_libs_path.name}")
-        
+        self.msg_helper.print_info(
+            f"Uploading python_libs from: {python_libs_path.name}"
+        )
+
         if self.console:
             from rich.panel import Panel
+
             info_content = (
                 f"[cyan]Source:[/cyan] {python_libs_path}\n"
                 f"[cyan]Target lakehouse ID:[/cyan] {config_lakehouse_id}\n"
@@ -590,17 +606,25 @@ class OneLakeUtils:
 
             if len(file_paths) == 0:
                 self.msg_helper.print_info("No python_libs files found to delete")
-                return {"deleted_count": 0, "errors": [], "lakehouse_id": config_lakehouse_id, "total_found": 0}
-                
-            self.msg_helper.print_info(f"Found {len(file_paths)} files in python_libs directory to delete")
+                return {
+                    "deleted_count": 0,
+                    "errors": [],
+                    "lakehouse_id": config_lakehouse_id,
+                    "total_found": 0,
+                }
+
+            self.msg_helper.print_info(
+                f"Found {len(file_paths)} files in python_libs directory to delete"
+            )
 
             # Delete each file with progress tracking
             with self.progress_tracker.create_progress_bar(
-                len(file_paths), 
-                description="Deleting files..."
+                len(file_paths), description="Deleting files..."
             ) as progress:
-                task_id = self.progress_tracker.add_task("Deleting files...", len(file_paths))
-                
+                task_id = self.progress_tracker.add_task(
+                    "Deleting files...", len(file_paths)
+                )
+
                 for file_path in file_paths:
                     # Extract the relative path from the full OneLake path
                     if "/Files/" in file_path:
@@ -609,7 +633,7 @@ class OneLakeUtils:
                         relative_path = file_path
 
                     file_name = Path(relative_path).name
-                    
+
                     if self.delete_lakehouse_file(
                         config_lakehouse_id,
                         relative_path,
@@ -619,23 +643,24 @@ class OneLakeUtils:
                         deleted_count += 1
                         if progress:
                             self.progress_tracker.update_task(
-                                task_id, 
-                                description=f"[green]✓[/green] Deleted {file_name}"
+                                task_id,
+                                description=f"[green]✓[/green] Deleted {file_name}",
                             )
                     else:
                         errors.append(f"Failed to delete {relative_path}")
                         if progress:
                             self.progress_tracker.update_task(
-                                task_id, 
-                                description=f"[red]✗[/red] Failed {file_name}"
+                                task_id, description=f"[red]✗[/red] Failed {file_name}"
                             )
-                    
+
                     if progress:
                         self.progress_tracker.advance_task(task_id)
-            
+
             # Show final results
             if deleted_count > 0:
-                self.msg_helper.print_success(f"Deleted {deleted_count} python_libs files from lakehouse")
+                self.msg_helper.print_success(
+                    f"Deleted {deleted_count} python_libs files from lakehouse"
+                )
             if errors:
                 self.msg_helper.print_warning(f"{len(errors)} files failed to delete")
 

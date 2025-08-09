@@ -12,8 +12,8 @@ from typing import Dict, Tuple
 
 from ingen_fab.config_utils.variable_lib import VariableLibraryUtils
 from ingen_fab.config_utils.variable_lib_workflows import (
-    DevelopmentVariableInjector,
     DeploymentVariableInjector,
+    DevelopmentVariableInjector,
     ReadOnlyVariableLibrary,
     TestingVariableInjector,
 )

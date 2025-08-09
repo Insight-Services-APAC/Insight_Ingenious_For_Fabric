@@ -21,7 +21,6 @@ class GeneratePlatformTests:
         self.environment: str = environment
         self.project_directory: Path = project_directory
 
-
     def _inject_python_libs_into_template(self) -> None:
         """
         Analyze python_libs files, sort by dependencies, and inject into lib.py.jinja.
@@ -112,7 +111,6 @@ class GeneratePlatformTests:
             self.console, "Completed injection of python libs into templates."
         )
 
-
     def generate(self) -> None:
         self._inject_python_libs_into_template()
         vlu = VariableLibraryFactory.for_development(
@@ -120,4 +118,3 @@ class GeneratePlatformTests:
             project_path=self.project_directory,
         )
         vlu.inject_variables()
-

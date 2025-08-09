@@ -9,11 +9,11 @@ import os
 from pathlib import Path
 from typing import Any, Dict, Optional
 
+from ingen_fab.python_libs.common.utils.path_utils import PathUtils
 from ingen_fab.python_libs.interfaces.notebook_utils_interface import (
     NotebookExit,
     NotebookUtilsInterface,
 )
-from ingen_fab.python_libs.common.utils.path_utils import PathUtils
 
 logger = logging.getLogger(__name__)
 
@@ -84,7 +84,9 @@ class LocalNotebookUtilsBase(NotebookUtilsInterface):
                 raise NotebookExit(value or "success")
 
             @staticmethod
-            def run(name: str, timeoutSeconds: int = 60, arguements: dict = None) -> str:
+            def run(
+                name: str, timeoutSeconds: int = 60, arguements: dict = None
+            ) -> str:
                 """Run the notebook in value."""
                 # Search sample_project/fabric_workspace_items Find the directory of the notebook
                 # Find the current working directory and navigate to the fabric_workspace_items root
@@ -98,7 +100,9 @@ class LocalNotebookUtilsBase(NotebookUtilsInterface):
 
                 print(f"DEBUG: Searching for notebooks in: {workspace_items_path}")
                 pu = SyncToFabricEnvironment(str(workspace_items_path))
-                folders = pu.find_platform_folders(workspace_items_path, adjust_paths=False)
+                folders = pu.find_platform_folders(
+                    workspace_items_path, adjust_paths=False
+                )
 
                 # print each folder
                 for folder in folders:

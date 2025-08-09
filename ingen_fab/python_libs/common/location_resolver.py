@@ -1,9 +1,9 @@
 # Location Resolver
 # Unified location resolver for dynamic workspace/datastore resolution
 
-from typing import Dict, Optional, Any
 from dataclasses import dataclass
 from enum import Enum
+from typing import Any, Dict, Optional
 
 from ingen_fab.python_libs.interfaces.flat_file_ingestion_interface import (
     FlatFileIngestionConfig,
@@ -159,7 +159,7 @@ class LocationResolver:
             return self._utils_cache[cache_key]
 
         if location_config.datastore_type == "lakehouse":
-            #if spark is None:
+            # if spark is None:
             #    raise ValueError("Spark session is required for lakehouse operations")
 
             # Import here to avoid circular dependencies

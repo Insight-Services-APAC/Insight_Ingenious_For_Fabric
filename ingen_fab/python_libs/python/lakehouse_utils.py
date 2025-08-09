@@ -328,8 +328,8 @@ class lakehouse_utils(DataStoreInterface):
         recursive: bool = False,
     ) -> list[str]:
         """List files in a directory."""
-        import os
         import glob
+        import os
 
         dir_path = directory_path.replace("file://", "")
 

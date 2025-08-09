@@ -43,7 +43,7 @@ dev = [
 ]
 
 dbt = [
-    "dbt-fabricsparknb @ git+https://github.com/Insight-Services-APAC/APAC-Capability-DAI-DbtFabricSparkNb.git@dev-jr-upgrading-to-dbt-v1.9+
+    "dbt-fabricsparknb @ git+https://github.com/Insight-Services-APAC/APAC-Capability-DAI-DbtFabricSparkNb.git@dev-jr-upgrading-to-dbt-v1.9+"
 ]
 
 docs = [
@@ -99,7 +99,9 @@ ignore = ["E402"]
 [tool.ruff]
 exclude = [
     "sample_project",
-    "project_templates"
+    "project_templates",
+    "tbf",
+    "test.ipynb",
 ]
 
 [tool.pytest.ini_options]

@@ -6,9 +6,9 @@ that match the original synapse_sync_logic.py file complexity.
 """
 
 import logging
-from enum import Enum
-from typing import Optional, Tuple, Dict, Any
 import re
+from enum import Enum
+from typing import Any, Dict, Optional, Tuple
 
 logger = logging.getLogger(__name__)
 

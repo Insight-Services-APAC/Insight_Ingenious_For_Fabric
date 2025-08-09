@@ -25,7 +25,6 @@
 # Add default parameters here
 
 
-
 # METADATA ********************
 
 # META {
@@ -44,35 +43,40 @@ import sys
 # Check if running in Fabric environment
 if "notebookutils" in sys.modules:
     import sys
-    
-    notebookutils.fs.mount("abfss://{{varlib:config_workspace_name}}@onelake.dfs.fabric.microsoft.com/{{varlib:config_lakehouse_name}}.Lakehouse/Files/", "/config_files")  # type: ignore # noqa: F821
+
+    notebookutils.fs.mount(
+        "abfss://{{varlib:config_workspace_name}}@onelake.dfs.fabric.microsoft.com/{{varlib:config_lakehouse_name}}.Lakehouse/Files/",
+        "/config_files",
+    )  # type: ignore # noqa: F821
     mount_path = notebookutils.fs.getMountPath("/config_files")  # type: ignore # noqa: F821
-    
-    
+
     run_mode = "fabric"
     sys.path.insert(0, mount_path)
 
-    
     # PySpark environment - spark session should be available
-    
+
 else:
     print("NotebookUtils not available, assumed running in local mode.")
     from ingen_fab.python_libs.pyspark.notebook_utils_abstraction import (
         NotebookUtilsFactory,
     )
+
     notebookutils = NotebookUtilsFactory.create_instance()
-        
+
     spark = None
-    
+
     mount_path = None
     run_mode = "local"
 
 import traceback
 
-def load_python_modules_from_path(base_path: str, relative_files: list[str], max_chars: int = 1_000_000_000):
+
+def load_python_modules_from_path(
+    base_path: str, relative_files: list[str], max_chars: int = 1_000_000_000
+):
     """
     Executes Python files from a Fabric-mounted file path using notebookutils.fs.head.
-    
+
     Args:
         base_path (str): The root directory where modules are located.
         relative_files (list[str]): List of relative paths to Python files (from base_path).
@@ -96,7 +100,7 @@ def load_python_modules_from_path(base_path: str, relative_files: list[str], max
             print(f"❌ Error loading {relative_path}")
             print(f"   Error type: {type(e).__name__}")
             print(f"   Error message: {str(e)}")
-            print(f"   Stack trace:")
+            print("   Stack trace:")
             traceback.print_exc()
 
     print("\n✅ Successfully loaded:")
@@ -108,6 +112,7 @@ def load_python_modules_from_path(base_path: str, relative_files: list[str], max
         for f in failed_files:
             print(f" - {f}")
 
+
 def clear_module_cache(prefix: str):
     """Clear module cache for specified prefix"""
     for mod in list(sys.modules):
@@ -115,12 +120,17 @@ def clear_module_cache(prefix: str):
             print("deleting..." + mod)
             del sys.modules[mod]
 
+
 # Clear the module cache only when running in Fabric environment
 # When running locally, module caching conflicts can occur in parallel execution
 if run_mode == "fabric":
     # Check if ingen_fab modules are present in cache (indicating they need clearing)
-    ingen_fab_modules = [mod for mod in sys.modules.keys() if mod.startswith(('ingen_fab.python_libs', 'ingen_fab'))]
-    
+    ingen_fab_modules = [
+        mod
+        for mod in sys.modules.keys()
+        if mod.startswith(("ingen_fab.python_libs", "ingen_fab"))
+    ]
+
     if ingen_fab_modules:
         print(f"Found {len(ingen_fab_modules)} ingen_fab modules to clear from cache")
         clear_module_cache("ingen_fab.python_libs")
@@ -128,8 +138,6 @@ if run_mode == "fabric":
         print("✓ Module cache cleared for ingen_fab libraries")
     else:
         print("ℹ No ingen_fab modules found in cache - already cleared or first load")
-
-
 
 
 # METADATA ********************
@@ -148,20 +156,22 @@ if run_mode == "fabric":
 
 if run_mode == "local":
     from ingen_fab.python_libs.common.config_utils import *
-    from ingen_fab.python_libs.pyspark.lakehouse_utils import lakehouse_utils
     from ingen_fab.python_libs.pyspark.ddl_utils import ddl_utils
-    from ingen_fab.python_libs.pyspark.notebook_utils_abstraction import NotebookUtilsFactory
-    notebookutils = NotebookUtilsFactory.create_instance() 
+    from ingen_fab.python_libs.pyspark.lakehouse_utils import lakehouse_utils
+    from ingen_fab.python_libs.pyspark.notebook_utils_abstraction import (
+        NotebookUtilsFactory,
+    )
+
+    notebookutils = NotebookUtilsFactory.create_instance()
 else:
     files_to_load = [
         "ingen_fab/python_libs/common/config_utils.py",
         "ingen_fab/python_libs/pyspark/lakehouse_utils.py",
         "ingen_fab/python_libs/pyspark/ddl_utils.py",
-        "ingen_fab/python_libs/pyspark/notebook_utils_abstraction.py"
+        "ingen_fab/python_libs/pyspark/notebook_utils_abstraction.py",
     ]
 
     load_python_modules_from_path(mount_path, files_to_load)
-
 
 
 # METADATA ********************
@@ -173,41 +183,39 @@ else:
 
 # Add markdown content here
 
-# ## 🆕 Instantiate Required Classes 
+# ## 🆕 Instantiate Required Classes
 
 # CELL ********************
 
 
 target_lakehouse_config_prefix = "Config"
 configs: ConfigsObject = get_configs_as_object()
-target_lakehouse_id = get_config_value(f"{target_lakehouse_config_prefix.lower()}_lakehouse_id")
-target_workspace_id = get_config_value(f"{target_lakehouse_config_prefix.lower()}_workspace_id")
+target_lakehouse_id = get_config_value(
+    f"{target_lakehouse_config_prefix.lower()}_lakehouse_id"
+)
+target_workspace_id = get_config_value(
+    f"{target_lakehouse_config_prefix.lower()}_workspace_id"
+)
 
 target_lakehouse = lakehouse_utils(
     target_workspace_id=target_workspace_id,
     target_lakehouse_id=target_lakehouse_id,
-    spark=spark  # Pass the Spark session if available
+    spark=spark,  # Pass the Spark session if available
 )
 
 du = ddl_utils(
     target_workspace_id=target_workspace_id,
     target_lakehouse_id=target_lakehouse_id,
-    spark=spark  # Pass the Spark session if available
+    spark=spark,  # Pass the Spark session if available
 )
 
 from pyspark.sql.types import (
-    DateType,
-    DoubleType,
-    IntegerType,
     LongType,
     StringType,
     StructField,
     StructType,
-    TimestampType
+    TimestampType,
 )
-
-
-
 
 # METADATA ********************
 
@@ -218,13 +226,12 @@ from pyspark.sql.types import (
 
 # Add markdown content here
 
-# ## 🏃‍♂️‍➡️ Run DDL Cells 
+# ## 🏃‍♂️‍➡️ Run DDL Cells
 
 # CELL ********************
 
 
 # DDL cells are injected below:
-
 
 
 # METADATA ********************
@@ -240,16 +247,21 @@ from pyspark.sql.types import (
 
 # CELL ********************
 
-guid="97cf4ee0b247"
+guid = "97cf4ee0b247"
 object_name = "001_sample_customer_table_create"
 
+
 def script_to_execute():
-    from pyspark.sql.types import StructType, StructField, LongType, StringType, TimestampType, BooleanType
-    
+    from pyspark.sql.types import (
+        BooleanType,
+        StringType,
+        StructField,
+        StructType,
+    )
+
     # Sample DDL script for creating a customer table in lakehouse
     # This demonstrates the basic pattern for creating Delta tables
-    
-    
+
     # Define the schema for the sample customers table
     schema = StructType(
         [
@@ -258,25 +270,24 @@ def script_to_execute():
             StructField("last_name", StringType(), nullable=True),
             StructField("email", StringType(), nullable=True),
             StructField("created_at", TimestampType(), nullable=True),
-            StructField("is_active", BooleanType(), nullable=True)
+            StructField("is_active", BooleanType(), nullable=True),
         ]
     )
-    
+
     # Create an empty DataFrame with the schema
     empty_df = target_lakehouse.spark.createDataFrame([], schema)
-    
+
     # Write the empty DataFrame to create the table
     target_lakehouse.write_to_table(
-        df=empty_df,
-        table_name="customers",
-        schema_name="sample")
-    
+        df=empty_df, table_name="customers", schema_name="sample"
+    )
 
-du.run_once(script_to_execute, "001_sample_customer_table_create","97cf4ee0b247")
+
+du.run_once(script_to_execute, "001_sample_customer_table_create", "97cf4ee0b247")
+
 
 def script_to_execute():
     print("Script block is empty. No action taken.")
-
 
 
 # METADATA ********************
@@ -292,47 +303,75 @@ def script_to_execute():
 
 # CELL ********************
 
-guid="3eaad0cf2eeb"
+guid = "3eaad0cf2eeb"
 object_name = "002_sample_customer_table_create_insert"
 
+
 def script_to_execute():
-    from pyspark.pandas.generic import LongType
-    from pyspark.sql.types import StructType, StructField, IntegerType, StringType, TimestampType, BooleanType
     from datetime import datetime
-    
+
+    from pyspark.pandas.generic import LongType
+    from pyspark.sql.types import (
+        BooleanType,
+        StringType,
+        StructField,
+        StructType,
+    )
+
     # Sample DDL script for creating a customer table in lakehouse
     # This demonstrates the basic pattern for creating Delta tables
     # Define schema for customer table
-    schema = StructType([
-        StructField("customer_id", LongType(), nullable=False),
-        StructField("first_name", StringType(), nullable=False),
-        StructField("last_name", StringType(), nullable=False),
-        StructField("email", StringType(), nullable=False),
-        StructField("created_at", TimestampType(), nullable=False),
-        StructField("is_active", BooleanType(), nullable=False)
-    ])
-    
+    schema = StructType(
+        [
+            StructField("customer_id", LongType(), nullable=False),
+            StructField("first_name", StringType(), nullable=False),
+            StructField("last_name", StringType(), nullable=False),
+            StructField("email", StringType(), nullable=False),
+            StructField("created_at", TimestampType(), nullable=False),
+            StructField("is_active", BooleanType(), nullable=False),
+        ]
+    )
+
     # Create DataFrame with sample data
     data = [
-        (1, 'John', 'Doe', 'john.doe@example.com', datetime(2024, 1, 1, 10, 0, 0), True),
-        (2, 'Jane', 'Smith', 'jane.smith@example.com', datetime(2024, 1, 2, 11, 0, 0), True),
-        (3, 'Bob', 'Johnson', 'bob.johnson@example.com', datetime(2024, 1, 3, 12, 0, 0), False)
+        (
+            1,
+            "John",
+            "Doe",
+            "john.doe@example.com",
+            datetime(2024, 1, 1, 10, 0, 0),
+            True,
+        ),
+        (
+            2,
+            "Jane",
+            "Smith",
+            "jane.smith@example.com",
+            datetime(2024, 1, 2, 11, 0, 0),
+            True,
+        ),
+        (
+            3,
+            "Bob",
+            "Johnson",
+            "bob.johnson@example.com",
+            datetime(2024, 1, 3, 12, 0, 0),
+            False,
+        ),
     ]
-    
-    df = target_lakehouse.spark.createDataFrame(data, schema)
-    
-    target_lakehouse.write_to_table(
-        df=df,
-        table_name="customers",
-        schema_name="sample")
-    
-    
 
-du.run_once(script_to_execute, "002_sample_customer_table_create_insert","3eaad0cf2eeb")
+    df = target_lakehouse.spark.createDataFrame(data, schema)
+
+    target_lakehouse.write_to_table(df=df, table_name="customers", schema_name="sample")
+
+
+du.run_once(
+    script_to_execute, "002_sample_customer_table_create_insert", "3eaad0cf2eeb"
+)
+
 
 def script_to_execute():
     print("Script block is empty. No action taken.")
-
 
 
 # METADATA ********************
@@ -348,35 +387,30 @@ def script_to_execute():
 
 # CELL ********************
 
-guid="1a10e653cdcb"
+guid = "1a10e653cdcb"
 object_name = "003_sample_store_create"
+
 
 def script_to_execute():
     schema = StructType(
         [
             StructField("store_name", StringType(), nullable=False),
-            StructField("department", StringType(), nullable=False)
+            StructField("department", StringType(), nullable=False),
         ]
     )
-    
-    empty_df = target_lakehouse.spark.createDataFrame([], schema)
-    
-    target_lakehouse.write_to_table(
-        df=empty_df,
-        table_name="store",
-        schema_name="sample")
-    
-    
-    
 
-du.run_once(script_to_execute, "003_sample_store_create","1a10e653cdcb")
+    empty_df = target_lakehouse.spark.createDataFrame([], schema)
+
+    target_lakehouse.write_to_table(
+        df=empty_df, table_name="store", schema_name="sample"
+    )
+
+
+du.run_once(script_to_execute, "003_sample_store_create", "1a10e653cdcb")
+
 
 def script_to_execute():
     print("Script block is empty. No action taken.")
-
-
-
-
 
 
 # METADATA ********************
@@ -393,10 +427,7 @@ def script_to_execute():
 # CELL ********************
 
 
-
-du.print_log() 
-
-
+du.print_log()
 
 
 # METADATA ********************
@@ -413,10 +444,7 @@ du.print_log()
 # CELL ********************
 
 
-
 notebookutils.mssparkutils.notebook.exit("success")
-
-
 
 
 # METADATA ********************
@@ -425,4 +453,3 @@ notebookutils.mssparkutils.notebook.exit("success")
 # META   "language": "python",
 # META   "language_group": "synapse_pyspark"
 # META }
-

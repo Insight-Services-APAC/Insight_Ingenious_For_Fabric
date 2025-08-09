@@ -74,19 +74,19 @@ def upload_python_libs_to_config_lakehouse(
         # Variable injection will be performed automatically during OneLake upload
         # This eliminates redundant processing and improves performance
         onelake_utils = OneLakeUtils(
-            environment=environment, 
-            project_path=Path(project_path),
-            console=console
+            environment=environment, project_path=Path(project_path), console=console
         )
-        
+
         # OneLakeUtils now handles all the UI messaging and progress tracking
         results = onelake_utils.upload_python_libs_to_config_lakehouse()
-        
+
         # Show any failed uploads in detail if needed
         if results["failed"]:
             console.print("\n[red]Failed uploads (details):[/red]")
             for result in results["failed"]:
-                console.print(f"  [red]✗[/red] [dim]{result['local_path']}:[/dim] {result['error']}")
+                console.print(
+                    f"  [red]✗[/red] [dim]{result['local_path']}:[/dim] {result['error']}"
+                )
 
     except Exception as e:
         ConsoleStyles.print_error(console, f"Error: {str(e)}")
