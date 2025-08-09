@@ -23,6 +23,7 @@ StartupProfileData-Interactive
 /metastore_db/**/*/
 /node_modules/**/*/
 /sample_*/**/*/
+/sample_*/*
 *.egg-info
 derby.log
 
