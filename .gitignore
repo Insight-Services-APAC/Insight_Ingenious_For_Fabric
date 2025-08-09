@@ -12,6 +12,7 @@ fabric_cicd.error.log
 /tmp
 /.ruff_cache
 /.pytest_cache
+/.pre-commit-cache
 /fabric_cicd.error.log
 /.venv_win
 /site/**/*/
@@ -26,4 +27,3 @@ derby.log
 
 # pip install testing
 pip_install_test/
-
