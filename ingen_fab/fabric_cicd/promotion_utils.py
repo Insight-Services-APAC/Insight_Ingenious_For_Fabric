@@ -66,7 +66,12 @@ class promotion_utils:
 class SyncToFabricEnvironment:
     """Class to synchronize environment variables and platform folders with Fabric."""
 
-    def __init__(self, project_path: str, environment: str = "development", console: Console = None):
+    def __init__(
+        self,
+        project_path: str,
+        environment: str = "development",
+        console: Console = None,
+    ):
         self.project_path = Path(project_path)
         self.environment = environment
         self.target_workspace_id = None
@@ -129,11 +134,15 @@ class SyncToFabricEnvironment:
                         item_type = platform_json.get("metadata").get("type")
                         # Normalize path to be relative to fabric_workspace_items for consistent comparison
                         # This handles both original and output directory paths
-                        if adjust_paths: # Paths are adjusted for manifest files during publishing
+                        if (
+                            adjust_paths
+                        ):  # Paths are adjusted for manifest files during publishing
                             if "output" in str(folder):
                                 # For output directory, convert back to fabric_workspace_items relative path
                                 relative_path = folder.relative_to(Path("./output"))
-                                normalized_path = f"fabric_workspace_items/{relative_path}"
+                                normalized_path = (
+                                    f"fabric_workspace_items/{relative_path}"
+                                )
                             else:
                                 # For original directory, make it relative to project path
                                 relative_path = folder.relative_to(self.project_path)
@@ -141,7 +150,7 @@ class SyncToFabricEnvironment:
                         else:
                             # For original directory, make it relative to project path
                             normalized_path = folder
-                        
+
                         platform_folders.append(
                             SyncToFabricEnvironment.manifest_item(
                                 name=f"{display_name}.{item_type}",
@@ -152,7 +161,10 @@ class SyncToFabricEnvironment:
                             )
                         )
                 except (json.JSONDecodeError, FileNotFoundError) as e:
-                    ConsoleStyles.print_error(self.console, f"Error reading platform file {platform_file}: {e}")
+                    ConsoleStyles.print_error(
+                        self.console,
+                        f"Error reading platform file {platform_file}: {e}",
+                    )
                     raise e
 
         return platform_folders
@@ -162,13 +174,17 @@ class SyncToFabricEnvironment:
     ) -> Optional[SyncToFabricEnvironment.manifest]:
         """Read the platform folders manifest from a YAML file."""
         ConsoleStyles.print_info(self.console, str(Path.cwd()))
-        ConsoleStyles.print_info(self.console, f"Reading manifest from: {manifest_path}")
+        ConsoleStyles.print_info(
+            self.console, f"Reading manifest from: {manifest_path}"
+        )
         if manifest_path.exists():
             with open(manifest_path, "r", encoding="utf-8") as f:
                 try:
                     data = f.read()
                     if data.strip() == "":
-                        ConsoleStyles.print_warning(self.console, "Manifest file is empty.")
+                        ConsoleStyles.print_warning(
+                            self.console, "Manifest file is empty."
+                        )
                         return SyncToFabricEnvironment.manifest(
                             platform_folders=[],
                             generated_at=str(Path.cwd()),
@@ -185,10 +201,14 @@ class SyncToFabricEnvironment:
                             version=manifest_data.get("version"),
                         )
                 except yaml.YAMLError as e:
-                    ConsoleStyles.print_error(self.console, f"Error reading manifest: {e}")
+                    ConsoleStyles.print_error(
+                        self.console, f"Error reading manifest: {e}"
+                    )
                     return None
         else:
-            ConsoleStyles.print_error(self.console, f"Manifest file not found: {manifest_path}")
+            ConsoleStyles.print_error(
+                self.console, f"Manifest file not found: {manifest_path}"
+            )
             return None
 
     def save_platform_manifest(
@@ -280,76 +300,102 @@ class SyncToFabricEnvironment:
         # Copy files from fabric_workspace_items to output directory
         source_dir = self.project_path / "fabric_workspace_items"
         output_dir = Path("./output")
-        
+
         if source_dir.exists():
             # Remove existing output directory if it exists
             if output_dir.exists():
                 shutil.rmtree(output_dir)
-            
+
             # Copy entire directory tree
             shutil.copytree(source_dir, output_dir)
-            ConsoleStyles.print_success(self.console, f"Copied workspace items to {output_dir}")
+            ConsoleStyles.print_success(
+                self.console, f"Copied workspace items to {output_dir}"
+            )
         else:
-            ConsoleStyles.print_warning(self.console, f"Source directory {source_dir} does not exist")
+            ConsoleStyles.print_warning(
+                self.console, f"Source directory {source_dir} does not exist"
+            )
             return
 
         # Inject variables into template files in the OUTPUT directory
         ConsoleStyles.print_info(self.console, "Injecting variables into template...")
-        
+
         # Create a new VariableLibraryUtils instance that will process files in the output directory
         output_vlu = VariableLibraryUtils(
             project_path=self.project_path,  # Still use original project path for variable library lookup
             environment=self.environment,
         )
-        
+
         # Process all notebook-content.py files in the output directory
         updated_count = 0
         for notebook_file in output_dir.rglob("notebook-content.py"):
             with open(notebook_file, "r", encoding="utf-8") as f:
                 content = f.read()
-            
+
             # Perform variable substitution (replace placeholders) and code injection
             updated_content = output_vlu.perform_code_replacements(
-                content, 
+                content,
                 replace_placeholders=True,  # Replace {{varlib:...}} placeholders during deployment
-                inject_code=True           # Also inject code between markers
+                inject_code=True,  # Also inject code between markers
             )
-            
+
             if updated_content != content:
                 with open(notebook_file, "w", encoding="utf-8") as f:
                     f.write(updated_content)
                 updated_count += 1
-        
+
         if updated_count > 0:
-            ConsoleStyles.print_success(self.console, f"Updated {updated_count} notebook files with variable substitution")
+            ConsoleStyles.print_success(
+                self.console,
+                f"Updated {updated_count} notebook files with variable substitution",
+            )
         else:
-            ConsoleStyles.print_info(self.console, "No notebook files needed variable substitution")
+            ConsoleStyles.print_info(
+                self.console, "No notebook files needed variable substitution"
+            )
 
         # 2) Find folders with platform files and generate hashes - SCAN THE OUTPUT DIRECTORY
-        fabric_items_path = output_dir  # Changed: scan the output directory, not the original
+        fabric_items_path = (
+            output_dir  # Changed: scan the output directory, not the original
+        )
         # Before publishing remove all __pycache__ folders from OUTPUT directory
         for pycache in fabric_items_path.rglob("__pycache__"):
             if pycache.is_dir():
-                ConsoleStyles.print_dim(self.console, f"Removing __pycache__ folder: {pycache}")
+                ConsoleStyles.print_dim(
+                    self.console, f"Removing __pycache__ folder: {pycache}"
+                )
                 shutil.rmtree(pycache)
-        ConsoleStyles.print_info(self.console, f"\nScanning for platform folders in: {fabric_items_path}")
+        ConsoleStyles.print_info(
+            self.console, f"\nScanning for platform folders in: {fabric_items_path}"
+        )
 
-        platform_folders = self.find_platform_folders(fabric_items_path, adjust_paths=True)
+        platform_folders = self.find_platform_folders(
+            fabric_items_path, adjust_paths=True
+        )
         manifest_path = Path(
             f"{self.project_path}/platform_manifest_{self.environment}.yml"
         )
         if platform_folders:
-            ConsoleStyles.print_success(self.console, f"Found {len(platform_folders)} folders with platform files:")
+            ConsoleStyles.print_success(
+                self.console,
+                f"Found {len(platform_folders)} folders with platform files:",
+            )
             for folder in platform_folders:
-                ConsoleStyles.print_info(self.console, f"  - {folder.name}: {folder.hash[:16]}...")
+                ConsoleStyles.print_info(
+                    self.console, f"  - {folder.name}: {folder.hash[:16]}..."
+                )
 
             # Save manifest
             self.save_platform_manifest(
                 platform_folders, manifest_path, perform_hash_check=True
             )
-            ConsoleStyles.print_success(self.console, f"\nSaved platform manifest to: {manifest_path}")
+            ConsoleStyles.print_success(
+                self.console, f"\nSaved platform manifest to: {manifest_path}"
+            )
         else:
-            ConsoleStyles.print_warning(self.console, "No folders with platform files found.")
+            ConsoleStyles.print_warning(
+                self.console, "No folders with platform files found."
+            )
 
         manifest_items: list[SyncToFabricEnvironment.manifest_item] = []
         if manifest_path.exists():
@@ -366,14 +412,19 @@ class SyncToFabricEnvironment:
             ]
 
             if manifest_items_new_updated:
-                ConsoleStyles.print_success(self.console, f"Found {len(manifest_items_new_updated)} folders to publish")
+                ConsoleStyles.print_success(
+                    self.console,
+                    f"Found {len(manifest_items_new_updated)} folders to publish",
+                )
 
                 # add the name of items to publish to list[str]
                 items_to_publish = [
                     f"{item.name}" for item in manifest_items_new_updated
                 ]
 
-                ConsoleStyles.print_info(self.console, f"Items to publish: {items_to_publish}")
+                ConsoleStyles.print_info(
+                    self.console, f"Items to publish: {items_to_publish}"
+                )
 
                 status_entries: list[PublishLogEntry]
                 status_entries = None
@@ -382,7 +433,9 @@ class SyncToFabricEnvironment:
                 try:
                     fw = FabricWorkspace(
                         workspace_id=self.target_workspace_id,
-                        repository_directory=str(output_dir),  # Changed: publish from output directory
+                        repository_directory=str(
+                            output_dir
+                        ),  # Changed: publish from output directory
                         item_type_in_scope=[
                             "VariableLibrary",
                             "DataPipeline",
@@ -406,40 +459,55 @@ class SyncToFabricEnvironment:
                         fabric_workspace_obj=fw, items_to_include=items_to_publish
                     )
 
-                    ConsoleStyles.print_success(self.console, "\nPublishing succeeded. Updating manifest...")
+                    ConsoleStyles.print_success(
+                        self.console, "\nPublishing succeeded. Updating manifest..."
+                    )
 
                 except Exception as e:
                     # If failed, update status to "failed"
-                    ConsoleStyles.print_error(self.console, f"\nPublishing failed with error: {e}")
+                    ConsoleStyles.print_error(
+                        self.console, f"\nPublishing failed with error: {e}"
+                    )
                 finally:
                     # Update status in manifest
                     for item in manifest_items:
                         if status_entries is None:
-                            ConsoleStyles.print_warning(self.console, "Warning: no status entries found.")
+                            ConsoleStyles.print_warning(
+                                self.console, "Warning: no status entries found."
+                            )
                             break
                         else:
                             for entry in status_entries:
-                                #ConsoleStyles.print_info(self.console, f"Checking status for {entry.name}...")
+                                # ConsoleStyles.print_info(self.console, f"Checking status for {entry.name}...")
                                 if (
                                     f"{entry.name}.{entry.item_type}".lower()
                                     == item.name.lower()
                                 ):
                                     if entry.success:
                                         item.status = "deployed"
-                                        ConsoleStyles.print_success(self.console, f"Item {item.name} deployed successfully")
+                                        ConsoleStyles.print_success(
+                                            self.console,
+                                            f"Item {item.name} deployed successfully",
+                                        )
                                     break
                     # Save updated manifest
                     self.save_platform_manifest(
                         manifest_items, manifest_path, perform_hash_check=False
                     )
-                    ConsoleStyles.print_success(self.console, "Manifest updated with deployed status")
+                    ConsoleStyles.print_success(
+                        self.console, "Manifest updated with deployed status"
+                    )
 
             else:
-                ConsoleStyles.print_info(self.console, "No folders with new/updated status to publish")
+                ConsoleStyles.print_info(
+                    self.console, "No folders with new/updated status to publish"
+                )
         else:
             ConsoleStyles.print_warning(self.console, "Platform manifest not found")
 
-        ConsoleStyles.print_success(self.console, "Promotion utilities initialized successfully.")
+        ConsoleStyles.print_success(
+            self.console, "Promotion utilities initialized successfully."
+        )
 
     def clear_environment(self):
         # make an empty temp dir

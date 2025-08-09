@@ -39,4 +39,3 @@ class NotebookUtilsInterface(ABC):
     def is_available(self) -> bool:
         """Check if the notebook utils implementation is available."""
         pass
-

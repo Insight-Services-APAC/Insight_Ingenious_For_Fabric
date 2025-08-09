@@ -11,8 +11,6 @@ import requests
 # Import error categorization
 from ingen_fab.python_libs.python.error_categorization import (
     error_categorizer,
-    ErrorCategory,
-    ErrorSeverity,
 )
 
 logger = logging.getLogger(__name__)
@@ -204,7 +202,7 @@ class PipelineUtils:
         """
         max_retries = 5
         retry_delay = 2  # Initial delay in seconds
-        backoff_factor = 1.5  # Exponential backoff multiplier
+        backoff_factor = 1.5  # Exponential backoff multiplier  # noqa: F841
 
         trigger_url = f"v1/workspaces/{workspace_id}/items/{pipeline_id}/jobs/instances?jobType=Pipeline"
 
@@ -281,7 +279,7 @@ class PipelineUtils:
                 # Re-raise on the last attempt or if non-retryable
                 if attempt == max_retries or not is_retryable:
                     logger.error(
-                        f"Exhausted retries or non-retryable error - raising exception",
+                        "Exhausted retries or non-retryable error - raising exception",
                         exc_info=True,
                     )
                     raise

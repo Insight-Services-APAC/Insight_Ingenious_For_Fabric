@@ -8,6 +8,7 @@ try:
     from rich.rule import Rule
     from rich.style import Style
     from rich.text import Text
+
     RICH_AVAILABLE = True
 except ImportError:
     RICH_AVAILABLE = False
@@ -94,11 +95,11 @@ class MessageHelpers:
             print(f"=== {title} ===")
 
     def print_panel(
-        self, 
-        content: str, 
-        title: str = None, 
+        self,
+        content: str,
+        title: str = None,
         border_style: str = "blue",
-        expand: bool = False
+        expand: bool = False,
     ) -> None:
         """Print content in a panel."""
         if self.console:
@@ -149,7 +150,9 @@ class MessageHelpers:
         """Format a list of operations."""
         if not operations:
             return ""
-        return MessageHelpers.format_label_value("Operations", "\n" + "\n".join(f"  {op}" for op in operations))
+        return MessageHelpers.format_label_value(
+            "Operations", "\n" + "\n".join(f"  {op}" for op in operations)
+        )
 
     def create_operation_details(
         self,
@@ -159,26 +162,26 @@ class MessageHelpers:
         output_dir: str = None,
         target_directory: str = None,
         mode: str = None,
-        files_found_label: str = "Total files"
+        files_found_label: str = "Total files",
     ) -> list[str]:
         """Create standardized operation details list."""
         details = []
-        
+
         if environment:
             details.append(self.format_status("Environment", environment))
-        
+
         if target_directory:
             details.append(self.format_path("Target directory", target_directory))
-            
+
         if total_files is not None:
             details.append(self.format_count(files_found_label, total_files))
-            
+
         if operations:
             details.append(self.format_operations_list(operations))
-            
+
         if output_dir:
             details.append(self.format_path("Output directory", output_dir))
         elif mode:
             details.append(self.format_status("Mode", mode))
-            
+
         return details

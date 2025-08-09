@@ -10,14 +10,12 @@ import numpy as np
 import pandas as pd
 import pyarrow as pa
 
-# Import pipeline utils and error categorization
-from ingen_fab.python_libs.python.pipeline_utils import PipelineUtils
 from ingen_fab.python_libs.python.error_categorization import (
     error_categorizer,
-    ErrorCategory,
-    ErrorSeverity,
 )
-from ingen_fab.python_libs.common.config_utils import get_configs_as_object
+
+# Import pipeline utils and error categorization
+from ingen_fab.python_libs.python.pipeline_utils import PipelineUtils
 from ingen_fab.python_libs.python.warehouse_utils import warehouse_utils
 
 logger = logging.getLogger(__name__)
@@ -563,7 +561,7 @@ def build_path_components(item: Dict[str, Any]) -> Dict[str, str]:
 
     # Extract date components if incremental load
     if load_tier == "incremental":
-        extract_start = datetime.strptime(item.get("extract_start"), "%Y-%m-%d")
+        extract_start = datetime.strptime(item.get("extract_start"), "%Y-%m-%d")  # noqa: F841
         extract_end = datetime.strptime(item.get("extract_end"), "%Y-%m-%d")
         run_year = extract_end.year
         run_month = extract_end.month
@@ -638,7 +636,7 @@ def build_partition_clause(item: Dict[str, Any]) -> str:
     end_date_sql = extract_end.strftime("%Y%m%d")
 
     # Determine extraction mode and create appropriate filter
-    mode = item.get("mode", "Daily")
+    mode = item.get("mode", "Daily")  # noqa: F841
 
     if start_date_sql == end_date_sql:
         # Same date - use single date filter

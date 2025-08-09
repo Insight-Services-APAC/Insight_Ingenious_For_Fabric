@@ -8,25 +8,26 @@ consolidating the functionality of legacy, enhanced, and generic template system
 from __future__ import annotations
 
 import json
-from datetime import datetime, date, timedelta
-from pathlib import Path
-from typing import Dict, Any, Optional, Union, Literal
+from datetime import date, datetime, timedelta
 from enum import Enum
+from pathlib import Path
+from typing import Any, Dict, Optional
 
-import typer
 from rich.console import Console
 from rich.table import Table
 
-from .synthetic_data_generation import SyntheticDataGenerationCompiler
+from ...python_libs.common.synthetic_data_dataset_configs import (
+    DatasetConfigurationRepository,
+)
 from .incremental_data_generation import IncrementalSyntheticDataGenerationCompiler
-from ...python_libs.common.synthetic_data_dataset_configs import DatasetConfigurationRepository
-
+from .synthetic_data_generation import SyntheticDataGenerationCompiler
 
 console = Console()
 
 
 class GenerationMode(str, Enum):
     """Generation modes for synthetic data."""
+
     SINGLE = "single"
     INCREMENTAL = "incremental"
     SERIES = "series"
@@ -34,6 +35,7 @@ class GenerationMode(str, Enum):
 
 class OutputFormat(str, Enum):
     """Output formats for synthetic data."""
+
     TABLE = "table"
     PARQUET = "parquet"
     CSV = "csv"
@@ -41,6 +43,7 @@ class OutputFormat(str, Enum):
 
 class ListType(str, Enum):
     """Types of items to list."""
+
     DATASETS = "datasets"
     TEMPLATES = "templates"
     ALL = "all"
@@ -48,20 +51,22 @@ class ListType(str, Enum):
 
 class UnifiedSyntheticDataGenerator:
     """Unified synthetic data generator that consolidates all generation modes."""
-    
-    def __init__(self, fabric_workspace_repo_dir: str = None, fabric_environment: str = None):
+
+    def __init__(
+        self, fabric_workspace_repo_dir: str = None, fabric_environment: str = None
+    ):
         """Initialize the unified generator."""
         self.base_compiler = SyntheticDataGenerationCompiler(
             fabric_workspace_repo_dir=fabric_workspace_repo_dir,
-            fabric_environment=fabric_environment
+            fabric_environment=fabric_environment,
         )
         self.incremental_compiler = IncrementalSyntheticDataGenerationCompiler(
             fabric_workspace_repo_dir=fabric_workspace_repo_dir,
-            fabric_environment=fabric_environment
+            fabric_environment=fabric_environment,
         )
         self.fabric_workspace_repo_dir = fabric_workspace_repo_dir
         self.fabric_environment = fabric_environment
-    
+
     def generate(
         self,
         config: str,
@@ -70,11 +75,11 @@ class UnifiedSyntheticDataGenerator:
         output_path: Optional[str] = None,
         dry_run: bool = False,
         target_environment: str = "lakehouse",
-        execute: bool = True
+        execute: bool = True,
     ) -> Dict[str, Any]:
         """
         Unified generation method that handles all modes.
-        
+
         Args:
             config: Dataset ID or template path
             mode: Generation mode (single, incremental, series)
@@ -83,13 +88,13 @@ class UnifiedSyntheticDataGenerator:
             dry_run: If True, only validate and show what would be generated
             target_environment: Target environment (lakehouse or warehouse)
             execute: If True, execute the generated notebook after compilation
-            
+
         Returns:
             Dictionary with generation results
         """
         # Merge parameters with defaults
         params = self._merge_parameters(config, mode, parameters)
-        
+
         # Validate parameters
         validation_result = self._validate_parameters(mode, params)
         if not validation_result["valid"]:
@@ -97,117 +102,121 @@ class UnifiedSyntheticDataGenerator:
                 "success": False,
                 "errors": validation_result["errors"],
                 "mode": mode,
-                "config": config
+                "config": config,
             }
-        
+
         if dry_run:
             return {
                 "success": True,
                 "mode": mode,
                 "config": config,
                 "parameters": params,
-                "message": "Dry run successful - no files generated"
+                "message": "Dry run successful - no files generated",
             }
-        
+
         # Route to appropriate generation method
         try:
             if mode == GenerationMode.SINGLE:
-                notebook_path = self._generate_single(config, params, target_environment, output_path)
+                notebook_path = self._generate_single(
+                    config, params, target_environment, output_path
+                )
             elif mode == GenerationMode.INCREMENTAL:
-                notebook_path = self._generate_incremental(config, params, target_environment, output_path)
+                notebook_path = self._generate_incremental(
+                    config, params, target_environment, output_path
+                )
             elif mode == GenerationMode.SERIES:
-                notebook_path = self._generate_series(config, params, target_environment, output_path)
+                notebook_path = self._generate_series(
+                    config, params, target_environment, output_path
+                )
             else:
                 raise ValueError(f"Unknown generation mode: {mode}")
-            
+
             result = {
                 "success": True,
                 "mode": mode,
                 "config": config,
                 "parameters": params,
-                "notebook_path": notebook_path
+                "notebook_path": notebook_path,
             }
-            
+
             # Execute the notebook if requested
             if execute and not dry_run:
                 execution_result = self._execute_notebook(notebook_path)
                 result.update(execution_result)
-            
+
             return result
-            
+
         except Exception as e:
             return {
                 "success": False,
                 "errors": [str(e)],
                 "mode": mode,
-                "config": config
+                "config": config,
             }
-    
+
     def list_items(self, list_type: ListType = ListType.ALL) -> Dict[str, Any]:
         """
         List available datasets and templates.
-        
+
         Args:
             list_type: Type of items to list
-            
+
         Returns:
             Dictionary with available items
         """
         result = {}
-        
+
         if list_type in [ListType.DATASETS, ListType.ALL]:
             # Get predefined datasets
             datasets = DatasetConfigurationRepository.list_available_datasets()
             result["datasets"] = datasets
-            
+
             # Get incremental datasets
-            incremental_configs = self.incremental_compiler._get_incremental_dataset_configs()
+            incremental_configs = (
+                self.incremental_compiler._get_incremental_dataset_configs()
+            )
             result["incremental_datasets"] = {
-                k: v.get("description", "No description") 
+                k: v.get("description", "No description")
                 for k, v in incremental_configs.items()
             }
-        
+
         if list_type in [ListType.TEMPLATES, ListType.ALL]:
             # Get configuration templates
-            if hasattr(self.base_compiler, 'get_available_configuration_templates'):
+            if hasattr(self.base_compiler, "get_available_configuration_templates"):
                 templates = self.base_compiler.get_available_configuration_templates()
                 result["templates"] = templates
-            
+
             # Get generic templates
             result["generic_templates"] = {
                 "generic_single_dataset_lakehouse": "Generic runtime-parameterized template for single dataset generation in lakehouse",
                 "generic_single_dataset_warehouse": "Generic runtime-parameterized template for single dataset generation in warehouse",
                 "generic_incremental_series_lakehouse": "Generic runtime-parameterized template for incremental series generation in lakehouse",
-                "generic_incremental_series_warehouse": "Generic runtime-parameterized template for incremental series generation in warehouse"
+                "generic_incremental_series_warehouse": "Generic runtime-parameterized template for incremental series generation in warehouse",
             }
-        
+
         return result
-    
+
     def compile(
         self,
         template: str,
         runtime_config: Optional[Dict[str, Any]] = None,
         output_format: str = "all",
-        target_environment: str = "lakehouse"
+        target_environment: str = "lakehouse",
     ) -> Dict[str, Any]:
         """
         Compile synthetic data generation artifacts.
-        
+
         Args:
             template: Template ID or path
             runtime_config: Runtime configuration
             output_format: Output format (notebook, ddl, all)
             target_environment: Target environment
-            
+
         Returns:
             Dictionary with compilation results
         """
-        results = {
-            "success": True,
-            "compiled_items": {},
-            "errors": []
-        }
-        
+        results = {"success": True, "compiled_items": {}, "errors": []}
+
         try:
             # Compile notebooks if requested
             if output_format in ["notebook", "all"]:
@@ -221,44 +230,45 @@ class UnifiedSyntheticDataGenerator:
                     # Use standard compilation
                     config = runtime_config or {}
                     config["dataset_id"] = template
-                    notebook_path = self.base_compiler.compile_synthetic_data_generation_notebook(
-                        dataset_config=config,
-                        target_environment=target_environment
+                    notebook_path = (
+                        self.base_compiler.compile_synthetic_data_generation_notebook(
+                            dataset_config=config, target_environment=target_environment
+                        )
                     )
                     results["compiled_items"]["notebook"] = str(notebook_path)
-            
+
             # Compile DDL if requested
             if output_format in ["ddl", "all"]:
                 ddl_results = self.base_compiler.compile_ddl_scripts(target_environment)
                 results["compiled_items"]["ddl"] = ddl_results
-            
+
         except Exception as e:
             results["success"] = False
             results["errors"].append(str(e))
-        
+
         return results
-    
+
     def _merge_parameters(
-        self, 
-        config: str, 
-        mode: GenerationMode, 
-        parameters: Optional[Dict[str, Any]]
+        self, config: str, mode: GenerationMode, parameters: Optional[Dict[str, Any]]
     ) -> Dict[str, Any]:
         """Merge user parameters with defaults based on config and mode."""
         # Start with defaults based on mode
         defaults = self._get_mode_defaults(mode)
-        
+
         # Try to load config defaults
-        if not config.startswith("generic_") and config in DatasetConfigurationRepository._get_all_predefined_datasets():
+        if (
+            not config.startswith("generic_")
+            and config in DatasetConfigurationRepository._get_all_predefined_datasets()
+        ):
             config_data = DatasetConfigurationRepository.get_predefined_dataset(config)
             defaults.update(config_data)
-        
+
         # Apply user parameters
         if parameters:
             defaults.update(parameters)
-        
+
         return defaults
-    
+
     def _get_mode_defaults(self, mode: GenerationMode) -> Dict[str, Any]:
         """Get default parameters based on generation mode."""
         if mode == GenerationMode.SINGLE:
@@ -266,14 +276,14 @@ class UnifiedSyntheticDataGenerator:
                 "target_rows": 10000,
                 "output_mode": "table",
                 "generation_mode": "auto",
-                "chunk_size": 1000000
+                "chunk_size": 1000000,
             }
         elif mode == GenerationMode.INCREMENTAL:
             return {
                 "generation_date": date.today().isoformat(),
                 "path_format": "nested",
                 "state_management": True,
-                "output_mode": "parquet"
+                "output_mode": "parquet",
             }
         elif mode == GenerationMode.SERIES:
             return {
@@ -282,25 +292,27 @@ class UnifiedSyntheticDataGenerator:
                 "batch_size": 10,
                 "path_format": "nested",
                 "output_mode": "parquet",
-                "ignore_state": False
+                "ignore_state": False,
             }
         return {}
-    
-    def _validate_parameters(self, mode: GenerationMode, params: Dict[str, Any]) -> Dict[str, Any]:
+
+    def _validate_parameters(
+        self, mode: GenerationMode, params: Dict[str, Any]
+    ) -> Dict[str, Any]:
         """Validate parameters based on generation mode."""
         errors = []
-        
+
         if mode == GenerationMode.SINGLE:
             if "target_rows" in params and params["target_rows"] <= 0:
                 errors.append("target_rows must be positive")
-        
+
         elif mode == GenerationMode.INCREMENTAL:
             if "generation_date" in params:
                 try:
                     datetime.strptime(params["generation_date"], "%Y-%m-%d")
                 except ValueError:
                     errors.append("generation_date must be in YYYY-MM-DD format")
-        
+
         elif mode == GenerationMode.SERIES:
             if "start_date" in params and "end_date" in params:
                 try:
@@ -310,15 +322,15 @@ class UnifiedSyntheticDataGenerator:
                         errors.append("start_date must be before end_date")
                 except ValueError:
                     errors.append("Dates must be in YYYY-MM-DD format")
-        
+
         return {"valid": len(errors) == 0, "errors": errors}
-    
+
     def _generate_single(
-        self, 
-        config: str, 
-        params: Dict[str, Any], 
+        self,
+        config: str,
+        params: Dict[str, Any],
         target_environment: str,
-        output_path: Optional[str]
+        output_path: Optional[str],
     ) -> Path:
         """Generate single dataset."""
         return self.base_compiler.compile_predefined_dataset_notebook(
@@ -328,25 +340,25 @@ class UnifiedSyntheticDataGenerator:
             generation_mode=params.get("generation_mode", "auto"),
             seed_value=params.get("seed_value"),
             output_subdir=output_path,
-            output_mode=params.get("output_mode", "table")
+            output_mode=params.get("output_mode", "table"),
         )
-    
+
     def _generate_incremental(
-        self, 
-        config: str, 
-        params: Dict[str, Any], 
+        self,
+        config: str,
+        params: Dict[str, Any],
         target_environment: str,
-        output_path: Optional[str]
+        output_path: Optional[str],
     ) -> Path:
         """Generate incremental dataset."""
         # Get dataset configuration
         dataset_config = DatasetConfigurationRepository.get_predefined_dataset(config)
         dataset_config.update(params)
-        
+
         generation_date = params.get("generation_date", date.today().isoformat())
         if isinstance(generation_date, str):
             generation_date = datetime.strptime(generation_date, "%Y-%m-%d").date()
-        
+
         return self.incremental_compiler.compile_incremental_dataset_notebook(
             dataset_config=dataset_config,
             generation_date=generation_date,
@@ -354,21 +366,21 @@ class UnifiedSyntheticDataGenerator:
             generation_mode=params.get("generation_mode", "auto"),
             output_subdir=output_path,
             path_format=params.get("path_format", "nested"),
-            state_management=params.get("state_management", True)
+            state_management=params.get("state_management", True),
         )
-    
+
     def _generate_series(
-        self, 
-        config: str, 
-        params: Dict[str, Any], 
+        self,
+        config: str,
+        params: Dict[str, Any],
         target_environment: str,
-        output_path: Optional[str]
+        output_path: Optional[str],
     ) -> Path:
         """Generate series of incremental datasets."""
         # Get dataset configuration
         dataset_config = DatasetConfigurationRepository.get_predefined_dataset(config)
         dataset_config.update(params)
-        
+
         return self.incremental_compiler.compile_incremental_dataset_series_notebook(
             dataset_config=dataset_config,
             start_date=params.get("start_date"),
@@ -379,14 +391,14 @@ class UnifiedSyntheticDataGenerator:
             path_format=params.get("path_format", "nested"),
             batch_size=params.get("batch_size", 10),
             output_mode=params.get("output_mode", "parquet"),
-            ignore_state=params.get("ignore_state", False)
+            ignore_state=params.get("ignore_state", False),
         )
-    
+
     def _compile_generic_template(
-        self, 
-        template_name: str, 
+        self,
+        template_name: str,
         runtime_config: Optional[Dict[str, Any]],
-        target_environment: str
+        target_environment: str,
     ) -> Path:
         """Compile a generic template with runtime configuration."""
         # Map template names to their configurations
@@ -394,65 +406,67 @@ class UnifiedSyntheticDataGenerator:
             "generic_single_dataset_lakehouse": {
                 "template_name": "generic_single_dataset_lakehouse.py.jinja",
                 "output_name": "generic_single_dataset_lakehouse",
-                "language_group": "synapse_pyspark"
+                "language_group": "synapse_pyspark",
             },
             "generic_incremental_series_lakehouse": {
                 "template_name": "generic_incremental_series_lakehouse.py.jinja",
                 "output_name": "generic_incremental_series_lakehouse",
-                "language_group": "synapse_pyspark"
+                "language_group": "synapse_pyspark",
             },
             "generic_incremental_series_warehouse": {
                 "template_name": "generic_incremental_series_warehouse.py.jinja",
                 "output_name": "generic_incremental_series_warehouse",
-                "language_group": "python"
-            }
+                "language_group": "python",
+            },
         }
-        
+
         if template_name not in template_configs:
             raise ValueError(f"Unknown generic template: {template_name}")
-        
+
         config = template_configs[template_name]
         template_vars = {
             "target_environment": target_environment,
             "language_group": config["language_group"],
-            **(runtime_config or {})
+            **(runtime_config or {}),
         }
-        
+
         return self.base_compiler.compile_notebook_from_template(
             template_name=config["template_name"],
             output_notebook_name=config["output_name"],
             template_vars=template_vars,
             display_name=f"Generic Template - {template_name}",
-            description=f"Runtime-parameterized synthetic data generation",
-            output_subdir="synthetic_data_generation/generic"
+            description="Runtime-parameterized synthetic data generation",
+            output_subdir="synthetic_data_generation/generic",
         )
-    
+
     def _execute_notebook(self, notebook_path: Path) -> Dict[str, Any]:
         """
         Execute a generated notebook as a Python script.
-        
+
         Args:
             notebook_path: Path to the notebook directory
-            
+
         Returns:
             Dictionary with execution results
         """
         import subprocess
         import sys
         from pathlib import Path
-        
+
         # Find the notebook-content.py file
         if isinstance(notebook_path, str):
             notebook_path = Path(notebook_path)
-        
+
         notebook_content_path = notebook_path / "notebook-content.py"
-        
+
         if not notebook_content_path.exists():
             return {
                 "execution_success": False,
-                "execution_errors": [f"Notebook content file not found: {notebook_content_path}"]
+                "execution_errors": [
+                    f"Notebook content file not found: {notebook_content_path}"
+                ],
             }
-        
+
         try:
             # Execute the notebook using subprocess for better isolation
             result = subprocess.run(
@@ -460,32 +474,34 @@ class UnifiedSyntheticDataGenerator:
                 capture_output=True,
                 text=True,
                 timeout=300,  # 5 minute timeout
-                cwd=str(notebook_path.parent)  # Run from notebook directory
+                cwd=str(notebook_path.parent),  # Run from notebook directory
             )
-            
+
             if result.returncode == 0:
                 return {
                     "execution_success": True,
                     "execution_output": result.stdout,
-                    "execution_stderr": result.stderr if result.stderr else None
+                    "execution_stderr": result.stderr if result.stderr else None,
                 }
             else:
                 return {
                     "execution_success": False,
-                    "execution_errors": [f"Execution failed with return code {result.returncode}"],
+                    "execution_errors": [
+                        f"Execution failed with return code {result.returncode}"
+                    ],
                     "execution_output": result.stdout,
-                    "execution_stderr": result.stderr
+                    "execution_stderr": result.stderr,
                 }
-                
+
         except subprocess.TimeoutExpired:
             return {
                 "execution_success": False,
-                "execution_errors": ["Notebook execution timed out after 5 minutes"]
+                "execution_errors": ["Notebook execution timed out after 5 minutes"],
             }
         except Exception as e:
             return {
                 "execution_success": False,
-                "execution_errors": [f"Execution error: {str(e)}"]
+                "execution_errors": [f"Execution error: {str(e)}"],
             }
 
 
@@ -494,19 +510,19 @@ def format_list_output(items: Dict[str, Any], format_type: str = "table") -> Non
     if format_type == "json":
         console.print_json(json.dumps(items, indent=2))
         return
-    
+
     # Table format
     for category, data in items.items():
         console.print(f"\n[bold blue]{category.replace('_', ' ').title()}:[/bold blue]")
-        
+
         if isinstance(data, dict):
             table = Table(show_header=True, header_style="bold magenta")
             table.add_column("ID", style="cyan")
             table.add_column("Description")
-            
+
             for key, value in data.items():
                 table.add_row(key, value)
-            
+
             console.print(table)
         else:
             console.print(data)

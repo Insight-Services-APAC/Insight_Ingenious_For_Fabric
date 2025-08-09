@@ -14,6 +14,7 @@ try:
         TextColumn,
         TimeElapsedColumn,
     )
+
     RICH_AVAILABLE = True
 except ImportError:
     RICH_AVAILABLE = False
@@ -30,15 +31,12 @@ class ProgressTracker:
         self._task_id = None
 
     def create_progress_bar(
-        self, 
-        total: int, 
-        description: str = "Processing...",
-        spinner_name: str = "dots"
+        self, total: int, description: str = "Processing...", spinner_name: str = "dots"
     ) -> Optional[Progress]:
         """Create a rich progress bar if available."""
         if not self.console:
             return None
-        
+
         self._progress = Progress(
             SpinnerColumn(spinner_name=spinner_name),
             MofNCompleteColumn(),
@@ -81,25 +79,25 @@ class ProgressTracker:
         return False
 
     def simple_progress_tracker(
-        self, 
-        items: list[Any], 
+        self,
+        items: list[Any],
         description: str = "Processing items...",
-        project_path: Optional[Path] = None
+        project_path: Optional[Path] = None,
     ):
         """
         Simple progress tracker that yields items with progress updates.
         Falls back to simple enumeration when rich is not available.
         """
         total = len(items)
-        
+
         if self.console and total > 1:
             with self.create_progress_bar(total, description) as progress:
                 if progress:
                     task_id = self.add_task(description, total)
-                    
+
                     for idx, item in enumerate(items):
                         # Update description with current item info
-                        if hasattr(item, 'name'):
+                        if hasattr(item, "name"):
                             item_name = item.name
                         elif isinstance(item, Path):
                             if project_path:
@@ -111,14 +109,13 @@ class ProgressTracker:
                                 item_name = item.name
                         else:
                             item_name = str(item)
-                        
+
                         self.update_task(
-                            task_id, 
-                            description=f"[cyan]Processing:[/cyan] {item_name}"
+                            task_id, description=f"[cyan]Processing:[/cyan] {item_name}"
                         )
-                        
+
                         yield item
-                        
+
                         self.advance_task(task_id)
                 else:
                     # Fallback when progress creation fails

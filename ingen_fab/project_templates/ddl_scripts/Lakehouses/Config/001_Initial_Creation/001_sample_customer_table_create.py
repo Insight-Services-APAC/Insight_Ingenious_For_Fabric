@@ -1,4 +1,11 @@
-from pyspark.sql.types import StructType, StructField, LongType, StringType, TimestampType, BooleanType
+from pyspark.sql.types import (
+    BooleanType,
+    LongType,
+    StringType,
+    StructField,
+    StructType,
+    TimestampType,
+)
 
 # Sample DDL script for creating a customer table in lakehouse
 # This demonstrates the basic pattern for creating Delta tables
@@ -12,7 +19,7 @@ schema = StructType(
         StructField("last_name", StringType(), nullable=True),
         StructField("email", StringType(), nullable=True),
         StructField("created_at", TimestampType(), nullable=True),
-        StructField("is_active", BooleanType(), nullable=True)
+        StructField("is_active", BooleanType(), nullable=True),
     ]
 )
 
@@ -21,6 +28,5 @@ empty_df = target_lakehouse.spark.createDataFrame([], schema)
 
 # Write the empty DataFrame to create the table
 target_lakehouse.write_to_table(
-    df=empty_df,
-    table_name="customers",
-    schema_name="sample")
+    df=empty_df, table_name="customers", schema_name="sample"
+)

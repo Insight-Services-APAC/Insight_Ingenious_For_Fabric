@@ -13,7 +13,6 @@
 # META }
 
 
-
 # MARKDOWN ********************
 
 # ## 『』Parameters
@@ -22,11 +21,8 @@
 # PARAMETERS CELL ********************
 
 
-
-# Default parameters  
+# Default parameters
 # Add default parameters here
-
-
 
 
 # METADATA ********************
@@ -47,36 +43,41 @@ import sys
 # Check if running in Fabric environment
 if "notebookutils" in sys.modules:
     import sys
-    
-    notebookutils.fs.mount("abfss://{{varlib:config_workspace_name}}@onelake.dfs.fabric.microsoft.com/{{varlib:config_lakehouse_name}}.Lakehouse/Files/", "/config_files")  # type: ignore # noqa: F821
+
+    notebookutils.fs.mount(
+        "abfss://{{varlib:config_workspace_name}}@onelake.dfs.fabric.microsoft.com/{{varlib:config_lakehouse_name}}.Lakehouse/Files/",
+        "/config_files",
+    )  # type: ignore # noqa: F821
     mount_path = notebookutils.fs.getMountPath("/config_files")  # type: ignore # noqa: F821
-    
-    
+
     run_mode = "fabric"
     sys.path.insert(0, mount_path)
 
-    
     # Python environment - no spark session needed
     spark = None
-    
+
 else:
     print("NotebookUtils not available, assumed running in local mode.")
     from ingen_fab.python_libs.python.notebook_utils_abstraction import (
         NotebookUtilsFactory,
     )
+
     notebookutils = NotebookUtilsFactory.create_instance()
-    
+
     spark = None
-    
+
     mount_path = None
     run_mode = "local"
 
 import traceback
 
-def load_python_modules_from_path(base_path: str, relative_files: list[str], max_chars: int = 1_000_000_000):
+
+def load_python_modules_from_path(
+    base_path: str, relative_files: list[str], max_chars: int = 1_000_000_000
+):
     """
     Executes Python files from a Fabric-mounted file path using notebookutils.fs.head.
-    
+
     Args:
         base_path (str): The root directory where modules are located.
         relative_files (list[str]): List of relative paths to Python files (from base_path).
@@ -100,7 +101,7 @@ def load_python_modules_from_path(base_path: str, relative_files: list[str], max
             print(f"❌ Error loading {relative_path}")
             print(f"   Error type: {type(e).__name__}")
             print(f"   Error message: {str(e)}")
-            print(f"   Stack trace:")
+            print("   Stack trace:")
             traceback.print_exc()
 
     print("\n✅ Successfully loaded:")
@@ -112,6 +113,7 @@ def load_python_modules_from_path(base_path: str, relative_files: list[str], max
         for f in failed_files:
             print(f" - {f}")
 
+
 def clear_module_cache(prefix: str):
     """Clear module cache for specified prefix"""
     for mod in list(sys.modules):
@@ -119,12 +121,17 @@ def clear_module_cache(prefix: str):
             print("deleting..." + mod)
             del sys.modules[mod]
 
+
 # Clear the module cache only when running in Fabric environment
 # When running locally, module caching conflicts can occur in parallel execution
 if run_mode == "fabric":
     # Check if ingen_fab modules are present in cache (indicating they need clearing)
-    ingen_fab_modules = [mod for mod in sys.modules.keys() if mod.startswith(('ingen_fab.python_libs', 'ingen_fab'))]
-    
+    ingen_fab_modules = [
+        mod
+        for mod in sys.modules.keys()
+        if mod.startswith(("ingen_fab.python_libs", "ingen_fab"))
+    ]
+
     if ingen_fab_modules:
         print(f"Found {len(ingen_fab_modules)} ingen_fab modules to clear from cache")
         clear_module_cache("ingen_fab.python_libs")
@@ -132,8 +139,6 @@ if run_mode == "fabric":
         print("✓ Module cache cleared for ingen_fab libraries")
     else:
         print("ℹ No ingen_fab modules found in cache - already cleared or first load")
-
-
 
 
 # METADATA ********************
@@ -152,13 +157,13 @@ if run_mode == "fabric":
 
 if run_mode == "local":
     from ingen_fab.python_libs.common.config_utils import *
-    from ingen_fab.python_libs.python.lakehouse_utils import lakehouse_utils
     from ingen_fab.python_libs.python.ddl_utils import ddl_utils
-    from ingen_fab.python_libs.python.notebook_utils_abstraction import NotebookUtilsFactory
-    from ingen_fab.python_libs.python.sql_templates import SQLTemplates
+    from ingen_fab.python_libs.python.notebook_utils_abstraction import (
+        NotebookUtilsFactory,
+    )
     from ingen_fab.python_libs.python.warehouse_utils import warehouse_utils
-    from ingen_fab.python_libs.python.pipeline_utils import PipelineUtils
-    notebookutils = NotebookUtilsFactory.create_instance() 
+
+    notebookutils = NotebookUtilsFactory.create_instance()
 else:
     files_to_load = [
         "ingen_fab/python_libs/common/config_utils.py",
@@ -167,11 +172,10 @@ else:
         "ingen_fab/python_libs/python/notebook_utils_abstraction.py",
         "ingen_fab/python_libs/python/sql_templates.py",
         "ingen_fab/python_libs/python/warehouse_utils.py",
-        "ingen_fab/python_libs/python/pipeline_utils.py"
+        "ingen_fab/python_libs/python/pipeline_utils.py",
     ]
 
     load_python_modules_from_path(mount_path, files_to_load)
-
 
 
 # METADATA ********************
@@ -194,7 +198,6 @@ else:
 # variableLibraryInjectionEnd: var_lib
 
 
-
 # METADATA ********************
 
 # META {
@@ -204,28 +207,29 @@ else:
 
 # Add markdown content here
 
-# ## 🆕 Instantiate Required Classes 
+# ## 🆕 Instantiate Required Classes
 
 # CELL ********************
 
 
 target_lakehouse_config_prefix = "Config"
 configs: ConfigsObject = get_configs_as_object()
-target_warehouse_id = get_config_value(f"{target_lakehouse_config_prefix.lower()}_warehouse_id")
-target_workspace_id = get_config_value(f"{target_lakehouse_config_prefix.lower()}_workspace_id")
+target_warehouse_id = get_config_value(
+    f"{target_lakehouse_config_prefix.lower()}_warehouse_id"
+)
+target_workspace_id = get_config_value(
+    f"{target_lakehouse_config_prefix.lower()}_workspace_id"
+)
 
 du = ddl_utils(
     target_workspace_id=target_workspace_id,
     target_warehouse_id=target_warehouse_id,
-    notebookutils=notebookutils
+    notebookutils=notebookutils,
 )
 
 wu = warehouse_utils(
-    target_workspace_id=target_workspace_id,
-    target_warehouse_id=target_warehouse_id
+    target_workspace_id=target_workspace_id, target_warehouse_id=target_warehouse_id
 )
-
-
 
 
 # METADATA ********************
@@ -237,13 +241,12 @@ wu = warehouse_utils(
 
 # Add markdown content here
 
-# ## 🏃‍♂️‍➡️ Run DDL Cells 
+# ## 🏃‍♂️‍➡️ Run DDL Cells
 
 # CELL ********************
 
 
 # DDL cells are injected below:
-
 
 
 # METADATA ********************
@@ -259,26 +262,24 @@ wu = warehouse_utils(
 
 # CELL ********************
 
-guid="2abe6fdaf6b7"
+guid = "2abe6fdaf6b7"
 object_name = "000_schema_creation"
+
 
 def script_to_execute():
     # Create schemas if they don't exist
     # This ensures the schemas exist before other DDL operations
-    
+
     wu.create_schema_if_not_exists("config")
     wu.create_schema_if_not_exists("log")
     wu.create_schema_if_not_exists("raw")
-    
 
-du.run_once(script_to_execute, "000_schema_creation","2abe6fdaf6b7")
+
+du.run_once(script_to_execute, "000_schema_creation", "2abe6fdaf6b7")
+
 
 def script_to_execute():
     print("Script block is empty. No action taken.")
-
-
-
-
 
 
 # METADATA ********************
@@ -295,8 +296,7 @@ def script_to_execute():
 # CELL ********************
 
 
-du.print_log() 
-
+du.print_log()
 
 
 # METADATA ********************
@@ -316,12 +316,9 @@ du.print_log()
 notebookutils.notebook.exit("success")
 
 
-
-
 # METADATA ********************
 
 # META {
 # META   "language": "python",
 # META   "language_group": "jupyter_python"
 # META }
-

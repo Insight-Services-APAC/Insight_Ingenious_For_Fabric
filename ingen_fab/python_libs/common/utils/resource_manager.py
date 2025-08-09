@@ -6,7 +6,7 @@ and other package resources with caching for performance.
 """
 
 from pathlib import Path
-from typing import Dict, List, Optional, Union
+from typing import Dict, List
 
 from jinja2 import Environment, FileSystemLoader, Template
 

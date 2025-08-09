@@ -8,10 +8,8 @@ This module provides a clean separation of concerns for Synapse data extraction:
 """
 
 import asyncio
-import json
 import logging
 import time
-import uuid
 from datetime import datetime
 from typing import Any, Dict, List, Optional
 

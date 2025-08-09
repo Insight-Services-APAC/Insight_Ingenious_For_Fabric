@@ -274,7 +274,7 @@ class GatherPythonLibs:
 
         except FileNotFoundError:
             self.console.print(
-                f"[yellow]Warning: Could not locate python_libs package resources[/yellow]"
+                "[yellow]Warning: Could not locate python_libs package resources[/yellow]"
             )
             return
 

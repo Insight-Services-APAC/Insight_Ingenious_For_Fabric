@@ -8,7 +8,6 @@ import uuid
 from typing import Any, Dict, List, Optional, Tuple
 
 from pyspark.sql import DataFrame, SparkSession
-from pyspark.sql.functions import coalesce, col, current_timestamp, lit, when
 
 from ingen_fab.python_libs.common.flat_file_ingestion_utils import (
     ConfigurationUtils,
@@ -16,13 +15,6 @@ from ingen_fab.python_libs.common.flat_file_ingestion_utils import (
     ErrorHandlingUtils,
     FilePatternUtils,
     ProcessingMetricsUtils,
-)
-from ingen_fab.python_libs.common.location_resolver import (
-    LocationResolver,
-    LocationConfig,
-)
-from ingen_fab.python_libs.common.flat_file_logging_schema import (
-    get_flat_file_ingestion_log_schema,
 )
 from ingen_fab.python_libs.interfaces.flat_file_ingestion_interface import (
     FileDiscoveryResult,
@@ -49,7 +41,7 @@ class PySparkFlatFileDiscovery(FlatFileDiscoveryInterface):
 
         # Resolve full source path
         full_source_path = self.location_resolver.resolve_full_source_path(config)
-        
+
         if config.import_pattern != "date_partitioned":
             # For non-date-partitioned imports, return single file path
             return [FileDiscoveryResult(file_path=full_source_path)]
@@ -87,8 +79,10 @@ class PySparkFlatFileDiscovery(FlatFileDiscoveryInterface):
 
         try:
             # Get source utilities for this configuration
-            source_utils = self.location_resolver.get_source_utils(config, spark=self.spark)
-            
+            source_utils = self.location_resolver.get_source_utils(
+                config, spark=self.spark
+            )
+
             # Convert base_path to absolute local path for file system operations
             if hasattr(source_utils, "lakehouse_files_uri"):
                 files_uri = source_utils.lakehouse_files_uri()
@@ -144,7 +138,7 @@ class PySparkFlatFileDiscovery(FlatFileDiscoveryInterface):
                             file_path=relative_table_path,
                             date_partition=date_partition,
                             folder_name=f"{date_partition}_{table_name}",
-                            nested_structure=True
+                            nested_structure=True,
                         )
                     )
                     print(
@@ -177,9 +171,9 @@ class PySparkFlatFileDiscovery(FlatFileDiscoveryInterface):
         try:
             # List all directories in the source directory to find folders matching the pattern
             try:
-                directory_items = self.location_resolver.get_source_utils(config, spark=self.spark).list_directories(
-                    base_path, recursive=False
-                )
+                directory_items = self.location_resolver.get_source_utils(
+                    config, spark=self.spark
+                ).list_directories(base_path, recursive=False)
                 print(f"📂 Found {len(directory_items)} directories in base directory")
                 print(f"🔍 First few directories: {directory_items[:3]}")
             except Exception as e:
@@ -326,14 +320,18 @@ class PySparkFlatFileProcessor(FlatFileProcessorInterface):
 
         try:
             # Get source utilities for this configuration
-            source_utils = self.location_resolver.get_source_utils(config, spark=self.spark)
-            
+            source_utils = self.location_resolver.get_source_utils(
+                config, spark=self.spark
+            )
+
             # Get file reading options based on configuration
             options = ConfigurationUtils.get_file_read_options(config)
 
             # Read file using dynamic source utilities
             if config.source_is_folder:
-                df = self._read_folder_contents(config, file_path, options, source_utils)
+                df = self._read_folder_contents(
+                    config, file_path, options, source_utils
+                )
             else:
                 df = source_utils.read_file(
                     file_path=file_path.file_path,
@@ -365,158 +363,217 @@ class PySparkFlatFileProcessor(FlatFileProcessorInterface):
         """Read all files in a folder based on configuration"""
         return self.read_file(config, folder_path)
 
-    def _analyze_path_structure(self, file: FileDiscoveryResult, config: FlatFileIngestionConfig, source_utils) -> Dict[str, Any]:
+    def _analyze_path_structure(
+        self, file: FileDiscoveryResult, config: FlatFileIngestionConfig, source_utils
+    ) -> Dict[str, Any]:
         """Systematically analyze path structure to optimize processing decisions"""
         analysis = {
-            'path_exists': False,
-            'is_file': False,
-            'is_folder': False,
-            'contains_files': False,
-            'contains_folders': False,
-            'total_files': 0,
-            'total_folders': 0,
-            'data_files': [],
-            'metadata_files': [],
-            'other_files': [],
-            'subfolders': [],
-            'file_extensions': set(),
-            'has_spark_structure': False,
-            'recommended_approach': 'spark_fallback'
+            "path_exists": False,
+            "is_file": False,
+            "is_folder": False,
+            "contains_files": False,
+            "contains_folders": False,
+            "total_files": 0,
+            "total_folders": 0,
+            "data_files": [],
+            "metadata_files": [],
+            "other_files": [],
+            "subfolders": [],
+            "file_extensions": set(),
+            "has_spark_structure": False,
+            "recommended_approach": "spark_fallback",
         }
-        
+
         try:
             # Check if path exists
             if not source_utils.file_exists(file.file_path):
-                analysis['recommended_approach'] = 'error_file_not_found'
+                analysis["recommended_approach"] = "error_file_not_found"
                 return analysis
-                
-            analysis['path_exists'] = True
-            
+
+            analysis["path_exists"] = True
+
             # Try to get file info to determine if it's a file or folder
             try:
                 file_info = source_utils.get_file_info(file.file_path)
-                analysis['is_file'] = not file_info.get('is_directory', True)
-                analysis['is_folder'] = file_info.get('is_directory', True)
-            except:
+                analysis["is_file"] = not file_info.get("is_directory", True)
+                analysis["is_folder"] = file_info.get("is_directory", True)
+            except:  # noqa: E722
                 # Fallback: assume it's a folder if we can't determine
-                analysis['is_folder'] = True
-                
+                analysis["is_folder"] = True
+
             # If it's a single file, recommend direct read
-            if analysis['is_file']:
-                analysis['recommended_approach'] = 'direct_read'
+            if analysis["is_file"]:
+                analysis["recommended_approach"] = "direct_read"
                 return analysis
-                
+
             # Analyze folder contents
             try:
-                all_files= source_utils.list_files(file.file_path, recursive=False)
-                all_directories = source_utils.list_directories(directory_path=file.file_path, recursive=False)
-                analysis['total_files'] = len([item for item in all_files])
-                analysis['total_folders'] = len([item for item in all_directories])
-                analysis['contains_files'] = analysis['total_files'] > 0
-                analysis['contains_folders'] = analysis['total_folders'] > 0
-                
+                all_files = source_utils.list_files(file.file_path, recursive=False)
+                all_directories = source_utils.list_directories(
+                    directory_path=file.file_path, recursive=False
+                )
+                analysis["total_files"] = len([item for item in all_files])
+                analysis["total_folders"] = len([item for item in all_directories])
+                analysis["contains_files"] = analysis["total_files"] > 0
+                analysis["contains_folders"] = analysis["total_folders"] > 0
+
                 # Categorize files
                 for item in all_files:
                     # Extract file extension
-                    if '.' in item:
-                        ext = item.split('.')[-1].lower()
-                        analysis['file_extensions'].add(ext)
-                    
+                    if "." in item:
+                        ext = item.split(".")[-1].lower()
+                        analysis["file_extensions"].add(ext)
+
                     # Categorize by type
-                    if item.endswith('_SUCCESS') or item.endswith('.crc') or item.startswith('.'):
-                        analysis['metadata_files'].append(item)
-                    elif ('part-' in item or config.source_file_format.lower() in item.lower()):
-                        analysis['data_files'].append(item)
+                    if (
+                        item.endswith("_SUCCESS")
+                        or item.endswith(".crc")
+                        or item.startswith(".")
+                    ):
+                        analysis["metadata_files"].append(item)
+                    elif (
+                        "part-" in item
+                        or config.source_file_format.lower() in item.lower()
+                    ):
+                        analysis["data_files"].append(item)
                     else:
-                        analysis['other_files'].append(item)
-                
+                        analysis["other_files"].append(item)
+
                 for dir_item in all_directories:
-                    analysis['subfolders'].append(dir_item)
-                
+                    analysis["subfolders"].append(dir_item)
+
                 # Check for Spark-style output structure
-                if any('part-' in f for f in analysis['data_files']) and '_SUCCESS' in str(analysis['metadata_files']):
-                    analysis['has_spark_structure'] = True
-                
+                if any(
+                    "part-" in f for f in analysis["data_files"]
+                ) and "_SUCCESS" in str(analysis["metadata_files"]):
+                    analysis["has_spark_structure"] = True
+
                 # Determine recommended approach based on analysis
-                if len(analysis['data_files']) == 0 and len(analysis['subfolders']) >= 0:
-                    analysis['recommended_approach'] = 'subfolder_processing'  # Process subfolders individually
-                if len(analysis['data_files']) == 0:
-                    if len(analysis['other_files']) > 0:
-                        analysis['recommended_approach'] = 'wildcard_pattern'  # Let Spark try to read other files
+                if (
+                    len(analysis["data_files"]) == 0
+                    and len(analysis["subfolders"]) >= 0
+                ):
+                    analysis["recommended_approach"] = (
+                        "subfolder_processing"  # Process subfolders individually
+                    )
+                if len(analysis["data_files"]) == 0:
+                    if len(analysis["other_files"]) > 0:
+                        analysis["recommended_approach"] = (
+                            "wildcard_pattern"  # Let Spark try to read other files
+                        )
                     else:
-                        analysis['recommended_approach'] = 'spark_fallback'  # No obvious data files
-                elif len(analysis['data_files']) == 1:
-                    analysis['recommended_approach'] = 'direct_read'
-                elif config.source_file_format.lower() == 'parquet' and len(analysis['data_files']) > 1:
-                    analysis['recommended_approach'] = 'individual_union'  # Avoid schema warnings
-                elif analysis['has_spark_structure']:
-                    analysis['recommended_approach'] = 'individual_union'  # Handle Spark output properly
-                elif len(analysis['data_files']) <= 5:
-                    analysis['recommended_approach'] = 'individual_union'  # Small number, union is efficient
+                        analysis["recommended_approach"] = (
+                            "spark_fallback"  # No obvious data files
+                        )
+                elif len(analysis["data_files"]) == 1:
+                    analysis["recommended_approach"] = "direct_read"
+                elif (
+                    config.source_file_format.lower() == "parquet"
+                    and len(analysis["data_files"]) > 1
+                ):
+                    analysis["recommended_approach"] = (
+                        "individual_union"  # Avoid schema warnings
+                    )
+                elif analysis["has_spark_structure"]:
+                    analysis["recommended_approach"] = (
+                        "individual_union"  # Handle Spark output properly
+                    )
+                elif len(analysis["data_files"]) <= 5:
+                    analysis["recommended_approach"] = (
+                        "individual_union"  # Small number, union is efficient
+                    )
                 else:
-                    analysis['recommended_approach'] = 'wildcard_pattern'  # Large number, let Spark handle
-                    
+                    analysis["recommended_approach"] = (
+                        "wildcard_pattern"  # Large number, let Spark handle
+                    )
+
             except Exception as list_error:
                 print(f"ℹ️ Cannot analyze folder contents: {list_error}")
-                analysis['recommended_approach'] = 'spark_fallback'
-                
+                analysis["recommended_approach"] = "spark_fallback"
+
         except Exception as analysis_error:
             print(f"ℹ️ Path analysis failed: {analysis_error}")
-            analysis['recommended_approach'] = 'spark_fallback'
-            
+            analysis["recommended_approach"] = "spark_fallback"
+
         return analysis
 
     def _read_folder_contents(
-        self, config: FlatFileIngestionConfig, file: FileDiscoveryResult, options: Dict[str, Any], source_utils
+        self,
+        config: FlatFileIngestionConfig,
+        file: FileDiscoveryResult,
+        options: Dict[str, Any],
+        source_utils,
     ) -> DataFrame:
         """Read all files in a folder with intelligent path analysis and optimization"""
         print(f"📁 Reading folder: {file.file_path}")
-        
+
         # Systematic path analysis
         print("🔍 Analyzing path structure...")
         path_analysis = self._analyze_path_structure(file, config, source_utils)
 
         # Report analysis findings
-        if path_analysis['path_exists']:
+        if path_analysis["path_exists"]:
             print(f"✓ Path exists ({'file' if path_analysis['is_file'] else 'folder'})")
-            if path_analysis['is_folder']:
-                print(f"📊 Contains: {path_analysis['total_files']} files, {path_analysis['total_folders']} folders")
-                if path_analysis['data_files']:
-                    print(f"📄 Data files: {len(path_analysis['data_files'])} matching format")
-                if path_analysis['metadata_files']:
-                    print(f"🏷️ Metadata files: {len(path_analysis['metadata_files'])} (_SUCCESS, .crc, etc.)")
-                if path_analysis['has_spark_structure']:
+            if path_analysis["is_folder"]:
+                print(
+                    f"📊 Contains: {path_analysis['total_files']} files, {path_analysis['total_folders']} folders"
+                )
+                if path_analysis["data_files"]:
+                    print(
+                        f"📄 Data files: {len(path_analysis['data_files'])} matching format"
+                    )
+                if path_analysis["metadata_files"]:
+                    print(
+                        f"🏷️ Metadata files: {len(path_analysis['metadata_files'])} (_SUCCESS, .crc, etc.)"
+                    )
+                if path_analysis["has_spark_structure"]:
                     print("⚡ Detected Spark output structure")
-                if path_analysis['file_extensions']:
-                    print(f"📝 File types: {', '.join(path_analysis['file_extensions'])}")
+                if path_analysis["file_extensions"]:
+                    print(
+                        f"📝 File types: {', '.join(path_analysis['file_extensions'])}"
+                    )
         else:
             print(f"❌ Error reading folder {file.file_path}")
             raise Exception(f"Unable to read data from folder: {file.file_path}")
 
         print(f"💡 Recommended approach: {path_analysis['recommended_approach']}")
-        
+
         if config.source_is_folder:
             if path_analysis["total_folders"] > 0:
-                print("🔄 Folder only contains subfolders. Need to determine if this is a nested series or just single level folder containing part files.")
-                path_analysis['recommended_approach'] = 'subfolder_processing'
+                print(
+                    "🔄 Folder only contains subfolders. Need to determine if this is a nested series or just single level folder containing part files."
+                )
+                path_analysis["recommended_approach"] = "subfolder_processing"
                 # Implement subfolder processing logic here
-            elif path_analysis["total_folders"] == 0 and len(path_analysis["data_files"]) > 0:
+            elif (
+                path_analysis["total_folders"] == 0
+                and len(path_analysis["data_files"]) > 0
+            ):
                 print("🔄 Using individual file union approach...")
                 # Use the individual files and union them
             else:
-                print(f"❌ Configuration source_is_folder is True, but no subfolders exist at {file.file_path}.")
+                print(
+                    f"❌ Configuration source_is_folder is True, but no subfolders exist at {file.file_path}."
+                )
                 raise Exception(f"No subfolders found in folder: {file.file_path}")
 
         # Apply intelligent optimization based on analysis
-        if path_analysis['recommended_approach'] == 'individual_union' and path_analysis['data_files']:
+        if (
+            path_analysis["recommended_approach"] == "individual_union"
+            and path_analysis["data_files"]
+        ):
             print("🎯 Using optimized individual file reading approach")
             try:
-                return self._read_individual_files_and_union(path_analysis['data_files'], config, options, source_utils)
+                return self._read_individual_files_and_union(
+                    path_analysis["data_files"], config, options, source_utils
+                )
             except Exception as opt_error:
-                print(f"ℹ️ Optimization failed, falling back to standard Spark processing: {opt_error}")
+                print(
+                    f"ℹ️ Optimization failed, falling back to standard Spark processing: {opt_error}"
+                )
                 # Fall through to Spark fallback
-                
-        elif path_analysis['recommended_approach'] == 'direct_read':
+
+        elif path_analysis["recommended_approach"] == "direct_read":
             print("🎯 Using direct file read approach")
             try:
                 df = source_utils.read_file(
@@ -529,8 +586,8 @@ class PySparkFlatFileProcessor(FlatFileProcessorInterface):
             except Exception as direct_error:
                 print(f"ℹ️ Direct read failed, trying Spark approaches: {direct_error}")
                 # Fall through to Spark fallback
-                
-        elif path_analysis['recommended_approach'] == 'wildcard_pattern':
+
+        elif path_analysis["recommended_approach"] == "wildcard_pattern":
             print("🎯 Skipping direct read, using wildcard approach")
             wildcard_path = f"{file.file_path}/*"
             try:
@@ -542,41 +599,54 @@ class PySparkFlatFileProcessor(FlatFileProcessorInterface):
                 print(f"✓ Successfully read using wildcard pattern: {wildcard_path}")
                 return df
             except Exception as wildcard_error:
-                print(f"ℹ️ Wildcard read failed, trying individual files: {wildcard_error}")
+                print(
+                    f"ℹ️ Wildcard read failed, trying individual files: {wildcard_error}"
+                )
                 # Fall through to individual files approach
-        
-        elif path_analysis['recommended_approach'] == 'subfolder_processing':
+
+        elif path_analysis["recommended_approach"] == "subfolder_processing":
             print("🎯 Skipping direct read, using subfolder processing")
             try:
-                if path_analysis['data_files']:
-                    data_files = path_analysis['data_files']
+                if path_analysis["data_files"]:
+                    data_files = path_analysis["data_files"]
                     print(f"📂 Using pre-analyzed data files ({len(data_files)} files)")
                 else:
                     # Re-list files as last resort
                     file_list = source_utils.list_files(file.file_path, recursive=False)
                     if not file_list:
-                        raise Exception(f"No data files found in folder: {file.file_path}")
-                    
+                        raise Exception(
+                            f"No data files found in folder: {file.file_path}"
+                        )
+
                     data_files = [
-                        f for f in file_list
-                        if not f.endswith("_SUCCESS") 
+                        f
+                        for f in file_list
+                        if not f.endswith("_SUCCESS")
                         and not f.endswith(".crc")
                         and not f.startswith(".")
-                        and ("part-" in f or config.source_file_format.lower() in f.lower())
+                        and (
+                            "part-" in f
+                            or config.source_file_format.lower() in f.lower()
+                        )
                     ]
-                    
+
                     if not data_files:
-                        raise Exception(f"No data files found in folder: {file.file_path}")
-                    
+                        raise Exception(
+                            f"No data files found in folder: {file.file_path}"
+                        )
+
                     print(f"📂 Found {len(data_files)} data files to process")
 
                 # Read individual files and union them
-                return self._read_individual_files_and_union(data_files, config, options, source_utils)
+                return self._read_individual_files_and_union(
+                    data_files, config, options, source_utils
+                )
             except Exception as subfolder_error:
-                print(f"ℹ️ Subfolder read failed, trying individual files: {subfolder_error}")
+                print(
+                    f"ℹ️ Subfolder read failed, trying individual files: {subfolder_error}"
+                )
                 # Fall through to individual files approach
-        
-                
+
         # Standard Spark processing with graceful fallbacks
         print("🔄 Using standard Spark processing chain...")
         try:
@@ -587,7 +657,7 @@ class PySparkFlatFileProcessor(FlatFileProcessorInterface):
                 file_format=config.source_file_format,
                 options=options,
             )
-            
+
             print("✓ Successfully read folder directly")
             return df
 
@@ -607,79 +677,107 @@ class PySparkFlatFileProcessor(FlatFileProcessorInterface):
                 return df
 
             except Exception:
-                print("ℹ️ Wildcard pattern not supported, using individual file approach...")
+                print(
+                    "ℹ️ Wildcard pattern not supported, using individual file approach..."
+                )
 
                 try:
                     # Fallback 2: Use analysis data or list files
-                    if path_analysis['data_files']:
-                        data_files = path_analysis['data_files']
-                        print(f"📂 Using pre-analyzed data files ({len(data_files)} files)")
+                    if path_analysis["data_files"]:
+                        data_files = path_analysis["data_files"]
+                        print(
+                            f"📂 Using pre-analyzed data files ({len(data_files)} files)"
+                        )
                     else:
                         # Re-list files as last resort
-                        file_list = source_utils.list_files(file.file_path, recursive=False)
+                        file_list = source_utils.list_files(
+                            file.file_path, recursive=False
+                        )
                         if not file_list:
-                            raise Exception(f"No data files found in folder: {file.file_path}")
-                        
+                            raise Exception(
+                                f"No data files found in folder: {file.file_path}"
+                            )
+
                         data_files = [
-                            f for f in file_list
-                            if not f.endswith("_SUCCESS") 
+                            f
+                            for f in file_list
+                            if not f.endswith("_SUCCESS")
                             and not f.endswith(".crc")
                             and not f.startswith(".")
-                            and ("part-" in f or config.source_file_format.lower() in f.lower())
+                            and (
+                                "part-" in f
+                                or config.source_file_format.lower() in f.lower()
+                            )
                         ]
-                        
+
                         if not data_files:
-                            raise Exception(f"No data files found in folder: {file.file_path}")
-                        
+                            raise Exception(
+                                f"No data files found in folder: {file.file_path}"
+                            )
+
                         print(f"📂 Found {len(data_files)} data files to process")
 
                     # Read individual files and union them
-                    return self._read_individual_files_and_union(data_files, config, options, source_utils)
+                    return self._read_individual_files_and_union(
+                        data_files, config, options, source_utils
+                    )
 
                 except Exception as fallback_error:
                     print(f"❌ Error reading folder {file.file_path}: {fallback_error}")
-                    raise Exception(f"Unable to read data from folder: {file.file_path}. Error: {str(fallback_error)}")
+                    raise Exception(
+                        f"Unable to read data from folder: {file.file_path}. Error: {str(fallback_error)}"
+                    )
 
     def _read_individual_files_and_union(
-        self, data_files: list, config: FlatFileIngestionConfig, options: Dict[str, Any], source_utils
+        self,
+        data_files: list,
+        config: FlatFileIngestionConfig,
+        options: Dict[str, Any],
+        source_utils,
     ) -> DataFrame:
         """Read individual files and union them (optimized approach for parquet folders)"""
         try:
             print(f"📊 Reading {len(data_files)} individual files...")
-            
+
             # Read first file to get schema
-            logging.debug(f"   Reading file 1/{len(data_files)}: {data_files[0].split('/')[-1]}")
+            logging.debug(
+                f"   Reading file 1/{len(data_files)}: {data_files[0].split('/')[-1]}"
+            )
             first_df = source_utils.read_file(
                 file_path=data_files[0],
                 file_format=config.source_file_format,
                 options=options,
             )
-            
+
             # If only one file, return it
             if len(data_files) == 1:
-                print(f"✓ Successfully read single file")
+                print("✓ Successfully read single file")
                 return first_df
-            
+
             # Read remaining files and union them
             print(f"📊 Combining {len(data_files)} files...")
             all_dfs = [first_df]
             for i, file_path in enumerate(data_files[1:], 2):
-                logging.debug(f"   Reading file {i}/{len(data_files)}: {file_path.split('/')[-1]}")
+                logging.debug(
+                    f"   Reading file {i}/{len(data_files)}: {file_path.split('/')[-1]}"
+                )
                 df = source_utils.read_file(
                     file_path=file_path,
                     file_format=config.source_file_format,
                     options=options,
                 )
                 all_dfs.append(df)
-            
+
             # Union all dataframes
             result_df = all_dfs[0]
             for df in all_dfs[1:]:
                 result_df = result_df.union(df)
-            
-            print(f"✓ Successfully combined {len(data_files)} files into single DataFrame")
+
+            print(
+                f"✓ Successfully combined {len(data_files)} files into single DataFrame"
+            )
             return result_df
-            
+
         except Exception as e:
             print(f"❌ Error reading individual files: {e}")
             raise Exception(f"Unable to read individual files. Error: {str(e)}")
@@ -693,8 +791,10 @@ class PySparkFlatFileProcessor(FlatFileProcessorInterface):
 
         try:
             # Get target utilities for this configuration
-            target_utils = self.location_resolver.get_target_utils(config, spark=self.spark)
-            
+            target_utils = self.location_resolver.get_target_utils(
+                config, spark=self.spark
+            )
+
             # Get target row count before write (for reconciliation)
             try:
                 existing_df = target_utils.read_table(config.target_table_name)
@@ -787,8 +887,9 @@ class PySparkFlatFileLogging(FlatFileLoggingInterface):
     ) -> None:
         """Log the start of a file processing execution"""
         try:
-            from datetime import datetime
             import json
+            from datetime import datetime
+
             from pyspark.sql.types import (
                 FloatType,
                 IntegerType,
@@ -926,8 +1027,9 @@ class PySparkFlatFileLogging(FlatFileLoggingInterface):
     ) -> None:
         """Log the completion of a file processing execution"""
         try:
-            from datetime import datetime
             import json
+            from datetime import datetime
+
             from pyspark.sql.types import (
                 FloatType,
                 IntegerType,
@@ -1069,8 +1171,9 @@ class PySparkFlatFileLogging(FlatFileLoggingInterface):
     ) -> None:
         """Log an execution error"""
         try:
-            from datetime import datetime
             import json
+            from datetime import datetime
+
             from pyspark.sql.types import (
                 FloatType,
                 IntegerType,
@@ -1377,9 +1480,7 @@ class PySparkFlatFileIngestionOrchestrator(FlatFileIngestionOrchestrator):
         self, configs: List[FlatFileIngestionConfig], execution_id: str
     ) -> Dict[str, Any]:
         """Process multiple configurations with parallel execution within groups"""
-        from concurrent.futures import ThreadPoolExecutor, as_completed
         from collections import defaultdict
-        import threading
 
         results = {
             "execution_id": execution_id,
@@ -1436,7 +1537,6 @@ class PySparkFlatFileIngestionOrchestrator(FlatFileIngestionOrchestrator):
         self, configs: List[FlatFileIngestionConfig], execution_id: str, group_num: int
     ) -> List[Dict[str, Any]]:
         """Process configurations within an execution group in parallel"""
-        import threading
         from concurrent.futures import ThreadPoolExecutor, as_completed
 
         results = []
@@ -1491,9 +1591,7 @@ class PySparkFlatFileIngestionOrchestrator(FlatFileIngestionOrchestrator):
         import threading
 
         thread_name = threading.current_thread().name
-        print(
-            f"  🧵 [{thread_name}] Starting: {config.config_name}"
-        )
+        print(f"  🧵 [{thread_name}] Starting: {config.config_name}")
 
         try:
             result = self.process_configuration(config, execution_id)
@@ -1502,7 +1600,5 @@ class PySparkFlatFileIngestionOrchestrator(FlatFileIngestionOrchestrator):
             )
             return result
         except Exception as e:
-            print(
-                f"  🧵 [{thread_name}] Error: {config.config_name} - {str(e)}"
-            )
+            print(f"  🧵 [{thread_name}] Error: {config.config_name} - {str(e)}")
             raise

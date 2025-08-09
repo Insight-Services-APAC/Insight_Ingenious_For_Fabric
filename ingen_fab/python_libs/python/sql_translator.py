@@ -6,11 +6,10 @@ to other dialects (primarily PostgreSQL for local development).
 """
 
 import logging
-from typing import Any, Dict, List, Optional
+from typing import List, Optional
 
 import sqlglot
 from sqlglot import transpile
-from sqlglot.dialects import Dialect
 
 from ingen_fab.python_libs.common.config_utils import get_configs_as_object
 
