@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 import os
+import shutil
+import subprocess
 from pathlib import Path
 from typing import Optional
 
@@ -47,6 +49,7 @@ synapse_app = typer.Typer()
 extract_app = typer.Typer()
 synthetic_data_app = typer.Typer()
 libs_app = typer.Typer()
+dbt_app = typer.Typer()
 
 # Add sub-apps to main app
 test_app.add_typer(
@@ -86,6 +89,11 @@ app.add_typer(
     libs_app,
     name="libs",
     help="Commands for compiling and managing Python libraries.",
+)
+app.add_typer(
+    dbt_app,
+    name="dbt",
+    help="Proxy commands to dbt_wrapper inside the Fabric workspace repo.",
 )
 
 
@@ -556,6 +564,52 @@ def synthetic_data_unified_generate(
         target_environment=target_environment,
         no_execute=no_execute,
     )
+
+
+# ===== DBT WRAPPER COMMANDS =====
+
+
+@dbt_app.command(
+    "exec", context_settings={"allow_extra_args": True, "ignore_unknown_options": True}
+)
+def dbt_exec(
+    ctx: typer.Context,
+):
+    """Run dbt_wrapper from within the Fabric workspace repo, then return to the original directory."""
+
+    workspace_dir = Path(ctx.obj["fabric_workspace_repo_dir"]).resolve()
+    if not workspace_dir.exists():
+        console_styles.print_error(
+            console, f"❌ Fabric workspace repo not found: {workspace_dir}"
+        )
+        raise typer.Exit(code=1)
+
+    # Locate the wrapper executable
+    exe = shutil.which("dbt_wrapper") or shutil.which("dbt-wrapper")
+    if not exe:
+        console_styles.print_error(
+            console,
+            "❌ Could not find 'dbt_wrapper' on PATH. Ensure the wrapper is installed.",
+        )
+        raise typer.Exit(code=1)
+
+    # Always return to the original directory, even on failure
+    original_cwd = Path.cwd()
+    try:
+        os.chdir(workspace_dir)
+        passthrough_args = list(ctx.args)
+        console_styles.print_info(
+            console,
+            f"Running dbt_wrapper in: {workspace_dir} -> {' '.join(passthrough_args) or '--help'}",
+        )
+        result = subprocess.run([exe, *passthrough_args], check=False)
+        rc = result.returncode
+    finally:
+        os.chdir(original_cwd)
+        console_styles.print_info(console, f"Returned to: {original_cwd}")
+
+    if rc != 0:
+        raise typer.Exit(code=rc)
 
 
 @synthetic_data_app.command("list")
