@@ -97,6 +97,13 @@ app.add_typer(
     help="Proxy commands to dbt_wrapper inside the Fabric workspace repo.",
 )
 
+# New: extract commands
+app.add_typer(
+    extract_app,
+    name="extract",
+    help="Data extraction and package commands (keep compile, extract-run).",
+)
+
 
 @app.callback()
 def main(
@@ -339,6 +346,129 @@ def upload_python_libs(ctx: typer.Context):
     )
 
 
+@deploy_app.command("get-metadata")
+def deploy_get_metadata(
+    ctx: typer.Context,
+    workspace_id: Annotated[
+        Optional[str], typer.Option("--workspace-id", help="Workspace ID")
+    ] = None,
+    workspace_name: Annotated[
+        Optional[str], typer.Option("--workspace-name", help="Workspace name")
+    ] = None,
+    lakehouse_id: Annotated[
+        Optional[str], typer.Option("--lakehouse-id", help="Lakehouse ID")
+    ] = None,
+    lakehouse_name: Annotated[
+        Optional[str], typer.Option("--lakehouse-name", help="Lakehouse name")
+    ] = None,
+    warehouse_id: Annotated[
+        Optional[str], typer.Option("--warehouse-id", help="Warehouse ID")
+    ] = None,
+    warehouse_name: Annotated[
+        Optional[str], typer.Option("--warehouse-name", help="Warehouse name")
+    ] = None,
+    schema: Annotated[
+        Optional[str], typer.Option("--schema", "-s", help="Schema name filter")
+    ] = None,
+    table: Annotated[
+        Optional[str],
+        typer.Option("--table", "-t", help="Table name filter (substring match)"),
+    ] = None,
+    method: Annotated[
+        str,
+        typer.Option(
+            "--method",
+            "-m",
+            help="Extraction method: 'sql-endpoint' (default) or 'sql-endpoint-odbc'",
+        ),
+    ] = "sql-endpoint",
+    sql_endpoint_id: Annotated[
+        Optional[str],
+        typer.Option("--sql-endpoint-id", help="Explicit SQL endpoint ID to use"),
+    ] = None,
+    sql_endpoint_server: Annotated[
+        Optional[str],
+        typer.Option(
+            "--sql-endpoint-server",
+            help=(
+                "SQL endpoint server prefix (without domain), e.g., 'myws-abc123' to form myws-abc123.datawarehouse.fabric.microsoft.com"
+            ),
+        ),
+    ] = None,
+    output_format: Annotated[
+        str,
+        typer.Option(
+            "--format", "-f", help="Output format: csv (default), json, or table"
+        ),
+    ] = "csv",
+    output: Annotated[
+        Optional[Path],
+        typer.Option(
+            "--output", "-o", help="Write output to file (defaults to metadata cache)"
+        ),
+    ] = None,
+    all_lakehouses: Annotated[
+        bool,
+        typer.Option(
+            "--all", help="For lakehouse target, extract all lakehouses in workspace"
+        ),
+    ] = False,
+    target: Annotated[
+        str,
+        typer.Option(
+            "--target",
+            "-tgt",
+            help="Target asset type: 'lakehouse', 'warehouse', or 'both' (default lakehouse)",
+        ),
+    ] = "lakehouse",
+):
+    """Get schema/table/column metadata for lakehouse/warehouse/both.
+
+    This consolidates prior extract commands under deploy for easier access.
+    """
+    from ingen_fab.cli_utils import extract_commands
+
+    selected = (target or "lakehouse").strip().lower()
+    if selected not in {"lakehouse", "warehouse", "both"}:
+        console_styles.print_error(
+            console, "--target must be one of: lakehouse, warehouse, both"
+        )
+        raise typer.Exit(code=2)
+
+    if selected in {"lakehouse", "both"}:
+        extract_commands.lakehouse_metadata(
+            ctx=ctx,
+            workspace_id=workspace_id,
+            workspace_name=workspace_name,
+            lakehouse_id=lakehouse_id,
+            lakehouse_name=lakehouse_name,
+            schema=schema,
+            table_filter=table,
+            method=method,
+            sql_endpoint_id=sql_endpoint_id,
+            sql_endpoint_server=sql_endpoint_server,
+            output_format=output_format,
+            output_path=output,
+            all_lakehouses=all_lakehouses,
+        )
+
+    if selected in {"warehouse", "both"}:
+        extract_commands.warehouse_metadata(
+            ctx=ctx,
+            workspace_id=workspace_id,
+            workspace_name=workspace_name,
+            warehouse_id=warehouse_id,
+            warehouse_name=warehouse_name,
+            schema=schema,
+            table_filter=table,
+            method=method,
+            sql_endpoint_id=sql_endpoint_id,
+            sql_endpoint_server=sql_endpoint_server,
+            output_format=output_format,
+            output_path=output,
+        )
+
+
 # Test commands
 @test_app.command()
 def test_python_block():
@@ -452,6 +582,336 @@ def perform_code_replacements(
     """Inject code between markers in notebook files (modifies files in place by default)."""
     deploy_commands.perform_code_replacements(
         ctx, output_dir=output_dir, preserve_structure=not no_preserve_structure
+    )
+
+
+# Extract commands (moved to deploy.get-metadata)
+## Removed: lakehouse-metadata (now under deploy get-metadata)
+def extract_lakehouse_metadata(
+    ctx: typer.Context,
+    workspace_id: Annotated[
+        Optional[str],
+        typer.Option(
+            "--workspace-id",
+            "-w",
+            help="Workspace ID (overrides environment workspace)",
+        ),
+    ] = None,
+    workspace_name: Annotated[
+        Optional[str],
+        typer.Option(
+            "--workspace-name",
+            "-wn",
+            help="Workspace name (resolved to ID if provided)",
+        ),
+    ] = None,
+    lakehouse_id: Annotated[
+        Optional[str],
+        typer.Option("--lakehouse-id", "-l", help="Target Lakehouse ID"),
+    ] = None,
+    lakehouse_name: Annotated[
+        Optional[str],
+        typer.Option("--lakehouse-name", "-ln", help="Target Lakehouse name"),
+    ] = None,
+    schema: Annotated[
+        Optional[str],
+        typer.Option("--schema", "-s", help="Schema to include (exact match)"),
+    ] = None,
+    table: Annotated[
+        Optional[str],
+        typer.Option("--table", "-t", help="Table name filter (substring match)"),
+    ] = None,
+    method: Annotated[
+        str,
+        typer.Option(
+            "--method",
+            "-m",
+            help="Extraction method: 'sql-endpoint' (default) or 'onelake'",
+        ),
+    ] = "sql-endpoint",
+    sql_endpoint_id: Annotated[
+        Optional[str],
+        typer.Option(
+            "--sql-endpoint-id",
+            help="Explicit SQL endpoint ID to use for the lakehouse",
+        ),
+    ] = None,
+    sql_endpoint_server: Annotated[
+        Optional[str],
+        typer.Option(
+            "--sql-endpoint-server",
+            help=(
+                "SQL endpoint server prefix (without domain), e.g., 'myws-abc123' to form myws-abc123.datawarehouse.fabric.microsoft.com"
+            ),
+        ),
+    ] = None,
+    output_format: Annotated[
+        str,
+        typer.Option(
+            "--format", "-f", help="Output format: csv (default), json, or table"
+        ),
+    ] = "csv",
+    output: Annotated[
+        Optional[Path],
+        typer.Option(
+            "--output", "-o", help="Write output to file (defaults to stdout)"
+        ),
+    ] = None,
+    all_lakehouses: Annotated[
+        bool,
+        typer.Option(
+            "--all",
+            help="Extract metadata for all lakehouses in the resolved workspace",
+        ),
+    ] = False,
+):
+    """Extract lakehouse schema/table/column metadata.
+
+    Uses the lakehouse SQL endpoint to query INFORMATION_SCHEMA and sys.* views.
+    """
+    from ingen_fab.cli_utils import extract_commands  # backward compat shim
+
+    extract_commands.lakehouse_metadata(
+        ctx=ctx,
+        workspace_id=workspace_id,
+        workspace_name=workspace_name,
+        lakehouse_id=lakehouse_id,
+        lakehouse_name=lakehouse_name,
+        schema=schema,
+        table_filter=table,
+        method=method,
+        sql_endpoint_id=sql_endpoint_id,
+        sql_endpoint_server=sql_endpoint_server,
+        output_format=output_format,
+        output_path=output,
+        all_lakehouses=all_lakehouses,
+    )
+
+
+## Removed: warehouse-metadata (now under deploy get-metadata)
+def extract_warehouse_metadata(
+    ctx: typer.Context,
+    workspace_id: Annotated[
+        Optional[str], typer.Option("--workspace-id", help="Workspace ID")
+    ] = None,
+    workspace_name: Annotated[
+        Optional[str], typer.Option("--workspace-name", help="Workspace name")
+    ] = None,
+    warehouse_id: Annotated[
+        Optional[str], typer.Option("--warehouse-id", help="Warehouse ID")
+    ] = None,
+    warehouse_name: Annotated[
+        Optional[str], typer.Option("--warehouse-name", help="Warehouse name")
+    ] = None,
+    schema: Annotated[
+        Optional[str], typer.Option("--schema", "-s", help="Schema name filter")
+    ] = None,
+    table: Annotated[
+        Optional[str],
+        typer.Option("--table", "-t", help="Table name filter (substring match)"),
+    ] = None,
+    method: Annotated[
+        str,
+        typer.Option(
+            "--method",
+            "-m",
+            help="Extraction method: 'sql-endpoint' (default) or 'sql-endpoint-odbc'",
+        ),
+    ] = "sql-endpoint",
+    sql_endpoint_id: Annotated[
+        Optional[str],
+        typer.Option(
+            "--sql-endpoint-id",
+            help="Explicit SQL endpoint ID to use for the warehouse",
+        ),
+    ] = None,
+    sql_endpoint_server: Annotated[
+        Optional[str],
+        typer.Option(
+            "--sql-endpoint-server",
+            help=(
+                "SQL endpoint server prefix (without domain), e.g., 'myws-abc123' to form myws-abc123.datawarehouse.fabric.microsoft.com"
+            ),
+        ),
+    ] = None,
+    output_format: Annotated[
+        str,
+        typer.Option(
+            "--format", "-f", help="Output format: csv (default), json, or table"
+        ),
+    ] = "csv",
+    output: Annotated[
+        Optional[Path],
+        typer.Option(
+            "--output", "-o", help="Write output to file (defaults to stdout)"
+        ),
+    ] = None,
+):
+    """Extract warehouse schema/table/column metadata via Fabric SQL endpoint.
+
+    Uses INFORMATION_SCHEMA and joins to enrich with table_type where available.
+    """
+    from ingen_fab.cli_utils import extract_commands  # backward compat shim
+
+    extract_commands.warehouse_metadata(
+        ctx=ctx,
+        workspace_id=workspace_id,
+        workspace_name=workspace_name,
+        warehouse_id=warehouse_id,
+        warehouse_name=warehouse_name,
+        schema=schema,
+        table_filter=table,
+        method=method,
+        sql_endpoint_id=sql_endpoint_id,
+        sql_endpoint_server=sql_endpoint_server,
+        output_format=output_format,
+        output_path=output,
+    )
+
+
+## Removed: lakehouse-summary (now covered by deploy get-metadata output files)
+def extract_lakehouse_summary(
+    ctx: typer.Context,
+    workspace_id: Annotated[
+        Optional[str], typer.Option("--workspace-id", help="Workspace ID")
+    ] = None,
+    workspace_name: Annotated[
+        Optional[str], typer.Option("--workspace-name", help="Workspace name")
+    ] = None,
+    lakehouse_id: Annotated[
+        Optional[str], typer.Option("--lakehouse-id", help="Lakehouse ID")
+    ] = None,
+    lakehouse_name: Annotated[
+        Optional[str], typer.Option("--lakehouse-name", help="Lakehouse name")
+    ] = None,
+    method: Annotated[
+        str,
+        typer.Option(
+            "--method",
+            "-m",
+            help="Extraction method: 'sql-endpoint' (default) or 'sql-endpoint-odbc'",
+        ),
+    ] = "sql-endpoint",
+    sql_endpoint_id: Annotated[
+        Optional[str],
+        typer.Option(
+            "--sql-endpoint-id",
+            help="Explicit SQL endpoint ID to use for the lakehouse",
+        ),
+    ] = None,
+    sql_endpoint_server: Annotated[
+        Optional[str],
+        typer.Option(
+            "--sql-endpoint-server",
+            help=(
+                "SQL endpoint server prefix (without domain), e.g., 'myws-abc123' to form myws-abc123.datawarehouse.fabric.microsoft.com"
+            ),
+        ),
+    ] = None,
+    output_format: Annotated[
+        str,
+        typer.Option(
+            "--format", "-f", help="Output format: csv (default), json, or table"
+        ),
+    ] = "csv",
+    output: Annotated[
+        Optional[Path],
+        typer.Option(
+            "--output", "-o", help="Write output to file (defaults to stdout)"
+        ),
+    ] = None,
+    all_lakehouses: Annotated[
+        bool,
+        typer.Option(
+            "--all",
+            help="Summarize all lakehouses in the resolved workspace",
+        ),
+    ] = False,
+):
+    """Summarize lakehouse tables by schema (database, schema, table_count)."""
+    from ingen_fab.cli_utils import extract_commands
+
+    extract_commands.lakehouse_summary(
+        ctx=ctx,
+        workspace_id=workspace_id,
+        workspace_name=workspace_name,
+        lakehouse_id=lakehouse_id,
+        lakehouse_name=lakehouse_name,
+        method=method,
+        sql_endpoint_id=sql_endpoint_id,
+        sql_endpoint_server=sql_endpoint_server,
+        output_format=output_format,
+        output_path=output,
+        all_lakehouses=all_lakehouses,
+    )
+
+
+## Removed: warehouse-summary (now covered by deploy get-metadata output files)
+def extract_warehouse_summary(
+    ctx: typer.Context,
+    workspace_id: Annotated[
+        Optional[str], typer.Option("--workspace-id", help="Workspace ID")
+    ] = None,
+    workspace_name: Annotated[
+        Optional[str], typer.Option("--workspace-name", help="Workspace name")
+    ] = None,
+    warehouse_id: Annotated[
+        Optional[str], typer.Option("--warehouse-id", help="Warehouse ID")
+    ] = None,
+    warehouse_name: Annotated[
+        Optional[str], typer.Option("--warehouse-name", help="Warehouse name")
+    ] = None,
+    method: Annotated[
+        str,
+        typer.Option(
+            "--method",
+            "-m",
+            help="Extraction method: 'sql-endpoint' (default) or 'sql-endpoint-odbc'",
+        ),
+    ] = "sql-endpoint",
+    sql_endpoint_id: Annotated[
+        Optional[str],
+        typer.Option(
+            "--sql-endpoint-id",
+            help="Explicit SQL endpoint ID to use for the warehouse",
+        ),
+    ] = None,
+    sql_endpoint_server: Annotated[
+        Optional[str],
+        typer.Option(
+            "--sql-endpoint-server",
+            help=(
+                "SQL endpoint server prefix (without domain), e.g., 'myws-abc123' to form myws-abc123.datawarehouse.fabric.microsoft.com"
+            ),
+        ),
+    ] = None,
+    output_format: Annotated[
+        str,
+        typer.Option(
+            "--format", "-f", help="Output format: csv (default), json, or table"
+        ),
+    ] = "csv",
+    output: Annotated[
+        Optional[Path],
+        typer.Option(
+            "--output", "-o", help="Write output to file (defaults to stdout)"
+        ),
+    ] = None,
+):
+    """Summarize warehouse tables by schema (database, schema, table_count)."""
+    from ingen_fab.cli_utils import extract_commands
+
+    extract_commands.warehouse_summary(
+        ctx=ctx,
+        workspace_id=workspace_id,
+        workspace_name=workspace_name,
+        warehouse_id=warehouse_id,
+        warehouse_name=warehouse_name,
+        method=method,
+        sql_endpoint_id=sql_endpoint_id,
+        sql_endpoint_server=sql_endpoint_server,
+        output_format=output_format,
+        output_path=output,
     )
 
 
