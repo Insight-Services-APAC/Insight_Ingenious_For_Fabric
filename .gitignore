@@ -26,6 +26,6 @@ StartupProfileData-Interactive
 /sample_*/*
 *.egg-info
 derby.log
-
+/artefacts/**/*/
 # pip install testing
 pip_install_test/
