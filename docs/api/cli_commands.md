@@ -2,241 +2,31 @@
 
 ## Overview
 
-The Ingenious Fabric Accelerator CLI provides a comprehensive set of commands for managing Microsoft Fabric projects, from initialization to deployment.
+Authoritative CLI usage lives in the User Guide’s CLI Reference. This page provides quick entry points and defers detailed flags and examples to the single source of truth.
 
-## Global Options
+## Quick Links
 
-All commands support these global options:
+- CLI Reference (full, maintained): user_guide/cli_reference.md
+- Deploy Guide (common tasks): user_guide/deploy_guide.md
 
-```bash
---help                Show help message
---version             Show version information
---verbose             Enable verbose output
---quiet               Suppress output
---config FILE         Use custom configuration file
---log-level LEVEL     Set logging level (DEBUG, INFO, WARNING, ERROR)
-```
-
-## Command Categories
-
-### Project Management
-
-#### `init`
-Initialize a new Fabric project.
+## Getting Help In-CLI
 
 ```bash
-ingen_fab init [OPTIONS] PROJECT_NAME
+ingen_fab --help
+ingen_fab deploy --help
+ingen_fab deploy get-metadata --help
 ```
 
-**Options:**
-- `--template TEXT`: Template to use (default: basic)
-- `--workspace-id TEXT`: Fabric workspace ID
-- `--force`: Overwrite existing project
-- `--interactive`: Interactive setup mode
+## Command Groups
 
-**Examples:**
-```bash
-# Basic project initialization
-ingen_fab init my_project
+- init: project creation and workspace config
+- ddl: compile notebooks from DDL scripts
+- deploy: environment deploy, uploads, metadata
+- notebook: scanning and code replacement utilities
+- test: local and platform testing
+- package: ingestion, synapse sync, extract generation, synthetic data
 
-# Initialize with specific template
-ingen_fab init analytics_project --template data-warehouse
-
-# Interactive setup
-ingen_fab init --interactive
-```
-
-#### `config`
-Manage project configuration.
-
-```bash
-ingen_fab config [COMMAND] [OPTIONS]
-```
-
-**Subcommands:**
-- `show`: Display current configuration
-- `set KEY VALUE`: Set configuration value
-- `get KEY`: Get configuration value
-- `reset`: Reset to default configuration
-
-**Examples:**
-```bash
-# Show current configuration
-ingen_fab config show
-
-# Set workspace ID
-ingen_fab config set workspace_id abc-123-def
-
-# Get environment setting
-ingen_fab config get environment
-```
-
-### DDL Management
-
-#### `ddl compile`
-Compile DDL scripts from templates.
-
-```bash
-ingen_fab ddl compile [OPTIONS]
-```
-
-**Options:**
-- `--environment TEXT`: Target environment (default: development)
-- `--output-dir PATH`: Output directory for compiled scripts
-- `--template-dir PATH`: Template directory
-- `--variables FILE`: Variables file (JSON/YAML)
-- `--dry-run`: Show what would be compiled without executing
-
-**Examples:**
-```bash
-# Compile for development environment
-ingen_fab ddl compile
-
-# Compile for production
-ingen_fab ddl compile --environment production
-
-# Dry run to see what would be compiled
-ingen_fab ddl compile --dry-run
-```
-
-#### `ddl validate`
-Validate DDL scripts and templates.
-
-```bash
-ingen_fab ddl validate [OPTIONS]
-```
-
-**Options:**
-- `--strict`: Enable strict validation
-- `--template-dir PATH`: Template directory to validate
-- `--output-format TEXT`: Output format (text, json, yaml)
-
-**Examples:**
-```bash
-# Validate all templates
-ingen_fab ddl validate
-
-# Strict validation
-ingen_fab ddl validate --strict
-```
-
-### Deployment
-
-#### `deploy`
-Deploy project to Fabric workspace.
-
-```bash
-ingen_fab deploy [OPTIONS]
-```
-
-**Options:**
-- `--environment TEXT`: Target environment
-- `--workspace-id TEXT`: Fabric workspace ID
-- `--dry-run`: Show what would be deployed
-- `--force`: Force deployment even if conflicts exist
-- `--parallel`: Enable parallel deployment
-
-**Examples:**
-```bash
-# Deploy to development environment
-ingen_fab deploy --environment development
-
-# Deploy with dry run
-ingen_fab deploy --dry-run
-
-# Force deployment
-ingen_fab deploy --force
-```
-
-#### `undeploy`
-Remove deployed items from Fabric workspace.
-
-```bash
-ingen_fab undeploy [OPTIONS]
-```
-
-**Options:**
-- `--environment TEXT`: Target environment
-- `--workspace-id TEXT`: Fabric workspace ID
-- `--confirm`: Skip confirmation prompt
-- `--item-type TEXT`: Undeploy specific item types only
-
-**Examples:**
-```bash
-# Undeploy from development
-ingen_fab undeploy --environment development
-
-# Undeploy only notebooks
-ingen_fab undeploy --item-type notebook
-```
-
-### Notebook Management
-
-#### `notebook create`
-Create a new notebook from template.
-
-```bash
-ingen_fab notebook create [OPTIONS] NOTEBOOK_NAME
-```
-
-**Options:**
-- `--template TEXT`: Notebook template to use
-- `--language TEXT`: Programming language (python, scala, sql)
-- `--output-dir PATH`: Output directory
-
-**Examples:**
-```bash
-# Create Python notebook
-ingen_fab notebook create data_processing --language python
-
-# Create from template
-ingen_fab notebook create etl_pipeline --template data-pipeline
-```
-
-#### `notebook validate`
-Validate notebook syntax and structure.
-
-```bash
-ingen_fab notebook validate [OPTIONS] [NOTEBOOK_PATH]
-```
-
-**Options:**
-- `--strict`: Enable strict validation
-- `--check-dependencies`: Check for missing dependencies
-- `--output-format TEXT`: Output format for results
-
-**Examples:**
-```bash
-# Validate specific notebook
-ingen_fab notebook validate notebooks/data_processing.py
-
-# Validate all notebooks
-ingen_fab notebook validate --strict
-```
-
-#### `notebook execute`
-Execute notebook in Fabric environment.
-
-```bash
-ingen_fab notebook execute [OPTIONS] NOTEBOOK_PATH
-```
-
-**Options:**
-- `--environment TEXT`: Target environment
-- `--workspace-id TEXT`: Fabric workspace ID
-- `--parameters FILE`: Parameters file (JSON)
-- `--timeout INTEGER`: Execution timeout in seconds
-
-**Examples:**
-```bash
-# Execute notebook
-ingen_fab notebook execute notebooks/data_processing.py
-
-# Execute with parameters
-ingen_fab notebook execute notebooks/etl.py --parameters params.json
-```
-
-### Workspace Management
+For options and examples, see the CLI Reference.
 
 #### `workspace list`
 List available Fabric workspaces.

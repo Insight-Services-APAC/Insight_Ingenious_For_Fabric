@@ -154,13 +154,62 @@ ingen_fab deploy delete-all --fabric-environment test --force
 
 #### `deploy upload-python-libs`
 
-Upload python_libs directory to Fabric config lakehouse using OneLakeUtils.
+Upload `python_libs` to the Fabric config lakehouse with variable injection performed during upload (via OneLake/ADLS APIs).
 
 ```bash
 ingen_fab deploy upload-python-libs
 ```
 
 Uses the global options `--fabric-workspace-repo-dir` and `--fabric-environment`.
+
+#### `deploy get-metadata`
+
+Extract schema/table/column metadata for Lakehouse, Warehouse, or both.
+
+```bash
+ingen_fab deploy get-metadata [OPTIONS]
+```
+
+**Target selection:**
+- `--target` / `-tgt`: `lakehouse` (default), `warehouse`, or `both`
+
+**Workspace/asset filters:**
+- `--workspace-id` | `--workspace-name`
+- Lakehouse: `--lakehouse-id` | `--lakehouse-name`
+- Warehouse: `--warehouse-id` | `--warehouse-name`
+
+**Metadata filters and connection:**
+- `--schema` / `-s`: Schema name filter
+- `--table` / `-t`: Table name substring filter
+- `--method` / `-m`: `sql-endpoint` (default) or `sql-endpoint-odbc`
+- `--sql-endpoint-id`: Explicit SQL endpoint ID
+- `--sql-endpoint-server`: Endpoint server prefix (e.g., `myws-abc123`)
+
+**Output control:**
+- `--format` / `-f`: `csv` (default), `json`, or `table`
+- `--output` / `-o`: Write output to a file; omit to print to console
+- Lakehouse only: `--all`: Extract all lakehouses in the workspace
+
+**Examples:**
+```bash
+# Lakehouse metadata for one asset; write CSV to file
+ingen_fab deploy get-metadata \
+  --workspace-name "Analytics Workspace" \
+  --lakehouse-name "Config Lakehouse" \
+  --schema config --table meta \
+  --format csv --output ./artifacts/lakehouse_metadata.csv
+
+# Warehouse metadata printed as a table
+ingen_fab deploy get-metadata \
+  --workspace-name "Analytics Workspace" \
+  --warehouse-name "EDW" \
+  --target warehouse --format table
+
+# Both lakehouse and warehouse (filter by schema) using default CSV outputs
+ingen_fab deploy get-metadata \
+  --workspace-name "Analytics Workspace" \
+  --schema sales --target both
+```
 
 ## notebook {#notebook}
 

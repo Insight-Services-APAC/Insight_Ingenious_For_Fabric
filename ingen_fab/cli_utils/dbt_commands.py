@@ -1,3 +1,5 @@
+import csv
+import json
 import re
 from pathlib import Path
 
@@ -228,3 +230,243 @@ def create_additional_notebooks(ctx: typer.Context, dbt_project: str) -> None:
             border_style="green",
         )
     )
+
+
+def convert_tsql_to_spark_type(tsql_type: str) -> str:
+    """Convert T-SQL/SQL Server data types to Spark SQL data types."""
+
+    # Normalize the input type (remove size specifications, make lowercase)
+    base_type = tsql_type.lower().strip()
+
+    # Remove size/precision specifications like (10) or (10,2)
+    if "(" in base_type:
+        base_type = base_type.split("(")[0].strip()
+
+    # Type mapping from T-SQL to Spark SQL
+    type_mapping = {
+        # String types
+        "varchar": "string",
+        "nvarchar": "string",
+        "char": "string",
+        "nchar": "string",
+        "text": "string",
+        "ntext": "string",
+        # Numeric types
+        "int": "int",
+        "bigint": "bigint",
+        "smallint": "smallint",
+        "tinyint": "tinyint",
+        "bit": "boolean",
+        "decimal": "decimal",
+        "numeric": "decimal",
+        "float": "float",
+        "real": "float",
+        "money": "decimal(19,4)",
+        "smallmoney": "decimal(10,4)",
+        # Date/Time types
+        "datetime": "timestamp",
+        "datetime2": "timestamp",
+        "date": "date",
+        "time": "string",  # Spark doesn't have a time-only type
+        "datetimeoffset": "timestamp",
+        "smalldatetime": "timestamp",
+        # Binary types
+        "binary": "binary",
+        "varbinary": "binary",
+        "image": "binary",
+        # Other types
+        "uniqueidentifier": "string",
+        "xml": "string",
+        "sql_variant": "string",
+        "hierarchyid": "string",
+        "geometry": "string",
+        "geography": "string",
+    }
+
+    # Return mapped type or original if not found
+    return type_mapping.get(base_type, base_type)
+
+
+def convert_metadata_to_dbt_format(ctx: typer.Context, dbt_project: str) -> None:
+    """Convert cached lakehouse metadata CSV to dbt metaextracts JSON format.
+
+    Reads from {workspace}/metadata/lakehouse_metadata_all.csv and creates:
+    - {workspace}/{dbt_project}/metaextracts/ListRelations.json
+    - {workspace}/{dbt_project}/metaextracts/ListSchemas.json
+    - {workspace}/{dbt_project}/metaextracts/DescribeRelations.json
+    - {workspace}/{dbt_project}/metaextracts/MetaHashes.json
+    """
+
+    workspace_dir = ctx.obj.get("fabric_workspace_repo_dir") if ctx.obj else None
+    if not workspace_dir:
+        console.print("[red]Fabric workspace repo dir not provided.[/red]")
+        raise typer.Exit(code=1)
+
+    workspace_dir = Path(workspace_dir)
+
+    # Source CSV file
+    metadata_csv = workspace_dir / "metadata" / "lakehouse_metadata_all.csv"
+    if not metadata_csv.exists():
+        console.print(f"[red]Metadata CSV not found:[/red] {metadata_csv}")
+        console.print(
+            "[yellow]Run 'ingen_fab deploy get-metadata --target lakehouse' first to generate metadata.[/yellow]"
+        )
+        raise typer.Exit(code=1)
+
+    # Target directory for dbt metaextracts (in the dbt_project root, not target)
+    target_dir = workspace_dir / dbt_project / "metaextracts"
+    target_dir.mkdir(parents=True, exist_ok=True)
+
+    console.print(
+        Panel.fit(
+            f"Converting metadata for [bold]{dbt_project}[/bold]",
+            title="DBT Metadata Conversion",
+            border_style="cyan",
+        )
+    )
+
+    # Read CSV and process data
+    relations = []
+    schemas = set()
+    describe_relations = []  # Changed to a list instead of dict
+
+    try:
+        with metadata_csv.open("r", encoding="utf-8") as f:
+            reader = csv.DictReader(f)
+            current_table = None
+            current_workspace_id = None
+            current_lakehouse_id = None
+
+            for row in reader:
+                # schema_name = row.get("schema_name", "").strip()
+                table_name = row.get("table_name", "").strip()
+                workspace_id = row.get("workspace_id", "").strip()
+                lakehouse_id = row.get("lakehouse_id", "").strip()
+                lakehouse_name = row.get("lakehouse_name", "").strip()
+
+                if not lakehouse_name or not table_name:
+                    continue
+
+                schemas.add(lakehouse_name)
+
+                # Build table key using lakehouse_name as namespace
+                table_key = f"{lakehouse_name}.{table_name}"
+
+                # If we've moved to a new table, save the previous one
+                if current_table and current_table != table_key:
+                    # Add relation entry for the previous table
+                    namespace, tbl = current_table.split(".", 1)
+
+                    # Build the information string similar to Spark's DESCRIBE EXTENDED
+                    info_lines = [
+                        "Catalog: spark_catalog",
+                        f"Database: {namespace}",
+                        f"Table: {tbl}",
+                        "Owner: trusted-service-user",
+                        "Created Time: Sat Aug 02 10:38:14 UTC 2025",
+                        "Last Access: UNKNOWN",
+                        "Created By: Spark 3.2.1-SNAPSHOT",
+                        "Type: MANAGED",
+                        "Provider: delta",
+                        "Table Properties: [trident.autodiscovered.table=true]",
+                        f"Location: abfss://{current_workspace_id}@onelake.dfs.fabric.microsoft.com/{current_lakehouse_id}/Tables/{tbl}",
+                        "Serde Library: org.apache.hadoop.hive.serde2.lazy.LazySimpleSerDe",
+                        "InputFormat: org.apache.hadoop.mapred.SequenceFileInputFormat",
+                        "OutputFormat: org.apache.hadoop.hive.ql.io.HiveSequenceFileOutputFormat",
+                        "Partition Provider: Catalog",
+                    ]
+
+                    relation = {
+                        "namespace": namespace,
+                        "tableName": tbl,
+                        "isTemporary": False,
+                        "information": "\n".join(info_lines) + "\n",
+                        "type": "MANAGED",
+                    }
+                    relations.append(relation)
+
+                current_table = table_key
+                current_workspace_id = workspace_id
+                current_lakehouse_id = lakehouse_id
+
+                # Add column information with type conversion
+                tsql_type = row.get("data_type", "")
+                spark_type = convert_tsql_to_spark_type(tsql_type)
+
+                # Each column is now a separate entry with namespace and tableName
+                column_info = {
+                    "col_name": row.get("column_name", ""),
+                    "data_type": spark_type,
+                    "comment": None,
+                    "namespace": lakehouse_name,
+                    "tableName": table_name,
+                }
+                describe_relations.append(column_info)
+
+        # Don't forget the last table's relation entry
+        if current_table:
+            namespace, tbl = current_table.split(".", 1)
+            info_lines = [
+                "Catalog: spark_catalog",
+                f"Database: {namespace}",
+                f"Table: {tbl}",
+                "Owner: trusted-service-user",
+                "Created Time: Sat Aug 02 10:38:14 UTC 2025",
+                "Last Access: UNKNOWN",
+                "Created By: Spark 3.2.1-SNAPSHOT",
+                "Type: MANAGED",
+                "Provider: delta",
+                "Table Properties: [trident.autodiscovered.table=true]",
+                f"Location: abfss://{current_workspace_id}@onelake.dfs.fabric.microsoft.com/{current_lakehouse_id}/Tables/{tbl}",
+                "Serde Library: org.apache.hadoop.hive.serde2.lazy.LazySimpleSerDe",
+                "InputFormat: org.apache.hadoop.mapred.SequenceFileInputFormat",
+                "OutputFormat: org.apache.hadoop.hive.ql.io.HiveSequenceFileOutputFormat",
+                "Partition Provider: Catalog",
+            ]
+
+            relation = {
+                "namespace": namespace,
+                "tableName": tbl,
+                "isTemporary": False,
+                "information": "\n".join(info_lines) + "\n",
+                "type": "MANAGED",
+            }
+            relations.append(relation)
+
+        # Write ListRelations.json
+        list_relations_path = target_dir / "ListRelations.json"
+        with list_relations_path.open("w", encoding="utf-8") as f:
+            json.dump(relations, f, indent=2)
+        console.print(f"[green]✓[/green] Created {list_relations_path}")
+
+        # Write ListSchemas.json
+        list_schemas_path = target_dir / "ListSchemas.json"
+        schemas_list = [{"namespace": s} for s in sorted(schemas)]
+        with list_schemas_path.open("w", encoding="utf-8") as f:
+            json.dump(schemas_list, f, indent=2)
+        console.print(f"[green]✓[/green] Created {list_schemas_path}")
+
+        # Write DescribeRelations.json
+        describe_relations_path = target_dir / "DescribeRelations.json"
+        with describe_relations_path.open("w", encoding="utf-8") as f:
+            json.dump(describe_relations, f, indent=2)
+        console.print(f"[green]✓[/green] Created {describe_relations_path}")
+
+        # Write MetaHashes.json (empty for now)
+        meta_hashes_path = target_dir / "MetaHashes.json"
+        with meta_hashes_path.open("w", encoding="utf-8") as f:
+            json.dump({}, f, indent=2)
+        console.print(f"[green]✓[/green] Created {meta_hashes_path}")
+
+        console.print(
+            Panel.fit(
+                f"[bold green]✓ Metadata conversion complete[/bold green]\n"
+                f"Found {len(relations)} tables across {len(schemas)} schemas",
+                title="Completed",
+                border_style="green",
+            )
+        )
+
+    except Exception as e:
+        console.print(f"[red]Error converting metadata: {e}[/red]")
+        raise typer.Exit(code=1)
