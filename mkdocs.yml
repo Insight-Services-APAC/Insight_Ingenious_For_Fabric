@@ -91,6 +91,7 @@ nav:
     - user_guide/index.md
     - Installation: user_guide/installation.md
     - Quick Start: user_guide/quick_start.md
+    - Deploy Guide: user_guide/deploy_guide.md
     - CLI Reference: user_guide/cli_reference.md
     - Workflows: user_guide/workflows.md
   - Developer Guide:

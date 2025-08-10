@@ -936,6 +936,29 @@ def dbt_create_notebooks(
     dbt_commands.create_additional_notebooks(ctx, dbt_project)
 
 
+@dbt_app.command("convert-metadata")
+def dbt_convert_metadata(
+    ctx: typer.Context,
+    dbt_project: Annotated[
+        str,
+        typer.Option(
+            "--dbt-project",
+            "-p",
+            help="Name of the dbt project directory under the workspace repo",
+        ),
+    ],
+):
+    """Convert cached lakehouse metadata to dbt metaextracts format.
+
+    Reads from {workspace}/metadata/lakehouse_metadata_all.csv and creates JSON files
+    in {workspace}/{dbt_project}/metaextracts/ for dbt_wrapper to use.
+
+    The metadata must first be extracted using:
+    ingen_fab deploy get-metadata --target lakehouse
+    """
+    dbt_commands.convert_metadata_to_dbt_format(ctx, dbt_project)
+
+
 # Package commands
 package_app.add_typer(
     ingest_app,

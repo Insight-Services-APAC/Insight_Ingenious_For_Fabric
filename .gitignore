@@ -1,5 +1,6 @@
 .venv
- .venv_pip_test
+.venv*
+.venv_pip_test
 **__pycache__**
 /build
 /insight_ingenious_for_fabric.egg-info
