@@ -927,13 +927,22 @@ def dbt_create_notebooks(
             help="Name of the dbt project directory under the workspace repo",
         ),
     ],
+    skip_profile_confirmation: Annotated[
+        bool,
+        typer.Option(
+            "--skip-profile-confirmation",
+            help="Skip confirmation prompt when updating dbt profile",
+        ),
+    ] = False,
 ):
     """Create Fabric notebooks from dbt-generated Python notebooks.
 
     Scans {workspace}/{dbt_project}/target/notebooks_fabric_py and creates notebooks under
     {workspace}/fabric_workspace_items/{dbt_project}/.
     """
-    dbt_commands.create_additional_notebooks(ctx, dbt_project)
+    dbt_commands.create_additional_notebooks(
+        ctx, dbt_project, skip_profile_confirmation
+    )
 
 
 @dbt_app.command("convert-metadata")
@@ -947,6 +956,13 @@ def dbt_convert_metadata(
             help="Name of the dbt project directory under the workspace repo",
         ),
     ],
+    skip_profile_confirmation: Annotated[
+        bool,
+        typer.Option(
+            "--skip-profile-confirmation",
+            help="Skip confirmation prompt when updating dbt profile",
+        ),
+    ] = False,
 ):
     """Convert cached lakehouse metadata to dbt metaextracts format.
 
@@ -956,7 +972,9 @@ def dbt_convert_metadata(
     The metadata must first be extracted using:
     ingen_fab deploy get-metadata --target lakehouse
     """
-    dbt_commands.convert_metadata_to_dbt_format(ctx, dbt_project)
+    dbt_commands.convert_metadata_to_dbt_format(
+        ctx, dbt_project, skip_profile_confirmation
+    )
 
 
 # Package commands
@@ -1081,12 +1099,18 @@ def dbt_exec(
     ctx: typer.Context,
 ):
     """Run dbt_wrapper from within the Fabric workspace repo, then return to the original directory."""
+    from ingen_fab.cli_utils.dbt_profile_manager import ensure_dbt_profile
 
     workspace_dir = Path(ctx.obj["fabric_workspace_repo_dir"]).resolve()
     if not workspace_dir.exists():
         console_styles.print_error(
             console, f"❌ Fabric workspace repo not found: {workspace_dir}"
         )
+        raise typer.Exit(code=1)
+
+    # Check and update dbt profile if needed
+    # For exec command, default to not asking for confirmation since it's often used in scripts
+    if not ensure_dbt_profile(ctx, ask_confirmation=False):
         raise typer.Exit(code=1)
 
     # Locate the wrapper executable

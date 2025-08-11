@@ -1,5 +1,17 @@
 # Flat File Ingestion Package
 
+## At a Glance
+
+| Item | Summary |
+|------|---------|
+| Purpose | Config-driven ingestion of CSV/JSON/Parquet/Avro/XML into Lakehouse or Warehouse tables. |
+| Inputs | Files in OneLake; rows in `config_flat_file_ingestion` (plus optional samples). |
+| Outputs | Target tables populated; execution rows in `log_flat_file_ingestion`. |
+| Core commands | `ingen_fab package ingest compile`, `ingen_fab ddl compile`, `ingen_fab deploy deploy`, `ingen_fab deploy upload-python-libs`. |
+| When to use | You need standardized, repeatable flat-file ingestion with logging and dual targets. |
+
+Note: For CLI flags and global options, see User Guide → CLI Reference and Deploy Guide.
+
 The Flat File Ingestion package provides a comprehensive, modular solution for processing various file formats and loading them into Delta tables in Microsoft Fabric. It supports CSV, JSON, Parquet, Avro, and XML files with extensive configuration options, robust error handling, and cross-workspace data movement capabilities.
 
 ## Quick Start Guide

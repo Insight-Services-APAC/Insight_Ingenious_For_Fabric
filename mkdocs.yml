@@ -1,8 +1,9 @@
 site_name: Ingenious Fabric Accelerator
 site_url: https://localhost:8000/
-# repo_url: # Set this to your actual repository URL
-# repo_name: ingen_fab
-# edit_uri: edit/main/docs/
+site_url: https://localhost:8000/
+repo_url: https://github.com/Insight-Services-APAC/Insight_Ingenious_For_Fabric
+repo_name: ingen_fab
+edit_uri: edit/main/docs/
 
 theme:
   name: material
@@ -23,7 +24,7 @@ theme:
     - navigation.sections
     - navigation.indexes
     - navigation.instant
-    - toc.integrate
+ 
     - search.suggest
     - search.highlight
     - search.share
@@ -41,7 +42,8 @@ markdown_extensions:
       line_spans: __span
       pygments_lang_class: true
   - pymdownx.inlinehilite
-  - pymdownx.snippets
+  - pymdownx.snippets:
+      base_path: docs
   - pymdownx.superfences:
       custom_fences:
         - name: mermaid
@@ -91,6 +93,9 @@ nav:
     - user_guide/index.md
     - Installation: user_guide/installation.md
     - Quick Start: user_guide/quick_start.md
+    - Common Tasks: user_guide/common_tasks.md
+    - Environment Variables: user_guide/environment_variables.md
+    - Workspace Layout: user_guide/workspace_layout.md
     - Deploy Guide: user_guide/deploy_guide.md
     - CLI Reference: user_guide/cli_reference.md
     - Workflows: user_guide/workflows.md
