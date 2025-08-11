@@ -11,3 +11,9 @@ repos:
         entry: ruff check --fix --force-exclude
         language: system
         types: [python]
+      - id: generate-cli-help-snippets
+        name: Generate CLI --help snippets
+        entry: python scripts/generate_cli_help_snippets.py
+        language: system
+        pass_filenames: false
+        files: ^ingen_fab/cli\.py$

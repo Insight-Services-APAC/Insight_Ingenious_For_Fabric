@@ -1,5 +1,17 @@
 # Extract Generation Package
 
+## At a Glance
+
+| Item | Summary |
+|------|---------|
+| Purpose | Generate file extracts (CSV/TSV/Parquet/JSON) from lakehouse/warehouse objects. |
+| Inputs | Extract job and detail configs in `config_extract_generation` and `config_extract_details`. |
+| Outputs | Files written to OneLake paths; entries in `log_extract_generation`. |
+| Core commands | `ingen_fab package extract compile`, `ingen_fab package extract run`. |
+| When to use | You need repeatable, scheduled exports with compression, partitioning, and logging. |
+
+Note: For CLI flags and examples, refer to User Guide → CLI Reference and Deploy Guide.
+
 The Extract Generation package provides automated file extract capabilities from Microsoft Fabric warehouses and lakehouses. It enables configurable, scheduled data exports with comprehensive logging and monitoring.
 
 ## Overview

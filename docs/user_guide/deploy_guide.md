@@ -2,6 +2,15 @@
 
 Practical guide to deploy changes, upload Python libraries with variable injection, and extract metadata from Fabric assets.
 
+## Summary
+
+| Action | Command | Common flags |
+|--------|---------|--------------|
+| Deploy items | `ingen_fab deploy deploy` | Uses `FABRIC_WORKSPACE_REPO_DIR`, `FABRIC_ENVIRONMENT` |
+| Upload `python_libs` | `ingen_fab deploy upload-python-libs` | Injects variables during upload |
+| Extract metadata | `ingen_fab deploy get-metadata` | `--target`, `--schema`, `--table`, `--format`, `--output` |
+| Delete all items | `ingen_fab deploy delete-all` | `--force` |
+
 ## Prerequisites
 
 - Set workspace repo and target environment:
@@ -73,9 +82,11 @@ Delete all workspace items in an environment (use with care):
 ingen_fab deploy delete-all --force
 ```
 
+!!! warning
+    `deploy delete-all` removes all items in the resolved workspace for the active environment. Use the `--force` flag only when you are certain.
+
 ## Troubleshooting
 
 - Ensure `FABRIC_WORKSPACE_REPO_DIR` points to your workspace repo root.
 - `FABRIC_ENVIRONMENT` must map to a value set in your variable library.
 - Validate Azure authentication and permissions for the target workspace.
-

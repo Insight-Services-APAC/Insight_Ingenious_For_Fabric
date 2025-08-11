@@ -1,5 +1,17 @@
 # Synapse Sync Package
 
+## At a Glance
+
+| Item | Summary |
+|------|---------|
+| Purpose | Synchronize data between Fabric (lakehouse/warehouse) and Azure Synapse. |
+| Inputs | Sync object configs (tables/views), connection details, optional transforms. |
+| Outputs | Target objects updated; run history in log tables. |
+| Core commands | `ingen_fab package synapse compile`, `ingen_fab package synapse run`. |
+| When to use | You need one-way or bidirectional sync with incremental patterns and monitoring. |
+
+Note: For detailed CLI flags, see User Guide → CLI Reference. Use Deploy Guide for environment setup.
+
 The Synapse Sync package enables bidirectional data synchronization between Microsoft Fabric and Azure Synapse Analytics workspaces. It provides configurable sync patterns, incremental updates, and comprehensive monitoring.
 
 ## Overview

@@ -7,18 +7,25 @@ import typer
 from rich.console import Console
 from rich.panel import Panel
 
+from ingen_fab.cli_utils.dbt_profile_manager import ensure_dbt_profile
 from ingen_fab.notebook_utils.notebook_utils import NotebookUtils
 
 console = Console()
 
 
-def create_additional_notebooks(ctx: typer.Context, dbt_project: str) -> None:
+def create_additional_notebooks(
+    ctx: typer.Context, dbt_project: str, skip_profile_confirmation: bool = False
+) -> None:
     """Create notebooks in fabric_workspace_items/{dbt_project} from dbt target outputs.
 
     This scans {workspace}/{dbt_project}/target/notebooks_fabric_py for Python notebooks,
     reads their contents, and creates Fabric notebooks under
     {workspace}/fabric_workspace_items/{dbt_project}/ using NotebookUtils.create_notebook_with_platform.
     """
+
+    # Check and update dbt profile if needed
+    if not ensure_dbt_profile(ctx, ask_confirmation=not skip_profile_confirmation):
+        raise typer.Exit(code=1)
 
     # Resolve workspace directory from context (set by main callback)
     workspace_dir = ctx.obj.get("fabric_workspace_repo_dir") if ctx.obj else None
@@ -287,7 +294,9 @@ def convert_tsql_to_spark_type(tsql_type: str) -> str:
     return type_mapping.get(base_type, base_type)
 
 
-def convert_metadata_to_dbt_format(ctx: typer.Context, dbt_project: str) -> None:
+def convert_metadata_to_dbt_format(
+    ctx: typer.Context, dbt_project: str, skip_profile_confirmation: bool = False
+) -> None:
     """Convert cached lakehouse metadata CSV to dbt metaextracts JSON format.
 
     Reads from {workspace}/metadata/lakehouse_metadata_all.csv and creates:
@@ -296,6 +305,10 @@ def convert_metadata_to_dbt_format(ctx: typer.Context, dbt_project: str) -> None
     - {workspace}/{dbt_project}/metaextracts/DescribeRelations.json
     - {workspace}/{dbt_project}/metaextracts/MetaHashes.json
     """
+
+    # Check and update dbt profile if needed
+    if not ensure_dbt_profile(ctx, ask_confirmation=not skip_profile_confirmation):
+        raise typer.Exit(code=1)
 
     workspace_dir = ctx.obj.get("fabric_workspace_repo_dir") if ctx.obj else None
     if not workspace_dir:
