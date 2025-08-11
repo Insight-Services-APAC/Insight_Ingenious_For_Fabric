@@ -89,7 +89,7 @@ jobs:
     
     - name: Install dependencies
       run: |
-        uv sync --group docs
+        uv sync --group docs --prerelease=allow
     
     - name: Build documentation
       run: |
