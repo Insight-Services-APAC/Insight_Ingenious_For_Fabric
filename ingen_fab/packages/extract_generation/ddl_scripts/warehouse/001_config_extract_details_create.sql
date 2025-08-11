@@ -66,7 +66,21 @@ CREATE TABLE [config].[config_extract_details] (
     is_validation_table_external_file_format VARCHAR(100),
     
     -- Additional Fabric-specific columns
-    output_format VARCHAR(50), -- 'csv', 'tsv', 'parquet'
+    output_format VARCHAR(50), -- 'csv', 'tsv', 'dat', 'parquet'
+    
+    -- Source location fields (for reading data)
+    source_workspace_id VARCHAR(100),
+    source_datastore_id VARCHAR(100), 
+    source_datastore_type VARCHAR(20), -- 'lakehouse' or 'warehouse'
+    source_schema_name VARCHAR(100),
+    
+    -- Target location fields (for writing extract files)
+    target_workspace_id VARCHAR(100),
+    target_datastore_id VARCHAR(100),
+    target_datastore_type VARCHAR(20), -- 'lakehouse' or 'warehouse' 
+    target_file_root_path VARCHAR(100), -- e.g., 'Files', 'Tables'
+    
+    -- Legacy field for backward compatibility
     fabric_lakehouse_path VARCHAR(500),
     
     -- Metadata columns

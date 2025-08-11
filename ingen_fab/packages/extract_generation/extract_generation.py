@@ -228,6 +228,34 @@ class ExtractGenerationCompiler(BaseNotebookCompiler):
                 "trigger_file_extension": ".done",
                 "output_format": "parquet",
             },
+            "dat_format_extract": {
+                "extract_name": "products_daily",
+                "extract_table_name": "products",
+                "extract_table_schema": "dbo",
+                "is_full_load": True,
+                "is_active": True,
+                "file_properties_header": True,
+                "extract_file_name": "products",
+                "extract_file_name_extension": "dat",
+                "file_properties_column_delimiter": "|",
+                "file_properties_row_delimiter": "\\n",
+                "file_properties_encoding": "UTF-8",
+                "output_format": "dat",
+            },
+            "tsv_format_extract": {
+                "extract_name": "inventory_snapshot",
+                "extract_table_name": "inventory",
+                "extract_table_schema": "warehouse",
+                "is_full_load": True,
+                "is_active": True,
+                "file_properties_header": True,
+                "extract_file_name": "inventory",
+                "extract_file_name_extension": "tsv",
+                "file_properties_column_delimiter": "\t",  # TSV always uses tab, this is for documentation
+                "file_properties_row_delimiter": "\\n",
+                "file_properties_encoding": "UTF-8",
+                "output_format": "tsv",
+            },
         }
 
     def compile_all(

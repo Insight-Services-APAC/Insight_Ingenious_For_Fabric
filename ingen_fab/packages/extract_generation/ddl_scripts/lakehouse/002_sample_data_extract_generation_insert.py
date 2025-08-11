@@ -65,7 +65,17 @@ extract_details_schema = StructType(
         StructField("compressed_level", StringType(), nullable=True),
         StructField("compressed_file_name", StringType(), nullable=True),
         StructField("compressed_extension", StringType(), nullable=True),
-        # Fabric paths
+        # Source location fields (for reading data)
+        StructField("source_workspace_id", StringType(), nullable=True),
+        StructField("source_datastore_id", StringType(), nullable=True),
+        StructField("source_datastore_type", StringType(), nullable=True),
+        StructField("source_schema_name", StringType(), nullable=True),
+        # Target location fields (for writing extract files)
+        StructField("target_workspace_id", StringType(), nullable=True),
+        StructField("target_datastore_id", StringType(), nullable=True),
+        StructField("target_datastore_type", StringType(), nullable=True),
+        StructField("target_file_root_path", StringType(), nullable=True),
+        # Legacy field for backward compatibility
         StructField("fabric_lakehouse_path", StringType(), nullable=True),
         # Performance options
         StructField("force_single_file", BooleanType(), nullable=True),
@@ -173,6 +183,17 @@ sample_extract_details = [
         compressed_level=None,
         compressed_file_name=None,
         compressed_extension=None,
+        # Source location (where data comes from) - defaults to sample lakehouse
+        source_workspace_id=None,  # Will use default workspace
+        source_datastore_id=None,  # Will use sample lakehouse
+        source_datastore_type="lakehouse",
+        source_schema_name="default",
+        # Target location (where extract files go) - config lakehouse
+        target_workspace_id=None,  # Will use default workspace
+        target_datastore_id=None,  # Will use config lakehouse
+        target_datastore_type="lakehouse",
+        target_file_root_path="Files",
+        # Legacy field for backward compatibility
         fabric_lakehouse_path="tmp/spark/Files/synthetic_data/incremental/retail_oltp_small/files/snapshot/customers",
         force_single_file=True,
         created_date="2024-01-15",
@@ -206,6 +227,17 @@ sample_extract_details = [
         compressed_level=None,
         compressed_file_name=None,
         compressed_extension=None,
+        # Source location (where data comes from) - defaults to sample lakehouse
+        source_workspace_id=None,  # Will use default workspace
+        source_datastore_id=None,  # Will use sample lakehouse
+        source_datastore_type="lakehouse",
+        source_schema_name="default",
+        # Target location (where extract files go) - config lakehouse
+        target_workspace_id=None,  # Will use default workspace
+        target_datastore_id=None,  # Will use config lakehouse
+        target_datastore_type="lakehouse",
+        target_file_root_path="Files",
+        # Legacy field for backward compatibility
         fabric_lakehouse_path="tmp/spark/Files/synthetic_data/incremental/retail_oltp_small/files/snapshot/products",
         force_single_file=True,
         created_date="2024-01-15",
@@ -239,6 +271,17 @@ sample_extract_details = [
         compressed_level="NORMAL",
         compressed_file_name=None,
         compressed_extension=".parquet",
+        # Source location (where data comes from) - defaults to sample lakehouse
+        source_workspace_id=None,  # Will use default workspace
+        source_datastore_id=None,  # Will use sample lakehouse
+        source_datastore_type="lakehouse",
+        source_schema_name="default",
+        # Target location (where extract files go) - config lakehouse
+        target_workspace_id=None,  # Will use default workspace
+        target_datastore_id=None,  # Will use config lakehouse
+        target_datastore_type="lakehouse",
+        target_file_root_path="Files",
+        # Legacy field for backward compatibility
         fabric_lakehouse_path="tmp/spark/Files/synthetic_data/incremental/retail_oltp_small/files/orders",
         force_single_file=True,
         created_date="2024-01-15",
@@ -272,7 +315,108 @@ sample_extract_details = [
         compressed_level="NORMAL",
         compressed_file_name=None,
         compressed_extension=".parquet",
+        # Source location (where data comes from) - defaults to sample lakehouse
+        source_workspace_id=None,  # Will use default workspace
+        source_datastore_id=None,  # Will use sample lakehouse
+        source_datastore_type="lakehouse",
+        source_schema_name="default",
+        # Target location (where extract files go) - config lakehouse
+        target_workspace_id=None,  # Will use default workspace
+        target_datastore_id=None,  # Will use config lakehouse
+        target_datastore_type="lakehouse",
+        target_file_root_path="Files",
+        # Legacy field for backward compatibility
         fabric_lakehouse_path="tmp/spark/Files/synthetic_data/incremental/retail_oltp_small/files/order_items",
+        force_single_file=True,
+        created_date="2024-01-15",
+        created_by="system",
+        modified_date=None,
+        modified_by=None,
+    ),
+    Row(
+        is_active=True,
+        extract_name="SAMPLE_INVENTORY_TSV",
+        file_generation_group="INVENTORY_TSV",
+        extract_container="Files/extracts",
+        extract_directory="tsv_files/inventory",
+        extract_file_name="inventory_snapshot",
+        extract_file_name_timestamp_format="yyyyMMdd_HHmmss",
+        extract_file_name_period_end_day=None,
+        extract_file_name_extension="tsv",
+        extract_file_name_ordering=1,
+        file_properties_column_delimiter="\t",  # TSV always uses tab
+        file_properties_row_delimiter="\\n",
+        file_properties_encoding="UTF-8",
+        file_properties_quote_character='"',
+        file_properties_escape_character="\\",
+        file_properties_header=True,
+        file_properties_null_value="",
+        file_properties_max_rows_per_file=None,
+        output_format="tsv",
+        is_trigger_file=False,
+        trigger_file_extension=None,
+        is_compressed=False,
+        compressed_type=None,
+        compressed_level=None,
+        compressed_file_name=None,
+        compressed_extension=None,
+        # Source location (where data comes from) - defaults to sample lakehouse
+        source_workspace_id=None,  # Will use default workspace
+        source_datastore_id=None,  # Will use sample lakehouse
+        source_datastore_type="lakehouse",
+        source_schema_name="default",
+        # Target location (where extract files go) - config lakehouse
+        target_workspace_id=None,  # Will use default workspace
+        target_datastore_id=None,  # Will use config lakehouse
+        target_datastore_type="lakehouse",
+        target_file_root_path="Files",
+        # Legacy field for backward compatibility
+        fabric_lakehouse_path="tmp/spark/Files/synthetic_data/inventory",
+        force_single_file=True,
+        created_date="2024-01-15",
+        created_by="system",
+        modified_date=None,
+        modified_by=None,
+    ),
+    Row(
+        is_active=True,
+        extract_name="SAMPLE_PRODUCTS_DAT",
+        file_generation_group="PRODUCTS_DAT",
+        extract_container="Files/extracts",
+        extract_directory="dat_files/products",
+        extract_file_name="products_export",
+        extract_file_name_timestamp_format="yyyyMMdd",
+        extract_file_name_period_end_day=None,
+        extract_file_name_extension="dat",
+        extract_file_name_ordering=1,
+        file_properties_column_delimiter="|",  # DAT typically uses pipe
+        file_properties_row_delimiter="\\n",
+        file_properties_encoding="UTF-8",
+        file_properties_quote_character='"',
+        file_properties_escape_character="\\",
+        file_properties_header=True,
+        file_properties_null_value="",
+        file_properties_max_rows_per_file=None,
+        output_format="dat",
+        is_trigger_file=False,
+        trigger_file_extension=None,
+        is_compressed=False,
+        compressed_type=None,
+        compressed_level=None,
+        compressed_file_name=None,
+        compressed_extension=None,
+        # Source location (where data comes from) - defaults to sample lakehouse
+        source_workspace_id=None,  # Will use default workspace
+        source_datastore_id=None,  # Will use sample lakehouse
+        source_datastore_type="lakehouse",
+        source_schema_name="default",
+        # Target location (where extract files go) - config lakehouse
+        target_workspace_id=None,  # Will use default workspace
+        target_datastore_id=None,  # Will use config lakehouse
+        target_datastore_type="lakehouse",
+        target_file_root_path="Files",
+        # Legacy field for backward compatibility
+        fabric_lakehouse_path="tmp/spark/Files/synthetic_data/products",
         force_single_file=True,
         created_date="2024-01-15",
         created_by="system",

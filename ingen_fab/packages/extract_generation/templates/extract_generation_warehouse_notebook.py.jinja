@@ -261,12 +261,14 @@ print(f"\n🚀 Starting batch extract processing for {total_extracts} extracts..
 
 for extract_index, config in enumerate(extract_configs, 1):
     extract_start_time = datetime.utcnow()
+    memory_before = get_memory_usage_mb()
     
     print(f"\n{'='*60}")
     print(f"Processing Extract {extract_index}/{total_extracts}: {config.extract_name}")
     print(f"{'='*60}")
     print(f"Source: {config.get_source_query()[1]} - {config.get_source_query()[0][:100]}...")
     print(f"Output: {config.output_format} | Compression: {'Yes' if config.is_compressed else 'No'}")
+    print(f"💾 Initial Memory Usage: {memory_before:.1f}MB")
     
     try:
         # Run validation if configured
@@ -378,7 +380,17 @@ for extract_index, config in enumerate(extract_configs, 1):
             print(f"🎯 Creating trigger file: {trigger_file_path}")
             # In production, create empty file in lakehouse
             
-        # Log successful completion
+        # Calculate and display performance metrics
+        extract_end_time = datetime.utcnow()
+        memory_after = get_memory_usage_mb()
+        
+        performance_metrics = calculate_performance_metrics(
+            extract_start_time, extract_end_time, total_rows_written, files_generated
+        )
+        
+        print_performance_summary(config.extract_name, performance_metrics, memory_before, memory_after)
+        
+        # Log successful completion with performance metrics
         log_extract_run(
             config, "SUCCESS", extract_start_time,
             source_type=source_type,
@@ -394,11 +406,16 @@ for extract_index, config in enumerate(extract_configs, 1):
             is_compressed=config.is_compressed,
             compression_type=config.compressed_type if config.is_compressed else None,
             trigger_file_created=config.is_trigger_file,
-            trigger_file_path=trigger_file_path if config.is_trigger_file else None
+            trigger_file_path=trigger_file_path if config.is_trigger_file else None,
+            # Performance metrics
+            duration_seconds=performance_metrics["duration_seconds"],
+            throughput_rows_per_second=performance_metrics["throughput_rows_per_second"],
+            memory_usage_mb_before=memory_before,
+            memory_usage_mb_after=memory_after
         )
         
         print(f"✅ Extract {config.extract_name} completed successfully!")
-        print(f"   Files: {len(files_generated)} | Rows: {total_rows_written:,} | Size: {sum(f['file_size'] for f in files_generated):,} bytes")
+        print(f"   Files: {len(files_generated)} | Rows: {total_rows_written:,} | Duration: {performance_metrics['duration_formatted']} | Throughput: {performance_metrics['throughput_formatted']}")
         successful_extracts += 1
         
     except Exception as e:
@@ -451,6 +468,57 @@ if failed_extracts > 0:
 else:
     print(f"\n🎯 All extracts completed successfully!")
 
+{{ macros.python_cell_with_heading("## 📊 Performance Monitoring Functions") }}
+
+import psutil
+import os
+
+def get_memory_usage_mb():
+    """Get current memory usage in MB"""
+    process = psutil.Process(os.getpid())
+    return round(process.memory_info().rss / 1024 / 1024, 2)
+
+def calculate_performance_metrics(start_time, end_time, total_rows, files_generated):
+    """Calculate performance metrics for an extract"""
+    duration_seconds = (end_time - start_time).total_seconds()
+    
+    metrics = {
+        "duration_seconds": round(duration_seconds, 3),
+        "duration_formatted": f"{duration_seconds:.3f}s",
+        "total_rows": total_rows,
+        "files_generated": len(files_generated),
+        "total_file_rows": sum(f.get("rows", 0) for f in files_generated if f.get("rows", 0) > 0),
+        "throughput_rows_per_second": 0,
+        "throughput_formatted": "0 rows/s"
+    }
+    
+    # Calculate throughput
+    if duration_seconds > 0 and total_rows > 0:
+        throughput = total_rows / duration_seconds
+        metrics["throughput_rows_per_second"] = round(throughput, 2)
+        
+        # Format throughput with appropriate units
+        if throughput >= 1000000:
+            metrics["throughput_formatted"] = f"{throughput/1000000:.2f}M rows/s"
+        elif throughput >= 1000:
+            metrics["throughput_formatted"] = f"{throughput/1000:.2f}K rows/s"
+        else:
+            metrics["throughput_formatted"] = f"{throughput:.0f} rows/s"
+    
+    return metrics
+
+def print_performance_summary(extract_name, metrics, memory_before, memory_after):
+    """Print a formatted performance summary"""
+    print(f"\n📊 PERFORMANCE METRICS - {extract_name}")
+    print(f"    ⏱️  Duration: {metrics['duration_formatted']}")
+    print(f"    📈 Throughput: {metrics['throughput_formatted']}")
+    print(f"    📝 Rows Processed: {metrics['total_rows']:,}")
+    print(f"    📁 Files Generated: {metrics['files_generated']}")
+    if memory_before and memory_after:
+        memory_delta = memory_after - memory_before
+        memory_indicator = "📈" if memory_delta > 0 else "📉" if memory_delta < 0 else "📊"
+        print(f"    {memory_indicator} Memory: {memory_before:.1f}MB → {memory_after:.1f}MB (Δ {memory_delta:+.1f}MB)")
+
 {{ macros.python_cell_with_heading("## 💾 File Generation Helper Functions") }}
 
 def write_dataframe_to_format(df: pd.DataFrame, output_format: str, config: ExtractConfiguration) -> bytes:
@@ -475,6 +543,19 @@ def write_dataframe_to_format(df: pd.DataFrame, output_format: str, config: Extr
             sep='\t',
             header=config.file_properties_header,
             encoding=config.file_properties_encoding,
+            na_rep=config.file_properties_null_value
+        )
+    elif output_format == "dat":
+        # DAT format - typically uses pipe delimiter by default but can be customized
+        delimiter = config.file_properties_column_delimiter if config.file_properties_column_delimiter else '|'
+        df.to_csv(
+            buffer,
+            index=False,
+            sep=delimiter,
+            header=config.file_properties_header,
+            encoding=config.file_properties_encoding,
+            quotechar=config.file_properties_quote_character,
+            escapechar=config.file_properties_escape_character,
             na_rep=config.file_properties_null_value
         )
     elif output_format == "parquet":

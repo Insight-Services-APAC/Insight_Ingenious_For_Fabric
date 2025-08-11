@@ -137,7 +137,20 @@ class ExtractConfiguration:
         self.compressed_file_name = details_row.get("compressed_file_name")
         self.compressed_extension = details_row.get("compressed_extension", ".zip")
         
-        # Fabric paths
+        # Location configuration for source and target
+        # Source location (where data comes from)
+        self.source_workspace_id = details_row.get("source_workspace_id")
+        self.source_datastore_id = details_row.get("source_datastore_id") 
+        self.source_datastore_type = details_row.get("source_datastore_type", "lakehouse")
+        self.source_schema_name = details_row.get("source_schema_name", "default")
+        
+        # Target location (where extract files go)
+        self.target_workspace_id = details_row.get("target_workspace_id")
+        self.target_datastore_id = details_row.get("target_datastore_id")
+        self.target_datastore_type = details_row.get("target_datastore_type", "lakehouse") 
+        self.target_file_root_path = details_row.get("target_file_root_path", "Files")
+        
+        # Legacy Fabric paths (for backward compatibility)
         self.fabric_lakehouse_path = details_row.get("fabric_lakehouse_path")
         
         # Performance options
@@ -222,12 +235,27 @@ class ExtractConfiguration:
         
         return file_name
 
-# Initialize lakehouse utilities
-lakehouse = lakehouse_utils(
+# Initialize location resolver for dynamic lakehouse resolution
+from ingen_fab.python_libs.common.location_resolver import LocationResolver, LocationType
+
+# Create location resolver with default configuration
+location_resolver = LocationResolver(
+    default_workspace_id=configs.config_workspace_id,
+    default_datastore_id=configs.config_lakehouse_id,
+    default_datastore_type="lakehouse",
+    default_file_root_path="Files",
+    default_schema_name="default"
+)
+
+# Initialize lakehouse utilities for configuration tables (always use config lakehouse)
+config_lakehouse = lakehouse_utils(
     target_workspace_id=configs.config_workspace_id,
     target_lakehouse_id=configs.config_lakehouse_id,
     spark=spark
 )
+
+# For backward compatibility, keep 'lakehouse' as alias to config_lakehouse
+lakehouse = config_lakehouse
 
 # Load extract configurations from lakehouse configuration tables
 print("📋 Loading extract configurations from lakehouse tables...")
@@ -276,7 +304,17 @@ SELECT
     d.compressed_level,
     d.compressed_file_name,
     d.compressed_extension,
-    d.fabric_lakehouse_path
+    d.fabric_lakehouse_path,
+    -- Location resolution fields
+    d.source_workspace_id,
+    d.source_datastore_id,
+    d.source_datastore_type,
+    d.source_schema_name,
+    d.target_workspace_id,
+    d.target_datastore_id,
+    d.target_datastore_type,
+    d.target_file_root_path,
+    d.force_single_file
 FROM config_extract_generation c
 INNER JOIN config_extract_generation_details d ON c.extract_name = d.extract_name
 WHERE c.is_active = true
@@ -318,25 +356,121 @@ print(f"Found {len(extract_configs)} active extracts to process")
 for config in extract_configs:
     print(f"  - {config.extract_name} ({config.get_source_query()[1]}, {config.output_format})")
 
+{{ macros.python_cell_with_heading("## 🌐 Location Resolution Helpers") }}
+
+def create_location_config_from_extract(config: ExtractConfiguration):
+    """Create a location config object that works with location_resolver"""
+    from dataclasses import dataclass
+    
+    @dataclass
+    class ExtractLocationConfig:
+        config_id: str
+        # Source location fields
+        source_workspace_id: str = None
+        source_datastore_id: str = None  
+        source_datastore_type: str = "lakehouse"
+        source_file_root_path: str = "Files"
+        # Target location fields
+        target_workspace_id: str = None
+        target_datastore_id: str = None
+        target_datastore_type: str = "lakehouse"
+        target_schema_name: str = "default"
+        target_table_name: str = None
+        
+    return ExtractLocationConfig(
+        config_id=config.extract_name,
+        source_workspace_id=config.source_workspace_id,
+        source_datastore_id=config.source_datastore_id,
+        source_datastore_type=config.source_datastore_type,
+        source_file_root_path="Files",
+        target_workspace_id=config.target_workspace_id,
+        target_datastore_id=config.target_datastore_id,
+        target_datastore_type=config.target_datastore_type,
+        target_schema_name=config.source_schema_name or "default",
+        target_table_name=config.extract_table_name or config.extract_view_name
+    )
+
+def get_source_lakehouse_for_config(config: ExtractConfiguration):
+    """Get the appropriate source lakehouse utils for an extract configuration"""
+    try:
+        location_config = create_location_config_from_extract(config)
+        
+        # Use location resolver to get source utils
+        source_utils = location_resolver.get_utils(
+            location_config, LocationType.SOURCE, spark=spark
+        )
+        
+        print(f"📍 Using source lakehouse: {location_config.source_datastore_id or 'default'}")
+        return source_utils
+        
+    except Exception as e:
+        print(f"⚠️ Failed to resolve source location for {config.extract_name}: {e}")
+        print(f"⚠️ Falling back to config lakehouse")
+        return config_lakehouse
+
+def get_target_lakehouse_for_config(config: ExtractConfiguration):
+    """Get the appropriate target lakehouse utils for an extract configuration"""
+    try:
+        location_config = create_location_config_from_extract(config)
+        
+        # Use location resolver to get target utils  
+        target_utils = location_resolver.get_utils(
+            location_config, LocationType.TARGET, spark=spark
+        )
+        
+        print(f"📍 Using target lakehouse: {location_config.target_datastore_id or 'default'}")
+        return target_utils
+        
+    except Exception as e:
+        print(f"⚠️ Failed to resolve target location for {config.extract_name}: {e}")
+        print(f"⚠️ Falling back to config lakehouse")
+        return config_lakehouse
+
 {{ macros.python_cell_with_heading("## 💾 Helper Functions") }}
 
 def write_dataframe_to_lakehouse_file(df: pd.DataFrame, file_path: str, output_format: str, config: ExtractConfiguration) -> dict:
-    """Write DataFrame to lakehouse Files using lakehouse_utils abstraction"""
+    """DEPRECATED: Backwards compatibility wrapper - converts Pandas to Spark and calls optimized version.
     
-    # Convert Pandas DataFrame back to Spark DataFrame for lakehouse operations
+    This function is kept for backwards compatibility but will show a performance warning.
+    New code should use write_spark_dataframe_to_lakehouse_file() directly.
+    """
+    print("⚠️  WARNING: Using deprecated Pandas conversion path. Consider upgrading to Spark-native processing.")
+    
+    # Convert Pandas DataFrame to Spark DataFrame
     spark_df = lakehouse.spark.createDataFrame(df)
+    
+    # Call the optimized version
+    return write_spark_dataframe_to_lakehouse_file(spark_df, file_path, output_format, config)
+
+def write_spark_dataframe_to_lakehouse_file(spark_df, file_path: str, output_format: str, config: ExtractConfiguration, target_lakehouse=None) -> dict:
+    """Write Spark DataFrame directly to lakehouse Files using lakehouse_utils abstraction
+    
+    This optimized version works directly with Spark DataFrames to avoid expensive conversions.
+    Args:
+        target_lakehouse: The lakehouse_utils instance to use for writing. If None, uses the global lakehouse instance.
+    """
+    
+    # No conversion needed - work directly with Spark DataFrame
     
     # Check if single file output is required (default to True for backward compatibility)
     force_single_file = getattr(config, 'force_single_file', True)
     
     if force_single_file:
-        # Coalesce to 1 partition to ensure single file output
-        # This creates a directory with only one part file inside
-        spark_df = spark_df.coalesce(1)
-        print(f"📄 Using single file output (coalesce to 1 partition)")
+        # Use repartition(1) instead of coalesce(1) for better performance
+        # repartition allows full parallelism during processing, only combining at the end
+        spark_df = spark_df.repartition(1)
+        print(f"📄 Using single file output (repartition to 1 partition for better performance)")
     else:
-        # Allow Spark to use its default partitioning for better performance on large datasets
-        print(f"📁 Using distributed file output (multiple part files)")
+        # For large datasets, use optimal partitioning
+        # Calculate optimal partition count based on data size (aim for ~128MB per partition)
+        row_count = spark_df.count()
+        if row_count > 1000000:
+            # For very large datasets, use more partitions
+            optimal_partitions = max(1, row_count // 500000)  # ~500k rows per partition
+            spark_df = spark_df.repartition(optimal_partitions)
+            print(f"📁 Using optimized partitioning ({optimal_partitions} partitions for {row_count:,} rows)")
+        else:
+            print(f"📁 Using default partitioning for better performance")
     
     # Prepare write options based on configuration
     options = {
@@ -378,49 +512,73 @@ def write_dataframe_to_lakehouse_file(df: pd.DataFrame, file_path: str, output_f
             "header": str(config.file_properties_header).lower(),
             "delimiter": "\t",
             "encoding": config.file_properties_encoding,
+            "quote": config.file_properties_quote_character,
+            "escape": config.file_properties_escape_character,
             "nullValue": config.file_properties_null_value
         })
+    elif output_format.lower() == "dat":
+        # DAT format - typically uses pipe delimiter by default but can be customized
+        delimiter = config.file_properties_column_delimiter if config.file_properties_column_delimiter else '|'
+        options.update({
+            "header": str(config.file_properties_header).lower(),
+            "delimiter": delimiter,
+            "encoding": config.file_properties_encoding,
+            "quote": config.file_properties_quote_character,
+            "escape": config.file_properties_escape_character,
+            "nullValue": config.file_properties_null_value
+        })
+    
+    # Map custom formats to Spark-supported formats
+    spark_format = output_format.lower()
+    if spark_format in ["tsv", "dat"]:
+        spark_format = "csv"  # Both TSV and DAT are CSV with different delimiters
+    
+    # Use the target lakehouse instance for writing
+    lakehouse_instance = target_lakehouse or lakehouse
     
     # Use lakehouse_utils to write the file
     try:
         # Note: Spark will create a directory with the file_path name containing part files
         # With coalesce(1), there will be only one part file (e.g., part-00000-xxx.csv)
         # This is standard Spark behavior and expected for lakehouse environments
-        lakehouse.write_file(
+        lakehouse_instance.write_file(
             df=spark_df,
             file_path=file_path,
-            file_format=output_format,
+            file_format=spark_format,
             options=options
         )
         
         # Return metadata about the written file
+        # Note: We avoid calling spark_df.count() again to prevent performance impact
         return {
             "file_path": file_path,
-            "rows": len(df),
+            "rows": -1,  # Row count not available without performance cost
             "format": output_format,
             "success": True,
             "compressed": config.is_compressed,
             "compression_type": config.compressed_type if config.is_compressed else None,
-            "note": "Output is a directory containing a single part file due to Spark's distributed nature"
+            "note": "Optimized Spark write without Pandas conversion"
         }
     except Exception as e:
         print(f"❌ Error writing file {file_path}: {str(e)}")
         return {
             "file_path": file_path,
-            "rows": len(df),
+            "rows": -1,  # Row count not available
             "format": output_format,
             "success": False,
-            "error": str(e)
+            "error": str(e),
+            "note": "Failed during optimized Spark write"
         }
 
-def create_trigger_file(file_path: str) -> bool:
+def create_trigger_file(file_path: str, target_lakehouse=None) -> bool:
     """Create a trigger file using lakehouse_utils"""
+    lakehouse_instance = target_lakehouse or lakehouse
     try:
         # Create an empty DataFrame for the trigger file
-        empty_df = lakehouse.spark.createDataFrame([], "dummy STRING")
+        empty_df = lakehouse_instance.spark.createDataFrame([], "dummy STRING")
         
         # Write empty file as trigger
-        lakehouse.write_file(
+        lakehouse_instance.write_file(
             df=empty_df,
             file_path=file_path,
             file_format="text",
@@ -430,6 +588,57 @@ def create_trigger_file(file_path: str) -> bool:
     except Exception as e:
         print(f"❌ Error creating trigger file {file_path}: {str(e)}")
         return False
+
+{{ macros.python_cell_with_heading("## 📊 Performance Metrics Helper") }}
+
+import psutil
+import os
+
+def get_memory_usage_mb():
+    """Get current memory usage in MB"""
+    process = psutil.Process(os.getpid())
+    return round(process.memory_info().rss / 1024 / 1024, 2)
+
+def calculate_performance_metrics(start_time, end_time, total_rows, files_generated):
+    """Calculate performance metrics for an extract"""
+    duration_seconds = (end_time - start_time).total_seconds()
+    
+    metrics = {
+        "duration_seconds": round(duration_seconds, 3),
+        "duration_formatted": f"{duration_seconds:.3f}s",
+        "total_rows": total_rows,
+        "files_generated": len(files_generated),
+        "total_file_rows": sum(f.get("rows", 0) for f in files_generated if f.get("rows", 0) > 0),
+        "throughput_rows_per_second": 0,
+        "throughput_formatted": "0 rows/s"
+    }
+    
+    # Calculate throughput
+    if duration_seconds > 0 and total_rows > 0:
+        throughput = total_rows / duration_seconds
+        metrics["throughput_rows_per_second"] = round(throughput, 0)
+        
+        # Format throughput for readability
+        if throughput >= 1000000:
+            metrics["throughput_formatted"] = f"{throughput/1000000:.2f}M rows/s"
+        elif throughput >= 1000:
+            metrics["throughput_formatted"] = f"{throughput/1000:.1f}k rows/s"
+        else:
+            metrics["throughput_formatted"] = f"{throughput:.0f} rows/s"
+    
+    return metrics
+
+def print_performance_summary(extract_name, metrics, memory_before, memory_after):
+    """Print a formatted performance summary"""
+    print(f"\n📊 PERFORMANCE METRICS - {extract_name}")
+    print(f"    ⏱️  Duration: {metrics['duration_formatted']}")
+    print(f"    📈 Throughput: {metrics['throughput_formatted']}")
+    print(f"    📝 Rows Processed: {metrics['total_rows']:,}")
+    print(f"    📁 Files Generated: {metrics['files_generated']}")
+    if memory_before and memory_after:
+        memory_delta = memory_after - memory_before
+        memory_indicator = "📈" if memory_delta > 0 else "📉" if memory_delta < 0 else "📊"
+        print(f"    {memory_indicator} Memory: {memory_before:.1f}MB → {memory_after:.1f}MB (Δ {memory_delta:+.1f}MB)")
 
 {{ macros.python_cell_with_heading("## 🔍 Process All Active Extracts") }}
 
@@ -470,27 +679,34 @@ print(f"\n🚀 Starting batch extract processing for {total_extracts} extracts..
 
 for extract_index, config in enumerate(extract_configs, 1):
     extract_start_time = datetime.utcnow()
+    memory_before = get_memory_usage_mb()
     
     print(f"\n{'='*60}")
     print(f"Processing Extract {extract_index}/{total_extracts}: {config.extract_name}")
     print(f"{'='*60}")
     print(f"Source: {config.get_source_query()[1]} - {config.get_source_query()[0][:100]}...")
     print(f"Output: {config.output_format} | Compression: {'Yes' if config.is_compressed else 'No'}")
+    print(f"💾 Initial Memory Usage: {memory_before:.1f}MB")
     
     try:
         # Get source query
         source_query, source_type = config.get_source_query()
         
-        # Execute query using lakehouse_utils abstraction
-        print(f"Executing query using lakehouse_utils: {source_query[:100]}...")
-        spark_df = lakehouse.execute_query(query=source_query)
+        # Resolve source and target lakehouses for this extract
+        source_lakehouse = get_source_lakehouse_for_config(config)
+        target_lakehouse = get_target_lakehouse_for_config(config)
+        
+        # Execute query using resolved source lakehouse
+        print(f"Executing query using source lakehouse: {source_query[:100]}...")
+        spark_df = source_lakehouse.execute_query(query=source_query)
         
         # Get row count from PySpark DataFrame
         total_rows = spark_df.count()
         print(f"Retrieved {total_rows:,} rows from source")
         
-        # Convert to Pandas DataFrame for file generation
-        data_df = spark_df.toPandas()
+        # PERFORMANCE OPTIMIZATION: Work directly with Spark DataFrame
+        # Avoid expensive Spark -> Pandas -> Spark conversions
+        print(f"⚡ Using optimized Spark-native processing (no Pandas conversion)")
         
         # Log initial status
         log_extract_run(
@@ -515,14 +731,25 @@ for extract_index, config in enumerate(extract_configs, 1):
         max_rows = config.file_properties_max_rows_per_file
         
         if max_rows and total_rows > max_rows:
-            # Split into multiple files
+            # Split into multiple files using Spark-native operations
             num_files = (total_rows + max_rows - 1) // max_rows
-            print(f"Splitting into {num_files} files ({max_rows:,} rows each)")
+            print(f"Splitting into {num_files} files ({max_rows:,} rows each) using optimized Spark operations")
+            
+            # Add row numbers for splitting
+            from pyspark.sql.window import Window
+            window = Window.orderBy(spark_df.columns[0])  # Use first column for ordering
+            indexed_df = spark_df.withColumn("_row_num", F.row_number().over(window))
             
             for i in range(num_files):
-                start_idx = i * max_rows
-                end_idx = min((i + 1) * max_rows, total_rows)
-                df_chunk = data_df.iloc[start_idx:end_idx]
+                start_row = i * max_rows + 1
+                end_row = min((i + 1) * max_rows, total_rows)
+                
+                # Filter chunk using Spark operations (much faster than Pandas iloc)
+                df_chunk = indexed_df.filter(
+                    (F.col("_row_num") >= start_row) & (F.col("_row_num") <= end_row)
+                ).drop("_row_num")
+                
+                chunk_rows = end_row - start_row + 1
                 
                 # Generate file name
                 file_name = config.generate_file_name(sequence=i+1)
@@ -531,14 +758,15 @@ for extract_index, config in enumerate(extract_configs, 1):
                 file_path = f"{config.extract_container}/{config.extract_directory}/{file_name}".replace("//", "/")
                 
                 compression_info = f" ({config.compressed_type})" if config.is_compressed else ""
-                print(f"📄 Writing file chunk {i+1}/{num_files}: {file_path}{compression_info}")
+                print(f"📄 Writing file chunk {i+1}/{num_files}: {file_path}{compression_info} ({chunk_rows:,} rows)")
                 
-                # Write using lakehouse_utils abstraction
-                write_result = write_dataframe_to_lakehouse_file(
-                    df=df_chunk,
+                # Write using optimized lakehouse_utils abstraction
+                write_result = write_spark_dataframe_to_lakehouse_file(
+                    spark_df=df_chunk,
                     file_path=file_path,
                     output_format=config.output_format,
-                    config=config
+                    config=config,
+                    target_lakehouse=target_lakehouse
                 )
                 
                 if write_result["success"]:
@@ -546,14 +774,14 @@ for extract_index, config in enumerate(extract_configs, 1):
                         "file_name": file_name,
                         "file_path": file_path,
                         "file_size": 0,  # Size not available with lakehouse_utils
-                        "rows": len(df_chunk),
+                        "rows": chunk_rows,
                         "compressed": write_result.get("compressed", False),
                         "compression_type": write_result.get("compression_type")
                     })
                 else:
                     print(f"❌ Failed to write file chunk {i+1}: {write_result.get('error', 'Unknown error')}")
                 
-                total_rows_written += len(df_chunk)
+                total_rows_written += chunk_rows
         else:
             # Single file
             file_name = config.generate_file_name()
@@ -564,12 +792,13 @@ for extract_index, config in enumerate(extract_configs, 1):
             compression_info = f" ({config.compressed_type})" if config.is_compressed else ""
             print(f"📄 Writing single file: {file_path}{compression_info}")
             
-            # Write using lakehouse_utils abstraction
-            write_result = write_dataframe_to_lakehouse_file(
-                df=data_df,
+            # Write using optimized lakehouse_utils abstraction
+            write_result = write_spark_dataframe_to_lakehouse_file(
+                spark_df=spark_df,
                 file_path=file_path,
                 output_format=config.output_format,
-                config=config
+                config=config,
+                target_lakehouse=target_lakehouse
             )
             
             if write_result["success"]:
@@ -591,11 +820,21 @@ for extract_index, config in enumerate(extract_configs, 1):
             trigger_file_path = f"{config.extract_container}/{config.extract_directory}/{trigger_file_name}".replace("//", "/")
             
             print(f"🎯 Creating trigger file: {trigger_file_path}")
-            trigger_success = create_trigger_file(trigger_file_path)
+            trigger_success = create_trigger_file(trigger_file_path, target_lakehouse)
             if not trigger_success:
                 print(f"⚠️  Warning: Failed to create trigger file {trigger_file_path}")
         
-        # Log successful completion
+        # Calculate and display performance metrics
+        extract_end_time = datetime.utcnow()
+        memory_after = get_memory_usage_mb()
+        
+        performance_metrics = calculate_performance_metrics(
+            extract_start_time, extract_end_time, total_rows_written, files_generated
+        )
+        
+        print_performance_summary(config.extract_name, performance_metrics, memory_before, memory_after)
+        
+        # Log successful completion with performance metrics
         log_extract_run(
             config, "SUCCESS", extract_start_time,
             source_type=source_type,
@@ -611,11 +850,16 @@ for extract_index, config in enumerate(extract_configs, 1):
             is_compressed=config.is_compressed,
             compression_type=config.compressed_type if config.is_compressed else None,
             trigger_file_created=config.is_trigger_file,
-            trigger_file_path=trigger_file_path if config.is_trigger_file else None
+            trigger_file_path=trigger_file_path if config.is_trigger_file else None,
+            # Performance metrics
+            duration_seconds=performance_metrics["duration_seconds"],
+            throughput_rows_per_second=performance_metrics["throughput_rows_per_second"],
+            memory_usage_mb_before=memory_before,
+            memory_usage_mb_after=memory_after
         )
         
         print(f"✅ Extract {config.extract_name} completed successfully!")
-        print(f"   Files: {len(files_generated)} | Rows: {total_rows_written:,} | Size: {sum(f['file_size'] for f in files_generated):,} bytes")
+        print(f"   Files: {len(files_generated)} | Rows: {total_rows_written:,} | Duration: {performance_metrics['duration_formatted']} | Throughput: {performance_metrics['throughput_formatted']}")
         successful_extracts += 1
         
     except Exception as e:
