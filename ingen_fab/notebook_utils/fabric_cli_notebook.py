@@ -273,7 +273,7 @@ class FabricLivyNotebook:
             try:
                 if "session_id" in locals():
                     self.delete_session(session_id)
-            except:
+            except:  # noqa: E722
                 pass  # Ignore cleanup errors
 
     def delete_session(self, session_id: str) -> None:

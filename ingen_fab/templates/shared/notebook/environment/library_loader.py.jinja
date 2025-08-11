@@ -20,6 +20,7 @@ if "notebookutils" in sys.modules:
     notebookutils.fs.mount("abfss://{{varlib:config_workspace_name}}@onelake.dfs.fabric.microsoft.com/{{varlib:config_lakehouse_name}}.Lakehouse/Files/", "/config_files")  # type: ignore # noqa: F821
     mount_path = notebookutils.fs.getMountPath("/config_files")  # type: ignore # noqa: F821
     {% endraw %}
+    
     run_mode = "fabric"
     sys.path.insert(0, mount_path)
 
@@ -58,7 +59,10 @@ def load_python_modules_from_path(base_path: str, relative_files: list[str], max
     failed_files = []
 
     for relative_path in relative_files:
-        full_path = f"file:{base_path}/{relative_path}"
+        if base_path.startswith("file:") or base_path.startswith("abfss:"):
+            full_path = f"{base_path}/{relative_path}"
+        else:
+            full_path = f"file:{base_path}/{relative_path}"
         try:
             print(f"🔄 Loading: {full_path}")
             code = notebookutils.fs.head(full_path, max_chars)
@@ -67,6 +71,10 @@ def load_python_modules_from_path(base_path: str, relative_files: list[str], max
         except Exception as e:
             failed_files.append(relative_path)
             print(f"❌ Error loading {relative_path}")
+            print(f"   Error type: {type(e).__name__}")
+            print(f"   Error message: {str(e)}")
+            print(f"   Stack trace:")
+            traceback.print_exc()
 
     print("\n✅ Successfully loaded:")
     for f in success_files:
@@ -84,6 +92,16 @@ def clear_module_cache(prefix: str):
             print("deleting..." + mod)
             del sys.modules[mod]
 
-# Always clear the module cache - We may remove this once the libs are stable
-clear_module_cache("ingen_fab.python_libs")
-clear_module_cache("ingen_fab")
+# Clear the module cache only when running in Fabric environment
+# When running locally, module caching conflicts can occur in parallel execution
+if run_mode == "fabric":
+    # Check if ingen_fab modules are present in cache (indicating they need clearing)
+    ingen_fab_modules = [mod for mod in sys.modules.keys() if mod.startswith(('ingen_fab.python_libs', 'ingen_fab'))]
+    
+    if ingen_fab_modules:
+        print(f"Found {len(ingen_fab_modules)} ingen_fab modules to clear from cache")
+        clear_module_cache("ingen_fab.python_libs")
+        clear_module_cache("ingen_fab")
+        print("✓ Module cache cleared for ingen_fab libraries")
+    else:
+        print("ℹ No ingen_fab modules found in cache - already cleared or first load")

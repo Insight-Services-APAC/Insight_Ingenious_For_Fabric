@@ -55,7 +55,7 @@ def read_log_status_entries(file_path: str) -> list[StatusEntry]:
                     parts = line.split(" - ", 3)
                     if len(parts) >= 4:
                         timestamp_str = parts[0]
-                        level = parts[1]
+                        level = parts[1]  # noqa: F841
                         module = parts[2]
                         message = parts[3]
 

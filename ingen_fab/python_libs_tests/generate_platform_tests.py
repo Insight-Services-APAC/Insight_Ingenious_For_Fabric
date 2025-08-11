@@ -6,7 +6,7 @@ from jinja2 import Template
 from rich.console import Console
 
 from ingen_fab.cli_utils.console_styles import ConsoleStyles
-from ingen_fab.config_utils.variable_lib import VariableLibraryUtils
+from ingen_fab.config_utils.variable_lib_factory import VariableLibraryFactory
 from ingen_fab.notebook_utils.notebook_utils import NotebookUtils
 from ingen_fab.python_libs.gather_python_libs import GatherPythonLibs
 
@@ -20,7 +20,6 @@ class GeneratePlatformTests:
         self.console: Console = Console()
         self.environment: str = environment
         self.project_directory: Path = project_directory
-
 
     def _inject_python_libs_into_template(self) -> None:
         """
@@ -112,12 +111,10 @@ class GeneratePlatformTests:
             self.console, "Completed injection of python libs into templates."
         )
 
-
     def generate(self) -> None:
         self._inject_python_libs_into_template()
-        vlu = VariableLibraryUtils(
-            project_path=self.project_directory,
+        vlu = VariableLibraryFactory.for_development(
             environment=self.environment,
+            project_path=self.project_directory,
         )
-        vlu.inject_variables_into_template()
-
+        vlu.inject_variables()

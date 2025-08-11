@@ -19,6 +19,10 @@
       "value": "REPLACE_WITH_CONFIG_WORKSPACE_GUID"
     },
     {
+      "name": "config_wh_workspace_id",
+      "value": "REPLACE_WITH_CONFIG_WH_WORKSPACE_GUID"
+    },
+    {
       "name": "config_lakehouse_name",
       "value": "config"
     },
@@ -27,20 +31,76 @@
       "value": "REPLACE_WITH_CONFIG_LAKEHOUSE_GUID"
     },
     {
-      "name": "sample_lakehouse_name",
-      "value": "sample"
+      "name": "config_wh_warehouse_name",
+      "value": "config_wh"
     },
     {
-      "name": "sample_lakehouse_id",
+      "name": "config_wh_warehouse_id",
+      "value": "REPLACE_WITH_CONFIG_WAREHOUSE_GUID"
+    },
+    {
+      "name": "sample_lh_workspace_id",
+      "value": "REPLACE_WITH_SAMPLE_LAKEHOUSE_WORKSPACE_GUID"
+    },
+    {
+      "name": "sample_lh_lakehouse_name",
+      "value": "sample_lh"
+    },
+    {
+      "name": "sample_lh_lakehouse_id",
       "value": "REPLACE_WITH_SAMPLE_LAKEHOUSE_GUID"
     },
     {
-      "name": "sample_warehouse_name",
-      "value": ""
+      "name": "sample_wh_workspace_id",
+      "value": "REPLACE_WITH_SAMPLE_WH_WORKSPACE_GUID"
     },
     {
-      "name": "sample_warehouse_id",
-      "value": ""
+      "name": "sample_wh_warehouse_name",
+      "value": "sample_wh"
+    },
+    {
+      "name": "sample_wh_warehouse_id",
+      "value": "REPLACE_WITH_SAMPLE_WAREHOUSE_GUID"
+    },
+    {
+      "name": "raw_lh_workspace_id",
+      "value": "REPLACE_WITH_RAW_WORKSPACE_GUID"
+    },
+    {
+      "name": "raw_lh_lakehouse_name",
+      "value": "REPLACE_WITH_RAW_LAKEHOUSE_NAME"
+    },
+    {
+      "name": "raw_lh_lakehouse_id",
+      "value": "REPLACE_WITH_RAW_LAKEHOUSE_GUID"
+    },
+    {
+      "name": "raw_wh_workspace_id",
+      "value": "REPLACE_WITH_RAW_WORKSPACE_GUID"
+    },
+    {
+      "name": "raw_wh_warehouse_id",
+      "value": "REPLACE_WITH_RAW_WAREHOUSE_GUID"
+    },
+    {
+      "name": "edw_workspace_id",
+      "value": "REPLACE_WITH_EDW_WORKSPACE_GUID"
+    },
+    {
+      "name": "edw_lakehouse_name",
+      "value": "edw"
+    },
+    {
+      "name": "edw_lakehouse_id",
+      "value": "REPLACE_WITH_EDW_LAKEHOUSE_GUID"
+    },
+    {
+      "name": "edw_warehouse_name",
+      "value": "edw"
+    },
+    {
+      "name": "edw_warehouse_id",
+      "value": "REPLACE_WITH_EDW_WAREHOUSE_GUID"
     }
   ]
 }

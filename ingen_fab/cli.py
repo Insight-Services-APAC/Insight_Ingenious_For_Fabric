@@ -1,7 +1,10 @@
 from __future__ import annotations
 
 import os
+import shutil
+import subprocess
 from pathlib import Path
+from typing import Optional
 
 import lazy_import
 import typer
@@ -13,12 +16,21 @@ deploy_commands = lazy_import.lazy_module("ingen_fab.cli_utils.deploy_commands")
 init_commands = lazy_import.lazy_module("ingen_fab.cli_utils.init_commands")
 notebook_commands = lazy_import.lazy_module("ingen_fab.cli_utils.notebook_commands")
 workspace_commands = lazy_import.lazy_module("ingen_fab.cli_utils.workspace_commands")
+synthetic_data_commands = lazy_import.lazy_module(
+    "ingen_fab.cli_utils.synthetic_data_commands"
+)
+package_commands = lazy_import.lazy_module("ingen_fab.cli_utils.package_commands")
+test_commands = lazy_import.lazy_module("ingen_fab.cli_utils.test_commands")
+libs_commands = lazy_import.lazy_module("ingen_fab.cli_utils.libs_commands")
+dbt_commands = lazy_import.lazy_module("ingen_fab.cli_utils.dbt_commands")
 
 from ingen_fab.cli_utils.console_styles import ConsoleStyles
 
 # Lazy import for heavyweight modules
-NotebookGenerator = lazy_import.lazy_callable("ingen_fab.ddl_scripts.notebook_generator.NotebookGenerator")
-PathUtils = lazy_import.lazy_callable("ingen_fab.utils.path_utils.PathUtils")
+notebook_generator = lazy_import.lazy_module("ingen_fab.ddl_scripts.notebook_generator")
+PathUtils = lazy_import.lazy_callable(
+    "ingen_fab.python_libs.common.utils.path_utils.PathUtils"
+)
 
 console = Console()
 console_styles = ConsoleStyles()
@@ -35,7 +47,10 @@ notebook_app = typer.Typer()
 package_app = typer.Typer()
 ingest_app = typer.Typer()
 synapse_app = typer.Typer()
+extract_app = typer.Typer()
+synthetic_data_app = typer.Typer()
 libs_app = typer.Typer()
+dbt_app = typer.Typer()
 
 # Add sub-apps to main app
 test_app.add_typer(
@@ -76,14 +91,25 @@ app.add_typer(
     name="libs",
     help="Commands for compiling and managing Python libraries.",
 )
+app.add_typer(
+    dbt_app,
+    name="dbt",
+    help="Proxy commands to dbt_wrapper inside the Fabric workspace repo.",
+)
 
+# New: extract commands
+app.add_typer(
+    extract_app,
+    name="extract",
+    help="Data extraction and package commands (keep compile, extract-run).",
+)
 
 
 @app.callback()
 def main(
     ctx: typer.Context,
     fabric_workspace_repo_dir: Annotated[
-        Path | None,
+        Optional[Path],
         typer.Option(
             "--fabric-workspace-repo-dir",
             "-fwd",
@@ -91,7 +117,7 @@ def main(
         ),
     ] = None,
     fabric_environment: Annotated[
-        Path | None,
+        Optional[Path],
         typer.Option(
             "--fabric-environment",
             "-fe",
@@ -102,7 +128,7 @@ def main(
     # Track if values came from environment variables or defaults
     fabric_workspace_repo_dir_source = "option"
     fabric_environment_source = "option"
-    
+
     if fabric_workspace_repo_dir is None:
         env_val = os.environ.get("FABRIC_WORKSPACE_REPO_DIR")
         if env_val:
@@ -113,10 +139,11 @@ def main(
             fabric_workspace_repo_dir = Path(env_val)
             fabric_workspace_repo_dir_source = "env"
         else:
-            from ingen_fab.utils.path_utils import PathUtils
+            from ingen_fab.python_libs.common.utils.path_utils import PathUtils
+
             fabric_workspace_repo_dir = PathUtils.get_workspace_repo_dir()
             fabric_workspace_repo_dir_source = "default"
-    
+
     if fabric_environment is None:
         env_val = os.environ.get("FABRIC_ENVIRONMENT")
         if env_val:
@@ -132,39 +159,49 @@ def main(
     # Skip validation for init new command and help
     # Note: We need to check the command path to differentiate between init subcommands
     import sys
+
     skip_validation = (
-        ctx.invoked_subcommand is None or
-        (ctx.params and ctx.params.get("help")) or
-        (ctx.invoked_subcommand == "init" and len(sys.argv) > 2 and sys.argv[2] == "new")
+        ctx.invoked_subcommand is None
+        or (ctx.params and ctx.params.get("help"))
+        or (
+            ctx.invoked_subcommand == "init"
+            and len(sys.argv) > 2
+            and sys.argv[2] == "new"
+        )
     )
-    
+
     if not skip_validation:
         # Validate that both fabric_environment and fabric_workspace_repo_dir are explicitly set
         if fabric_environment_source == "default":
             console_styles.print_error(
-                console, "❌ FABRIC_ENVIRONMENT must be set. Use --fabric-environment or set the FABRIC_ENVIRONMENT environment variable."
+                console,
+                "❌ FABRIC_ENVIRONMENT must be set. Use --fabric-environment or set the FABRIC_ENVIRONMENT environment variable.",
             )
             raise typer.Exit(code=1)
-        
+
         if fabric_workspace_repo_dir_source == "default":
             console_styles.print_error(
-                console, "❌ FABRIC_WORKSPACE_REPO_DIR must be set. Use --fabric-workspace-repo-dir or set the FABRIC_WORKSPACE_REPO_DIR environment variable."
+                console,
+                "❌ FABRIC_WORKSPACE_REPO_DIR must be set. Use --fabric-workspace-repo-dir or set the FABRIC_WORKSPACE_REPO_DIR environment variable.",
             )
             raise typer.Exit(code=1)
-        
+
         # Validate that fabric_workspace_repo_dir exists
         if not fabric_workspace_repo_dir.exists():
             console_styles.print_error(
-                console, f"❌ Fabric workspace repository directory does not exist: {fabric_workspace_repo_dir}"
+                console,
+                f"❌ Fabric workspace repository directory does not exist: {fabric_workspace_repo_dir}",
             )
             console_styles.print_info(
-                console, "💡 Use 'ingen_fab init new --project-name <name>' to create a new project."
+                console,
+                "💡 Use 'ingen_fab init new --project-name <name>' to create a new project.",
             )
             raise typer.Exit(code=1)
-        
+
         if not fabric_workspace_repo_dir.is_dir():
             console_styles.print_error(
-                console, f"❌ Fabric workspace repository path is not a directory: {fabric_workspace_repo_dir}"
+                console,
+                f"❌ Fabric workspace repository path is not a directory: {fabric_workspace_repo_dir}",
             )
             raise typer.Exit(code=1)
 
@@ -186,36 +223,56 @@ def main(
 @ddl_app.command()
 def compile(
     ctx: typer.Context,
-    output_mode: Annotated[str, typer.Option("--output-mode", "-o", help="Output mode: fabric_workspace_repo or local")] = None,
+    output_mode: Annotated[
+        Optional[str],
+        typer.Option(
+            "--output-mode", "-o", help="Output mode: fabric_workspace_repo or local"
+        ),
+    ] = None,
     generation_mode: Annotated[
-        str, typer.Option("--generation-mode", "-g", help="Generation mode: Lakehouse or Warehouse")
+        Optional[str],
+        typer.Option(
+            "--generation-mode", "-g", help="Generation mode: Lakehouse or Warehouse"
+        ),
     ] = None,
     verbose: Annotated[bool, typer.Option("--verbose", "-v")] = False,
 ):
     """Compile the DDL notebooks in the specified project directory."""
-    
+
     # Convert string parameters to enums with proper error handling
-    # Import the actual class when we need it
-    from ingen_fab.ddl_scripts.notebook_generator import NotebookGenerator
-    
+    # notebook_generator module is already lazy imported at the top of the file
+
     if output_mode:
         try:
-            output_mode = NotebookGenerator.OutputMode(output_mode)
+            output_mode = notebook_generator.NotebookGenerator.OutputMode(output_mode)
         except ValueError:
-            valid_modes = [mode.value for mode in NotebookGenerator.OutputMode]
+            valid_modes = [
+                mode.value for mode in notebook_generator.NotebookGenerator.OutputMode
+            ]
             console.print(f"[red]Error: Invalid output mode '{output_mode}'[/red]")
-            console.print(f"[yellow]Valid output modes: {', '.join(valid_modes)}[/yellow]")
+            console.print(
+                f"[yellow]Valid output modes: {', '.join(valid_modes)}[/yellow]"
+            )
             raise typer.Exit(code=1)
-    
+
     if generation_mode:
         try:
-            generation_mode = NotebookGenerator.GenerationMode(generation_mode)
+            generation_mode = notebook_generator.NotebookGenerator.GenerationMode(
+                generation_mode
+            )
         except ValueError:
-            valid_modes = [mode.value for mode in NotebookGenerator.GenerationMode]
-            console.print(f"[red]Error: Invalid generation mode '{generation_mode}'[/red]")
-            console.print(f"[yellow]Valid generation modes: {', '.join(valid_modes)}[/yellow]")
+            valid_modes = [
+                mode.value
+                for mode in notebook_generator.NotebookGenerator.GenerationMode
+            ]
+            console.print(
+                f"[red]Error: Invalid generation mode '{generation_mode}'[/red]"
+            )
+            console.print(
+                f"[yellow]Valid generation modes: {', '.join(valid_modes)}[/yellow]"
+            )
             raise typer.Exit(code=1)
-    
+
     notebook_commands.compile_ddl_notebooks(ctx, output_mode, generation_mode, verbose)
 
 
@@ -224,8 +281,13 @@ def compile(
 
 @init_app.command("new")
 def init_solution(
-    project_name: Annotated[str | None, typer.Option("--project-name", "-p", help="Name of the project to create")] = None,
-    path: Annotated[Path, typer.Option("--path", help="Base path where the project will be created")] = Path("."),
+    project_name: Annotated[
+        Optional[str],
+        typer.Option("--project-name", "-p", help="Name of the project to create"),
+    ] = None,
+    path: Annotated[
+        Path, typer.Option("--path", help="Base path where the project will be created")
+    ] = Path("."),
 ):
     init_commands.init_solution(project_name, path)
 
@@ -233,8 +295,22 @@ def init_solution(
 @init_app.command("workspace")
 def init_workspace(
     ctx: typer.Context,
-    workspace_name: Annotated[str, typer.Option("--workspace-name", "-w", help="Name of the Fabric workspace to lookup and configure")],
-    create_if_not_exists: Annotated[bool, typer.Option("--create-if-not-exists", "-c", help="Create the workspace if it doesn't exist")] = False,
+    workspace_name: Annotated[
+        str,
+        typer.Option(
+            "--workspace-name",
+            "-w",
+            help="Name of the Fabric workspace to lookup and configure",
+        ),
+    ],
+    create_if_not_exists: Annotated[
+        bool,
+        typer.Option(
+            "--create-if-not-exists",
+            "-c",
+            help="Create the workspace if it doesn't exist",
+        ),
+    ] = False,
 ):
     """Initialize workspace configuration by looking up workspace ID from name."""
     init_commands.init_workspace(ctx, workspace_name, create_if_not_exists)
@@ -254,22 +330,143 @@ def delete_all(
     force: Annotated[bool, typer.Option("--force", "-f")] = False,
 ):
     workspace_commands.delete_workspace_items(
-        environment=ctx.obj['fabric_environment'],
-        project_path=ctx.obj['fabric_workspace_repo_dir'],
-        force=force
+        environment=ctx.obj["fabric_environment"],
+        project_path=ctx.obj["fabric_workspace_repo_dir"],
+        force=force,
     )
 
 
 @deploy_app.command()
-def upload_python_libs(
-    ctx: typer.Context
-):
-    """Upload python_libs directory to Fabric config lakehouse using OneLakeUtils."""
+def upload_python_libs(ctx: typer.Context):
+    """Inject code into python_libs (in-place) and upload to Fabric config lakehouse."""
     deploy_commands.upload_python_libs_to_config_lakehouse(
-        environment=ctx.obj['fabric_environment'],
-        project_path=ctx.obj['fabric_workspace_repo_dir'],
+        environment=ctx.obj["fabric_environment"],
+        project_path=ctx.obj["fabric_workspace_repo_dir"],
         console=console,
     )
+
+
+@deploy_app.command("get-metadata")
+def deploy_get_metadata(
+    ctx: typer.Context,
+    workspace_id: Annotated[
+        Optional[str], typer.Option("--workspace-id", help="Workspace ID")
+    ] = None,
+    workspace_name: Annotated[
+        Optional[str], typer.Option("--workspace-name", help="Workspace name")
+    ] = None,
+    lakehouse_id: Annotated[
+        Optional[str], typer.Option("--lakehouse-id", help="Lakehouse ID")
+    ] = None,
+    lakehouse_name: Annotated[
+        Optional[str], typer.Option("--lakehouse-name", help="Lakehouse name")
+    ] = None,
+    warehouse_id: Annotated[
+        Optional[str], typer.Option("--warehouse-id", help="Warehouse ID")
+    ] = None,
+    warehouse_name: Annotated[
+        Optional[str], typer.Option("--warehouse-name", help="Warehouse name")
+    ] = None,
+    schema: Annotated[
+        Optional[str], typer.Option("--schema", "-s", help="Schema name filter")
+    ] = None,
+    table: Annotated[
+        Optional[str],
+        typer.Option("--table", "-t", help="Table name filter (substring match)"),
+    ] = None,
+    method: Annotated[
+        str,
+        typer.Option(
+            "--method",
+            "-m",
+            help="Extraction method: 'sql-endpoint' (default) or 'sql-endpoint-odbc'",
+        ),
+    ] = "sql-endpoint",
+    sql_endpoint_id: Annotated[
+        Optional[str],
+        typer.Option("--sql-endpoint-id", help="Explicit SQL endpoint ID to use"),
+    ] = None,
+    sql_endpoint_server: Annotated[
+        Optional[str],
+        typer.Option(
+            "--sql-endpoint-server",
+            help=(
+                "SQL endpoint server prefix (without domain), e.g., 'myws-abc123' to form myws-abc123.datawarehouse.fabric.microsoft.com"
+            ),
+        ),
+    ] = None,
+    output_format: Annotated[
+        str,
+        typer.Option(
+            "--format", "-f", help="Output format: csv (default), json, or table"
+        ),
+    ] = "csv",
+    output: Annotated[
+        Optional[Path],
+        typer.Option(
+            "--output", "-o", help="Write output to file (defaults to metadata cache)"
+        ),
+    ] = None,
+    all_lakehouses: Annotated[
+        bool,
+        typer.Option(
+            "--all", help="For lakehouse target, extract all lakehouses in workspace"
+        ),
+    ] = False,
+    target: Annotated[
+        str,
+        typer.Option(
+            "--target",
+            "-tgt",
+            help="Target asset type: 'lakehouse', 'warehouse', or 'both' (default lakehouse)",
+        ),
+    ] = "lakehouse",
+):
+    """Get schema/table/column metadata for lakehouse/warehouse/both.
+
+    This consolidates prior extract commands under deploy for easier access.
+    """
+    from ingen_fab.cli_utils import extract_commands
+
+    selected = (target or "lakehouse").strip().lower()
+    if selected not in {"lakehouse", "warehouse", "both"}:
+        console_styles.print_error(
+            console, "--target must be one of: lakehouse, warehouse, both"
+        )
+        raise typer.Exit(code=2)
+
+    if selected in {"lakehouse", "both"}:
+        extract_commands.lakehouse_metadata(
+            ctx=ctx,
+            workspace_id=workspace_id,
+            workspace_name=workspace_name,
+            lakehouse_id=lakehouse_id,
+            lakehouse_name=lakehouse_name,
+            schema=schema,
+            table_filter=table,
+            method=method,
+            sql_endpoint_id=sql_endpoint_id,
+            sql_endpoint_server=sql_endpoint_server,
+            output_format=output_format,
+            output_path=output,
+            all_lakehouses=all_lakehouses,
+        )
+
+    if selected in {"warehouse", "both"}:
+        extract_commands.warehouse_metadata(
+            ctx=ctx,
+            workspace_id=workspace_id,
+            workspace_name=workspace_name,
+            warehouse_id=warehouse_id,
+            warehouse_name=warehouse_name,
+            schema=schema,
+            table_filter=table,
+            method=method,
+            sql_endpoint_id=sql_endpoint_id,
+            sql_endpoint_server=sql_endpoint_server,
+            output_format=output_format,
+            output_path=output,
+        )
 
 
 # Test commands
@@ -300,13 +497,7 @@ def run_livy_notebook(
 @test_platform_app.command()
 def generate(ctx: typer.Context):
     """Generate platform tests using the script in python_libs_tests."""
-    from ingen_fab.python_libs_tests import generate_platform_tests
-
-    gpt = generate_platform_tests.GeneratePlatformTests(
-        environment=ctx.obj["fabric_environment"],
-        project_directory=ctx.obj["fabric_workspace_repo_dir"],
-    )
-    gpt.generate()
+    test_commands.test_platform_generate(ctx)
 
 
 # Pytest execution command for python_libs_tests/pyspark
@@ -315,84 +506,40 @@ def generate(ctx: typer.Context):
 @test_local_app.command()
 def pyspark(
     lib: Annotated[
-        str,
+        Optional[str],
         typer.Argument(
             help="Optional test file (without _pytest.py) to run, e.g. 'my_utils'"
         ),
     ] = None,
 ):
     """Run pytest on ingen_fab/python_libs_tests/pyspark or a specific test file if provided."""
-    import pytest
-    
-    # Check that FABRIC_ENVIRONMENT is set to "local" for local tests
-    fabric_env = os.getenv("FABRIC_ENVIRONMENT")
-    if fabric_env != "local":
-        console.print(
-            f"[red]Error: FABRIC_ENVIRONMENT must be set to 'local' for local tests. "
-            f"Current value: {fabric_env}[/red]"
-        )
-        console.print("[yellow]Please set: FABRIC_ENVIRONMENT=local[/yellow]")
-        raise typer.Exit(code=1)
-
-    base = "ingen_fab/python_libs_tests/pyspark"
-    if lib:
-        test_file = f"{base}/{lib}_pytest.py"
-        exit_code = pytest.main([test_file, "-v"])
-    else:
-        exit_code = pytest.main([base, "-v"])
-    raise typer.Exit(code=exit_code)
+    test_commands.test_local_pyspark(lib)
 
 
 @test_local_app.command()
 def python(
     lib: Annotated[
-        str | None,
+        Optional[str],
         typer.Argument(
             help="Optional test file (without _pytest.py) to run, e.g. 'ddl_utils'"
         ),
     ] = None,
 ):
     """Run pytest on ingen_fab/python_libs_tests/python or a specific test file if provided."""
-    import pytest
-    
-    # Check that FABRIC_ENVIRONMENT is set to "local" for local tests
-    fabric_env = os.getenv("FABRIC_ENVIRONMENT")
-    if fabric_env != "local":
-        console.print(
-            f"[red]Error: FABRIC_ENVIRONMENT must be set to 'local' for local tests. "
-            f"Current value: {fabric_env}[/red]"
-        )
-        console.print("[yellow]Please set: FABRIC_ENVIRONMENT=local[/yellow]")
-        raise typer.Exit(code=1)
-
-    base = "ingen_fab/python_libs_tests/python"
-    if lib:
-        test_file = f"{base}/{lib}_pytest.py"
-        exit_code = pytest.main([test_file])
-    else:
-        exit_code = pytest.main([base])
-    raise typer.Exit(code=exit_code)
+    test_commands.test_local_python(lib)
 
 
 @test_local_app.command()
 def common(
     lib: Annotated[
-        str,
+        Optional[str],
         typer.Argument(
             help="Optional test file (without _pytest.py) to run, e.g. 'my_utils'"
         ),
     ] = None,
 ):
     """Run pytest on ingen_fab/python_libs_tests/common or a specific test file if provided."""
-    import pytest
-
-    base = "ingen_fab/python_libs_tests/common"
-    if lib:
-        test_file = f"{base}/{lib}_pytest.py"
-        exit_code = pytest.main([test_file, "-v"])
-    else:
-        exit_code = pytest.main([base, "-v"])
-    raise typer.Exit(code=exit_code)
+    test_commands.test_local_common(lib)
 
 
 # Notebook commands
@@ -418,8 +565,416 @@ def scan_notebook_blocks(
 
 
 @notebook_app.command()
-def perform_code_replacements(ctx: typer.Context):
-    deploy_commands.perform_code_replacements(ctx)
+def perform_code_replacements(
+    ctx: typer.Context,
+    output_dir: Optional[Path] = typer.Option(
+        None,
+        "--output-dir",
+        "-o",
+        help="Directory to save updated files instead of modifying in place.",
+    ),
+    no_preserve_structure: bool = typer.Option(
+        False,
+        "--no-preserve-structure",
+        help="When using --output-dir, don't preserve the directory structure (save all files to the root of output directory).",
+    ),
+):
+    """Inject code between markers in notebook files (modifies files in place by default)."""
+    deploy_commands.perform_code_replacements(
+        ctx, output_dir=output_dir, preserve_structure=not no_preserve_structure
+    )
+
+
+# Extract commands (moved to deploy.get-metadata)
+## Removed: lakehouse-metadata (now under deploy get-metadata)
+def extract_lakehouse_metadata(
+    ctx: typer.Context,
+    workspace_id: Annotated[
+        Optional[str],
+        typer.Option(
+            "--workspace-id",
+            "-w",
+            help="Workspace ID (overrides environment workspace)",
+        ),
+    ] = None,
+    workspace_name: Annotated[
+        Optional[str],
+        typer.Option(
+            "--workspace-name",
+            "-wn",
+            help="Workspace name (resolved to ID if provided)",
+        ),
+    ] = None,
+    lakehouse_id: Annotated[
+        Optional[str],
+        typer.Option("--lakehouse-id", "-l", help="Target Lakehouse ID"),
+    ] = None,
+    lakehouse_name: Annotated[
+        Optional[str],
+        typer.Option("--lakehouse-name", "-ln", help="Target Lakehouse name"),
+    ] = None,
+    schema: Annotated[
+        Optional[str],
+        typer.Option("--schema", "-s", help="Schema to include (exact match)"),
+    ] = None,
+    table: Annotated[
+        Optional[str],
+        typer.Option("--table", "-t", help="Table name filter (substring match)"),
+    ] = None,
+    method: Annotated[
+        str,
+        typer.Option(
+            "--method",
+            "-m",
+            help="Extraction method: 'sql-endpoint' (default) or 'onelake'",
+        ),
+    ] = "sql-endpoint",
+    sql_endpoint_id: Annotated[
+        Optional[str],
+        typer.Option(
+            "--sql-endpoint-id",
+            help="Explicit SQL endpoint ID to use for the lakehouse",
+        ),
+    ] = None,
+    sql_endpoint_server: Annotated[
+        Optional[str],
+        typer.Option(
+            "--sql-endpoint-server",
+            help=(
+                "SQL endpoint server prefix (without domain), e.g., 'myws-abc123' to form myws-abc123.datawarehouse.fabric.microsoft.com"
+            ),
+        ),
+    ] = None,
+    output_format: Annotated[
+        str,
+        typer.Option(
+            "--format", "-f", help="Output format: csv (default), json, or table"
+        ),
+    ] = "csv",
+    output: Annotated[
+        Optional[Path],
+        typer.Option(
+            "--output", "-o", help="Write output to file (defaults to stdout)"
+        ),
+    ] = None,
+    all_lakehouses: Annotated[
+        bool,
+        typer.Option(
+            "--all",
+            help="Extract metadata for all lakehouses in the resolved workspace",
+        ),
+    ] = False,
+):
+    """Extract lakehouse schema/table/column metadata.
+
+    Uses the lakehouse SQL endpoint to query INFORMATION_SCHEMA and sys.* views.
+    """
+    from ingen_fab.cli_utils import extract_commands  # backward compat shim
+
+    extract_commands.lakehouse_metadata(
+        ctx=ctx,
+        workspace_id=workspace_id,
+        workspace_name=workspace_name,
+        lakehouse_id=lakehouse_id,
+        lakehouse_name=lakehouse_name,
+        schema=schema,
+        table_filter=table,
+        method=method,
+        sql_endpoint_id=sql_endpoint_id,
+        sql_endpoint_server=sql_endpoint_server,
+        output_format=output_format,
+        output_path=output,
+        all_lakehouses=all_lakehouses,
+    )
+
+
+## Removed: warehouse-metadata (now under deploy get-metadata)
+def extract_warehouse_metadata(
+    ctx: typer.Context,
+    workspace_id: Annotated[
+        Optional[str], typer.Option("--workspace-id", help="Workspace ID")
+    ] = None,
+    workspace_name: Annotated[
+        Optional[str], typer.Option("--workspace-name", help="Workspace name")
+    ] = None,
+    warehouse_id: Annotated[
+        Optional[str], typer.Option("--warehouse-id", help="Warehouse ID")
+    ] = None,
+    warehouse_name: Annotated[
+        Optional[str], typer.Option("--warehouse-name", help="Warehouse name")
+    ] = None,
+    schema: Annotated[
+        Optional[str], typer.Option("--schema", "-s", help="Schema name filter")
+    ] = None,
+    table: Annotated[
+        Optional[str],
+        typer.Option("--table", "-t", help="Table name filter (substring match)"),
+    ] = None,
+    method: Annotated[
+        str,
+        typer.Option(
+            "--method",
+            "-m",
+            help="Extraction method: 'sql-endpoint' (default) or 'sql-endpoint-odbc'",
+        ),
+    ] = "sql-endpoint",
+    sql_endpoint_id: Annotated[
+        Optional[str],
+        typer.Option(
+            "--sql-endpoint-id",
+            help="Explicit SQL endpoint ID to use for the warehouse",
+        ),
+    ] = None,
+    sql_endpoint_server: Annotated[
+        Optional[str],
+        typer.Option(
+            "--sql-endpoint-server",
+            help=(
+                "SQL endpoint server prefix (without domain), e.g., 'myws-abc123' to form myws-abc123.datawarehouse.fabric.microsoft.com"
+            ),
+        ),
+    ] = None,
+    output_format: Annotated[
+        str,
+        typer.Option(
+            "--format", "-f", help="Output format: csv (default), json, or table"
+        ),
+    ] = "csv",
+    output: Annotated[
+        Optional[Path],
+        typer.Option(
+            "--output", "-o", help="Write output to file (defaults to stdout)"
+        ),
+    ] = None,
+):
+    """Extract warehouse schema/table/column metadata via Fabric SQL endpoint.
+
+    Uses INFORMATION_SCHEMA and joins to enrich with table_type where available.
+    """
+    from ingen_fab.cli_utils import extract_commands  # backward compat shim
+
+    extract_commands.warehouse_metadata(
+        ctx=ctx,
+        workspace_id=workspace_id,
+        workspace_name=workspace_name,
+        warehouse_id=warehouse_id,
+        warehouse_name=warehouse_name,
+        schema=schema,
+        table_filter=table,
+        method=method,
+        sql_endpoint_id=sql_endpoint_id,
+        sql_endpoint_server=sql_endpoint_server,
+        output_format=output_format,
+        output_path=output,
+    )
+
+
+## Removed: lakehouse-summary (now covered by deploy get-metadata output files)
+def extract_lakehouse_summary(
+    ctx: typer.Context,
+    workspace_id: Annotated[
+        Optional[str], typer.Option("--workspace-id", help="Workspace ID")
+    ] = None,
+    workspace_name: Annotated[
+        Optional[str], typer.Option("--workspace-name", help="Workspace name")
+    ] = None,
+    lakehouse_id: Annotated[
+        Optional[str], typer.Option("--lakehouse-id", help="Lakehouse ID")
+    ] = None,
+    lakehouse_name: Annotated[
+        Optional[str], typer.Option("--lakehouse-name", help="Lakehouse name")
+    ] = None,
+    method: Annotated[
+        str,
+        typer.Option(
+            "--method",
+            "-m",
+            help="Extraction method: 'sql-endpoint' (default) or 'sql-endpoint-odbc'",
+        ),
+    ] = "sql-endpoint",
+    sql_endpoint_id: Annotated[
+        Optional[str],
+        typer.Option(
+            "--sql-endpoint-id",
+            help="Explicit SQL endpoint ID to use for the lakehouse",
+        ),
+    ] = None,
+    sql_endpoint_server: Annotated[
+        Optional[str],
+        typer.Option(
+            "--sql-endpoint-server",
+            help=(
+                "SQL endpoint server prefix (without domain), e.g., 'myws-abc123' to form myws-abc123.datawarehouse.fabric.microsoft.com"
+            ),
+        ),
+    ] = None,
+    output_format: Annotated[
+        str,
+        typer.Option(
+            "--format", "-f", help="Output format: csv (default), json, or table"
+        ),
+    ] = "csv",
+    output: Annotated[
+        Optional[Path],
+        typer.Option(
+            "--output", "-o", help="Write output to file (defaults to stdout)"
+        ),
+    ] = None,
+    all_lakehouses: Annotated[
+        bool,
+        typer.Option(
+            "--all",
+            help="Summarize all lakehouses in the resolved workspace",
+        ),
+    ] = False,
+):
+    """Summarize lakehouse tables by schema (database, schema, table_count)."""
+    from ingen_fab.cli_utils import extract_commands
+
+    extract_commands.lakehouse_summary(
+        ctx=ctx,
+        workspace_id=workspace_id,
+        workspace_name=workspace_name,
+        lakehouse_id=lakehouse_id,
+        lakehouse_name=lakehouse_name,
+        method=method,
+        sql_endpoint_id=sql_endpoint_id,
+        sql_endpoint_server=sql_endpoint_server,
+        output_format=output_format,
+        output_path=output,
+        all_lakehouses=all_lakehouses,
+    )
+
+
+## Removed: warehouse-summary (now covered by deploy get-metadata output files)
+def extract_warehouse_summary(
+    ctx: typer.Context,
+    workspace_id: Annotated[
+        Optional[str], typer.Option("--workspace-id", help="Workspace ID")
+    ] = None,
+    workspace_name: Annotated[
+        Optional[str], typer.Option("--workspace-name", help="Workspace name")
+    ] = None,
+    warehouse_id: Annotated[
+        Optional[str], typer.Option("--warehouse-id", help="Warehouse ID")
+    ] = None,
+    warehouse_name: Annotated[
+        Optional[str], typer.Option("--warehouse-name", help="Warehouse name")
+    ] = None,
+    method: Annotated[
+        str,
+        typer.Option(
+            "--method",
+            "-m",
+            help="Extraction method: 'sql-endpoint' (default) or 'sql-endpoint-odbc'",
+        ),
+    ] = "sql-endpoint",
+    sql_endpoint_id: Annotated[
+        Optional[str],
+        typer.Option(
+            "--sql-endpoint-id",
+            help="Explicit SQL endpoint ID to use for the warehouse",
+        ),
+    ] = None,
+    sql_endpoint_server: Annotated[
+        Optional[str],
+        typer.Option(
+            "--sql-endpoint-server",
+            help=(
+                "SQL endpoint server prefix (without domain), e.g., 'myws-abc123' to form myws-abc123.datawarehouse.fabric.microsoft.com"
+            ),
+        ),
+    ] = None,
+    output_format: Annotated[
+        str,
+        typer.Option(
+            "--format", "-f", help="Output format: csv (default), json, or table"
+        ),
+    ] = "csv",
+    output: Annotated[
+        Optional[Path],
+        typer.Option(
+            "--output", "-o", help="Write output to file (defaults to stdout)"
+        ),
+    ] = None,
+):
+    """Summarize warehouse tables by schema (database, schema, table_count)."""
+    from ingen_fab.cli_utils import extract_commands
+
+    extract_commands.warehouse_summary(
+        ctx=ctx,
+        workspace_id=workspace_id,
+        workspace_name=workspace_name,
+        warehouse_id=warehouse_id,
+        warehouse_name=warehouse_name,
+        method=method,
+        sql_endpoint_id=sql_endpoint_id,
+        sql_endpoint_server=sql_endpoint_server,
+        output_format=output_format,
+        output_path=output,
+    )
+
+
+# DBT commands
+@dbt_app.command("create-notebooks")
+def dbt_create_notebooks(
+    ctx: typer.Context,
+    dbt_project: Annotated[
+        str,
+        typer.Option(
+            "--dbt-project",
+            "-p",
+            help="Name of the dbt project directory under the workspace repo",
+        ),
+    ],
+    skip_profile_confirmation: Annotated[
+        bool,
+        typer.Option(
+            "--skip-profile-confirmation",
+            help="Skip confirmation prompt when updating dbt profile",
+        ),
+    ] = False,
+):
+    """Create Fabric notebooks from dbt-generated Python notebooks.
+
+    Scans {workspace}/{dbt_project}/target/notebooks_fabric_py and creates notebooks under
+    {workspace}/fabric_workspace_items/{dbt_project}/.
+    """
+    dbt_commands.create_additional_notebooks(
+        ctx, dbt_project, skip_profile_confirmation
+    )
+
+
+@dbt_app.command("convert-metadata")
+def dbt_convert_metadata(
+    ctx: typer.Context,
+    dbt_project: Annotated[
+        str,
+        typer.Option(
+            "--dbt-project",
+            "-p",
+            help="Name of the dbt project directory under the workspace repo",
+        ),
+    ],
+    skip_profile_confirmation: Annotated[
+        bool,
+        typer.Option(
+            "--skip-profile-confirmation",
+            help="Skip confirmation prompt when updating dbt profile",
+        ),
+    ] = False,
+):
+    """Convert cached lakehouse metadata to dbt metaextracts format.
+
+    Reads from {workspace}/metadata/lakehouse_metadata_all.csv and creates JSON files
+    in {workspace}/{dbt_project}/metaextracts/ for dbt_wrapper to use.
+
+    The metadata must first be extracted using:
+    ingen_fab deploy get-metadata --target lakehouse
+    """
+    dbt_commands.convert_metadata_to_dbt_format(
+        ctx, dbt_project, skip_profile_confirmation
+    )
 
 
 # Package commands
@@ -435,190 +990,456 @@ package_app.add_typer(
     help="Commands for synapse sync package.",
 )
 
+package_app.add_typer(
+    extract_app,
+    name="extract",
+    help="Commands for extract generation package.",
+)
+package_app.add_typer(
+    synthetic_data_app,
+    name="synthetic-data",
+    help="Generate synthetic data for testing and development. Supports predefined datasets, custom templates, and runtime parameterization.",
+)
+
+
+# ===== NEW UNIFIED COMMANDS =====
+
+
+@synthetic_data_app.command("generate")
+def synthetic_data_unified_generate(
+    ctx: typer.Context,
+    config: Annotated[
+        str,
+        typer.Argument(
+            help="Dataset ID (e.g. 'retail_oltp_small') or generic template name (e.g. 'generic_single_dataset_lakehouse')"
+        ),
+    ],
+    mode: Annotated[
+        str,
+        typer.Option(
+            "--mode",
+            "-m",
+            help="Generation mode: 'single' (one-time), 'incremental' (date-based), or 'series' (date range)",
+        ),
+    ] = "single",
+    parameters: Annotated[
+        Optional[str],
+        typer.Option(
+            "--parameters",
+            "-p",
+            help='JSON string of runtime parameters (e.g. \'{"target_rows": 50000, "seed_value": 42}\')',
+        ),
+    ] = None,
+    output_path: Annotated[
+        Optional[str],
+        typer.Option(
+            "--output-path",
+            "-o",
+            help="Override default output directory (e.g. 'my_custom_dir')",
+        ),
+    ] = None,
+    dry_run: Annotated[
+        bool,
+        typer.Option("--dry-run", help="Validate parameters without generating files"),
+    ] = False,
+    target_environment: Annotated[
+        str,
+        typer.Option(
+            "--target-environment",
+            "-e",
+            help="Target environment: 'lakehouse' or 'warehouse'",
+        ),
+    ] = "lakehouse",
+    no_execute: Annotated[
+        bool,
+        typer.Option(
+            "--no-execute",
+            help="Compile notebook only without executing (useful for testing/validation)",
+        ),
+    ] = False,
+):
+    """
+    Generate synthetic data notebooks and optionally execute them.
+
+    This command creates ready-to-run notebooks with specific parameters injected,
+    and by default executes them immediately to generate the synthetic data.
+
+    Examples:
+      # Generate and execute retail data (10K rows by default)
+      ingen_fab package synthetic-data generate retail_oltp_small
+
+      # Generate incremental data for specific date
+      ingen_fab package synthetic-data generate retail_oltp_small --mode incremental --parameters '{"generation_date": "2024-01-15"}'
+
+      # Compile only (don't execute)
+      ingen_fab package synthetic-data generate retail_oltp_small --no-execute
+
+      # Custom parameters with higher row count
+      ingen_fab package synthetic-data generate retail_oltp_small --parameters '{"target_rows": 100000, "seed_value": 42}'
+    """
+    synthetic_data_commands.unified_generate(
+        ctx=ctx,
+        config=config,
+        mode=mode,
+        parameters=parameters,
+        output_path=output_path,
+        dry_run=dry_run,
+        target_environment=target_environment,
+        no_execute=no_execute,
+    )
+
+
+# ===== DBT WRAPPER COMMANDS =====
+
+
+@dbt_app.command(
+    "exec", context_settings={"allow_extra_args": True, "ignore_unknown_options": True}
+)
+def dbt_exec(
+    ctx: typer.Context,
+):
+    """Run dbt_wrapper from within the Fabric workspace repo, then return to the original directory."""
+    from ingen_fab.cli_utils.dbt_profile_manager import ensure_dbt_profile
+
+    workspace_dir = Path(ctx.obj["fabric_workspace_repo_dir"]).resolve()
+    if not workspace_dir.exists():
+        console_styles.print_error(
+            console, f"❌ Fabric workspace repo not found: {workspace_dir}"
+        )
+        raise typer.Exit(code=1)
+
+    # Check and update dbt profile if needed
+    # For exec command, default to not asking for confirmation since it's often used in scripts
+    if not ensure_dbt_profile(ctx, ask_confirmation=False):
+        raise typer.Exit(code=1)
+
+    # Locate the wrapper executable
+    exe = shutil.which("dbt_wrapper") or shutil.which("dbt-wrapper")
+    if not exe:
+        console_styles.print_error(
+            console,
+            "❌ Could not find 'dbt_wrapper' on PATH. Ensure the wrapper is installed.",
+        )
+        raise typer.Exit(code=1)
+
+    # Always return to the original directory, even on failure
+    original_cwd = Path.cwd()
+    try:
+        os.chdir(workspace_dir)
+        passthrough_args = list(ctx.args)
+        console_styles.print_info(
+            console,
+            f"Running dbt_wrapper in: {workspace_dir} -> {' '.join(passthrough_args) or '--help'}",
+        )
+        result = subprocess.run([exe, *passthrough_args], check=False)
+        rc = result.returncode
+    finally:
+        os.chdir(original_cwd)
+        console_styles.print_info(console, f"Returned to: {original_cwd}")
+
+    if rc != 0:
+        raise typer.Exit(code=rc)
+
+
+@synthetic_data_app.command("list")
+def synthetic_data_unified_list(
+    list_type: Annotated[
+        str,
+        typer.Option(
+            "--type",
+            "-t",
+            help="What to list: 'datasets' (predefined configs), 'templates' (generic templates), or 'all'",
+        ),
+    ] = "all",
+    output_format: Annotated[
+        str,
+        typer.Option(
+            "--format",
+            "-f",
+            help="Output format: 'table' (formatted) or 'json' (machine-readable)",
+        ),
+    ] = "table",
+):
+    """
+    List available synthetic data datasets and templates.
+
+    Shows predefined dataset configurations and generic templates that can be used
+    with the generate and compile commands.
+
+    Examples:
+      # List all available items
+      ingen_fab package synthetic-data list
+
+      # Show only predefined datasets
+      ingen_fab package synthetic-data list --type datasets
+
+      # Output in JSON format for scripting
+      ingen_fab package synthetic-data list --format json
+    """
+    synthetic_data_commands.unified_list(
+        list_type=list_type, output_format=output_format
+    )
+
+
+@synthetic_data_app.command("compile")
+def synthetic_data_unified_compile(
+    ctx: typer.Context,
+    template: Annotated[
+        Optional[str],
+        typer.Argument(
+            help="Template name (e.g. 'generic_single_dataset_lakehouse') or dataset ID for standard compilation. If not provided, compiles all available templates."
+        ),
+    ] = None,
+    runtime_config: Annotated[
+        Optional[str],
+        typer.Option(
+            "--runtime-config",
+            "-c",
+            help="JSON configuration for template compilation (e.g. '{\"target_rows\": 50000}')",
+        ),
+    ] = None,
+    output_format: Annotated[
+        str,
+        typer.Option(
+            "--output-format",
+            "-f",
+            help="Output artifacts: 'notebook' (only notebook), 'ddl' (only DDL), or 'all' (both)",
+        ),
+    ] = "all",
+    target_environment: Annotated[
+        str,
+        typer.Option(
+            "--target-environment",
+            "-e",
+            help="Target environment: 'lakehouse' or 'warehouse'",
+        ),
+    ] = "lakehouse",
+):
+    """
+    Compile template notebooks with placeholders for later parameterization.
+
+    This command creates template notebooks that can be parameterized and executed later,
+    as opposed to the 'generate' command which creates ready-to-run notebooks.
+
+    Useful for creating reusable notebook templates that can be deployed and
+    parameterized at runtime in different environments.
+
+    Examples:
+      # Compile all available templates
+      ingen_fab package synthetic-data compile
+
+      # Compile a specific generic template for lakehouse
+      ingen_fab package synthetic-data compile generic_single_dataset_lakehouse
+
+      # Compile with runtime configuration
+      ingen_fab package synthetic-data compile generic_single_dataset_lakehouse --runtime-config '{"language_group": "python"}'
+
+      # Compile only notebooks for all templates (no DDL)
+      ingen_fab package synthetic-data compile --output-format notebook
+
+      # Compile all templates for warehouse environment
+      ingen_fab package synthetic-data compile --target-environment warehouse
+    """
+    synthetic_data_commands.unified_compile(
+        ctx=ctx,
+        template=template,
+        runtime_config=runtime_config,
+        output_format=output_format,
+        target_environment=target_environment,
+    )
+
 
 @ingest_app.command("compile")
 def ingest_app_compile(
     ctx: typer.Context,
-    template_vars: Annotated[str, typer.Option("--template-vars", "-t", help="JSON string of template variables")] = None,
-    include_samples: Annotated[bool, typer.Option("--include-samples", "-s", help="Include sample data DDL and files")] = False,
-    target_datastore: Annotated[str, typer.Option("--target-datastore", "-d", help="Target datastore type: lakehouse, warehouse, or both")] = "lakehouse",
+    template_vars: Annotated[
+        Optional[str],
+        typer.Option("--template-vars", "-t", help="JSON string of template variables"),
+    ] = None,
+    include_samples: Annotated[
+        bool,
+        typer.Option(
+            "--include-samples", "-s", help="Include sample data DDL and files"
+        ),
+    ] = False,
+    target_datastore: Annotated[
+        str,
+        typer.Option(
+            "--target-datastore",
+            "-d",
+            help="Target datastore type: lakehouse, warehouse, or both",
+        ),
+    ] = "lakehouse",
+    add_debug_cells: Annotated[
+        bool,
+        typer.Option(
+            "--add-debug-cells",
+            help="Add debug cells with embedded configurations for testing",
+        ),
+    ] = False,
 ):
     """Compile flat file ingestion package templates and DDL scripts."""
-    import json
-
-    from ingen_fab.packages.flat_file_ingestion.flat_file_ingestion import (
-        compile_flat_file_ingestion_package,
+    package_commands.ingest_compile(
+        ctx=ctx,
+        template_vars=template_vars,
+        include_samples=include_samples,
+        target_datastore=target_datastore,
+        add_debug_cells=add_debug_cells,
     )
-    
-    # Parse template variables if provided
-    vars_dict = {}
-    if template_vars:
-        try:
-            vars_dict = json.loads(template_vars)
-        except json.JSONDecodeError as e:
-            console.print(f"[red]Error parsing template variables: {e}[/red]")
-            raise typer.Exit(code=1)
-    
-    # Get fabric workspace repo directory from context
-    fabric_workspace_repo_dir = str(ctx.obj["fabric_workspace_repo_dir"])
-    
-    # Validate target datastore parameter
-    valid_datastores = ["lakehouse", "warehouse", "both"]
-    if target_datastore not in valid_datastores:
-        console.print(f"[red]Error: Invalid target datastore '{target_datastore}'. Must be one of: {', '.join(valid_datastores)}[/red]")
-        raise typer.Exit(code=1)
-    
-    try:
-        results = compile_flat_file_ingestion_package(
-            fabric_workspace_repo_dir=fabric_workspace_repo_dir,
-            template_vars=vars_dict,
-            include_samples=include_samples,
-            target_datastore=target_datastore
-        )
-        
-        if results["success"]:
-            console.print("[green]✓ Flat file ingestion package compiled successfully![/green]")
-        else:
-            console.print(f"[red]✗ Compilation failed: {results['errors']}[/red]")
-            raise typer.Exit(code=1)
-            
-    except Exception as e:
-        console.print(f"[red]Error compiling package: {e}[/red]")
-        raise typer.Exit(code=1)
 
 
 @ingest_app.command()
 def run(
     ctx: typer.Context,
-    config_id: Annotated[str, typer.Option("--config-id", "-c", help="Specific configuration ID to process")] = "",
-    execution_group: Annotated[int, typer.Option("--execution-group", "-g", help="Execution group number")] = 1,
-    environment: Annotated[str, typer.Option("--environment", "-e", help="Environment name")] = "development",
+    config_id: Annotated[
+        str,
+        typer.Option("--config-id", "-c", help="Specific configuration ID to process"),
+    ] = "",
+    execution_group: Annotated[
+        int, typer.Option("--execution-group", "-g", help="Execution group number")
+    ] = 1,
+    environment: Annotated[
+        str, typer.Option("--environment", "-e", help="Environment name")
+    ] = "development",
 ):
     """Run flat file ingestion for specified configuration or execution group."""
-    console.print(f"[blue]Running flat file ingestion...[/blue]")
-    console.print(f"Config ID: {config_id}")
-    console.print(f"Execution Group: {execution_group}")
-    console.print(f"Environment: {environment}")
-    console.print(f"Fabric Workspace Repo Dir: {ctx.obj['fabric_workspace_repo_dir']}")
-    
-    console.print("[yellow]Note: This command would typically execute the compiled notebook with the specified parameters.[/yellow]")
-    console.print("[yellow]In a production environment, this would submit the notebook to Fabric for execution.[/yellow]")
+    package_commands.ingest_run(
+        ctx=ctx,
+        config_id=config_id,
+        execution_group=execution_group,
+        environment=environment,
+    )
 
 
 @synapse_app.command("compile")
 def synapse_app_compile(
     ctx: typer.Context,
-    template_vars: Annotated[str, typer.Option("--template-vars", "-t", help="JSON string of template variables")] = None,
-    include_samples: Annotated[bool, typer.Option("--include-samples", "-s", help="Include sample data DDL and files")] = False,
+    template_vars: Annotated[
+        Optional[str],
+        typer.Option("--template-vars", "-t", help="JSON string of template variables"),
+    ] = None,
+    include_samples: Annotated[
+        bool,
+        typer.Option(
+            "--include-samples", "-s", help="Include sample data DDL and files"
+        ),
+    ] = False,
 ):
     """Compile synapse sync package templates and DDL scripts."""
-    import json
-
-    from ingen_fab.packages.synapse_sync.synapse_sync import (
-        compile_synapse_sync_package,
+    package_commands.synapse_compile(
+        ctx=ctx, template_vars=template_vars, include_samples=include_samples
     )
-    
-    # Parse template variables if provided
-    vars_dict = {}
-    if template_vars:
-        try:
-            vars_dict = json.loads(template_vars)
-        except json.JSONDecodeError as e:
-            console.print(f"[red]Error parsing template variables: {e}[/red]")
-            raise typer.Exit(code=1)
-    
-    # Get fabric workspace repo directory from context
-    fabric_workspace_repo_dir = str(ctx.obj["fabric_workspace_repo_dir"])
-    
-    try:
-        results = compile_synapse_sync_package(
-            fabric_workspace_repo_dir=fabric_workspace_repo_dir,
-            template_vars=vars_dict,
-            include_samples=include_samples
-        )
-        
-        if results["success"]:
-            console.print("[green]✓ Synapse sync package compiled successfully![/green]")
-        else:
-            console.print(f"[red]✗ Compilation failed: {results['errors']}[/red]")
-            raise typer.Exit(code=1)
-            
-    except Exception as e:
-        console.print(f"[red]Error compiling package: {e}[/red]")
-        raise typer.Exit(code=1)
 
 
-@synapse_app.command()
-def run(
+@synapse_app.command("run")
+def synapse_app_run(
     ctx: typer.Context,
-    master_execution_id: Annotated[str, typer.Option("--master-execution-id", "-m", help="Master execution ID")] = "",
-    work_items_json: Annotated[str, typer.Option("--work-items-json", "-w", help="JSON string of work items for historical mode")] = "",
-    max_concurrency: Annotated[int, typer.Option("--max-concurrency", "-c", help="Maximum concurrency level")] = 10,
-    include_snapshots: Annotated[bool, typer.Option("--include-snapshots", "-s", help="Include snapshot tables")] = True,
-    environment: Annotated[str, typer.Option("--environment", "-e", help="Environment name")] = "development",
+    master_execution_id: Annotated[
+        str, typer.Option("--master-execution-id", "-m", help="Master execution ID")
+    ] = "",
+    work_items_json: Annotated[
+        str,
+        typer.Option(
+            "--work-items-json",
+            "-w",
+            help="JSON string of work items for historical mode",
+        ),
+    ] = "",
+    max_concurrency: Annotated[
+        int, typer.Option("--max-concurrency", "-c", help="Maximum concurrency level")
+    ] = 10,
+    include_snapshots: Annotated[
+        bool, typer.Option("--include-snapshots", "-s", help="Include snapshot tables")
+    ] = True,
+    environment: Annotated[
+        str, typer.Option("--environment", "-e", help="Environment name")
+    ] = "development",
 ):
     """Run synapse sync extraction for specified configuration."""
-    console.print(f"[blue]Running synapse sync extraction...[/blue]")
-    console.print(f"Master Execution ID: {master_execution_id}")
-    console.print(f"Work Items JSON: {work_items_json}")
-    console.print(f"Max Concurrency: {max_concurrency}")
-    console.print(f"Include Snapshots: {include_snapshots}")
-    console.print(f"Environment: {environment}")
-    console.print(f"Fabric Workspace Repo Dir: {ctx.obj['fabric_workspace_repo_dir']}")
-    
-    console.print("[yellow]Note: This command would typically execute the compiled notebook with the specified parameters.[/yellow]")
-    console.print("[yellow]In a production environment, this would submit the notebook to Fabric for execution.[/yellow]")
+    package_commands.synapse_run(
+        ctx=ctx,
+        master_execution_id=master_execution_id,
+        work_items_json=work_items_json,
+        max_concurrency=max_concurrency,
+        include_snapshots=include_snapshots,
+        environment=environment,
+    )
+
+
+# Extract generation commands
+@extract_app.command("compile")
+def extract_app_compile(
+    ctx: typer.Context,
+    template_vars: Annotated[
+        Optional[str],
+        typer.Option("--template-vars", "-t", help="JSON string of template variables"),
+    ] = None,
+    include_samples: Annotated[
+        bool,
+        typer.Option(
+            "--include-samples", "-s", help="Include sample data DDL and source tables"
+        ),
+    ] = False,
+    target_datastore: Annotated[
+        str,
+        typer.Option(
+            "--target-datastore", "-d", help="Target datastore type (warehouse)"
+        ),
+    ] = "warehouse",
+):
+    """Compile extract generation package templates and DDL scripts."""
+    package_commands.extract_compile(
+        ctx=ctx,
+        template_vars=template_vars,
+        include_samples=include_samples,
+        target_datastore=target_datastore,
+    )
+
+
+@extract_app.command()
+def extract_run(
+    ctx: typer.Context,
+    extract_name: Annotated[
+        str,
+        typer.Option(
+            "--extract-name", "-n", help="Specific extract configuration to process"
+        ),
+    ] = "",
+    execution_group: Annotated[
+        str, typer.Option("--execution-group", "-g", help="Execution group to process")
+    ] = "",
+    environment: Annotated[
+        str, typer.Option("--environment", "-e", help="Environment name")
+    ] = "development",
+    run_type: Annotated[
+        str, typer.Option("--run-type", "-r", help="Run type: FULL or INCREMENTAL")
+    ] = "FULL",
+):
+    """Run extract generation for specified configuration or execution group."""
+    package_commands.extract_run(
+        ctx=ctx,
+        extract_name=extract_name,
+        execution_group=execution_group,
+        environment=environment,
+        run_type=run_type,
+    )
 
 
 # Library compilation commands
-@libs_app.command()
-def compile(
+@libs_app.command("compile")
+def libs_app_compile(
     ctx: typer.Context,
-    target_file: Annotated[str, typer.Option("--target-file", "-f", help="Specific python file to compile (relative to project root)")] = None,
+    target_file: Annotated[
+        Optional[str],
+        typer.Option(
+            "--target-file",
+            "-f",
+            help="Specific python file to compile (relative to project root)",
+        ),
+    ] = None,
 ):
     """Compile Python libraries by injecting variables from the variable library."""
-    from pathlib import Path
-    from ingen_fab.config_utils.variable_lib import inject_variables_into_file, VariableLibraryUtils
-    
-    project_path = Path(ctx.obj["fabric_workspace_repo_dir"])
-    environment = str(ctx.obj["fabric_environment"])
-    
-    console.print(f"[blue]Compiling Python libraries...[/blue]")
-    console.print(f"Project path: {project_path}")
-    console.print(f"Environment: {environment}")
-    
-    if target_file:
-        # Compile specific file
-        target_path = project_path / target_file
-        console.print(f"Target file: {target_path}")
-        
-        if not target_path.exists():
-            console.print(f"[red]Error: Target file not found: {target_path}[/red]")
-            raise typer.Exit(code=1)
-            
-        try:
-            inject_variables_into_file(project_path, target_path, environment)
-            console.print(f"[green]✓ Successfully compiled: {target_file}[/green]")
-        except Exception as e:
-            console.print(f"[red]Error compiling {target_file}: {e}[/red]")
-            raise typer.Exit(code=1)
-    else:
-        # Compile config_utils.py as default - use absolute path since we're in the ingen_fab directory
-        from pathlib import Path as PathlibPath
-        current_dir = PathlibPath.cwd()
-        config_utils_path = current_dir / "ingen_fab" / "python_libs" / "common" / "config_utils.py"
-        console.print(f"Target file: {config_utils_path}")
-        
-        if not config_utils_path.exists():
-            console.print(f"[red]Error: config_utils.py not found at: {config_utils_path}[/red]")
-            raise typer.Exit(code=1)
-            
-        try:
-            inject_variables_into_file(project_path, config_utils_path, environment)
-            console.print(f"[green]✓ Successfully compiled config_utils.py[/green]")
-        except Exception as e:
-            console.print(f"[red]Error compiling config_utils.py: {e}[/red]")
-            raise typer.Exit(code=1)
+    libs_commands.libs_compile(ctx=ctx, target_file=target_file)
 
 
 if __name__ == "__main__":
