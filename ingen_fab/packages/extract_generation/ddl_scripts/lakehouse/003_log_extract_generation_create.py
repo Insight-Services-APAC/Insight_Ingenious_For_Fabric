@@ -43,6 +43,10 @@ extract_log_schema = StructType(
         # Trigger file information
         StructField("trigger_file_created", BooleanType(), nullable=True),
         StructField("trigger_file_path", StringType(), nullable=True),
+        # Performance metrics
+        StructField("throughput_rows_per_second", IntegerType(), nullable=True),
+        StructField("memory_usage_mb_before", IntegerType(), nullable=True),
+        StructField("memory_usage_mb_after", IntegerType(), nullable=True),
         # Environment information
         StructField("workspace_id", StringType(), nullable=True),
         StructField("lakehouse_id", StringType(), nullable=True),
