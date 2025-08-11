@@ -63,7 +63,23 @@ extract_details_schema = StructType(
         StructField("compressed_level", StringType(), nullable=True),
         StructField("compressed_file_name", StringType(), nullable=True),
         StructField("compressed_extension", StringType(), nullable=True),
-        # Fabric paths
+        # Source location fields (for reading data)
+        StructField("source_workspace_id", StringType(), nullable=True),
+        StructField("source_datastore_id", StringType(), nullable=True),
+        StructField(
+            "source_datastore_type", StringType(), nullable=True
+        ),  # 'lakehouse' or 'warehouse'
+        StructField("source_schema_name", StringType(), nullable=True),
+        # Target location fields (for writing extract files)
+        StructField("target_workspace_id", StringType(), nullable=True),
+        StructField("target_datastore_id", StringType(), nullable=True),
+        StructField(
+            "target_datastore_type", StringType(), nullable=True
+        ),  # 'lakehouse' or 'warehouse'
+        StructField(
+            "target_file_root_path", StringType(), nullable=True
+        ),  # e.g., 'Files', 'Tables'
+        # Legacy field for backward compatibility
         StructField("fabric_lakehouse_path", StringType(), nullable=True),
         # Performance options
         StructField("force_single_file", BooleanType(), nullable=True),
