@@ -85,6 +85,7 @@ build-backend = "setuptools.build_meta"
 [tool.setuptools.packages.find]
 where = ["."]
 include = ["ingen_fab*"]
+exclude = [".pre-commit-cache*", "*.pre-commit-cache*"]
 
 [tool.setuptools.package-data]
 ingen_fab = ["**/*.json", "**/*.jinja", "**/*.jinja2", "**/*.sql", "**/*.py", "**/*.md", "**/*.yml", "**/*.yaml", "**/.platform", "project_templates/**/*.txt", "project_templates/**/.gitignore"]
