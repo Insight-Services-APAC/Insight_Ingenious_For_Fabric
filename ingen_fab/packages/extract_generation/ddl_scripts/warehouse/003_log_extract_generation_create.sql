@@ -48,6 +48,11 @@ CREATE TABLE [log].[log_extract_generation] (
     end_time DATETIME2(6),
     duration_seconds INT,
     
+    -- Performance metrics
+    throughput_rows_per_second INT,
+    memory_usage_mb_before INT,
+    memory_usage_mb_after INT,
+    
     -- Error handling
     error_message VARCHAR(8000),
     error_details VARCHAR(8000),
