@@ -1,0 +1,4 @@
+SELECT count(*)
+FROM {{ schema_name | required }}.{{ table_name | required }}
+WHERE script_id = '{{ script_id | required }}'
+AND lower(execution_status) = 'success'

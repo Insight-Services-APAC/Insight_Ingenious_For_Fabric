@@ -31,6 +31,66 @@ ingen_fab package ingest compile --target-datastore warehouse --include-samples
 ingen_fab package ingest run --config-id=my-config
 ```
 
+### Extract Generation
+
+A package for managing and orchestrating data extract generation from Fabric warehouses and lakehouses.
+
+**Key Features:**
+- Configurable extract definitions
+- Extract job scheduling and orchestration
+- Comprehensive execution logging
+- Support for multiple target formats
+- Extract generation tracking and history
+
+**Quick Start:**
+```bash
+# Compile the extract generation package
+ingen_fab package extract compile --include-samples
+
+# Run extract generation
+ingen_fab package extract run --config-id=my-extract-config
+```
+
+### Synapse Sync
+
+A package for synchronizing data between Microsoft Fabric and Azure Synapse Analytics workspaces.
+
+**Key Features:**
+- Bidirectional data synchronization
+- Configurable sync patterns
+- Incremental data sync support
+- Comprehensive sync logging
+- Conflict resolution strategies
+
+**Quick Start:**
+```bash
+# Compile the synapse sync package
+ingen_fab package synapse compile --include-samples
+
+# Run synapse sync
+ingen_fab package synapse run --config-id=my-sync-config
+```
+
+### Synthetic Data Generation
+
+A package for generating realistic synthetic data for testing and development purposes.
+
+**Key Features:**
+- Multiple dataset templates (retail, finance, healthcare)
+- Configurable data volumes and patterns
+- Relationships and referential integrity
+- Data quality profiles
+- Multiple output formats
+
+**Quick Start:**
+```bash
+# Compile synthetic data generation for a specific dataset
+ingen_fab package synthetic-data compile --dataset-id retail_oltp_small --size small
+
+# Generate synthetic data
+ingen_fab package synthetic-data run --dataset-id retail_oltp_small
+```
+
 ## Package Development
 
 Learn how to create your own packages:
@@ -74,10 +134,14 @@ Packages integrate seamlessly with the CLI:
 ingen_fab package <package-name> <command> [options]
 
 # Available packages
-ingen_fab package ingest compile    # Flat file ingestion package
-ingen_fab package ingest run        # Run flat file ingestion
-ingen_fab package synapse compile   # Synapse sync package  
-ingen_fab package synapse run       # Run synapse sync
+ingen_fab package ingest compile           # Flat file ingestion package
+ingen_fab package ingest run               # Run flat file ingestion
+ingen_fab package extract compile          # Extract generation package
+ingen_fab package extract run              # Run extract generation
+ingen_fab package synapse compile          # Synapse sync package  
+ingen_fab package synapse run              # Run synapse sync
+ingen_fab package synthetic-data compile   # Synthetic data generation package
+ingen_fab package synthetic-data run       # Run synthetic data generation
 ```
 
 ## Next Steps

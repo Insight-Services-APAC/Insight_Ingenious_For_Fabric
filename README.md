@@ -95,6 +95,7 @@ ingen_fab --help
 - **`test`** - Test notebooks and Python blocks (local and platform)
 - **`package`** - Compile and run extension packages (e.g., flat file ingestion, synapse sync)
 - **`libs`** - Compile and manage Python libraries
+- **`extract`** - Extract metadata from warehouses and lakehouses
 
 ### Common Commands
 
@@ -248,3 +249,5 @@ mkdocs serve --dev-addr=0.0.0.0:8000
 ## License
 
 This project is provided for demonstration purposes and has no specific license.
+# Extract lakehouse metadata (via SQL endpoint)
+ingen_fab extract lakehouse-metadata --lakehouse-name MyLakehouse --format table

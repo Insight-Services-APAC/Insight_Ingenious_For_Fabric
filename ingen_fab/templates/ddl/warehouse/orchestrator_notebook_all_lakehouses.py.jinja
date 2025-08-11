@@ -30,6 +30,7 @@ else:
         "ingen_fab/python_libs/python/pipeline_utils.py"
     ]
 
+    load_python_modules_from_path(mount_path, files_to_load)
 {{ macros.python_cell_with_heading("## 🆕 Instantiate Required Classes ")}}
 
 
@@ -48,7 +49,6 @@ lakehouses_to_run = [
 
 
 # Import required libraries
-from notebookutils import mssparkutils
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import datetime
 import time
@@ -65,11 +65,12 @@ print("="*60)
 
 
 # Define function to run a single lakehouse orchestrator
-def run_lakehouse_orchestrator(lakehouse_name, orchestrator_name):
+def run_lakehouse_orchestrator(lakehouse_name, orchestrator_name, stagger_delay=0):
     """Run a single lakehouse orchestrator and return the result."""
     result = {
         'lakehouse': lakehouse_name,
         'orchestrator': orchestrator_name,
+        'orchestrator_path': f"ddl_scripts/Warehouses/{lakehouse_name}/{orchestrator_name}.Notebook/notebook-content.py",
         'start_time': datetime.now(),
         'end_time': None,
         'duration': None,
@@ -79,21 +80,20 @@ def run_lakehouse_orchestrator(lakehouse_name, orchestrator_name):
     }
     
     try:
+        # Add staggered delay to avoid concurrent update issues
+        if stagger_delay > 0:
+            print(f"[{result['start_time']}] Waiting {stagger_delay:.1f}s before starting {lakehouse_name} (staggered execution)")
+            time.sleep(stagger_delay)
+            
         print(f"[{result['start_time']}] Starting orchestrator for {lakehouse_name}")
         
-        params = {
-            "fabric_environment": fabric_environment,
-            "config_workspace_id": config_workspace_id,
-            "config_lakehouse_id": config_lakehouse_id,
-            "target_lakehouse_config_prefix": f"{lakehouse_name}",
-            "full_reset": full_reset
-        }
+        params = {}
 
         # Run the lakehouse orchestrator
-        notebook_result = mssparkutils.notebook.run(
-            f"{orchestrator_name}_Lakehouses_ddl_scripts",
-            timeout_seconds=7200,  # 2 hour timeout per lakehouse
-            arguments=params
+        notebook_result = notebookutils.mssparkutils.notebook.run(
+            f"{orchestrator_name}",
+            timeout=7200,  # 2 hour timeout per lakehouse
+            params=params
         )
         
         result['end_time'] = datetime.now()
@@ -122,17 +122,19 @@ print("\nStarting parallel execution of lakehouse orchestrators...")
 print("="*60)
 
 
-# Run orchestrators in parallel using ThreadPoolExecutor
+# Run orchestrators in parallel using ThreadPoolExecutor with staggered execution
 with ThreadPoolExecutor(max_workers={{ total_lakehouses }}) as executor:
-    # Submit all tasks
-    future_to_lakehouse = {
-        executor.submit(
+    # Submit all tasks with staggered delays (0.2 seconds apart)
+    future_to_lakehouse = {}
+    for i, lakehouse in enumerate(lakehouses_to_run):
+        stagger_delay = i * 0.2  # 0.2-second stagger between executions
+        future = executor.submit(
             run_lakehouse_orchestrator, 
             lakehouse['name'], 
-            lakehouse['orchestrator']
-        ): lakehouse['name'] 
-        for lakehouse in lakehouses_to_run
-    }
+            lakehouse['orchestrator'],
+            stagger_delay
+        )
+        future_to_lakehouse[future] = lakehouse['name']
     
     # Process completed tasks as they finish
     for future in as_completed(future_to_lakehouse):
@@ -194,14 +196,15 @@ for lakehouse_name in sorted(results.keys()):
     result = results[lakehouse_name]
     status_icon = "✓" if result['status'] == 'Success' else "✗"
     duration_str = str(result.get('duration', 'N/A'))
-    summary_data.append(f"| {lakehouse_name} | {status_icon} {result['status']} | {duration_str} |")
+    orchestrator_path = result.get('orchestrator_path', 'N/A')
+    summary_data.append(f"| {lakehouse_name} | {status_icon} {result['status']} | {duration_str} | {orchestrator_path} |")
 
 markdown_table = f"""
 ## Execution Summary Table
 
-| Lakehouse | Status | Duration |
-|-----------|--------|----------|
-{''.join(summary_data)}
+| Lakehouse | Status | Duration | Orchestrator Path |
+|-----------|--------|----------|-------------------|
+{chr(10).join(summary_data)}
 
 **Total Execution Time:** {total_duration}
 """
@@ -213,11 +216,11 @@ print(markdown_table)
 if failed_count == 0 and exception_count == 0:
     final_message = f"✓ All {success_count} lakehouses processed successfully!"
     print(f"\n{final_message}")
-    mssparkutils.notebook.exit(final_message)
+    notebookutils.notebook.exit(final_message)
 else:
     final_message = f"Completed with {failed_count + exception_count} failures out of {{ total_lakehouses }} lakehouses"
     print(f"\n✗ {final_message}")
-    mssparkutils.notebook.exit(final_message)
+    notebookutils.notebook.exit(final_message)
     raise Exception(final_message)
 
 {%include "shared/notebook/cells/footer.py.jinja" %}

@@ -13,8 +13,8 @@ from rich.progress import (
 from rich.table import Table
 
 from ingen_fab.notebook_utils.base_notebook_compiler import BaseNotebookCompiler
+from ingen_fab.python_libs.common.utils.path_utils import PathUtils
 from ingen_fab.python_libs.gather_python_libs import GatherPythonLibs
-from ingen_fab.utils.path_utils import PathUtils
 
 
 class NotebookGenerator(BaseNotebookCompiler):
@@ -40,15 +40,15 @@ class NotebookGenerator(BaseNotebookCompiler):
         self.output_mode = output_mode
         self.base_dir = Path.cwd()
 
-        if self.generation_mode == NotebookGenerator.GenerationMode.warehouse:            
+        if self.generation_mode == NotebookGenerator.GenerationMode.warehouse:
             self.language_group = "jupyter_python"
-        else: 
+        else:
             self.language_group = "synapse_pyspark"
 
         if templates_dir is None:
             # Use the unified template directory with proper path resolution
             try:
-                templates_dir = PathUtils.get_template_path('ddl')
+                templates_dir = PathUtils.get_template_path("ddl")
             except FileNotFoundError:
                 # Fallback for development environment
                 templates_dir = Path.cwd() / "ingen_fab" / "templates"
@@ -72,7 +72,7 @@ class NotebookGenerator(BaseNotebookCompiler):
             templates_dir=templates_dir,
             output_dir=output_dir,
             fabric_workspace_repo_dir=fabric_workspace_repo_dir,
-            package_name=f"ddl_{generation_mode.value.lower()}_generator"
+            package_name=f"ddl_{generation_mode.value.lower()}_generator",
         )
 
         # Override output_dir for fabric_workspace_repo mode
@@ -93,7 +93,6 @@ class NotebookGenerator(BaseNotebookCompiler):
                 f"[bold blue]Lakehouses or Warehouses Directory:[/bold blue] {self.entities_dir}"
             )
 
-
     def generate_config_notebook(self, output_dir):
         """Generate a configuration notebook for the current entity."""
         # TODO: Create configuration templates if needed
@@ -111,7 +110,7 @@ print(f"Configuration notebook for {self.entities_folder}")
             notebook_name=notebook_name,
             rendered_content=rendered_config,
             output_dir=output_dir,
-            platform_template="shared/platform/notebook_metadata.json.jinja"
+            platform_template="shared/platform/notebook_metadata.json.jinja",
         )
 
     def generate_notebook(
@@ -124,7 +123,9 @@ print(f"Configuration notebook for {self.entities_folder}")
         parent_task=None,
     ):
         """Generate a notebook and its .platform file for a specific entity configuration."""
-        notebook_template = self.load_template(f"ddl/{self.generation_mode.lower()}/notebook_content.py.jinja")
+        notebook_template = self.load_template(
+            f"ddl/{self.generation_mode.lower()}/notebook_content.py.jinja"
+        )
         cells = []
 
         config_folder = Path(config_folder)
@@ -150,9 +151,13 @@ print(f"Configuration notebook for {self.entities_folder}")
 
             # Determine the template to use based on file extension
             if file_path.suffix == ".py":
-                cell_template = self.load_template("ddl/execution_cells/pyspark.py.jinja")
+                cell_template = self.load_template(
+                    "ddl/execution_cells/pyspark.py.jinja"
+                )
             elif file_path.suffix == ".sql":
-                cell_template = self.load_template("ddl/execution_cells/spark_sql.py.jinja")
+                cell_template = self.load_template(
+                    "ddl/execution_cells/spark_sql.py.jinja"
+                )
             else:
                 continue  # Skip unsupported file types
 
@@ -184,9 +189,9 @@ print(f"Configuration notebook for {self.entities_folder}")
                     "example-warehouse-id"
                     if self.generation_mode
                     == NotebookGenerator.GenerationMode.warehouse
-                    else None              
-                ),            
-                language_group=self.language_group  
+                    else None
+                ),
+                language_group=self.language_group,
             )
 
             # Add cell to the list
@@ -195,10 +200,14 @@ print(f"Configuration notebook for {self.entities_folder}")
             if progress and parent_task is not None:
                 progress.advance(cell_task)
 
-            #time.sleep(0.5)  # Simulate processing time for each cell
+            # time.sleep(0.5)  # Simulate processing time for each cell
 
         # Render the notebook template with the cells
-        rendered_notebook = notebook_template.render(cells=cells, target_lakehouse_config_prefix=target_lakehouse_config_prefix, language_group=self.language_group)
+        rendered_notebook = notebook_template.render(
+            cells=cells,
+            target_lakehouse_config_prefix=target_lakehouse_config_prefix,
+            language_group=self.language_group,
+        )
 
         # Create notebook with platform file
         resolved_config_folder = Path(config_folder).resolve()
@@ -209,7 +218,7 @@ print(f"Configuration notebook for {self.entities_folder}")
             rendered_content=rendered_notebook,
             output_dir=output_folder.parent,
             display_name=f"{notebook_display_name}_ddl_scripts",
-            platform_template="shared/platform/notebook_metadata.json.jinja"
+            platform_template="shared/platform/notebook_metadata.json.jinja",
         )
 
         # Mark cell task as complete
@@ -225,20 +234,26 @@ print(f"Configuration notebook for {self.entities_folder}")
         """Generate an orchestrator notebook that runs all notebooks for an entity in sequence."""
 
         # Load the orchestrator template
-        orchestrator_template = self.load_template(f"ddl/{self.generation_mode.lower()}/orchestrator_notebook.py.jinja")
+        orchestrator_template = self.load_template(
+            f"ddl/{self.generation_mode.lower()}/orchestrator_notebook.py.jinja"
+        )
 
         # Prepare notebook execution data
         notebooks = []
         for i, notebook_name in enumerate(notebook_names, 1):
             notebooks.append(
-                {"index": i, "name": notebook_name, "total": len(notebook_names)}
+                {
+                    "index": i,
+                    "name": notebook_name + "_ddl_scripts",
+                    "total": len(notebook_names),
+                }
             )  # Render the orchestrator notebook
         orchestrator_content = orchestrator_template.render(
             lakehouse_name=entity_name,
             notebooks=notebooks,
             total_notebooks=len(notebook_names),
             target_lakehouse_config_prefix=target_lakehouse_config_prefix,
-            language_group=self.language_group
+            language_group=self.language_group,
         )
 
         # Create notebook with platform file
@@ -248,7 +263,7 @@ print(f"Configuration notebook for {self.entities_folder}")
             rendered_content=orchestrator_content,
             output_dir=output_folder,
             display_name=f"{notebook_name}_ddl_scripts",
-            platform_template="shared/platform/notebook_metadata.json.jinja"
+            platform_template="shared/platform/notebook_metadata.json.jinja",
         )
 
     def generate_all_entities_orchestrator(self, entity_names, output_dir):
@@ -259,14 +274,19 @@ print(f"Configuration notebook for {self.entities_folder}")
             f"ddl/{self.generation_mode.lower()}/orchestrator_notebook_all_lakehouses.py.jinja"
         )
 
-        # Prepare lakehouse data
+        # Prepare lakehouse data.
         lakehouses = []
         for name in entity_names:
             lakehouses.append(
-                {"name": name, "orchestrator_name": f"0_orchestrator_{name}_{self.generation_mode.lower()}_ddl_scripts"}
+                {
+                    "name": name,
+                    "orchestrator_name": f"00_orchestrator_{name}_{self.generation_mode.lower()}_ddl_scripts",
+                }
             )  # Render the all lakehouses orchestrator notebook
         orchestrator_content = all_lakehouses_template.render(
-            lakehouses=lakehouses, total_lakehouses=len(lakehouses), language_group=self.language_group
+            lakehouses=lakehouses,
+            total_lakehouses=len(lakehouses),
+            language_group=self.language_group,
         )
 
         # Create notebook with platform file
@@ -276,7 +296,7 @@ print(f"Configuration notebook for {self.entities_folder}")
             rendered_content=orchestrator_content,
             output_dir=output_dir,
             display_name=f"{notebook_name}_ddl_scripts",
-            platform_template="shared/platform/notebook_metadata.json.jinja"
+            platform_template="shared/platform/notebook_metadata.json.jinja",
         )
 
     def inject_python_libs_into_template(self):
@@ -460,7 +480,7 @@ print(f"Configuration notebook for {self.entities_folder}")
                     f"{self.entities_folder.lower()}",
                 )
                 self.generate_all_entities_orchestrator(entity_names, self.output_dir)
-                #self.generate_config_notebook(self.output_dir)
+                # self.generate_config_notebook(self.output_dir)
                 progress.console.print(
                     f"[green]✓[/green] Generated master orchestrator for all {self.entities_folder.lower()}"
                 )
@@ -485,4 +505,3 @@ print(f"Configuration notebook for {self.entities_folder}")
                 border_style="green" if error_count == 0 else "yellow",
             )
         )
-

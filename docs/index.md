@@ -1,17 +1,86 @@
 # Ingenious Fabric Accelerator
 
-Ingenious for Fabric is a comprehensive command line tool built with [Typer](https://typer.tiangolo.com/) that helps create and manage Microsoft Fabric assets. It provides a complete development workflow for Fabric workspaces, including project initialization, DDL notebook generation, environment management, and deployment automation.
+Ingenious for Fabric is a comprehensive command line tool built with [Typer](https://typer.tiangolo.com/) that helps create and manage Microsoft Fabric assets. It provides a complete development workflow for Fabric workspaces, including project initialization, DDL notebook generation, environment management, testing and deployment automation.
 
 ## Features
 
-- **Project Initialization**: Create new Fabric workspace projects with proper structure and templates
-- **DDL Notebook Generation**: Generate DDL notebooks from Jinja templates for both lakehouses and warehouses
-- **Environment Management**: Deploy and manage artifacts across multiple environments (development, test, production)
-- **Orchestrator Notebooks**: Create orchestrator notebooks to run generated notebooks in sequence
-- **Notebook Utilities**: Scan and analyze existing notebook code and content
-- **Testing Framework**: Test notebooks both locally and on the Fabric platform
-- **Python Libraries**: Reusable Python and PySpark libraries for common Fabric operations
-- **Packages**: Reusable workload extensions for common data processing scenarios
+<div class="grid cards" markdown>
+
+-   :material-folder-plus:{ .lg .middle } **Project Initialization**
+
+    ---
+
+    Scaffold a workspace repo with a default variable library, sample DDL, and ready-to-run, workload-oriented notebooks.
+
+    [:octicons-arrow-right-24: Learn more](user_guide/quick_start.md)
+
+-   :material-table:{ .lg .middle } **DDL Notebook Generation**
+
+    ---
+
+    Compile SQL or Python DDL into ordered, idempotent Fabric notebooks for lakehouse and warehouse targets.
+
+    [:octicons-arrow-right-24: Learn more](developer_guide/ddl_scripts.md)
+
+-   :material-cloud-upload:{ .lg .middle } **Environment & Deployment**
+
+    ---
+
+    Manage variables per environment and deploy workspace items consistently across dev, test, and prod.
+
+    [:octicons-arrow-right-24: Learn more](user_guide/deploy_guide.md)
+
+-   :material-playlist-play:{ .lg .middle } **Orchestrator Notebooks**
+
+    ---
+
+    Auto-generate orchestrators that run DDL notebooks in sequence with logging and safety checks.
+
+    [:octicons-arrow-right-24: Learn more](user_guide/quick_start.md#step-4-generate-ddl-notebooks)
+
+-   :material-magnify-scan:{ .lg .middle } **Notebook Utilities**
+
+    ---
+
+    Scan, analyze, and transform notebook content with reusable helpers that work locally and in Fabric.
+
+    [:octicons-arrow-right-24: Learn more](developer_guide/notebook_utils.md)
+
+-   :material-test-tube:{ .lg .middle } **Testing Framework**
+
+    ---
+
+    Run local library tests and platform validations to keep notebooks and libs reliable.
+
+    [:octicons-arrow-right-24: Learn more](user_guide/cli_reference.md#test)
+
+-   :material-language-python:{ .lg .middle } **Python Libraries**
+
+    ---
+
+    Shared Python and PySpark libraries with environment-aware variable injection and Fabric-friendly APIs.
+
+    [:octicons-arrow-right-24: Learn more](developer_guide/python_libraries.md)
+
+-   :material-package-variant-closed:{ .lg .middle } **Packages**
+
+    ---
+
+    Plug-and-play workloads (ingestion, extracts, sync, synthetic data) you can compile and run.
+
+    [:octicons-arrow-right-24: Learn more](packages/index.md)
+
+</div>
+
+## Getting Started
+
+!!! tip "New to Ingenious Fabric Accelerator?"
+    Start with our [Installation Guide](user_guide/installation.md) to get up and running quickly.
+
+!!! example "Ready to dive in?"
+    Check out our [Sample Project](examples/sample_project.md) for a complete walkthrough.
+
+
 
 ## Quick Start
 
@@ -79,13 +148,6 @@ ingen_fab package ingest compile --target-datastore warehouse --include-samples
 ingen_fab package synapse compile --include-samples
 ```
 
-## Getting Started
-
-!!! tip "New to Ingenious Fabric Accelerator?"
-    Start with our [Installation Guide](user_guide/installation.md) to get up and running quickly.
-
-!!! example "Ready to dive in?"
-    Check out our [Sample Project](examples/sample_project.md) for a complete walkthrough.
 
 ## Architecture
 

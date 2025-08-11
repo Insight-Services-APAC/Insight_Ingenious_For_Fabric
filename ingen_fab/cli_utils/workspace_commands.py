@@ -9,7 +9,9 @@ from ingen_fab.fabric_api.utils import FabricApiUtils
 def delete_workspace_items(environment: str, project_path: Path, force: bool):
     console = Console()
     try:
-        fabric_utils = FabricApiUtils(environment=environment, project_path=project_path)
+        fabric_utils = FabricApiUtils(
+            environment=environment, project_path=project_path
+        )
         if not force:
             console.print(
                 f"\n[yellow]Warning: This will delete all items in workspace {fabric_utils.workspace_id} except lakehouses and warehouses.[/yellow]"

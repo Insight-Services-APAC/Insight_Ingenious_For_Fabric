@@ -1,83 +1,187 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
     <url>
-         <loc>https://your-org.github.io/ingen_fab/</loc>
-         <lastmod>2025-07-15</lastmod>
+         <loc>https://localhost:8000/</loc>
+         <lastmod>2025-08-10</lastmod>
     </url>
     <url>
-         <loc>https://your-org.github.io/ingen_fab/api/</loc>
-         <lastmod>2025-07-15</lastmod>
+         <loc>https://localhost:8000/AUDIT_REPORT/</loc>
+         <lastmod>2025-08-10</lastmod>
     </url>
     <url>
-         <loc>https://your-org.github.io/ingen_fab/api/cli_commands/</loc>
-         <lastmod>2025-07-15</lastmod>
+         <loc>https://localhost:8000/api/</loc>
+         <lastmod>2025-08-10</lastmod>
     </url>
     <url>
-         <loc>https://your-org.github.io/ingen_fab/api/python_apis/</loc>
-         <lastmod>2025-07-15</lastmod>
+         <loc>https://localhost:8000/api/cli_commands/</loc>
+         <lastmod>2025-08-10</lastmod>
     </url>
     <url>
-         <loc>https://your-org.github.io/ingen_fab/developer_guide/</loc>
-         <lastmod>2025-07-15</lastmod>
+         <loc>https://localhost:8000/api/python_apis/</loc>
+         <lastmod>2025-08-10</lastmod>
     </url>
     <url>
-         <loc>https://your-org.github.io/ingen_fab/developer_guide/ddl_scripts/</loc>
-         <lastmod>2025-07-15</lastmod>
+         <loc>https://localhost:8000/developer_guide/</loc>
+         <lastmod>2025-08-10</lastmod>
     </url>
     <url>
-         <loc>https://your-org.github.io/ingen_fab/developer_guide/notebook_utils/</loc>
-         <lastmod>2025-07-15</lastmod>
+         <loc>https://localhost:8000/developer_guide/ddl_scripts/</loc>
+         <lastmod>2025-08-10</lastmod>
     </url>
     <url>
-         <loc>https://your-org.github.io/ingen_fab/developer_guide/packages/</loc>
-         <lastmod>2025-07-15</lastmod>
+         <loc>https://localhost:8000/developer_guide/notebook_utils/</loc>
+         <lastmod>2025-08-10</lastmod>
     </url>
     <url>
-         <loc>https://your-org.github.io/ingen_fab/developer_guide/python_libraries/</loc>
-         <lastmod>2025-07-15</lastmod>
+         <loc>https://localhost:8000/developer_guide/packages/</loc>
+         <lastmod>2025-08-10</lastmod>
     </url>
     <url>
-         <loc>https://your-org.github.io/ingen_fab/developer_guide/sql_templates/</loc>
-         <lastmod>2025-07-15</lastmod>
+         <loc>https://localhost:8000/developer_guide/pip_install_testing/</loc>
+         <lastmod>2025-08-10</lastmod>
     </url>
     <url>
-         <loc>https://your-org.github.io/ingen_fab/examples/</loc>
-         <lastmod>2025-07-15</lastmod>
+         <loc>https://localhost:8000/developer_guide/python_libraries/</loc>
+         <lastmod>2025-08-10</lastmod>
     </url>
     <url>
-         <loc>https://your-org.github.io/ingen_fab/examples/sample_project/</loc>
-         <lastmod>2025-07-15</lastmod>
+         <loc>https://localhost:8000/developer_guide/sql_templates/</loc>
+         <lastmod>2025-08-10</lastmod>
     </url>
     <url>
-         <loc>https://your-org.github.io/ingen_fab/examples/templates/</loc>
-         <lastmod>2025-07-15</lastmod>
+         <loc>https://localhost:8000/developer_guide/variable_replacement/</loc>
+         <lastmod>2025-08-10</lastmod>
     </url>
     <url>
-         <loc>https://your-org.github.io/ingen_fab/packages/</loc>
-         <lastmod>2025-07-15</lastmod>
+         <loc>https://localhost:8000/examples/</loc>
+         <lastmod>2025-08-10</lastmod>
     </url>
     <url>
-         <loc>https://your-org.github.io/ingen_fab/packages/flat_file_ingestion/</loc>
-         <lastmod>2025-07-15</lastmod>
+         <loc>https://localhost:8000/examples/flat_file_ingestion/</loc>
+         <lastmod>2025-08-10</lastmod>
     </url>
     <url>
-         <loc>https://your-org.github.io/ingen_fab/user_guide/</loc>
-         <lastmod>2025-07-15</lastmod>
+         <loc>https://localhost:8000/examples/sample_project/</loc>
+         <lastmod>2025-08-10</lastmod>
     </url>
     <url>
-         <loc>https://your-org.github.io/ingen_fab/user_guide/cli_reference/</loc>
-         <lastmod>2025-07-15</lastmod>
+         <loc>https://localhost:8000/examples/templates/</loc>
+         <lastmod>2025-08-10</lastmod>
     </url>
     <url>
-         <loc>https://your-org.github.io/ingen_fab/user_guide/installation/</loc>
-         <lastmod>2025-07-15</lastmod>
+         <loc>https://localhost:8000/packages/</loc>
+         <lastmod>2025-08-10</lastmod>
     </url>
     <url>
-         <loc>https://your-org.github.io/ingen_fab/user_guide/quick_start/</loc>
-         <lastmod>2025-07-15</lastmod>
+         <loc>https://localhost:8000/packages/extract_generation/</loc>
+         <lastmod>2025-08-10</lastmod>
     </url>
     <url>
-         <loc>https://your-org.github.io/ingen_fab/user_guide/workflows/</loc>
-         <lastmod>2025-07-15</lastmod>
+         <loc>https://localhost:8000/packages/extract_generation_synthetic_data_alignment/</loc>
+         <lastmod>2025-08-10</lastmod>
+    </url>
+    <url>
+         <loc>https://localhost:8000/packages/flat_file_ingestion/</loc>
+         <lastmod>2025-08-10</lastmod>
+    </url>
+    <url>
+         <loc>https://localhost:8000/packages/incremental_synthetic_data_generation/</loc>
+         <lastmod>2025-08-10</lastmod>
+    </url>
+    <url>
+         <loc>https://localhost:8000/packages/incremental_synthetic_data_import_integration/</loc>
+         <lastmod>2025-08-10</lastmod>
+    </url>
+    <url>
+         <loc>https://localhost:8000/packages/synapse_sync/</loc>
+         <lastmod>2025-08-10</lastmod>
+    </url>
+    <url>
+         <loc>https://localhost:8000/packages/synthetic_data_generation/</loc>
+         <lastmod>2025-08-10</lastmod>
+    </url>
+    <url>
+         <loc>https://localhost:8000/packages/synthetic_data_generation_enhancements/</loc>
+         <lastmod>2025-08-10</lastmod>
+    </url>
+    <url>
+         <loc>https://localhost:8000/snippets/cli/dbt_help/</loc>
+         <lastmod>2025-08-10</lastmod>
+    </url>
+    <url>
+         <loc>https://localhost:8000/snippets/cli/ddl_help/</loc>
+         <lastmod>2025-08-10</lastmod>
+    </url>
+    <url>
+         <loc>https://localhost:8000/snippets/cli/deploy_get_metadata_help/</loc>
+         <lastmod>2025-08-10</lastmod>
+    </url>
+    <url>
+         <loc>https://localhost:8000/snippets/cli/deploy_help/</loc>
+         <lastmod>2025-08-10</lastmod>
+    </url>
+    <url>
+         <loc>https://localhost:8000/snippets/cli/extract_help/</loc>
+         <lastmod>2025-08-10</lastmod>
+    </url>
+    <url>
+         <loc>https://localhost:8000/snippets/cli/init_help/</loc>
+         <lastmod>2025-08-10</lastmod>
+    </url>
+    <url>
+         <loc>https://localhost:8000/snippets/cli/libs_help/</loc>
+         <lastmod>2025-08-10</lastmod>
+    </url>
+    <url>
+         <loc>https://localhost:8000/snippets/cli/notebook_help/</loc>
+         <lastmod>2025-08-10</lastmod>
+    </url>
+    <url>
+         <loc>https://localhost:8000/snippets/cli/package_help/</loc>
+         <lastmod>2025-08-10</lastmod>
+    </url>
+    <url>
+         <loc>https://localhost:8000/snippets/cli/root_help/</loc>
+         <lastmod>2025-08-10</lastmod>
+    </url>
+    <url>
+         <loc>https://localhost:8000/snippets/cli/test_help/</loc>
+         <lastmod>2025-08-10</lastmod>
+    </url>
+    <url>
+         <loc>https://localhost:8000/user_guide/</loc>
+         <lastmod>2025-08-10</lastmod>
+    </url>
+    <url>
+         <loc>https://localhost:8000/user_guide/cli_reference/</loc>
+         <lastmod>2025-08-10</lastmod>
+    </url>
+    <url>
+         <loc>https://localhost:8000/user_guide/common_tasks/</loc>
+         <lastmod>2025-08-10</lastmod>
+    </url>
+    <url>
+         <loc>https://localhost:8000/user_guide/deploy_guide/</loc>
+         <lastmod>2025-08-10</lastmod>
+    </url>
+    <url>
+         <loc>https://localhost:8000/user_guide/environment_variables/</loc>
+         <lastmod>2025-08-10</lastmod>
+    </url>
+    <url>
+         <loc>https://localhost:8000/user_guide/installation/</loc>
+         <lastmod>2025-08-10</lastmod>
+    </url>
+    <url>
+         <loc>https://localhost:8000/user_guide/quick_start/</loc>
+         <lastmod>2025-08-10</lastmod>
+    </url>
+    <url>
+         <loc>https://localhost:8000/user_guide/workflows/</loc>
+         <lastmod>2025-08-10</lastmod>
+    </url>
+    <url>
+         <loc>https://localhost:8000/user_guide/workspace_layout/</loc>
+         <lastmod>2025-08-10</lastmod>
     </url>
 </urlset>
