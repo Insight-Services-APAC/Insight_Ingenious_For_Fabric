@@ -49,20 +49,7 @@ Environment-specific configuration management through placeholder replacement an
 
 ### Clone and Setup
 
-```bash
-# Clone the repository (replace with your actual repository URL)
-git clone <repository-url>
-cd ingen_fab
-
-# Set up development environment
-uv sync --all-extras
-
-# Install pre-commit hooks
-pre-commit install
-
-# Verify installation
-ingen_fab --help
-```
+--8<-- "_includes/developer_setup.md"
 
 ### Development Dependencies
 
