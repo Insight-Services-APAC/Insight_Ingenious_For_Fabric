@@ -24,14 +24,27 @@ Before installing, ensure your system meets these requirements:
 
 ### 1. Create Virtual Environment
 
-```bash
-# Create and activate a virtual environment
-python -m venv fabric-env
-source fabric-env/bin/activate  # On Windows: fabric-env\Scripts\activate
+=== "macOS/Linux"
 
-# Install the package
-pip install insight-ingenious-for-fabric
-```
+    ```bash
+    # Create and activate a virtual environment
+    python -m venv fabric-env
+    source fabric-env/bin/activate
+
+    # Install the package
+    pip install insight-ingenious-for-fabric
+    ```
+
+=== "Windows"
+
+    ```powershell
+    # Create and activate a virtual environment
+    python -m venv fabric-env
+    fabric-env\Scripts\activate
+
+    # Install the package
+    pip install insight-ingenious-for-fabric
+    ```
 
 ### 2. Set Environment Variables
 
@@ -49,38 +62,38 @@ ingen_fab init new --project-name "My Project"
 
 ## Platform-Specific Instructions
 
-### Windows
+=== "macOS/Linux"
 
-```powershell
-# Create virtual environment
-python -m venv fabric-env
-fabric-env\Scripts\activate
+    ```bash
+    # Ensure Python 3.12+
+    python3 --version
 
-# Install package
-pip install insight-ingenious-for-fabric
+    # Create virtual environment
+    python3 -m venv fabric-env
+    source fabric-env/bin/activate
 
-# Set environment variables (PowerShell)
-$env:FABRIC_WORKSPACE_REPO_DIR = "."
-$env:FABRIC_ENVIRONMENT = "development"
-```
+    # Install package
+    pip install insight-ingenious-for-fabric
 
-### macOS/Linux
+    # Set environment variables
+    export FABRIC_WORKSPACE_REPO_DIR="."
+    export FABRIC_ENVIRONMENT="development"
+    ```
 
-```bash
-# Ensure Python 3.12+
-python3 --version
+=== "Windows"
 
-# Create virtual environment
-python3 -m venv fabric-env
-source fabric-env/bin/activate
+    ```powershell
+    # Create virtual environment
+    python -m venv fabric-env
+    fabric-env\Scripts\activate
 
-# Install package
-pip install insight-ingenious-for-fabric
+    # Install package
+    pip install insight-ingenious-for-fabric
 
-# Set environment variables
-export FABRIC_WORKSPACE_REPO_DIR="."
-export FABRIC_ENVIRONMENT="development"
-```
+    # Set environment variables (PowerShell)
+    $env:FABRIC_WORKSPACE_REPO_DIR = "."
+    $env:FABRIC_ENVIRONMENT = "development"
+    ```
 
 ## Authentication Setup
 
@@ -112,41 +125,96 @@ export AZURE_CLIENT_SECRET="your-client-secret"
 
 If `ingen_fab` is not recognized:
 
-```bash
-# Ensure pip scripts are in PATH
-export PATH="$PATH:$HOME/.local/bin"
+=== "macOS/Linux"
 
-# Or run as module
-python -m ingen_fab --help
-```
+    ```bash
+    # Ensure pip scripts are in PATH
+    export PATH="$PATH:$HOME/.local/bin"
+
+    # Or run as module
+    python -m ingen_fab --help
+    ```
+
+=== "Windows"
+
+    ```powershell
+    # Ensure pip scripts are in PATH
+    $env:PATH += ";$env:LOCALAPPDATA\Programs\Python\Python312\Scripts"
+
+    # Or run as module
+    python -m ingen_fab --help
+    ```
 
 ### Permission Errors
 
-```bash
-# Install for current user
-pip install --user insight-ingenious-for-fabric
+=== "macOS/Linux"
 
-# Or use virtual environment (recommended)
-python -m venv fabric-env
-source fabric-env/bin/activate
-pip install insight-ingenious-for-fabric
-```
+    ```bash
+    # Install for current user
+    pip install --user insight-ingenious-for-fabric
+
+    # Or use virtual environment (recommended)
+    python -m venv fabric-env
+    source fabric-env/bin/activate
+    pip install insight-ingenious-for-fabric
+    ```
+
+=== "Windows"
+
+    ```powershell
+    # Install for current user
+    pip install --user insight-ingenious-for-fabric
+
+    # Or use virtual environment (recommended)
+    python -m venv fabric-env
+    fabric-env\Scripts\activate
+    pip install insight-ingenious-for-fabric
+    ```
 
 ### Python Version Issues
 
-```bash
-# Check Python version
-python --version
+=== "macOS"
 
-# Install Python 3.12+ if needed
-# Ubuntu/Debian:
-sudo apt update && sudo apt install python3.12
+    ```bash
+    # Check Python version
+    python3 --version
 
-# macOS (Homebrew):
-brew install python@3.12
+    # Install Python 3.12+ if needed (using Homebrew)
+    brew install python@3.12
 
-# Windows: Download from python.org
-```
+    # Or download from python.org
+    # https://www.python.org/downloads/macos/
+    ```
+
+=== "Linux"
+
+    ```bash
+    # Check Python version
+    python3 --version
+
+    # Install Python 3.12+ if needed
+    # Ubuntu/Debian:
+    sudo apt update && sudo apt install python3.12
+
+    # RHEL/CentOS/Fedora:
+    sudo dnf install python3.12
+
+    # Or build from source
+    ```
+
+=== "Windows"
+
+    ```powershell
+    # Check Python version
+    python --version
+
+    # Install Python 3.12+ if needed
+    # Download installer from:
+    # https://www.python.org/downloads/windows/
+    
+    # Or use winget:
+    winget install Python.Python.3.12
+    ```
 
 ## Next Steps
 

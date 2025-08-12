@@ -68,17 +68,38 @@ For a consistent development environment with Apache Spark and SQL Server, use t
 1. **Open in Dev Container**: Use VS Code's "Dev Containers" extension and select "Reopen in Container"
 
 2. **Install PowerShell**:
-   ```bash
-   source ./scripts/dev_container_scripts/spark_minimal/pwsh_install.sh
-   ```
+
+=== "macOS/Linux"
+
+    ```bash
+    source ./scripts/dev_container_scripts/spark_minimal/pwsh_install.sh
+    ```
+
+=== "Windows"
+
+    ```powershell
+    # PowerShell is already installed on Windows
+    # Verify installation:
+    $PSVersionTable.PSVersion
+    ```
 
 3. **Start PowerShell and install development tools**:
-   ```bash
-   pwsh
-   ```
-   ```powershell
-   ./scripts/dev_container_scripts/spark_minimal/dev_tools.ps1
-   ```
+
+=== "macOS/Linux"
+
+    ```bash
+    pwsh
+    ```
+    ```powershell
+    ./scripts/dev_container_scripts/spark_minimal/dev_tools.ps1
+    ```
+
+=== "Windows"
+
+    ```powershell
+    # Start PowerShell (already in PowerShell)
+    ./scripts/dev_container_scripts/spark_minimal/dev_tools.ps1
+    ```
 
 4. **Restart PowerShell session**:
    ```powershell
@@ -86,18 +107,42 @@ For a consistent development environment with Apache Spark and SQL Server, use t
    ```
 
 5. **Install SQL Server (optional)**:
-   ```bash
-   bash ./scripts/dev_container_scripts/spark_minimal/sql_install_4_linux.sh
-   bash /opt/mssql/bin/mssql-conf setup
-   ```
-   
-   Note: You'll need to provide an SA password and select "Enterprise (2)" and "English" when prompted.
 
-   Once the setup is complete, you can start SQL Server with. (Press Enter after the command completes and sql server will be started in the background. Note you will need to run this command every time you start the container):
+=== "Linux (Container)"
 
-   ```bash
-   /opt/mssql/bin/sqlservr &
-   ```
+    ```bash
+    bash ./scripts/dev_container_scripts/spark_minimal/sql_install_4_linux.sh
+    bash /opt/mssql/bin/mssql-conf setup
+    ```
+    
+    Note: You'll need to provide an SA password and select "Enterprise (2)" and "English" when prompted.
+
+    Once the setup is complete, you can start SQL Server with. (Press Enter after the command completes and sql server will be started in the background. Note you will need to run this command every time you start the container):
+
+    ```bash
+    /opt/mssql/bin/sqlservr &
+    ```
+
+=== "macOS"
+
+    ```bash
+    # Use Docker to run SQL Server
+    docker run -e "ACCEPT_EULA=Y" -e "SA_PASSWORD=YourStrong@Passw0rd" \
+        -p 1433:1433 --name sql_server \
+        -d mcr.microsoft.com/mssql/server:2022-latest
+    ```
+
+=== "Windows"
+
+    ```powershell
+    # Download and install SQL Server Express
+    # https://www.microsoft.com/en-us/sql-server/sql-server-downloads
+    
+    # Or use Docker Desktop:
+    docker run -e "ACCEPT_EULA=Y" -e "SA_PASSWORD=YourStrong@Passw0rd" `
+        -p 1433:1433 --name sql_server `
+        -d mcr.microsoft.com/mssql/server:2022-latest
+    ```
 
    Next set the environment variables for SQL Server connection:
 

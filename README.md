@@ -30,13 +30,25 @@ Ingenious Fabric Accelerator is a comprehensive command line tool built with [Ty
 
 Install the Ingenious Fabric Accelerator using pip:
 
-```bash
-# Install from PyPI (when available)
-pip install insight-ingenious-for-fabric
+=== "macOS/Linux"
 
-# Or install from GitHub
-pip install git+https://github.com/Insight-Services-APAC/Insight_Ingenious_For_Fabric.git
-```
+    ```bash
+    # Install from PyPI (when available)
+    pip install insight-ingenious-for-fabric
+
+    # Or install from GitHub
+    pip install git+https://github.com/Insight-Services-APAC/Insight_Ingenious_For_Fabric.git
+    ```
+
+=== "Windows"
+
+    ```powershell
+    # Install from PyPI (when available)
+    pip install insight-ingenious-for-fabric
+
+    # Or install from GitHub
+    pip install git+https://github.com/Insight-Services-APAC/Insight_Ingenious_For_Fabric.git
+    ```
 
 For complete installation instructions, see our [Installation Guide](docs/user_guide/installation.md).
 
@@ -44,14 +56,27 @@ For complete installation instructions, see our [Installation Guide](docs/user_g
 
 To contribute or modify the source code:
 
-```bash
-# Clone the repository
-git clone https://github.com/Insight-Services-APAC/Insight_Ingenious_For_Fabric.git
-cd ingen_fab
+=== "macOS/Linux"
 
-# Set up development environment
-uv sync --all-extras  # or: pip install -e .[dev,docs,dbt]
-```
+    ```bash
+    # Clone the repository
+    git clone https://github.com/Insight-Services-APAC/Insight_Ingenious_For_Fabric.git
+    cd ingen_fab
+
+    # Set up development environment
+    uv sync --all-extras  # or: pip install -e .[dev,docs,dbt]
+    ```
+
+=== "Windows"
+
+    ```powershell
+    # Clone the repository
+    git clone https://github.com/Insight-Services-APAC/Insight_Ingenious_For_Fabric.git
+    cd ingen_fab
+
+    # Set up development environment
+    uv sync --all-extras  # or: pip install -e .[dev,docs,dbt]
+    ```
 
 See the [Developer Guide](docs/developer_guide/index.md) for complete development setup.
 
