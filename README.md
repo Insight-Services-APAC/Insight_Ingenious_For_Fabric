@@ -16,7 +16,7 @@ Ingenious Fabric Accelerator is a comprehensive command line tool built with [Ty
   - Synapse synchronization with incremental and snapshot support
   - Extract generation for automated data extraction workflows
   - Synthetic data generation for testing and development
-- **DBT Integration**: Generate Fabric notebooks from dbt models and tests
+- **DBT Integration**: Generate Fabric notebooks from dbt models and tests with automatic profile management and intelligent lakehouse selection
 - **Metadata Extraction**: Extract schema and table metadata from lakehouses and warehouses via SQL endpoints
 
 ## Requirements

@@ -13,7 +13,8 @@ import typer
 import yaml
 from rich.console import Console
 from rich.panel import Panel
-from rich.prompt import Confirm
+from rich.prompt import Confirm, Prompt
+from rich.table import Table
 
 console = Console()
 
@@ -63,29 +64,206 @@ class DBTProfileManager:
 
         return values
 
-    def generate_profile_config(self) -> Dict[str, Any]:
+    def get_available_lakehouses(
+        self, values: Dict[str, Any]
+    ) -> Dict[str, Dict[str, str]]:
+        """Extract all available lakehouse configurations from the values.
+
+        Args:
+            values: Dictionary of configuration values
+
+        Returns:
+            Dictionary with lakehouse identifiers as keys and their details as values
+        """
+        lakehouses = {}
+
+        # Find all lakehouse-related variables
+        # Pattern: {prefix}_lakehouse_id, {prefix}_lakehouse_name, {prefix}_workspace_id, {prefix}_workspace_name
+        lakehouse_prefixes = set()
+
+        for key in values.keys():
+            if "_lakehouse_id" in key:
+                prefix = key.replace("_lakehouse_id", "")
+                lakehouse_prefixes.add(prefix)
+
+        for prefix in lakehouse_prefixes:
+            lakehouse_id = values.get(f"{prefix}_lakehouse_id", "")
+            lakehouse_name = values.get(f"{prefix}_lakehouse_name", prefix)
+            workspace_id = values.get(f"{prefix}_workspace_id", "")
+
+            # Try to find workspace name - it might be under different patterns
+            workspace_name = (
+                values.get(f"{prefix}_workspace_name", "")
+                or values.get("config_workspace_name", "")
+                or values.get("workspace_name", "")
+            )
+
+            # Skip if essential values are missing or are placeholders
+            if (
+                lakehouse_id
+                and workspace_id
+                and "REPLACE_WITH" not in lakehouse_id
+                and "REPLACE_WITH" not in workspace_id
+            ):
+                lakehouses[prefix] = {
+                    "lakehouse_id": lakehouse_id,
+                    "lakehouse_name": lakehouse_name,
+                    "workspace_id": workspace_id,
+                    "workspace_name": workspace_name,
+                    "prefix": prefix,
+                }
+
+        return lakehouses
+
+    def prompt_for_lakehouse_selection(
+        self, lakehouses: Dict[str, Dict[str, str]]
+    ) -> Dict[str, str]:
+        """Prompt the user to select a lakehouse from available options.
+
+        Args:
+            lakehouses: Dictionary of available lakehouse configurations
+
+        Returns:
+            Selected lakehouse configuration
+        """
+        if not lakehouses:
+            raise ValueError(
+                "No valid lakehouse configurations found in the environment file."
+            )
+
+        # If only one lakehouse is available, use it automatically
+        if len(lakehouses) == 1:
+            selected = list(lakehouses.values())[0]
+            console.print(
+                f"[green]Using the only available lakehouse: {selected['lakehouse_name']}[/green]"
+            )
+            return selected
+
+        # Display available lakehouses
+        console.print("\n[bold]Available Lakehouse Configurations:[/bold]\n")
+
+        table = Table(show_header=True, header_style="bold magenta")
+        table.add_column("#", style="cyan", width=3)
+        table.add_column("Prefix", style="cyan")
+        table.add_column("Lakehouse Name", style="green")
+        table.add_column("Workspace Name", style="yellow")
+        table.add_column("Lakehouse ID", style="dim")
+
+        options = list(lakehouses.values())
+        for idx, config in enumerate(options, 1):
+            table.add_row(
+                str(idx),
+                config["prefix"],
+                config["lakehouse_name"],
+                config["workspace_name"] or "N/A",
+                config["lakehouse_id"][:8] + "..."
+                if len(config["lakehouse_id"]) > 8
+                else config["lakehouse_id"],
+            )
+
+        console.print(table)
+
+        # Prompt for selection
+        while True:
+            choice = Prompt.ask(
+                "\nSelect a lakehouse configuration by number",
+                default="1",
+                choices=[str(i) for i in range(1, len(options) + 1)],
+            )
+
+            try:
+                idx = int(choice) - 1
+                if 0 <= idx < len(options):
+                    selected = options[idx]
+                    console.print(
+                        f"\n[green]Selected: {selected['lakehouse_name']}[/green]"
+                    )
+                    return selected
+            except (ValueError, IndexError):
+                pass
+
+            console.print("[red]Invalid selection. Please try again.[/red]")
+
+    def get_saved_lakehouse_preference(
+        self, existing_config: Optional[Dict[str, Any]]
+    ) -> Optional[str]:
+        """Get the saved lakehouse preference from existing profile.
+
+        Args:
+            existing_config: Existing profile configuration
+
+        Returns:
+            The lakehouse prefix if saved, None otherwise
+        """
+        if not existing_config or "fabric-spark-testnb" not in existing_config:
+            return None
+
+        fabric_config = existing_config["fabric-spark-testnb"]
+        outputs = fabric_config.get("outputs", {})
+        target_config = outputs.get("my_project_target", {})
+
+        # Check if there's a saved prefix in the config
+        return target_config.get("_lakehouse_prefix", None)
+
+    def generate_profile_config(
+        self,
+        ask_for_selection: bool = True,
+        existing_config: Optional[Dict[str, Any]] = None,
+    ) -> Dict[str, Any]:
         """Generate the dbt profile configuration based on current environment.
+
+        Args:
+            ask_for_selection: Whether to prompt user for lakehouse selection
+            existing_config: Existing profile configuration to check for saved preferences
 
         Returns:
             Dictionary containing the dbt profile configuration
         """
         values = self.get_workspace_config()
 
-        # Get the sample_lh values as they're most commonly used for dbt
-        workspace_id = values.get("sample_lh_workspace_id", "")
-        workspace_name = values.get(
-            "config_workspace_name", ""
-        )  # Use workspace name from config
-        lakehouse_id = values.get("sample_lh_lakehouse_id", "")
-        lakehouse_name = values.get("sample_lh_lakehouse_name", "sample_lh")
+        # Get available lakehouses
+        available_lakehouses = self.get_available_lakehouses(values)
+        selected_prefix = None
 
-        # Check for placeholder values
-        if "REPLACE_WITH" in workspace_id or "REPLACE_WITH" in lakehouse_id:
-            console.print(
-                f"[yellow]Warning: Environment '{self.environment}' contains placeholder values.[/yellow]"
-            )
-            console.print("Please update the following file with actual values:")
-            console.print(f"  {self.var_lib_path / f'{self.environment}.json'}")
+        if ask_for_selection and available_lakehouses:
+            # Check for saved preference
+            saved_prefix = self.get_saved_lakehouse_preference(existing_config)
+
+            if saved_prefix and saved_prefix in available_lakehouses:
+                # Use saved preference if it's still valid
+                console.print(
+                    f"[cyan]Using previously selected lakehouse: {available_lakehouses[saved_prefix]['lakehouse_name']}[/cyan]"
+                )
+                selected_lakehouse = available_lakehouses[saved_prefix]
+                selected_prefix = saved_prefix
+            else:
+                # Let user select which lakehouse to use
+                selected_lakehouse = self.prompt_for_lakehouse_selection(
+                    available_lakehouses
+                )
+                selected_prefix = selected_lakehouse["prefix"]
+
+            workspace_id = selected_lakehouse["workspace_id"]
+            workspace_name = selected_lakehouse["workspace_name"]
+            lakehouse_id = selected_lakehouse["lakehouse_id"]
+            lakehouse_name = selected_lakehouse["lakehouse_name"]
+        else:
+            # Fallback to the old behavior if no lakehouses found or selection disabled
+            # Get the sample_lh values as they're most commonly used for dbt
+            workspace_id = values.get("sample_lh_workspace_id", "")
+            workspace_name = values.get(
+                "config_workspace_name", ""
+            )  # Use workspace name from config
+            lakehouse_id = values.get("sample_lh_lakehouse_id", "")
+            lakehouse_name = values.get("sample_lh_lakehouse_name", "sample_lh")
+
+            # Check for placeholder values
+            if "REPLACE_WITH" in workspace_id or "REPLACE_WITH" in lakehouse_id:
+                console.print(
+                    f"[yellow]Warning: Environment '{self.environment}' contains placeholder values.[/yellow]"
+                )
+                console.print("Please update the following file with actual values:")
+                console.print(f"  {self.var_lib_path / f'{self.environment}.json'}")
 
         profile_config = {
             "fabric-spark-testnb": {
@@ -111,6 +289,12 @@ class DBTProfileManager:
                 "target": "my_project_target",
             }
         }
+
+        # Save the selection preference if we have one
+        if selected_prefix:
+            profile_config["fabric-spark-testnb"]["outputs"]["my_project_target"][
+                "_lakehouse_prefix"
+            ] = selected_prefix
 
         return profile_config
 
@@ -153,8 +337,10 @@ class DBTProfileManager:
         Returns:
             True if profile was updated or already correct, False if user declined
         """
-        new_config = self.generate_profile_config()
         existing_config = self.read_existing_profile()
+        new_config = self.generate_profile_config(
+            ask_for_selection=ask_confirmation, existing_config=existing_config
+        )
 
         if existing_config is None:
             # No profile exists, create it
@@ -286,6 +472,71 @@ def ensure_dbt_profile(ctx: typer.Context, ask_confirmation: bool = True) -> boo
     try:
         manager = DBTProfileManager(workspace_dir, environment)
         return manager.check_and_update_profile(ask_confirmation)
+    except FileNotFoundError as e:
+        console.print(f"[red]Configuration error: {e}[/red]")
+        return False
+    except Exception as e:
+        console.print(f"[red]Error managing dbt profile: {e}[/red]")
+        return False
+
+
+def ensure_dbt_profile_for_exec(ctx: typer.Context) -> bool:
+    """Ensure dbt profile exists for exec command with special behavior.
+
+    This function is specifically for the 'dbt exec' command and:
+    1. Always prompts for lakehouse selection if saved info is missing/invalid
+    2. Notifies user of chosen lakehouse when using saved preference
+    3. Never fails silently - always ensures user knows what's happening
+
+    Args:
+        ctx: Typer context containing workspace configuration
+
+    Returns:
+        True if profile is ready, False if error occurred
+    """
+    workspace_dir = ctx.obj.get("fabric_workspace_repo_dir") if ctx.obj else None
+    if not workspace_dir:
+        console.print("[red]Fabric workspace repo dir not provided.[/red]")
+        return False
+
+    workspace_dir = Path(workspace_dir)
+    environment = os.getenv("FABRIC_ENVIRONMENT", "local")
+
+    try:
+        manager = DBTProfileManager(workspace_dir, environment)
+
+        # Check if we have valid saved configuration
+        existing_config = manager.read_existing_profile()
+        values = manager.get_workspace_config()
+        available_lakehouses = manager.get_available_lakehouses(values)
+
+        # Check if saved preference is still valid
+        saved_prefix = manager.get_saved_lakehouse_preference(existing_config)
+        has_valid_saved_preference = (
+            saved_prefix
+            and saved_prefix in available_lakehouses
+            and existing_config
+            and "fabric-spark-testnb" in existing_config
+        )
+
+        if has_valid_saved_preference and saved_prefix:
+            # Notify user of the chosen lakehouse
+            selected_lakehouse = available_lakehouses[saved_prefix]
+            console.print(
+                f"[cyan]Using saved lakehouse preference: "
+                f"{selected_lakehouse['lakehouse_name']} "
+                f"(Environment: {environment})[/cyan]"
+            )
+            # Still need to check if profile needs updating
+            return manager.check_and_update_profile(ask_confirmation=False)
+        else:
+            # No valid saved preference - always prompt interactively
+            console.print(
+                f"[yellow]No valid lakehouse preference found for environment '{environment}'. "
+                f"Please select a lakehouse:[/yellow]"
+            )
+            return manager.check_and_update_profile(ask_confirmation=True)
+
     except FileNotFoundError as e:
         console.print(f"[red]Configuration error: {e}[/red]")
         return False

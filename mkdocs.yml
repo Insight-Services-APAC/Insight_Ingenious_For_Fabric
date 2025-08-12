@@ -99,6 +99,7 @@ nav:
     - Deploy Guide: user_guide/deploy_guide.md
     - CLI Reference: user_guide/cli_reference.md
     - Workflows: user_guide/workflows.md
+    - DBT Integration: user_guide/dbt_integration.md
   - Developer Guide:
     - developer_guide/index.md
     - Python Libraries: developer_guide/python_libraries.md
@@ -106,6 +107,7 @@ nav:
     - Notebook Utils: developer_guide/notebook_utils.md
     - SQL Templates: developer_guide/sql_templates.md
     - Variable Replacement: developer_guide/variable_replacement.md
+    - DBT Profile Manager: developer_guide/dbt_profile_manager.md
     - Packages: developer_guide/packages.md
   - Examples:
     - examples/index.md
