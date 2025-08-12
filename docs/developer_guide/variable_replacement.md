@@ -1,5 +1,7 @@
 # Variable Replacement System
 
+[Home](../index.md) > [Developer Guide](index.md) > Variable Replacement System
+
 The Ingenious Fabric Accelerator includes a sophisticated variable replacement system that enables environment-specific configuration management across templates, notebooks, and deployments. This system allows the same codebase to work seamlessly across development, testing, and production environments.
 
 ## Overview

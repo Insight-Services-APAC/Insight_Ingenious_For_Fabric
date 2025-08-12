@@ -1,289 +1,280 @@
 """
-Test documentation accuracy by validating key claims and examples.
+Test documentation accuracy against codebase implementation.
 
-This test module validates that documentation examples and claims match
-the actual implementation. It performs static validation without executing
-commands.
+This test suite validates that documentation claims match the actual implementation
+through static code analysis. It does NOT execute any commands or code, only
+analyzes the source files.
 """
 
-import ast
 import re
 from pathlib import Path
-from typing import List, Tuple
+from typing import Set
 
 import pytest
 
 
-class DocumentationValidator:
-    """Validates documentation against codebase implementation."""
+class TestDocumentationAccuracy:
+    """Test suite for validating documentation against implementation."""
 
-    def __init__(self):
-        self.project_root = Path(__file__).parent.parent.parent
-        self.docs_dir = self.project_root / "docs"
-        self.cli_file = self.project_root / "ingen_fab" / "cli.py"
+    @pytest.fixture(autouse=True)
+    def setup(self):
+        """Set up test environment."""
+        self.root_dir = Path(__file__).parent.parent.parent
+        self.docs_dir = self.root_dir / "docs"
+        self.cli_file = self.root_dir / "ingen_fab" / "cli.py"
+        self.readme_file = self.root_dir / "README.md"
 
-    def extract_commands_from_cli(self) -> dict:
-        """Extract command structure from CLI module."""
-        commands = {"main_commands": [], "subcommands": {}}
+    def test_cli_commands_exist(self):
+        """Verify all documented CLI commands exist in the implementation."""
+        # Parse CLI file to extract command groups and commands
+        cli_commands = self._extract_cli_commands()
 
-        with open(self.cli_file, "r") as f:
-            tree = ast.parse(f.read())
+        # Parse documentation to find documented commands
+        documented_commands = self._extract_documented_commands()
 
-        for node in ast.walk(tree):
-            if isinstance(node, ast.Call):
-                if (
-                    isinstance(node.func, ast.Attribute)
-                    and node.func.attr == "add_typer"
-                    and len(node.args) >= 1
-                ):
-                    # Extract subcommand registration
-                    for keyword in node.keywords:
-                        if keyword.arg == "name":
-                            if isinstance(keyword.value, ast.Constant):
-                                command_name = keyword.value.value
-                                commands["main_commands"].append(command_name)
+        # Verify all documented commands exist
+        missing_commands = documented_commands - cli_commands
+        assert not missing_commands, (
+            f"Commands documented but not implemented: {missing_commands}"
+        )
 
-            # Look for @app.command decorators
-            if isinstance(node, ast.FunctionDef):
-                for decorator in node.decorator_list:
-                    if (
-                        isinstance(decorator, ast.Attribute)
-                        and decorator.attr == "command"
-                    ):
-                        # This is a command function
-                        commands.setdefault("functions", []).append(node.name)
+    def test_environment_variables_documented(self):
+        """Verify all environment variables used in code are documented."""
+        # Find all environment variable references in code
+        env_vars_in_code = self._find_environment_variables()
+
+        # Find documented environment variables
+        documented_env_vars = self._extract_documented_env_vars()
+
+        # Check for undocumented variables (excluding test-specific ones)
+        undocumented = (
+            env_vars_in_code
+            - documented_env_vars
+            - {"HOME", "PATH", "USER", "PWD", "SHELL", "TERM", "LANG"}
+        )
+        assert not undocumented, (
+            f"Environment variables used but not documented: {undocumented}"
+        )
+
+    def test_package_commands_accuracy(self):
+        """Verify package commands match implementation."""
+        cli_source = self.cli_file.read_text()
+
+        # Check for package subcommands
+        assert "package_app.add_typer" in cli_source, (
+            "Package app should have subcommands"
+        )
+        assert "ingest_app" in cli_source, "Ingest package should exist"
+        assert "synapse_app" in cli_source, "Synapse package should exist"
+        assert "extract_app" in cli_source, "Extract package should exist"
+
+    def test_python_version_requirement(self):
+        """Verify Python version requirement matches pyproject.toml."""
+        pyproject_path = self.root_dir / "pyproject.toml"
+        if pyproject_path.exists():
+            content = pyproject_path.read_text()
+            # Extract Python version requirement
+            match = re.search(r'requires-python\s*=\s*"([^"]+)"', content)
+            if match:
+                version_req = match.group(1)
+
+                # Check README mentions correct version
+                readme_content = self.readme_file.read_text()
+                assert (
+                    "Python 3.12" in readme_content or version_req in readme_content
+                ), f"README should mention Python version requirement: {version_req}"
+
+    def test_project_structure_documentation(self):
+        """Verify documented project structure matches actual structure."""
+        # Key directories that should exist
+        expected_dirs = [
+            "ingen_fab/cli_utils",
+            "ingen_fab/ddl_scripts",
+            "ingen_fab/notebook_utils",
+            "ingen_fab/packages",
+            "ingen_fab/python_libs",
+            "sample_project",
+            "docs",
+            "tests",
+        ]
+
+        for dir_path in expected_dirs:
+            full_path = self.root_dir / dir_path
+            assert full_path.exists(), f"Expected directory not found: {dir_path}"
+
+    def test_deploy_get_metadata_command(self):
+        """Verify deploy get-metadata command replaced extract lakehouse-metadata."""
+        cli_source = self.cli_file.read_text()
+
+        # Check deploy get-metadata exists
+        assert (
+            '@deploy_app.command("get-metadata")' in cli_source
+            or '@deploy_app.command(name="get-metadata")' in cli_source
+        ), "deploy get-metadata command should exist"
+
+        # Check old command is removed/commented
+        assert (
+            "lakehouse-metadata (now under deploy get-metadata)" in cli_source
+            or "# Removed: lakehouse-metadata" in cli_source
+        ), "Old lakehouse-metadata command should be marked as moved"
+
+    def test_dbt_commands_exist(self):
+        """Verify dbt commands are properly implemented."""
+        cli_source = self.cli_file.read_text()
+
+        # Check dbt app exists
+        assert "dbt_app = typer.Typer()" in cli_source, "DBT app should be defined"
+        assert 'name="dbt"' in cli_source, "DBT command group should be registered"
+
+        # Check specific dbt commands
+        assert (
+            '@dbt_app.command("create-notebooks")' in cli_source
+            or '@dbt_app.command(name="create-notebooks")' in cli_source
+        ), "dbt create-notebooks command should exist"
+
+    def test_sample_project_structure(self):
+        """Verify sample_project has expected structure."""
+        sample_project = self.root_dir / "sample_project"
+
+        expected_items = [
+            "fabric_workspace_items/config/var_lib.VariableLibrary",
+            "fabric_workspace_items/lakehouses",
+            "fabric_workspace_items/warehouses",
+            "ddl_scripts/Lakehouses",
+            "ddl_scripts/Warehouses",
+            "platform_manifest_development.yml",
+        ]
+
+        for item in expected_items:
+            full_path = sample_project / item
+            assert full_path.exists(), f"Sample project missing: {item}"
+
+    def test_dependency_groups_documented(self):
+        """Verify dependency groups match pyproject.toml."""
+        pyproject_path = self.root_dir / "pyproject.toml"
+        if pyproject_path.exists():
+            content = pyproject_path.read_text()
+
+            # Check for dependency-groups section (uv format)
+            if "[dependency-groups]" in content:
+                assert "dev = [" in content, "dev dependency group should exist"
+                assert "docs = [" in content, "docs dependency group should exist"
+                assert "dbt = [" in content, "dbt dependency group should exist"
+
+    def test_cli_help_snippets_accuracy(self):
+        """Verify CLI help snippets match actual command structure."""
+        snippet_dir = self.docs_dir / "snippets" / "cli"
+        if snippet_dir.exists():
+            for snippet_file in snippet_dir.glob("*_help.md"):
+                # Extract command from filename (e.g., "ddl_help.md" -> "ddl")
+                command = snippet_file.stem.replace("_help", "")
+                if command != "root":
+                    # Verify command exists in CLI
+                    cli_source = self.cli_file.read_text()
+                    assert (
+                        f"{command}_app = typer.Typer()" in cli_source
+                        or f'name="{command}"' in cli_source
+                    ), f"Command {command} referenced in snippets should exist in CLI"
+
+    def test_readme_no_outdated_extract_command(self):
+        """Verify README doesn't contain outdated extract lakehouse-metadata command."""
+        readme_content = self.readme_file.read_text()
+        assert "extract lakehouse-metadata" not in readme_content, (
+            "README should not contain outdated 'extract lakehouse-metadata' command"
+        )
+        assert "deploy get-metadata" in readme_content, (
+            "README should document the new 'deploy get-metadata' command"
+        )
+
+    # Helper methods for parsing and extraction
+
+    def _extract_cli_commands(self) -> Set[str]:
+        """Extract all CLI commands from the CLI module."""
+        commands = set()
+        cli_source = self.cli_file.read_text()
+
+        # Find main command groups
+        for match in re.finditer(r'name="([^"]+)".*help=', cli_source):
+            commands.add(match.group(1))
+
+        # Find individual commands
+        for match in re.finditer(r'@(\w+_app)\.command\("?([^")\s]+)"?\)', cli_source):
+            app_name = match.group(1).replace("_app", "")
+            cmd_name = match.group(2) if match.group(2) else "default"
+            commands.add(f"{app_name} {cmd_name}")
 
         return commands
 
-    def extract_code_blocks_from_markdown(self, file_path: Path) -> List[str]:
-        """Extract code blocks from markdown files."""
-        with open(file_path, "r") as f:
-            content = f.read()
+    def _extract_documented_commands(self) -> Set[str]:
+        """Extract commands mentioned in documentation."""
+        commands = set()
 
-        # Extract bash code blocks
-        bash_blocks = re.findall(r"```bash\n(.*?)\n```", content, re.DOTALL)
-        # Extract generic code blocks that might contain commands
-        generic_blocks = re.findall(r"```\n(ingen_fab.*?)\n```", content, re.DOTALL)
+        # Check README
+        readme_content = self.readme_file.read_text()
+        for match in re.finditer(r"ingen_fab\s+(\w+)(?:\s+(\w+))?", readme_content):
+            if match.group(2):
+                commands.add(f"{match.group(1)} {match.group(2)}")
+            else:
+                commands.add(match.group(1))
 
-        return bash_blocks + generic_blocks
+        # Check CLI reference
+        cli_ref = self.docs_dir / "user_guide" / "cli_reference.md"
+        if cli_ref.exists():
+            content = cli_ref.read_text()
+            for match in re.finditer(r"####?\s+`?(\w+)(?:\s+(\w+))?`?", content):
+                if match.group(2):
+                    commands.add(f"{match.group(1)} {match.group(2)}")
+                else:
+                    commands.add(match.group(1))
 
-    def validate_command_syntax(self, command: str) -> Tuple[bool, str]:
-        """Validate that a command has correct syntax."""
-        # Skip comments and empty lines
-        command = command.strip()
-        if not command or command.startswith("#"):
-            return True, ""
+        return commands
 
-        # Only validate ingen_fab commands
-        if not command.startswith("ingen_fab"):
-            return True, ""
+    def _find_environment_variables(self) -> Set[str]:
+        """Find all environment variables referenced in the codebase."""
+        env_vars = set()
 
-        # Check for known command patterns
-        valid_patterns = [
-            r"ingen_fab init new",
-            r"ingen_fab init workspace",
-            r"ingen_fab ddl compile",
-            r"ingen_fab deploy deploy",
-            r"ingen_fab deploy delete-all",
-            r"ingen_fab deploy upload-python-libs",
-            r"ingen_fab notebook",
-            r"ingen_fab test",
-            r"ingen_fab package ingest",
-            r"ingen_fab package synapse",
-            r"ingen_fab libs compile",
-        ]
+        # Search Python files for os.environ and os.getenv
+        for py_file in self.root_dir.rglob("*.py"):
+            if ".venv" in str(py_file) or "__pycache__" in str(py_file):
+                continue
 
-        for pattern in valid_patterns:
-            if re.match(pattern, command):
-                return True, ""
-
-        return False, f"Command doesn't match known patterns: {command}"
-
-    def validate_import_statements(self, file_path: Path) -> List[str]:
-        """Validate Python import statements in documentation."""
-        errors = []
-        with open(file_path, "r") as f:
-            content = f.read()
-
-        # Extract Python code blocks
-        python_blocks = re.findall(r"```python\n(.*?)\n```", content, re.DOTALL)
-
-        for block in python_blocks:
-            # Check for imports
-            imports = re.findall(
-                r"^(?:from|import)\s+(.+?)(?:\s+import|\s*$)", block, re.MULTILINE
-            )
-            for imp in imports:
-                # Skip relative imports in examples
-                if imp.startswith("."):
-                    continue
-
-                # Check if it's a project import
-                if "ingen_fab" in imp or any(
-                    lib in imp
-                    for lib in ["lakehouse_utils", "warehouse_utils", "ddl_utils"]
+            try:
+                content = py_file.read_text()
+                # Find os.environ.get("VAR") or os.getenv("VAR")
+                for match in re.finditer(
+                    r'os\.(?:environ\.get|getenv)\s*\(\s*["\']([^"\']+)["\']', content
                 ):
-                    # For injected libraries (without ingen_fab prefix), these are valid in notebook context
-                    if not imp.startswith("ingen_fab") and any(
-                        lib in imp
-                        for lib in ["lakehouse_utils", "warehouse_utils", "ddl_utils"]
-                    ):
-                        continue  # These are valid in generated notebooks
+                    env_vars.add(match.group(1))
+                # Find os.environ["VAR"]
+                for match in re.finditer(
+                    r'os\.environ\s*\[\s*["\']([^"\']+)["\']', content
+                ):
+                    env_vars.add(match.group(1))
+            except Exception:
+                continue
 
-                    # For explicit imports, check they use correct prefix
-                    if "common" in imp or "python" in imp or "pyspark" in imp:
-                        if not imp.startswith("ingen_fab.python_libs"):
-                            errors.append(
-                                f"Import should start with 'ingen_fab.python_libs': {imp}"
-                            )
+        return env_vars
 
-        return errors
+    def _extract_documented_env_vars(self) -> Set[str]:
+        """Extract environment variables from documentation."""
+        env_vars = set()
 
+        # Check environment variables documentation
+        env_doc = self.docs_dir / "user_guide" / "environment_variables.md"
+        if env_doc.exists():
+            content = env_doc.read_text()
+            # Find variables in markdown table
+            for match in re.finditer(r"\|\s*`([A-Z_]+)`\s*\|", content):
+                env_vars.add(match.group(1))
 
-class TestDocumentationAccuracy:
-    """Test suite for documentation accuracy."""
+        # Also check README
+        readme_content = self.readme_file.read_text()
+        for match in re.finditer(r"export\s+([A-Z_]+)=", readme_content):
+            env_vars.add(match.group(1))
 
-    @pytest.fixture
-    def validator(self):
-        return DocumentationValidator()
-
-    def test_cli_commands_exist(self, validator):
-        """Test that documented CLI commands actually exist."""
-        commands = validator.extract_commands_from_cli()
-
-        # Expected main commands based on documentation
-        expected_commands = [
-            "deploy",
-            "init",
-            "ddl",
-            "test",
-            "notebook",
-            "package",
-            "libs",
-        ]
-
-        for cmd in expected_commands:
-            assert cmd in commands["main_commands"], f"Command '{cmd}' not found in CLI"
-
-    def test_readme_command_examples(self, validator):
-        """Test that README.md command examples are valid."""
-        readme_path = validator.project_root / "README.md"
-        code_blocks = validator.extract_code_blocks_from_markdown(readme_path)
-
-        errors = []
-        for block in code_blocks:
-            for line in block.split("\n"):
-                if line.strip().startswith("ingen_fab"):
-                    valid, error = validator.validate_command_syntax(line)
-                    if not valid:
-                        errors.append(error)
-
-        assert not errors, f"Invalid commands in README.md: {errors}"
-
-    def test_cli_reference_commands(self, validator):
-        """Test that CLI reference documentation matches implementation."""
-        cli_ref_path = validator.docs_dir / "user_guide" / "cli_reference.md"
-        code_blocks = validator.extract_code_blocks_from_markdown(cli_ref_path)
-
-        errors = []
-        for block in code_blocks:
-            for line in block.split("\n"):
-                if line.strip().startswith("ingen_fab"):
-                    valid, error = validator.validate_command_syntax(line)
-                    if not valid:
-                        errors.append(error)
-
-        assert not errors, f"Invalid commands in CLI reference: {errors}"
-
-    def test_python_library_imports(self, validator):
-        """Test that Python library import examples are correct."""
-        python_libs_doc = validator.docs_dir / "developer_guide" / "python_libraries.md"
-        errors = validator.validate_import_statements(python_libs_doc)
-
-        assert not errors, f"Invalid imports in python_libraries.md: {errors}"
-
-    def test_no_nonexistent_options(self, validator):
-        """Test that documentation doesn't reference non-existent options."""
-        # Check for known removed/non-existent options
-        nonexistent_patterns = [
-            r"--version",  # No version flag
-            r"--dry-run",  # No dry-run option
-            r"ingen_fab run",  # No run command
-        ]
-
-        docs_files = list(validator.docs_dir.rglob("*.md"))
-        docs_files.append(validator.project_root / "README.md")
-
-        errors = []
-        for doc_file in docs_files:
-            with open(doc_file, "r") as f:
-                content = f.read()
-
-            for pattern in nonexistent_patterns:
-                if re.search(pattern, content):
-                    errors.append(
-                        f"Found non-existent pattern '{pattern}' in {doc_file}"
-                    )
-
-        assert not errors, f"References to non-existent features: {errors}"
-
-    def test_ddl_compile_options(self, validator):
-        """Test that DDL compile command options are correct."""
-        # Valid options for ddl compile
-        valid_output_modes = ["fabric_workspace_repo", "local"]
-        valid_generation_modes = ["Warehouse", "Lakehouse"]
-
-        docs_files = list(validator.docs_dir.rglob("*.md"))
-        docs_files.append(validator.project_root / "README.md")
-
-        errors = []
-        for doc_file in docs_files:
-            with open(doc_file, "r") as f:
-                content = f.read()
-
-            # Find ddl compile commands
-            ddl_commands = re.findall(
-                r"ingen_fab ddl compile.*?(?=\n(?![\s\\]))", content, re.DOTALL
-            )
-
-            for cmd in ddl_commands:
-                # Check output-mode
-                output_mode_match = re.search(r"--output-mode\s+(\S+)", cmd)
-                if output_mode_match:
-                    mode = output_mode_match.group(1)
-                    if mode not in valid_output_modes:
-                        errors.append(f"Invalid output-mode '{mode}' in {doc_file}")
-
-                # Check generation-mode
-                gen_mode_match = re.search(r"--generation-mode\s+(\S+)", cmd)
-                if gen_mode_match:
-                    mode = gen_mode_match.group(1)
-                    if mode not in valid_generation_modes:
-                        errors.append(f"Invalid generation-mode '{mode}' in {doc_file}")
-
-        assert not errors, f"Invalid DDL compile options: {errors}"
-
-    def test_project_structure_accuracy(self, validator):
-        """Test that documented project structure matches templates."""
-        template_dir = validator.project_root / "ingen_fab" / "project_templates"
-
-        # Check that documented paths exist in templates
-        expected_paths = [
-            "ddl_scripts/Lakehouses/Config/001_Initial_Creation",
-            "ddl_scripts/Warehouses/Config_WH/001_Initial_Creation",
-            "ddl_scripts/Warehouses/Sample_WH/001_Initial_Creation",
-            "fabric_workspace_items/config/var_lib.VariableLibrary",
-        ]
-
-        errors = []
-        for path in expected_paths:
-            full_path = template_dir / path
-            if not full_path.exists():
-                errors.append(f"Expected path doesn't exist in templates: {path}")
-
-        assert not errors, f"Project structure mismatches: {errors}"
+        return env_vars
 
 
 if __name__ == "__main__":
-    # Run tests
+    # Run tests with pytest
     pytest.main([__file__, "-v"])

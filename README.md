@@ -1,6 +1,6 @@
 # Ingenious Fabric Accelerator
 
-Ingenious for Fabric is a comprehensive command line tool built with [Typer](https://typer.tiangolo.com/) that helps create and manage Microsoft Fabric assets. It provides a complete development workflow for Fabric workspaces, including project initialization, DDL notebook generation, environment management, and deployment automation.
+Ingenious Fabric Accelerator is a comprehensive command line tool built with [Typer](https://typer.tiangolo.com/) that helps create and manage Microsoft Fabric workspace projects. It provides a complete development workflow for Fabric workspaces, including project initialization, DDL notebook generation, environment management, deployment automation, and data integration through packages for flat file ingestion, Synapse synchronization, and extract generation.
 
 ## Features
 
@@ -8,10 +8,16 @@ Ingenious for Fabric is a comprehensive command line tool built with [Typer](htt
 - **DDL Notebook Generation**: Generate DDL notebooks from Jinja templates for both lakehouses and warehouses
 - **Environment Management**: Deploy and manage artifacts across multiple environments (development, test, production)
 - **Orchestrator Notebooks**: Create orchestrator notebooks to run generated notebooks in sequence
-- **Notebook Utilities**: Scan and analyze existing notebook code and content
+- **Notebook Utilities**: Scan, analyze, and transform existing notebook code and content
 - **Testing Framework**: Test notebooks both locally and on the Fabric platform
-- **Python Libraries**: Reusable Python and PySpark libraries for common Fabric operations
-- **Extension Packages**: Reusable workload extensions for flat file ingestion and Synapse synchronization
+- **Python Libraries**: Reusable Python and PySpark libraries with variable injection for common Fabric operations
+- **Extension Packages**: 
+  - Flat file ingestion for lakehouses and warehouses
+  - Synapse synchronization with incremental and snapshot support
+  - Extract generation for automated data extraction workflows
+  - Synthetic data generation for testing and development
+- **DBT Integration**: Generate Fabric notebooks from dbt models and tests
+- **Metadata Extraction**: Extract schema and table metadata from lakehouses and warehouses via SQL endpoints
 
 ## Requirements
 
@@ -20,31 +26,21 @@ Ingenious for Fabric is a comprehensive command line tool built with [Typer](htt
 
 ## Installation
 
-### Using uv (Recommended)
-
 ```bash
 # Clone the repository
 git clone <repository-url>
 cd ingen_fab
 
-# Install with uv (includes all development dependencies)
+# Install with uv (recommended)
 uv sync
-```
 
-### Using pip
-
-```bash
-# Clone the repository  
-git clone <repository-url>
-cd ingen_fab
-
-# Create and activate virtual environment
+# Or install with pip
 python -m venv .venv
 source .venv/bin/activate  # On Windows: .venv\Scripts\activate
-
-# Install in development mode with all dependencies
 pip install -e .[dev]
 ```
+
+For complete installation instructions, see our [Installation Guide](docs/user_guide/installation.md).
 
 ## Quick Start
 
@@ -93,9 +89,9 @@ ingen_fab --help
 - **`deploy`** - Deploy to environments and manage workspace items
 - **`notebook`** - Manage and scan notebook content
 - **`test`** - Test notebooks and Python blocks (local and platform)
-- **`package`** - Compile and run extension packages (e.g., flat file ingestion, synapse sync)
-- **`libs`** - Compile and manage Python libraries
-- **`extract`** - Extract metadata from warehouses and lakehouses
+- **`package`** - Compile and run extension packages (e.g., flat file ingestion, synapse sync, extract generation)
+- **`libs`** - Compile and manage Python libraries with variable injection
+- **`dbt`** - Proxy commands to dbt_wrapper and generate notebooks from dbt outputs
 
 ### Common Commands
 
@@ -128,17 +124,38 @@ ingen_fab deploy upload-python-libs
 # Delete all workspace items (use with caution!)
 ingen_fab deploy delete-all --force
 
+# Get metadata for lakehouse/warehouse
+ingen_fab deploy get-metadata --target lakehouse --format csv
+ingen_fab deploy get-metadata --target warehouse --format json
+ingen_fab deploy get-metadata --target both --format table
+
 # Compile flat file ingestion package for lakehouse
 ingen_fab package ingest compile --target-datastore lakehouse --include-samples
 
 # Compile flat file ingestion package for warehouse 
 ingen_fab package ingest compile --target-datastore warehouse --include-samples
 
+# Run flat file ingestion
+ingen_fab package ingest run --config-id CONFIG_ID --execution-group 1
+
 # Compile synapse sync package
 ingen_fab package synapse compile --include-samples
 
+# Run synapse sync
+ingen_fab package synapse run --master-execution-id EXEC_ID
+
+# Compile extract generation package
+ingen_fab package extract compile --target-datastore warehouse --include-samples
+
+# Run extract generation
+ingen_fab package extract extract-run --extract-name EXTRACT_NAME --run-type FULL
+
 # Compile Python libraries with variable injection
 ingen_fab libs compile --target-file path/to/file.py
+
+# Generate notebooks from dbt outputs
+ingen_fab dbt create-notebooks --dbt-project-name my_dbt_project
+ingen_fab dbt convert-metadata --dbt-project-dir ./dbt_project
 ```
 
 ## Running the tests
@@ -180,20 +197,14 @@ docs/                    # Documentation source files
 
 ## Environment Variables
 
-You can set these environment variables to avoid specifying them on each command:
+Set up environment variables to avoid specifying them on each command:
 
 ```bash
-# Project location
 export FABRIC_WORKSPACE_REPO_DIR="./sample_project"
-
-# Target environment
 export FABRIC_ENVIRONMENT="development"
-
-# Authentication (for deployment)
-export AZURE_TENANT_ID="your-tenant-id"
-export AZURE_CLIENT_ID="your-client-id"
-export AZURE_CLIENT_SECRET="your-client-secret"
 ```
+
+See [Environment Variables](docs/user_guide/environment_variables.md) for the complete list including authentication variables.
 
 ## Workflow Example
 
@@ -230,24 +241,17 @@ Additional documentation is available in the subdirectories and the complete doc
 - **[ingen_fab/python_libs/python/README_notebook_utils.md](ingen_fab/python_libs/python/README_notebook_utils.md)** - Notebook utilities abstraction
 - **[ingen_fab/python_libs/python/sql_template_factory/README.md](ingen_fab/python_libs/python/sql_template_factory/README.md)** - SQL template system
 
-## Documentation Site
+## Documentation
 
-Build and serve the complete documentation:
+Complete documentation is available in the `docs/` directory. To serve locally:
 
 ```bash
-# Install documentation dependencies
-pip install -e .[docs]
-# or with uv dependency groups
-uv sync --group docs
-
-# Serve documentation locally
+uv sync --group docs  # Install docs dependencies
 mkdocs serve --dev-addr=0.0.0.0:8000
-# or use the provided script
-./serve-docs.sh
 ```
 
 ## License
 
 This project is provided for demonstration purposes and has no specific license.
-# Extract lakehouse metadata (via SQL endpoint)
-ingen_fab extract lakehouse-metadata --lakehouse-name MyLakehouse --format table
+# Extract metadata for lakehouse/warehouse
+ingen_fab deploy get-metadata --lakehouse-name MyLakehouse --format table --target lakehouse

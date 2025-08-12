@@ -20,6 +20,7 @@
 execution_group = ""  # Optional: filter by execution group, empty = process all
 environment = "development"
 run_type = "FULL"  # FULL or INCREMENTAL
+max_parallel_extracts = 1  # Number of extracts to run in parallel (1 = serial, >1 = parallel)
 
 {{ macros.python_cell_with_heading("## 📤 Extract Generation Notebook (Lakehouse)") }}
 
@@ -45,6 +46,8 @@ from typing import Dict, List, Optional, Any, Tuple
 import pandas as pd
 from pyspark.sql import functions as F
 from pyspark.sql.types import *
+from concurrent.futures import ThreadPoolExecutor, as_completed
+import threading
 
 # Import lakehouse_utils and sql_templates for lakehouse operations
 if run_mode == "local":
@@ -173,6 +176,19 @@ class ExtractConfiguration:
         else:
             raise ValueError("No source object defined for extract")
     
+    def get_source_table_info(self) -> Tuple[str, str, str]:
+        """Get table name, schema, and type for read_table operation"""
+        if self.extract_table_name:
+            table_name = self.extract_table_name
+            schema_name = self.extract_table_schema if self.extract_table_schema and self.extract_table_schema != "default" else None
+            return table_name, schema_name, "TABLE"
+        elif self.extract_view_name:
+            table_name = self.extract_view_name
+            schema_name = self.extract_view_schema if self.extract_view_schema and self.extract_view_schema != "default" else None
+            return table_name, schema_name, "VIEW"
+        else:
+            raise ValueError("No source object defined for extract")
+    
     def _convert_datetime_format(self, format_str: str) -> str:
         """Convert Java/C# datetime format to Python strftime format"""
         if not format_str:
@@ -267,67 +283,79 @@ if not lakehouse.check_if_table_exists("config_extract_generation"):
 if not lakehouse.check_if_table_exists("config_extract_generation_details"):
     raise ValueError("Configuration table 'config_extract_generation_details' not found. Please run DDL scripts first.")
 
-# Build query to load active extract configurations
-config_query = """
-SELECT 
-    c.extract_name,
-    c.is_active,
-    c.trigger_name,
-    c.extract_pipeline_name,
-    c.extract_table_name,
-    c.extract_table_schema,
-    c.extract_view_name,
-    c.extract_view_schema,
-    c.is_full_load,
-    c.execution_group,
-    d.file_generation_group,
-    d.extract_container,
-    d.extract_directory,
-    d.extract_file_name,
-    d.extract_file_name_timestamp_format,
-    d.extract_file_name_period_end_day,
-    d.extract_file_name_extension,
-    d.extract_file_name_ordering,
-    d.file_properties_column_delimiter,
-    d.file_properties_row_delimiter,
-    d.file_properties_encoding,
-    d.file_properties_quote_character,
-    d.file_properties_escape_character,
-    d.file_properties_header,
-    d.file_properties_null_value,
-    d.file_properties_max_rows_per_file,
-    d.output_format,
-    d.is_trigger_file,
-    d.trigger_file_extension,
-    d.is_compressed,
-    d.compressed_type,
-    d.compressed_level,
-    d.compressed_file_name,
-    d.compressed_extension,
-    d.fabric_lakehouse_path,
-    -- Location resolution fields
-    d.source_workspace_id,
-    d.source_datastore_id,
-    d.source_datastore_type,
-    d.source_schema_name,
-    d.target_workspace_id,
-    d.target_datastore_id,
-    d.target_datastore_type,
-    d.target_file_root_path,
-    d.force_single_file
-FROM config_extract_generation c
-INNER JOIN config_extract_generation_details d ON c.extract_name = d.extract_name
-WHERE c.is_active = true
-"""
+# Load configuration tables using PySpark DataFrame API
+print("Loading configuration tables using PySpark DataFrame API...")
 
-# Add execution group filter if specified
+# Read the main configuration table
+config_df = lakehouse.read_table(table_name="config_extract_generation")
+
+# Read the details configuration table  
+details_df = lakehouse.read_table(table_name="config_extract_generation_details")
+
+# Filter for active configurations
+active_config_df = config_df.filter(F.col("is_active") == True)
+
+# Apply execution group filter if specified
 if execution_group:
-    config_query += f" AND c.execution_group = '{execution_group}'"
+    print(f"Filtering by execution group: {execution_group}")
+    active_config_df = active_config_df.filter(F.col("execution_group") == execution_group)
 
-config_query += " ORDER BY c.extract_name"
+# Join configuration and details tables on extract_name
+configs_df = active_config_df.join(
+    details_df,
+    on="extract_name",
+    how="inner"
+).select(
+    # Configuration columns with 'c' prefix
+    config_df["extract_name"],
+    config_df["is_active"],
+    config_df["trigger_name"],
+    config_df["extract_pipeline_name"],
+    config_df["extract_table_name"],
+    config_df["extract_table_schema"],
+    config_df["extract_view_name"],
+    config_df["extract_view_schema"],
+    config_df["is_full_load"],
+    config_df["execution_group"],
+    # Details columns with 'd' prefix
+    details_df["file_generation_group"],
+    details_df["extract_container"],
+    details_df["extract_directory"],
+    details_df["extract_file_name"],
+    details_df["extract_file_name_timestamp_format"],
+    details_df["extract_file_name_period_end_day"],
+    details_df["extract_file_name_extension"],
+    details_df["extract_file_name_ordering"],
+    details_df["file_properties_column_delimiter"],
+    details_df["file_properties_row_delimiter"],
+    details_df["file_properties_encoding"],
+    details_df["file_properties_quote_character"],
+    details_df["file_properties_escape_character"],
+    details_df["file_properties_header"],
+    details_df["file_properties_null_value"],
+    details_df["file_properties_max_rows_per_file"],
+    details_df["output_format"],
+    details_df["is_trigger_file"],
+    details_df["trigger_file_extension"],
+    details_df["is_compressed"],
+    details_df["compressed_type"],
+    details_df["compressed_level"],
+    details_df["compressed_file_name"],
+    details_df["compressed_extension"],
+    details_df["fabric_lakehouse_path"],
+    # Location resolution fields
+    details_df["source_workspace_id"],
+    details_df["source_datastore_id"],
+    details_df["source_datastore_type"],
+    details_df["source_schema_name"],
+    details_df["target_workspace_id"],
+    details_df["target_datastore_id"],
+    details_df["target_datastore_type"],
+    details_df["target_file_root_path"],
+    details_df["force_single_file"]
+).orderBy("extract_name")
 
-print(f"Executing query: {config_query[:100]}...")
-configs_df = lakehouse.execute_query(query=config_query)
+print(f"Loaded extract configurations using PySpark DataFrame operations")
 
 if configs_df.count() == 0:
     filter_msg = f" for execution group '{execution_group}'" if execution_group else ""
@@ -354,7 +382,9 @@ for _, row in configs_pandas_df.iterrows():
 
 print(f"Found {len(extract_configs)} active extracts to process")
 for config in extract_configs:
-    print(f"  - {config.extract_name} ({config.get_source_query()[1]}, {config.output_format})")
+    table_name, schema_name, source_type = config.get_source_table_info()
+    table_display = f"{schema_name}.{table_name}" if schema_name else table_name
+    print(f"  - {config.extract_name} ({source_type}: {table_display}, {config.output_format})")
 
 {{ macros.python_cell_with_heading("## 🌐 Location Resolution Helpers") }}
 
@@ -670,50 +700,65 @@ def log_extract_run(extract_config, status: str, extract_start_time, error_messa
     if kwargs:
         print(f"    Details: {kwargs}")
 
-# Process each extract configuration
-total_extracts = len(extract_configs)
-successful_extracts = 0
-failed_extracts = 0
+# Thread-safe counter for tracking progress
+extract_counter_lock = threading.Lock()
+processed_count = 0
 
-print(f"\n🚀 Starting batch extract processing for {total_extracts} extracts...")
-
-for extract_index, config in enumerate(extract_configs, 1):
+def process_single_extract(config: ExtractConfiguration, extract_index: int, total_extracts: int):
+    """Process a single extract configuration - designed to be run in parallel"""
+    global processed_count
+    
     extract_start_time = datetime.utcnow()
     memory_before = get_memory_usage_mb()
+    thread_id = threading.current_thread().name
+    
+    # Thread-safe progress update
+    with extract_counter_lock:
+        processed_count += 1
+        current_count = processed_count
     
     print(f"\n{'='*60}")
-    print(f"Processing Extract {extract_index}/{total_extracts}: {config.extract_name}")
+    print(f"[{thread_id}] Processing Extract {current_count}/{total_extracts}: {config.extract_name}")
     print(f"{'='*60}")
-    print(f"Source: {config.get_source_query()[1]} - {config.get_source_query()[0][:100]}...")
-    print(f"Output: {config.output_format} | Compression: {'Yes' if config.is_compressed else 'No'}")
-    print(f"💾 Initial Memory Usage: {memory_before:.1f}MB")
+    
+    table_info = config.get_source_table_info()
+    table_display = f"{table_info[1]}.{table_info[0]}" if table_info[1] else table_info[0]
+    print(f"[{thread_id}] Source: {table_info[2]} - {table_display}")
+    print(f"[{thread_id}] Output: {config.output_format} | Compression: {'Yes' if config.is_compressed else 'No'}")
+    print(f"[{thread_id}] 💾 Initial Memory Usage: {memory_before:.1f}MB")
+    
+    result = {
+        "extract_name": config.extract_name,
+        "success": False,
+        "error": None,
+        "metrics": None
+    }
     
     try:
-        # Get source query
-        source_query, source_type = config.get_source_query()
+        # Get source table information
+        table_name, schema_name, source_type = config.get_source_table_info()
         
         # Resolve source and target lakehouses for this extract
         source_lakehouse = get_source_lakehouse_for_config(config)
         target_lakehouse = get_target_lakehouse_for_config(config)
         
-        # Execute query using resolved source lakehouse
-        print(f"Executing query using source lakehouse: {source_query[:100]}...")
-        spark_df = source_lakehouse.execute_query(query=source_query)
+        # Read table using resolved source lakehouse
+        print(f"[{thread_id}] Reading table using source lakehouse: {table_name} (schema: {schema_name or 'default'})")
+        spark_df = source_lakehouse.read_table(table_name=table_name, schema_name=schema_name)
         
         # Get row count from PySpark DataFrame
         total_rows = spark_df.count()
-        print(f"Retrieved {total_rows:,} rows from source")
+        print(f"[{thread_id}] Retrieved {total_rows:,} rows from source")
         
         # PERFORMANCE OPTIMIZATION: Work directly with Spark DataFrame
-        # Avoid expensive Spark -> Pandas -> Spark conversions
-        print(f"⚡ Using optimized Spark-native processing (no Pandas conversion)")
+        print(f"[{thread_id}] ⚡ Using optimized Spark-native processing (no Pandas conversion)")
         
         # Log initial status
         log_extract_run(
             config, "IN_PROGRESS", extract_start_time,
             source_type=source_type,
-            source_object=config.extract_table_name or config.extract_view_name,
-            source_schema=config.extract_table_schema or config.extract_view_schema,
+            source_object=table_name,
+            source_schema=schema_name or "default",
             rows_extracted=total_rows
         )
         
@@ -723,9 +768,9 @@ for extract_index, config in enumerate(extract_configs, 1):
         
         # Show compression status
         if config.is_compressed:
-            print(f"🗜️ Compression enabled: {config.compressed_type} ({config.compressed_level})")
+            print(f"[{thread_id}] 🗜️ Compression enabled: {config.compressed_type} ({config.compressed_level})")
         else:
-            print(f"📄 No compression specified")
+            print(f"[{thread_id}] 📄 No compression specified")
         
         # Check if we need to split files
         max_rows = config.file_properties_max_rows_per_file
@@ -733,7 +778,7 @@ for extract_index, config in enumerate(extract_configs, 1):
         if max_rows and total_rows > max_rows:
             # Split into multiple files using Spark-native operations
             num_files = (total_rows + max_rows - 1) // max_rows
-            print(f"Splitting into {num_files} files ({max_rows:,} rows each) using optimized Spark operations")
+            print(f"[{thread_id}] Splitting into {num_files} files ({max_rows:,} rows each) using optimized Spark operations")
             
             # Add row numbers for splitting
             from pyspark.sql.window import Window
@@ -744,7 +789,7 @@ for extract_index, config in enumerate(extract_configs, 1):
                 start_row = i * max_rows + 1
                 end_row = min((i + 1) * max_rows, total_rows)
                 
-                # Filter chunk using Spark operations (much faster than Pandas iloc)
+                # Filter chunk using Spark operations
                 df_chunk = indexed_df.filter(
                     (F.col("_row_num") >= start_row) & (F.col("_row_num") <= end_row)
                 ).drop("_row_num")
@@ -758,7 +803,7 @@ for extract_index, config in enumerate(extract_configs, 1):
                 file_path = f"{config.extract_container}/{config.extract_directory}/{file_name}".replace("//", "/")
                 
                 compression_info = f" ({config.compressed_type})" if config.is_compressed else ""
-                print(f"📄 Writing file chunk {i+1}/{num_files}: {file_path}{compression_info} ({chunk_rows:,} rows)")
+                print(f"[{thread_id}] 📄 Writing file chunk {i+1}/{num_files}: {file_path}{compression_info} ({chunk_rows:,} rows)")
                 
                 # Write using optimized lakehouse_utils abstraction
                 write_result = write_spark_dataframe_to_lakehouse_file(
@@ -779,7 +824,7 @@ for extract_index, config in enumerate(extract_configs, 1):
                         "compression_type": write_result.get("compression_type")
                     })
                 else:
-                    print(f"❌ Failed to write file chunk {i+1}: {write_result.get('error', 'Unknown error')}")
+                    print(f"[{thread_id}] ❌ Failed to write file chunk {i+1}: {write_result.get('error', 'Unknown error')}")
                 
                 total_rows_written += chunk_rows
         else:
@@ -790,7 +835,7 @@ for extract_index, config in enumerate(extract_configs, 1):
             file_path = f"{config.extract_container}/{config.extract_directory}/{file_name}".replace("//", "/")
             
             compression_info = f" ({config.compressed_type})" if config.is_compressed else ""
-            print(f"📄 Writing single file: {file_path}{compression_info}")
+            print(f"[{thread_id}] 📄 Writing single file: {file_path}{compression_info}")
             
             # Write using optimized lakehouse_utils abstraction
             write_result = write_spark_dataframe_to_lakehouse_file(
@@ -812,17 +857,17 @@ for extract_index, config in enumerate(extract_configs, 1):
                 })
                 total_rows_written = total_rows
             else:
-                print(f"❌ Failed to write file: {write_result.get('error', 'Unknown error')}")
+                print(f"[{thread_id}] ❌ Failed to write file: {write_result.get('error', 'Unknown error')}")
         
         # Generate trigger file if configured
         if config.is_trigger_file:
             trigger_file_name = f"{config.extract_file_name}{config.trigger_file_extension}"
             trigger_file_path = f"{config.extract_container}/{config.extract_directory}/{trigger_file_name}".replace("//", "/")
             
-            print(f"🎯 Creating trigger file: {trigger_file_path}")
+            print(f"[{thread_id}] 🎯 Creating trigger file: {trigger_file_path}")
             trigger_success = create_trigger_file(trigger_file_path, target_lakehouse)
             if not trigger_success:
-                print(f"⚠️  Warning: Failed to create trigger file {trigger_file_path}")
+                print(f"[{thread_id}] ⚠️  Warning: Failed to create trigger file {trigger_file_path}")
         
         # Calculate and display performance metrics
         extract_end_time = datetime.utcnow()
@@ -832,14 +877,15 @@ for extract_index, config in enumerate(extract_configs, 1):
             extract_start_time, extract_end_time, total_rows_written, files_generated
         )
         
+        print(f"\n[{thread_id}] Extract: {config.extract_name}")
         print_performance_summary(config.extract_name, performance_metrics, memory_before, memory_after)
         
         # Log successful completion with performance metrics
         log_extract_run(
             config, "SUCCESS", extract_start_time,
             source_type=source_type,
-            source_object=config.extract_table_name or config.extract_view_name,
-            source_schema=config.extract_table_schema or config.extract_view_schema,
+            source_object=table_name,
+            source_schema=schema_name or "default",
             rows_extracted=total_rows,
             rows_written=total_rows_written,
             files_generated=len(files_generated),
@@ -858,9 +904,11 @@ for extract_index, config in enumerate(extract_configs, 1):
             memory_usage_mb_after=memory_after
         )
         
-        print(f"✅ Extract {config.extract_name} completed successfully!")
-        print(f"   Files: {len(files_generated)} | Rows: {total_rows_written:,} | Duration: {performance_metrics['duration_formatted']} | Throughput: {performance_metrics['throughput_formatted']}")
-        successful_extracts += 1
+        print(f"[{thread_id}] ✅ Extract {config.extract_name} completed successfully!")
+        print(f"[{thread_id}]    Files: {len(files_generated)} | Rows: {total_rows_written:,} | Duration: {performance_metrics['duration_formatted']} | Throughput: {performance_metrics['throughput_formatted']}")
+        
+        result["success"] = True
+        result["metrics"] = performance_metrics
         
     except Exception as e:
         # Enhanced error reporting with line numbers and stack trace
@@ -883,7 +931,7 @@ for extract_index, config in enumerate(extract_configs, 1):
         
         error_msg = f"Error extracting data from {config.extract_name}: {str(e)}"
         detailed_error = f"""
-❌ EXTRACT GENERATION ERROR DETAILS (LAKEHOUSE):
+[{thread_id}] ❌ EXTRACT GENERATION ERROR DETAILS (LAKEHOUSE):
    Extract Name: {config.extract_name}
    Error Type: {type(e).__name__}
    Error Message: {str(e)}
@@ -896,8 +944,92 @@ for extract_index, config in enumerate(extract_configs, 1):
         
         print(detailed_error)
         log_extract_run(config, "FAILED", extract_start_time, error_message=f"{str(e)} (Line: {line_number})")
-        failed_extracts += 1
-        continue
+        
+        result["error"] = str(e)
+    
+    return result
+
+# Process each extract configuration
+total_extracts = len(extract_configs)
+successful_extracts = 0
+failed_extracts = 0
+
+# Validate and set parallelism level
+if max_parallel_extracts < 1:
+    max_parallel_extracts = 1
+    print(f"⚠️ Invalid max_parallel_extracts value. Setting to 1 (serial processing)")
+elif max_parallel_extracts > total_extracts:
+    max_parallel_extracts = total_extracts
+    print(f"ℹ️ Adjusting max_parallel_extracts to {total_extracts} (number of extracts)")
+
+# Display processing mode
+if max_parallel_extracts == 1:
+    print(f"\n🚀 Starting SERIAL extract processing for {total_extracts} extracts...")
+else:
+    print(f"\n🚀 Starting PARALLEL extract processing for {total_extracts} extracts...")
+    print(f"⚡ Max parallel threads: {max_parallel_extracts}")
+
+# Reset the global counter for progress tracking
+processed_count = 0
+
+# Process extracts based on parallelism setting
+if max_parallel_extracts == 1:
+    # Serial processing (original behavior)
+    for extract_index, config in enumerate(extract_configs, 1):
+        result = process_single_extract(config, extract_index, total_extracts)
+        if result["success"]:
+            successful_extracts += 1
+        else:
+            failed_extracts += 1
+else:
+    # Parallel processing using ThreadPoolExecutor
+    print(f"\n📊 Starting parallel execution with {max_parallel_extracts} workers...")
+    
+    # Dictionary to track futures and their configs
+    future_to_config = {}
+    results = []
+    
+    with ThreadPoolExecutor(max_workers=max_parallel_extracts, thread_name_prefix="Extract") as executor:
+        # Submit all extract jobs
+        for index, config in enumerate(extract_configs, 1):
+            future = executor.submit(process_single_extract, config, index, total_extracts)
+            future_to_config[future] = config
+        
+        # Process completed futures as they finish
+        for future in as_completed(future_to_config):
+            config = future_to_config[future]
+            try:
+                result = future.result()
+                results.append(result)
+                
+                if result["success"]:
+                    successful_extracts += 1
+                    print(f"✅ Completed: {result['extract_name']}")
+                else:
+                    failed_extracts += 1
+                    print(f"❌ Failed: {result['extract_name']} - {result['error']}")
+                    
+            except Exception as exc:
+                failed_extracts += 1
+                print(f"❌ Exception for {config.extract_name}: {exc}")
+                results.append({
+                    "extract_name": config.extract_name,
+                    "success": False,
+                    "error": str(exc),
+                    "metrics": None
+                })
+    
+    print(f"\n✅ Parallel execution completed!")
+    
+    # Display summary of parallel results
+    if results:
+        print(f"\n📋 Parallel Execution Summary:")
+        for result in results:
+            status = "✅" if result["success"] else "❌"
+            print(f"  {status} {result['extract_name']}")
+            if result.get("metrics"):
+                metrics = result["metrics"]
+                print(f"      Duration: {metrics['duration_formatted']} | Throughput: {metrics['throughput_formatted']}")
 
 # End of extract processing loop
 print(f"\n🎉 Batch extract processing completed!")

@@ -1,5 +1,7 @@
 # Synthetic Data Generation Package
 
+[Home](../index.md) > [Packages](index.md) > Synthetic Data Generation
+
 The Synthetic Data Generation package creates realistic test datasets at any scale. It supports multiple data patterns and both single-dataset and incremental time-series generation.
 
 ## Overview

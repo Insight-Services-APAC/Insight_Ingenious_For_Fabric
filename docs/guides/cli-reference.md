@@ -1,8 +1,11 @@
 # CLI Reference
 
-[Home](../index.md) > [User Guide](index.md) > CLI Reference
+[Home](../index.md) > [Guides](cli-reference.md) > CLI Reference
 
 Complete reference for all Ingenious Fabric Accelerator commands, options, and usage patterns.
+
+!!! tip "User Journey"
+    **Regular User Path**: [CLI Reference](cli-reference.md) (you are here) → [Deployment Guide](deployment.md) → [Packages](packages.md) → [Troubleshooting](troubleshooting.md)
 
 !!! tip "Before you begin"
     Activate your environment and set defaults to simplify commands.
@@ -811,9 +814,9 @@ For the most up-to-date help information, use the built-in help commands:
 # Get main help
 ingen_fab --help
 
-# Get help for specific command groups  
+# Get help for specific command groups
 ingen_fab deploy --help
-ingen_fab ddl --help
+ingen_fab ddl --help  
 ingen_fab package --help
 
 # Get help for specific commands

@@ -1,5 +1,7 @@
 # Python Libraries
 
+[Home](../index.md) > [Developer Guide](index.md) > Python Libraries
+
 The Python libraries are the heart of the Ingenious Fabric Accelerator, providing reusable components that work seamlessly across both local development and Fabric runtime environments. This allows developers to build high quality, reusable code libraries that can be both unit tested and functionally tested locally before being deployed to Fabric.
 
 ## Architecture

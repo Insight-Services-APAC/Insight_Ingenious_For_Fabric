@@ -2,6 +2,49 @@
 
 This report documents all discrepancies found between the documentation and actual codebase implementation, along with the corrections made. All validation was performed through static code analysis without executing any code.
 
+## Most Recent Audit (2025-08-11)
+
+**Focus**: Comprehensive documentation accuracy audit
+**Method**: Static code analysis only (no code execution)
+**Scope**: Complete documentation audit of ingen_fab project including README.md, all docs/, and cross-referencing with codebase
+
+### Critical Issues Fixed (2025-08-11)
+
+1. **Command Migration**: Fixed outdated `extract lakehouse-metadata` command - now correctly documented as `deploy get-metadata`
+2. **Missing Command Group**: Added complete DBT command group documentation that was missing from README and CLI reference
+3. **Environment Variables**: Added 8 undocumented environment variables for local testing (SQL_SERVER_PASSWORD, POSTGRES_*, etc.)
+4. **Directory Casing**: Fixed incorrect capitalization in workspace layout (Lakehouses/ → lakehouses/)
+
+### Files Modified (2025-08-11)
+
+1. **README.md**:
+   - Replaced `extract lakehouse-metadata` with `deploy get-metadata`
+   - Added DBT command group to command list
+   - Expanded features section with all packages
+   - Added comprehensive command examples for all packages
+
+2. **docs/user_guide/cli_reference.md**:
+   - Added complete DBT command group section
+   - Documented `dbt create-notebooks`, `convert-metadata`, and proxy commands
+   - Removed obsolete extract command references
+
+3. **docs/user_guide/environment_variables.md**:
+   - Added IGEN_FAB_CONFIG, SQL_SERVER_PASSWORD, MYSQL_PASSWORD
+   - Added POSTGRES_PASSWORD, POSTGRES_HOST, POSTGRES_PORT, POSTGRES_USER, POSTGRES_DATABASE
+
+4. **docs/user_guide/workspace_layout.md**:
+   - Fixed directory casing (lakehouses, warehouses)
+   - Added missing directories (dbt_project*, metadata/)
+
+### Files Created (2025-08-11)
+
+1. **tests/docs/test_documentation_accuracy.py**: Comprehensive test suite for documentation validation
+   - Tests CLI command existence
+   - Validates environment variable documentation
+   - Verifies package command accuracy
+   - Checks project structure documentation
+   - Validates command migrations
+
 ## Recent Audit Summary (2025-01-19)
 
 **Focus**: Package naming, placeholder URLs, CLI command accuracy, and installation instructions

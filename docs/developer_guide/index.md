@@ -1,5 +1,7 @@
 # Developer Guide
 
+[Home](../index.md) > Developer Guide
+
 Welcome to the Developer Guide for the Ingenious Fabric Accelerator! This section is designed for developers who want to understand the architecture, extend functionality, or contribute to the project.
 
 ## Architecture Overview

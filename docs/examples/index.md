@@ -1,5 +1,7 @@
 # Examples
 
+[Home](../index.md) > Examples
+
 This section provides practical examples and real-world scenarios for using the Ingenious Fabric Accelerator. From simple getting-started examples to complex multi-environment deployments, these examples will help you understand how to use the tool effectively.
 
 ## Available Examples

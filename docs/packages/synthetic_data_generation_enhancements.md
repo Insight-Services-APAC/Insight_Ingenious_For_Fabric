@@ -1,5 +1,7 @@
 # Synthetic Data Generator Enhancements
 
+[Home](../index.md) > [Packages](index.md) > Synthetic Data Generator Enhancements
+
 This document outlines the comprehensive enhancements made to the synthetic data generator package to address the requirements for:
 
 1. **Runtime parameter flexibility** - Moving more code to `python_libs` for runtime configuration

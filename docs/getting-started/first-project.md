@@ -1,8 +1,14 @@
-# Sample Project Walkthrough
+# Your First Project
 
-[Home](../index.md) > [Examples](index.md) > Sample Project
+[Home](../index.md) > [Getting Started](installation.md) > First Project
 
-This comprehensive walkthrough demonstrates the complete workflow for managing a Microsoft Fabric workspace using the Ingenious Fabric Accelerator. The sample project includes everything you need to understand the tool's capabilities and best practices.
+This comprehensive walkthrough demonstrates the complete workflow for managing a Microsoft Fabric workspace using the Ingenious Fabric Accelerator. Follow along with the sample project to understand the tool's capabilities and best practices.
+
+!!! tip "Learning Path"
+    **New User Journey**: [Installation](installation.md) → [Quick Start](quick-start.md) → First Project (you are here) → [CLI Reference](../guides/cli-reference.md)
+
+!!! info "Prerequisites"
+    Complete the [Quick Start](quick-start.md) guide before starting this walkthrough.
 
 ## What You'll Learn
 
