@@ -32,6 +32,12 @@ This guide covers everything you need to know to get started and become proficie
 - Testing approaches
 - Troubleshooting
 
+### [DBT Integration](dbt_integration.md)
+- Automatic profile management
+- Lakehouse selection
+- Creating notebooks from dbt
+- Best practices
+
 ## Prerequisites
 
 Before using the Ingenious Fabric Accelerator, ensure you have:
