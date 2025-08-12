@@ -1,26 +1,41 @@
 Set up environment variables to avoid specifying them on each command:
 
-```bash
-# Project location
-export FABRIC_WORKSPACE_REPO_DIR="./sample_project"
+=== "macOS/Linux"
 
-# Target environment
-export FABRIC_ENVIRONMENT="development"
-```
+    ```bash
+    # Project location
+    export FABRIC_WORKSPACE_REPO_DIR="./sample_project"
 
-For deployment and metadata extraction, you may also need:
+    # Target environment
+    export FABRIC_ENVIRONMENT="development"
+    ```
 
-```bash
-# Authentication (for deployment)
-export AZURE_TENANT_ID="your-tenant-id"
-export AZURE_CLIENT_ID="your-client-id"
-export AZURE_CLIENT_SECRET="your-client-secret"
-```
+    For deployment and metadata extraction, you may also need:
 
-**PowerShell users:**
-```powershell
-$env:FABRIC_WORKSPACE_REPO_DIR = "./sample_project"
-$env:FABRIC_ENVIRONMENT = "development"
-```
+    ```bash
+    # Authentication (for deployment)
+    export AZURE_TENANT_ID="your-tenant-id"
+    export AZURE_CLIENT_ID="your-client-id"
+    export AZURE_CLIENT_SECRET="your-client-secret"
+    ```
+
+=== "Windows"
+
+    ```powershell
+    # Project location
+    $env:FABRIC_WORKSPACE_REPO_DIR = "./sample_project"
+
+    # Target environment
+    $env:FABRIC_ENVIRONMENT = "development"
+    ```
+
+    For deployment and metadata extraction, you may also need:
+
+    ```powershell
+    # Authentication (for deployment)
+    $env:AZURE_TENANT_ID = "your-tenant-id"
+    $env:AZURE_CLIENT_ID = "your-client-id"
+    $env:AZURE_CLIENT_SECRET = "your-client-secret"
+    ```
 
 See [Environment Variables](../user_guide/environment_variables.md) for a complete list.
