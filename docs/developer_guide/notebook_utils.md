@@ -1,5 +1,7 @@
 # Notebook Utils
 
+[Home](../index.md) > [Developer Guide](index.md) > Notebook Utils
+
 ## Overview
 
 The Notebook Utils module provides environment-agnostic utilities that work seamlessly in both local development and Microsoft Fabric runtime environments. These utilities abstract away the differences between environments and provide consistent interfaces for common operations.

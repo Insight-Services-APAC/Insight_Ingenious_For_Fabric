@@ -1,5 +1,7 @@
 # User Guide
 
+[Home](../index.md) > User Guide
+
 Welcome to the Ingenious Fabric Accelerator User Guide! This section provides comprehensive information on how to use the tool effectively for your Microsoft Fabric projects.
 
 ## What You'll Learn

@@ -1,5 +1,7 @@
 # DDL Scripts
 
+[Home](../index.md) > [Developer Guide](index.md) > DDL Scripts
+
 ## Overview
 
 The DDL Scripts system provides a template-based approach for generating Data Definition Language (DDL) notebooks for Microsoft Fabric. This system allows you to create reusable templates that can be customized for different environments and use cases.

@@ -1,5 +1,7 @@
 # Flat File Ingestion Package
 
+[Home](../index.md) > [Packages](index.md) > Flat File Ingestion
+
 ## At a Glance
 
 | Item | Summary |
@@ -1280,7 +1282,7 @@ ingen_fab package flat-file-ingestion run \
 - [Packages Overview](../developer_guide/packages.md) - Package system architecture
 - [DDL Scripts](../developer_guide/ddl_scripts.md) - Template system details
 - [Python Libraries](../developer_guide/python_libraries.md) - Core library documentation
-- [Location Resolver](../developer_guide/python_libraries.md#location-resolver) - Cross-workspace data movement
+- [Workflow Utilities](../developer_guide/python_libraries.md#workflow_utilspy) - Cross-workspace data movement
 - [CLI Reference](../user_guide/cli_reference.md) - Complete CLI documentation
 
 ## Support

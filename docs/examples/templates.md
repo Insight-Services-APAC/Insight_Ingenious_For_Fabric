@@ -1,5 +1,7 @@
 # Project Templates
 
+[Home](../index.md) > [Examples](index.md) > Project Templates
+
 ## Overview
 
 The Ingenious Fabric Accelerator provides a comprehensive set of project templates to help you quickly bootstrap new Microsoft Fabric projects. These templates include pre-configured workspace items, DDL scripts, and common patterns for data processing workflows.

@@ -1,5 +1,7 @@
 # Packages
 
+[Home](../index.md) > [Developer Guide](index.md) > Packages
+
 Packages are reusable workload extensions that provide specialized functionality for common data processing scenarios in Microsoft Fabric. They extend the Ingenious Fabric Accelerator with pre-built templates, configurations, and processing logic for specific use cases.
 
 ## Overview
