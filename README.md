@@ -26,21 +26,34 @@ Ingenious Fabric Accelerator is a comprehensive command line tool built with [Ty
 
 ## Installation
 
+### For Users
+
+Install the Ingenious Fabric Accelerator using pip:
+
 ```bash
-# Clone the repository
-git clone <repository-url>
-cd ingen_fab
+# Install from PyPI (when available)
+pip install insight-ingenious-for-fabric
 
-# Install with uv (recommended)
-uv sync
-
-# Or install with pip
-python -m venv .venv
-source .venv/bin/activate  # On Windows: .venv\Scripts\activate
-pip install -e .[dev]
+# Or install from GitHub
+pip install git+https://github.com/Insight-Services-APAC/Insight_Ingenious_For_Fabric.git
 ```
 
 For complete installation instructions, see our [Installation Guide](docs/user_guide/installation.md).
+
+### For Developers
+
+To contribute or modify the source code:
+
+```bash
+# Clone the repository
+git clone https://github.com/Insight-Services-APAC/Insight_Ingenious_For_Fabric.git
+cd ingen_fab
+
+# Set up development environment
+uv sync --all-extras  # or: pip install -e .[dev,docs,dbt]
+```
+
+See the [Developer Guide](docs/developer_guide/index.md) for complete development setup.
 
 ## Quick Start
 

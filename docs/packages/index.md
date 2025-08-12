@@ -2,154 +2,168 @@
 
 [Home](../index.md) > Packages
 
-Welcome to the Packages documentation! This section provides detailed information about available packages and how to use them in your Microsoft Fabric projects.
+Welcome to the Packages documentation! This section provides comprehensive information about available packages and how to use them in your Microsoft Fabric projects.
 
 ## What are Packages?
 
-Packages are reusable workload extensions that provide specialized functionality for common data processing scenarios. They include pre-built templates, configurations, and processing logic for specific use cases.
+Packages are reusable workload extensions that provide specialized functionality for common data processing scenarios in Microsoft Fabric. Each package includes:
+
+- **Pre-built templates** - Ready-to-use notebook templates and configurations
+- **Processing logic** - Optimized code for specific data workflows
+- **Configuration schemas** - Standardized configuration formats
+- **Sample data and examples** - Complete working examples to get started quickly
+- **Documentation** - Comprehensive guides and API references
+
+## How Packages Work
+
+### Package Architecture
+
+```mermaid
+graph TD
+    A[Package Template] --> B[Configuration]
+    B --> C[Compilation]
+    C --> D[Generated Notebooks]
+    D --> E[Fabric Deployment]
+    E --> F[Execution]
+```
+
+### Package Lifecycle
+
+1. **Template Definition** - Packages are defined using Jinja2 templates with configurable parameters
+2. **Configuration** - Users provide environment-specific configuration via JSON or CLI parameters
+3. **Compilation** - The CLI compiles templates into executable Fabric notebooks
+4. **Deployment** - Generated notebooks are deployed to your Fabric workspace
+5. **Execution** - Notebooks run in Fabric with full logging and error handling
+
+### CLI Commands
+
+All packages follow consistent CLI patterns:
+
+```bash
+# Compile a package (generates notebooks)
+ingen_fab package <package-name> compile [OPTIONS]
+
+# Run a package (executes the workflow)
+ingen_fab package <package-name> run [OPTIONS]
+
+# List available configurations
+ingen_fab package <package-name> list [OPTIONS]
+```
 
 ## Available Packages
 
-### [Flat File Ingestion](flat_file_ingestion.md)
+### Data Ingestion
 
-A comprehensive package for processing various file formats (CSV, JSON, Parquet, Avro, XML) and loading them into Delta tables based on metadata configuration.
+#### [Flat File Ingestion](flat_file_ingestion.md)
+Automated ingestion of various file formats (CSV, JSON, Parquet, Avro, XML) into Delta tables with configuration-driven metadata management.
 
-**Key Features:**
-- Multi-format file support
-- Configurable parsing options
-- Data validation and error handling
-- Comprehensive execution logging
-- Merge, append, and overwrite strategies
+**Use Cases:**
+- Batch file processing from data lakes
+- Automated data pipeline ingestion
+- Multi-format data standardization
+- Data validation and quality checks
 
-**Quick Start:**
-```bash
-# Compile the package for lakehouse target
-ingen_fab package ingest compile --target-datastore lakehouse --include-samples
+**Supported Targets:** Lakehouse, Warehouse
 
-# Compile the package for warehouse target  
-ingen_fab package ingest compile --target-datastore warehouse --include-samples
+---
 
-# Run ingestion (displays what parameters would be used)
-ingen_fab package ingest run --config-id=my-config
-```
+### Data Generation
 
-### Extract Generation
+#### [Synthetic Data Generation](synthetic_data_generation.md)
+Generate realistic synthetic datasets for testing, development, and prototyping with configurable patterns and relationships.
 
-A package for managing and orchestrating data extract generation from Fabric warehouses and lakehouses.
+**Use Cases:**
+- Test data generation for development
+- Performance testing with realistic data volumes
+- Data masking and privacy-safe datasets
+- Prototype development without production data
 
-**Key Features:**
-- Configurable extract definitions
-- Extract job scheduling and orchestration
-- Comprehensive execution logging
-- Support for multiple target formats
-- Extract generation tracking and history
+**Supported Patterns:** Retail, Finance, Healthcare, Custom
 
-**Quick Start:**
-```bash
-# Compile the extract generation package
-ingen_fab package extract compile --include-samples
+---
 
-# Run extract generation
-ingen_fab package extract run --config-id=my-extract-config
-```
+### Data Export
 
-### Synapse Sync
+#### [Extract Generation](extract_generation.md)
+Orchestrated data extract generation from Fabric warehouses and lakehouses with configurable scheduling and multiple output formats.
 
-A package for synchronizing data between Microsoft Fabric and Azure Synapse Analytics workspaces.
+**Use Cases:**
+- Data warehouse to data lake exports
+- Scheduled data extracts for external systems
+- Multi-format data distribution
+- Data archival and backup workflows
 
-**Key Features:**
-- Bidirectional data synchronization
-- Configurable sync patterns
-- Incremental data sync support
-- Comprehensive sync logging
-- Conflict resolution strategies
+**Supported Formats:** CSV, Parquet, JSON, Delta
 
-**Quick Start:**
-```bash
-# Compile the synapse sync package
-ingen_fab package synapse compile --include-samples
+---
 
-# Run synapse sync
-ingen_fab package synapse run --config-id=my-sync-config
-```
+### Data Synchronization
 
-### Synthetic Data Generation
+#### [Synapse Sync](synapse_sync.md)
+Bidirectional data synchronization between Microsoft Fabric and Azure Synapse Analytics workspaces.
 
-A package for generating realistic synthetic data for testing and development purposes.
+**Use Cases:**
+- Migrating from Synapse to Fabric
+- Hybrid Synapse-Fabric architectures
+- Data replication and backup
+- Cross-platform analytics workflows
 
-**Key Features:**
-- Multiple dataset templates (retail, finance, healthcare)
-- Configurable data volumes and patterns
-- Relationships and referential integrity
-- Data quality profiles
-- Multiple output formats
+**Sync Modes:** Full, Incremental, Bidirectional
 
-**Quick Start:**
-```bash
-# Compile synthetic data generation for a specific dataset
-ingen_fab package synthetic-data compile --dataset-id retail_oltp_small --size small
-
-# Generate synthetic data
-ingen_fab package synthetic-data run --dataset-id retail_oltp_small
-```
+---
 
 ## Package Development
 
-Learn how to create your own packages:
+### Creating Custom Packages
 
-- [Package Architecture](../developer_guide/packages.md) - Understanding package structure
-- [Development Guide](../developer_guide/packages.md#creating-a-new-package) - Step-by-step package creation
-- [Best Practices](../developer_guide/packages.md#best-practices) - Package development guidelines
+Want to build your own package? Learn about the package development process:
+
+1. **[Package Architecture](../developer_guide/packages.md)** - Understanding the package system
+2. **[Template Development](../developer_guide/ddl_scripts.md)** - Creating Jinja2 templates
+3. **[Python Libraries](../developer_guide/python_libraries.md)** - Using shared utilities
+4. **[Testing Packages](../developer_guide/python_libraries.md#testing)** - Local and platform testing
+
+### Package Standards
+
+All packages follow these standards:
+
+- **Consistent CLI interface** - Same command patterns across all packages
+- **Comprehensive logging** - Detailed execution logs and error handling
+- **Environment isolation** - Configuration-driven behavior without code changes
+- **Testing support** - Local testing capabilities before Fabric deployment
+- **Documentation** - Complete usage guides and examples
 
 ## Getting Started
 
-1. **Choose a Package** - Select from available packages
-2. **Compile Templates** - Generate notebooks and DDL scripts
-3. **Configure Metadata** - Set up configuration tables
-4. **Execute Workloads** - Run your data processing jobs
+### Quick Start Workflow
 
-## Package Structure
+1. **Choose a package** from the list above based on your use case
+2. **Review the documentation** for configuration options and examples
+3. **Compile the package** with your configuration:
+   ```bash
+   ingen_fab package <package-name> compile --include-samples
+   ```
+4. **Deploy to Fabric** using the standard deployment workflow:
+   ```bash
+   ingen_fab deploy deploy
+   ```
+5. **Execute the notebooks** in your Fabric workspace
 
-All packages follow a consistent structure:
+### Best Practices
 
-```
-packages/package_name/
-├── __init__.py                 # Package initialization
-├── package_name.py             # Main package module
-├── templates/                  # Jinja2 templates
-│   ├── notebook_template.py.jinja
-│   └── config_template.json.jinja
-├── ddl_scripts/               # DDL script templates
-│   ├── lakehouse_config.py
-│   ├── lakehouse_log.py
-│   ├── warehouse_config.sql
-│   └── warehouse_log.sql
-└── README.md                  # Package documentation
-```
+- **Start with samples** - Use `--include-samples` to get working examples
+- **Test locally first** - Use local testing before Fabric deployment
+- **Version your configurations** - Keep package configurations in source control
+- **Monitor execution** - Review notebook logs for performance and errors
+- **Customize gradually** - Start with defaults, then customize for your needs
 
-## CLI Integration
+## Support and Resources
 
-Packages integrate seamlessly with the CLI:
+- **[CLI Reference](../guides/cli-reference.md#package)** - Complete command documentation
+- **[Examples](../examples/index.md)** - Real-world usage scenarios
+- **[Troubleshooting](../guides/troubleshooting.md#package-issues)** - Common issues and solutions
+- **[Developer Guide](../developer_guide/packages.md)** - Package development guide
 
-```bash
-# General command structure
-ingen_fab package <package-name> <command> [options]
+---
 
-# Available packages
-ingen_fab package ingest compile           # Flat file ingestion package
-ingen_fab package ingest run               # Run flat file ingestion
-ingen_fab package extract compile          # Extract generation package
-ingen_fab package extract run              # Run extract generation
-ingen_fab package synapse compile          # Synapse sync package  
-ingen_fab package synapse run              # Run synapse sync
-ingen_fab package synthetic-data compile   # Synthetic data generation package
-ingen_fab package synthetic-data run       # Run synthetic data generation
-```
-
-## Next Steps
-
-- **Use a Package**: Start with [Flat File Ingestion](flat_file_ingestion.md)
-- **Create a Package**: Read the [Development Guide](../developer_guide/packages.md)
-- **Contribute**: See [Contributing Guidelines](../developer_guide/index.md#contributing)
-
-Ready to accelerate your data processing with packages? Choose a package from the list above or create your own!
+*Need help with a specific package? Click on the package name above to access detailed documentation, configuration examples, and usage guides.*

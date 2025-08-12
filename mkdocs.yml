@@ -114,6 +114,9 @@ nav:
   - Packages:
     - packages/index.md
     - Flat File Ingestion: packages/flat_file_ingestion.md
+    - Extract Generation: packages/extract_generation.md
+    - Synthetic Data Generation: packages/synthetic_data_generation.md
+    - Synapse Sync: packages/synapse_sync.md
   - API Reference:
     - api/index.md
     - Python APIs: api/python_apis.md
