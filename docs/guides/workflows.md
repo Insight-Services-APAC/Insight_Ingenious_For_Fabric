@@ -1,6 +1,6 @@
 # Workflows
 
-[Home](../index.md) > [User Guide](index.md) > Workflows
+[Home](../index.md) > [Guides](cli-reference.md) > Workflows
 
 This guide covers best practices and common workflows for using the Ingenious Fabric Accelerator effectively in your projects.
 

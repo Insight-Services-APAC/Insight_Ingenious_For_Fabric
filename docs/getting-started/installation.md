@@ -1,8 +1,11 @@
 # Installation
 
-[Home](../index.md) > [User Guide](index.md) > Installation
+[Home](../index.md) > [Getting Started](installation.md) > Installation
 
 This guide will help you install and set up the Ingenious Fabric Accelerator on your system.
+
+!!! tip "Learning Path"  
+    **New User Journey**: Installation (you are here) → [Quick Start](quick-start.md) → [First Project](first-project.md) → [CLI Reference](../guides/cli-reference.md)
 
 ## Requirements
 
@@ -15,47 +18,18 @@ Before installing, ensure your system meets these requirements:
 
 ## Installation Methods
 
-### Method 1: Using uv (Recommended)
+--8<-- "_includes/quick_install.md"
 
-[uv](https://github.com/astral-sh/uv) is the fastest way to install and manage Python dependencies:
+### Development Installation
 
-```bash
-# Install uv if you haven't already
-curl -LsSf https://astral.sh/uv/install.sh | sh
-
-# Clone the repository (replace with your actual repository URL)
-git clone <repository-url>
-cd ingen_fab
-
-# Install with uv (includes all development dependencies)
-uv sync
-```
-
-### Method 2: Using pip
-
-```bash
-# Clone the repository (replace with your actual repository URL)
-git clone <repository-url>
-cd ingen_fab
-
-# Create and activate virtual environment
-python -m venv .venv
-source .venv/bin/activate  # On Windows: .venv\Scripts\activate
-
-# Install the package in development mode
-pip install -e .[dev]
-```
-
-### Method 3: Development Installation
-
-For development work, install with all dependencies:
+For development work with all dependencies:
 
 ```bash
 # Using uv (includes all dependency groups)
 uv sync --all-extras
 
-# Using pip (install with all optional dependencies)
-pip install -e .[dev,docs]
+# Using pip (install with all optional dependencies)  
+pip install -e .[dev,docs,dbt]
 ```
 
 ## Environment Setup
@@ -182,10 +156,10 @@ export PYTHONPATH="${PYTHONPATH}:$(pwd)"
 
 Once installed, you can:
 
-1. **[Get started quickly](quick_start.md)** with your first project
-2. **[Learn the commands](cli_reference.md)** available
+1. **[Get started quickly](quick-start.md)** with your first project
+2. **[Learn the commands](../guides/cli-reference.md)** available
 3. **[Explore examples](../examples/index.md)** to see real-world usage
-4. **[Read the workflows](workflows.md)** for best practices
+4. **[Read the workflows](../guides/workflows.md)** for best practices
 
 ## Updating
 

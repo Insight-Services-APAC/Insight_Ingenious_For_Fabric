@@ -1,5 +1,7 @@
 # Incremental Synthetic Data Generation
 
+[Home](../index.md) > [Packages](index.md) > Incremental Synthetic Data Generation
+
 This document describes the incremental synthetic data generation functionality for creating time-series test data.
 
 ## Overview

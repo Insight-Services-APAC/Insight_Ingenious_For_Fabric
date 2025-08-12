@@ -1,5 +1,7 @@
 # Testing pip Installation Process
 
+[Home](../index.md) > [Developer Guide](index.md) > Testing pip Installation Process
+
 This guide provides a comprehensive test plan for verifying the pip installation process of the `insight-ingenious-for-fabric` package.
 
 ## Prerequisites

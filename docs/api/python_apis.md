@@ -1,5 +1,7 @@
 # Python APIs
 
+[Home](../index.md) > [API Reference](index.md) > Python APIs
+
 ## Overview
 
 The Ingenious Fabric Accelerator provides comprehensive Python APIs for programmatic access to all functionality. These APIs enable you to build custom solutions, integrate with existing workflows, and automate complex operations.

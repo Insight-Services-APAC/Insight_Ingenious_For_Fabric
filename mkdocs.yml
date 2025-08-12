@@ -77,9 +77,9 @@ plugins:
   - table-reader
   - redirects:
       redirect_maps:
-        'user_guide/index.md': 'user_guide/installation.md'
-        'developer_guide/index.md': 'developer_guide/python_libraries.md'
-        'examples/index.md': 'examples/sample_project.md'
+        #'user_guide/index.md': 'user_guide/installation.md'
+        #'developer_guide/index.md': 'developer_guide/python_libraries.md'
+        #'examples/index.md': 'examples/sample_project.md'
   - git-revision-date-localized:
       enable_creation_date: true
       type: datetime
@@ -116,7 +116,6 @@ nav:
     - Flat File Ingestion: packages/flat_file_ingestion.md
   - API Reference:
     - api/index.md
-    - CLI Commands: api/cli_commands.md
     - Python APIs: api/python_apis.md
 
 exclude_docs: |

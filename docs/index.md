@@ -82,70 +82,71 @@ Ingenious for Fabric is a comprehensive command line tool built with [Typer](htt
 
 
 
-## Quick Start
+## Quick Navigation
 
-**Tip:** You can set environment variables to avoid specifying them in every CLI operation. This makes commands simpler and less repetitive.
+<div class="grid cards" markdown>
 
-### Primary Environment Variables
+-   :material-rocket-launch:{ .lg .middle } **Getting Started**
 
-- `FABRIC_WORKSPACE_REPO_DIR`: Sets the default directory containing your Fabric workspace repository files. If not specified in a CLI command, the CLI will use this value automatically.
-- `FABRIC_ENVIRONMENT`: Sets the default environment name (e.g., `local`, `development`, `production`). This controls which environment configuration and variable library are used for operations. If not specified in a CLI command, the CLI will use this value automatically.
+    ---
 
-**Usage Example:**
+    New to Ingenious? Start here for installation and your first project.
 
-In PowerShell:
-```powershell
-$env:FABRIC_WORKSPACE_REPO_DIR = "sample_project"
-$env:FABRIC_ENVIRONMENT = "local"
-```
-In bash:
-```bash
-export FABRIC_WORKSPACE_REPO_DIR="sample_project"
-export FABRIC_ENVIRONMENT="local"
-```
-Once set, all CLI commands will use these values by default, so you do not need to pass `--fabric-workspace-repo-dir` or `--fabric-environment` every time.
+    [:octicons-arrow-right-24: Quick Start Guide](getting-started/quick-start.md)
 
-### Initialize a New Project
+-   :material-console:{ .lg .middle } **User Guides**
 
-```bash
-# Create a new Fabric workspace project with complete starter template
-ingen_fab init new --project-name "My Fabric Project"
-```
+    ---
 
-### Generate DDL Notebooks
+    Task-oriented guides for common workflows and operations.
 
-```bash
-# Generate DDL notebooks for warehouses
-ingen_fab ddl compile \
-    --output-mode fabric_workspace_repo \
-    --generation-mode Warehouse
+    [:octicons-arrow-right-24: CLI Reference](guides/cli-reference.md) · [:octicons-arrow-right-24: Deployment](guides/deployment.md) · [:octicons-arrow-right-24: Packages](guides/packages.md)
 
-# Generate DDL notebooks for lakehouses  
-ingen_fab ddl compile \
-    --output-mode fabric_workspace_repo \
-    --generation-mode Lakehouse
-```
+-   :material-book:{ .lg .middle } **Reference**
 
-### Deploy to Environment
+    ---
+
+    Technical reference for configuration and architecture.
+
+    [:octicons-arrow-right-24: Environment Variables](reference/environment-variables.md) · [:octicons-arrow-right-24: Workspace Layout](reference/workspace-layout.md)
+
+-   :material-code-braces:{ .lg .middle } **Developer Guide**
+
+    ---
+
+    Architecture, libraries, and extending the accelerator.
+
+    [:octicons-arrow-right-24: Developer Documentation](developer_guide/index.md)
+
+</div>
+
+## Common Workflows
+
+**5-Minute Start**: Create and deploy your first project
 
 ```bash
-# Deploy to development environment
-ingen_fab deploy deploy \
-    --fabric-workspace-repo-dir . \
-    --fabric-environment development
+# 1. Create project
+ingen_fab init new --project-name "My Project"
+
+# 2. Set environment
+export FABRIC_WORKSPACE_REPO_DIR="./My Project"
+export FABRIC_ENVIRONMENT="development"
+
+# 3. Generate notebooks
+ingen_fab ddl compile --output-mode fabric_workspace_repo --generation-mode Warehouse
+
+# 4. Deploy
+ingen_fab deploy deploy
 ```
 
-### Use Packages
+**Package Usage**: Add data ingestion capabilities
 
 ```bash
-# Compile flat file ingestion package for lakehouse
+# Compile flat file ingestion for lakehouse
 ingen_fab package ingest compile --target-datastore lakehouse --include-samples
 
-# Compile flat file ingestion package for warehouse
-ingen_fab package ingest compile --target-datastore warehouse --include-samples
-
-# Compile synapse sync package
-ingen_fab package synapse compile --include-samples
+# Compile extract generation
+ingen_fab package extract compile --include-samples --target-datastore warehouse
 ```
 
 
