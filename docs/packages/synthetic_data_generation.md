@@ -4,6 +4,19 @@
 
 The Synthetic Data Generation package creates realistic test datasets at any scale. It supports multiple data patterns and both single-dataset and incremental time-series generation.
 
+## At a Glance
+
+| Item | Summary |
+|------|---------|
+| **Purpose** | Generate realistic synthetic datasets for testing and development |
+| **CLI Commands** | `generate`, `list`, `compile` |
+| **Target Environments** | Lakehouse, Warehouse |
+| **Scale Range** | 1K to 1B+ rows |
+| **Data Domains** | Retail, Finance, Healthcare, E-commerce |
+| **Schema Types** | OLTP (transactional), OLAP (star schema) |
+| **Generation Modes** | Single dataset, Time-series incremental |
+| **Key Features** | Realistic relationships, configurable patterns, reproducible seeds |
+
 ## Overview
 
 The package provides:

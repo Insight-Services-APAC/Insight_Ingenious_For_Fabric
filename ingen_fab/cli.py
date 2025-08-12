@@ -1099,7 +1099,7 @@ def dbt_exec(
     ctx: typer.Context,
 ):
     """Run dbt_wrapper from within the Fabric workspace repo, then return to the original directory."""
-    from ingen_fab.cli_utils.dbt_profile_manager import ensure_dbt_profile
+    from ingen_fab.cli_utils.dbt_profile_manager import ensure_dbt_profile_for_exec
 
     workspace_dir = Path(ctx.obj["fabric_workspace_repo_dir"]).resolve()
     if not workspace_dir.exists():
@@ -1108,9 +1108,9 @@ def dbt_exec(
         )
         raise typer.Exit(code=1)
 
-    # Check and update dbt profile if needed
-    # For exec command, default to not asking for confirmation since it's often used in scripts
-    if not ensure_dbt_profile(ctx, ask_confirmation=False):
+    # Check and update dbt profile with exec-specific behavior
+    # Always prompts if saved info is missing/invalid, notifies if using saved preference
+    if not ensure_dbt_profile_for_exec(ctx):
         raise typer.Exit(code=1)
 
     # Locate the wrapper executable

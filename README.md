@@ -16,7 +16,7 @@ Ingenious Fabric Accelerator is a comprehensive command line tool built with [Ty
   - Synapse synchronization with incremental and snapshot support
   - Extract generation for automated data extraction workflows
   - Synthetic data generation for testing and development
-- **DBT Integration**: Generate Fabric notebooks from dbt models and tests
+- **DBT Integration**: Generate Fabric notebooks from dbt models and tests with automatic profile management and intelligent lakehouse selection
 - **Metadata Extraction**: Extract schema and table metadata from lakehouses and warehouses via SQL endpoints
 
 ## Requirements
@@ -26,21 +26,59 @@ Ingenious Fabric Accelerator is a comprehensive command line tool built with [Ty
 
 ## Installation
 
-```bash
-# Clone the repository
-git clone <repository-url>
-cd ingen_fab
+### For Users
 
-# Install with uv (recommended)
-uv sync
+Install the Ingenious Fabric Accelerator using pip:
 
-# Or install with pip
-python -m venv .venv
-source .venv/bin/activate  # On Windows: .venv\Scripts\activate
-pip install -e .[dev]
-```
+=== "macOS/Linux"
+
+    ```bash
+    # Install from PyPI (when available)
+    pip install insight-ingenious-for-fabric
+
+    # Or install from GitHub
+    pip install git+https://github.com/Insight-Services-APAC/Insight_Ingenious_For_Fabric.git
+    ```
+
+=== "Windows"
+
+    ```powershell
+    # Install from PyPI (when available)
+    pip install insight-ingenious-for-fabric
+
+    # Or install from GitHub
+    pip install git+https://github.com/Insight-Services-APAC/Insight_Ingenious_For_Fabric.git
+    ```
 
 For complete installation instructions, see our [Installation Guide](docs/user_guide/installation.md).
+
+### For Developers
+
+To contribute or modify the source code:
+
+=== "macOS/Linux"
+
+    ```bash
+    # Clone the repository
+    git clone https://github.com/Insight-Services-APAC/Insight_Ingenious_For_Fabric.git
+    cd ingen_fab
+
+    # Set up development environment
+    uv sync --all-extras  # or: pip install -e .[dev,docs,dbt]
+    ```
+
+=== "Windows"
+
+    ```powershell
+    # Clone the repository
+    git clone https://github.com/Insight-Services-APAC/Insight_Ingenious_For_Fabric.git
+    cd ingen_fab
+
+    # Set up development environment
+    uv sync --all-extras  # or: pip install -e .[dev,docs,dbt]
+    ```
+
+See the [Developer Guide](docs/developer_guide/index.md) for complete development setup.
 
 ## Quick Start
 

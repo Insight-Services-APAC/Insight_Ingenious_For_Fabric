@@ -5,11 +5,23 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 ## Important: Environment Activation
 
 **ALWAYS activate the Python virtual environment and set required environment variables before running any commands:**
-```bash
-source .venv/bin/activate
-export FABRIC_ENVIRONMENT="local"
-export FABRIC_WORKSPACE_REPO_DIR="sample_project"
-```
+
+=== "macOS/Linux"
+
+    ```bash
+    source .venv/bin/activate
+    export FABRIC_ENVIRONMENT="local"
+    export FABRIC_WORKSPACE_REPO_DIR="sample_project"
+    ```
+
+=== "Windows"
+
+    ```powershell
+    .venv\Scripts\activate
+    $env:FABRIC_ENVIRONMENT = "local"
+    $env:FABRIC_WORKSPACE_REPO_DIR = "sample_project"
+    ```
+
 This must be done at the start of every session to ensure proper dependency access and correct CLI operation.
 
 ## Project Overview
@@ -27,15 +39,29 @@ Ingenious Fabric Accelerator (`ingen_fab`) is a CLI tool for creating and managi
 
 ## Environment Setup
 
-```bash
-# Using uv (preferred)
-uv sync
+=== "macOS/Linux"
 
-# Or using pip
-python -m venv .venv
-source .venv/bin/activate
-pip install -e .[dev]
-```
+    ```bash
+    # Using uv (preferred)
+    uv sync
+
+    # Or using pip
+    python -m venv .venv
+    source .venv/bin/activate
+    pip install -e .[dev]
+    ```
+
+=== "Windows"
+
+    ```powershell
+    # Using uv (preferred)
+    uv sync
+
+    # Or using pip
+    python -m venv .venv
+    .venv\Scripts\activate
+    pip install -e .[dev]
+    ```
 
 ## Development Commands
 
@@ -72,20 +98,40 @@ mkdocs serve --dev-addr=0.0.0.0:8000
 ```
 
 ### CLI Testing
-```bash
-# Test CLI commands (use sample_project for testing)
-export FABRIC_WORKSPACE_REPO_DIR="./sample_project"
-export FABRIC_ENVIRONMENT="development"
 
-# Generate DDL notebooks
-ingen_fab ddl compile --output-mode fabric_workspace_repo --generation-mode Warehouse
-ingen_fab ddl compile --output-mode fabric_workspace_repo --generation-mode Lakehouse
+=== "macOS/Linux"
 
-# Test Python libraries locally (requires FABRIC_ENVIRONMENT=local)
-export FABRIC_ENVIRONMENT=local
-ingen_fab test local python
-ingen_fab test local pyspark
-```
+    ```bash
+    # Test CLI commands (use sample_project for testing)
+    export FABRIC_WORKSPACE_REPO_DIR="./sample_project"
+    export FABRIC_ENVIRONMENT="development"
+
+    # Generate DDL notebooks
+    ingen_fab ddl compile --output-mode fabric_workspace_repo --generation-mode Warehouse
+    ingen_fab ddl compile --output-mode fabric_workspace_repo --generation-mode Lakehouse
+
+    # Test Python libraries locally (requires FABRIC_ENVIRONMENT=local)
+    export FABRIC_ENVIRONMENT=local
+    ingen_fab test local python
+    ingen_fab test local pyspark
+    ```
+
+=== "Windows"
+
+    ```powershell
+    # Test CLI commands (use sample_project for testing)
+    $env:FABRIC_WORKSPACE_REPO_DIR = "./sample_project"
+    $env:FABRIC_ENVIRONMENT = "development"
+
+    # Generate DDL notebooks
+    ingen_fab ddl compile --output-mode fabric_workspace_repo --generation-mode Warehouse
+    ingen_fab ddl compile --output-mode fabric_workspace_repo --generation-mode Lakehouse
+
+    # Test Python libraries locally (requires FABRIC_ENVIRONMENT=local)
+    $env:FABRIC_ENVIRONMENT = "local"
+    ingen_fab test local python
+    ingen_fab test local pyspark
+    ```
 
 ## Key Configuration Files
 
