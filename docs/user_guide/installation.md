@@ -25,17 +25,33 @@ Install the Ingenious Fabric Accelerator directly from pip:
 
 It's recommended to use a virtual environment to avoid conflicts with other packages:
 
-```bash
-# Create a virtual environment
-python -m venv fabric-env
-source fabric-env/bin/activate  # On Windows: fabric-env\Scripts\activate
+=== "macOS/Linux"
 
-# Install the package
-pip install insight-ingenious-for-fabric
+    ```bash
+    # Create a virtual environment
+    python -m venv fabric-env
+    source fabric-env/bin/activate
 
-# Or install from GitHub
-pip install git+https://github.com/Insight-Services-APAC/Insight_Ingenious_For_Fabric.git
-```
+    # Install the package
+    pip install insight-ingenious-for-fabric
+
+    # Or install from GitHub
+    pip install git+https://github.com/Insight-Services-APAC/Insight_Ingenious_For_Fabric.git
+    ```
+
+=== "Windows"
+
+    ```powershell
+    # Create a virtual environment
+    python -m venv fabric-env
+    fabric-env\Scripts\activate
+
+    # Install the package
+    pip install insight-ingenious-for-fabric
+
+    # Or install from GitHub
+    pip install git+https://github.com/Insight-Services-APAC/Insight_Ingenious_For_Fabric.git
+    ```
 
 ### Installing with Optional Dependencies
 
@@ -57,17 +73,31 @@ After installation, configure your environment variables for the CLI:
 
 ### Shell Configuration (Optional)
 
-Add convenience aliases to your shell profile (`.bashrc`, `.zshrc`, etc.):
+Add convenience aliases to your shell profile:
 
-```bash
-# Add to ~/.bashrc or ~/.zshrc
-# Ensure pip packages are in PATH
-export PATH="$PATH:$HOME/.local/bin"
+=== "macOS/Linux"
 
-# Create convenient aliases
-alias ifab="ingen_fab"
-alias ifab-help="ingen_fab --help"
-```
+    ```bash
+    # Add to ~/.bashrc or ~/.zshrc
+    # Ensure pip packages are in PATH
+    export PATH="$PATH:$HOME/.local/bin"
+
+    # Create convenient aliases
+    alias ifab="ingen_fab"
+    alias ifab-help="ingen_fab --help"
+    ```
+
+=== "Windows"
+
+    ```powershell
+    # Add to PowerShell profile ($PROFILE)
+    # Ensure pip packages are in PATH
+    $env:PATH += ";$env:LOCALAPPDATA\Programs\Python\Python312\Scripts"
+
+    # Create convenient aliases
+    Set-Alias ifab ingen_fab
+    Set-Alias ifab-help "ingen_fab --help"
+    ```
 
 ## Verification
 
@@ -110,31 +140,61 @@ Commands:
 
 Now that you have the CLI installed, create your first project:
 
-```bash
-# Create a new project
-ingen_fab init new --project-name "My First Project"
+=== "macOS/Linux"
 
-# Navigate to the project
-cd "My First Project"
+    ```bash
+    # Create a new project
+    ingen_fab init new --project-name "My First Project"
 
-# Set environment variables
-export FABRIC_WORKSPACE_REPO_DIR="."
-export FABRIC_ENVIRONMENT="development"
-```
+    # Navigate to the project
+    cd "My First Project"
+
+    # Set environment variables
+    export FABRIC_WORKSPACE_REPO_DIR="."
+    export FABRIC_ENVIRONMENT="development"
+    ```
+
+=== "Windows"
+
+    ```powershell
+    # Create a new project
+    ingen_fab init new --project-name "My First Project"
+
+    # Navigate to the project
+    cd "My First Project"
+
+    # Set environment variables
+    $env:FABRIC_WORKSPACE_REPO_DIR = "."
+    $env:FABRIC_ENVIRONMENT = "development"
+    ```
 
 ### Set Up Azure Authentication
 
 For deploying to Fabric, set up authentication:
 
-```bash
-# Option 1: Use Azure CLI (interactive)
-az login
+=== "macOS/Linux"
 
-# Option 2: Use Service Principal (automated)
-export AZURE_TENANT_ID="your-tenant-id"
-export AZURE_CLIENT_ID="your-client-id"
-export AZURE_CLIENT_SECRET="your-client-secret"
-```
+    ```bash
+    # Option 1: Use Azure CLI (interactive)
+    az login
+
+    # Option 2: Use Service Principal (automated)
+    export AZURE_TENANT_ID="your-tenant-id"
+    export AZURE_CLIENT_ID="your-client-id"
+    export AZURE_CLIENT_SECRET="your-client-secret"
+    ```
+
+=== "Windows"
+
+    ```powershell
+    # Option 1: Use Azure CLI (interactive)
+    az login
+
+    # Option 2: Use Service Principal (automated)
+    $env:AZURE_TENANT_ID = "your-tenant-id"
+    $env:AZURE_CLIENT_ID = "your-client-id"
+    $env:AZURE_CLIENT_SECRET = "your-client-secret"
+    ```
 
 ## Troubleshooting
 
