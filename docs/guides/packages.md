@@ -1,6 +1,6 @@
 # Packages
 
-[Home](../index.md) > Packages
+[Home](../index.md) > [Guides](cli-reference.md) > Packages
 
 Welcome to the Packages documentation! This section provides detailed information about available packages and how to use them in your Microsoft Fabric projects.
 
@@ -10,7 +10,7 @@ Packages are reusable workload extensions that provide specialized functionality
 
 ## Available Packages
 
-### [Flat File Ingestion](flat_file_ingestion.md)
+### [Flat File Ingestion](../packages/flat_file_ingestion.md)
 
 A comprehensive package for processing various file formats (CSV, JSON, Parquet, Avro, XML) and loading them into Delta tables based on metadata configuration.
 
@@ -148,7 +148,7 @@ ingen_fab package synthetic-data run       # Run synthetic data generation
 
 ## Next Steps
 
-- **Use a Package**: Start with [Flat File Ingestion](flat_file_ingestion.md)
+- **Use a Package**: Start with [Flat File Ingestion](../packages/flat_file_ingestion.md)
 - **Create a Package**: Read the [Development Guide](../developer_guide/packages.md)
 - **Contribute**: See [Contributing Guidelines](../developer_guide/index.md#contributing)
 

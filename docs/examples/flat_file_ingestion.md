@@ -1,5 +1,7 @@
 # Flat File Ingestion Package
 
+[Home](../index.md) > [Examples](index.md) > Flat File Ingestion
+
 > Note: For authoritative CLI options and flags, see Packages → [Flat File Ingestion](../packages/flat_file_ingestion.md). This example focuses on the scenario walkthrough and keeps options brief to avoid duplication.
 
 The flat file ingestion package provides automated ingestion of various file formats (CSV, JSON, Parquet, Avro, XML) into Microsoft Fabric tables with configuration-driven metadata management.

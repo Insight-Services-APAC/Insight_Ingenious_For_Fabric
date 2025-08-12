@@ -1,6 +1,6 @@
 # Common Tasks
 
-[Home](../index.md) > [User Guide](index.md) > Common Tasks
+[Home](../index.md) > [Guides](cli-reference.md) > Common Tasks
 
 Quick, task-oriented commands with links to deeper docs.
 

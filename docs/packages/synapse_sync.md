@@ -1,5 +1,7 @@
 # Synapse Sync Package
 
+[Home](../index.md) > [Packages](index.md) > Synapse Sync
+
 ## At a Glance
 
 | Item | Summary |
@@ -598,5 +600,4 @@ Orchestrate sync workflows:
 ## Next Steps
 
 - Review [sample configurations](https://github.com/your-repo/tree/main/packages/synapse_sync/sample_project)
-- Learn about [advanced sync patterns](../examples/sync_patterns.md)
-- Explore [monitoring dashboards](../user_guide/monitoring.md#synapse-sync)
+- Explore [examples and templates](../examples/index.md) for common patterns

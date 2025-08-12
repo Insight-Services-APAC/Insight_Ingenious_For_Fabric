@@ -1,13 +1,15 @@
 # API Reference
 
+[Home](../index.md) > API Reference
+
 ## Overview
 
 The Ingenious Fabric Accelerator is primarily a CLI tool for building, deploying, and managing Microsoft Fabric applications. It provides Python libraries that are used within generated notebooks and can be imported for custom development.
 
 ## API Categories
 
-### [CLI Commands](cli_commands.md)
-Command-line interface for interacting with the accelerator tools.
+### CLI Commands
+Command-line interface for interacting with the accelerator tools. See the [CLI Reference](../user_guide/cli_reference.md) for complete documentation.
 
 ### [Python APIs](python_apis.md)
 Python libraries and modules for use in Fabric notebooks and local development.
@@ -70,16 +72,7 @@ pip install -e .[dev]
 
 ### Using Environment Variables
 
-```bash
-# Core configuration
-export FABRIC_WORKSPACE_REPO_DIR="./my_project"
-export FABRIC_ENVIRONMENT="development"
-
-# Azure authentication (for deployment)
-export AZURE_TENANT_ID="your-tenant-id"
-export AZURE_CLIENT_ID="your-client-id"
-export AZURE_CLIENT_SECRET="your-client-secret"
-```
+--8<-- "_includes/environment_setup.md"
 
 ### Using Azure CLI
 

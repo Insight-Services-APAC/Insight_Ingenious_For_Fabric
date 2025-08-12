@@ -1,5 +1,7 @@
 # SQL Templates
 
+[Home](../index.md) > [Developer Guide](index.md) > SQL Templates
+
 ## Overview
 
 The SQL Templates system provides a flexible, Jinja2-based templating engine for generating SQL queries across different database dialects. This system supports Microsoft Fabric (Spark SQL), SQL Server, and other database platforms with consistent interfaces and reusable templates.
