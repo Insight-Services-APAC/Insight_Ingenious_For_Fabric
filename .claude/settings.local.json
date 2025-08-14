@@ -52,8 +52,10 @@
       "Bash(# Find where the _read_folder_contents method ends\ngrep -n \"\"def _read_individual_files_and_union\"\" ingen_fab/python_libs/pyspark/flat_file_ingestion_pyspark.py)",
       "Bash(# Extract everything before line 369\nsed -n ''1,368p'' ingen_fab/python_libs/pyspark/flat_file_ingestion_pyspark.py > temp_file.py\n\n# Add the enhanced methods\ncat enhanced_precheck.py >> temp_file.py\n\n# Add everything from line 486 onwards (after the old method)\nsed -n ''486,$p'' ingen_fab/python_libs/pyspark/flat_file_ingestion_pyspark.py >> temp_file.py\n\n# Replace the original file\nmv temp_file.py ingen_fab/python_libs/pyspark/flat_file_ingestion_pyspark.py)",
       "Bash(touch:*)",
-      "Bash(cp:*)"
+      "Bash(cp:*)",
+      "Bash(uv run:*)"
     ],
-    "deny": []
+    "deny": [],
+    "defaultMode": "acceptEdits"
   }
 }

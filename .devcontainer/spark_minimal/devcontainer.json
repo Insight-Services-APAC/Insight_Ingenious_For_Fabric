@@ -29,6 +29,11 @@
 },
 "workspaceMount": "source=${localWorkspaceFolder},target=/workspaces/${localWorkspaceFolderBasename},type=bind",
 "workspaceFolder": "/workspaces/${localWorkspaceFolderBasename}",
-"remoteUser": "root"
+"remoteUser": "root",
+"portsAttributes": {
+  "54545": {
+    "label": "54545"
+  }
+}
 
 }
