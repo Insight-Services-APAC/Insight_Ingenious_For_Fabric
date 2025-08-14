@@ -57,6 +57,7 @@ docs = [
     "mkdocs-get-deps==0.2.0",
     "mkdocs-git-revision-date-localized-plugin==1.4.7",
     "mkdocs-minify-plugin==0.8.0",
+    "mkdocs-mermaid2-plugin",
     "mike==2.1.3"
 ]
 
