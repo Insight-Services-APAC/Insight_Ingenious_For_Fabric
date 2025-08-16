@@ -163,6 +163,8 @@ def main(
     skip_validation = (
         ctx.invoked_subcommand is None
         or (ctx.params and ctx.params.get("help"))
+        or "--help" in sys.argv
+        or "-h" in sys.argv
         or (
             ctx.invoked_subcommand == "init"
             and len(sys.argv) > 2
@@ -205,12 +207,13 @@ def main(
             )
             raise typer.Exit(code=1)
 
-    console_styles.print_info(
-        console, f"Using Fabric workspace repo directory: {fabric_workspace_repo_dir}"
-    )
-    console_styles.print_info(
-        console, f"Using Fabric environment: {fabric_environment}"
-    )
+        console_styles.print_info(
+            console, f"Using Fabric workspace repo directory: {fabric_workspace_repo_dir}"
+        )
+        console_styles.print_info(
+            console, f"Using Fabric environment: {fabric_environment}"
+        )
+
     ctx.obj = {
         "fabric_workspace_repo_dir": fabric_workspace_repo_dir,
         "fabric_environment": fabric_environment,
@@ -289,6 +292,7 @@ def init_solution(
         Path, typer.Option("--path", help="Base path where the project will be created")
     ] = Path("."),
 ):
+    """Create a new Fabric Project."""
     init_commands.init_solution(project_name, path)
 
 
