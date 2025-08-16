@@ -29,6 +29,7 @@
 },
 "workspaceMount": "source=${localWorkspaceFolder},target=/workspaces/${localWorkspaceFolderBasename},type=bind",
 "workspaceFolder": "/workspaces/${localWorkspaceFolderBasename}",
-"remoteUser": "root"
+"remoteUser": "root",
+"postCreateCommand": "bash ./scripts/dev_container_scripts/spark_minimal/pwsh_install.sh && pwsh -File ./scripts/dev_container_scripts/spark_minimal/dev_tools.ps1"
 
 }
