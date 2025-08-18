@@ -54,6 +54,7 @@ else
     sudo apt-get install -y powershell
 
     # Start PowerShell
-    #pwsh - HT: Don't auto start pwsh. Dev Container will start with dev_tools.ps1 in post-create
+    # pwsh
+    # Container postCreate won't proceed to dev tools install if this is uncommented
     
 fi
