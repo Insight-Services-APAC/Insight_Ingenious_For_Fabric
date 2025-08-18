@@ -84,7 +84,7 @@ If you need assistance:
 
     [:octicons-arrow-right-24: Commands](cli_reference.md)
 
--   :material-workflow:{ .lg .middle } **Workflows**
+-   :material-clipboard-flow:{ .lg .middle } **Workflows**
 
     ---
 
