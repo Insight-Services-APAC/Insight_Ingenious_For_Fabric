@@ -3,7 +3,7 @@ import os
 from typing import Optional
 from pyspark.sql.dataframe import DataFrame
 
-import notebookutils
+import notebook_utils
 import pandas as pd
 import pyodbc  # type: ignore # noqa: F401
 from sqlparse import format
@@ -55,7 +55,7 @@ class warehouse_utils(DataStoreInterface):
         try:
             if self.dialect == "fabric":
                 logger.debug("Connection to Fabric Warehouse")
-                conn = notebookutils.data.connect_to_artifact(
+                conn = notebook_utils.data.connect_to_artifact(
                     self.target_warehouse_id, self.target_workspace_id
                 )
                 logger.debug(f"Connection established: {conn}")
