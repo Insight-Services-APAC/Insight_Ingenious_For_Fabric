@@ -8,7 +8,7 @@
             "name": "Test2",
             "type": "debugpy",
             "request": "launch",
-            "program": "test2.py",
+            "program": "./sample_project/fabric_workspace_items/flat_file_ingestion/flat_file_ingestion_processor_lakehouse.Notebook/notebook-content.py",
             "console": "integratedTerminal"
         },
         {
@@ -57,6 +57,13 @@
             "args": [
                 "./ingen_fab/python_libs_tests/pyspark/lakehouse_utils/test_lakehouse_utils_pytest.py"
             ],
+            "console": "integratedTerminal"
+        },        
+        {
+            "name": "Run Package Ingest",
+            "type": "debugpy",
+            "request": "launch",
+            "module": "ingen_fab.packages.flat_file_ingestion.test_compiled_notebooks",           
             "console": "integratedTerminal"
         }
     ]

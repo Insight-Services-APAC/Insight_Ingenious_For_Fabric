@@ -7,7 +7,12 @@
   "customizations": {
     "vscode": {
       "settings": {
-        "terminal.integrated.shell.linux": "/bin/bash"
+        "terminal.integrated.defaultProfile.linux": "bash",
+        "terminal.integrated.profiles.linux": {
+          "bash": {
+            "path": "/bin/bash"
+          }
+        }
       },
       "extensions": [
         "ms-python.python",
@@ -15,9 +20,15 @@
         "ms-python.debugpy",
         "charliermarsh.ruff",
         "ms-python.vscode-python-envs",
-        "bierner.emojisense"
+        "bierner.emojisense",
+        "Oracle.mysql-shell-for-vs-code",
+        "ms-ossdata.vscode-pgsql",
+        "samuelcolvin.jinjahtml"
       ]
   }
 },
+"workspaceMount": "source=${localWorkspaceFolder},target=/workspaces/${localWorkspaceFolderBasename},type=bind",
+"workspaceFolder": "/workspaces/${localWorkspaceFolderBasename}",
 "remoteUser": "root"
+
 }

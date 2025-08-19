@@ -1,0 +1,12 @@
+SELECT 
+    gen.*,
+    det.*
+FROM {{ config_schema | default('config') }}.config_extract_generation gen
+INNER JOIN {{ config_schema | default('config') }}.config_extract_details det 
+    ON gen.extract_name = det.extract_name
+WHERE gen.is_active = 1 
+AND det.is_active = 1
+{% if execution_group %}
+AND gen.execution_group = '{{ execution_group }}'
+{% endif %}
+ORDER BY gen.extract_name;

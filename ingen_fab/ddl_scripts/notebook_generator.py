@@ -1,11 +1,6 @@
-import hashlib
-import time
-import uuid
 from enum import Enum
 from pathlib import Path
 
-from jinja2 import Environment, FileSystemLoader
-from rich.console import Console
 from rich.panel import Panel
 from rich.progress import (
     BarColumn,
@@ -17,10 +12,12 @@ from rich.progress import (
 )
 from rich.table import Table
 
+from ingen_fab.notebook_utils.base_notebook_compiler import BaseNotebookCompiler
+from ingen_fab.python_libs.common.utils.path_utils import PathUtils
 from ingen_fab.python_libs.gather_python_libs import GatherPythonLibs
 
 
-class NotebookGenerator:
+class NotebookGenerator(BaseNotebookCompiler):
     """Class to generate notebooks and orchestrators for Lakehouses or Warehouses."""
 
     class GenerationMode(str, Enum):
@@ -39,31 +36,46 @@ class NotebookGenerator:
         fabric_workspace_repo_dir: str | None = None,
     ):
         self.generation_mode = generation_mode
+        self.language_group = "synapse_pyspark"  # Default language group
         self.output_mode = output_mode
-        self.console = Console()
         self.base_dir = Path.cwd()
-        if templates_dir is None:
-            templates_dir = (
-                Path(__file__).resolve().parent
-                / "_templates"
-                / generation_mode.value.lower()
-            )
-        if fabric_workspace_repo_dir is None:
-            fabric_workspace_repo_dir = (
-                Path(__file__).resolve().parents[2] / "sample_project"
-            )
 
-        self.fabric_workspace_repo_dir = Path(fabric_workspace_repo_dir).resolve()
-        self.templates_dir = Path(templates_dir).resolve()
+        if self.generation_mode == NotebookGenerator.GenerationMode.warehouse:
+            self.language_group = "jupyter_python"
+        else:
+            self.language_group = "synapse_pyspark"
+
+        if templates_dir is None:
+            # Use the unified template directory with proper path resolution
+            try:
+                templates_dir = PathUtils.get_template_path("ddl")
+            except FileNotFoundError:
+                # Fallback for development environment
+                templates_dir = Path.cwd() / "ingen_fab" / "templates"
 
         # Determine folder names based on generation mode
         self.entity_type = self.generation_mode.value
         self.entities_folder = f"{self.entity_type}s"
 
-        self.entities_dir = (
-            self.fabric_workspace_repo_dir / "ddl_scripts" / self.entities_folder
+        # Set up output directory based on mode
+        if output_mode == NotebookGenerator.OutputMode.fabric_workspace_repo:
+            output_dir = None  # Will use default fabric workspace path
+        elif output_mode == NotebookGenerator.OutputMode.local:
+            output_dir = self.base_dir / "output" / "ddl_scripts" / self.entities_folder
+        else:
+            raise ValueError(
+                "Invalid output mode. Choose 'fabric_workspace_repo' or 'local'."
+            )
+
+        # Initialize base class
+        super().__init__(
+            templates_dir=templates_dir,
+            output_dir=output_dir,
+            fabric_workspace_repo_dir=fabric_workspace_repo_dir,
+            package_name=f"ddl_{generation_mode.value.lower()}_generator",
         )
 
+        # Override output_dir for fabric_workspace_repo mode
         if self.output_mode == NotebookGenerator.OutputMode.fabric_workspace_repo:
             self.output_dir = (
                 self.fabric_workspace_repo_dir
@@ -71,158 +83,34 @@ class NotebookGenerator:
                 / "ddl_scripts"
                 / self.entities_folder
             ).resolve()
-        elif self.output_mode == NotebookGenerator.OutputMode.local:
-            self.output_dir = (
-                self.base_dir / "output" / "ddl_scripts" / self.entities_folder
-            )
-        else:
-            raise ValueError(
-                "Invalid output mode. Choose 'fabric_workspace_repo' or 'local'."
-            )
 
-        # Inject python libs into lib.py.jinja
-        self.inject_python_libs_into_template()
-
-        # Jinja2 Environment
-        self.env = Environment(loader=FileSystemLoader(str(self.templates_dir)))
-
-        # Initialize Rich console
-        self.console = Console()
-
-        # Paths (platform agnostic)
-        self.base_dir = Path(__file__).resolve().parent
-        self.console.print(
-            f"[bold blue]Fabric Workspace Dir:[/bold blue] {self.fabric_workspace_repo_dir}"
-        )
-        self.console.print(
-            f"[bold blue]Templates Directory:[/bold blue] {self.templates_dir}"
-        )
-        self.console.print(
-            f"[bold blue]Lakehouses or Warehouses Directory:[/bold blue] {self.entities_dir}"
-        )
-        self.console.print(
-            f"[bold blue]Output Directory:[/bold blue] {self.output_dir}"
+        self.entities_dir = (
+            self.fabric_workspace_repo_dir / "ddl_scripts" / self.entities_folder
         )
 
-        # Jinja2 Environment
-        self.env = Environment(loader=FileSystemLoader(str(self.templates_dir)))
-
-    def load_template(self, template_name):
-        """Load a Jinja template."""
-        return self.env.get_template(template_name)
-
-    def generate_guid(self, relative_path):
-        """Generate a GUID by hashing the relative path."""
-        return hashlib.sha256(str(relative_path).encode("utf-8")).hexdigest()[:12]
-
-    def get_sorted_directories(self, parent_dir):
-        """
-        Get sorted directories based on numeric prefix convention (e.g., '1_name', '2_name').
-        Alerts if any directory names don't match the expected convention.
-        """
-        directories = []
-        errors = []
-
-        for path in parent_dir.iterdir():
-            if path.is_dir():
-                try:
-                    # Check if name matches pattern: number-name
-                    parts = path.name.split("_", 1)
-                    if len(parts) < 2:
-                        errors.append(
-                            f"Directory '{path.name}' doesn't match expected pattern 'number_name'"
-                        )
-                        continue
-
-                    # Try to parse the numeric prefix
-                    numeric_prefix = int(parts[0])
-                    directories.append((numeric_prefix, path))
-                except ValueError:
-                    errors.append(
-                        f"Directory '{path.name}' doesn't have a valid numeric prefix"
-                    )
-                except Exception as e:
-                    errors.append(
-                        f"Error processing directory '{path.name}': {str(e)}"
-                    )  # Alert about any errors
-        if errors:
+        if self.console:
             self.console.print(
-                "\n[bold yellow]⚠️  WARNING: The following directories don't "
-                "match the expected naming convention:[/bold yellow]"
+                f"[bold blue]Lakehouses or Warehouses Directory:[/bold blue] {self.entities_dir}"
             )
-            for error in errors:
-                self.console.print(f"  [red]✗[/red] {error}")
-            self.console.print()
-
-        # Sort by numeric prefix and return just the paths
-        sorted_dirs = sorted(directories, key=lambda x: x[0])
-        return [path for _, path in sorted_dirs]
-
-    def get_sorted_files(self, parent_dir, extensions=None):
-        """
-        Get sorted files based on numeric prefix convention (e.g., '1_name.py', '2_name.sql').
-        Alerts if any file names don't match the expected convention.
-
-        Args:
-            parent_dir: The directory to scan for files
-            extensions: List of file extensions to include (e.g., ['.py', '.sql']). If None, includes all files.
-        """
-        files = []
-        errors = []
-
-        for path in parent_dir.iterdir():
-            if path.is_file():
-                # Check if we should filter by extension
-                if extensions and path.suffix not in extensions:
-                    continue
-
-                try:
-                    # Check if name matches pattern: number-name.extension
-                    name_without_ext = path.stem
-                    parts = name_without_ext.split("_", 1)
-                    if len(parts) < 2:
-                        errors.append(
-                            f"File '{path.name}' doesn't match expected pattern 'number_name.extension'"
-                        )
-                        continue
-
-                    # Try to parse the numeric prefix
-                    numeric_prefix = int(parts[0])
-                    files.append((numeric_prefix, path))
-                except ValueError:
-                    errors.append(
-                        f"File '{path.name}' doesn't have a valid numeric prefix"
-                    )
-                except Exception as e:
-                    errors.append(
-                        f"Error processing file '{path.name}': {str(e)}"
-                    )  # Alert about any errors
-        if errors:
-            self.console.print(
-                "\n[bold yellow]⚠️  WARNING: The following files don't "
-                "match the expected naming convention:[/bold yellow]"
-            )
-            for error in errors:
-                self.console.print(f"  [red]✗[/red] {error}")
-            self.console.print()
-
-        # Sort by numeric prefix and return just the paths
-        sorted_files = sorted(files, key=lambda x: x[0])
-        return [path for _, path in sorted_files]
 
     def generate_config_notebook(self, output_dir):
         """Generate a configuration notebook for the current entity."""
-        # Load the configuration template
-        config_template = self.load_template(
-            "config.py.jinja"
-        )  # Render the configuration notebook
-        rendered_config = config_template.render()
+        # TODO: Create configuration templates if needed
+        # For now, create a simple placeholder notebook
+        rendered_config = f"""# Configuration Notebook for {self.entities_folder}
+        
+# This is a placeholder configuration notebook
+# Add configuration logic here as needed
+        
+print(f"Configuration notebook for {self.entities_folder}")
+"""
 
         notebook_name = f"00_all_{self.entities_folder.lower()}_config_notebook"
         return self.create_notebook_with_platform(
             notebook_name=notebook_name,
             rendered_content=rendered_config,
             output_dir=output_dir,
+            platform_template="shared/platform/notebook_metadata.json.jinja",
         )
 
     def generate_notebook(
@@ -230,11 +118,14 @@ class NotebookGenerator:
         config_folder,
         output_folder,
         notebook_display_name,
+        target_lakehouse_config_prefix,
         progress=None,
         parent_task=None,
     ):
         """Generate a notebook and its .platform file for a specific entity configuration."""
-        notebook_template = self.load_template("notebook_content.py.jinja")
+        notebook_template = self.load_template(
+            f"ddl/{self.generation_mode.lower()}/notebook_content.py.jinja"
+        )
         cells = []
 
         config_folder = Path(config_folder)
@@ -260,9 +151,13 @@ class NotebookGenerator:
 
             # Determine the template to use based on file extension
             if file_path.suffix == ".py":
-                cell_template = self.load_template("script_cells/pyspark.py.jinja")
+                cell_template = self.load_template(
+                    "ddl/execution_cells/pyspark.py.jinja"
+                )
             elif file_path.suffix == ".sql":
-                cell_template = self.load_template("script_cells/spark_sql.py.jinja")
+                cell_template = self.load_template(
+                    "ddl/execution_cells/spark_sql.py.jinja"
+                )
             else:
                 continue  # Skip unsupported file types
 
@@ -270,8 +165,10 @@ class NotebookGenerator:
             with file_path.open("r", encoding="utf-8") as f:
                 content = f.read()
 
-            # Generate GUID based on relative path
-            relative_path = file_path.relative_to(self.entities_dir)
+            # Generate GUID based on relative path - ensure both paths are resolved
+            resolved_file_path = Path(file_path).resolve()
+            resolved_entities_dir = Path(self.entities_dir).resolve()
+            relative_path = resolved_file_path.relative_to(resolved_entities_dir)
             script_guid = self.generate_guid(str(relative_path))
 
             # Render cell template
@@ -294,6 +191,7 @@ class NotebookGenerator:
                     == NotebookGenerator.GenerationMode.warehouse
                     else None
                 ),
+                language_group=self.language_group,
             )
 
             # Add cell to the list
@@ -302,17 +200,25 @@ class NotebookGenerator:
             if progress and parent_task is not None:
                 progress.advance(cell_task)
 
-            time.sleep(0.5)  # Simulate processing time for each cell
+            # time.sleep(0.5)  # Simulate processing time for each cell
 
         # Render the notebook template with the cells
-        rendered_notebook = notebook_template.render(cells=cells)
+        rendered_notebook = notebook_template.render(
+            cells=cells,
+            target_lakehouse_config_prefix=target_lakehouse_config_prefix,
+            language_group=self.language_group,
+        )
 
         # Create notebook with platform file
-        relative_path = config_folder.relative_to(self.entities_dir)
+        resolved_config_folder = Path(config_folder).resolve()
+        resolved_entities_dir = Path(self.entities_dir).resolve()
+        relative_path = resolved_config_folder.relative_to(resolved_entities_dir)
         self.create_notebook_with_platform(
             notebook_name=notebook_display_name,
             rendered_content=rendered_notebook,
             output_dir=output_folder.parent,
+            display_name=f"{notebook_display_name}_ddl_scripts",
+            platform_template="shared/platform/notebook_metadata.json.jinja",
         )
 
         # Mark cell task as complete
@@ -323,31 +229,41 @@ class NotebookGenerator:
             )
 
     def generate_orchestrator_notebook(
-        self, entity_name, notebook_names, output_folder
+        self, entity_name, notebook_names, output_folder, target_lakehouse_config_prefix
     ):
         """Generate an orchestrator notebook that runs all notebooks for an entity in sequence."""
 
         # Load the orchestrator template
-        orchestrator_template = self.load_template("orchestrator_notebook.py.jinja")
+        orchestrator_template = self.load_template(
+            f"ddl/{self.generation_mode.lower()}/orchestrator_notebook.py.jinja"
+        )
 
         # Prepare notebook execution data
         notebooks = []
         for i, notebook_name in enumerate(notebook_names, 1):
             notebooks.append(
-                {"index": i, "name": notebook_name, "total": len(notebook_names)}
+                {
+                    "index": i,
+                    "name": notebook_name + "_ddl_scripts",
+                    "total": len(notebook_names),
+                }
             )  # Render the orchestrator notebook
         orchestrator_content = orchestrator_template.render(
             lakehouse_name=entity_name,
             notebooks=notebooks,
             total_notebooks=len(notebook_names),
+            target_lakehouse_config_prefix=target_lakehouse_config_prefix,
+            language_group=self.language_group,
         )
 
         # Create notebook with platform file
-        notebook_name = f"0_orchestrator_{entity_name}"
+        notebook_name = f"00_orchestrator_{entity_name}_{self.generation_mode.lower()}"
         return self.create_notebook_with_platform(
             notebook_name=notebook_name,
             rendered_content=orchestrator_content,
             output_dir=output_folder,
+            display_name=f"{notebook_name}_ddl_scripts",
+            platform_template="shared/platform/notebook_metadata.json.jinja",
         )
 
     def generate_all_entities_orchestrator(self, entity_names, output_dir):
@@ -355,17 +271,22 @@ class NotebookGenerator:
 
         # Load the template
         all_lakehouses_template = self.load_template(
-            "orchestrator_notebook_all_lakehouses.py.jinja"
+            f"ddl/{self.generation_mode.lower()}/orchestrator_notebook_all_lakehouses.py.jinja"
         )
 
-        # Prepare lakehouse data
+        # Prepare lakehouse data.
         lakehouses = []
         for name in entity_names:
             lakehouses.append(
-                {"name": name, "orchestrator_name": f"0_orchestrator_{name}"}
+                {
+                    "name": name,
+                    "orchestrator_name": f"00_orchestrator_{name}_{self.generation_mode.lower()}_ddl_scripts",
+                }
             )  # Render the all lakehouses orchestrator notebook
         orchestrator_content = all_lakehouses_template.render(
-            lakehouses=lakehouses, total_lakehouses=len(lakehouses)
+            lakehouses=lakehouses,
+            total_lakehouses=len(lakehouses),
+            language_group=self.language_group,
         )
 
         # Create notebook with platform file
@@ -374,6 +295,8 @@ class NotebookGenerator:
             notebook_name=notebook_name,
             rendered_content=orchestrator_content,
             output_dir=output_dir,
+            display_name=f"{notebook_name}_ddl_scripts",
+            platform_template="shared/platform/notebook_metadata.json.jinja",
         )
 
     def inject_python_libs_into_template(self):
@@ -505,11 +428,12 @@ class NotebookGenerator:
                         # Ensure directory structure exists before generating
                         # output_path.mkdir(parents=True, exist_ok=True)
                         self.generate_notebook(
-                            config_path,
-                            output_path,
-                            notebook_display_name,
-                            progress,
-                            main_task,
+                            config_folder=config_path,
+                            output_folder=output_path,
+                            notebook_display_name=notebook_display_name,
+                            target_lakehouse_config_prefix=entity_path.name,
+                            progress=progress,
+                            parent_task=main_task,
                         )
                         success_count += 1
                         progress.console.print(
@@ -517,6 +441,7 @@ class NotebookGenerator:
                         )
                     except Exception as e:
                         error_count += 1
+                        progress.console.print_exception()
                         progress.console.print(
                             f"[red]✗[/red] Error generating notebook for {task_description}: {str(e)}"
                         )
@@ -533,6 +458,7 @@ class NotebookGenerator:
                         entity_path.name,
                         notebook_names,
                         self.output_dir / entity_path.name,
+                        target_lakehouse_config_prefix=entity_path.name,
                     )
                     orchestrator_count += 1
                     progress.console.print(
@@ -540,6 +466,7 @@ class NotebookGenerator:
                     )
                     progress.advance(main_task)
                 except Exception as e:
+                    progress.console.print_exception()
                     progress.console.print(
                         f"[red]✗[/red] Error generating orchestrator for {entity_path.name}: {str(e)}"
                     )
@@ -553,12 +480,13 @@ class NotebookGenerator:
                     f"{self.entities_folder.lower()}",
                 )
                 self.generate_all_entities_orchestrator(entity_names, self.output_dir)
-                self.generate_config_notebook(self.output_dir)
+                # self.generate_config_notebook(self.output_dir)
                 progress.console.print(
                     f"[green]✓[/green] Generated master orchestrator for all {self.entities_folder.lower()}"
                 )
                 progress.advance(main_task)
             except Exception as e:
+                progress.console.print_exception()
                 progress.console.print(
                     f"[red]✗[/red] Error generating master orchestrator: {str(e)}"
                 )
@@ -577,43 +505,3 @@ class NotebookGenerator:
                 border_style="green" if error_count == 0 else "yellow",
             )
         )
-
-    def create_notebook_with_platform(
-        self,
-        notebook_name: str,
-        rendered_content: str,
-        output_dir: Path,
-    ) -> Path:
-        """
-        Create a notebook with its .platform file.
-
-        Args:
-            notebook_name: The name of the notebook (without extension)
-            rendered_content: The rendered notebook content
-            output_dir: The directory where the notebook should be created
-
-        Returns:
-            Path to the created notebook directory
-        """
-        # Create output path
-        output_path = output_dir / f"{notebook_name}.Notebook"
-        output_path.mkdir(parents=True, exist_ok=True)
-
-        # Write notebook content
-        notebook_file = output_path / "notebook-content.py"
-        with notebook_file.open("w", encoding="utf-8") as f:
-            f.write(rendered_content)
-
-        # Create .platform file
-        platform_template = self.load_template("platform.json.jinja")
-        platform_metadata = platform_template.render(
-            notebook_name=f"{notebook_name}_ddl_scripts", guid=uuid.uuid4()
-        )
-
-        platform_path = output_path / ".platform"
-        # Only create .platform if it does not exist
-        if not platform_path.exists():
-            with platform_path.open("w", encoding="utf-8") as f:
-                f.write(platform_metadata)
-
-        return output_path

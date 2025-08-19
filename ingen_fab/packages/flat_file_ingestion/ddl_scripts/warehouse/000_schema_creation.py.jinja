@@ -1,0 +1,6 @@
+# Create schemas if they don't exist
+# This ensures the schemas exist before other DDL operations
+
+wu.create_schema_if_not_exists("config")
+wu.create_schema_if_not_exists("log")
+wu.create_schema_if_not_exists("raw")

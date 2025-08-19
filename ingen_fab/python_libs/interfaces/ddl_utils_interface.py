@@ -13,13 +13,13 @@ class DDLUtilsInterface(Protocol):
     logging, and preventing duplicate script runs in a lakehouse environment.
     """
 
-    def __init__(self, target_workspace_id: str, target_lakehouse_id: str) -> None:
+    def __init__(self, target_workspace_id: str, target_datastore_id: str) -> None:
         """
         Initialize the DDL utilities with workspace and lakehouse identifiers.
 
         Args:
             target_workspace_id: The workspace identifier
-            target_lakehouse_id: The lakehouse identifier
+            target_datastore_id: The lakehouse / warehouse identifier
         """
         ...
 

@@ -108,11 +108,8 @@ def save_platform_manifest(folders: list[dict[str, str]], output_path: Path) -> 
 def main():
     # 1) Inject variables into template
     vlu = VariableLibraryUtils(
-        project_path=project_path,
+        project_path=Path(project_path),
         environment=environment,
-        template_path="ingen_fab/ddl_scripts/_templates/warehouse/config.py.jinja",
-        output=None,
-        in_place=False,
     )
 
     print("Injecting variables into template...")

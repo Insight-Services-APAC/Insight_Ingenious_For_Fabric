@@ -6,11 +6,21 @@ readme = "README.md"
 requires-python = ">=3.12"
 dependencies = [
     "jinja2",
-    "typer>=0.15.4",    
+    "typer==0.16.0",
     "requests>=2.32.3",
     "pyodbc>=5.2.0",
     "pandas>=2.3.0",
-    "fabric_cicd @ https://github.com/jrampono/fabric-cicd/archive/refs/tags/v0.0.1.tar.gz"
+    "deltalake==1.0.2",
+    "pyarrow==20.0.0",
+    "azure-cli==2.76.0",
+    "fabric_cicd @ https://github.com/jrampono/fabric-cicd/archive/refs/tags/v0.0.1.tar.gz",
+    "azure-storage-file-datalake==12.21.0",
+    "azure-storage-blob>=12.26.0",
+    "lazy-import>=0.2.2",
+    "sqlglot>=25.30.2",
+    "psycopg2-binary>=2.9.9",
+    "azure-identity>=1.23.0",
+    "faker>=37.4.2",
 ]
 
 [dependency-groups]
@@ -29,6 +39,25 @@ dev = [
     "delta-spark==4.0.0",
     "pytest-clarity==1.0.1",
     "pytest-sugar==1.0.0",
+    "nest-asyncio==1.6.0"
+]
+
+dbt = [
+    "dbt-fabricsparknb @ git+https://github.com/Insight-Services-APAC/APAC-Capability-DAI-DbtFabricSparkNb.git@dev-jr-upgrading-to-dbt-v1.9+"
+]
+
+docs = [
+    "mkdocs==1.6.1",
+    "mkdocs-material==9.6.15",
+    "mkdocs-drawio==1.11.2",
+    "mkdocs-macros-plugin==1.3.7",
+    "mkdocs-nav-weight==0.2.0",
+    "mkdocs-redirects==1.2.2",
+    "mkdocs-table-reader-plugin==3.1.0",
+    "mkdocs-get-deps==0.2.0",
+    "mkdocs-git-revision-date-localized-plugin==1.4.7",
+    "mkdocs-minify-plugin==0.8.0",
+    "mike==2.1.3"
 ]
 
 [project.optional-dependencies]
@@ -56,9 +85,10 @@ build-backend = "setuptools.build_meta"
 [tool.setuptools.packages.find]
 where = ["."]
 include = ["ingen_fab*"]
+exclude = [".pre-commit-cache*", "*.pre-commit-cache*"]
 
 [tool.setuptools.package-data]
-ingen_fab = ["**/*.json", "**/*.jinja", "**/*.jinja2"]
+ingen_fab = ["**/*.json", "**/*.jinja", "**/*.jinja2", "**/*.sql", "**/*.py", "**/*.md", "**/*.yml", "**/*.yaml", "**/.platform", "project_templates/**/*.txt", "project_templates/**/.gitignore"]
 
 [project.scripts]
 ingen_fab = "ingen_fab.cli:app"
@@ -70,7 +100,9 @@ ignore = ["E402"]
 [tool.ruff]
 exclude = [
     "sample_project",
-    "project_templates"
+    "project_templates",
+    "tbf",
+    "test.ipynb",
 ]
 
 [tool.pytest.ini_options]

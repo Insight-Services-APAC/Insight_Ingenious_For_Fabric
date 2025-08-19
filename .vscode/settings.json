@@ -1,5 +1,6 @@
 {
     "terminal.integrated.fontFamily": "CaskaydiaCove Nerd Font, monospace",
     "editor.fontFamily": "CaskaydiaCove Nerd Font, monospace",
-    "terminal.integrated.fontLigatures.enabled": true
+    "terminal.integrated.fontLigatures.enabled": true,
+    "python.analysis.typeCheckingMode": "standard"
 }

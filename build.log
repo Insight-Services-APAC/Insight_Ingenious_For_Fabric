@@ -1,0 +1,57 @@
+INFO    -  Cleaning site directory
+INFO    -  Building documentation to directory: /workspaces/ingen_fab/site
+WARNING -  [git-revision-date-localized-plugin] '/workspaces/ingen_fab/docs/_includes/quick_install.md' has no git logs, using current timestamp
+WARNING -  [git-revision-date-localized-plugin] '/workspaces/ingen_fab/docs/_includes/environment_setup.md' has no git logs, using current timestamp
+WARNING -  [git-revision-date-localized-plugin] '/workspaces/ingen_fab/docs/getting-started/quick-start.md' has no git logs, using current timestamp
+WARNING -  [git-revision-date-localized-plugin] '/workspaces/ingen_fab/docs/getting-started/installation.md' has no git logs, using current timestamp
+WARNING -  [git-revision-date-localized-plugin] '/workspaces/ingen_fab/docs/getting-started/first-project.md' has no git logs, using current timestamp
+WARNING -  [git-revision-date-localized-plugin] '/workspaces/ingen_fab/docs/guides/cli-reference.md' has no git logs, using current timestamp
+WARNING -  [git-revision-date-localized-plugin] '/workspaces/ingen_fab/docs/guides/common-tasks.md' has no git logs, using current timestamp
+WARNING -  [git-revision-date-localized-plugin] '/workspaces/ingen_fab/docs/guides/deployment.md' has no git logs, using current timestamp
+WARNING -  [git-revision-date-localized-plugin] '/workspaces/ingen_fab/docs/guides/packages.md' has no git logs, using current timestamp
+WARNING -  [git-revision-date-localized-plugin] '/workspaces/ingen_fab/docs/guides/troubleshooting.md' has no git logs, using current timestamp
+WARNING -  [git-revision-date-localized-plugin] '/workspaces/ingen_fab/docs/guides/workflows.md' has no git logs, using current timestamp
+WARNING -  [git-revision-date-localized-plugin] '/workspaces/ingen_fab/docs/reference/environment-variables.md' has no git logs, using current timestamp
+WARNING -  [git-revision-date-localized-plugin] '/workspaces/ingen_fab/docs/reference/workspace-layout.md' has no git logs, using current timestamp
+WARNING -  [git-revision-date-localized-plugin] '/workspaces/ingen_fab/docs/_includes/environment_setup.md' has no git logs, using current timestamp
+WARNING -  [git-revision-date-localized-plugin] '/workspaces/ingen_fab/docs/_includes/quick_install.md' has no git logs, using current timestamp
+WARNING -  [git-revision-date-localized-plugin] '/workspaces/ingen_fab/docs/getting-started/first-project.md' has no git logs, using current timestamp
+WARNING -  [git-revision-date-localized-plugin] '/workspaces/ingen_fab/docs/getting-started/installation.md' has no git logs, using current timestamp
+WARNING -  [git-revision-date-localized-plugin] '/workspaces/ingen_fab/docs/guides/deployment.md' has no git logs, using current timestamp
+WARNING -  [git-revision-date-localized-plugin] '/workspaces/ingen_fab/docs/getting-started/quick-start.md' has no git logs, using current timestamp
+WARNING -  [git-revision-date-localized-plugin] '/workspaces/ingen_fab/docs/guides/cli-reference.md' has no git logs, using current timestamp
+WARNING -  [git-revision-date-localized-plugin] '/workspaces/ingen_fab/docs/guides/common-tasks.md' has no git logs, using current timestamp
+WARNING -  [git-revision-date-localized-plugin] '/workspaces/ingen_fab/docs/guides/packages.md' has no git logs, using current timestamp
+WARNING -  [git-revision-date-localized-plugin] '/workspaces/ingen_fab/docs/guides/troubleshooting.md' has no git logs, using current timestamp
+WARNING -  [git-revision-date-localized-plugin] '/workspaces/ingen_fab/docs/guides/workflows.md' has no git logs, using current timestamp
+WARNING -  [git-revision-date-localized-plugin] '/workspaces/ingen_fab/docs/reference/environment-variables.md' has no git logs, using current timestamp
+WARNING -  [git-revision-date-localized-plugin] '/workspaces/ingen_fab/docs/reference/workspace-layout.md' has no git logs, using current timestamp
+INFO    -  The following pages exist in the docs directory, but are not included in the "nav" configuration:
+  - AUDIT_REPORT.md
+  - _includes/environment_setup.md
+  - _includes/quick_install.md
+  - developer_guide/pip_install_testing.md
+  - examples/flat_file_ingestion.md
+  - getting-started/first-project.md
+  - getting-started/installation.md
+  - getting-started/quick-start.md
+  - guides/cli-reference.md
+  - guides/common-tasks.md
+  - guides/deployment.md
+  - guides/packages.md
+  - guides/troubleshooting.md
+  - guides/workflows.md
+  - packages/extract_generation.md
+  - packages/extract_generation_synthetic_data_alignment.md
+  - packages/incremental_synthetic_data_generation.md
+  - packages/incremental_synthetic_data_import_integration.md
+  - packages/synapse_sync.md
+  - packages/synthetic_data_generation.md
+  - packages/synthetic_data_generation_enhancements.md
+  - reference/environment-variables.md
+  - reference/workspace-layout.md
+WARNING:root:First revision timestamp is older than last revision timestamp for page _includes/environment_setup.md. This can be due to a quirk in `git` follow behaviour. You can try to set `enable_git_follow: false` in the plugin configuration.
+WARNING:root:First revision timestamp is older than last revision timestamp for page _includes/quick_install.md. This can be due to a quirk in `git` follow behaviour. You can try to set `enable_git_follow: false` in the plugin configuration.
+WARNING:root:First revision timestamp is older than last revision timestamp for page reference/environment-variables.md. This can be due to a quirk in `git` follow behaviour. You can try to set `enable_git_follow: false` in the plugin configuration.
+WARNING:root:First revision timestamp is older than last revision timestamp for page reference/workspace-layout.md. This can be due to a quirk in `git` follow behaviour. You can try to set `enable_git_follow: false` in the plugin configuration.
+INFO    -  Documentation built in 4.25 seconds

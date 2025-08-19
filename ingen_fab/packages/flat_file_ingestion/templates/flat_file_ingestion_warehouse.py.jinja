@@ -1,0 +1,64 @@
+{%- set datastore_type = "warehouse" -%}
+{%- set kernel_name = "synapse_python" -%}
+{%- set kernel_display_name = "Python (Synapse)" -%}
+{%- set language_group = "jupyter_python" -%}
+{%- set runtime_type = "python" -%}
+{%- set include_ddl_utils = true -%}
+
+{%- extends "flat_file_ingestion_base.py.jinja" -%}
+
+{% block datastore_specific_imports %}
+# Load flat file ingestion components and warehouse utils
+if run_mode == "local":
+    from ingen_fab.python_libs.interfaces.flat_file_ingestion_interface import FlatFileIngestionConfig
+    from ingen_fab.python_libs.python.flat_file_ingestion_python import (
+        PythonFlatFileDiscovery,
+        PythonFlatFileProcessor,
+        PythonFlatFileLogging,
+        PythonFlatFileIngestionOrchestrator
+    )
+    from ingen_fab.python_libs.python.warehouse_utils import warehouse_utils
+else:
+    # Additional files for flat file ingestion modular components and warehouse utils
+    flat_file_ingestion_files = [
+        "ingen_fab/python_libs/interfaces/flat_file_ingestion_interface.py",
+        "ingen_fab/python_libs/common/flat_file_ingestion_utils.py",
+        "ingen_fab/python_libs/python/flat_file_ingestion_python.py",
+        "ingen_fab/python_libs/python/warehouse_utils.py"
+    ]
+    load_python_modules_from_path(mount_path, flat_file_ingestion_files)
+{% endblock %}
+
+{% block configuration_setup %}
+# Initialize config warehouse utilities
+config_warehouse = warehouse_utils(
+    target_workspace_id=configs.config_workspace_id,
+    target_warehouse_id=configs.config_warehouse_id
+)
+
+# Initialize raw data warehouse utilities for file access
+raw_warehouse = warehouse_utils(
+    target_workspace_id=configs.raw_wh_workspace_id,
+    target_warehouse_id=configs.raw_wh_warehouse_id
+)
+{% endblock %}
+
+{% block load_configuration %}
+# Load configuration from warehouse table
+config_query = "SELECT * FROM config_flat_file_ingestion"
+config_df = config_warehouse.execute_query_to_dataframe(config_query)
+{% endblock %}
+
+{% block initialize_services %}
+# Initialize the modular flat file ingestion services for warehouse
+discovery_service = PythonFlatFileDiscovery(raw_warehouse)
+processor_service = PythonFlatFileProcessor(raw_warehouse)
+logging_service = PythonFlatFileLogging(config_warehouse)
+
+# Initialize the orchestrator with all services
+orchestrator = PythonFlatFileIngestionOrchestrator(
+    discovery_service=discovery_service,
+    processor_service=processor_service,
+    logging_service=logging_service
+)
+{% endblock %}
