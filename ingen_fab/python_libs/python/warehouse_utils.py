@@ -1,15 +1,5 @@
 import logging
 import os
-<<<<<<< HEAD
-from typing import Optional
-from pyspark.sql.dataframe import DataFrame
-
-import notebook_utils
-import pandas as pd
-import pyodbc  # type: ignore # noqa: F401
-from sqlparse import format
-from dotenv import load_dotenv
-=======
 import platform
 import sys
 import time
@@ -17,7 +7,6 @@ from datetime import date, datetime
 from typing import Any, Optional
 
 import pandas as pd
->>>>>>> main
 
 from ingen_fab.python_libs.common.config_utils import get_configs_as_object
 from ingen_fab.python_libs.interfaces.data_store_interface import DataStoreInterface
@@ -52,10 +41,6 @@ class warehouse_utils(DataStoreInterface):
         self._target_workspace_id = target_workspace_id
         self._target_warehouse_id = target_warehouse_id
         self.dialect = dialect
-<<<<<<< HEAD
-        self.connection_string = connection_string
-        self.sql_templates = SQLTemplates(dialect)
-=======
 
         if dialect not in ["fabric", "sql_server", "mysql", "postgres"]:
             raise ValueError(
@@ -122,7 +107,6 @@ class warehouse_utils(DataStoreInterface):
             self.connection_string = connection_string
 
         self.sql = SQLTemplates(self.dialect)
->>>>>>> main
 
     @property
     def target_workspace_id(self) -> str:
@@ -140,87 +124,6 @@ class warehouse_utils(DataStoreInterface):
 
     def get_connection(self) -> pyodbc.Connection:
         """Return a connection object depending on the configured dialect."""
-<<<<<<< HEAD
-        try:
-            if self.dialect == "fabric":
-                logger.debug("Connection to Fabric Warehouse")
-                conn = notebook_utils.data.connect_to_artifact(
-                    self.target_warehouse_id, self.target_workspace_id
-                )
-                logger.debug(f"Connection established: {conn}")
-                return conn
-            elif self.dialect == "sqlserver":
-                logger.debug("Connection to SQL Server Warehouse")
-                return self._connect_to_local_sql_server() # type: ignore
-            else:
-                logger.info("Dialect not found.")
-                raise Exception("Could not find dialect for connection.")
-        except Exception as e:
-            logger.error(f"Failed to connect to warehouse: {e}")
-            raise
-
-    def _connect_to_local_sql_server(self) -> pyodbc.Connection | None:
-        """Returns a pyodbc Connection object used for connecting the local testing database."""
-        try:
-            load_dotenv()
-            password = os.getenv("SQL_SERVER_PASSWORD", "default_password")
-            connection_string = (
-                f"Driver={{ODBC Driver 18 for SQL Server}};Server=localhost;Encrypt=no;UID=sa;PWD={password};TrustServerCertificate=yes;"
-                )
-            conn = pyodbc.connect(connection_string)
-            logger.debug("Connected to local SQL Server instance.")
-            return conn
-        except Exception as e:
-            logger.error(f"Error connecting to local SQL Server instance: {e}")
-            return None
-
-    def execute_query(self, conn: pyodbc.Connection, query: str) -> pd.DataFrame | None:
-        """Execute a query and return results as a DataFrame."""
-        # pretty print query
-        formatted_query = format(query, reindent=True, keyword_case="upper")
-        logger.debug(f"Executing the query in dialect {self.dialect}")
-        logger.info(f"Executing query: {formatted_query}")
-        try:
-            if self.dialect == "fabric":
-                result = conn.query(query)
-                logger.debug("Query executed successfully.")
-                return result
-            else:
-                cursor = conn.cursor()
-                cursor.execute(query)
-                if cursor.description:
-                    rows = cursor.fetchall()
-                    columns = [d[0] for d in cursor.description]
-                    df = pd.DataFrame.from_records(rows, columns=columns)
-                else:
-                    df = None
-                # commit query regardless of the description
-                conn.commit()
-                logger.debug("Query executed successfully.")
-            return df
-        except Exception as e:
-            logger.error(f"Error executing query: {formatted_query}. Error: {e}")
-            return None
-
-    def create_schema_if_not_exists(self, schema_name: str) -> None:
-        """Create a schema if it does not already exist."""
-        try:
-            conn = self.get_connection()
-            query = self.sql_templates.render("check_schema_exists", schema_name=schema_name)
-            result = self.execute_query(conn, query)
-            schema_exists = len(result) > 0 if result is not None else False
-
-            # Create schema if it doesn't exist
-            if not schema_exists:
-                create_schema_sql = f"CREATE SCHEMA {schema_name};"
-                self.execute_query(conn, create_schema_sql)
-                logger.info(f"Created schema '{schema_name}'.")
-            else:
-                logger.info(f"Schema {schema_name} already exists.")
-        except Exception as e:
-            logger.error(f"Error creating schema {schema_name}: {e}")
-            return None
-=======
         if get_configs_as_object().fabric_environment == "local":
             # Use PostgreSQL for local development
             conn = self._connect_to_local_postgresql()
@@ -358,7 +261,6 @@ class warehouse_utils(DataStoreInterface):
         except Exception as e:
             logging.error(f"Error creating database 'local': {e}")
             raise
->>>>>>> main
 
     def _create_local_database_with_connection(self, conn) -> None:
         """Create a database called 'local' using the provided connection."""
@@ -801,9 +703,6 @@ class warehouse_utils(DataStoreInterface):
 
         # convert the spark dataframe to pandas
         try:
-<<<<<<< HEAD
-            pandas_df = df.toPandas()
-=======
             conn = self.get_connection()
             pandas_df = df
 
@@ -918,7 +817,6 @@ class warehouse_utils(DataStoreInterface):
                         values_clause=values_clause,
                     )
                     self.execute_query(conn, create_query)
->>>>>>> main
         except Exception as e:
             logger.error(f"Could not convert spark DataFrame to pandas DataFrame. {e}")
             return None   
@@ -1030,24 +928,12 @@ class warehouse_utils(DataStoreInterface):
         query = self.sql_templates.render(
             "get_table_schema", table_name=table_name, schema_name=schema_name
         )
-<<<<<<< HEAD
-        try:
-            result = self.execute_query(conn, query)
-        except Exception as e:
-            logger.error(f"Could not retreive schema from the warehouse. {e}")
-            return {}
-        if result is not None:
-            return (
-                dict(zip(result.columns, result.values[0])) if not result.empty else {}
-            )
-=======
         result = self.execute_query(conn, query)
         if result is not None and not result.empty:
             # Expect columns: COLUMN_NAME, DATA_TYPE
             return {
                 row["COLUMN_NAME"]: row["DATA_TYPE"] for _, row in result.iterrows()
             }
->>>>>>> main
         return {}
 
     def read_table(
@@ -1220,12 +1106,6 @@ class warehouse_utils(DataStoreInterface):
         # Not applicable for SQL warehouses, but required by interface
         pass
 
-<<<<<<< HEAD
-    def optimise_table(self, table_name: str) -> None:
-        """Implements DataStoreInterface: Perform optimise on a table (no-op for SQL warehouses)."""
-        # Not applicable for SQL warehouses, but required by interface
-        pass
-=======
     # File system methods (required by DataStoreInterface but not typical for warehouses)
 
     def read_file(
@@ -1273,7 +1153,6 @@ class warehouse_utils(DataStoreInterface):
         raise NotImplementedError(
             "File operations not supported for warehouse utilities"
         )
->>>>>>> main
 
     # --- End DataStoreInterface required methods ---
 
