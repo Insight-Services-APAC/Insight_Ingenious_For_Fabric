@@ -1,0 +1,32 @@
+// Test PostgreSQL Metastore
+println("Testing PostgreSQL Metastore...")
+
+// Show databases
+println("\n=== Databases ===")
+spark.sql("SHOW DATABASES").show()
+
+// Create a test database
+spark.sql("CREATE DATABASE IF NOT EXISTS test_db")
+
+// Use the test database
+spark.sql("USE test_db")
+
+// Create a test table
+spark.sql("CREATE TABLE IF NOT EXISTS test_table (id INT, name STRING) USING PARQUET")
+
+// Insert some data
+spark.sql("INSERT INTO test_table VALUES (1, 'Alice'), (2, 'Bob'), (3, 'Charlie')")
+
+// Show tables
+println("\n=== Tables in test_db ===")
+spark.sql("SHOW TABLES").show()
+
+// Query the table
+println("\n=== Data in test_table ===")
+spark.sql("SELECT * FROM test_table").show()
+
+// Show table details
+println("\n=== Table Details ===")
+spark.sql("DESCRIBE EXTENDED test_table").show(100, false)
+
+println("\n✅ PostgreSQL metastore test completed successfully!")

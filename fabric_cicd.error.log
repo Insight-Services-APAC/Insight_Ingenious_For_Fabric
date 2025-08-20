@@ -1,0 +1,48 @@
+2025-08-19 08:40:59,121 - ERROR - ingen_fab.python_libs.pyspark.ddl_utils - Error in work_fn for 1d76b52ca628: [FIELD_STRUCT_LENGTH_MISMATCH] Length of object (40) does not match with length of fields (39).
+Traceback (most recent call last):
+  File "/workspaces/i4f/ingen_fab/python_libs/pyspark/ddl_utils.py", line 122, in run_once
+    work_fn()
+  File "/workspaces/i4f/sample_project/fabric_workspace_items/ddl_scripts/Lakehouses/Config/001_Initial_Creation_ExtractGeneration_Config_Lakehouses.Notebook/notebook-content.py", line 853, in script_to_execute
+    details_df = target_lakehouse.get_connection.createDataFrame(  # noqa: F821
+                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/opt/bitnami/spark/python/pyspark/sql/session.py", line 1599, in createDataFrame
+    return self._create_dataframe(
+           ^^^^^^^^^^^^^^^^^^^^^^^
+  File "/opt/bitnami/spark/python/pyspark/sql/session.py", line 1643, in _create_dataframe
+    rdd, struct = self._createFromLocal(
+                  ^^^^^^^^^^^^^^^^^^^^^^
+  File "/opt/bitnami/spark/python/pyspark/sql/session.py", line 1195, in _createFromLocal
+    data = list(data)
+           ^^^^^^^^^^
+  File "/opt/bitnami/spark/python/pyspark/sql/session.py", line 1615, in prepare
+    verify_func(obj)
+  File "/opt/bitnami/spark/python/pyspark/sql/types.py", line 2947, in verify
+    verify_value(obj)
+  File "/opt/bitnami/spark/python/pyspark/sql/types.py", line 2894, in verify_struct
+    raise PySparkValueError(
+pyspark.errors.exceptions.base.PySparkValueError: [FIELD_STRUCT_LENGTH_MISMATCH] Length of object (40) does not match with length of fields (39).
+
+2025-08-19 08:40:59,323 - ERROR - ingen_fab.python_libs.common.notebook_utils_base - Error executing notebook 001_Initial_Creation_ExtractGeneration_Config_Lakehouses_ddl_scripts: Error in work_fn for 1d76b52ca628: [FIELD_STRUCT_LENGTH_MISMATCH] Length of object (40) does not match with length of fields (39).
+Traceback (most recent call last):
+  File "/workspaces/i4f/ingen_fab/python_libs/pyspark/ddl_utils.py", line 122, in run_once
+    work_fn()
+  File "/workspaces/i4f/sample_project/fabric_workspace_items/ddl_scripts/Lakehouses/Config/001_Initial_Creation_ExtractGeneration_Config_Lakehouses.Notebook/notebook-content.py", line 853, in script_to_execute
+    details_df = target_lakehouse.get_connection.createDataFrame(  # noqa: F821
+                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/opt/bitnami/spark/python/pyspark/sql/session.py", line 1599, in createDataFrame
+    return self._create_dataframe(
+           ^^^^^^^^^^^^^^^^^^^^^^^
+  File "/opt/bitnami/spark/python/pyspark/sql/session.py", line 1643, in _create_dataframe
+    rdd, struct = self._createFromLocal(
+                  ^^^^^^^^^^^^^^^^^^^^^^
+  File "/opt/bitnami/spark/python/pyspark/sql/session.py", line 1195, in _createFromLocal
+    data = list(data)
+           ^^^^^^^^^^
+  File "/opt/bitnami/spark/python/pyspark/sql/session.py", line 1615, in prepare
+    verify_func(obj)
+  File "/opt/bitnami/spark/python/pyspark/sql/types.py", line 2947, in verify
+    verify_value(obj)
+  File "/opt/bitnami/spark/python/pyspark/sql/types.py", line 2894, in verify_struct
+    raise PySparkValueError(
+pyspark.errors.exceptions.base.PySparkValueError: [FIELD_STRUCT_LENGTH_MISMATCH] Length of object (40) does not match with length of fields (39).
+

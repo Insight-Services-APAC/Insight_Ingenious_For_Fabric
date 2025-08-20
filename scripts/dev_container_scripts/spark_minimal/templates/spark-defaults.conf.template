@@ -1,0 +1,25 @@
+# PostgreSQL Metastore Configuration
+spark.sql.catalogImplementation=hive
+spark.hadoop.javax.jdo.option.ConnectionURL=jdbc:postgresql://localhost:5432/metastore
+spark.hadoop.javax.jdo.option.ConnectionDriverName=org.postgresql.Driver
+spark.hadoop.javax.jdo.option.ConnectionUserName=hive
+spark.hadoop.javax.jdo.option.ConnectionPassword=hivepassword
+
+# Schema management
+spark.hadoop.datanucleus.schema.autoCreateAll=true
+spark.hadoop.hive.metastore.schema.verification=false
+spark.hadoop.datanucleus.autoCreateSchema=true
+spark.hadoop.datanucleus.fixedDatastore=true
+
+# Connection pooling
+spark.hadoop.datanucleus.connectionPool.maxActive=10
+spark.hadoop.datanucleus.connectionPool.maxIdle=5
+spark.hadoop.datanucleus.connectionPool.minIdle=1
+
+# Warehouse configuration
+spark.sql.warehouse.dir=/tmp/spark-warehouse
+
+# Performance settings
+spark.sql.adaptive.enabled=true
+spark.sql.adaptive.coalescePartitions.enabled=true
+spark.serializer=org.apache.spark.serializer.KryoSerializer

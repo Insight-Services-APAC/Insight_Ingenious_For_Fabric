@@ -1,0 +1,281 @@
+{%- set datastore_type = "lakehouse" -%}
+{%- set kernel_name = "synapse_pyspark" -%}
+{%- set kernel_display_name = "PySpark (Synapse)" -%}
+{%- set language_group = "synapse_pyspark" -%}
+{%- set runtime_type = "pyspark" -%}
+{%- set include_ddl_utils = false -%}
+
+{%- extends "data_profiling_base.py.jinja" -%}
+
+{% block datastore_specific_imports %}
+from ingen_fab.python_libs.pyspark.lakehouse_utils import lakehouse_utils
+{% endblock %}
+
+{% block main_execution %}
+print("=" * 80)
+print(f"Data Profiling Processor - Lakehouse")
+print(f"Execution Time: {datetime.now()}")
+print("=" * 80)
+
+# Initialize lakehouse utils (it creates its own spark session)
+config_lakehouse = lakehouse_utils(
+    target_workspace_id=configs.config_workspace_id,
+    target_lakehouse_id=configs.config_lakehouse_id
+)
+
+# Map profile type string to enum
+profile_type_map = {
+    "basic": ProfileType.BASIC,
+    "statistical": ProfileType.STATISTICAL,
+    "data_quality": ProfileType.DATA_QUALITY,
+    "full": ProfileType.FULL
+}
+selected_profile_type = profile_type_map.get(profile_type, ProfileType.FULL)
+
+# Initialize profiler with spark from lakehouse_utils
+profiler = DataProfilingPySpark(config_lakehouse.spark)
+
+# Get list of tables to profile
+if target_tables:
+    tables_to_profile = target_tables
+else:
+    # Get active profiling configurations from catalog
+    try:
+        config_df = config_lakehouse.read_table("config_data_profiling")
+        active_configs = config_df.filter("active_yn = 'Y'").collect()
+        tables_to_profile = [row.table_name for row in active_configs]
+        print(f"Found {len(tables_to_profile)} active tables to profile from configuration")
+    except Exception as e:
+        print(f"No configuration table found, will profile all tables: {e}")
+        # Profile all tables in the lakehouse
+        tables_to_profile = config_lakehouse.list_tables()
+        print(f"Found {len(tables_to_profile)} tables in lakehouse")
+
+# Profile each table
+profiling_results = []
+execution_id = str(uuid.uuid4())
+
+for table_name in tables_to_profile:
+    print(f"\n{'='*60}")
+    print(f"Profiling table: {table_name}")
+    print(f"{'='*60}")
+    
+    try:
+        # Read table
+        df = config_lakehouse.read_table(table_name)
+        
+        # Profile dataset
+        profile = profiler.profile_dataset(
+            dataset=df,
+            profile_type=selected_profile_type,
+            sample_size=sample_size
+        )
+        
+        # Add metadata
+        profile_result = {
+            "execution_id": execution_id,
+            "table_name": table_name,
+            "profile_timestamp": datetime.now().isoformat(),
+            "profile_type": profile_type,
+            "profile": profile,
+            "status": "success"
+        }
+        
+        # Generate quality report if requested
+        if generate_report:
+            report = profiler.generate_quality_report(profile, output_format)
+            profile_result["report"] = report
+            
+            # Save report to Files if HTML
+            if output_format == "html":
+                report_path = f"Files/profiling_reports/{table_name}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.html"
+                config_lakehouse.write_string_to_file(
+                    content=report,
+                    file_path=report_path,
+                    encoding="utf-8",
+                    mode="overwrite"
+                )
+
+                print(f"Report saved to: {report_path}")
+        
+        # Calculate data quality score
+        if profile.data_quality_score is not None:
+            profile_result["quality_score"] = profile.data_quality_score
+        
+        profiling_results.append(profile_result)
+        
+        # Display summary
+        print(f"✅ Profiling complete for {table_name}")
+        print(f"  Rows: {profile.row_count:,}")
+        print(f"  Columns: {profile.column_count}")
+        if profile.data_quality_score:
+            print(f"  Quality Score: {profile.data_quality_score:.2%}")
+        
+    except Exception as e:
+        import traceback
+        print(f"❌ Error profiling {table_name}: {e}")
+        print("Stack trace:")
+        traceback.print_exc()
+        profiling_results.append({
+            "execution_id": execution_id,
+            "table_name": table_name,
+            "profile_timestamp": datetime.now().isoformat(),
+            "status": "failed",
+            "error": str(e)
+        })
+
+# Save results to catalog if requested
+if save_to_catalog and profiling_results:
+    print(f"\n{'='*60}")
+    print("Saving profiling results to catalog")
+    print(f"{'='*60}")
+    
+    try:
+        # Prepare profile results for storage
+        profile_records = []
+        history_records = []
+        
+        # Helper function to convert column profiles to serializable dicts
+        def serialize_column_profile(col):
+            """Convert a ColumnProfile to a serializable dictionary."""
+            col_dict = {}
+            for key, value in col.__dict__.items():
+                if value is None:
+                    col_dict[key] = None
+                elif isinstance(value, (datetime, date)):
+                    col_dict[key] = value.isoformat()
+                elif isinstance(value, dict):
+                    # Handle dictionaries with potential datetime keys (e.g., value_distribution)
+                    serialized_dict = {}
+                    for k, v in value.items():
+                        # Convert key to string if it's a datetime
+                        if isinstance(k, (datetime, date)):
+                            k = k.isoformat()
+                        elif k is not None and not isinstance(k, (str, int, float, bool)):
+                            k = str(k)
+                        # Convert value if needed
+                        if isinstance(v, (datetime, date)):
+                            v = v.isoformat()
+                        elif hasattr(v, '__dict__'):
+                            v = str(v)
+                        serialized_dict[k] = v
+                    col_dict[key] = serialized_dict
+                elif hasattr(value, '__dict__'):
+                    # Handle nested objects
+                    col_dict[key] = str(value)
+                else:
+                    col_dict[key] = value
+            return col_dict
+        
+        for result in profiling_results:
+            if result["status"] == "success":
+                profile = result["profile"]
+                
+                # Create profile result record
+                profile_record = {
+                    "profile_id": str(uuid.uuid4()),
+                    "execution_id": result["execution_id"],
+                    "table_name": result["table_name"],
+                    "profile_timestamp": result["profile_timestamp"],
+                    "profile_type": result["profile_type"],
+                    "row_count": profile.row_count,
+                    "column_count": profile.column_count,
+                    "null_count": profile.null_count,
+                    "duplicate_count": profile.duplicate_count,
+                    "data_quality_score": profile.data_quality_score,
+                    "column_profiles": json.dumps([serialize_column_profile(col) for col in profile.column_profiles], default=str),
+                    "statistics": json.dumps(profile.statistics, default=str) if profile.statistics else None,
+                    "data_quality_issues": json.dumps(profile.data_quality_issues, default=str) if profile.data_quality_issues else None,
+                    "created_date": datetime.now().isoformat(),
+                    "created_by": "data_profiling_processor"
+                }
+                profile_records.append(profile_record)
+                
+                # Create history record
+                history_record = {
+                    "history_id": str(uuid.uuid4()),
+                    "table_name": result["table_name"],
+                    "profile_timestamp": result["profile_timestamp"],
+                    "row_count": profile.row_count,
+                    "column_count": profile.column_count,
+                    "data_quality_score": profile.data_quality_score,
+                    "profile_type": result["profile_type"],
+                    "execution_id": result["execution_id"]
+                }
+                history_records.append(history_record)
+        
+        # Write to profile results table
+        if profile_records:
+            from pyspark.sql.types import *
+            
+            # Define schema for profile results
+            profile_schema = StructType([
+                StructField("profile_id", StringType(), False),
+                StructField("execution_id", StringType(), False),
+                StructField("table_name", StringType(), False),
+                StructField("profile_timestamp", StringType(), False),
+                StructField("profile_type", StringType(), False),
+                StructField("row_count", LongType(), True),
+                StructField("column_count", IntegerType(), True),
+                StructField("null_count", LongType(), True),
+                StructField("duplicate_count", LongType(), True),
+                StructField("data_quality_score", DoubleType(), True),
+                StructField("column_profiles", StringType(), True),
+                StructField("statistics", StringType(), True),
+                StructField("data_quality_issues", StringType(), True),
+                StructField("created_date", StringType(), False),
+                StructField("created_by", StringType(), False)
+            ])
+            
+            profile_df = config_lakehouse.spark.createDataFrame(profile_records, profile_schema)
+            config_lakehouse.write_to_table(
+                df=profile_df,
+                table_name="profile_results",
+                mode="append"
+            )
+            print(f"✅ Saved {len(profile_records)} profile results")
+        
+        # Write to profile history table
+        if history_records:
+            history_schema = StructType([
+                StructField("history_id", StringType(), False),
+                StructField("table_name", StringType(), False),
+                StructField("profile_timestamp", StringType(), False),
+                StructField("row_count", LongType(), True),
+                StructField("column_count", IntegerType(), True),
+                StructField("data_quality_score", DoubleType(), True),
+                StructField("profile_type", StringType(), False),
+                StructField("execution_id", StringType(), False)
+            ])
+            
+            history_df = config_lakehouse.spark.createDataFrame(history_records, history_schema)
+            config_lakehouse.write_to_table(
+                df=history_df,
+                table_name="profile_history",
+                mode="append"
+            )
+            print(f"✅ Saved {len(history_records)} history records")
+            
+    except Exception as e:
+        import traceback
+        print(f"❌ Error saving results to catalog: {e}")
+        print("Stack trace:")
+        traceback.print_exc()
+
+# Display final summary
+print(f"\n{'='*80}")
+print("Data Profiling Execution Summary")
+print(f"{'='*80}")
+print(f"Execution ID: {execution_id}")
+print(f"Total tables processed: {len(profiling_results)}")
+successful = sum(1 for r in profiling_results if r.get("status") == "success")
+failed = sum(1 for r in profiling_results if r.get("status") == "failed")
+print(f"Successful: {successful}")
+print(f"Failed: {failed}")
+
+if successful > 0:
+    avg_quality = sum(r.get("quality_score", 0) for r in profiling_results if r.get("quality_score")) / successful
+    print(f"Average Quality Score: {avg_quality:.2%}")
+
+print(f"\n✅ Data profiling completed successfully!")
+{% endblock %}

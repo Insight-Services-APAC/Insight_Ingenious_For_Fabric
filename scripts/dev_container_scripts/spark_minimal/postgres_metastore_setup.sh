@@ -2,6 +2,7 @@
 
 # PostgreSQL Metastore Setup Script for Spark
 # Cross-platform compatible (x64/ARM)
+echo "en_US.UTF-8 UTF-8" >> /etc/locale.gen
 
 set -e
 
@@ -181,27 +182,18 @@ PG_CONFIG_DIR="/etc/postgresql/${POSTGRES_VERSION}/main"
 run_cmd sed -i "s/#listen_addresses = 'localhost'/listen_addresses = 'localhost'/" ${PG_CONFIG_DIR}/postgresql.conf
 
 # Update pg_hba.conf for password authentication
-# Add entries for hive user before the default entries
-run_cmd sh -c "cat > ${PG_CONFIG_DIR}/pg_hba.conf.new << EOF
-# TYPE  DATABASE        USER            ADDRESS                 METHOD
-# Database administrative login by Unix domain socket
-local   all             postgres                                peer
+# Use template file for pg_hba.conf
+SCRIPT_DIR="$(dirname "$0")"
+TEMPLATE_DIR="${SCRIPT_DIR}/templates"
 
-# Hive metastore access
-local   metastore       hive                                    md5
-host    metastore       hive            127.0.0.1/32            md5
-host    metastore       hive            ::1/128                 md5
-
-# \"local\" is for Unix domain socket connections only
-local   all             all                                     peer
-# IPv4 local connections:
-host    all             all             127.0.0.1/32            scram-sha-256
-# IPv6 local connections:
-host    all             all             ::1/128                 scram-sha-256
-EOF"
-
-run_cmd mv ${PG_CONFIG_DIR}/pg_hba.conf ${PG_CONFIG_DIR}/pg_hba.conf.bak
-run_cmd mv ${PG_CONFIG_DIR}/pg_hba.conf.new ${PG_CONFIG_DIR}/pg_hba.conf
+if [ -f "${TEMPLATE_DIR}/pg_hba.conf.template" ]; then
+    run_cmd cp ${PG_CONFIG_DIR}/pg_hba.conf ${PG_CONFIG_DIR}/pg_hba.conf.bak
+    run_cmd cp "${TEMPLATE_DIR}/pg_hba.conf.template" ${PG_CONFIG_DIR}/pg_hba.conf
+    echo "✅ Applied pg_hba.conf from template"
+else
+    echo "❌ Template file not found: ${TEMPLATE_DIR}/pg_hba.conf.template"
+    exit 1
+fi
 
 # Restart PostgreSQL to apply changes
 echo "Restarting PostgreSQL..."
@@ -266,69 +258,22 @@ echo "Step 6: Configuring Spark for PostgreSQL metastore..."
 if [ -n "$SPARK_HOME" ]; then
     run_cmd mkdir -p $SPARK_HOME/conf
     
-    # Create spark-defaults.conf
-    run_cmd tee $SPARK_HOME/conf/spark-defaults.conf > /dev/null << 'EOF'
-# PostgreSQL Metastore Configuration
-spark.sql.catalogImplementation=hive
-spark.hadoop.javax.jdo.option.ConnectionURL=jdbc:postgresql://localhost:5432/metastore
-spark.hadoop.javax.jdo.option.ConnectionDriverName=org.postgresql.Driver
-spark.hadoop.javax.jdo.option.ConnectionUserName=hive
-spark.hadoop.javax.jdo.option.ConnectionPassword=hivepassword
+    # Copy configuration files from templates
+    if [ -f "${TEMPLATE_DIR}/spark-defaults.conf.template" ]; then
+        run_cmd cp "${TEMPLATE_DIR}/spark-defaults.conf.template" $SPARK_HOME/conf/spark-defaults.conf
+        echo "✅ Applied spark-defaults.conf from template"
+    else
+        echo "❌ Template file not found: ${TEMPLATE_DIR}/spark-defaults.conf.template"
+        exit 1
+    fi
 
-# Schema management
-spark.hadoop.datanucleus.schema.autoCreateAll=true
-spark.hadoop.hive.metastore.schema.verification=false
-spark.hadoop.datanucleus.autoCreateSchema=true
-spark.hadoop.datanucleus.fixedDatastore=true
-
-# Connection pooling
-spark.hadoop.datanucleus.connectionPool.maxActive=10
-spark.hadoop.datanucleus.connectionPool.maxIdle=5
-spark.hadoop.datanucleus.connectionPool.minIdle=1
-
-# Warehouse configuration
-spark.sql.warehouse.dir=/tmp/spark-warehouse
-
-# Performance settings
-spark.sql.adaptive.enabled=true
-spark.sql.adaptive.coalescePartitions.enabled=true
-spark.serializer=org.apache.spark.serializer.KryoSerializer
-EOF
-
-    # Create hive-site.xml
-    run_cmd tee $SPARK_HOME/conf/hive-site.xml > /dev/null << 'EOF'
-<?xml version="1.0"?>
-<configuration>
-  <property>
-    <name>javax.jdo.option.ConnectionURL</name>
-    <value>jdbc:postgresql://localhost:5432/metastore</value>
-  </property>
-  <property>
-    <name>javax.jdo.option.ConnectionDriverName</name>
-    <value>org.postgresql.Driver</value>
-  </property>
-  <property>
-    <name>javax.jdo.option.ConnectionUserName</name>
-    <value>hive</value>
-  </property>
-  <property>
-    <name>javax.jdo.option.ConnectionPassword</name>
-    <value>hivepassword</value>
-  </property>
-  <property>
-    <name>datanucleus.schema.autoCreateAll</name>
-    <value>true</value>
-  </property>
-  <property>
-    <name>hive.metastore.schema.verification</name>
-    <value>false</value>
-  </property>
-  <property>
-    <name>hive.metastore.warehouse.dir</name>
-    <value>/tmp/spark-warehouse</value>
-  </property>
-</configuration>
-EOF
+    if [ -f "${TEMPLATE_DIR}/hive-site.xml.template" ]; then
+        run_cmd cp "${TEMPLATE_DIR}/hive-site.xml.template" $SPARK_HOME/conf/hive-site.xml
+        echo "✅ Applied hive-site.xml from template"
+    else
+        echo "❌ Template file not found: ${TEMPLATE_DIR}/hive-site.xml.template"
+        exit 1
+    fi
 
     echo "✅ Spark configuration files created"
 else
@@ -352,41 +297,11 @@ echo "  spark.sql(\"SHOW DATABASES\").show()"
 echo "  spark.sql(\"SHOW TABLES\").show()"
 echo ""
 
-# Create a test script
-cat > /tmp/test_postgres_metastore.scala << 'EOF'
-// Test PostgreSQL Metastore
-println("Testing PostgreSQL Metastore...")
-
-// Show databases
-println("\n=== Databases ===")
-spark.sql("SHOW DATABASES").show()
-
-// Create a test database
-spark.sql("CREATE DATABASE IF NOT EXISTS test_db")
-
-// Use the test database
-spark.sql("USE test_db")
-
-// Create a test table
-spark.sql("CREATE TABLE IF NOT EXISTS test_table (id INT, name STRING) USING PARQUET")
-
-// Insert some data
-spark.sql("INSERT INTO test_table VALUES (1, 'Alice'), (2, 'Bob'), (3, 'Charlie')")
-
-// Show tables
-println("\n=== Tables in test_db ===")
-spark.sql("SHOW TABLES").show()
-
-// Query the table
-println("\n=== Data in test_table ===")
-spark.sql("SELECT * FROM test_table").show()
-
-// Show table details
-println("\n=== Table Details ===")
-spark.sql("DESCRIBE EXTENDED test_table").show(100, false)
-
-println("\n✅ PostgreSQL metastore test completed successfully!")
-EOF
-
-echo "Test script created at: /tmp/test_postgres_metastore.scala"
-echo "Run it with: spark-shell -i /tmp/test_postgres_metastore.scala"
+# Create a test script from template
+if [ -f "${TEMPLATE_DIR}/test_postgres_metastore.scala.template" ]; then
+    cp "${TEMPLATE_DIR}/test_postgres_metastore.scala.template" /tmp/test_postgres_metastore.scala
+    echo "Test script created at: /tmp/test_postgres_metastore.scala"
+    echo "Run it with: spark-shell -i /tmp/test_postgres_metastore.scala"
+else
+    echo "⚠️  Test script template not found: ${TEMPLATE_DIR}/test_postgres_metastore.scala.template"
+fi

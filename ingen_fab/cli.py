@@ -23,6 +23,7 @@ package_commands = lazy_import.lazy_module("ingen_fab.cli_utils.package_commands
 test_commands = lazy_import.lazy_module("ingen_fab.cli_utils.test_commands")
 libs_commands = lazy_import.lazy_module("ingen_fab.cli_utils.libs_commands")
 dbt_commands = lazy_import.lazy_module("ingen_fab.cli_utils.dbt_commands")
+profile_commands = lazy_import.lazy_module("ingen_fab.cli_utils.profile_commands")
 
 from ingen_fab.cli_utils.console_styles import ConsoleStyles
 
@@ -51,6 +52,7 @@ extract_app = typer.Typer()
 synthetic_data_app = typer.Typer()
 libs_app = typer.Typer()
 dbt_app = typer.Typer()
+profile_app = typer.Typer()
 
 # Add sub-apps to main app
 test_app.add_typer(
@@ -95,6 +97,11 @@ app.add_typer(
     dbt_app,
     name="dbt",
     help="Proxy commands to dbt_wrapper inside the Fabric workspace repo.",
+)
+app.add_typer(
+    profile_commands.app,
+    name="profile",
+    help="Commands for data profiling and quality analysis.",
 )
 
 # New: extract commands

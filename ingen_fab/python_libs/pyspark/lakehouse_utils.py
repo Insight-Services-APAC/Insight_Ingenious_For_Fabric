@@ -593,6 +593,103 @@ class lakehouse_utils(DataStoreInterface):
 
         writer.save(full_file_path)
 
+    def write_string_to_file(
+        self,
+        content: str,
+        file_path: str,
+        encoding: str = "utf-8",
+        mode: str = "overwrite",
+    ) -> None:
+        """
+        Write string content to a file.
+
+        Args:
+            content: String content to write
+            file_path: Path where to write the file
+            encoding: File encoding (default: utf-8)
+            mode: Write mode ("overwrite" or "append")
+        """
+        # Build full file path using the lakehouse files URI
+        if file_path.startswith("/"):
+            # Absolute local path - convert to file:// URI
+            if self.spark_version == "local":
+                # Clean up any double slashes that might come from list_files
+                clean_path = file_path.replace("//", "/")
+                full_file_path = clean_path  # Keep as regular path for Python file operations
+            else:
+                # For Fabric, absolute paths shouldn't happen, treat as relative
+                full_file_path = f"{self.lakehouse_files_uri()}{file_path}"
+        elif not file_path.startswith(("file://", "abfss://")):
+            # Relative path - combine with lakehouse files URI
+            if self.spark_version == "local":
+                # For local, build the full path using the workspace directory
+                full_file_path = f"{self.lakehouse_files_uri()}{file_path}".replace("file://", "")
+            else:
+                full_file_path = f"{self.lakehouse_files_uri()}{file_path}"
+        else:
+            # Already absolute path
+            full_file_path = file_path
+            if self.spark_version == "local" and full_file_path.startswith("file://"):
+                full_file_path = full_file_path.replace("file://", "")
+
+        if self.spark_version == "local":
+            # Use standard Python file I/O for local environment
+            from pathlib import Path
+            
+            # Create parent directories if they don't exist
+            file_path_obj = Path(full_file_path)
+            file_path_obj.parent.mkdir(parents=True, exist_ok=True)
+            
+            # Write the file
+            if mode == "append":
+                with open(full_file_path, "a", encoding=encoding) as f:
+                    f.write(content)
+            else:  # overwrite
+                with open(full_file_path, "w", encoding=encoding) as f:
+                    f.write(content)
+                    
+            print(f"✅ Written {len(content)} characters to {file_path}")
+        else:
+            # Use notebookutils.fs for Fabric environment
+            import sys
+            
+            if "notebookutils" in sys.modules:
+                notebookutils = sys.modules["notebookutils"]
+                
+                # Convert content to bytes
+                content_bytes = content.encode(encoding)
+                
+                # Use notebookutils.fs.put to write the file
+                # Note: notebookutils.fs.put always overwrites, doesn't support append
+                if mode == "append":
+                    # For append mode, read existing content first if file exists
+                    try:
+                        existing_bytes = notebookutils.fs.head(full_file_path, maxBytes=-1)
+                        content_bytes = existing_bytes + content_bytes
+                    except:
+                        # File doesn't exist, just write new content
+                        pass
+                
+                notebookutils.fs.put(full_file_path, content_bytes, overwrite=True)
+                print(f"✅ Written {len(content)} characters to {file_path}")
+            else:
+                # Fallback to using Spark RDD if notebookutils not available
+                # Convert string to RDD and save as text file
+                rdd = self.spark.sparkContext.parallelize([content])
+                
+                # For append mode, need to read existing file first
+                if mode == "append" and self.file_exists(file_path):
+                    existing_rdd = self.spark.sparkContext.textFile(full_file_path)
+                    rdd = existing_rdd.union(rdd)
+                
+                # Save as text file (this will create a directory with part files)
+                temp_path = f"{full_file_path}_temp"
+                rdd.coalesce(1).saveAsTextFile(temp_path)
+                
+                # Move the part file to the desired location
+                # This is a workaround since Spark creates directories for text files
+                print(f"⚠️ File written as Spark text file directory at {temp_path}")
+
     def file_exists(self, file_path: str) -> bool:
         """
         Check if a file exists using the appropriate method for the environment.

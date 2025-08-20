@@ -1,0 +1,87 @@
+{%- import 'shared/notebook/macros/notebook_macros.py.jinja' as macros -%}
+{% if language_group == "synapse_pyspark" %}
+{%- include "shared/notebook/headers/pyspark.py.jinja" %}
+{% else %}
+{%- include "shared/notebook/headers/python.py.jinja" %}
+{% endif %}
+
+{{ macros.parameters_cell() }}
+
+# Default parameters
+profile_type = "{{ profile_type | default('full') }}"  # Profile depth: basic, statistical, data_quality, full
+save_to_catalog = {{ save_to_catalog | default(True) }}  # Whether to save results to catalog tables
+generate_report = {{ generate_report | default(True) }}  # Whether to generate HTML/Markdown report
+output_format = "{{ output_format | default('html') }}"  # Report format: html, markdown, json
+sample_size = {{ sample_size | default('None') }}  # Sample fraction (0-1) or None for full dataset
+target_tables = []  # List of specific tables to profile, empty for all
+
+{% if datastore_type == "lakehouse" %}
+{{ macros.pyspark_cell_with_heading("## 📊 Data Profiling Notebook (Lakehouse)") }}
+{% else %}
+{{ macros.python_cell_with_heading("## 📊 Data Profiling Notebook (Warehouse)") }}
+{% endif %}
+
+# This notebook profiles datasets and generates data quality reports based on configuration metadata.
+# Uses modularized components from python_libs for maintainable and reusable code.
+
+{% set runtime_type = runtime_type %}
+{% set language_group = language_group %}
+{% set include_ddl_utils = include_ddl_utils %}
+{% include 'shared/notebook/environment/library_loader.py.jinja' %}
+
+{% if datastore_type == "lakehouse" %}
+{{ macros.pyspark_cell_with_heading("## 🔧 Load Configuration and Initialize") }}
+{% else %}
+{{ macros.python_cell_with_heading("## 🔧 Load Configuration and Initialize") }}
+{% endif %}
+{% include 'shared/notebook/environment/config_loader.py.jinja' %}
+
+# Additional imports for data profiling
+import uuid
+import json
+import time
+from datetime import datetime, date
+from typing import Dict, List, Optional, Any
+
+from ingen_fab.python_libs.pyspark.data_profiling_pyspark import DataProfilingPySpark
+from ingen_fab.python_libs.interfaces.data_profiling_interface import (
+    ProfileType,
+    DatasetProfile,
+    ColumnProfile
+)
+
+{% block datastore_specific_imports %}
+# Datastore-specific imports will be defined in child templates
+{% endblock %}
+
+execution_id = str(uuid.uuid4())
+
+print(f"Execution ID: {execution_id}")
+print(f"Profile Type: {profile_type}")
+print(f"Save to Catalog: {save_to_catalog}")
+print(f"Generate Report: {generate_report}")
+
+{% if datastore_type == "lakehouse" %}
+{{ macros.pyspark_cell_with_heading("## 🚀 Main Execution") }}
+{% else %}
+{{ macros.python_cell_with_heading("## 🚀 Main Execution") }}
+{% endif %}
+
+{% block main_execution %}
+# Main execution logic will be defined in child templates
+{% endblock %}
+
+{% if add_debug_cells %}
+{% if datastore_type == "lakehouse" %}
+{{ macros.pyspark_cell_with_heading("## 🐛 Debug Cell") }}
+{% else %}
+{{ macros.python_cell_with_heading("## 🐛 Debug Cell") }}
+{% endif %}
+
+# Debug information
+print("Debug Information:")
+print(f"Spark Version: {spark.version}")
+print(f"Current Database: {spark.catalog.currentDatabase()}")
+print(f"Available Tables: {spark.catalog.listTables()}")
+
+{% endif %}

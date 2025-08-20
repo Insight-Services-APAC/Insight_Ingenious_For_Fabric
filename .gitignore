@@ -22,6 +22,7 @@ fabric_cicd.error.log
 ModuleAnalysisCache-AE0255EC
 StartupProfileData-Interactive
 /metastore_db/**/*/
+/metastore_db/*
 /node_modules/**/*/
 /sample_*/**/*/
 /sample_*/*
