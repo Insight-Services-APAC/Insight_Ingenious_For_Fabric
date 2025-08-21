@@ -1,0 +1,43 @@
+# Profile history table for tracking profiling trends over time - Lakehouse version
+from pyspark.sql.types import (
+    DoubleType,
+    IntegerType,
+    LongType,
+    StringType,
+    StructField,
+    StructType,
+    TimestampType,
+)
+
+schema = StructType([
+    StructField("history_id", StringType(), nullable=False),
+    StructField("table_name", StringType(), nullable=False),
+    StructField("schema_name", StringType(), nullable=True),
+    StructField("profile_timestamp", StringType(), nullable=False),
+    StructField("row_count", LongType(), nullable=True),
+    StructField("column_count", IntegerType(), nullable=True),
+    StructField("data_quality_score", DoubleType(), nullable=True),
+    StructField("completeness_score", DoubleType(), nullable=True),
+    StructField("uniqueness_score", DoubleType(), nullable=True),
+    StructField("validity_score", DoubleType(), nullable=True),
+    StructField("consistency_score", DoubleType(), nullable=True),
+    StructField("null_percentage", DoubleType(), nullable=True),
+    StructField("duplicate_percentage", DoubleType(), nullable=True),
+    StructField("profile_type", StringType(), nullable=False),
+    StructField("execution_id", StringType(), nullable=False),
+    StructField("row_count_change", LongType(), nullable=True),  # Change from previous profile
+    StructField("row_count_change_pct", DoubleType(), nullable=True),  # Percentage change
+    StructField("quality_score_change", DoubleType(), nullable=True),  # Change in quality score
+    StructField("anomaly_detected", StringType(), nullable=True),  # Y/N flag for anomaly detection
+    StructField("anomaly_details", StringType(), nullable=True),  # JSON with anomaly details
+])
+
+target_lakehouse.create_table(
+    table_name="profile_history",
+    schema=schema,
+    mode="overwrite",
+    options={
+        "parquet.vorder.default": "true"
+    },
+    partition_by=["profile_timestamp"]  # Partition by timestamp for efficient time-series queries
+)

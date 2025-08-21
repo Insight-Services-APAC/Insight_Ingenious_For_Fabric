@@ -112,6 +112,22 @@ Bidirectional data synchronization between Microsoft Fabric and Azure Synapse An
 
 ---
 
+### Data Analysis
+
+#### [Data Profiling](data_profiling.md)
+Comprehensive statistical analysis and automated relationship discovery for data quality assessment and schema understanding.
+
+**Use Cases:**
+- Statistical data profiling and analysis
+- Automated relationship discovery between tables
+- Data quality assessment and monitoring
+- Schema understanding and documentation
+- Data catalog population and governance
+
+**Profile Types:** Basic, Statistical, Data Quality, Relationship Discovery, Full Analysis
+
+---
+
 ## Package Development
 
 ### Creating Custom Packages

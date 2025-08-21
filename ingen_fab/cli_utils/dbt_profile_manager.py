@@ -202,8 +202,24 @@ class DBTProfileManager:
         outputs = fabric_config.get("outputs", {})
         target_config = outputs.get("my_project_target", {})
 
-        # Check if there's a saved prefix in the config
-        return target_config.get("_lakehouse_prefix", None)
+        # Get the lakehouse name from the standard lakehouse field
+        saved_lakehouse_name = target_config.get("lakehouse", None)
+        if not saved_lakehouse_name:
+            return None
+            
+        # Find which prefix corresponds to this lakehouse name in current environment
+        try:
+            values = self.get_workspace_config()
+            available_lakehouses = self.get_available_lakehouses(values)
+            
+            for prefix, lakehouse_config in available_lakehouses.items():
+                if lakehouse_config["lakehouse_name"] == saved_lakehouse_name:
+                    return prefix
+        except Exception:
+            # If we can't read workspace config, return None
+            pass
+            
+        return None
 
     def generate_profile_config(
         self,
@@ -289,12 +305,6 @@ class DBTProfileManager:
                 "target": "my_project_target",
             }
         }
-
-        # Save the selection preference if we have one
-        if selected_prefix:
-            profile_config["fabric-spark-testnb"]["outputs"]["my_project_target"][
-                "_lakehouse_prefix"
-            ] = selected_prefix
 
         return profile_config
 

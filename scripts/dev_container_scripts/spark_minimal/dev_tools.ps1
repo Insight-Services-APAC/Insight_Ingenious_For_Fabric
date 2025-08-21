@@ -31,8 +31,16 @@ cp ./scripts/dev_container_scripts/spark_minimal/pwsh_profile_sample.txt $PROFIL
 
 # Pip Installs 
 pip install uv
-uv venv
-./.venv/bin/activate.ps1
+if (-not (Test-Path ".venv")) {
+    uv venv
+}
+if ((Test-Path ".venv/bin/activate.ps1")) {
+    ./.venv/bin/activate.ps1
+}
+if ((Test-Path ".venv/lib/activate.ps1")) {
+    ./.venv/lib/activate.ps1
+}
+
 pip install uv
 uv sync
 

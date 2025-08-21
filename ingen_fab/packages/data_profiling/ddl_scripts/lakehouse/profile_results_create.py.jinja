@@ -1,0 +1,51 @@
+# Profile results table for storing detailed profiling output - Lakehouse version
+from pyspark.sql.types import (
+    DoubleType,
+    IntegerType,
+    LongType,
+    StringType,
+    StructField,
+    StructType,
+    TimestampType,
+)
+
+schema = StructType([
+    StructField("profile_id", StringType(), nullable=False),
+    StructField("execution_id", StringType(), nullable=False),
+    StructField("table_name", StringType(), nullable=False),
+    StructField("schema_name", StringType(), nullable=True),
+    StructField("profile_timestamp", StringType(), nullable=False),
+    StructField("profile_type", StringType(), nullable=False),
+    StructField("row_count", LongType(), nullable=True),
+    StructField("column_count", IntegerType(), nullable=True),
+    StructField("null_count", LongType(), nullable=True),
+    StructField("duplicate_count", LongType(), nullable=True),
+    StructField("data_quality_score", DoubleType(), nullable=True),
+    StructField("completeness_score", DoubleType(), nullable=True),
+    StructField("uniqueness_score", DoubleType(), nullable=True),
+    StructField("validity_score", DoubleType(), nullable=True),
+    StructField("consistency_score", DoubleType(), nullable=True),
+    StructField("column_profiles", StringType(), nullable=True),  # JSON string with detailed column profiles (includes relationship data)
+    StructField("statistics", StringType(), nullable=True),  # JSON string with statistical metrics
+    StructField("data_quality_issues", StringType(), nullable=True),  # JSON string with identified issues
+    StructField("validation_results", StringType(), nullable=True),  # JSON string with validation rule results
+    StructField("correlations", StringType(), nullable=True),  # JSON string with correlation matrix
+    StructField("entity_relationships", StringType(), nullable=True),  # JSON string with entity relationship graph
+    StructField("semantic_summary", StringType(), nullable=True),  # JSON string with semantic analysis summary
+    StructField("profiling_duration_seconds", IntegerType(), nullable=True),
+    StructField("sample_size_used", StringType(), nullable=True),
+    StructField("error_message", StringType(), nullable=True),
+    StructField("error_details", StringType(), nullable=True),
+    StructField("created_date", StringType(), nullable=False),
+    StructField("created_by", StringType(), nullable=False),
+])
+
+target_lakehouse.create_table(
+    table_name="profile_results",
+    schema=schema,
+    mode="overwrite",
+    options={
+        "parquet.vorder.default": "true"
+    },
+    partition_by=["profile_timestamp"]  # Partition by timestamp for efficient querying
+)

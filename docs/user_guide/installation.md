@@ -110,8 +110,6 @@ pip show insight-ingenious-for-fabric
 # Display CLI help
 ingen_fab --help
 
-# Check version
-ingen_fab --version
 ```
 
 Expected output:

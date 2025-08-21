@@ -1,0 +1,170 @@
+{%- set datastore_type = "lakehouse" -%}
+{%- set kernel_name = "synapse_pyspark" -%}
+{%- set kernel_display_name = "PySpark (Synapse)" -%}
+{%- set language_group = "synapse_pyspark" -%}
+{%- set runtime_type = "pyspark" -%}
+{%- set include_ddl_utils = false -%}
+
+{%- import 'shared/notebook/macros/notebook_macros.py.jinja' as macros -%}
+{% if language_group == "synapse_pyspark" %}
+{%- include "shared/notebook/headers/pyspark.py.jinja" %}
+{% else %}
+{%- include "shared/notebook/headers/python.py.jinja" %}
+{% endif %}
+
+{{ macros.parameters_cell() }}
+
+# Default parameters
+auto_discover_tables = {{ auto_discover_tables | default(True) }}  # Whether to auto-discover tables
+profile_frequency = "{{ profile_frequency | default('daily') }}"  # Default profiling frequency
+quality_thresholds = {{ quality_thresholds | default('{"completeness": 0.95, "uniqueness": 0.99, "validity": 0.98, "consistency": 0.95}') }}  # Quality score thresholds
+
+{% if datastore_type == "lakehouse" %}
+{{ macros.pyspark_cell_with_heading("## ⚙️ Data Profiling Configuration (Lakehouse)") }}
+{% else %}
+{{ macros.python_cell_with_heading("## ⚙️ Data Profiling Configuration (Warehouse)") }}
+{% endif %}
+
+# This notebook configures automated data profiling for tables.
+# Uses modularized components from python_libs for maintainable and reusable code.
+
+{% set runtime_type = runtime_type %}
+{% set language_group = language_group %}
+{% set include_ddl_utils = include_ddl_utils %}
+{% include 'shared/notebook/environment/library_loader.py.jinja' %}
+
+{% if datastore_type == "lakehouse" %}
+{{ macros.pyspark_cell_with_heading("## 🔧 Load Configuration and Initialize") }}
+{% else %}
+{{ macros.python_cell_with_heading("## 🔧 Load Configuration and Initialize") }}
+{% endif %}
+{% include 'shared/notebook/environment/config_loader.py.jinja' %}
+
+# Additional imports for data profiling configuration
+from ingen_fab.python_libs.pyspark.lakehouse_utils import lakehouse_utils
+import json
+from datetime import datetime
+import uuid
+from typing import List, Dict, Any
+
+execution_id = str(uuid.uuid4())
+
+print(f"Execution ID: {execution_id}")
+print(f"Auto Discover Tables: {auto_discover_tables}")
+print(f"Profile Frequency: {profile_frequency}")
+
+{% if datastore_type == "lakehouse" %}
+{{ macros.pyspark_cell_with_heading("## 🚀 Main Execution") }}
+{% else %}
+{{ macros.python_cell_with_heading("## 🚀 Main Execution") }}
+{% endif %}
+print("=" * 80)
+print(f"Data Profiling Configuration Generator - Lakehouse")
+print(f"Execution Time: {datetime.now()}")
+print("=" * 80)
+
+# Initialize lakehouse utils
+target_lakehouse = lakehouse_utils(
+    target_workspace_id=configs.sample_lh_workspace_id,
+    target_lakehouse_id=configs.sample_lh_lakehouse_id
+)
+
+# Get list of tables to configure
+if auto_discover_tables:
+    tables_to_configure = target_lakehouse.list_tables()
+    print(f"Auto-discovered {len(tables_to_configure)} tables in lakehouse")
+else:
+    # Manual table specification would go here
+    tables_to_configure = []
+    print("Manual table configuration mode - no tables specified")
+
+# Generate configuration records
+config_records = []
+for table_name in tables_to_configure:
+    # Skip system tables if any
+    if table_name.startswith("config_") or table_name.startswith("log_"):
+        print(f"Skipping system table: {table_name}")
+        continue
+    
+    config_record = {
+        "config_id": str(uuid.uuid4()),
+        "table_name": table_name,
+        "schema_name": None,
+        "profile_frequency": profile_frequency,
+        "profile_type": "full",  # Default to full profiling
+        "sample_size": None,  # Use full dataset by default
+        "columns_to_profile": None,  # Profile all columns by default
+        "quality_thresholds_json": json.dumps(quality_thresholds),
+        "validation_rules_json": None,  # No custom rules by default
+        "alert_enabled": False,
+        "alert_threshold": "0.90",
+        "alert_recipients": None,
+        "last_profile_date": None,
+        "last_profile_status": None,
+        "execution_group": 1,
+        "active_yn": "Y",
+        "created_date": datetime.now(),
+        "modified_date": None,
+        "created_by": "data_profiling_config",
+        "modified_by": None
+    }
+    config_records.append(config_record)
+    print(f"✅ Generated config for table: {table_name}")
+
+if config_records:
+    print(f"\n{'='*60}")
+    print("Saving configuration records to catalog")
+    print(f"{'='*60}")
+    
+    try:
+        from pyspark.sql.types import *
+        
+        # Define schema for configuration table
+        config_schema = StructType([
+            StructField("config_id", StringType(), False),
+            StructField("table_name", StringType(), False),
+            StructField("schema_name", StringType(), True),
+            StructField("profile_frequency", StringType(), False),
+            StructField("profile_type", StringType(), False),
+            StructField("sample_size", StringType(), True),
+            StructField("columns_to_profile", StringType(), True),
+            StructField("quality_thresholds_json", StringType(), True),
+            StructField("validation_rules_json", StringType(), True),
+            StructField("alert_enabled", BooleanType(), False),
+            StructField("alert_threshold", StringType(), True),
+            StructField("alert_recipients", StringType(), True),
+            StructField("last_profile_date", TimestampType(), True),
+            StructField("last_profile_status", StringType(), True),
+            StructField("execution_group", IntegerType(), False),
+            StructField("active_yn", StringType(), False),
+            StructField("created_date", TimestampType(), False),
+            StructField("modified_date", TimestampType(), True),
+            StructField("created_by", StringType(), False),
+            StructField("modified_by", StringType(), True)
+        ])
+        
+        # Create DataFrame and save to table
+        config_df = target_lakehouse.spark.createDataFrame(config_records, config_schema)
+        target_lakehouse.write_to_table(
+            df=config_df,
+            table_name="config_data_profiling",
+            mode="append"
+        )
+        
+        print(f"✅ Saved {len(config_records)} configuration records to config_data_profiling table")
+        
+        # Display summary
+        print(f"\n{'='*60}")
+        print("Configuration Summary")
+        print(f"{'='*60}")
+        print(f"Tables configured: {len(config_records)}")
+        print(f"Default frequency: {profile_frequency}")
+        print(f"Quality thresholds: {json.dumps(quality_thresholds, indent=2)}")
+        
+    except Exception as e:
+        print(f"❌ Error saving configuration: {e}")
+        
+else:
+    print("⚠️ No configuration records generated")
+
+print(f"\n✅ Data profiling configuration completed!")

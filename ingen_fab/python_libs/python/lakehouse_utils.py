@@ -315,6 +315,38 @@ class lakehouse_utils(DataStoreInterface):
         else:
             raise NotImplementedError(f"File format {file_format} not supported")
 
+    def write_string_to_file(
+        self,
+        content: str,
+        file_path: str,
+        encoding: str = "utf-8",
+        mode: str = "overwrite",
+    ) -> None:
+        """
+        Write string content to a file.
+
+        Args:
+            content: String content to write
+            file_path: Path where to write the file
+            encoding: File encoding (default: utf-8)
+            mode: Write mode ("overwrite" or "append")
+        """
+        from pathlib import Path
+        
+        # Create parent directories if they don't exist
+        file_path_obj = Path(file_path)
+        file_path_obj.parent.mkdir(parents=True, exist_ok=True)
+        
+        # Write the file
+        if mode == "append":
+            with open(file_path, "a", encoding=encoding) as f:
+                f.write(content)
+        else:  # overwrite
+            with open(file_path, "w", encoding=encoding) as f:
+                f.write(content)
+                
+        print(f"✅ Written {len(content)} characters to {file_path}")
+
     def file_exists(self, file_path: str) -> bool:
         """Check if a file exists."""
         import os

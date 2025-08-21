@@ -347,6 +347,334 @@ workspace_id = config.get("workspace_id")
 config.set("environment", "production")
 ```
 
+## Data Profiling APIs
+
+### `ingen_fab.python_libs.pyspark.data_profiling_pyspark`
+
+Core data profiling implementation using PySpark for distributed processing.
+
+#### `DataProfilingPySpark`
+
+Main class for comprehensive data profiling with relationship discovery.
+
+```python
+from ingen_fab.python_libs.pyspark.data_profiling_pyspark import DataProfilingPySpark
+from ingen_fab.python_libs.interfaces.data_profiling_interface import ProfileType
+from pyspark.sql import SparkSession
+
+# Initialize
+spark = SparkSession.builder.appName("DataProfiling").getOrCreate()
+profiler = DataProfilingPySpark(spark)
+
+# Profile a dataset with different levels of analysis
+basic_profile = profiler.profile_dataset(df, ProfileType.BASIC)
+statistical_profile = profiler.profile_dataset(df, ProfileType.STATISTICAL)  
+quality_profile = profiler.profile_dataset(df, ProfileType.DATA_QUALITY)
+relationship_profile = profiler.profile_dataset(df, ProfileType.RELATIONSHIP)
+full_profile = profiler.profile_dataset(df, ProfileType.FULL)
+```
+
+##### Methods
+
+**`profile_dataset(dataset, profile_type=ProfileType.BASIC, columns=None, sample_size=None)`**
+
+Profile a complete dataset with comprehensive statistics.
+
+- `dataset`: DataFrame or table name to profile
+- `profile_type`: Type of profiling (BASIC, STATISTICAL, DATA_QUALITY, RELATIONSHIP, FULL)
+- `columns`: List of columns to profile (None for all columns)
+- `sample_size`: Fraction of data to sample (None for auto-sampling)
+
+Returns `DatasetProfile` with complete analysis results.
+
+**`profile_column(dataset, column_name, profile_type=ProfileType.BASIC)`**
+
+Profile a single column in detail.
+
+- `dataset`: DataFrame containing the column
+- `column_name`: Name of column to profile
+- `profile_type`: Level of analysis to perform
+
+Returns `ColumnProfile` with column-specific statistics.
+
+**`generate_quality_report(profile, output_format="yaml")`**
+
+Generate formatted reports from profile results.
+
+- `profile`: DatasetProfile to report on
+- `output_format`: "yaml", "html", or "json"
+
+Returns formatted report string.
+
+**`compare_profiles(profile1, profile2)`**
+
+Compare two profiles to identify data drift and changes.
+
+- `profile1`: First dataset profile (baseline)
+- `profile2`: Second dataset profile (comparison)
+
+Returns dictionary with comparison metrics and drift analysis.
+
+**`suggest_data_quality_rules(profile)`**
+
+Auto-generate quality rules based on profile characteristics.
+
+- `profile`: DatasetProfile to analyze
+
+Returns list of suggested quality rule definitions.
+
+**`validate_against_rules(dataset, rules)`**
+
+Validate dataset against quality rules.
+
+- `dataset`: DataFrame to validate
+- `rules`: List of quality rule definitions
+
+Returns validation results with pass/fail status.
+
+### `ingen_fab.python_libs.common.cross_profile_analyzer`
+
+Advanced relationship discovery across multiple dataset profiles.
+
+#### `CrossProfileAnalyzer`
+
+Analyzes relationships between tables using profile data and value analysis.
+
+```python
+from ingen_fab.python_libs.common.cross_profile_analyzer import CrossProfileAnalyzer
+
+# Initialize with confidence threshold
+analyzer = CrossProfileAnalyzer(min_confidence=0.7)
+
+# Profile multiple tables
+profiles = {}
+for table_name in ['customers', 'orders', 'products']:
+    df = spark.table(table_name)
+    profile = profiler.profile_dataset(df, ProfileType.RELATIONSHIP)
+    profiles[table_name] = profile
+
+# Discover relationships
+relationships = analyzer.analyze_profiles(profiles)
+
+# Generate relationship documentation
+report = analyzer.generate_relationship_report(relationships)
+```
+
+##### Methods
+
+**`analyze_profiles(profiles)`**
+
+Discover relationships across multiple table profiles.
+
+- `profiles`: Dictionary of {table_name: DatasetProfile}
+
+Returns list of `RelationshipCandidate` objects with discovered relationships.
+
+**`generate_relationship_report(relationships)`**
+
+Create comprehensive relationship documentation.
+
+- `relationships`: List of discovered relationships
+
+Returns Markdown report with relationship analysis.
+
+### Data Structures
+
+#### `ProfileType` Enum
+
+Defines the level of profiling analysis:
+
+```python
+ProfileType.BASIC        # Row/column counts, nulls, distinct values
+ProfileType.STATISTICAL  # Statistical measures, distributions  
+ProfileType.DATA_QUALITY # Quality assessment, anomaly detection
+ProfileType.RELATIONSHIP # Relationship discovery, semantic analysis
+ProfileType.FULL         # Complete analysis with all features
+```
+
+#### `DatasetProfile`
+
+Complete dataset analysis results:
+
+```python
+@dataclass
+class DatasetProfile:
+    dataset_name: str
+    row_count: int
+    column_count: int
+    profile_timestamp: str
+    column_profiles: List[ColumnProfile]
+    data_quality_score: Optional[float]
+    correlations: Optional[Dict[str, Dict[str, float]]]
+    entity_relationships: Optional[EntityRelationshipGraph]
+    statistics: Optional[Dict[str, Any]]
+```
+
+#### `ColumnProfile`  
+
+Individual column analysis with enhanced relationship data:
+
+```python
+@dataclass
+class ColumnProfile:
+    column_name: str
+    data_type: str
+    null_count: int
+    null_percentage: float
+    distinct_count: int
+    distinct_percentage: float
+    completeness: float
+    uniqueness: float
+    # Enhanced relationship discovery fields
+    semantic_type: Optional[SemanticType]
+    naming_pattern: Optional[NamingPattern]
+    value_pattern: Optional[ValuePattern]
+    business_rules: List[BusinessRule]
+    value_statistics: Optional[ValueStatistics]
+```
+
+#### `RelationshipCandidate`
+
+Discovered relationship between columns:
+
+```python
+@dataclass  
+class RelationshipCandidate:
+    source_table: str
+    source_column: ColumnProfile
+    target_table: str
+    target_column: ColumnProfile
+    confidence: float
+    relationship_type: RelationshipType
+    evidence: List[str]  # Evidence supporting the relationship
+    value_overlap_score: float
+    name_similarity_score: float
+```
+
+#### `SemanticType` Enum
+
+Column semantic classifications:
+
+```python
+SemanticType.IDENTIFIER   # Primary keys, unique identifiers
+SemanticType.FOREIGN_KEY  # References to other tables
+SemanticType.MEASURE     # Numeric values for aggregation
+SemanticType.DIMENSION   # Categorical values for grouping
+SemanticType.TIMESTAMP   # Date/time values
+SemanticType.STATUS      # State indicators
+SemanticType.DESCRIPTION # Text descriptions
+```
+
+#### `ValueStatistics`
+
+Enhanced value analysis for relationship discovery:
+
+```python
+@dataclass
+class ValueStatistics:
+    value_hash_signature: Optional[str]  # Unique fingerprint of values
+    selectivity: float                   # Distinct ratio
+    is_unique_key: bool                  # Perfect uniqueness indicator
+    dominant_value_ratio: float          # Most common value frequency
+    sample_values: List[Any]             # Random sample for overlap testing
+    value_count_distribution: Dict[int, int]  # Cardinality patterns
+```
+
+### Usage Examples
+
+#### Basic Profiling Workflow
+
+```python
+# Initialize profiling
+spark = SparkSession.builder.appName("Profiling").getOrCreate()
+profiler = DataProfilingPySpark(spark)
+
+# Load data
+df = spark.table("analytics.customer_data")
+
+# Profile with relationship discovery
+profile = profiler.profile_dataset(df, ProfileType.RELATIONSHIP)
+
+# Generate YAML report
+report = profiler.generate_quality_report(profile, "yaml")
+print(report)
+
+# Check data quality
+if profile.data_quality_score < 0.8:
+    print(f"Warning: Data quality score is {profile.data_quality_score:.2f}")
+    
+    # Get quality improvement suggestions
+    suggestions = profiler.suggest_data_quality_rules(profile)
+    for suggestion in suggestions:
+        print(f"Suggestion: {suggestion['description']}")
+```
+
+#### Advanced Relationship Discovery
+
+```python
+# Profile multiple related tables
+tables = ['customers', 'orders', 'order_items', 'products']
+profiles = {}
+
+for table in tables:
+    df = spark.table(f"ecommerce.{table}")
+    profile = profiler.profile_dataset(df, ProfileType.RELATIONSHIP)
+    profiles[table] = profile
+
+# Analyze cross-table relationships
+analyzer = CrossProfileAnalyzer(min_confidence=0.6)
+relationships = analyzer.analyze_profiles(profiles)
+
+# Display high-confidence relationships
+high_confidence = [r for r in relationships if r.confidence >= 0.8]
+print(f"Found {len(high_confidence)} high-confidence relationships:")
+
+for rel in high_confidence:
+    print(f"  {rel.source_table}.{rel.source_column.column_name} → "
+          f"{rel.target_table}.{rel.target_column.column_name} "
+          f"(confidence: {rel.confidence:.2f})")
+    print(f"    Evidence: {', '.join(rel.evidence)}")
+    print(f"    Type: {rel.relationship_type.value}")
+```
+
+#### Custom Quality Validation
+
+```python
+# Define business-specific quality rules
+quality_rules = [
+    {
+        "rule_type": "completeness",
+        "column": "customer_id",
+        "threshold": 0.99,
+        "severity": "error"
+    },
+    {
+        "rule_type": "uniqueness", 
+        "column": "email",
+        "threshold": 0.95,
+        "severity": "warning"
+    },
+    {
+        "rule_type": "range",
+        "column": "age",
+        "min_value": 0,
+        "max_value": 120,
+        "severity": "error"
+    }
+]
+
+# Validate data
+validation_results = profiler.validate_against_rules(df, quality_rules)
+
+# Report validation issues
+for rule_name, result in validation_results.items():
+    if not result['passed']:
+        print(f"❌ {rule_name}: {result['description']}")
+        print(f"   Expected: {result['threshold']}, Actual: {result['actual']}")
+    else:
+        print(f"✅ {rule_name}: Passed")
+```
+
 ## Error Handling
 
 ### Exception Classes

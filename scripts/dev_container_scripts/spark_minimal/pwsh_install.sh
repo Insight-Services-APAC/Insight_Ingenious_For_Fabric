@@ -54,5 +54,7 @@ else
     sudo apt-get install -y powershell
 
     # Start PowerShell
-    pwsh
+    # pwsh
+    # Container postCreate won't proceed to dev tools install if this is uncommented
+    
 fi

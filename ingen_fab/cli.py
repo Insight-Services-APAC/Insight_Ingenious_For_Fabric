@@ -23,6 +23,7 @@ package_commands = lazy_import.lazy_module("ingen_fab.cli_utils.package_commands
 test_commands = lazy_import.lazy_module("ingen_fab.cli_utils.test_commands")
 libs_commands = lazy_import.lazy_module("ingen_fab.cli_utils.libs_commands")
 dbt_commands = lazy_import.lazy_module("ingen_fab.cli_utils.dbt_commands")
+profile_commands = lazy_import.lazy_module("ingen_fab.cli_utils.profile_commands")
 
 from ingen_fab.cli_utils.console_styles import ConsoleStyles
 
@@ -51,6 +52,7 @@ extract_app = typer.Typer()
 synthetic_data_app = typer.Typer()
 libs_app = typer.Typer()
 dbt_app = typer.Typer()
+profile_app = typer.Typer()
 
 # Add sub-apps to main app
 test_app.add_typer(
@@ -95,6 +97,11 @@ app.add_typer(
     dbt_app,
     name="dbt",
     help="Proxy commands to dbt_wrapper inside the Fabric workspace repo.",
+)
+app.add_typer(
+    profile_commands.app,
+    name="profile",
+    help="Commands for data profiling and quality analysis.",
 )
 
 # New: extract commands
@@ -163,6 +170,8 @@ def main(
     skip_validation = (
         ctx.invoked_subcommand is None
         or (ctx.params and ctx.params.get("help"))
+        or "--help" in sys.argv
+        or "-h" in sys.argv
         or (
             ctx.invoked_subcommand == "init"
             and len(sys.argv) > 2
@@ -205,12 +214,13 @@ def main(
             )
             raise typer.Exit(code=1)
 
-    console_styles.print_info(
-        console, f"Using Fabric workspace repo directory: {fabric_workspace_repo_dir}"
-    )
-    console_styles.print_info(
-        console, f"Using Fabric environment: {fabric_environment}"
-    )
+        console_styles.print_info(
+            console, f"Using Fabric workspace repo directory: {fabric_workspace_repo_dir}"
+        )
+        console_styles.print_info(
+            console, f"Using Fabric environment: {fabric_environment}"
+        )
+
     ctx.obj = {
         "fabric_workspace_repo_dir": fabric_workspace_repo_dir,
         "fabric_environment": fabric_environment,
@@ -289,6 +299,7 @@ def init_solution(
         Path, typer.Option("--path", help="Base path where the project will be created")
     ] = Path("."),
 ):
+    """Create a new Fabric Project."""
     init_commands.init_solution(project_name, path)
 
 
