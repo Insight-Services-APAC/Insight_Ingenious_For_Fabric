@@ -17,7 +17,7 @@ spark.hadoop.datanucleus.connectionPool.maxIdle=5
 spark.hadoop.datanucleus.connectionPool.minIdle=1
 
 # Warehouse configuration
-spark.sql.warehouse.dir=/tmp/spark-warehouse
+spark.sql.warehouse.dir=./tmp/spark/Tables
 
 # Performance settings
 spark.sql.adaptive.enabled=true

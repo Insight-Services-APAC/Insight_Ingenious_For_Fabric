@@ -78,8 +78,14 @@ class DataProfilingCompiler(BaseNotebookCompiler):
             "profile_type": "full",
             "save_to_catalog": True,
             "generate_report": True,
-            "output_format": "html",
+            "output_format": "yaml",
             "sample_size": None,  # Use full dataset by default
+            # Performance tuning defaults
+            "auto_sample_large_tables": True,
+            "max_correlation_columns": 20,
+            "top_values_limit": 100,
+            "enable_performance_mode": False,
+            "enable_ultra_fast_mode": True,  # Enable by default for better performance
         }
 
         # Merge with provided template vars

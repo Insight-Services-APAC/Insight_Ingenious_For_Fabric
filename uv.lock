@@ -2393,7 +2393,7 @@ requires-dist = [
     { name = "typer", specifier = "==0.16.0" },
     { name = "vulture", marker = "extra == 'tests'", specifier = "==2.14" },
 ]
-provides-extras = ["dataprep", "tests"]
+provides-extras = ["dataprep", "profiling", "tests"]
 
 [package.metadata.requires-dev]
 dbt = [{ name = "dbt-fabricsparknb", git = "https://github.com/Insight-Services-APAC/APAC-Capability-DAI-DbtFabricSparkNb.git?rev=dev-jr-upgrading-to-dbt-v1.9%2B" }]

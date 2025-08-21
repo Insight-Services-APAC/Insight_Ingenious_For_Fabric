@@ -54,7 +54,13 @@
       "Bash(touch:*)",
       "Bash(cp:*)",
       "Bash(uv run:*)",
-      "Bash(export FABRIC_WORKSPACE_REPO_DIR=\".\")"
+      "Bash(export FABRIC_WORKSPACE_REPO_DIR=\".\")",
+      "Bash(cat:*)",
+      "Bash(wget:*)",
+      "Bash(gunzip:*)",
+      "Bash(git clone:*)",
+      "WebSearch",
+      "Bash(chmod:*)"
     ],
     "deny": [],
     "defaultMode": "acceptEdits"

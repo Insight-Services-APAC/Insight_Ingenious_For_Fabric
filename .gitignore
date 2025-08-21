@@ -31,3 +31,4 @@ derby.log
 /artefacts/**/*/
 # pip install testing
 pip_install_test/
+/test_datasets/*

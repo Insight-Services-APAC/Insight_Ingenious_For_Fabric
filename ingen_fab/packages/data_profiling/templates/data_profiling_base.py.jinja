@@ -8,12 +8,19 @@
 {{ macros.parameters_cell() }}
 
 # Default parameters
-profile_type = "{{ profile_type | default('full') }}"  # Profile depth: basic, statistical, data_quality, full
+profile_type = "{{ profile_type | default('full') }}"  # Profile depth: basic, statistical, data_quality, relationship, full
 save_to_catalog = {{ save_to_catalog | default(True) }}  # Whether to save results to catalog tables
 generate_report = {{ generate_report | default(True) }}  # Whether to generate HTML/Markdown report
-output_format = "{{ output_format | default('html') }}"  # Report format: html, markdown, json
+output_format = "{{ output_format | default('yaml') }}"  # Report format: yaml, html, markdown, json
 sample_size = {{ sample_size | default('None') }}  # Sample fraction (0-1) or None for full dataset
 target_tables = []  # List of specific tables to profile, empty for all
+
+# Performance tuning parameters
+auto_sample_large_tables = {{ auto_sample_large_tables | default(False) }}  # Auto-sample tables > 1M rows (disabled by default with UltraFast mode)
+max_correlation_columns = {{ max_correlation_columns | default(20) }}  # Skip correlation if more numeric columns
+top_values_limit = {{ top_values_limit | default(100) }}  # Max distinct values to collect per column
+enable_performance_mode = {{ enable_performance_mode | default(False) }}  # Use optimized profiling for large datasets
+enable_ultra_fast_mode = {{ enable_ultra_fast_mode | default(True) }}  # Use single-pass ultra-fast profiling (recommended)
 
 {% if datastore_type == "lakehouse" %}
 {{ macros.pyspark_cell_with_heading("## 📊 Data Profiling Notebook (Lakehouse)") }}
@@ -47,8 +54,19 @@ from ingen_fab.python_libs.pyspark.data_profiling_pyspark import DataProfilingPy
 from ingen_fab.python_libs.interfaces.data_profiling_interface import (
     ProfileType,
     DatasetProfile,
-    ColumnProfile
+    ColumnProfile,
+    SemanticType,
+    ValueFormat,
+    RelationshipType
 )
+
+# Import cross-profile analyzer for relationship discovery
+try:
+    from ingen_fab.python_libs.common.cross_profile_analyzer import CrossProfileAnalyzer
+    cross_profile_available = True
+except ImportError:
+    cross_profile_available = False
+    print("⚠️ Cross-profile analyzer not available - relationship discovery limited to single tables")
 
 {% block datastore_specific_imports %}
 # Datastore-specific imports will be defined in child templates
