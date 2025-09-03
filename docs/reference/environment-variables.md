@@ -1,4 +1,4 @@
-# Environment Variables
+<img width="346" height="23" alt="image" src="https://github.com/user-attachments/assets/3510c2af-6265-414e-99c2-34480a2a11e4" /># Environment Variables
 
 [Home](../index.md) > [Reference](environment-variables.md) > Environment Variables
 
@@ -19,6 +19,7 @@ Reference for environment variables used by the CLI and deploy workflows.
 | `POSTGRES_PORT` | Local testing | PostgreSQL port (default: 5432) | `5432` |
 | `POSTGRES_USER` | Local testing | PostgreSQL user (default: postgres) | `postgres` |
 | `POSTGRES_DATABASE` | Local testing | PostgreSQL database name (default: local) | `local` |
+| `WORKSPACE_MANIFEST_LOCATION` | Deploy manifest to config lakehouse | Deploy manifest to config lakehouse | `local` or `config_lakehouse` |
 
 Notes:
 - The CLI falls back to `FABRIC_WORKSPACE_REPO_DIR` and `FABRIC_ENVIRONMENT` if not provided by flags.
