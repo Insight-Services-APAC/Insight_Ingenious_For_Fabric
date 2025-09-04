@@ -194,7 +194,14 @@ class SyncToFabricEnvironment:
             onelake_utils = OneLakeUtils(
                 environment=self.environment, project_path=Path(self.project_path), console=self.console
             )
-            results = onelake_utils.download_manifest_file_from_config_lakehouse(manifest_path)
+            try:
+                config_lakehouse_id = onelake_utils.get_config_lakehouse_id()
+                onelake_utils._get_lakehouse_name(config_lakehouse_id)
+                results = onelake_utils.download_manifest_file_from_config_lakehouse(manifest_path)
+            except Exception as e:
+                ConsoleStyles.print_info(
+                    self.console, f"Config lakehouse does not yet exist."
+                )
 
         """Read the platform folders manifest from a YAML file."""
         ConsoleStyles.print_info(self.console, str(Path.cwd()))
