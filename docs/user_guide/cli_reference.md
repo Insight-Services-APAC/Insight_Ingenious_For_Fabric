@@ -7,11 +7,13 @@ Complete reference for all Ingenious Fabric Accelerator commands, options, and u
 !!! tip "Before you begin"
     Activate your environment and set defaults to simplify commands.
 
-    ```bash
-    source .venv/bin/activate
-    ```
 
-    --8<-- "_includes/environment_setup.md"
+  ```bash
+    source .venv/bin/activate
+  ```
+  ```pwsh
+    .\venv\Scripts\Activate.ps1
+  ```
 
 ## Command Groups at a Glance
 

@@ -7,6 +7,7 @@ from ingen_fab.az_cli.onelake_utils import OneLakeUtils
 from ingen_fab.cli_utils.console_styles import ConsoleStyles
 from ingen_fab.config_utils.variable_lib_factory import VariableLibraryFactory
 from ingen_fab.fabric_cicd.promotion_utils import SyncToFabricEnvironment
+from ingen_fab.fabric_cicd.promotion_utils import SetupFabricEnvironment
 
 
 def deploy_to_environment(ctx):
@@ -37,6 +38,33 @@ def deploy_to_environment(ctx):
     )
     stf.sync_environment()
 
+def set_up_environment(ctx):
+    if ctx.obj.get("fabric_workspace_repo_dir") is None:
+        ConsoleStyles.print_error(
+            Console(),
+            "Fabric workspace repository directory not set. Use --fabric-workspace-repo-dir directly after ingen_fab to specify it.",
+        )
+        raise SystemExit(1)
+    if ctx.obj.get("fabric_environment") is None:
+        ConsoleStyles.print_error(
+            Console(),
+            "Fabric environment not set. Use --fabric-environment directly after ingen_fab to specify it.",
+        )
+        raise SystemExit(1)
+
+    # Check if environment is local. If so raise an error
+    if ctx.obj.get("fabric_environment") == "local":
+        ConsoleStyles.print_error(
+            Console(),
+            "Cannot deploy to local environment. Please specify a different environment.",
+        )
+        raise SystemExit(1)
+
+    sfe = SetupFabricEnvironment(
+        project_path=Path(ctx.obj.get("fabric_workspace_repo_dir")),
+        environment=str(ctx.obj.get("fabric_environment")),
+    )
+    sfe.setup_environment()
 
 def perform_code_replacements(ctx, output_dir=None, preserve_structure=True):
     if ctx.obj.get("fabric_workspace_repo_dir") is None:
@@ -64,7 +92,6 @@ def perform_code_replacements(ctx, output_dir=None, preserve_structure=True):
         replace_placeholders=False,  # Don't replace {{varlib:...}} placeholders
         inject_code=True,  # Only inject code between markers
     )
-
 
 def upload_python_libs_to_config_lakehouse(
     environment: str, project_path: str, console: Console = Console()

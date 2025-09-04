@@ -19,7 +19,7 @@ workspace_commands = lazy_import.lazy_module("ingen_fab.cli_utils.workspace_comm
 synthetic_data_commands = lazy_import.lazy_module(
     "ingen_fab.cli_utils.synthetic_data_commands"
 )
-package_commands = lazy_import.lazy_module("ingen_fab.cli_utils.package_commands")
+package_commands = lazy_import.lazy_module(".ingen_fab.cli_utils.package_commands")
 test_commands = lazy_import.lazy_module("ingen_fab.cli_utils.test_commands")
 libs_commands = lazy_import.lazy_module("ingen_fab.cli_utils.libs_commands")
 dbt_commands = lazy_import.lazy_module("ingen_fab.cli_utils.dbt_commands")
@@ -322,6 +322,10 @@ def init_workspace(
 @deploy_app.command()
 def deploy(ctx: typer.Context):
     deploy_commands.deploy_to_environment(ctx)
+
+@deploy_app.command()
+def setup(ctx: typer.Context):
+    deploy_commands.set_up_environment(ctx)
 
 
 @deploy_app.command()

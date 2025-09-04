@@ -3,6 +3,7 @@ from __future__ import annotations
 import hashlib
 import json
 import shutil
+import sys
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Optional
@@ -14,6 +15,7 @@ from fabric_cicd import (
     publish_all_items,
     unpublish_all_orphan_items,
 )
+from msfabricpysdkcore import FabricClientCore
 from fabric_cicd.publish_log_entry import PublishLogEntry
 from rich.console import Console
 
@@ -537,3 +539,117 @@ class SyncToFabricEnvironment:
 
         ConsoleStyles.print_info(self.console, "Unpublishing all orphan items...")
         pu.unpublish_orphans()
+
+
+class SetupFabricEnvironment:
+    """Class to setup fabric environment."""
+
+    def __init__(
+        self,
+        project_path: str,
+        environment: str = "development",
+        console: Console = None,
+    ):
+        self.project_path = Path(project_path)
+        self.environment = environment
+        # instanciate a VariableLibraryUtils to get the workspace ID
+        try:
+            self.vlu = VariableLibraryUtils(
+                project_path=self.project_path,
+                environment=self.environment,)
+        except Exception as e:
+            sys.exit(f"Could not get VariableLibraryUtils: {e}")
+        self.target_workspace_id = self.vlu.get_workspace_id()
+        self.console = console or Console()
+
+    def __get_client_handle(self):
+        """Get a FabricClientCore instance."""
+        try:
+            # assumes az login has been done
+            fc = FabricClientCore()
+        except Exception as e:
+            ConsoleStyles.print_error(self.console, "Could not get FabricClientCore: {e}")
+        return fc
+
+    def read_shortcut_list(self) -> List[dict]:
+        """Read the shortcut sync list from a YAML file."""
+
+        # look for the files in models/sources dir
+        source_path = self.project_path.joinpath("fabric_workspace_items", "lakehouses")
+        if not source_path.exists():
+            ConsoleStyles.print_error(self.console, f"model sources dir not found: {source_path}")
+            return []
+        
+        #all yml files in the dir using globbing
+        json_files = list(source_path.glob("*.Lakehouse\\shortcuts.metadata.json"))
+        if len(json_files) == 0:
+            sConsoleStyles.print_error(self.console, f"No shotcut metadata files found in {source_path}")
+            return []
+
+        # read json files and parse into shortcut config list
+        shortcuts = []
+        for file in json_files:
+            lh_name = str(file.parent.name).split(".")[0]
+            try:
+                with open(file, "r", encoding="utf-8") as f:
+                    data = json.load(f)
+            except (json.JSONDecodeError, FileNotFoundError) as e:
+                ConsoleStyles.print_error(self.console, f"Error reading shortcut metadata file {file}: {e}")
+                continue
+
+            if data:
+                try:
+                    item_id = self.vlu.get_variable_value(f"{lh_name}_lakehouse_id")
+                except Exception as e:
+                    ConsoleStyles.print_error(self.console, f"Could not get lakehouse ID from name: {e}")
+                    continue
+                for e in data:
+                    # replace the itemId and workspaceId with the resolved values from variable library
+                    source_item_id = self.vlu.get_variable_value(e["target"]["oneLake"]["itemId"].split("/")[-1].rstrip(")"))
+                    source_workspace_id = self.vlu.get_variable_value(e["target"]["oneLake"]["workspaceId"].split("/")[-1].rstrip(")"))
+                    item_name = e["target"]["oneLake"]["path"].split("/")[-1]
+                    # update the name, item_id, workspace_id, target.itemId and target.workspaceId
+                    e["name"] = item_name
+                    e["item_id"] = item_id
+                    e["workspace_id"] = self.target_workspace_id
+                    e["target"]["oneLake"]["itemId"] = source_item_id
+                    e["target"]["oneLake"]["workspaceId"] = source_workspace_id
+                shortcuts.extend(data)
+        return shortcuts
+
+    def shortcut_exists(self, fc: FabricClientCore, sc: dict) -> bool:
+        """Check if a shortcut already exists in the target workspace."""
+        try:
+            _ = fc.get_shortcut( workspace_id=sc["workspace_id"], item_id=sc["item_id"], path=sc["path"], name=sc["name"])
+            return True
+        except Exception as e:
+            return False
+
+    def create_shortcut(self, fc: FabricClientCore, sc: shortcut) -> None:
+        """Create a shortcut in the target workspace pointing to the source table."""
+        try:
+            print(sc)
+            if self.shortcut_exists(fc, sc):
+                ConsoleStyles.print_info(self.console, f"Shortcut already exists: {sc['name']}")
+            else:
+                ConsoleStyles.print_info(self.console, f"Creating shortcut: {sc['name']}")
+                fc.create_shortcut( **sc )
+        except Exception as e:
+            ConsoleStyles.print_error(self.console, f"Could not create shortcut {e}")
+
+    def create_shortcuts(self, shortcut_list: List[dict]) -> None:
+        """Create shortcuts for a list of shortcut items."""
+        fc = self.__get_client_handle()
+        if fc is None:
+            return
+        for sc in shortcut_list:
+            self.create_shortcut(fc, sc)
+
+    def setup_environment(self) -> None:
+        """Setup the fabric environment by creating shortcuts."""
+        shortcut_list = self.read_shortcut_list()
+        if not shortcut_list:
+            ConsoleStyles.print_error(self.console, "No shortcuts found in the sync list.")
+            return
+        self.create_shortcuts(shortcut_list)
+        ConsoleStyles.print_success(self.console, "Environment setup completed successfully.")
