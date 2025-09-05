@@ -11,6 +11,7 @@
 profile_type = "{{ profile_type | default('full') }}"  # Profile depth: basic, statistical, data_quality, relationship, full
 save_to_catalog = {{ save_to_catalog | default(True) }}  # Whether to save results to catalog tables
 generate_report = {{ generate_report | default(True) }}  # Whether to generate HTML/Markdown report
+generate_yaml_output = {{ generate_yaml_output | default(True) }}  # Whether to generate YAML output files (in addition to report format)
 output_format = "{{ output_format | default('yaml') }}"  # Report format: yaml, html, markdown, json
 sample_size = {{ sample_size | default('None') }}  # Sample fraction (0-1) or None for full dataset
 target_tables = []  # List of specific tables to profile, empty for all

@@ -73,36 +73,24 @@ class lakehouse_utils(DataStoreInterface):
 
     def _get_or_create_spark_session(self) -> SparkSession:
         """Get existing Spark session or create a new one."""
-        if cu.get_configs_as_object().fabric_environment == "local":
-            # Check if there's already an active Spark session
-            try:
-                existing_spark = SparkSession.getActiveSession()
-                if existing_spark is not None:
-                    print("Found existing Spark session, reusing it.")
-                    self.spark_version = "local"
-                    return existing_spark
-            except Exception as e:
-                print(f"No active Spark session found: {e}")
-
-            # Create new Spark session if none exists
+        config = cu.get_configs_as_object()
+        
+        if config.fabric_environment == "local":
+            # Use the SparkSessionFactory for local environments
+            from ingen_fab.python_libs.common.spark_session_factory import SparkSessionFactory
+            
             self.spark_version = "local"
-            print(
-                "No active Spark session found, creating a new one with Delta support."
+            
+            # Get the local Spark provider from config (defaults to "native")
+            provider = getattr(config, "local_spark_provider", "native")
+            
+            print(f"Creating local Spark session with provider: {provider}")
+            
+            return SparkSessionFactory.get_or_create_spark_session(
+                provider=provider,
+                app_name="LakehouseUtils",
+                lakesail_port=50051
             )
-
-            builder = (
-                SparkSession.builder.appName("MyApp")
-                .config(
-                    "spark.sql.extensions", "io.delta.sql.DeltaSparkSessionExtension"
-                )
-                .config(
-                    "spark.sql.catalog.spark_catalog",
-                    "org.apache.spark.sql.delta.catalog.DeltaCatalog",
-                )
-            )
-            from delta import configure_spark_with_delta_pip
-
-            return configure_spark_with_delta_pip(builder).getOrCreate()
         else:
             print("Using existing spark .. Fabric environment   .")
             return self.spark  # type: ignore  # noqa: F821

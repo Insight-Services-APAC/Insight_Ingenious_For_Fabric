@@ -1,0 +1,195 @@
+{%- set datastore_type = "warehouse" -%}
+{%- set kernel_name = "synapse_python" -%}
+{%- set kernel_display_name = "Python (Synapse)" -%}
+{%- set language_group = "synapse_python" -%}
+{%- set runtime_type = "python" -%}
+{%- set include_ddl_utils = true -%}
+
+{%- extends "data_profiling_base.py.jinja" -%}
+
+{% block datastore_specific_imports %}
+# Warehouse-specific imports
+import pyodbc
+from ingen_fab.python_libs.python.sql_utils import sql_utils
+{% endblock %}
+
+{% block main_execution %}
+print("=" * 80)
+print(f"Data Profiling Processor - Warehouse")
+print(f"Execution Time: {datetime.now()}")
+print("=" * 80)
+
+# Initialize SQL utilities for warehouse
+sql_conn = sql_utils(
+    server=configs.sql_server_name,
+    database=configs.sql_database_name,
+)
+
+# Map profile type string to enum
+profile_type_map = {
+    "basic": ProfileType.BASIC,
+    "statistical": ProfileType.STATISTICAL,
+    "data_quality": ProfileType.DATA_QUALITY,
+    "relationship": ProfileType.RELATIONSHIP,
+    "full": ProfileType.FULL
+}
+selected_profile_type = profile_type_map.get(profile_type.lower(), ProfileType.FULL)
+
+# Initialize profiler based on performance settings
+if enable_performance_mode:
+    print("🚀 Performance mode enabled - using optimized profiling")
+    try:
+        from ingen_fab.python_libs.python.data_profiling_python_optimized import OptimizedDataProfilingPython, ProfileConfig
+        
+        # Create performance config
+        perf_config = ProfileConfig(
+            max_top_values=top_values_limit,
+            max_correlation_columns=max_correlation_columns,
+            auto_sample_threshold=1_000_000 if auto_sample_large_tables else float('inf')
+        )
+        profiler = OptimizedDataProfilingPython(sql_conn, perf_config)
+    except ImportError:
+        print("⚠️ Optimized profiler not available, falling back to standard profiler")
+        from ingen_fab.python_libs.python.data_profiling_python import DataProfilingPython
+        profiler = DataProfilingPython(sql_conn)
+else:
+    from ingen_fab.python_libs.python.data_profiling_python import DataProfilingPython
+    profiler = DataProfilingPython(sql_conn)
+
+# Get list of tables to profile
+if target_tables:
+    tables_to_profile = target_tables
+else:
+    # Get active profiling configurations from database
+    try:
+        config_query = "SELECT table_name FROM config.config_data_profiling WHERE active_yn = 'Y'"
+        config_df = sql_conn.execute_query(config_query)
+        tables_to_profile = [row['table_name'] for row in config_df]
+        print(f"Found {len(tables_to_profile)} active tables to profile from configuration")
+    except Exception as e:
+        print(f"Could not load configuration tables: {e}")
+        print("Using schema discovery to find tables...")
+        # Fallback to discovering tables
+        tables_to_profile = sql_conn.get_table_list()
+
+if not tables_to_profile:
+    print("❌ No tables found to profile. Please check configuration or table discovery.")
+    exit(1)
+
+print(f"📋 Tables to profile: {len(tables_to_profile)}")
+for table in tables_to_profile[:5]:  # Show first 5
+    print(f"  - {table}")
+if len(tables_to_profile) > 5:
+    print(f"  ... and {len(tables_to_profile) - 5} more")
+
+# Profile each table
+profiling_results = []
+successful = 0
+failed = 0
+
+for table_name in tables_to_profile:
+    try:
+        print(f"\n🔍 Profiling table: {table_name}")
+        
+        # Apply sampling if specified
+        sample_clause = ""
+        if sample_size and 0 < sample_size < 1:
+            # SQL Server TABLESAMPLE syntax
+            sample_percent = int(sample_size * 100)
+            sample_clause = f"TABLESAMPLE ({sample_percent} PERCENT)"
+        
+        # Build table reference with sampling
+        table_ref = f"{table_name} {sample_clause}".strip()
+        
+        # Profile the table
+        profile = profiler.profile_dataset(
+            dataset=table_ref,
+            profile_type=selected_profile_type,
+            sample_size=sample_size
+        )
+        
+        # Save results if requested
+        if save_to_catalog:
+            # Insert profile results into warehouse tables
+            profile_data = {
+                'execution_id': execution_id,
+                'table_name': table_name,
+                'profile_timestamp': profile.profile_timestamp,
+                'row_count': profile.row_count,
+                'column_count': profile.column_count,
+                'data_quality_score': profile.data_quality_score,
+                'null_count': profile.null_count,
+                'duplicate_count': profile.duplicate_count,
+                'profile_type': profile_type,
+                'sample_size': sample_size,
+                'statistics_json': json.dumps(profile.statistics) if profile.statistics else None
+            }
+            
+            # Insert into profile_results table
+            sql_conn.insert_record('config.profile_results', profile_data)
+            
+            # Insert column profiles
+            for col_profile in profile.column_profiles:
+                col_data = {
+                    'execution_id': execution_id,
+                    'table_name': table_name,
+                    'column_name': col_profile.column_name,
+                    'data_type': col_profile.data_type,
+                    'null_count': col_profile.null_count,
+                    'null_percentage': col_profile.null_percentage,
+                    'distinct_count': col_profile.distinct_count,
+                    'distinct_percentage': col_profile.distinct_percentage,
+                    'completeness': col_profile.completeness,
+                    'uniqueness': col_profile.uniqueness,
+                    'min_value': str(col_profile.min_value) if col_profile.min_value is not None else None,
+                    'max_value': str(col_profile.max_value) if col_profile.max_value is not None else None,
+                    'mean_value': col_profile.mean_value,
+                    'semantic_type': col_profile.semantic_type.value if col_profile.semantic_type else None,
+                    'top_values_json': json.dumps(col_profile.top_distinct_values) if col_profile.top_distinct_values else None
+                }
+                sql_conn.insert_record('config.profile_column_details', col_data)
+        
+        # Generate report if requested
+        if generate_report:
+            report_content = profiler.generate_quality_report(profile, output_format)
+            
+            # Save report to file system (if available) or display
+            if generate_yaml_output or output_format == 'yaml':
+                print(f"\n📄 Profile Report for {table_name}:")
+                print(report_content[:2000])  # Show first 2000 characters
+                if len(report_content) > 2000:
+                    print("... (truncated)")
+        
+        profiling_results.append({
+            'table_name': table_name,
+            'profile': profile,
+            'success': True,
+            'quality_score': profile.data_quality_score
+        })
+        
+        successful += 1
+        print(f"✅ Successfully profiled {table_name}")
+        
+    except Exception as e:
+        print(f"❌ Failed to profile {table_name}: {str(e)}")
+        profiling_results.append({
+            'table_name': table_name,
+            'success': False,
+            'error': str(e)
+        })
+        failed += 1
+
+# Summary
+print(f"\n{'='*80}")
+print(f"PROFILING SUMMARY")
+print(f"{'='*80}")
+print(f"Total tables: {len(tables_to_profile)}")
+print(f"Successful: {successful}")
+print(f"Failed: {failed}")
+
+if successful > 0:
+    avg_quality = sum(r.get("quality_score", 0) for r in profiling_results if r.get("quality_score")) / successful
+    print(f"Average Quality Score: {avg_quality:.2%}")
+
+print(f"\n✅ Data profiling completed successfully!")
+{% endblock %}

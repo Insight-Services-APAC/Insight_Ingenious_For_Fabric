@@ -10,11 +10,12 @@ from typing import Optional
 import yaml
 from fabric_cicd import (
     FabricWorkspace,
+    append_feature_flag,
     constants,
     publish_all_items,
     unpublish_all_orphan_items,
 )
-from fabric_cicd.publish_log_entry import PublishLogEntry
+from fabric_cicd._common._publish_log_entry import PublishLogEntry
 from rich.console import Console
 
 from ingen_fab.cli_utils.console_styles import ConsoleStyles
@@ -31,6 +32,7 @@ class promotion_utils:
         self.workspace_id = FabricWorkspace.workspace_id
         self.repository_directory = FabricWorkspace.repository_directory
         self.environment = FabricWorkspace.environment
+
         if FabricWorkspace.item_type_in_scope is None:
             self.item_type_in_scope = list(constants.ACCEPTED_ITEM_TYPES_UPN)
         else:
@@ -46,10 +48,14 @@ class promotion_utils:
             environment=self.environment,
         )
 
-    def publish_all(self) -> None:
+    def publish_all(self, items_to_include: list[str]= []) -> list[PublishLogEntry]:
         """Publish all items from the repository to the workspace."""
         ws = self._workspace()
-        publish_all_items(fabric_workspace_obj=ws)
+        ConsoleStyles.print_info(self.console, f"before: {constants.FEATURE_FLAG}")
+        append_feature_flag("enable_experimental_features")
+        append_feature_flag("enable_items_to_include")
+        ConsoleStyles.print_info(self.console, f"after: {constants.FEATURE_FLAG}")
+        return publish_all_items(fabric_workspace_obj=ws, items_to_include=items_to_include)
 
     def unpublish_orphans(self) -> None:
         """Remove items from the workspace that are not present in the repository."""
@@ -455,6 +461,8 @@ class SyncToFabricEnvironment:
                         environment="development",
                     )
 
+                    append_feature_flag("enable_experimental_features")
+                    append_feature_flag("enable_items_to_include")
                     status_entries = publish_all_items(
                         fabric_workspace_obj=fw, items_to_include=items_to_publish
                     )

@@ -36,172 +36,8 @@ selected_profile_type = profile_type_map.get(profile_type.lower(), ProfileType.F
 # Initialize profiler with spark from lakehouse_utils
 if enable_ultra_fast_mode:
     print("⚡ Ultra-fast mode enabled - using single-pass profiling")
-    # Inline ultra-fast profiler for immediate use
-    from typing import Any, Dict, List, Optional
-    from pyspark.sql import functions as F
-    from pyspark.sql.types import NumericType, StringType, DateType, TimestampType, IntegerType, LongType, FloatType, DoubleType
-    
-    class UltraFastProfiler:
-        def __init__(self, spark):
-            self.spark = spark
-        
-        def profile_dataset(self, dataset, profile_type=ProfileType.BASIC, sample_size=None):
-            import time
-            start_time = time.time()
-            
-            if isinstance(dataset, str):
-                df = self.spark.table(dataset) 
-            else:
-                df = dataset
-            
-            # Cache for multiple operations
-            df = df.cache()
-            
-            # Get row count
-            row_count = df.count()
-            
-            # Apply sampling
-            if sample_size and 0 < sample_size < 1:
-                df = df.sample(fraction=sample_size, seed=42)
-                scale_factor = row_count / df.count()
-            else:
-                scale_factor = 1.0
-            
-            # Single aggregation for ALL columns
-            agg_exprs = []
-            for col_name in df.columns:
-                col_type = dict(df.dtypes)[col_name]
-                
-                # Core stats for all columns
-                agg_exprs.extend([
-                    F.count(F.when(F.col(col_name).isNotNull(), 1)).alias(f"{col_name}__non_null"),
-                    # For distinct count, we need to count unique values including nulls (like original profiler)
-                    F.countDistinct(F.when(F.col(col_name).isNotNull(), F.col(col_name))).alias(f"{col_name}__distinct_non_null"),
-                    F.count(F.when(F.col(col_name).isNull(), 1)).alias(f"{col_name}__null_count"),
-                ])
-                
-                # Type-specific stats
-                if col_type in ['int', 'bigint', 'float', 'double', 'decimal']:
-                    agg_exprs.extend([
-                        F.min(col_name).alias(f"{col_name}__min"),
-                        F.max(col_name).alias(f"{col_name}__max"),
-                        F.mean(col_name).alias(f"{col_name}__mean"),
-                    ])
-                elif col_type == 'string':
-                    agg_exprs.extend([
-                        F.min(F.length(col_name)).alias(f"{col_name}__min_len"),
-                        F.max(F.length(col_name)).alias(f"{col_name}__max_len"),
-                        F.mean(F.length(col_name)).alias(f"{col_name}__mean_len"),
-                    ])
-                elif col_type in ['date', 'timestamp']:
-                    agg_exprs.extend([
-                        F.min(col_name).alias(f"{col_name}__min"),
-                        F.max(col_name).alias(f"{col_name}__max"),
-                    ])
-            
-            # Execute single query
-            batch_result = df.agg(*agg_exprs).collect()[0].asDict()
-            
-            # Build column profiles
-            column_profiles = []
-            for col_name in df.columns:
-                non_null = batch_result[f"{col_name}__non_null"]
-                distinct_non_null = batch_result[f"{col_name}__distinct_non_null"]
-                has_nulls = batch_result[f"{col_name}__null_count"] > 0
-                null_count = int(row_count - (non_null * scale_factor))
-                # Calculate distinct count including nulls (if any nulls exist, add 1 to distinct non-null count)
-                distinct_count = int(distinct_non_null * scale_factor) + (1 if has_nulls else 0)
-                
-                profile = ColumnProfile(
-                    column_name=col_name,
-                    data_type=dict(df.dtypes)[col_name],
-                    null_count=null_count,
-                    null_percentage=(null_count / row_count * 100) if row_count > 0 else 0,
-                    distinct_count=distinct_count,
-                    distinct_percentage=(distinct_count / row_count * 100) if row_count > 0 else 0,
-                    completeness=1 - (null_count / row_count) if row_count > 0 else 0,
-                    uniqueness=distinct_count / row_count if row_count > 0 else 0,
-                )
-                
-                # Add type-specific values
-                col_type = dict(df.dtypes)[col_name]
-                if col_type in ['int', 'bigint', 'float', 'double', 'decimal']:
-                    profile.min_value = batch_result.get(f"{col_name}__min")
-                    profile.max_value = batch_result.get(f"{col_name}__max") 
-                    profile.mean_value = batch_result.get(f"{col_name}__mean")
-                elif col_type == 'string':
-                    profile.min_value = batch_result.get(f"{col_name}__min_len")
-                    profile.max_value = batch_result.get(f"{col_name}__max_len")
-                    profile.mean_value = batch_result.get(f"{col_name}__mean_len")
-                elif col_type in ['date', 'timestamp']:
-                    profile.min_value = batch_result.get(f"{col_name}__min")
-                    profile.max_value = batch_result.get(f"{col_name}__max")
-                
-                # Quick top values for first few columns only
-                if len(column_profiles) < 3:  # Limit to first 3 columns
-                    try:
-                        top_vals = df.groupBy(col_name).count().orderBy(F.desc("count")).limit(5).rdd.map(lambda x: x[0]).collect()
-                        profile.top_distinct_values = top_vals
-                    except:
-                        profile.top_distinct_values = []
-                
-                column_profiles.append(profile)
-            
-            # Calculate overall null count (rows with at least one null value)
-            null_conditions = [F.col(col_name).isNull() for col_name in df.columns]
-            any_null_condition = null_conditions[0]
-            for condition in null_conditions[1:]:
-                any_null_condition = any_null_condition | condition
-            total_null_count = df.filter(any_null_condition).count()
-            
-            df.unpersist()
-            
-            # Calculate quality score only for DATA_QUALITY and FULL profile types (matching original profiler)
-            if profile_type in [ProfileType.DATA_QUALITY, ProfileType.FULL]:
-                completeness_scores = [cp.completeness for cp in column_profiles if cp.completeness is not None]
-                quality_score = sum(completeness_scores) / len(completeness_scores) if completeness_scores else 0.0
-            else:
-                quality_score = None
-            
-            duration = time.time() - start_time
-            return DatasetProfile(
-                dataset_name=dataset if isinstance(dataset, str) else "dataframe",
-                row_count=row_count,
-                column_count=len(df.columns),
-                profile_timestamp=datetime.now().isoformat(),
-                column_profiles=column_profiles,
-                null_count=total_null_count,
-                duplicate_count=0,  # Skip expensive operation
-                data_quality_score=quality_score,
-                statistics={"profiling_duration_seconds": round(duration, 2)}
-            )
-        
-        def generate_quality_report(self, profile, output_format="yaml"):
-            """Generate quality report - delegate to full profiler for YAML generation."""
-            if output_format == "yaml":
-                # Import YAML generation from main profiler
-                from ingen_fab.python_libs.pyspark.data_profiling_pyspark import DataProfilingPySpark
-                full_profiler = DataProfilingPySpark(self.spark)
-                return full_profiler._generate_yaml_report(profile)
-            else:
-                # Simple fallback for other formats
-                quality_display = f"{profile.data_quality_score:.2%}" if profile.data_quality_score else "N/A"
-                columns_summary = "\n".join([f"- {cp.column_name}: {cp.data_type}, {cp.null_percentage:.1f}% nulls, {cp.distinct_count:,} distinct" for cp in profile.column_profiles])
-                
-                return f"""# Ultra-Fast Profile Report
-Dataset: {profile.dataset_name}
-Timestamp: {profile.profile_timestamp}
-Rows: {profile.row_count:,}
-Columns: {profile.column_count}
-Quality Score: {quality_display}
-Duration: {profile.statistics.get('profiling_duration_seconds', 'N/A')}s
-
-## Column Summary
-{columns_summary}
-"""
-    
+    from ingen_fab.python_libs.pyspark.ultra_fast_profiler import UltraFastProfiler
     profiler = UltraFastProfiler(config_lakehouse.spark)
-
 elif enable_performance_mode:
     print("🚀 Performance mode enabled - using optimized profiling")
     from ingen_fab.python_libs.pyspark.data_profiling_pyspark_optimized import OptimizedDataProfilingPySpark, ProfileConfig
@@ -235,6 +71,8 @@ else:
 # Profile each table
 profiling_results = []
 execution_id = str(uuid.uuid4())
+# Generate consistent timestamp for this profiling run (prepended format)
+run_timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
 
 for table_name in tables_to_profile:
     print(f"\n{'='*60}")
@@ -284,7 +122,7 @@ for table_name in tables_to_profile:
             report = profiler.generate_quality_report(profile, output_format)
             profile_result["report"] = report
             
-            # Save report to Files
+            # Save report to Files with consistent timestamp (date/time prepended)
             if output_format in ["html", "yaml", "json", "markdown"]:
                 # Determine file extension
                 ext_map = {
@@ -294,7 +132,8 @@ for table_name in tables_to_profile:
                     "markdown": "md"
                 }
                 extension = ext_map.get(output_format, "txt")
-                report_path = f"Files/profiling_reports/{table_name}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.{extension}"
+                # Prepend timestamp to filename for better sorting
+                report_path = f"Files/profiling_reports/{run_timestamp}_{table_name}.{extension}"
                 config_lakehouse.write_string_to_file(
                     content=report,
                     file_path=report_path,
@@ -303,6 +142,18 @@ for table_name in tables_to_profile:
                 )
 
                 print(f"Report saved to: {report_path}")
+        
+        # Generate YAML output separately if requested (independent of report format)
+        if generate_yaml_output and output_format != "yaml":  # Avoid duplicate if already generating YAML
+            yaml_report = profiler._generate_yaml_report(profile)
+            yaml_path = f"Files/profiling_reports/{run_timestamp}_{table_name}.yaml"
+            config_lakehouse.write_string_to_file(
+                content=yaml_report,
+                file_path=yaml_path,
+                encoding="utf-8",
+                mode="overwrite"
+            )
+            print(f"YAML output saved to: {yaml_path}")
         
         # Calculate data quality score
         if profile.data_quality_score is not None:
@@ -370,8 +221,8 @@ if selected_profile_type in [ProfileType.RELATIONSHIP, ProfileType.FULL] and cro
             if relationships:
                 relationship_report = analyzer.generate_relationship_report(relationships)
                 
-                # Save relationship report to Files
-                relationship_report_path = f"Files/profiling_reports/cross_table_relationships_{datetime.now().strftime('%Y%m%d_%H%M%S')}.md"
+                # Save relationship report to Files with consistent timestamp
+                relationship_report_path = f"Files/profiling_reports/{run_timestamp}_cross_table_relationships.md"
                 config_lakehouse.write_string_to_file(
                     content=relationship_report,
                     file_path=relationship_report_path,

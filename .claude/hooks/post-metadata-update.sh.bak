@@ -1,0 +1,14 @@
+#!/bin/bash
+# Hook: Runs after metadata.yml files are updated
+# Automatically tracks progress when table documentation is updated
+
+# Check if a metadata.yml file was modified
+if echo "$CLAUDE_MODIFIED_FILES" | grep -q "metadata\.yml"; then
+    echo "📝 Table metadata updated - refreshing progress..."
+    
+    # Run the batch status command
+    /workspaces/i4f/.claude/commands/batch-status.sh
+    
+    echo ""
+    echo "✅ Progress tracking updated automatically"
+fi

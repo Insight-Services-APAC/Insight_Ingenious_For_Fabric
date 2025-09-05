@@ -1,0 +1,80 @@
+-- Data Profiling Results Table Creation (Warehouse)
+-- This script creates tables to store profiling results
+
+-- Drop and recreate profile_results table
+IF OBJECT_ID('config.profile_results', 'U') IS NOT NULL
+    DROP TABLE config.profile_results
+
+CREATE TABLE config.profile_results (
+    id INT IDENTITY(1,1) PRIMARY KEY,
+    execution_id NVARCHAR(50) NOT NULL,
+    table_name NVARCHAR(257) NOT NULL,
+    profile_timestamp DATETIME2 NOT NULL,
+    row_count BIGINT NOT NULL,
+    column_count INT NOT NULL,
+    data_quality_score FLOAT NULL,
+    null_count BIGINT NULL,
+    duplicate_count BIGINT NULL,
+    profile_type NVARCHAR(50) NOT NULL,
+    sample_size FLOAT NULL,
+    processing_duration_seconds FLOAT NULL,
+    statistics_json NVARCHAR(MAX) NULL,
+    created_date DATETIME2 NOT NULL DEFAULT GETDATE()
+)
+
+-- Drop and recreate profile_column_details table
+IF OBJECT_ID('config.profile_column_details', 'U') IS NOT NULL
+    DROP TABLE config.profile_column_details
+
+CREATE TABLE config.profile_column_details (
+    id INT IDENTITY(1,1) PRIMARY KEY,
+    execution_id NVARCHAR(50) NOT NULL,
+    table_name NVARCHAR(257) NOT NULL,
+    column_name NVARCHAR(128) NOT NULL,
+    data_type NVARCHAR(50) NOT NULL,
+    null_count BIGINT NOT NULL,
+    null_percentage FLOAT NOT NULL,
+    distinct_count BIGINT NOT NULL,
+    distinct_percentage FLOAT NOT NULL,
+    completeness FLOAT NULL,
+    uniqueness FLOAT NULL,
+    min_value NVARCHAR(MAX) NULL,
+    max_value NVARCHAR(MAX) NULL,
+    mean_value FLOAT NULL,
+    semantic_type NVARCHAR(50) NULL,
+    top_values_json NVARCHAR(MAX) NULL,
+    created_date DATETIME2 NOT NULL DEFAULT GETDATE()
+)
+
+-- Create indexes for performance
+CREATE NONCLUSTERED INDEX IX_profile_results_execution 
+ON config.profile_results (execution_id, table_name)
+
+CREATE NONCLUSTERED INDEX IX_profile_results_table_timestamp 
+ON config.profile_results (table_name, profile_timestamp DESC)
+
+CREATE NONCLUSTERED INDEX IX_profile_column_execution 
+ON config.profile_column_details (execution_id, table_name, column_name)
+
+CREATE NONCLUSTERED INDEX IX_profile_column_table 
+ON config.profile_column_details (table_name, column_name)
+
+-- Add foreign key relationship
+ALTER TABLE config.profile_column_details
+ADD CONSTRAINT FK_profile_column_execution
+FOREIGN KEY (execution_id) REFERENCES config.profile_results (execution_id)
+
+-- Add extended properties for documentation
+EXEC sys.sp_addextendedproperty 
+    @name = N'MS_Description', 
+    @value = N'Stores data profiling results at table level', 
+    @level0type = N'SCHEMA', @level0name = N'config',
+    @level1type = N'TABLE', @level1name = N'profile_results'
+
+EXEC sys.sp_addextendedproperty 
+    @name = N'MS_Description', 
+    @value = N'Stores data profiling results at column level', 
+    @level0type = N'SCHEMA', @level0name = N'config',
+    @level1type = N'TABLE', @level1name = N'profile_column_details'
+
+PRINT 'Successfully created profile results tables'

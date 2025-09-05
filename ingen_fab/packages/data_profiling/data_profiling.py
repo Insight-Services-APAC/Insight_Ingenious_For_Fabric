@@ -10,34 +10,23 @@ from typing import Any, Dict, List
 
 from ingen_fab.notebook_utils.base_notebook_compiler import BaseNotebookCompiler
 from ingen_fab.python_libs.common.utils.path_utils import PathUtils
+from ingen_fab.python_libs.common.path_configuration import PathConfiguration
 
 
 class DataProfilingCompiler(BaseNotebookCompiler):
     """Compiler for data profiling templates"""
 
     def __init__(self, fabric_workspace_repo_dir: str = None):
-        try:
-            # Use path utilities for package resource discovery
-            package_base = PathUtils.get_package_resource_path(
-                "packages/data_profiling"
-            )
-            self.package_dir = package_base
-            self.templates_dir = package_base / "templates"
-            self.ddl_scripts_dir = package_base / "ddl_scripts"
-        except FileNotFoundError:
-            # Fallback for development environment
-            self.package_dir = Path(__file__).parent
-            self.templates_dir = self.package_dir / "templates"
-            self.ddl_scripts_dir = self.package_dir / "ddl_scripts"
-
-        # Set up template directories - include package templates and unified templates
-        try:
-            unified_templates_dir = PathUtils.get_package_resource_path("templates")
-        except FileNotFoundError:
-            # Fallback for compatibility
-            unified_templates_dir = Path(__file__).parent.parent.parent / "templates"
-
-        template_search_paths = [self.templates_dir, unified_templates_dir]
+        # Use centralized path configuration
+        self.path_config = PathConfiguration("data_profiling")
+        
+        # Get paths from configuration
+        self.package_dir = self.path_config.get_package_base_path()
+        self.templates_dir = self.path_config.get_templates_dir()
+        self.ddl_scripts_dir = self.path_config.get_ddl_scripts_dir()
+        
+        # Get template search paths
+        template_search_paths = self.path_config.get_template_search_paths()
 
         super().__init__(
             templates_dir=template_search_paths,
@@ -279,17 +268,11 @@ class DataProfilingCompiler(BaseNotebookCompiler):
                         if source_path.exists():
                             template_content = source_path.read_text()
 
-                            # Create a template environment
+                            # Create a template environment using centralized configuration
                             template_paths = [ddl_source_dir]
-                            try:
-                                unified_templates_dir = (
-                                    PathUtils.get_package_resource_path("templates")
-                                )
-                            except FileNotFoundError:
-                                unified_templates_dir = (
-                                    Path(__file__).parent.parent.parent / "templates"
-                                )
-                            template_paths.append(unified_templates_dir)
+                            unified_dir = self.path_config.get_unified_templates_dir()
+                            if unified_dir:
+                                template_paths.append(unified_dir)
 
                             env = jinja2.Environment(
                                 loader=jinja2.FileSystemLoader(template_paths),

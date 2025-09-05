@@ -1,0 +1,220 @@
+{%- set datastore_type = "warehouse" -%}
+{%- set kernel_name = "synapse_python" -%}
+{%- set kernel_display_name = "Python (Synapse)" -%}
+{%- set language_group = "synapse_python" -%}
+{%- set runtime_type = "python" -%}
+{%- set include_ddl_utils = true -%}
+
+{%- import 'shared/notebook/macros/notebook_macros.py.jinja' as macros -%}
+{%- include "shared/notebook/headers/python.py.jinja" %}
+
+{{ macros.parameters_cell() }}
+
+# Default parameters
+auto_discover_tables = {{ auto_discover_tables | default(True) }}  # Whether to auto-discover tables
+profile_frequency = "{{ profile_frequency | default('daily') }}"  # Default profiling frequency
+quality_thresholds = {{ quality_thresholds | default({'completeness': 0.95, 'uniqueness': 0.99, 'validity': 0.98}) }}  # Quality score thresholds
+
+{{ macros.python_cell_with_heading("## ⚙️ Data Profiling Configuration (Warehouse)") }}
+
+# This notebook configures automated data profiling for tables.
+# Uses modularized components from python_libs for maintainable and reusable code.
+
+{% set runtime_type = runtime_type %}
+{% set language_group = language_group %}
+{% set include_ddl_utils = include_ddl_utils %}
+{% include 'shared/notebook/environment/library_loader.py.jinja' %}
+
+{{ macros.python_cell_with_heading("## 🔧 Load Configuration and Initialize") }}
+{% include 'shared/notebook/environment/config_loader.py.jinja' %}
+
+# Additional imports for data profiling configuration
+from ingen_fab.python_libs.python.sql_utils import sql_utils
+import json
+from datetime import datetime
+import uuid
+from typing import List, Dict, Any
+
+execution_id = str(uuid.uuid4())
+
+print(f"Execution ID: {execution_id}")
+print(f"Auto Discover Tables: {auto_discover_tables}")
+print(f"Profile Frequency: {profile_frequency}")
+
+{{ macros.python_cell_with_heading("## 🚀 Main Execution") }}
+
+print("=" * 80)
+print(f"Data Profiling Configuration Generator - Warehouse")
+print(f"Execution Time: {datetime.now()}")
+print("=" * 80)
+
+# Initialize SQL connection for warehouse
+sql_conn = sql_utils(
+    server=configs.sql_server_name,
+    database=configs.sql_database_name,
+)
+
+# Configuration data to be inserted
+config_entries = []
+
+if auto_discover_tables:
+    print("🔍 Auto-discovering tables in the warehouse...")
+    
+    # Get list of user tables (excluding system tables)
+    tables_query = """
+    SELECT 
+        SCHEMA_NAME(schema_id) as schema_name,
+        name as table_name,
+        SCHEMA_NAME(schema_id) + '.' + name as full_name
+    FROM sys.tables 
+    WHERE type = 'U'  -- User tables only
+    AND SCHEMA_NAME(schema_id) NOT IN ('sys', 'information_schema', 'config')
+    ORDER BY schema_name, name
+    """
+    
+    tables_result = sql_conn.execute_query(tables_query)
+    
+    print(f"📋 Found {len(tables_result)} tables to configure for profiling")
+    
+    for table_info in tables_result:
+        schema_name = table_info['schema_name']
+        table_name = table_info['table_name']
+        full_name = table_info['full_name']
+        
+        # Get table statistics for configuration
+        stats_query = f"""
+        SELECT 
+            COUNT(*) as estimated_rows,
+            COUNT(COLUMN_NAME) as column_count
+        FROM INFORMATION_SCHEMA.COLUMNS 
+        WHERE TABLE_SCHEMA = '{schema_name}' AND TABLE_NAME = '{table_name}'
+        """
+        
+        try:
+            stats_result = sql_conn.execute_query(stats_query)
+            stats = stats_result[0] if stats_result else {'estimated_rows': 0, 'column_count': 0}
+            
+            # Determine appropriate profiling settings based on size
+            estimated_rows = stats.get('estimated_rows', 0)
+            column_count = stats.get('column_count', 0)
+            
+            # Configure profiling strategy based on table size
+            if estimated_rows > 10_000_000:  # Large tables
+                profile_type = "basic"
+                sample_percentage = 1.0  # 1% sample
+                enable_performance_mode = True
+            elif estimated_rows > 1_000_000:  # Medium tables
+                profile_type = "statistical"
+                sample_percentage = 5.0  # 5% sample
+                enable_performance_mode = True
+            else:  # Small tables
+                profile_type = "full"
+                sample_percentage = None  # Full scan
+                enable_performance_mode = False
+            
+            config_entry = {
+                'table_schema': schema_name,
+                'table_name': table_name,
+                'full_table_name': full_name,
+                'active_yn': 'Y',
+                'profile_type': profile_type,
+                'profile_frequency': profile_frequency,
+                'sample_percentage': sample_percentage,
+                'enable_performance_mode': enable_performance_mode,
+                'quality_thresholds_json': json.dumps(quality_thresholds),
+                'estimated_rows': estimated_rows,
+                'column_count': column_count,
+                'created_date': datetime.now().isoformat(),
+                'created_by': 'auto_discovery',
+                'last_updated': datetime.now().isoformat()
+            }
+            
+            config_entries.append(config_entry)
+            
+            print(f"  ✓ {full_name} -> {profile_type} profiling (est. {estimated_rows:,} rows)")
+            
+        except Exception as e:
+            print(f"  ⚠️ Could not get stats for {full_name}: {e}")
+            
+            # Add with default settings
+            config_entry = {
+                'table_schema': schema_name,
+                'table_name': table_name,
+                'full_table_name': full_name,
+                'active_yn': 'Y',
+                'profile_type': 'basic',
+                'profile_frequency': profile_frequency,
+                'sample_percentage': 10.0,
+                'enable_performance_mode': True,
+                'quality_thresholds_json': json.dumps(quality_thresholds),
+                'estimated_rows': 0,
+                'column_count': 0,
+                'created_date': datetime.now().isoformat(),
+                'created_by': 'auto_discovery',
+                'last_updated': datetime.now().isoformat()
+            }
+            
+            config_entries.append(config_entry)
+
+else:
+    print("📝 Manual table configuration mode")
+    print("Add your tables manually to the config_data_profiling table")
+
+# Insert configuration entries
+if config_entries:
+    print(f"\n💾 Inserting {len(config_entries)} configuration entries...")
+    
+    # Clear existing auto-discovery entries
+    try:
+        sql_conn.execute_query("DELETE FROM config.config_data_profiling WHERE created_by = 'auto_discovery'")
+        print("✓ Cleared existing auto-discovery configurations")
+    except Exception as e:
+        print(f"⚠️ Could not clear existing configurations: {e}")
+    
+    # Insert new configurations
+    successful_inserts = 0
+    for config_entry in config_entries:
+        try:
+            sql_conn.insert_record('config.config_data_profiling', config_entry)
+            successful_inserts += 1
+        except Exception as e:
+            print(f"❌ Failed to insert config for {config_entry['full_table_name']}: {e}")
+    
+    print(f"✅ Successfully inserted {successful_inserts} configuration entries")
+
+# Generate summary report
+print(f"\n{'='*80}")
+print(f"CONFIGURATION SUMMARY")
+print(f"{'='*80}")
+
+try:
+    summary_query = """
+    SELECT 
+        profile_type,
+        COUNT(*) as table_count,
+        AVG(CAST(estimated_rows as FLOAT)) as avg_rows
+    FROM config.config_data_profiling 
+    WHERE active_yn = 'Y'
+    GROUP BY profile_type
+    ORDER BY table_count DESC
+    """
+    
+    summary_result = sql_conn.execute_query(summary_query)
+    
+    print("Profile Type Distribution:")
+    for row in summary_result:
+        avg_rows = int(row['avg_rows']) if row['avg_rows'] else 0
+        print(f"  {row['profile_type']}: {row['table_count']} tables (avg {avg_rows:,} rows)")
+    
+    # Total active configurations
+    total_query = "SELECT COUNT(*) as total FROM config.config_data_profiling WHERE active_yn = 'Y'"
+    total_result = sql_conn.execute_query(total_query)
+    total_count = total_result[0]['total'] if total_result else 0
+    
+    print(f"\nTotal active profiling configurations: {total_count}")
+    
+except Exception as e:
+    print(f"Could not generate summary: {e}")
+
+print(f"\n✅ Data profiling configuration completed successfully!")
+print(f"Use the data_profiling_processor_warehouse notebook to run profiling jobs.")

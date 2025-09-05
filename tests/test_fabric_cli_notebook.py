@@ -8,7 +8,7 @@ from ingen_fab.notebook_utils.fabric_cli_notebook import FabricCLINotebook
 
 
 def test_cli_notebook_workflow():
-    nb = FabricCLINotebook("Metcash_Test.Workspace")
+    nb = FabricCLINotebook("Client_Test.Workspace")
 
     with mock.patch("subprocess.run") as run:
         run.side_effect = [
@@ -31,7 +31,7 @@ def test_cli_notebook_workflow():
                 [
                     "fab",
                     "import",
-                    "Metcash_Test.Workspace/codex_simple.Notebook",
+                    "Client_Test.Workspace/codex_simple.Notebook",
                     "-i",
                     "sample.ipynb",
                 ],
@@ -44,7 +44,7 @@ def test_cli_notebook_workflow():
                     "fab",
                     "job",
                     "run",
-                    "Metcash_Test.Workspace/codex_simple.Notebook",
+                    "Client_Test.Workspace/codex_simple.Notebook",
                 ],
                 check=True,
                 capture_output=True,
@@ -55,7 +55,7 @@ def test_cli_notebook_workflow():
                     "fab",
                     "job",
                     "run-status",
-                    "Metcash_Test.Workspace/codex_simple.Notebook",
+                    "Client_Test.Workspace/codex_simple.Notebook",
                     "--id",
                     "0bfcc2a7-468d-473f-92e4-9a2a799f2522",
                 ],

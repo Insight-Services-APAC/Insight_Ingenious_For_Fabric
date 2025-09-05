@@ -6,7 +6,6 @@ from rich.console import Console
 from ingen_fab.az_cli.onelake_utils import OneLakeUtils
 from ingen_fab.cli_utils.console_styles import ConsoleStyles
 from ingen_fab.config_utils.variable_lib_factory import VariableLibraryFactory
-from ingen_fab.fabric_cicd.promotion_utils import SyncToFabricEnvironment
 
 
 def deploy_to_environment(ctx):
@@ -30,9 +29,9 @@ def deploy_to_environment(ctx):
             "Cannot deploy to local environment. Please specify a different environment.",
         )
         raise SystemExit(1)
-
+    from ingen_fab.fabric_cicd.promotion_utils import SyncToFabricEnvironment
     stf = SyncToFabricEnvironment(
-        project_path=Path(ctx.obj.get("fabric_workspace_repo_dir")),
+        project_path=Path(ctx.obj.get("fabric_workspace_repo_dir")), # type: ignore
         environment=str(ctx.obj.get("fabric_environment")),
     )
     stf.sync_environment()

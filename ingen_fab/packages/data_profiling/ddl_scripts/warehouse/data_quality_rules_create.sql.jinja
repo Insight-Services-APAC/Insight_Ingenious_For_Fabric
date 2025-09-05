@@ -1,0 +1,136 @@
+-- Data Quality Rules Table Creation (Warehouse)
+-- This script creates tables to store and manage data quality rules
+
+-- Drop and recreate data_quality_rules table
+IF OBJECT_ID('config.data_quality_rules', 'U') IS NOT NULL
+    DROP TABLE config.data_quality_rules
+
+CREATE TABLE config.data_quality_rules (
+    id INT IDENTITY(1,1) PRIMARY KEY,
+    rule_name NVARCHAR(100) NOT NULL,
+    table_name NVARCHAR(257) NOT NULL,
+    column_name NVARCHAR(128) NULL, -- NULL for table-level rules
+    rule_type NVARCHAR(50) NOT NULL,
+    rule_description NVARCHAR(500) NOT NULL,
+    rule_expression NVARCHAR(MAX) NOT NULL,
+    threshold_value FLOAT NULL,
+    severity NVARCHAR(20) NOT NULL DEFAULT 'MEDIUM',
+    active_yn CHAR(1) NOT NULL DEFAULT 'Y',
+    created_date DATETIME2 NOT NULL DEFAULT GETDATE(),
+    created_by NVARCHAR(100) NOT NULL DEFAULT SYSTEM_USER,
+    last_updated DATETIME2 NOT NULL DEFAULT GETDATE(),
+    last_checked DATETIME2 NULL,
+    
+    CONSTRAINT CK_quality_rules_active CHECK (active_yn IN ('Y', 'N')),
+    CONSTRAINT CK_quality_rules_severity CHECK (severity IN ('LOW', 'MEDIUM', 'HIGH', 'CRITICAL')),
+    CONSTRAINT CK_quality_rules_type CHECK (rule_type IN ('completeness', 'uniqueness', 'validity', 'consistency', 'accuracy', 'custom'))
+)
+
+-- Drop and recreate data_quality_violations table
+IF OBJECT_ID('config.data_quality_violations', 'U') IS NOT NULL
+    DROP TABLE config.data_quality_violations
+
+CREATE TABLE config.data_quality_violations (
+    id INT IDENTITY(1,1) PRIMARY KEY,
+    rule_id INT NOT NULL,
+    execution_id NVARCHAR(50) NOT NULL,
+    table_name NVARCHAR(257) NOT NULL,
+    column_name NVARCHAR(128) NULL,
+    violation_count BIGINT NOT NULL,
+    total_count BIGINT NOT NULL,
+    violation_percentage FLOAT NOT NULL,
+    severity NVARCHAR(20) NOT NULL,
+    violation_details NVARCHAR(MAX) NULL,
+    detected_date DATETIME2 NOT NULL DEFAULT GETDATE(),
+    resolved_date DATETIME2 NULL,
+    resolution_notes NVARCHAR(MAX) NULL,
+    
+    CONSTRAINT FK_violations_rule FOREIGN KEY (rule_id) REFERENCES config.data_quality_rules (id)
+)
+
+-- Create indexes for performance
+CREATE NONCLUSTERED INDEX IX_quality_rules_table_active 
+ON config.data_quality_rules (table_name, active_yn)
+
+CREATE NONCLUSTERED INDEX IX_quality_rules_type_severity 
+ON config.data_quality_rules (rule_type, severity)
+
+CREATE NONCLUSTERED INDEX IX_quality_violations_rule_date 
+ON config.data_quality_violations (rule_id, detected_date DESC)
+
+CREATE NONCLUSTERED INDEX IX_quality_violations_table_unresolved 
+ON config.data_quality_violations (table_name, resolved_date)
+
+-- Insert default data quality rules
+INSERT INTO config.data_quality_rules (rule_name, table_name, column_name, rule_type, rule_description, rule_expression, threshold_value, severity)
+VALUES 
+    -- Completeness rules
+    ('High Completeness Required', '%', NULL, 'completeness', 'Tables should have high completeness (< 5% nulls)', 'null_percentage < 5.0', 5.0, 'HIGH'),
+    ('Critical Completeness', '%', NULL, 'completeness', 'Critical tables must have very high completeness (< 1% nulls)', 'null_percentage < 1.0', 1.0, 'CRITICAL'),
+    
+    -- Uniqueness rules
+    ('Primary Key Uniqueness', '%', NULL, 'uniqueness', 'Primary key columns must be 100% unique', 'uniqueness = 1.0', 1.0, 'CRITICAL'),
+    ('High Uniqueness Expected', '%', NULL, 'uniqueness', 'Key columns should have high uniqueness (> 95%)', 'uniqueness > 0.95', 0.95, 'HIGH'),
+    
+    -- Validity rules
+    ('Data Type Consistency', '%', NULL, 'validity', 'All values should conform to expected data types', 'type_violations = 0', 0, 'HIGH'),
+    ('Range Validation', '%', NULL, 'validity', 'Numeric values should be within expected ranges', 'range_violations < 1.0', 1.0, 'MEDIUM'),
+    
+    -- Custom business rules
+    ('Recent Data Required', '%', NULL, 'custom', 'Tables should contain recent data (within last 30 days)', 'days_since_last_update <= 30', 30, 'MEDIUM'),
+    ('Minimum Row Count', '%', NULL, 'custom', 'Tables should have minimum expected row count', 'row_count >= expected_min_rows', NULL, 'LOW')
+
+-- Create a view for active rules summary
+CREATE OR ALTER VIEW config.vw_active_quality_rules AS
+SELECT 
+    r.id,
+    r.rule_name,
+    r.table_name,
+    r.column_name,
+    r.rule_type,
+    r.rule_description,
+    r.severity,
+    r.threshold_value,
+    COUNT(v.id) as violation_count,
+    MAX(v.detected_date) as last_violation_date,
+    CASE 
+        WHEN COUNT(v.id) = 0 THEN 'PASSING'
+        WHEN COUNT(CASE WHEN v.resolved_date IS NULL THEN 1 END) > 0 THEN 'FAILING'
+        ELSE 'RESOLVED'
+    END as rule_status
+FROM config.data_quality_rules r
+LEFT JOIN config.data_quality_violations v ON r.id = v.rule_id
+WHERE r.active_yn = 'Y'
+GROUP BY r.id, r.rule_name, r.table_name, r.column_name, r.rule_type, 
+         r.rule_description, r.severity, r.threshold_value
+
+-- Create a view for violations summary
+CREATE OR ALTER VIEW config.vw_quality_violations_summary AS
+SELECT 
+    v.table_name,
+    COUNT(*) as total_violations,
+    COUNT(CASE WHEN v.severity = 'CRITICAL' THEN 1 END) as critical_violations,
+    COUNT(CASE WHEN v.severity = 'HIGH' THEN 1 END) as high_violations,
+    COUNT(CASE WHEN v.severity = 'MEDIUM' THEN 1 END) as medium_violations,
+    COUNT(CASE WHEN v.severity = 'LOW' THEN 1 END) as low_violations,
+    COUNT(CASE WHEN v.resolved_date IS NULL THEN 1 END) as unresolved_violations,
+    AVG(v.violation_percentage) as avg_violation_percentage,
+    MAX(v.detected_date) as latest_violation_date
+FROM config.data_quality_violations v
+GROUP BY v.table_name
+
+-- Add extended properties for documentation
+EXEC sys.sp_addextendedproperty 
+    @name = N'MS_Description', 
+    @value = N'Stores data quality rules for automated validation', 
+    @level0type = N'SCHEMA', @level0name = N'config',
+    @level1type = N'TABLE', @level1name = N'data_quality_rules'
+
+EXEC sys.sp_addextendedproperty 
+    @name = N'MS_Description', 
+    @value = N'Stores data quality rule violations and their resolution status', 
+    @level0type = N'SCHEMA', @level0name = N'config',
+    @level1type = N'TABLE', @level1name = N'data_quality_violations'
+
+PRINT 'Successfully created data quality rules and violations tables'
+PRINT 'Inserted default data quality rules'

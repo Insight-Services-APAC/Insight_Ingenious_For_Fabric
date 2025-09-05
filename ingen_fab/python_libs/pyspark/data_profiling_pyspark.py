@@ -1,23 +1,20 @@
 """PySpark implementation of data profiling using native Spark functions."""
 
-from typing import Any, Dict, List, Optional
-from datetime import datetime, date
-import json
-import yaml
 import hashlib
-import random
+import json
+from datetime import date, datetime
+from typing import Any, Dict, List, Optional
+
+import yaml
+
 from ingen_fab.python_libs.interfaces.data_profiling_interface import (
+    ColumnProfile,
     DataProfilingInterface,
     DatasetProfile,
-    ColumnProfile,
     ProfileType,
+    RelationshipType,
     SemanticType,
     ValueFormat,
-    NamingPattern,
-    ValuePattern,
-    BusinessRule,
-    ColumnRelationship,
-    EntityRelationshipGraph,
     ValueStatistics,
 )
 from pyspark.sql import DataFrame, SparkSession
@@ -382,8 +379,8 @@ class DataProfilingPySpark(DataProfilingInterface):
             dominant_value = None
             dominant_value_ratio = 0.0
             if profile.value_distribution:
-                dominant_value = max(profile.value_distribution.keys(), 
-                                   key=profile.value_distribution.get)
+                dominant_value = max(profile.value_distribution, 
+                                   key=lambda k: profile.value_distribution[k])
                 dominant_value_ratio = profile.value_distribution[dominant_value] / total_count
             elif profile.top_distinct_values:
                 # Use first value from top distinct values as dominant
@@ -397,7 +394,7 @@ class DataProfilingPySpark(DataProfilingInterface):
             if profile.value_distribution:
                 # Group by count frequencies
                 count_freq = {}
-                for value, count in profile.value_distribution.items():
+                for count in profile.value_distribution.values():
                     count_freq[count] = count_freq.get(count, 0) + 1
                 value_count_distribution = count_freq
             
@@ -473,7 +470,7 @@ class DataProfilingPySpark(DataProfilingInterface):
                 sample_values=sample_values
             )
             
-        except Exception as e:
+        except Exception:
             # Return minimal stats if calculation fails
             return ValueStatistics(
                 selectivity=profile.distinct_count / total_count if total_count > 0 else 0,
@@ -950,7 +947,7 @@ class DataProfilingPySpark(DataProfilingInterface):
         return html
 
     def _generate_yaml_report(self, profile: DatasetProfile) -> str:
-        """Generate YAML format report with top distinct values."""
+        """Generate comprehensive YAML format report matching profile_results table structure."""
 
         def serialize_value(value):
             """Convert values to YAML-serializable format."""
@@ -971,8 +968,6 @@ class DataProfilingPySpark(DataProfilingInterface):
                     "row_count": profile.row_count,
                     "column_count": profile.column_count,
                     "data_quality_score": profile.data_quality_score,
-                },
-                "summary_statistics": {
                     "null_count": profile.null_count,
                     "duplicate_count": profile.duplicate_count,
                 },
@@ -1015,11 +1010,12 @@ class DataProfilingPySpark(DataProfilingInterface):
             if value_stats:
                 col_dict["value_statistics"] = value_stats
 
-            # Add top distinct values
+            # Add top distinct values (all captured values)
             if col_profile.top_distinct_values:
                 col_dict["top_distinct_values"] = [
                     serialize_value(val) for val in col_profile.top_distinct_values
                 ]
+                col_dict["distinct_values_captured"] = len(col_profile.top_distinct_values)
 
             # Add value distribution for low-cardinality columns
             if col_profile.value_distribution:
@@ -1075,6 +1071,22 @@ class DataProfilingPySpark(DataProfilingInterface):
                     for rel in col_profile.relationships
                 ]
 
+            # Add enhanced value statistics if available
+            if col_profile.value_statistics:
+                vs = col_profile.value_statistics
+                col_dict["value_statistics_enhanced"] = {
+                    "selectivity": vs.selectivity,
+                    "is_unique_key": vs.is_unique_key,
+                    "is_constant": vs.is_constant,
+                    "dominant_value": serialize_value(vs.dominant_value),
+                    "dominant_value_ratio": vs.dominant_value_ratio,
+                    "value_hash_signature": vs.value_hash_signature
+                }
+                if vs.value_length_stats:
+                    col_dict["value_statistics_enhanced"]["value_length_stats"] = vs.value_length_stats
+                if vs.numeric_distribution:
+                    col_dict["value_statistics_enhanced"]["numeric_distribution"] = vs.numeric_distribution
+
             report_dict["dataset_profile"]["columns"].append(col_dict)
 
         # Add additional profile information
@@ -1097,10 +1109,24 @@ class DataProfilingPySpark(DataProfilingInterface):
 
         # Add entity relationship information
         if profile.entity_relationships:
+            er = profile.entity_relationships
             report_dict["dataset_profile"]["entity_relationships"] = {
-                "entities": profile.entity_relationships.entities,
-                "join_recommendations": profile.entity_relationships.join_recommendations,
-                "suggested_primary_keys": profile.entity_relationships.suggested_primary_keys,
+                "entities": er.entities,
+                "join_recommendations": er.join_recommendations,
+                "suggested_primary_keys": er.suggested_primary_keys,
+                "suggested_foreign_keys": {
+                    table: [
+                        {
+                            "source": f"{rel.source_table}.{rel.source_column}",
+                            "target": f"{rel.target_table}.{rel.target_column}",
+                            "type": rel.relationship_type.value,
+                            "confidence": round(rel.confidence_score, 3)
+                        }
+                        for rel in rels
+                    ]
+                    for table, rels in er.suggested_foreign_keys.items()
+                } if er.suggested_foreign_keys else {},
+                "business_rules": er.business_rules if er.business_rules else {},
                 "table_relationships": [
                     {
                         "table1": rel.table1,
@@ -1108,10 +1134,11 @@ class DataProfilingPySpark(DataProfilingInterface):
                         "relationship_type": rel.relationship_type.value,
                         "confidence": round(rel.confidence_score, 3),
                         "join_conditions": rel.suggested_join_conditions,
-                        "common_columns": rel.common_columns
+                        "common_columns": rel.common_columns,
+                        "referential_integrity_issues": rel.referential_integrity_issues
                     }
-                    for rel in profile.entity_relationships.relationships
-                ]
+                    for rel in er.relationships
+                ] if er.relationships else []
             }
 
         if profile.semantic_summary:
@@ -1119,6 +1146,19 @@ class DataProfilingPySpark(DataProfilingInterface):
 
         if profile.business_glossary:
             report_dict["dataset_profile"]["business_glossary"] = profile.business_glossary
+
+        # Add profiling metadata (execution details)
+        if profile.statistics:
+            report_dict["dataset_profile"]["profiling_metadata"] = {
+                "profiling_duration_seconds": profile.statistics.get("profiling_duration_seconds"),
+                "profiling_timestamp": profile.statistics.get("profiling_timestamp"),
+                "sample_rate_used": profile.statistics.get("sample_rate_used", 1.0),
+                "numeric_columns": profile.statistics.get("numeric_columns"),
+                "string_columns": profile.statistics.get("string_columns"),
+                "total_columns": profile.statistics.get("total_columns"),
+                "avg_null_percentage": profile.statistics.get("avg_null_percentage"),
+                "avg_distinct_percentage": profile.statistics.get("avg_distinct_percentage")
+            }
 
         return yaml.dump(
             report_dict, default_flow_style=False, sort_keys=False, allow_unicode=True

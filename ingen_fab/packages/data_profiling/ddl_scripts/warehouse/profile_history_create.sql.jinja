@@ -1,0 +1,109 @@
+-- Data Profiling History Table Creation (Warehouse)
+-- This script creates tables to track profiling history and trends
+
+-- Drop and recreate profile_history table
+IF OBJECT_ID('config.profile_history', 'U') IS NOT NULL
+    DROP TABLE config.profile_history
+
+CREATE TABLE config.profile_history (
+    id INT IDENTITY(1,1) PRIMARY KEY,
+    table_name NVARCHAR(257) NOT NULL,
+    profile_date DATE NOT NULL,
+    row_count BIGINT NOT NULL,
+    column_count INT NOT NULL,
+    data_quality_score FLOAT NULL,
+    null_percentage FLOAT NULL,
+    duplicate_percentage FLOAT NULL,
+    completeness_avg FLOAT NULL,
+    uniqueness_avg FLOAT NULL,
+    profile_type NVARCHAR(50) NOT NULL,
+    execution_count INT NOT NULL DEFAULT 1,
+    last_execution_id NVARCHAR(50) NOT NULL,
+    created_date DATETIME2 NOT NULL DEFAULT GETDATE(),
+    updated_date DATETIME2 NOT NULL DEFAULT GETDATE()
+)
+
+-- Drop and recreate profile_trends table for tracking changes over time
+IF OBJECT_ID('config.profile_trends', 'U') IS NOT NULL
+    DROP TABLE config.profile_trends
+
+CREATE TABLE config.profile_trends (
+    id INT IDENTITY(1,1) PRIMARY KEY,
+    table_name NVARCHAR(257) NOT NULL,
+    column_name NVARCHAR(128) NOT NULL,
+    trend_date DATE NOT NULL,
+    metric_name NVARCHAR(50) NOT NULL,
+    metric_value FLOAT NOT NULL,
+    previous_value FLOAT NULL,
+    change_percentage FLOAT NULL,
+    trend_direction NVARCHAR(20) NULL, -- 'improving', 'declining', 'stable'
+    alert_threshold_breached BIT NOT NULL DEFAULT 0,
+    created_date DATETIME2 NOT NULL DEFAULT GETDATE()
+)
+
+-- Create indexes for performance
+CREATE UNIQUE NONCLUSTERED INDEX IX_profile_history_table_date 
+ON config.profile_history (table_name, profile_date)
+
+CREATE NONCLUSTERED INDEX IX_profile_history_date_quality 
+ON config.profile_history (profile_date, data_quality_score)
+
+CREATE NONCLUSTERED INDEX IX_profile_trends_table_column_date 
+ON config.profile_trends (table_name, column_name, trend_date)
+
+CREATE NONCLUSTERED INDEX IX_profile_trends_alerts 
+ON config.profile_trends (alert_threshold_breached, trend_date)
+
+-- Create a view for latest profile summary
+CREATE OR ALTER VIEW config.vw_latest_profile_summary AS
+SELECT 
+    h.table_name,
+    h.profile_date,
+    h.row_count,
+    h.column_count,
+    h.data_quality_score,
+    h.null_percentage,
+    h.duplicate_percentage,
+    h.completeness_avg,
+    h.uniqueness_avg,
+    h.profile_type,
+    h.execution_count,
+    CASE 
+        WHEN h.data_quality_score >= 0.95 THEN 'Excellent'
+        WHEN h.data_quality_score >= 0.85 THEN 'Good'
+        WHEN h.data_quality_score >= 0.70 THEN 'Fair'
+        ELSE 'Poor'
+    END as quality_category,
+    ROW_NUMBER() OVER (PARTITION BY h.table_name ORDER BY h.profile_date DESC) as rn
+FROM config.profile_history h
+
+-- Create a view for quality trends
+CREATE OR ALTER VIEW config.vw_quality_trends AS
+SELECT 
+    table_name,
+    profile_date,
+    data_quality_score,
+    LAG(data_quality_score, 1) OVER (PARTITION BY table_name ORDER BY profile_date) as previous_score,
+    data_quality_score - LAG(data_quality_score, 1) OVER (PARTITION BY table_name ORDER BY profile_date) as score_change,
+    CASE 
+        WHEN data_quality_score > LAG(data_quality_score, 1) OVER (PARTITION BY table_name ORDER BY profile_date) THEN 'Improving'
+        WHEN data_quality_score < LAG(data_quality_score, 1) OVER (PARTITION BY table_name ORDER BY profile_date) THEN 'Declining'
+        ELSE 'Stable'
+    END as trend_direction
+FROM config.profile_history
+WHERE data_quality_score IS NOT NULL
+
+-- Add extended properties for documentation
+EXEC sys.sp_addextendedproperty 
+    @name = N'MS_Description', 
+    @value = N'Historical tracking of data profiling results by table and date', 
+    @level0type = N'SCHEMA', @level0name = N'config',
+    @level1type = N'TABLE', @level1name = N'profile_history'
+
+EXEC sys.sp_addextendedproperty 
+    @name = N'MS_Description', 
+    @value = N'Detailed trends tracking for specific metrics over time', 
+    @level0type = N'SCHEMA', @level0name = N'config',
+    @level1type = N'TABLE', @level1name = N'profile_trends'
+
+PRINT 'Successfully created profile history and trends tables'
