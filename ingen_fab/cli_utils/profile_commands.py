@@ -36,9 +36,9 @@ def dataset(
 ):
     """Profile a dataset and generate quality report."""
     import os
-    from ingen_fab.python_libs.pyspark.data_profiling_pyspark import DataProfilingPySpark
+    from ingen_fab.python_libs.pyspark.tiered_profiler import TieredProfiler
     from ingen_fab.python_libs.pyspark.lakehouse_utils import lakehouse_utils
-    from ingen_fab.python_libs.interfaces.data_profiling_interface import ProfileType
+    from ingen_fab.packages.data_profiling.libs.interfaces.data_profiling_interface import ProfileType
     import ingen_fab.python_libs.common.config_utils as cu
     
     try:
@@ -53,7 +53,7 @@ def dataset(
         spark = config_lakehouse.spark
         
         # Create profiler with config lakehouse
-        profiler = DataProfilingPySpark(spark, lakehouse=config_lakehouse)
+        profiler = TieredProfiler(lakehouse=config_lakehouse, spark=spark)
         
         # Map CLI level to ProfileType
         profile_type_map = {
@@ -103,9 +103,9 @@ def compare(
     level: ProfileLevel = typer.Option(ProfileLevel.basic, "--level", "-l", help="Profiling depth")
 ):
     """Compare profiles of two datasets to detect drift."""
-    from ingen_fab.python_libs.pyspark.data_profiling_pyspark import DataProfilingPySpark
+    from ingen_fab.python_libs.pyspark.tiered_profiler import TieredProfiler
     from ingen_fab.python_libs.pyspark.lakehouse_utils import lakehouse_utils
-    from ingen_fab.python_libs.interfaces.data_profiling_interface import ProfileType
+    from ingen_fab.packages.data_profiling.libs.interfaces.data_profiling_interface import ProfileType
     import ingen_fab.python_libs.common.config_utils as cu
     
     try:
@@ -119,7 +119,7 @@ def compare(
         # Get spark session from lakehouse utils
         spark = config_lakehouse.spark
         
-        profiler = DataProfilingPySpark(spark, lakehouse=config_lakehouse)
+        profiler = TieredProfiler(lakehouse=config_lakehouse, spark=spark)
         
         # Map level to ProfileType
         profile_type_map = {
@@ -172,7 +172,7 @@ def validate(
     output_file: Optional[Path] = typer.Option(None, "--output", "-o", help="Output file path")
 ):
     """Validate a dataset against quality rules."""
-    from ingen_fab.python_libs.pyspark.data_profiling_pyspark import DataProfilingPySpark
+    from ingen_fab.python_libs.pyspark.tiered_profiler import TieredProfiler
     from ingen_fab.python_libs.pyspark.lakehouse_utils import lakehouse_utils
     import ingen_fab.python_libs.common.config_utils as cu
     
@@ -198,7 +198,7 @@ def validate(
         # Get spark session from lakehouse utils
         spark = config_lakehouse.spark
         
-        profiler = DataProfilingPySpark(spark, lakehouse=config_lakehouse)
+        profiler = TieredProfiler(lakehouse=config_lakehouse, spark=spark)
         
         # Validate dataset
         typer.echo(f"Validating dataset: {dataset}")
@@ -241,9 +241,9 @@ def suggest_rules(
     min_uniqueness: float = typer.Option(0.95, help="Minimum uniqueness threshold")
 ):
     """Suggest data quality rules based on dataset profile."""
-    from ingen_fab.python_libs.pyspark.data_profiling_pyspark import DataProfilingPySpark
+    from ingen_fab.python_libs.pyspark.tiered_profiler import TieredProfiler
     from ingen_fab.python_libs.pyspark.lakehouse_utils import lakehouse_utils
-    from ingen_fab.python_libs.interfaces.data_profiling_interface import ProfileType
+    from ingen_fab.packages.data_profiling.libs.interfaces.data_profiling_interface import ProfileType
     import ingen_fab.python_libs.common.config_utils as cu
     
     try:
@@ -257,7 +257,7 @@ def suggest_rules(
         # Get spark session from lakehouse utils
         spark = config_lakehouse.spark
         
-        profiler = DataProfilingPySpark(spark, lakehouse=config_lakehouse)
+        profiler = TieredProfiler(lakehouse=config_lakehouse, spark=spark)
         
         # Profile dataset
         typer.echo(f"Analyzing dataset: {dataset}")

@@ -1,10 +1,17 @@
 {
   "permissions": {
     "allow": [
-      "WebSearch"
+      "WebSearch",
+      "Bash(source:*)",
+      "Bash(export FABRIC_ENVIRONMENT=local)",
+      "Bash(export FABRIC_WORKSPACE_REPO_DIR=sample_project)",
+      "Bash(python -m ingen_fab.cli profile:*)",
+      "Bash(python:*)",
+      "Bash(export FABRIC_ENVIRONMENT=\"local\")",
+      "Bash(export FABRIC_WORKSPACE_REPO_DIR=\"sample_project\")"
     ],
     "deny": [],
-    "defaultMode": "acceptEdits",
-    "ask": []
+    "ask": [],
+    "defaultMode": "acceptEdits"
   }
 }

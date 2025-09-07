@@ -11,7 +11,7 @@ import hashlib
 import json
 from collections import defaultdict
 
-from ingen_fab.python_libs.interfaces.data_profiling_interface import (
+from ingen_fab.packages.data_profiling.libs.interfaces.data_profiling_interface import (
     DatasetProfile,
     ColumnProfile,
     ColumnRelationship,

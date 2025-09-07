@@ -17,14 +17,14 @@ PROFILING_NOTEBOOK_TEMPLATE = '''# Databricks notebook source
 
 # Import required libraries
 from pyspark.sql import SparkSession
-from ingen_fab.python_libs.pyspark.data_profiling_pyspark import DataProfilingPySpark
-from ingen_fab.python_libs.interfaces.data_profiling_interface import ProfileType
+from ingen_fab.python_libs.pyspark.tiered_profiler import TieredProfiler
+from ingen_fab.packages.data_profiling.libs.interfaces.data_profiling_interface import ProfileType
 import json
 from datetime import datetime
 
 # Initialize profiler
 spark = SparkSession.builder.getOrCreate()
-profiler = DataProfilingPySpark(spark)
+profiler = TieredProfiler(spark=spark)
 
 # COMMAND ----------
 

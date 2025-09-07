@@ -22,7 +22,10 @@ if "notebookutils" in sys.modules:
     {% endraw %}
     
     run_mode = "fabric"
+    if not mount_path:
+        raise Exception("Error mounting python libraries. Mount path for config lakehouse not found - ensure lakehouse is provisioned and accessible")
     sys.path.insert(0, mount_path)
+
 
     {% if language_group == 'synapse_pyspark' %}
     # PySpark environment - spark session should be available

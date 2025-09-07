@@ -5,13 +5,13 @@ This module provides a builder pattern for constructing profiling configurations
 with validation and default value management.
 """
 
-from typing import Any, Dict, Optional, List, Set
 from dataclasses import dataclass, field
 from pathlib import Path
+from typing import Any, Dict, List, Optional, Set
 
-from ingen_fab.python_libs.interfaces.profiler_registry import (
-    get_registry,
+from ..libs.interfaces.profiler_registry import (
     ProfilerCapability,
+    get_registry,
 )
 
 

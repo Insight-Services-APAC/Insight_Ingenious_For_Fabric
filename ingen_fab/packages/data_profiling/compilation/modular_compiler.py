@@ -9,16 +9,20 @@ from pathlib import Path
 from typing import Any, Dict, List, Optional, Union
 
 from ingen_fab.notebook_utils.base_notebook_compiler import BaseNotebookCompiler
-from ingen_fab.python_libs.common.path_configuration import PathConfiguration
-from ingen_fab.packages.data_profiling.template_compiler import ProfilingTemplateCompiler
-from ingen_fab.packages.data_profiling.ddl_manager import DDLScriptManager
-from ingen_fab.packages.data_profiling.configuration_builder import (
+from .configuration_builder import (
     ConfigurationBuilder,
     ProfilingConfiguration,
     create_config,
     create_default_config,
 )
-from ingen_fab.python_libs.interfaces.profiler_registry import get_registry
+from .ddl_manager import DDLScriptManager
+from ..libs.interfaces.profiler_registry import (
+    get_registry,
+)
+from .compiler import (
+    ProfilingTemplateCompiler,
+)
+from ingen_fab.python_libs.common.path_configuration import PathConfiguration
 
 
 class ModularDataProfilingCompiler(BaseNotebookCompiler):

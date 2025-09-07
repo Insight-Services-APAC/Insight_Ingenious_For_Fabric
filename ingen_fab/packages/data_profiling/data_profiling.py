@@ -75,6 +75,7 @@ class DataProfilingCompiler(BaseNotebookCompiler):
             "top_values_limit": 100,
             "enable_performance_mode": False,
             "enable_ultra_fast_mode": True,  # Enable by default for better performance
+            "exclude_views": True,  # Exclude views by default
         }
 
         # Merge with provided template vars
@@ -167,6 +168,23 @@ class DataProfilingCompiler(BaseNotebookCompiler):
                     "lakehouse/data_quality_rules_create.py.jinja",
                     "004_data_quality_rules_create.py",
                 ),
+                # TieredProfiler persistence tables
+                (
+                    "lakehouse/tiered_profile_metadata_create.py.jinja",
+                    "005_tiered_profile_metadata_create.py",
+                ),
+                (
+                    "lakehouse/tiered_profile_schemas_create.py.jinja",
+                    "006_tiered_profile_schemas_create.py",
+                ),
+                (
+                    "lakehouse/tiered_profile_profiles_create.py.jinja",
+                    "007_tiered_profile_profiles_create.py",
+                ),
+                (
+                    "lakehouse/tiered_profile_progress_create.py.jinja",
+                    "008_tiered_profile_progress_create.py",
+                ),
             ],
             "Warehouses/Config/001_Initial_Creation_Profiling": [
                 (
@@ -185,6 +203,23 @@ class DataProfilingCompiler(BaseNotebookCompiler):
                     "warehouse/data_quality_rules_create.sql.jinja",
                     "004_data_quality_rules_create.sql",
                 ),
+                # TieredProfiler persistence tables
+                (
+                    "warehouse/tiered_profile_metadata_create.sql.jinja",
+                    "005_tiered_profile_metadata_create.sql",
+                ),
+                (
+                    "warehouse/tiered_profile_schemas_create.sql.jinja",
+                    "006_tiered_profile_schemas_create.sql",
+                ),
+                (
+                    "warehouse/tiered_profile_profiles_create.sql.jinja",
+                    "007_tiered_profile_profiles_create.sql",
+                ),
+                (
+                    "warehouse/tiered_profile_progress_create.sql.jinja",
+                    "008_tiered_profile_progress_create.sql",
+                ),
             ],
         }
 
@@ -193,21 +228,21 @@ class DataProfilingCompiler(BaseNotebookCompiler):
             all_script_mappings["Lakehouses/Config/002_Sample_Data_Profiling"] = [
                 (
                     "lakehouse/sample_profiling_config.py.jinja",
-                    "005_sample_profiling_config.py",
+                    "009_sample_profiling_config.py",
                 ),
                 (
                     "lakehouse/sample_quality_rules.py.jinja",
-                    "006_sample_quality_rules.py",
+                    "010_sample_quality_rules.py",
                 ),
             ]
             all_script_mappings["Warehouses/Config/002_Sample_Data_Profiling"] = [
                 (
                     "warehouse/sample_profiling_config.sql.jinja",
-                    "005_sample_profiling_config.sql",
+                    "009_sample_profiling_config.sql",
                 ),
                 (
                     "warehouse/sample_quality_rules.sql.jinja",
-                    "006_sample_quality_rules.sql",
+                    "010_sample_quality_rules.sql",
                 ),
             ]
 

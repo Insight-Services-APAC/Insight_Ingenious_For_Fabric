@@ -7,21 +7,34 @@
 
 {{ macros.parameters_cell() }}
 
-# Default parameters
-profile_type = "{{ profile_type | default('full') }}"  # Profile depth: basic, statistical, data_quality, relationship, full
+# Tiered Profiling Scan Level Control
+# The TieredProfiler uses 4 progressive scan levels:
+# Level 1: Discovery - Table metadata and basic stats
+# Level 2: Schema - Column metadata and data types  
+# Level 3: Profile - Detailed column statistics and distributions
+# Level 4: Advanced - Cross-column correlations and relationship discovery
+scan_levels = {{ scan_levels | default('[1, 2, 3, 4]') }}  # Which scan levels to run (default: all 4 levels)
+max_scan_level = {{ max_scan_level | default(4) }}  # Maximum scan level to execute (1-4)
+min_scan_level = {{ min_scan_level | default(1) }}  # Minimum scan level to execute (1-4)
+
+# Incremental scanning parameters
+enable_incremental = {{ enable_incremental | default(True) }}  # Skip tables already scanned at requested levels
+resume_from_level = {{ resume_from_level | default('None') }}  # Resume from specific level (None = auto-detect)
+force_rescan = {{ force_rescan | default(False) }}  # Force rescan even if results exist
+only_scan_new_tables = {{ only_scan_new_tables | default(False) }}  # Only scan tables not in metadata
+
+# Original parameters (for backward compatibility with profile_dataset method)
+profile_type = "{{ profile_type | default('full_with_relationships') }}"  # full_with_relationships triggers Level 4
 save_to_catalog = {{ save_to_catalog | default(True) }}  # Whether to save results to catalog tables
 generate_report = {{ generate_report | default(True) }}  # Whether to generate HTML/Markdown report
-generate_yaml_output = {{ generate_yaml_output | default(True) }}  # Whether to generate YAML output files (in addition to report format)
+generate_yaml_output = {{ generate_yaml_output | default(True) }}  # Whether to generate YAML output files
 output_format = "{{ output_format | default('yaml') }}"  # Report format: yaml, html, markdown, json
-sample_size = {{ sample_size | default('None') }}  # Sample fraction (0-1) or None for full dataset
+sample_size = {{ sample_size | default('None') }}  # Sample fraction for Level 3+ (0-1) or None for full
 target_tables = []  # List of specific tables to profile, empty for all
 
-# Performance tuning parameters
-auto_sample_large_tables = {{ auto_sample_large_tables | default(False) }}  # Auto-sample tables > 1M rows (disabled by default with UltraFast mode)
-max_correlation_columns = {{ max_correlation_columns | default(20) }}  # Skip correlation if more numeric columns
-top_values_limit = {{ top_values_limit | default(100) }}  # Max distinct values to collect per column
-enable_performance_mode = {{ enable_performance_mode | default(False) }}  # Use optimized profiling for large datasets
-enable_ultra_fast_mode = {{ enable_ultra_fast_mode | default(True) }}  # Use single-pass ultra-fast profiling (recommended)
+# Performance and filtering parameters
+exclude_views = {{ exclude_views | default(True) }}  # Exclude views from profiling (recommended)
+max_tables_per_batch = {{ max_tables_per_batch | default(10) }}  # Process tables in batches for large workspaces
 
 {% if datastore_type == "lakehouse" %}
 {{ macros.pyspark_cell_with_heading("## 📊 Data Profiling Notebook (Lakehouse)") }}
@@ -51,8 +64,8 @@ import time
 from datetime import datetime, date
 from typing import Dict, List, Optional, Any
 
-from ingen_fab.python_libs.pyspark.data_profiling_pyspark import DataProfilingPySpark
-from ingen_fab.python_libs.interfaces.data_profiling_interface import (
+from ingen_fab.python_libs.pyspark.tiered_profiler import TieredProfiler
+from ingen_fab.packages.data_profiling.runtime.core import (
     ProfileType,
     DatasetProfile,
     ColumnProfile,

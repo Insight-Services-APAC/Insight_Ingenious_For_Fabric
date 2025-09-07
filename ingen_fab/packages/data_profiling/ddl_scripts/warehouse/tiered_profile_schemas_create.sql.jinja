@@ -1,0 +1,10 @@
+-- Tiered Profile Schemas table for Level 2 Schema Discovery results - Warehouse version
+CREATE TABLE IF NOT EXISTS [{{schema_name}}].[tiered_profile_schemas] (
+    [table_name] NVARCHAR(255) NOT NULL,
+    [column_count] INT NOT NULL,
+    [columns] NVARCHAR(MAX) NOT NULL,  -- JSON array of column definitions
+    [primary_key_candidates] NVARCHAR(MAX) NOT NULL,  -- JSON array of potential PK columns
+    [foreign_key_candidates] NVARCHAR(MAX) NOT NULL,  -- JSON array of potential FK columns
+    [scan_timestamp] DATETIME2 NOT NULL DEFAULT GETUTCDATE(),
+    CONSTRAINT PK_tiered_profile_schemas PRIMARY KEY ([table_name])
+);

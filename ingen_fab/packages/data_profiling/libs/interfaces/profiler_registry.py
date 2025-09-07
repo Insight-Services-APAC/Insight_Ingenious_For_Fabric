@@ -10,7 +10,7 @@ from typing import Dict, List, Type, Any, Optional, Callable
 from dataclasses import dataclass
 from enum import Enum
 
-from ingen_fab.python_libs.interfaces.data_profiling_interface import (
+from ingen_fab.packages.data_profiling.libs.interfaces.data_profiling_interface import (
     DataProfilingInterface,
     ProfileType,
     DatasetProfile,
@@ -102,19 +102,19 @@ class ProfilerRegistry:
     
     def _initialize_default_profilers(self):
         """Initialize registry with default profiler implementations."""
-        # Register built-in profilers
+        # Register built-in TieredProfiler
         try:
             from ingen_fab.python_libs.pyspark.profiler_factories import (
-                StandardProfilerFactory,
-                UltraFastProfilerFactory,
-                OptimizedProfilerFactory,
+                TieredProfilerFactory,
             )
             
-            self.register_profiler("standard", StandardProfilerFactory())
-            self.register_profiler("ultra_fast", UltraFastProfilerFactory())
-            self.register_profiler("optimized", OptimizedProfilerFactory())
+            # Register tiered profiler as the only available profiler
+            self.register_profiler("tiered", TieredProfilerFactory())
+            
+            # Set tiered as the default alias
+            self.register_profiler("default", TieredProfilerFactory())
         except ImportError:
-            # Profiler factories not yet implemented
+            # Profiler factory not yet implemented
             pass
     
     def register_profiler(self, name: str, factory: ProfilerFactory) -> None:

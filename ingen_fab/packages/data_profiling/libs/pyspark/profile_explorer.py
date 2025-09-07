@@ -14,7 +14,7 @@ from datetime import datetime
 from pyspark.sql import DataFrame, SparkSession
 from pyspark.sql import functions as F
 
-from ingen_fab.python_libs.interfaces.data_profiling_interface import (
+from ingen_fab.packages.data_profiling.libs.interfaces.data_profiling_interface import (
     DatasetProfile, ColumnProfile, SemanticType
 )
 

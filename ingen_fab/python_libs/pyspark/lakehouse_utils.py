@@ -105,15 +105,15 @@ class lakehouse_utils(DataStoreInterface):
         try:
             if DeltaTable.isDeltaTable(self.spark, table_path):
                 table_exists = True
-                print(
+                logging.debug(
                     f"Delta table already exists at path: {table_path}, skipping creation."
                 )
             else:
-                print(f"Path {table_path} is not a Delta table.")
+                logging.debug(f"Path {table_path} is not a Delta table.")
         except Exception as e:
             # If the path does not exist or is inaccessible, isDeltaTable returns False or may throw.
             # Treat exceptions as "table does not exist".
-            print(
+            logging.warning(
                 f"Could not verify Delta table existence at {table_path} (exception: {e}); assuming it does not exist."
             )
             table_exists = False
@@ -122,14 +122,14 @@ class lakehouse_utils(DataStoreInterface):
     def lakehouse_tables_uri(self) -> str:
         """Get the ABFSS URI for the lakehouse Tables directory."""
         if self.spark_version == "local":
-            return f"file:///{Path.cwd()}/tmp/spark/Tables/"
+            return f"file://{Path.cwd()}/tmp/spark/Tables/"
         else:
             return f"abfss://{self._target_workspace_id}@onelake.dfs.fabric.microsoft.com/{self._target_lakehouse_id}/Tables/"
 
     def lakehouse_files_uri(self) -> str:
         """Get the ABFSS URI for the lakehouse Files directory."""
         if self.spark_version == "local":
-            return f"file:///{Path.cwd()}/tmp/spark/Files/"
+            return f"file://{Path.cwd()}/tmp/spark/Files/"
         else:
             return f"abfss://{self._target_workspace_id}@onelake.dfs.fabric.microsoft.com/{self._target_lakehouse_id}/Files/"
 
@@ -159,7 +159,7 @@ class lakehouse_utils(DataStoreInterface):
 
         # Register the table in the Hive catalog - Only needed if local
         if self.spark_version == "local":
-            print(
+            logging.debug(
                 f"⚠ Alert: Registering table '{table_full_name}' in the Hive catalog for local Spark."
             )
             full_table_path = f"{self.lakehouse_tables_uri()}{table_full_name}"
@@ -167,7 +167,7 @@ class lakehouse_utils(DataStoreInterface):
                 f"CREATE TABLE IF NOT EXISTS {table_full_name} USING DELTA LOCATION '{full_table_path}'"
             )
         else:
-            print(
+            logging.debug(
                 f"No need to register table '{table_full_name}' in Hive catalog for Fabric Spark."
             )
 
@@ -245,11 +245,43 @@ class lakehouse_utils(DataStoreInterface):
         self, table_name: str, schema_name: str | None = None
     ) -> dict[str, Any]:
         """
-        Get the schema/column definitions for a table.
+        Get the schema/column definitions for a table or view.
+        
+        This method automatically detects whether the table_name refers to:
+        - A Delta table in lakehouse storage
+        - A view or temporary view in Spark catalog
         """
-        df = self.spark.read.format("delta").load(
-            f"{self.lakehouse_tables_uri()}{table_name}"
-        )
+        # Construct full table name if schema is provided
+        full_table_name = f"{schema_name}.{table_name}" if schema_name else table_name
+        
+        # First, check if it's a view or temporary view in Spark catalog
+        try:
+            if self.spark.catalog.tableExists(full_table_name):
+                table_info = self.spark.catalog.getTable(full_table_name)
+                if table_info.tableType in ["VIEW", "TEMPORARY_VIEW"]:
+                    # It's a view - get schema from catalog
+                    df = self.spark.table(full_table_name)
+                else:
+                    # It's a table but check if it exists in lakehouse storage
+                    try:
+                        df = self.spark.read.format("delta").load(
+                            f"{self.lakehouse_tables_uri()}{table_name}"
+                        )
+                    except Exception:
+                        # Fall back to reading from catalog if Delta read fails
+                        df = self.spark.table(full_table_name)
+            else:
+                # Try reading as Delta table from lakehouse storage
+                df = self.spark.read.format("delta").load(
+                    f"{self.lakehouse_tables_uri()}{table_name}"
+                )
+        except Exception as e:
+            # Final fallback: try reading from Spark catalog
+            try:
+                df = self.spark.table(full_table_name)
+            except Exception:
+                raise Exception(f"Could not read schema for table '{full_table_name}' as Delta table or view: {e}")
+        
         return {field.name: field.dataType.simpleString() for field in df.schema.fields}
 
     def read_table(
@@ -261,11 +293,57 @@ class lakehouse_utils(DataStoreInterface):
         filters: dict[str, Any] | None = None,
     ) -> Any:
         """
-        Read data from a table, optionally filtering columns, rows, or limiting results.
+        Read data from a table or view, optionally filtering columns, rows, or limiting results.
+        
+        This method automatically detects whether the table_name refers to:
+        - A Delta table in lakehouse storage
+        - A view or temporary view in Spark catalog
         """
-        df = self.spark.read.format("delta").load(
-            f"{self.lakehouse_tables_uri()}{table_name}"
-        )
+        logging.debug(f"Reading table: {table_name} with schema: {schema_name}")
+        df = None
+        
+        # Construct full table name if schema is provided
+        full_table_name = f"{schema_name}.{table_name}" if schema_name else table_name
+        
+        # First, check if it's a view or temporary view in Spark catalog
+        try:
+            logging.debug(f"Checking existence in Spark catalog: {full_table_name}")
+            if self.spark.catalog.tableExists(full_table_name):
+                logging.debug(f"Getting Table info from Spark catalog: {full_table_name}")
+                table_info = self.spark.catalog.getTable(full_table_name)
+                logging.debug(f"Table catalog info - Name: {table_info.name}, Database: {table_info.database}, TableType: {table_info.tableType}")
+                if table_info.tableType in ["VIEW", "TEMPORARY_VIEW"]:
+                    # It's a view - read from catalog
+                    logging.debug(f"Reading as view from Spark catalog: {full_table_name}")
+                    df = self.spark.table(full_table_name)
+                else:
+                    # It's a table - try reading from catalog first (should have correct path now)
+                    try:
+                        logging.debug(f"Reading table from Spark catalog: {full_table_name}")
+                        df = self.spark.table(full_table_name)
+                        logging.info(f"Successfully read {table_name} from catalog")
+                    except Exception as catalog_error:
+                        logging.warning(f"Catalog read failed: {catalog_error}")
+                        # Fall back to reading directly from Delta storage
+                        logging.info(f"Attempting to read as Delta table from lakehouse storage: {self.lakehouse_tables_uri()}{table_name}")
+                        df = self.spark.read.format("delta").load(
+                            f"{self.lakehouse_tables_uri()}{table_name}"
+                        )
+            else:
+                logging.info(f"Table {full_table_name} does not exist in catalog, trying as Delta table...")
+                # Try reading as Delta table from lakehouse storage
+                df = self.spark.read.format("delta").load(
+                    f"{self.lakehouse_tables_uri()}{table_name}"
+                )
+        except Exception as e:
+            # Final fallback: try reading from Spark catalog one more time
+            try:
+                logging.warning(f"Final fallback: attempting to read from Spark catalog: {full_table_name}")
+                df = self.spark.table(full_table_name)
+            except Exception as final_error:
+                raise Exception(f"Could not read table '{full_table_name}' as Delta table or from catalog: {e}")
+        
+        # Apply optional filtering and column selection
         if columns:
             df = df.select(*columns)
         if filters:
@@ -358,12 +436,15 @@ class lakehouse_utils(DataStoreInterface):
         """
         table_path = f"{self.lakehouse_tables_uri()}{table_name}"
         delta_table = DeltaTable.forPath(self.spark, table_path)
+        print(f"Dropping table at path: {table_path}")    
         delta_table.delete()
-        # Optionally, remove the directory
-        import shutil
-
-        shutil.rmtree(table_path.replace("file://", ""), ignore_errors=True)
+        # Remove Directory
         if self.spark_version == "local":
+            import notebookutils # type: ignore  # noqa: I001
+            notebookutils.fs.rm(table_path, True)
+        else:
+            import shutil
+            shutil.rmtree(table_path.replace("file://", ""), ignore_errors=True)
             self.spark.sql(f"DROP TABLE IF EXISTS {table_name}")
 
     def list_schemas(self) -> list[str]:

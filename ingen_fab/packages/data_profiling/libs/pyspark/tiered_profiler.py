@@ -14,26 +14,46 @@ of data profiles while maintaining the ability to restart from any level.
 import hashlib
 import json
 import time
-from datetime import datetime
+from dataclasses import asdict, dataclass, field
+from datetime import date, datetime
+from enum import Enum
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Set, Tuple
-from dataclasses import dataclass, field, asdict
-from enum import Enum
 
+from delta.tables import DeltaTable
 from pyspark.sql import DataFrame, SparkSession
 from pyspark.sql import functions as F
-from pyspark.sql.types import StructType, StructField
-from delta.tables import DeltaTable
+from pyspark.sql.types import StructField, StructType
 
+# Try new imports first, fall back to old if not working yet
+try:
+    from ingen_fab.packages.data_profiling.runtime.core import (
+        ColumnProfile,
+        ColumnRelationship,
+        DatasetProfile,
+        NamingPattern,
+        ProfileType,
+        RelationshipType,
+        SemanticType,
+        ValueStatistics,
+    )
+    from ingen_fab.packages.data_profiling.runtime.core.interfaces.profiling_interface import (
+        DataProfilingInterface,
+    )
+except ImportError:
+    # Fall back to old import structure
+    from ingen_fab.packages.data_profiling.libs.interfaces.data_profiling_interface import (
+        ColumnProfile,
+        ColumnRelationship,
+        DataProfilingInterface,
+        DatasetProfile,
+        NamingPattern,
+        ProfileType,
+        RelationshipType,
+        SemanticType,
+        ValueStatistics,
+    )
 from ingen_fab.python_libs.pyspark.lakehouse_utils import lakehouse_utils
-from ingen_fab.python_libs.interfaces.data_profiling_interface import (
-    ColumnProfile,
-    DatasetProfile,
-    ProfileType,
-    SemanticType,
-    ValueStatistics,
-    NamingPattern,
-)
 
 
 class ScanLevel(Enum):
@@ -46,7 +66,7 @@ class ScanLevel(Enum):
 
 @dataclass
 class TableMetadata:
-    """Metadata for a discovered table."""
+    """Metadata for a discovered table. - This is the information returned at profile L1"""
     table_name: str
     table_path: str
     table_format: str = "delta"
@@ -65,7 +85,7 @@ class TableMetadata:
 
 @dataclass
 class SchemaMetadata:
-    """Schema metadata for a table."""
+    """Schema metadata for a table. This is the information returned at profile L2"""
     table_name: str
     column_count: int
     columns: List[Dict[str, str]] = field(default_factory=list)  # [{name, type, nullable}]
@@ -417,19 +437,23 @@ class ProfilePersistence:
         return completed
 
 
-class TieredProfiler:
+class TieredProfiler(DataProfilingInterface):
     """
     Tiered data profiler with 4 scan levels for progressive profiling.
     
     This profiler allows for incremental discovery and profiling of lakehouse
     tables with the ability to restart from any level.
+    
+    Implements DataProfilingInterface for compatibility with the registry system.
     """
     
     def __init__(
         self,
         lakehouse: Optional[lakehouse_utils] = None,
         table_prefix: str = "tiered_profile",
-        spark: Optional[SparkSession] = None
+        spark: Optional[SparkSession] = None,
+        exclude_views: bool = True,
+        force_rescan: bool = True
     ):
         """
         Initialize the tiered profiler.
@@ -438,7 +462,13 @@ class TieredProfiler:
             lakehouse: Optional lakehouse_utils instance
             table_prefix: Prefix for profile result tables in lakehouse
             spark: Optional SparkSession (will be created from lakehouse if not provided)
+            exclude_views: Whether to exclude views from profiling (default: True)
         """
+        if force_rescan:
+            self.resume = False
+        else:
+            self.resume = True
+
         if lakehouse:
             self.lakehouse = lakehouse
             self.spark = lakehouse.get_connection
@@ -471,13 +501,15 @@ class TieredProfiler:
                 spark=self.spark
             )
         
+        # Store configuration
+        self.exclude_views = exclude_views
+        
         # Initialize persistence with lakehouse
         self.persistence = ProfilePersistence(self.lakehouse, self.spark, table_prefix)
     
     def scan_level_1_discovery(
         self,
         table_paths: Optional[List[str]] = None,
-        resume: bool = True
     ) -> List[TableMetadata]:
         """
         Level 1 Scan: Fast discovery of delta tables (metadata only).
@@ -505,7 +537,7 @@ class TieredProfiler:
             tables_to_scan = self._discover_delta_tables()
         
         # Filter out already scanned tables if resuming
-        if resume:
+        if self.resume:
             completed = self.persistence.list_completed_tables(ScanLevel.LEVEL_1_DISCOVERY)
             tables_to_scan = [t for t in tables_to_scan if self._extract_table_name(t) not in completed]
             if completed:
@@ -559,6 +591,18 @@ class TieredProfiler:
             # Use lakehouse_utils list_tables method - much simpler!
             table_names = self.lakehouse.list_tables()
             
+            # Filter out views if exclude_views is True
+            if self.exclude_views:
+                filtered_tables = []
+                for table_name in table_names:
+                    if not self._is_view(table_name):
+                        filtered_tables.append(table_name)
+                table_names = filtered_tables
+                
+                if len(table_names) < len(self.lakehouse.list_tables()):
+                    excluded_count = len(self.lakehouse.list_tables()) - len(table_names)
+                    print(f"ℹ️  Excluded {excluded_count} views from profiling")
+            
             # Convert table names to full paths for consistency
             tables_uri = self.lakehouse.lakehouse_tables_uri()
             tables = [f"{tables_uri}{table_name}" for table_name in table_names]
@@ -567,6 +611,32 @@ class TieredProfiler:
         except Exception as e:
             print(f"  ⚠️  Could not discover tables using lakehouse_utils: {e}")
             return []
+    
+    def _is_view(self, table_name: str) -> bool:
+        """
+        Check if a table is a view.
+        
+        Args:
+            table_name: Name of the table to check
+            
+        Returns:
+            True if the table is a view, False otherwise
+        """
+        try:
+            # Use Spark catalog to check if it's a view
+            table_info = self.spark.catalog.getTable(table_name)
+            return table_info.tableType == "VIEW" or table_info.tableType == "TEMPORARY_VIEW"
+        except Exception:
+            try:
+                # Alternative method: check using SQL DESCRIBE command
+                describe_result = self.spark.sql(f"DESCRIBE EXTENDED `{table_name}`").collect()
+                for row in describe_result:
+                    if row.col_name == "Type" and "VIEW" in str(row.data_type).upper():
+                        return True
+                return False
+            except Exception:
+                # If we can't determine, assume it's a table (safer for profiling)
+                return False
     
     def _extract_table_name(self, table_path: str) -> str:
         """Extract table name from path."""
@@ -648,7 +718,7 @@ class TieredProfiler:
     def scan_level_2_schema(
         self,
         table_names: Optional[List[str]] = None,
-        resume: bool = True
+        
     ) -> List[SchemaMetadata]:
         """
         Level 2 Scan: Column metadata extraction.
@@ -677,7 +747,7 @@ class TieredProfiler:
             tables_to_scan = level_1_completed
         
         # Filter out already scanned tables if resuming
-        if resume:
+        if self.resume:
             completed = self.persistence.list_completed_tables(ScanLevel.LEVEL_2_SCHEMA)
             tables_to_scan = [t for t in tables_to_scan if t not in completed]
             if completed:
@@ -802,7 +872,6 @@ class TieredProfiler:
     def scan_level_3_profile(
         self,
         table_names: Optional[List[str]] = None,
-        resume: bool = True,
         sample_size: Optional[int] = None
     ) -> List[DatasetProfile]:
         """
@@ -837,7 +906,7 @@ class TieredProfiler:
             tables_to_scan = level_2_completed
         
         # Filter out already scanned tables if resuming
-        if resume:
+        if self.resume:
             completed = self.persistence.list_completed_tables(ScanLevel.LEVEL_3_PROFILE)
             tables_to_scan = [t for t in tables_to_scan if t not in completed]
             if completed:
@@ -1229,7 +1298,7 @@ class TieredProfiler:
             return 0.0
     
     def _save_profile_results(self, profile: DatasetProfile) -> None:
-        """Save Level 3 profile results to lakehouse."""
+        """Save profile results to lakehouse with full fidelity."""
         from pyspark.sql.types import StringType, LongType, TimestampType
         
         # Create profile table if it doesn't exist
@@ -1245,78 +1314,27 @@ class TieredProfiler:
             self.lakehouse.write_to_table(df, self.persistence.profile_table, mode="overwrite")
             print(f"  ✅ Created table: {self.persistence.profile_table}")
         
-        # Serialize profile to JSON
-        profile_dict = {
-            "table_name": profile.dataset_name,
-            "row_count": profile.row_count,
-            "column_count": profile.column_count,
-            "profile_timestamp": profile.profile_timestamp,
-            "column_profiles": []
-        }
+        # Helper function to safely convert values to JSON-serializable format
+        def safe_json_conversion(obj):
+            """Recursively convert objects to JSON-serializable format."""
+            if obj is None:
+                return None
+            elif hasattr(obj, 'isoformat'):  # datetime/date objects
+                return obj.isoformat()
+            elif isinstance(obj, (bool, int, float, str)):
+                return obj
+            elif isinstance(obj, dict):
+                return {str(k): safe_json_conversion(v) for k, v in obj.items()}
+            elif isinstance(obj, list):
+                return [safe_json_conversion(item) for item in obj]
+            else:
+                return str(obj)
         
-        for col_profile in profile.column_profiles:
-            # Helper function to safely convert values to JSON-serializable format
-            def safe_json_value(val):
-                if val is None:
-                    return None
-                elif hasattr(val, 'isoformat'):  # datetime/date objects
-                    return val.isoformat()
-                elif isinstance(val, (bool, int, float, str)):
-                    return val
-                else:
-                    return str(val)
-            
-            col_dict = {
-                "column_name": col_profile.column_name,
-                "data_type": col_profile.data_type,
-                "null_count": col_profile.null_count,
-                "null_percentage": col_profile.null_percentage,
-                "distinct_count": col_profile.distinct_count,
-                "distinct_percentage": col_profile.distinct_percentage,
-                "completeness": col_profile.completeness,
-                "uniqueness": col_profile.uniqueness,
-                "min_value": safe_json_value(col_profile.min_value),
-                "max_value": safe_json_value(col_profile.max_value),
-                "mean_value": col_profile.mean_value,
-                "median_value": col_profile.median_value,
-                "std_dev": col_profile.std_dev,
-                "entropy": col_profile.entropy,
-                "semantic_type": col_profile.semantic_type.value if col_profile.semantic_type else None,
-                "top_distinct_values": [safe_json_value(v) for v in col_profile.top_distinct_values[:10]] if col_profile.top_distinct_values else None
-            }
-            
-            # Add value statistics if present
-            if col_profile.value_statistics:
-                col_dict["value_statistics"] = {
-                    "selectivity": col_profile.value_statistics.selectivity,
-                    "is_unique_key": col_profile.value_statistics.is_unique_key,
-                    "is_constant": col_profile.value_statistics.is_constant,
-                    "dominant_value": safe_json_value(col_profile.value_statistics.dominant_value),
-                    "dominant_value_ratio": col_profile.value_statistics.dominant_value_ratio
-                }
-                if col_profile.value_statistics.numeric_distribution:
-                    col_dict["value_statistics"]["numeric_distribution"] = col_profile.value_statistics.numeric_distribution
-                if col_profile.value_statistics.value_length_stats:
-                    col_dict["value_statistics"]["value_length_stats"] = col_profile.value_statistics.value_length_stats
-            
-            # Add value distribution if present (also needs safe conversion)
-            if hasattr(col_profile, 'value_distribution') and col_profile.value_distribution:
-                col_dict["value_distribution"] = {
-                    safe_json_value(k): v for k, v in col_profile.value_distribution.items()
-                }
-            
-            # Add naming pattern if present
-            if col_profile.naming_pattern:
-                col_dict["naming_pattern"] = {
-                    "is_id_column": col_profile.naming_pattern.is_id_column,
-                    "is_foreign_key": col_profile.naming_pattern.is_foreign_key,
-                    "is_timestamp": col_profile.naming_pattern.is_timestamp,
-                    "is_status_flag": col_profile.naming_pattern.is_status_flag,
-                    "is_measurement": col_profile.naming_pattern.is_measurement,
-                    "confidence": col_profile.naming_pattern.naming_confidence
-                }
-            
-            profile_dict["column_profiles"].append(col_dict)
+        # Use enhanced serialization to maintain full fidelity
+        profile_dict = profile.to_dict()
+        
+        # Apply safe JSON conversion to ensure all values are serializable
+        profile_dict = safe_json_conversion(profile_dict)
         
         # Create DataFrame row
         row_data = [
@@ -1399,6 +1417,825 @@ class TieredProfiler:
         
         return summary
     
+    def profile_dataset(
+        self,
+        dataset: Any,
+        profile_type: ProfileType = ProfileType.BASIC,
+        columns: Optional[List[str]] = None,
+        sample_size: Optional[float] = None,
+    ) -> DatasetProfile:
+        """
+        Profile a dataset using the tiered profiling approach.
+        
+        This method provides compatibility with DataProfilingInterface.
+        Maps ProfileType to appropriate scan levels.
+        
+        Args:
+            dataset: Dataset to profile (table name or DataFrame)
+            profile_type: Type of profiling to perform
+            columns: Optional list of specific columns to profile
+            sample_size: Optional sampling fraction (0-1) for Level 3+
+            
+        Returns:
+            DatasetProfile with profiling results
+        """
+        # Convert dataset to table name if it's a string
+        if isinstance(dataset, str):
+            table_name = dataset
+        else:
+            # For DataFrames, create a temporary table
+            temp_table_name = f"_temp_profile_{hashlib.md5(str(id(dataset)).encode()).hexdigest()[:8]}"
+            dataset.createOrReplaceTempView(temp_table_name)
+            table_name = temp_table_name
+        
+        # Map ProfileType to scan levels
+        if profile_type == ProfileType.BASIC:
+            # Run Level 1 and 2 only
+            self.scan_level_1_discovery([table_name])
+            self.scan_level_2_schema([table_name])
+            
+            # Convert to DatasetProfile
+            table_metadata = self.persistence.load_table_metadata(table_name)
+            schema_metadata = self.persistence.load_schema_metadata(table_name)
+            
+            if not table_metadata or not schema_metadata:
+                raise ValueError(f"Failed to profile table {table_name}")
+            
+            # Build basic profile
+            column_profiles = []
+            for col_dict in schema_metadata.columns:
+                col_profile = ColumnProfile(
+                    column_name=col_dict["name"],
+                    data_type=col_dict["type"],
+                    null_count=0,  # Not available in basic scan
+                    null_percentage=0.0,
+                    distinct_count=0,  # Not available in basic scan
+                    distinct_percentage=0.0,
+                )
+                column_profiles.append(col_profile)
+            
+            return DatasetProfile(
+                dataset_name=table_name,
+                row_count=table_metadata.row_count or 0,
+                column_count=schema_metadata.column_count,
+                column_profiles=column_profiles,
+                profile_timestamp=datetime.now().isoformat(),
+            )
+        
+        elif profile_type in [ProfileType.STATISTICAL, ProfileType.DATA_QUALITY, ProfileType.FULL]:
+            # Run Level 1, 2, and 3
+            self.scan_level_1_discovery([table_name])
+            self.scan_level_2_schema([table_name])
+            profiles = self.scan_level_3_profile([table_name], sample_size=sample_size)
+            profiles_adv = self.scan_level_4_advanced([table_name])
+            
+            if profiles:
+                return profiles[0]
+            else:
+                raise ValueError(f"Failed to profile table {table_name}")
+        
+        elif profile_type == ProfileType.RELATIONSHIP:
+            # Run all levels including Level 4
+            self.scan_level_1_discovery([table_name])
+            self.scan_level_2_schema([table_name])
+            self.scan_level_3_profile([table_name], sample_size=sample_size)
+            advanced_profiles = self.scan_level_4_advanced([table_name])
+            
+            if advanced_profiles:
+                return advanced_profiles[0]
+            else:
+                # Fall back to Level 3 results
+                profiles = self.scan_level_3_profile([table_name], resume=False)
+                if profiles:
+                    return profiles[0]
+                else:
+                    raise ValueError(f"Failed to profile table {table_name}")
+        
+        else:
+            raise ValueError(f"Unsupported profile type: {profile_type}")
+    
+    def profile_column(
+        self, 
+        df: DataFrame, 
+        column_name: str, 
+        profile_type: ProfileType = ProfileType.BASIC
+    ) -> ColumnProfile:
+        """
+        Profile a single column.
+        
+        This method provides compatibility with DataProfilingInterface.
+        
+        Args:
+            df: DataFrame containing the column
+            column_name: Name of the column to profile
+            profile_type: Type of profiling to perform
+            
+        Returns:
+            ColumnProfile for the specified column
+        """
+        # Select the column to profile
+        column_df = df.select(column_name)
+        
+        # Get basic column information
+        column_type = str(column_df.schema[column_name].dataType)
+        
+        # Create basic column profile
+        column_profile = ColumnProfile(
+            column_name=column_name,
+            data_type=column_type
+        )
+        
+        if profile_type in [ProfileType.DETAILED, ProfileType.RELATIONSHIP]:
+            # For detailed profiling, compute statistics
+            try:
+                # Get basic stats
+                stats = column_df.describe(column_name).collect()
+                stats_dict = {row['summary']: row[column_name] for row in stats if row[column_name] is not None}
+                
+                # Update profile with statistics
+                if 'count' in stats_dict:
+                    column_profile.non_null_count = int(stats_dict['count'])
+                if 'mean' in stats_dict:
+                    column_profile.mean = float(stats_dict['mean'])
+                if 'min' in stats_dict:
+                    column_profile.min_value = stats_dict['min']
+                if 'max' in stats_dict:
+                    column_profile.max_value = stats_dict['max']
+                
+                # Calculate null count
+                total_count = column_df.count()
+                column_profile.null_count = total_count - (column_profile.non_null_count or 0)
+                
+                # Calculate distinct count for categorical columns
+                if column_profile.null_count < total_count / 2:  # Only if not too many nulls
+                    distinct_count = column_df.select(column_name).distinct().count()
+                    column_profile.distinct_count = distinct_count
+                    
+            except Exception as e:
+                print(f"Warning: Could not compute detailed statistics for column {column_name}: {e}")
+        
+        return column_profile
+    
+    def scan_level_4_advanced(
+        self,
+        table_names: Optional[List[str]] = None
+    ) -> List[DatasetProfile]:
+        """
+        Level 4 Scan: Advanced multi-pass profiling.
+        
+        This scan performs advanced analysis including:
+        - Cross-column correlations
+        - Relationship discovery
+        - Pattern detection
+        - Anomaly detection
+        - Business rule inference
+        
+        Args:
+            table_names: Optional list of specific tables to scan
+            resume: Whether to skip already scanned tables
+            
+        Returns:
+            List of DatasetProfile objects with advanced analytics
+        """
+        print("\n" + "="*60)
+        print("🔬 LEVEL 4 SCAN: Advanced Multi-Pass Analysis")
+        print("="*60)
+        
+        profiles = []
+        
+        # Get tables to scan
+        if table_names:
+            tables_to_scan = table_names
+        else:
+            # Get all tables that completed Level 3
+            level_3_completed = self.persistence.list_completed_tables(ScanLevel.LEVEL_3_PROFILE)
+            tables_to_scan = level_3_completed
+        
+        # Filter out already scanned tables if resuming
+        if self.resume:
+            completed = self.persistence.list_completed_tables(ScanLevel.LEVEL_4_ADVANCED)
+            tables_to_scan = [t for t in tables_to_scan if t not in completed]
+            if completed:
+                print(f"ℹ️  Skipping {len(completed)} already scanned tables")
+        
+        print(f"📊 Processing {len(tables_to_scan)} tables")
+        
+        for table_name in tables_to_scan:
+            print(f"\n  Advanced analysis for: {table_name}")
+            
+            start_time = time.time()
+            progress = self.persistence.load_progress(table_name) or ScanProgress(table_name=table_name)
+            
+            try:
+                # Load Level 3 profile
+                level_3_profile = self._load_level_3_profile(table_name)
+                if not level_3_profile:
+                    print("    ⚠️  No Level 3 profile found, skipping")
+                    continue
+                
+                # Perform advanced analysis
+                advanced_profile = self._perform_advanced_analysis(
+                    table_name,
+                    level_3_profile
+                )
+                
+                #self._save_profile_results(advanced_profile)
+                profiles.append(advanced_profile)
+                
+                # Update progress
+                duration_ms = int((time.time() - start_time) * 1000)
+                progress.level_4_completed = datetime.now()
+                progress.level_4_duration_ms = duration_ms
+                self.persistence.save_progress(progress)
+                
+                print(f"    ✅ Completed in {duration_ms}ms")
+                
+            except Exception as e:
+                import traceback
+                error_details = f"{str(e)}\nFile: {__file__}\nLine: {traceback.extract_tb(e.__traceback__)[-1].lineno}\n{traceback.format_exc()}"
+                print(f"    ❌ Error in Level 4 scan: {str(error_details)}")
+                progress.last_error = error_details
+                progress.last_error_time = datetime.now()
+                self.persistence.save_progress(progress)
+        
+        print(f"\n✨ Level 4 scan complete. Analyzed {len(profiles)} tables")
+        return profiles
+    
+    def _load_level_3_profile(self, table_name: str) -> Optional[DatasetProfile]:
+        """Load Level 3 profile from persistence with full fidelity."""
+        try:
+            df = self.lakehouse.read_table(self.persistence.profile_table)
+            result = df.filter(F.col("table_name") == table_name).collect()
+            
+            if result:
+                profile_data = json.loads(result[0].profile_data)
+                # Use enhanced deserialization to maintain full fidelity
+                return DatasetProfile.from_dict(profile_data)
+        except Exception as e:
+            print(f"    ⚠️  Could not load Level 3 profile: {e}")
+            import traceback
+            traceback.print_exc()
+        return None
+    
+    def _perform_advanced_analysis(
+        self,
+        table_name: str,
+        base_profile: DatasetProfile
+    ) -> DatasetProfile:
+        """Perform advanced multi-pass analysis on a table."""
+        # Read the table
+        df = self.lakehouse.read_table(table_name)
+        
+        # Enhanced profile with additional analytics - copy all base profile attributes
+        enhanced_profile = DatasetProfile(
+            dataset_name=base_profile.dataset_name,
+            row_count=base_profile.row_count,
+            column_count=base_profile.column_count,
+            column_profiles=base_profile.column_profiles.copy(),
+            profile_timestamp=datetime.now().isoformat(),
+            # Preserve all existing attributes from L3
+            data_quality_score=base_profile.data_quality_score,
+            correlations=base_profile.correlations,
+            anomalies=base_profile.anomalies,
+            recommendations=base_profile.recommendations,
+            null_count=base_profile.null_count,
+            duplicate_count=base_profile.duplicate_count,
+            statistics=base_profile.statistics,
+            data_quality_issues=base_profile.data_quality_issues,
+            entity_relationships=base_profile.entity_relationships,
+            semantic_summary=base_profile.semantic_summary.copy(),
+            business_glossary=base_profile.business_glossary.copy()
+        )
+        
+        # Add advanced statistics to each column
+        for col_profile in enhanced_profile.column_profiles:
+            col_name = col_profile.column_name
+            col_type = col_profile.data_type
+            
+            # Calculate percentiles for numeric columns
+            if self._is_numeric_type(col_type) and col_profile.distinct_count > 10:
+                percentiles = df.select(
+                    F.expr(f"percentile_approx({col_name}, 0.25)").alias("p25"),
+                    F.expr(f"percentile_approx({col_name}, 0.5)").alias("p50"),
+                    F.expr(f"percentile_approx({col_name}, 0.75)").alias("p75"),
+                ).collect()[0]
+                
+                col_profile.median_value = percentiles.p50
+                if not hasattr(col_profile, "percentiles") or col_profile.percentiles is None:
+                    col_profile.percentiles = {}
+                col_profile.percentiles[25] = percentiles.p25
+                col_profile.percentiles[50] = percentiles.p50
+                col_profile.percentiles[75] = percentiles.p75
+            
+            # Calculate entropy for categorical columns
+            if col_profile.distinct_count > 1 and col_profile.distinct_count < 1000:
+                col_profile.entropy = self._calculate_entropy_efficient(
+                    df, col_name, col_profile.distinct_count, base_profile.row_count
+                )
+            
+            # Get top values with frequencies
+            if col_profile.distinct_count < 100:
+                top_values = (
+                    df.groupBy(col_name)
+                    .count()
+                    .orderBy(F.desc("count"))
+                    .limit(10)
+                    .collect()
+                )
+                col_profile.top_distinct_values = [row[col_name] for row in top_values]
+                if not hasattr(col_profile, "value_distribution") or col_profile.value_distribution is None:
+                    col_profile.value_distribution = {}
+                for row in top_values:
+                    if row[col_name] is not None:
+                        col_profile.value_distribution[str(row[col_name])] = row["count"]
+        
+        # Detect relationships between columns
+        self._detect_column_relationships(enhanced_profile, df)
+        
+        # Calculate data quality score
+        enhanced_profile.data_quality_score = self._calculate_advanced_quality_score(
+            enhanced_profile
+        )
+        
+        return enhanced_profile
+    
+    def _detect_column_relationships(
+        self, 
+        profile: DatasetProfile, 
+        df: DataFrame
+    ) -> None:
+        """Detect relationships between columns."""
+        # Find potential key columns
+        key_columns = [
+            cp.column_name for cp in profile.column_profiles
+            if cp.uniqueness and cp.uniqueness > 0.95
+        ]
+        
+        # Find potential foreign key columns
+        fk_columns = [
+            cp.column_name for cp in profile.column_profiles
+            if cp.naming_pattern and cp.naming_pattern.is_foreign_key
+        ]
+        
+        # Analyze relationships
+        for fk_col in fk_columns:
+            for key_col in key_columns:
+                if fk_col != key_col:
+                    # Check value overlap
+                    fk_values = df.select(fk_col).distinct().count()
+                    key_values = df.select(key_col).distinct().count()
+                    
+                    if fk_values <= key_values:
+                        # Potential relationship
+                        relationship = ColumnRelationship(
+                            source_table=profile.dataset_name,
+                            source_column=fk_col,
+                            target_table=profile.dataset_name,
+                            target_column=key_col,
+                            relationship_type=RelationshipType.ONE_TO_MANY,
+                            confidence_score=0.7,
+                            overlap_percentage=(fk_values / key_values * 100) if key_values > 0 else 0,
+                            referential_integrity_score=0.7,  # Default value
+                            suggested_join_condition=f"{profile.dataset_name}.{fk_col} = {profile.dataset_name}.{key_col}"
+                        )
+                        
+                        # Find the column profile and add relationship
+                        for cp in profile.column_profiles:
+                            if cp.column_name == fk_col:
+                                if not hasattr(cp, "relationships"):
+                                    cp.relationships = []
+                                cp.relationships.append(relationship)
+                                break
+    
+    def _calculate_advanced_quality_score(
+        self, 
+        profile: DatasetProfile
+    ) -> float:
+        """Calculate an advanced data quality score."""
+        scores = []
+        
+        for cp in profile.column_profiles:
+            # Completeness score
+            completeness = cp.completeness if cp.completeness else 0
+            
+            # Uniqueness penalty for non-key columns
+            uniqueness_penalty = 0
+            if cp.semantic_type not in [SemanticType.IDENTIFIER, SemanticType.FOREIGN_KEY]:
+                if cp.uniqueness and cp.uniqueness > 0.9:
+                    uniqueness_penalty = 0.2  # Suspicious high uniqueness
+            
+            # Consistency score (based on patterns)
+            consistency = 1.0
+            if cp.naming_pattern:
+                consistency = cp.naming_pattern.naming_confidence
+            
+            column_score = (completeness * 0.7 + consistency * 0.3) - uniqueness_penalty
+            scores.append(max(0, min(1, column_score)))
+        
+        return sum(scores) / len(scores) if scores else 0.0
+    
+    def compare_profiles(self, profile1: DatasetProfile, profile2: DatasetProfile) -> Dict[str, Any]:
+        """
+        Compare two dataset profiles and return differences.
+        
+        Args:
+            profile1: First profile to compare
+            profile2: Second profile to compare
+            
+        Returns:
+            Dictionary containing comparison results
+        """
+        comparison = {
+            "profile1_timestamp": profile1.profile_timestamp,
+            "profile2_timestamp": profile2.profile_timestamp,
+            "row_count_change": profile2.row_count - profile1.row_count,
+            "row_count_change_pct": ((profile2.row_count - profile1.row_count) / profile1.row_count * 100) if profile1.row_count > 0 else 0,
+            "column_count_change": profile2.column_count - profile1.column_count,
+            "added_columns": [],
+            "removed_columns": [],
+            "changed_columns": [],
+            "quality_score_change": None,
+        }
+        
+        # Compare column profiles
+        cols1 = {cp.column_name: cp for cp in profile1.column_profiles}
+        cols2 = {cp.column_name: cp for cp in profile2.column_profiles}
+        
+        comparison["added_columns"] = [name for name in cols2.keys() if name not in cols1]
+        comparison["removed_columns"] = [name for name in cols1.keys() if name not in cols2]
+        
+        # Compare quality scores if available
+        if profile1.data_quality_score is not None and profile2.data_quality_score is not None:
+            comparison["quality_score_change"] = profile2.data_quality_score - profile1.data_quality_score
+        
+        # Check for column-level changes
+        for col_name in cols1.keys() & cols2.keys():  # Common columns
+            col1, col2 = cols1[col_name], cols2[col_name]
+            
+            # Check for significant changes
+            if (abs((col2.null_percentage or 0) - (col1.null_percentage or 0)) > 5 or
+                abs((col2.distinct_percentage or 0) - (col1.distinct_percentage or 0)) > 10):
+                comparison["changed_columns"].append({
+                    "column_name": col_name,
+                    "null_percentage_change": (col2.null_percentage or 0) - (col1.null_percentage or 0),
+                    "distinct_percentage_change": (col2.distinct_percentage or 0) - (col1.distinct_percentage or 0),
+                })
+        
+        return comparison
+    
+    def generate_quality_report(self, profile: DatasetProfile, format: str = "yaml") -> str:
+        """
+        Generate a quality report from a dataset profile.
+        
+        Args:
+            profile: Dataset profile to generate report from
+            format: Report format ('yaml', 'html', 'markdown', 'json')
+            
+        Returns:
+            String containing the formatted report
+        """
+        if format.lower() == "yaml":
+            return self._generate_yaml_report(profile)
+        elif format.lower() == "json":
+            return self._generate_json_report(profile)
+        elif format.lower() == "markdown":
+            return self._generate_markdown_report(profile)
+        elif format.lower() == "html":
+            return self._generate_html_report(profile)
+        else:
+            raise ValueError(f"Unsupported format: {format}")
+    
+    def suggest_data_quality_rules(self, profile: DatasetProfile) -> List[Dict[str, Any]]:
+        """
+        Suggest data quality rules based on a dataset profile.
+        
+        Args:
+            profile: Dataset profile to analyze
+            
+        Returns:
+            List of suggested quality rules
+        """
+        rules = []
+        
+        for col_profile in profile.column_profiles:
+            col_name = col_profile.column_name
+            
+            # Completeness rules
+            if col_profile.null_percentage is not None and col_profile.null_percentage < 5:
+                rules.append({
+                    "type": "completeness",
+                    "column": col_name,
+                    "rule": f"Column '{col_name}' should be at least 95% complete",
+                    "threshold": 0.95,
+                    "current_value": (100 - col_profile.null_percentage) / 100,
+                    "confidence": "high" if col_profile.null_percentage < 1 else "medium"
+                })
+            
+            # Uniqueness rules for potential keys
+            if (col_profile.uniqueness is not None and col_profile.uniqueness > 0.95 and
+                col_profile.naming_pattern and col_profile.naming_pattern.is_id_column):
+                rules.append({
+                    "type": "uniqueness",
+                    "column": col_name,
+                    "rule": f"Column '{col_name}' should be unique (appears to be an ID column)",
+                    "threshold": 1.0,
+                    "current_value": col_profile.uniqueness,
+                    "confidence": "high" if col_profile.uniqueness > 0.99 else "medium"
+                })
+            
+            # Value range rules for numeric columns
+            if (col_profile.min_value is not None and col_profile.max_value is not None and
+                self._is_numeric_type(col_profile.data_type)):
+                rules.append({
+                    "type": "value_range",
+                    "column": col_name,
+                    "rule": f"Column '{col_name}' values should be between {col_profile.min_value} and {col_profile.max_value}",
+                    "min_value": col_profile.min_value,
+                    "max_value": col_profile.max_value,
+                    "confidence": "medium"
+                })
+            
+            # Categorical value rules
+            if (col_profile.distinct_count is not None and col_profile.distinct_count <= 20 and
+                hasattr(col_profile, 'top_distinct_values') and col_profile.top_distinct_values):
+                rules.append({
+                    "type": "allowed_values",
+                    "column": col_name,
+                    "rule": f"Column '{col_name}' should contain only specific categorical values",
+                    "allowed_values": col_profile.top_distinct_values[:10],
+                    "confidence": "medium" if col_profile.distinct_count <= 10 else "low"
+                })
+        
+        return rules
+    
+    def validate_against_rules(self, dataset: Any, rules: List[Dict[str, Any]]) -> Dict[str, Any]:
+        """
+        Validate a dataset against quality rules.
+        
+        Args:
+            dataset: Dataset to validate (DataFrame or table name)
+            rules: List of validation rules
+            
+        Returns:
+            Dictionary containing validation results
+        """
+        # Convert dataset to DataFrame if needed
+        if isinstance(dataset, str):
+            df = self.lakehouse.read_table(dataset)
+            dataset_name = dataset
+        else:
+            df = dataset
+            dataset_name = "dataframe"
+        
+        validation_results = {
+            "dataset": dataset_name,
+            "validation_timestamp": datetime.now().isoformat(),
+            "total_rules": len(rules),
+            "passed_rules": 0,
+            "failed_rules": 0,
+            "violations": [],
+            "success_rate": 0.0
+        }
+        
+        for rule in rules:
+            rule_type = rule.get("type", "unknown")
+            column = rule.get("column")
+            
+            try:
+                if rule_type == "completeness" and column:
+                    # Check completeness
+                    total_rows = df.count()
+                    non_null_rows = df.filter(F.col(column).isNotNull()).count()
+                    completeness = non_null_rows / total_rows if total_rows > 0 else 0
+                    threshold = rule.get("threshold", 0.95)
+                    
+                    if completeness >= threshold:
+                        validation_results["passed_rules"] += 1
+                    else:
+                        validation_results["failed_rules"] += 1
+                        validation_results["violations"].append({
+                            "rule": rule.get("rule", f"Completeness check for {column}"),
+                            "type": rule_type,
+                            "column": column,
+                            "expected": threshold,
+                            "actual": completeness,
+                            "severity": "high" if completeness < threshold * 0.8 else "medium"
+                        })
+                
+                elif rule_type == "uniqueness" and column:
+                    # Check uniqueness
+                    total_rows = df.count()
+                    distinct_rows = df.select(column).distinct().count()
+                    uniqueness = distinct_rows / total_rows if total_rows > 0 else 0
+                    threshold = rule.get("threshold", 1.0)
+                    
+                    if uniqueness >= threshold:
+                        validation_results["passed_rules"] += 1
+                    else:
+                        validation_results["failed_rules"] += 1
+                        validation_results["violations"].append({
+                            "rule": rule.get("rule", f"Uniqueness check for {column}"),
+                            "type": rule_type,
+                            "column": column,
+                            "expected": threshold,
+                            "actual": uniqueness,
+                            "severity": "high"
+                        })
+                
+                elif rule_type == "value_range" and column:
+                    # Check value range
+                    min_val = rule.get("min_value")
+                    max_val = rule.get("max_value")
+                    
+                    if min_val is not None and max_val is not None:
+                        out_of_range = df.filter(
+                            (F.col(column) < min_val) | (F.col(column) > max_val)
+                        ).count()
+                        
+                        if out_of_range == 0:
+                            validation_results["passed_rules"] += 1
+                        else:
+                            validation_results["failed_rules"] += 1
+                            validation_results["violations"].append({
+                                "rule": rule.get("rule", f"Value range check for {column}"),
+                                "type": rule_type,
+                                "column": column,
+                                "violation_count": out_of_range,
+                                "severity": "medium"
+                            })
+                
+                elif rule_type == "allowed_values" and column:
+                    # Check allowed values
+                    allowed = rule.get("allowed_values", [])
+                    if allowed:
+                        invalid_values = df.filter(~F.col(column).isin(allowed)).count()
+                        
+                        if invalid_values == 0:
+                            validation_results["passed_rules"] += 1
+                        else:
+                            validation_results["failed_rules"] += 1
+                            validation_results["violations"].append({
+                                "rule": rule.get("rule", f"Allowed values check for {column}"),
+                                "type": rule_type,
+                                "column": column,
+                                "violation_count": invalid_values,
+                                "severity": "medium"
+                            })
+                else:
+                    # Unknown rule type - skip
+                    validation_results["passed_rules"] += 1
+                    
+            except Exception as e:
+                validation_results["failed_rules"] += 1
+                validation_results["violations"].append({
+                    "rule": rule.get("rule", "Unknown rule"),
+                    "type": rule_type,
+                    "column": column,
+                    "error": str(e),
+                    "severity": "high"
+                })
+        
+        # Calculate success rate
+        total_rules = validation_results["total_rules"]
+        if total_rules > 0:
+            validation_results["success_rate"] = (validation_results["passed_rules"] / total_rules) * 100
+        
+        return validation_results
+    
+    def _generate_yaml_report(self, profile: DatasetProfile) -> str:
+        """Generate a YAML format report."""
+        import yaml
+        
+        # Convert profile to dictionary for YAML serialization
+        def safe_convert(obj):
+            if hasattr(obj, '__dict__'):
+                if hasattr(obj, '__dataclass_fields__'):  # Dataclass
+                    return {k: safe_convert(v) for k, v in obj.__dict__.items()}
+                else:
+                    return str(obj)
+            elif hasattr(obj, 'value'):  # Enum
+                return obj.value
+            elif isinstance(obj, (datetime, date)):
+                return obj.isoformat()
+            elif isinstance(obj, list):
+                return [safe_convert(item) for item in obj]
+            elif isinstance(obj, dict):
+                return {k: safe_convert(v) for k, v in obj.items()}
+            else:
+                return obj
+        
+        profile_dict = safe_convert(profile)
+        return yaml.dump(profile_dict, default_flow_style=False, sort_keys=False)
+    
+    def _generate_json_report(self, profile: DatasetProfile) -> str:
+        """Generate a JSON format report."""
+        import json
+        
+        def json_serializer(obj):
+            if hasattr(obj, '__dict__'):
+                if hasattr(obj, '__dataclass_fields__'):
+                    return obj.__dict__
+                else:
+                    return str(obj)
+            elif hasattr(obj, 'value'):
+                return obj.value
+            elif isinstance(obj, (datetime, date)):
+                return obj.isoformat()
+            else:
+                return str(obj)
+        
+        return json.dumps(profile.__dict__, indent=2, default=json_serializer)
+    
+    def _generate_markdown_report(self, profile: DatasetProfile) -> str:
+        """Generate a Markdown format report."""
+        report = f"""# Data Profile Report
+
+**Dataset:** {profile.dataset_name}
+**Timestamp:** {profile.profile_timestamp}
+**Rows:** {profile.row_count:,}
+**Columns:** {profile.column_count}
+"""
+        
+        if profile.data_quality_score is not None:
+            report += f"**Quality Score:** {profile.data_quality_score:.2%}\n"
+        
+        report += "\n## Column Profiles\n\n"
+        
+        for col in profile.column_profiles:
+            report += f"### {col.column_name}\n"
+            report += f"- **Type:** {col.data_type}\n"
+            report += f"- **Null Count:** {col.null_count:,} ({col.null_percentage:.1f}%)\n"
+            report += f"- **Distinct Count:** {col.distinct_count:,} ({col.distinct_percentage:.1f}%)\n"
+            
+            if col.min_value is not None:
+                report += f"- **Min Value:** {col.min_value}\n"
+            if col.max_value is not None:
+                report += f"- **Max Value:** {col.max_value}\n"
+            if col.mean_value is not None:
+                report += f"- **Mean Value:** {col.mean_value:.2f}\n"
+            
+            report += "\n"
+        
+        return report
+    
+    def _generate_html_report(self, profile: DatasetProfile) -> str:
+        """Generate an HTML format report."""
+        html = f"""<!DOCTYPE html>
+<html>
+<head>
+    <title>Data Profile Report - {profile.dataset_name}</title>
+    <style>
+        body {{ font-family: Arial, sans-serif; margin: 40px; }}
+        .header {{ background: #f5f5f5; padding: 20px; border-radius: 5px; }}
+        .column {{ margin: 20px 0; padding: 15px; border: 1px solid #ddd; border-radius: 5px; }}
+        .metric {{ margin: 5px 0; }}
+        .quality-good {{ color: green; }}
+        .quality-warning {{ color: orange; }}
+        .quality-poor {{ color: red; }}
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>Data Profile Report</h1>
+        <p><strong>Dataset:</strong> {profile.dataset_name}</p>
+        <p><strong>Timestamp:</strong> {profile.profile_timestamp}</p>
+        <p><strong>Rows:</strong> {profile.row_count:,}</p>
+        <p><strong>Columns:</strong> {profile.column_count}</p>
+"""
+        
+        if profile.data_quality_score is not None:
+            quality_class = ("quality-good" if profile.data_quality_score > 0.9 
+                           else "quality-warning" if profile.data_quality_score > 0.7 
+                           else "quality-poor")
+            html += f'        <p><strong>Quality Score:</strong> <span class="{quality_class}">{profile.data_quality_score:.2%}</span></p>\n'
+        
+        html += """    </div>
+    
+    <h2>Column Profiles</h2>
+"""
+        
+        for col in profile.column_profiles:
+            html += f"""    <div class="column">
+        <h3>{col.column_name}</h3>
+        <div class="metric"><strong>Type:</strong> {col.data_type}</div>
+        <div class="metric"><strong>Null Count:</strong> {col.null_count:,} ({col.null_percentage:.1f}%)</div>
+        <div class="metric"><strong>Distinct Count:</strong> {col.distinct_count:,} ({col.distinct_percentage:.1f}%)</div>
+"""
+            
+            if col.min_value is not None:
+                html += f'        <div class="metric"><strong>Min Value:</strong> {col.min_value}</div>\n'
+            if col.max_value is not None:
+                html += f'        <div class="metric"><strong>Max Value:</strong> {col.max_value}</div>\n'
+            if col.mean_value is not None:
+                html += f'        <div class="metric"><strong>Mean Value:</strong> {col.mean_value:.2f}</div>\n'
+            
+            html += "    </div>\n"
+        
+        html += """</body>
+</html>"""
+        
+        return html
+
     def get_scan_results_df(self, scan_level: str = "metadata") -> Optional[DataFrame]:
         """
         Get scan results as a DataFrame for easy querying.

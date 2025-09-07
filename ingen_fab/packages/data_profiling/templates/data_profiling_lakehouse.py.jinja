@@ -23,34 +23,26 @@ config_lakehouse = lakehouse_utils(
     target_lakehouse_id=configs.config_lakehouse_id
 )
 
-# Map profile type string to enum
-profile_type_map = {
-    "basic": ProfileType.BASIC,
-    "statistical": ProfileType.STATISTICAL,
-    "data_quality": ProfileType.DATA_QUALITY,
-    "relationship": ProfileType.RELATIONSHIP,
-    "full": ProfileType.FULL
-}
-selected_profile_type = profile_type_map.get(profile_type.lower(), ProfileType.FULL)
 
-# Initialize profiler with spark from lakehouse_utils
-if enable_ultra_fast_mode:
-    print("⚡ Ultra-fast mode enabled - using single-pass profiling")
-    from ingen_fab.python_libs.pyspark.ultra_fast_profiler import UltraFastProfiler
-    profiler = UltraFastProfiler(config_lakehouse.spark)
-elif enable_performance_mode:
-    print("🚀 Performance mode enabled - using optimized profiling")
-    from ingen_fab.python_libs.pyspark.data_profiling_pyspark_optimized import OptimizedDataProfilingPySpark, ProfileConfig
-    
-    # Create performance config based on settings
-    perf_config = ProfileConfig(
-        max_top_values=top_values_limit,
-        max_correlation_columns=max_correlation_columns,
-        auto_sample_threshold=1_000_000 if auto_sample_large_tables else float('inf')
-    )
-    profiler = OptimizedDataProfilingPySpark(config_lakehouse.spark, perf_config)
-else:
-    profiler = DataProfilingPySpark(config_lakehouse.spark)
+# Initialize TieredProfiler (the only profiler available)
+print("⚡ Using TieredProfiler - progressive multi-level profiling for optimal performance")
+from ingen_fab.python_libs.pyspark.tiered_profiler import TieredProfiler
+profiler = TieredProfiler(
+    lakehouse=config_lakehouse, 
+    spark=config_lakehouse.spark,
+    exclude_views=exclude_views
+)
+
+# Determine which scan levels to run based on parameters
+if isinstance(scan_levels, str):
+    scan_levels = eval(scan_levels)  # Convert string "[1,2,3,4]" to list
+levels_to_run = [level for level in scan_levels if min_scan_level <= level <= max_scan_level]
+
+print(f"\n📊 Scan Level Configuration:")
+print(f"  • Levels to run: {levels_to_run}")
+print(f"  • Incremental scanning: {'Enabled' if enable_incremental else 'Disabled'}")
+print(f"  • Force rescan: {'Yes' if force_rescan else 'No'}")
+print(f"  • Sample size for Level 3+: {sample_size if sample_size else 'Full dataset'}")
 
 # Get list of tables to profile
 if target_tables:
@@ -61,58 +53,161 @@ else:
         config_df = config_lakehouse.read_table("config_data_profiling")
         active_configs = config_df.filter("active_yn = 'Y'").collect()
         tables_to_profile = [row.table_name for row in active_configs]
-        print(f"Found {len(tables_to_profile)} active tables to profile from configuration")
+        print(f"\n✅ Found {len(tables_to_profile)} active tables from config_data_profiling")
     except Exception as e:
-        print(f"No configuration table found, will profile all tables: {e}")
-        # Profile all tables in the lakehouse
-        tables_to_profile = config_lakehouse.list_tables()
-        print(f"Found {len(tables_to_profile)} tables in lakehouse")
+        print(f"\n⚠️  No configuration table found, discovering all tables")
+        # Get all tables in the lakehouse
+        all_tables = config_lakehouse.list_tables()
+        
+        if only_scan_new_tables and not force_rescan:
+            # Filter to only new tables not in metadata
+            try:
+                from ingen_fab.python_libs.pyspark.tiered_profiler import ScanLevel
+                existing_tables = profiler.persistence.list_completed_tables(ScanLevel.LEVEL_1_DISCOVERY)
+                tables_to_profile = [t for t in all_tables if t not in existing_tables]
+                print(f"✅ Found {len(tables_to_profile)} new tables to profile (out of {len(all_tables)} total)")
+            except:
+                tables_to_profile = all_tables
+                print(f"✅ Found {len(all_tables)} tables in lakehouse")
+        else:
+            tables_to_profile = all_tables
+            print(f"✅ Found {len(all_tables)} tables in lakehouse")
 
-# Profile each table
-profiling_results = []
+# Run progressive scan levels
 execution_id = str(uuid.uuid4())
-# Generate consistent timestamp for this profiling run (prepended format)
 run_timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
 
-for table_name in tables_to_profile:
+print(f"\n🚀 Starting TieredProfiler Progressive Scanning")
+print(f"   Execution ID: {execution_id}")
+print(f"   Tables to process: {len(tables_to_profile)}")
+print(f"   Timestamp: {run_timestamp}")
+
+# Import ScanLevel enum
+from ingen_fab.python_libs.pyspark.tiered_profiler import ScanLevel
+
+# Run each scan level progressively
+scan_results = {}
+
+# Level 1: Discovery
+if 1 in levels_to_run:
     print(f"\n{'='*60}")
-    print(f"Profiling table: {table_name}")
+    print("📍 LEVEL 1: Table Discovery")
     print(f"{'='*60}")
+    print(f"Scanning {len(tables_to_profile)} tables for basic metadata...")
     
     try:
-        # Read table
-        df = config_lakehouse.read_table(table_name)
-        
-        # Check table size for adaptive sampling
-        table_row_count = df.count()
-        effective_sample_size = sample_size
-        
-        # With UltraFast mode, we can handle large datasets without sampling
-        if auto_sample_large_tables and not sample_size and table_row_count > 1_000_000 and not enable_ultra_fast_mode:
-            if table_row_count > 50_000_000:
-                effective_sample_size = 0.01  # 1% for very large tables (>50M rows)
-            elif table_row_count > 10_000_000:
-                effective_sample_size = 0.05  # 5% for large tables (10M-50M rows)  
-            else:
-                effective_sample_size = 0.1   # 10% for medium-large tables (1M-10M rows)
-            
-            print(f"🎯 Auto-sampling enabled: {table_row_count:,} rows -> {effective_sample_size:.1%} sample")
-        elif enable_ultra_fast_mode and table_row_count > 1_000_000:
-            print(f"⚡ UltraFast mode: Processing full dataset ({table_row_count:,} rows) without sampling")
-        
-        # Profile dataset
-        profile = profiler.profile_dataset(
-            dataset=df,
-            profile_type=selected_profile_type,
-            sample_size=effective_sample_size
+        discovered = profiler.scan_level_1_discovery(
+            table_paths=tables_to_profile,
+            resume=enable_incremental and not force_rescan
         )
+        scan_results["level_1"] = discovered
+        print(f"✅ Level 1 complete: {len(discovered)} tables discovered")
         
+        # Update tables list if incremental
+        if enable_incremental and not force_rescan:
+            tables_to_profile = [t.table_name for t in discovered]
+    except Exception as e:
+        print(f"❌ Level 1 failed: {e}")
+        scan_results["level_1"] = []
+
+# Level 2: Schema Discovery  
+if 2 in levels_to_run:
+    print(f"\n{'='*60}")
+    print("📋 LEVEL 2: Schema Discovery")
+    print(f"{'='*60}")
+    
+    # Use discovered tables or original list
+    level_2_tables = [t.table_name for t in scan_results.get("level_1", [])] if scan_results.get("level_1") else tables_to_profile
+    print(f"Extracting schema for {len(level_2_tables)} tables...")
+    
+    try:
+        schemas = profiler.scan_level_2_schema(
+            table_names=level_2_tables,
+            resume=enable_incremental and not force_rescan
+        )
+        scan_results["level_2"] = schemas
+        print(f"✅ Level 2 complete: {len(schemas)} schemas extracted")
+    except Exception as e:
+        print(f"❌ Level 2 failed: {e}")
+        scan_results["level_2"] = []
+
+# Level 3: Detailed Profiling
+if 3 in levels_to_run:
+    print(f"\n{'='*60}")
+    print("📊 LEVEL 3: Detailed Column Profiling")
+    print(f"{'='*60}")
+    
+    # Use schema tables or original list
+    level_3_tables = [s.table_name for s in scan_results.get("level_2", [])] if scan_results.get("level_2") else tables_to_profile
+    print(f"Profiling {len(level_3_tables)} tables with detailed statistics...")
+    if sample_size:
+        print(f"   Using sample size: {sample_size:.1%}")
+    
+    try:
+        profiles = profiler.scan_level_3_profile(
+            table_names=level_3_tables,
+            sample_size=sample_size,
+            resume=enable_incremental and not force_rescan
+        )
+        scan_results["level_3"] = profiles
+        print(f"✅ Level 3 complete: {len(profiles)} tables profiled")
+    except Exception as e:
+        print(f"❌ Level 3 failed: {e}")
+        scan_results["level_3"] = []
+
+# Level 4: Advanced Analysis
+if 4 in levels_to_run:
+    print(f"\n{'='*60}")
+    print("🔬 LEVEL 4: Advanced Analysis & Relationship Discovery")
+    print(f"{'='*60}")
+    
+    # Use profiled tables or original list
+    level_4_tables = [p.dataset_name for p in scan_results.get("level_3", [])] if scan_results.get("level_3") else tables_to_profile
+    print(f"Running advanced analysis on {len(level_4_tables)} tables...")
+    print(f"   • Cross-column correlations")
+    print(f"   • Relationship discovery")
+    print(f"   • Pattern analysis")
+    
+    try:
+        advanced_profiles = profiler.scan_level_4_advanced(
+            table_names=level_4_tables,
+            resume=enable_incremental and not force_rescan
+        )
+        scan_results["level_4"] = advanced_profiles
+        print(f"✅ Level 4 complete: {len(advanced_profiles)} tables analyzed")
+    except Exception as e:
+        print(f"❌ Level 4 failed: {e}")
+        scan_results["level_4"] = []
+
+print(f"\n{'='*60}")
+print("📈 Scan Summary")
+print(f"{'='*60}")
+
+# Process results and generate reports
+profiling_results = []
+
+# Get final profiles from highest completed level
+final_profiles = []
+if scan_results.get("level_4"):
+    final_profiles = scan_results["level_4"]
+    print(f"Using Level 4 (Advanced) results for {len(final_profiles)} tables")
+elif scan_results.get("level_3"):
+    final_profiles = scan_results["level_3"]
+    print(f"Using Level 3 (Profile) results for {len(final_profiles)} tables")
+else:
+    print("⚠️  No detailed profiles available (Level 3+ required for reports)")
+
+# Generate reports for each profile
+for profile in final_profiles:
+    print(f"\n📄 Generating reports for: {profile.dataset_name}")
+    
+    try:
         # Add metadata
         profile_result = {
             "execution_id": execution_id,
-            "table_name": table_name,
+            "table_name": profile.dataset_name,
             "profile_timestamp": datetime.now().isoformat(),
-            "profile_type": profile_type,
+            "scan_levels_completed": levels_to_run,
             "profile": profile,
             "status": "success"
         }
@@ -122,9 +217,8 @@ for table_name in tables_to_profile:
             report = profiler.generate_quality_report(profile, output_format)
             profile_result["report"] = report
             
-            # Save report to Files with consistent timestamp (date/time prepended)
+            # Save report to Files with consistent timestamp
             if output_format in ["html", "yaml", "json", "markdown"]:
-                # Determine file extension
                 ext_map = {
                     "html": "html",
                     "yaml": "yaml", 
@@ -132,28 +226,26 @@ for table_name in tables_to_profile:
                     "markdown": "md"
                 }
                 extension = ext_map.get(output_format, "txt")
-                # Prepend timestamp to filename for better sorting
-                report_path = f"Files/profiling_reports/{run_timestamp}_{table_name}.{extension}"
+                report_path = f"Files/profiling_reports/{run_timestamp}_{profile.dataset_name}.{extension}"
                 config_lakehouse.write_string_to_file(
                     content=report,
                     file_path=report_path,
                     encoding="utf-8",
                     mode="overwrite"
                 )
-
-                print(f"Report saved to: {report_path}")
+                print(f"   ✅ Report saved: {report_path}")
         
-        # Generate YAML output separately if requested (independent of report format)
-        if generate_yaml_output and output_format != "yaml":  # Avoid duplicate if already generating YAML
-            yaml_report = profiler._generate_yaml_report(profile)
-            yaml_path = f"Files/profiling_reports/{run_timestamp}_{table_name}.yaml"
+        # Generate YAML output separately if requested
+        if generate_yaml_output and output_format != "yaml":
+            yaml_report = profiler.generate_quality_report(profile, "yaml")
+            yaml_path = f"Files/profiling_reports/{run_timestamp}_{profile.dataset_name}.yaml"
             config_lakehouse.write_string_to_file(
                 content=yaml_report,
                 file_path=yaml_path,
                 encoding="utf-8",
                 mode="overwrite"
             )
-            print(f"YAML output saved to: {yaml_path}")
+            print(f"   ✅ YAML saved: {yaml_path}")
         
         # Calculate data quality score
         if profile.data_quality_score is not None:
@@ -162,82 +254,113 @@ for table_name in tables_to_profile:
         profiling_results.append(profile_result)
         
         # Display summary
-        print(f"✅ Profiling complete for {table_name}")
-        print(f"  Rows: {profile.row_count:,}")
-        print(f"  Columns: {profile.column_count}")
+        print(f"   ✅ Profile complete:")
+        print(f"      • Rows: {profile.row_count:,}")
+        print(f"      • Columns: {profile.column_count}")
         if profile.data_quality_score:
-            print(f"  Quality Score: {profile.data_quality_score:.2%}")
+            print(f"      • Quality Score: {profile.data_quality_score:.2%}")
+        
+        profiling_results.append(profile_result)
         
     except Exception as e:
         import traceback
-        print(f"❌ Error profiling {table_name}: {e}")
-        print("Stack trace:")
+        print(f"   ❌ Error generating report: {e}")
         traceback.print_exc()
         profiling_results.append({
             "execution_id": execution_id,
-            "table_name": table_name,
+            "table_name": profile.dataset_name,
             "profile_timestamp": datetime.now().isoformat(),
             "status": "failed",
             "error": str(e)
         })
 
-# Cross-table relationship discovery (if relationship profile type was used)
-if selected_profile_type in [ProfileType.RELATIONSHIP, ProfileType.FULL] and cross_profile_available:
-    print(f"\n{'='*60}")
-    print("Cross-Table Relationship Discovery")
-    print(f"{'='*60}")
+# Final Summary
+print(f"\n{'='*60}")
+print("🎯 PROFILING COMPLETE - FINAL SUMMARY")
+print(f"{'='*60}")
+
+# Calculate statistics
+successful_profiles = [r for r in profiling_results if r.get("status") == "success"]
+failed_profiles = [r for r in profiling_results if r.get("status") == "failed"]
+
+print(f"\n📊 Execution Statistics:")
+print(f"   • Total tables processed: {len(tables_to_profile)}")
+print(f"   • Scan levels executed: {levels_to_run}")
+print(f"   • Successful profiles: {len(successful_profiles)}")
+print(f"   • Failed profiles: {len(failed_profiles)}")
+print(f"   • Incremental mode: {'Enabled' if enable_incremental else 'Disabled'}")
+
+# Show scan level results
+print(f"\n📈 Scan Level Results:")
+for level in range(1, 5):
+    if level in levels_to_run:
+        level_key = f"level_{level}"
+        if level_key in scan_results:
+            count = len(scan_results[level_key])
+            print(f"   • Level {level}: {count} tables processed")
+
+# Show quality scores if available (Level 3+)
+if final_profiles and hasattr(final_profiles[0], 'data_quality_score'):
+    quality_scores = [p.data_quality_score for p in final_profiles if p.data_quality_score is not None]
+    if quality_scores:
+        avg_quality = sum(quality_scores) / len(quality_scores)
+        print(f"\n🏆 Data Quality:")
+        print(f"   • Average Quality Score: {avg_quality:.2%}")
+        print(f"   • Tables with scores: {len(quality_scores)}")
+
+# Show relationship discovery results if Level 4 was run
+if 4 in levels_to_run and scan_results.get("level_4"):
+    print(f"\n🔗 Advanced Analysis (Level 4):")
+    level_4_results = scan_results["level_4"]
+    total_relationships = 0
+    total_correlations = 0
     
-    try:
-        # Collect successful profiles for relationship analysis
-        relationship_profiles = {}
-        for result in profiling_results:
-            if result["status"] == "success":
-                profile = result["profile"]
-                relationship_profiles[result["table_name"]] = profile
+    for profile in level_4_results:
+        if hasattr(profile, 'relationships') and profile.relationships:
+            total_relationships += len(profile.relationships)
+        if hasattr(profile, 'correlations') and profile.correlations:
+            # Count correlation pairs
+            for col_corr in profile.correlations.values():
+                total_correlations += len(col_corr)
+    
+    if total_relationships > 0:
+        print(f"   • Cross-table relationships discovered: {total_relationships}")
+    if total_correlations > 0:
+        print(f"   • Column correlations found: {total_correlations}")
+            
+        # Display high-confidence relationships
+        high_confidence = [r for r in relationships if r.confidence >= 0.7]
+        if high_confidence:
+            print(f"\n🏆 High Confidence Relationships ({len(high_confidence)}):")
+            for rel in high_confidence[:10]:  # Show top 10
+                print(f"  • {rel.source_table}.{rel.source_column.column_name} → "
+                        f"{rel.target_table}.{rel.target_column.column_name} "
+                        f"(confidence: {rel.confidence:.2f})")
+                if rel.evidence:
+                    print(f"    Evidence: {', '.join(rel.evidence[:3])}")
         
-        if len(relationship_profiles) >= 2:
-            print(f"Analyzing relationships across {len(relationship_profiles)} tables...")
+        # Generate relationship report
+        if relationships:
+            relationship_report = analyzer.generate_relationship_report(relationships)
             
-            # Initialize cross-profile analyzer
-            analyzer = CrossProfileAnalyzer(min_confidence=0.5)
-            
-            # Discover relationships
-            relationships = analyzer.analyze_profiles(relationship_profiles)
-            
-            print(f"✅ Discovered {len(relationships)} potential relationships")
-            
-            # Display high-confidence relationships
-            high_confidence = [r for r in relationships if r.confidence >= 0.7]
-            if high_confidence:
-                print(f"\n🏆 High Confidence Relationships ({len(high_confidence)}):")
-                for rel in high_confidence[:10]:  # Show top 10
-                    print(f"  • {rel.source_table}.{rel.source_column.column_name} → "
-                          f"{rel.target_table}.{rel.target_column.column_name} "
-                          f"(confidence: {rel.confidence:.2f})")
-                    if rel.evidence:
-                        print(f"    Evidence: {', '.join(rel.evidence[:3])}")
-            
-            # Generate relationship report
-            if relationships:
-                relationship_report = analyzer.generate_relationship_report(relationships)
-                
-                # Save relationship report to Files with consistent timestamp
-                relationship_report_path = f"Files/profiling_reports/{run_timestamp}_cross_table_relationships.md"
-                config_lakehouse.write_string_to_file(
-                    content=relationship_report,
-                    file_path=relationship_report_path,
-                    encoding="utf-8",
-                    mode="overwrite"
-                )
-                print(f"📄 Relationship report saved to: {relationship_report_path}")
-        else:
+            # Save relationship report to Files with consistent timestamp
+            relationship_report_path = f"Files/profiling_reports/{run_timestamp}_cross_table_relationships.md"
+            config_lakehouse.write_string_to_file(
+                content=relationship_report,
+                file_path=relationship_report_path,
+                encoding="utf-8",
+                mode="overwrite"
+            )
+            print(f"📄 Relationship report saved to: {relationship_report_path}")
+    else:
             print("⚠️ Need at least 2 tables for cross-table relationship analysis")
             
-    except Exception as e:
-        import traceback
-        print(f"❌ Error in cross-table relationship discovery: {e}")
-        print("Stack trace:")
-        traceback.print_exc()
+
+
+print(f"\n✅ Profiling session completed successfully!")
+print(f"   Execution ID: {execution_id}")
+print(f"   Timestamp: {run_timestamp}")
+
 
 # Save results to catalog if requested
 if save_to_catalog and profiling_results:
