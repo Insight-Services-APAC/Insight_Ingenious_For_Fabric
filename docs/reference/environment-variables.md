@@ -19,6 +19,7 @@ Reference for environment variables used by the CLI and deploy workflows.
 | `POSTGRES_PORT` | Local testing | PostgreSQL port (default: 5432) | `5432` |
 | `POSTGRES_USER` | Local testing | PostgreSQL user (default: postgres) | `postgres` |
 | `POSTGRES_DATABASE` | Local testing | PostgreSQL database name (default: local) | `local` |
+| `WORKSPACE_MANIFEST_LOCATION` | Remote manifest file | Used to allow manifest file to be stored in config lakehouse | `config_lakehouse`, `local` |
 
 Notes:
 - The CLI falls back to `FABRIC_WORKSPACE_REPO_DIR` and `FABRIC_ENVIRONMENT` if not provided by flags.
