@@ -513,7 +513,7 @@ class OneLakeUtils:
             )
             self.console.print(panel)
 
-        # Upload all files with "python_libs" prefix
+        # Upload all dbt project files
         return self.upload_directory_to_lakehouse(
             lakehouse_id=config_lakehouse_id,
             directory_path=str(dbt_project_path),
