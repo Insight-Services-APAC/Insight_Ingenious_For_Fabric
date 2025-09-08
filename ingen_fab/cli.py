@@ -363,6 +363,25 @@ def upload_python_libs(ctx: typer.Context):
         console=console,
     )
 
+@deploy_app.command()
+def upload_dbt_project(
+    ctx: typer.Context,
+    dbt_project: Annotated[
+        str,
+        typer.Option(
+            "--dbt-project",
+            "-p",
+            help="Name of the dbt project subdirectory (appended to the base project path)"
+        )
+    ]
+):
+    """Sync a dbt project's files to the Fabric config lakehouse."""
+    deploy_commands.upload_dbt_project_to_config_lakehouse(
+        environment=ctx.obj["fabric_environment"],
+        dbt_project_name=dbt_project,
+        project_path=ctx.obj["fabric_workspace_repo_dir"],
+        console=console,
+    )
 
 @deploy_app.command("get-metadata")
 def deploy_get_metadata(

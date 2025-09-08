@@ -18,6 +18,8 @@ from ingen_fab.config_utils.variable_lib_factory import (
 )
 from ingen_fab.fabric_api.utils import FabricApiUtils
 
+import os
+
 try:
     from rich.console import Console
 
@@ -154,6 +156,85 @@ class OneLakeUtils:
                 f"Could not find lakehouse name for ID: {lakehouse_id} in workspace: {self.workspace_id}"
             )
         return lakehouse_name
+
+    def download_file_from_lakehouse(
+        self,
+        lakehouse_id: str,
+        file_path: str,
+        source_path: str = None,
+        *,
+        service_client: Optional[DataLakeServiceClient] = None,
+        file_system_client: Optional[FileSystemClient] = None,
+        verbose: bool = True,
+    ) -> dict:
+        """
+        Download a file from a lakehouse's Files section using Azure Storage SDK.
+
+        Args:
+            lakehouse_id: ID of the source lakehouse
+            file_path: Local path to the file to download
+            source_path: Path in the lakehouse (defaults to filename)
+            verbose: Whether to show individual file upload messages (default: True)
+
+        Returns:
+            Dictionary with upload result information
+        """
+        file_path_obj = Path(file_path)
+
+        #if not file_path_obj.exists():
+        #    raise FileNotFoundError(f"File not found: {file_path}")
+
+        if source_path is None:
+            source_path = file_path_obj.name
+
+        try:
+            # Use provided clients or create new ones
+            if service_client is None:
+                service_client = self._get_datalake_service_client()
+
+            if file_system_client is None:
+                workspace_name = self.workspace_name
+                file_system_client = service_client.get_file_system_client(
+                    workspace_name
+                )
+
+            # Get lakehouse name and construct the full path: {lakehouse_name}.Lakehouse/Files/{target_path}
+            lakehouse_name = self._get_lakehouse_name(lakehouse_id)
+            full_source_path = (
+                f"{lakehouse_name}.Lakehouse/Files/{source_path}".replace("\\", "/")
+            )
+
+            file_client = file_system_client.get_file_client(full_source_path)
+
+            if verbose and self.console:
+                self.console.print(
+                    f"[cyan]Uploading:[/cyan] {Path(file_path).name} → OneLake"
+                )
+
+            download = file_client.download_file()
+            
+            with open(file_path_obj, "wb") as my_file:
+                downloaded_bytes = download.readinto(my_file)
+
+            if verbose:
+                self.msg_helper.print_success(f"Downloaded {full_source_path}")
+            return {
+                "success": True,
+                "local_path": str(file_path),
+                "remote_path": full_source_path,
+                "lakehouse_id": lakehouse_id,
+            }
+
+        except Exception as e:
+            error_msg = f"Failed to download {full_source_path}: {str(e)}"
+            if verbose:
+                self.msg_helper.print_error(error_msg)
+            return {
+                "success": False,
+                "local_path": str(file_path),
+                "remote_path": source_path,
+                "error": error_msg,
+            }
 
     def upload_file_to_lakehouse(
         self,
@@ -414,6 +495,60 @@ class OneLakeUtils:
             self.console.print(panel)
         return upload_results
 
+    def upload_manifest_file_to_config_lakehouse(
+        self, manifest_file_path: str = None
+    ) -> dict:
+        path_and_file = os.path.split(manifest_file_path)
+
+        directory_path = path_and_file[0]
+        file_name = path_and_file[1]
+
+        root_path = str(Path.cwd())
+
+        manifest_file_path_full = root_path + "\\" + directory_path + "\\" + file_name
+        
+        target_path = "ingen_fab/manifest/"+file_name
+        
+        service_client=self._get_datalake_service_client()
+        file_system_client = service_client.get_file_system_client(self.workspace_name)
+        lakehouse_id = self.get_config_lakehouse_id()
+
+        return self.upload_file_to_lakehouse(
+            lakehouse_id,
+            manifest_file_path_full,
+            target_path,
+            service_client=service_client,
+            file_system_client=file_system_client,
+            verbose=False, 
+        )
+
+    def download_manifest_file_from_config_lakehouse(
+        self, manifest_file_path: str = None
+    ) -> dict:
+        path_and_file = os.path.split(manifest_file_path)
+
+        directory_path = path_and_file[0]
+        file_name = path_and_file[1]
+
+        root_path = str(Path.cwd())
+
+        manifest_file_path_full = root_path + "\\" + directory_path + "\\" + file_name
+        
+        target_path = "ingen_fab/manifest/"+file_name
+        
+        service_client=self._get_datalake_service_client()
+        file_system_client = service_client.get_file_system_client(self.workspace_name)
+        lakehouse_id = self.get_config_lakehouse_id()
+
+        return self.download_file_from_lakehouse(
+            lakehouse_id,
+            manifest_file_path_full,
+            target_path,
+            service_client=service_client,
+            file_system_client=file_system_client,
+            verbose=False, 
+        )
+
     def upload_python_libs_to_config_lakehouse(
         self, python_libs_path: str = None
     ) -> dict:
@@ -494,6 +629,60 @@ class OneLakeUtils:
             #results["skipped"].extend(runtime_results["skipped"])
         
         return results
+    
+    def upload_dbt_project_to_config_lakehouse(
+        self, dbt_project_name: str, dbt_project_path: str = None
+    ) -> dict:
+        """
+        Upload the dbt project directory to the config lakehouse's Files section.
+
+        Args:
+            dbt_project_path: Path to the dbt project directory (defaults to standard location)
+
+        Returns:
+            Dictionary with upload results
+        """
+        if dbt_project_path is None:
+            # Default to the standard dbt project location
+            current_dir = Path(__file__).parent
+            dbt_project_path = current_dir.parent
+
+        dbt_project_path = Path(dbt_project_path) / dbt_project_name
+
+        if not dbt_project_path.exists():
+            raise ValueError(f"dbt project directory not found: {dbt_project_path}")
+
+        # Get config lakehouse ID
+        config_lakehouse_id = self.get_config_lakehouse_id()
+
+        # Show upload info with rich formatting
+        self.msg_helper.print_info(
+            f"Uploading dbt project from: {dbt_project_path.name}"
+        )
+
+        if self.console:
+            from rich.panel import Panel
+
+            info_content = (
+                f"[cyan]Source:[/cyan] {dbt_project_path}\n"
+                f"[cyan]Target lakehouse ID:[/cyan] {config_lakehouse_id}\n"
+                f"[cyan]Target path:[/cyan] {dbt_project_name}"
+            )
+            panel = Panel(
+                info_content,
+                title="[bold]Upload Configuration[/bold]",
+                border_style="cyan",
+            )
+            self.console.print(panel)
+
+        # Upload all dbt project files
+        return self.upload_directory_to_lakehouse(
+            lakehouse_id=config_lakehouse_id,
+            directory_path=str(dbt_project_path),
+            target_prefix=f"{dbt_project_name}",
+            service_client=self._get_datalake_service_client(),
+            include_extensions=[".sql", ".yml", ".yaml", ".md", ".csv"],
+        )
 
     def list_lakehouse_files(
         self,
