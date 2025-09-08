@@ -292,6 +292,6 @@ console.print(f"[debug]Saved preference: {saved_prefix}")
 
 ## Related Components
 
-- [dbt_commands.py](../api/dbt_commands.md) - DBT command implementations
+<!-- - [dbt_commands.py](../api/dbt_commands.md) - DBT command implementations -->
 - [Variable Library](variable_replacement.md) - Configuration management
-- [CLI Architecture](../api/cli.md) - Command-line interface structure
+<!-- - [CLI Architecture](../api/cli.md) - Command-line interface structure -->
