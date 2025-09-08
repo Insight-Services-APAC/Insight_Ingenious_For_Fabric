@@ -14,6 +14,8 @@ class OutputFormat(str, Enum):
     json = "json"
     html = "html"
     markdown = "markdown"
+    yaml = "yaml"
+    yaml_llm = "yaml_llm"
 
 
 class ProfileLevel(str, Enum):
@@ -348,6 +350,127 @@ def compile(
             
     except Exception as e:
         typer.echo(f"❌ Error compiling package: {e}", err=True)
+        raise typer.Exit(code=1)
+
+
+@app.command()
+def export(
+    table_name: str = typer.Argument(..., help="Table name to export profile for"),
+    output_file: Path = typer.Argument(..., help="Output file path (e.g., profile.yaml)"),
+    format: OutputFormat = typer.Option(OutputFormat.yaml, "--format", "-f", help="Export format"),
+    detail_level: str = typer.Option("standard", "--detail", "-d", help="Detail level: summary, standard, or full"),
+    environment: Optional[str] = typer.Option(None, "--env", "-e", help="Environment to use")
+):
+    """Export profile data to YAML or other formats for portability and LLM use."""
+    try:
+        from ingen_fab.packages.data_profiling.runtime.utils.profile_explorer import ProfileExplorer
+        from ingen_fab.packages.data_profiling.runtime.utils.yaml_exporter import ProfileYamlExporter
+        from ingen_fab.python_libs.pyspark.lakehouse_utils import lakehouse_utils
+        import ingen_fab.python_libs.common.config_utils as cu
+        
+        # Get config lakehouse utils
+        configs = cu.get_configs_as_object()
+        config_lakehouse = lakehouse_utils(
+            target_workspace_id=configs.config_workspace_id,
+            target_lakehouse_id=configs.config_lakehouse_id
+        )
+        
+        # Create persistence and explorer
+        from ingen_fab.packages.data_profiling.runtime.persistence.enhanced_lakehouse_persistence import EnhancedLakehousePersistence
+        persistence = EnhancedLakehousePersistence(
+            lakehouse=config_lakehouse,
+            spark=config_lakehouse.spark
+        )
+        explorer = ProfileExplorer(lakehouse=config_lakehouse, persistence=persistence)
+        
+        # First check if profile exists
+        profile = explorer._load_profile_object(table_name)
+        if not profile:
+            typer.echo(f"_load_profile_object - ❌ No profile found for table: {table_name}", err=True)
+            typer.echo(f"💡 Tip: Run 'ingen_fab profile dataset {table_name}' to create a profile first", err=True)
+            raise typer.Exit(code=1)
+        
+        # Export based on format
+        if format.value == "yaml_llm":
+            typer.echo(f"📤 Exporting LLM-optimized profile for {table_name}...")
+            explorer.export_to_yaml(table_name, str(output_file), llm_optimized=True)
+            typer.echo(f"✅ LLM-optimized YAML exported to: {output_file}")
+        elif format.value == "yaml":
+            typer.echo(f"📤 Exporting profile for {table_name} (detail: {detail_level})...")
+            explorer.export_to_yaml(table_name, str(output_file), detail_level=detail_level)
+            typer.echo(f"✅ Profile YAML exported to: {output_file}")
+        elif format.value == "markdown":
+            typer.echo(f"📤 Exporting schema documentation for {table_name}...")
+            explorer.export_schema_docs(table_name, str(output_file), format="markdown")
+            typer.echo(f"✅ Markdown documentation exported to: {output_file}")
+        else:
+            # For JSON format, export directly
+            if format.value == "json":
+                import json
+                with open(output_file, 'w') as f:
+                    json.dump(profile.to_dict(), f, indent=2, default=str)
+                typer.echo(f"✅ Profile JSON exported to: {output_file}")
+        
+        # Show file size if file was created
+        if output_file.exists():
+            file_size = output_file.stat().st_size
+            typer.echo(f"📊 File size: {file_size:,} bytes")
+        else:
+            typer.echo(f"⚠️ File was not created", err=True)
+        
+    except Exception as e:
+        typer.echo(f"❌ Error exporting profile: {e}", err=True)
+        raise typer.Exit(code=1)
+
+
+@app.command()
+def import_yaml(
+    yaml_file: Path = typer.Argument(..., help="YAML file to import"),
+    table_name: Optional[str] = typer.Option(None, "--table", "-t", help="Override table name from YAML"),
+    environment: Optional[str] = typer.Option(None, "--env", "-e", help="Environment to use")
+):
+    """Import profile data from a YAML file."""
+    try:
+        from ingen_fab.packages.data_profiling.runtime.utils.yaml_exporter import ProfileYamlExporter
+        from ingen_fab.packages.data_profiling.runtime.persistence.enhanced_lakehouse_persistence import EnhancedLakehousePersistence
+        from ingen_fab.python_libs.pyspark.lakehouse_utils import lakehouse_utils
+        import ingen_fab.python_libs.common.config_utils as cu
+        
+        if not yaml_file.exists():
+            typer.echo(f"❌ YAML file not found: {yaml_file}", err=True)
+            raise typer.Exit(code=1)
+        
+        # Get config lakehouse utils
+        configs = cu.get_configs_as_object()
+        config_lakehouse = lakehouse_utils(
+            target_workspace_id=configs.config_workspace_id,
+            target_lakehouse_id=configs.config_lakehouse_id
+        )
+        
+        # Import profile from YAML
+        typer.echo(f"📥 Importing profile from {yaml_file}...")
+        exporter = ProfileYamlExporter()
+        profile = exporter.import_profile_from_yaml(str(yaml_file))
+        
+        # Override table name if provided
+        if table_name:
+            profile.dataset_name = table_name
+        
+        # Save to persistence layer
+        persistence = EnhancedLakehousePersistence(
+            lakehouse=config_lakehouse,
+            spark=config_lakehouse.spark
+        )
+        persistence.save_profile(profile)
+        
+        typer.echo(f"✅ Profile imported for table: {profile.dataset_name}")
+        typer.echo(f"  Rows: {profile.row_count:,}")
+        typer.echo(f"  Columns: {profile.column_count}")
+        if profile.data_quality_score:
+            typer.echo(f"  Quality Score: {profile.data_quality_score:.1f}/100")
+        
+    except Exception as e:
+        typer.echo(f"❌ Error importing profile: {e}", err=True)
         raise typer.Exit(code=1)
 
 

@@ -4,7 +4,7 @@ from typing import Any, Dict, Optional
 from pyspark.sql import SparkSession
 
 from ..core.interfaces.persistence_interface import PersistenceInterface
-from .lakehouse_persistence import LakehousePersistence
+# from .lakehouse_persistence import LakehousePersistence  # Removed - using enhanced version
 from .enhanced_lakehouse_persistence import EnhancedLakehousePersistence
 from .memory_persistence import MemoryPersistence
 
@@ -36,7 +36,8 @@ class PersistenceFactory:
         persistence_type = persistence_type.lower()
         
         if persistence_type == "lakehouse":
-            return PersistenceFactory._create_lakehouse_persistence(
+            # Redirect lakehouse to enhanced_lakehouse
+            return PersistenceFactory._create_enhanced_lakehouse_persistence(
                 table_prefix=table_prefix, **kwargs
             )
         elif persistence_type == "enhanced_lakehouse":
@@ -59,33 +60,7 @@ class PersistenceFactory:
                 f"Supported types: lakehouse, memory, warehouse, file"
             )
     
-    @staticmethod
-    def _create_lakehouse_persistence(table_prefix: str, **kwargs) -> LakehousePersistence:
-        """Create lakehouse persistence instance."""
-        # Required arguments for lakehouse persistence
-        required_args = ["lakehouse", "spark"]
-        missing_args = [arg for arg in required_args if arg not in kwargs]
-        
-        if missing_args:
-            raise TypeError(
-                f"LakehousePersistence requires the following arguments: {missing_args}"
-            )
-        
-        lakehouse = kwargs["lakehouse"]
-        spark = kwargs["spark"]
-        
-        # Validate types
-        if not hasattr(lakehouse, "check_if_table_exists"):
-            raise TypeError("lakehouse must be a lakehouse_utils instance")
-        
-        if not isinstance(spark, SparkSession):
-            raise TypeError("spark must be a SparkSession instance")
-        
-        return LakehousePersistence(
-            lakehouse=lakehouse,
-            spark=spark,
-            table_prefix=table_prefix
-        )
+    # Removed _create_lakehouse_persistence - using enhanced version only
     
     @staticmethod
     def _create_enhanced_lakehouse_persistence(table_prefix: str, **kwargs) -> EnhancedLakehousePersistence:
@@ -132,7 +107,7 @@ class PersistenceFactory:
     @staticmethod
     def get_supported_types() -> list[str]:
         """Get list of supported persistence types."""
-        return ["lakehouse", "memory", "warehouse", "file"]
+        return ["lakehouse", "enhanced_lakehouse", "memory", "warehouse", "file"]
     
     @staticmethod
     def create_persistence_from_config(

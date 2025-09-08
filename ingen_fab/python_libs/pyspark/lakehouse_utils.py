@@ -440,12 +440,12 @@ class lakehouse_utils(DataStoreInterface):
         delta_table.delete()
         # Remove Directory
         if self.spark_version == "local":
-            import notebookutils # type: ignore  # noqa: I001
-            notebookutils.fs.rm(table_path, True)
-        else:
             import shutil
             shutil.rmtree(table_path.replace("file://", ""), ignore_errors=True)
             self.spark.sql(f"DROP TABLE IF EXISTS {table_name}")
+        else:
+            import notebookutils # type: ignore  # noqa: I001
+            notebookutils.fs.rm(table_path, True)
 
     def list_schemas(self) -> list[str]:
         """

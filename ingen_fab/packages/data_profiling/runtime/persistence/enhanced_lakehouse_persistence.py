@@ -87,7 +87,7 @@ class EnhancedLakehousePersistence(BasePersistence):
     - bridge_business_rules: Business rules per column
     """
     
-    def __init__(self, lakehouse: lakehouse_utils, spark: SparkSession, table_prefix: str = "profile", profile_grain: ProfileGrain = ProfileGrain.DAILY):
+    def __init__(self, lakehouse: lakehouse_utils, spark: SparkSession, table_prefix: str = "tiered_profile", profile_grain: ProfileGrain = ProfileGrain.DAILY):
         """Initialize enhanced persistence."""
         super().__init__(table_prefix)
         
@@ -969,14 +969,19 @@ class EnhancedLakehousePersistence(BasePersistence):
     def load_profile(self, table_name: str, level: Optional[ScanLevel] = None) -> Optional[DatasetProfile]:
         """Load profile from fact and dimension tables by reconstructing DatasetProfile."""
         try:
+            print(f"Loading profile for table: {table_name} at level: {level}")
             # Load table-level facts
             if not self.lakehouse.check_if_table_exists(self.fact_table_profiles_table):
                 return None
                 
             table_facts_df = self.lakehouse.read_table(self.fact_table_profiles_table)
+            print(f"Table facts columns: {table_facts_df.columns}")
+            print(f"Table facts count: {table_facts_df.count()}") 
+
             table_rows = table_facts_df.filter(f"table_name = '{table_name}'").collect()
             
             if not table_rows:
+                print(f"No profile table_rows found for table: {table_name}")
                 return None
                 
             # Get the most recent profile
@@ -984,6 +989,7 @@ class EnhancedLakehousePersistence(BasePersistence):
             
             # Load column-level facts
             if not self.lakehouse.check_if_table_exists(self.fact_column_profiles_table):
+                print(f"Column profiles table does not exist: {self.fact_column_profiles_table}")
                 return None
                 
             column_facts_df = self.lakehouse.read_table(self.fact_column_profiles_table)
@@ -1047,10 +1053,11 @@ class EnhancedLakehousePersistence(BasePersistence):
                 semantic_summary=json.loads(table_row.semantic_summary) if table_row.semantic_summary else {},
                 business_glossary=json.loads(table_row.business_glossary) if table_row.business_glossary else {}
             )
-            
+            print(f"Loaded profile for table: {table_name} with {len(column_profiles)} columns")
             return profile
             
         except Exception as e:
+            print(f"Error loading profile for {table_name}: {e}")
             self.logger.error(f"Error loading profile for {table_name}: {e}")
             return None
     
@@ -1234,3 +1241,48 @@ class EnhancedLakehousePersistence(BasePersistence):
                     self.lakehouse.drop_table(table)
             except Exception as e:
                 print(f"Warning: Could not drop table {table}: {e}")
+    
+    def list_all_profiles(self) -> List[Dict[str, Any]]:
+        """List all available profiles with basic metadata."""
+        try:
+            if not self.lakehouse.check_if_table_exists(self.fact_table_profiles_table):
+                self.logger.info(f"Profile table {self.fact_table_profiles_table} does not exist yet")
+                return []
+            
+            df = self.lakehouse.read_table(self.fact_table_profiles_table)
+            profiles = df.select(
+                "table_name", 
+                "profile_timestamp", 
+                "row_count", 
+                "column_count", 
+                "data_quality_score"
+            ).collect()
+            
+            result = []
+            for row in profiles:
+                try:
+                    # Convert profile_timestamp string to datetime for formatting
+                    profile_timestamp = datetime.fromisoformat(row.profile_timestamp.replace('Z', '+00:00')) if row.profile_timestamp else None
+                    
+                    result.append({
+                        "table_name": row.table_name,
+                        "scan_timestamp": profile_timestamp,
+                        "row_count": row.row_count or 0,
+                        "column_count": row.column_count or 0,
+                        "quality_score": row.data_quality_score
+                    })
+                except Exception as e:
+                    self.logger.warning(f"Could not parse profile data for {row.table_name}: {e}")
+                    result.append({
+                        "table_name": row.table_name,
+                        "scan_timestamp": None,
+                        "row_count": row.row_count or 0,
+                        "column_count": row.column_count or 0,
+                        "quality_score": row.data_quality_score
+                    })
+            
+            return result
+            
+        except Exception as e:
+            self.logger.error(f"Error listing profiles: {e}")
+            return []

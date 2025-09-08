@@ -85,7 +85,7 @@ class ProfileExplorer:
             profile_row = profiles_df.filter(F.col("table_name") == table_name).collect()
             
             if not profile_row:
-                print(f"❌ No profile found for table: {table_name}")
+                print(f"❌ get_profile_summary - No profile found for table: {table_name}")
                 return None
             
             profile_data = json.loads(profile_row[0].profile_data)
@@ -197,7 +197,7 @@ class ProfileExplorer:
             profile_row = profiles_df.filter(F.col("table_name") == table_name).collect()
             
             if not profile_row:
-                print(f"❌ No profile found for table: {table_name}")
+                print(f"❌ explore_column - No profile found for table: {table_name}")
                 return
             
             profile_data = json.loads(profile_row[0].profile_data)
@@ -389,7 +389,7 @@ class ProfileExplorer:
             profile_row = profiles_df.filter(F.col("table_name") == table_name).collect()
             
             if not profile_row:
-                print(f"❌ No profile found for table: {table_name}")
+                print(f"❌ export_to_csv - No profile found for table: {table_name}")
                 return
             
             profile_data = json.loads(profile_row[0].profile_data)

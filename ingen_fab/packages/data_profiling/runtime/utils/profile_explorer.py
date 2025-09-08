@@ -7,15 +7,18 @@ from the L3 scan, making it easy to understand data quality and characteristics.
 """
 
 import json
+import traceback
 from typing import List, Dict, Any, Optional, Union
 from dataclasses import dataclass
 from datetime import datetime
+from pathlib import Path
 
 from pyspark.sql import DataFrame, SparkSession
 from pyspark.sql import functions as F
 
 from ..core.models.profile_models import DatasetProfile, ColumnProfile
 from ..core.enums.profile_types import SemanticType
+from .yaml_exporter import ProfileYamlExporter
 
 
 @dataclass
@@ -44,70 +47,64 @@ class ProfileExplorer:
     - Export capabilities
     """
     
-    def __init__(self, lakehouse, table_prefix: str = "tiered_profile"):
+    def __init__(self, lakehouse, persistence=None, table_prefix: str = "tiered_profile"):
         """
         Initialize the ProfileExplorer.
         
         Args:
             lakehouse: lakehouse_utils instance
+            persistence: Optional persistence instance. If not provided, will create one.
             table_prefix: Prefix used for profile tables
         """
         self.lakehouse = lakehouse
         self.spark = lakehouse.spark
-        self.profile_table = f"{table_prefix}_profiles"
+        
+        # Use provided persistence or create new one
+        if persistence:
+            self.persistence = persistence
+        else:
+            from ..persistence.enhanced_lakehouse_persistence import EnhancedLakehousePersistence
+            self.persistence = EnhancedLakehousePersistence(
+                lakehouse=lakehouse,
+                spark=self.spark,
+                table_prefix=table_prefix
+            )
+        
+        self.yaml_exporter = ProfileYamlExporter()
         
     def list_available_profiles(self) -> List[Dict[str, Any]]:
         """List all available profile results."""
         try:
-            profiles_df = self.lakehouse.read_table(self.profile_table)
-            profiles = profiles_df.select(
-                "table_name", "scan_timestamp"
-            ).orderBy(F.desc("scan_timestamp")).collect()
+            profiles = self.persistence.list_all_profiles()
             
-            results = []
-            for row in profiles:
-                # Parse the profile data to get row_count and column_count
-                try:
-                    profile_data_row = profiles_df.filter(F.col("table_name") == row.table_name).collect()[0]
-                    profile_data = json.loads(profile_data_row.profile_data)
-                    results.append({
-                        "table_name": row.table_name,
-                        "row_count": profile_data.get("row_count", 0),
-                        "column_count": profile_data.get("column_count", 0),
-                        "scan_timestamp": row.scan_timestamp.strftime("%Y-%m-%d %H:%M:%S") if row.scan_timestamp else None
-                    })
-                except Exception:
-                    results.append({
-                        "table_name": row.table_name,
-                        "row_count": 0,
-                        "column_count": 0,
-                        "scan_timestamp": row.scan_timestamp.strftime("%Y-%m-%d %H:%M:%S") if row.scan_timestamp else None
-                    })
+            # Format timestamps
+            for profile in profiles:
+                if profile.get("scan_timestamp"):
+                    profile["scan_timestamp"] = profile["scan_timestamp"].strftime("%Y-%m-%d %H:%M:%S")
             
-            return results
+            return profiles
         except Exception as e:
-            print(f"⚠️ Could not load profiles: {e}")
+            tb = traceback.format_exc()
+            print(f"⚠️ Could not load profiles: {e}\nTraceback:\n{tb}")
             return []
     
     def get_profile_summary(self, table_name: str) -> Optional[ProfileSummary]:
         """Get a high-level summary for a specific table."""
         try:
-            profiles_df = self.lakehouse.read_table(self.profile_table)
-            profile_row = profiles_df.filter(F.col("table_name") == table_name).collect()
+            profile = self.persistence.load_profile(table_name)
             
-            if not profile_row:
-                print(f"❌ No profile found for table: {table_name}")
+            if not profile:
+                print(f"❌ get_profile_summary - No profile found for table: {table_name}")
                 return None
             
-            profile_data = json.loads(profile_row[0].profile_data)
-            columns = profile_data.get("column_profiles", [])
+            columns = profile.column_profiles
             
             if not columns:
                 return None
             
             # Calculate summary metrics
-            completeness_values = [col.get("completeness", 0) for col in columns]
-            uniqueness_values = [col.get("uniqueness", 0) for col in columns]
+            completeness_values = [col.completeness or 0 for col in columns]
+            uniqueness_values = [col.uniqueness or 0 for col in columns]
             
             completeness_avg = sum(completeness_values) / len(completeness_values)
             uniqueness_avg = sum(uniqueness_values) / len(uniqueness_values)
@@ -118,25 +115,25 @@ class ProfileExplorer:
             
             for col in columns:
                 # Semantic type counts
-                sem_type = col.get("semantic_type", "unknown")
+                sem_type = col.semantic_type.value if col.semantic_type else "unknown"
                 semantic_types[sem_type] = semantic_types.get(sem_type, 0) + 1
                 
                 # Identify potential issues
-                if col.get("null_percentage", 0) > 50:
-                    columns_with_issues.append(f"{col['column_name']} (>50% nulls)")
-                elif col.get("distinct_count", 0) == 1:
-                    columns_with_issues.append(f"{col['column_name']} (constant values)")
-                elif col.get("completeness", 1) < 0.8:
-                    columns_with_issues.append(f"{col['column_name']} (<80% complete)")
+                if col.null_percentage > 50:
+                    columns_with_issues.append(f"{col.column_name} (>50% nulls)")
+                elif col.distinct_count == 1:
+                    columns_with_issues.append(f"{col.column_name} (constant values)")
+                elif col.completeness and col.completeness < 0.8:
+                    columns_with_issues.append(f"{col.column_name} (<80% complete)")
             
             # Simple data quality score (0-100)
             quality_score = (completeness_avg * 0.6 + uniqueness_avg * 0.4) * 100
             
             return ProfileSummary(
                 table_name=table_name,
-                row_count=profile_data.get("row_count", 0),
-                column_count=profile_data.get("column_count", 0),
-                scan_timestamp=profile_data.get("profile_timestamp", ""),
+                row_count=profile.row_count,
+                column_count=profile.column_count,
+                scan_timestamp=profile.profile_timestamp,
                 data_quality_score=quality_score,
                 completeness_avg=completeness_avg,
                 uniqueness_avg=uniqueness_avg,
@@ -145,7 +142,8 @@ class ProfileExplorer:
             )
             
         except Exception as e:
-            print(f"❌ Error getting profile summary: {e}")
+            tb = traceback.format_exc()
+            print(f"❌ Error getting profile summary: {e}\nTraceback:\n{tb}")
             return None
     
     def show_data_quality_dashboard(self, table_name: Optional[str] = None):
@@ -204,20 +202,16 @@ class ProfileExplorer:
     def explore_column(self, table_name: str, column_name: str):
         """Detailed exploration of a specific column."""
         try:
-            profiles_df = self.lakehouse.read_table(self.profile_table)
-            profile_row = profiles_df.filter(F.col("table_name") == table_name).collect()
+            profile = self.persistence.load_profile(table_name)
             
-            if not profile_row:
-                print(f"❌ No profile found for table: {table_name}")
+            if not profile:
+                print(f"❌ explore_column - No profile found for table: {table_name}")
                 return
-            
-            profile_data = json.loads(profile_row[0].profile_data)
-            columns = profile_data.get("column_profiles", [])
             
             # Find the specific column
             col_data = None
-            for col in columns:
-                if col.get("column_name") == column_name:
+            for col in profile.column_profiles:
+                if col.column_name == column_name:
                     col_data = col
                     break
             
@@ -283,7 +277,8 @@ class ProfileExplorer:
                     print(f"  • Pattern Confidence: {confidence:.1%}")
             
         except Exception as e:
-            print(f"❌ Error exploring column: {e}")
+            tb = traceback.format_exc()
+            print(f"❌ Error exploring column: {e}\nTraceback:\n{tb}")
     
     def find_columns_by_type(self, semantic_type: str) -> List[Dict[str, str]]:
         """Find all columns of a specific semantic type across all tables."""
@@ -310,7 +305,8 @@ class ProfileExplorer:
             return matching_columns
             
         except Exception as e:
-            print(f"❌ Error finding columns: {e}")
+            tb = traceback.format_exc()
+            print(f"❌ Error finding columns: {e}\nTraceback:\n{tb}")
             return []
     
     def show_columns_by_type(self, semantic_type: str):
@@ -396,34 +392,33 @@ class ProfileExplorer:
     def export_to_csv(self, table_name: str, output_file: str):
         """Export profile results to CSV format."""
         try:
-            profiles_df = self.lakehouse.read_table(self.profile_table)
-            profile_row = profiles_df.filter(F.col("table_name") == table_name).collect()
+            profile = self.persistence.load_profile(table_name)
             
-            if not profile_row:
-                print(f"❌ No profile found for table: {table_name}")
+            if not profile:
+                print(f"❌ export_to_csv - No profile found for table: {table_name}")
                 return
             
-            profile_data = json.loads(profile_row[0].profile_data)
-            columns = profile_data.get("column_profiles", [])
+            columns = profile.column_profiles
             
             # Create CSV content
             csv_lines = []
             csv_lines.append("column_name,data_type,semantic_type,null_count,null_percentage,distinct_count,distinct_percentage,completeness,uniqueness,min_value,max_value,mean_value")
             
             for col in columns:
+                sem_type = col.semantic_type.value if col.semantic_type else ''
                 csv_lines.append(
-                    f"{col.get('column_name', '')},"
-                    f"{col.get('data_type', '')},"
-                    f"{col.get('semantic_type', '')},"
-                    f"{col.get('null_count', 0)},"
-                    f"{col.get('null_percentage', 0):.2f},"
-                    f"{col.get('distinct_count', 0)},"
-                    f"{col.get('distinct_percentage', 0):.2f},"
-                    f"{col.get('completeness', 0):.4f},"
-                    f"{col.get('uniqueness', 0):.4f},"
-                    f"{col.get('min_value', '')},"
-                    f"{col.get('max_value', '')},"
-                    f"{col.get('mean_value', '')}"
+                    f"{col.column_name},"
+                    f"{col.data_type},"
+                    f"{sem_type},"
+                    f"{col.null_count},"
+                    f"{col.null_percentage:.2f},"
+                    f"{col.distinct_count},"
+                    f"{col.distinct_percentage:.2f},"
+                    f"{col.completeness or 0:.4f},"
+                    f"{col.uniqueness or 0:.4f},"
+                    f"{col.min_value or ''},"
+                    f"{col.max_value or ''},"
+                    f"{col.mean_value or ''}"
                 )
             
             with open(output_file, 'w') as f:
@@ -432,7 +427,87 @@ class ProfileExplorer:
             print(f"✅ Profile data exported to: {output_file}")
             
         except Exception as e:
-            print(f"❌ Error exporting to CSV: {e}")
+            tb = traceback.format_exc()
+            print(f"❌ Error exporting to CSV: {e}\nTraceback:\n{tb}")
+    
+    def export_to_yaml(
+        self, 
+        table_name: str, 
+        output_file: str,
+        detail_level: str = "standard",
+        llm_optimized: bool = False
+    ):
+        """
+        Export profile results to YAML format.
+        
+        Args:
+            table_name: Name of the table to export
+            output_file: Path to save the YAML file
+            detail_level: Level of detail ("summary", "standard", "full")
+            llm_optimized: If True, uses LLM-optimized format
+        """
+        try:
+            profile = self._load_profile_object(table_name)
+            if not profile:
+                print(f"❌ export_to_yaml - No profile found for table: {table_name}")
+                return False
+            
+            if llm_optimized:
+                self.yaml_exporter.export_llm_optimized(
+                    profile, output_file
+                )
+                print(f"✅ LLM-optimized profile exported to: {output_file}")
+            else:
+                self.yaml_exporter.export_profile_to_yaml(
+                    profile, output_file, detail_level
+                )
+                print(f"✅ Profile data exported to YAML: {output_file}")
+            
+            return True
+                
+        except Exception as e:
+            tb = traceback.format_exc()
+            print(f"❌ Error exporting to YAML: {e}\nTraceback:\n{tb}")
+            return False
+    
+    def export_schema_docs(
+        self,
+        table_name: str,
+        output_file: str,
+        format: str = "markdown"
+    ):
+        """
+        Export profile as schema documentation.
+        
+        Args:
+            table_name: Name of the table to document
+            output_file: Path to save the documentation
+            format: Documentation format ("markdown" or "yaml")
+        """
+        try:
+            profile = self._load_profile_object(table_name)
+            if not profile:
+                print(f"❌ export_schema_docs - No profile found for table: {table_name}")
+                return
+            
+            doc = self.yaml_exporter.export_schema_documentation(
+                profile, output_file, format
+            )
+            print(f"✅ Schema documentation exported to: {output_file}")
+            
+        except Exception as e:
+            tb = traceback.format_exc()
+            print(f"❌ Error exporting documentation: {e}\nTraceback:\n{tb}")
+    
+    def _load_profile_object(self, table_name: str) -> Optional[DatasetProfile]:
+        """Load a DatasetProfile object from persistence."""
+        try:
+            print(f"🔄 _load_profile_object - Loading profile for table: {table_name}")
+            return self.persistence.load_profile(table_name)
+        except Exception as e:
+            tb = traceback.format_exc()
+            print(f"❌ Error loading profile: {e}\nTraceback:\n{tb}")
+            return None
     
     def search_tables_by_quality(self, min_quality_score: float = 80.0) -> List[str]:
         """Find tables that meet a minimum data quality threshold."""
@@ -459,6 +534,9 @@ class ProfileExplorer:
         print("  'quality <min_score>' - Find high-quality tables")
         print("  'report <table_name>' - Generate quality report")
         print("  'export <table_name> <file.csv>' - Export to CSV")
+        print("  'yaml <table_name> <file.yaml> [detail_level]' - Export to YAML")
+        print("  'llm <table_name> <file.yaml>' - Export LLM-optimized YAML")
+        print("  'docs <table_name> <file> [format]' - Export schema documentation")
         print("  'help' - Show this help")
         print("  'quit' - Exit explorer")
         print("="*80)
@@ -511,6 +589,26 @@ class ProfileExplorer:
                         self.export_to_csv(parts[1], parts[2])
                     else:
                         print("Usage: export <table_name> <file.csv>")
+                elif command.startswith('yaml'):
+                    parts = command.split()
+                    if len(parts) >= 3:
+                        detail_level = parts[3] if len(parts) > 3 else "standard"
+                        self.export_to_yaml(parts[1], parts[2], detail_level)
+                    else:
+                        print("Usage: yaml <table_name> <file.yaml> [detail_level]")
+                elif command.startswith('llm'):
+                    parts = command.split()
+                    if len(parts) >= 3:
+                        self.export_to_yaml(parts[1], parts[2], llm_optimized=True)
+                    else:
+                        print("Usage: llm <table_name> <file.yaml>")
+                elif command.startswith('docs'):
+                    parts = command.split()
+                    if len(parts) >= 3:
+                        format = parts[3] if len(parts) > 3 else "markdown"
+                        self.export_schema_docs(parts[1], parts[2], format)
+                    else:
+                        print("Usage: docs <table_name> <file> [format]")
                 elif command == 'help':
                     print("Available commands:")
                     print("  'list' - Show all available profiles")
@@ -520,6 +618,9 @@ class ProfileExplorer:
                     print("  'quality <min_score>' - Find high-quality tables")
                     print("  'report <table_name>' - Generate quality report")
                     print("  'export <table_name> <file.csv>' - Export to CSV")
+                    print("  'yaml <table_name> <file.yaml> [detail_level]' - Export to YAML")
+                    print("  'llm <table_name> <file.yaml>' - Export LLM-optimized YAML")
+                    print("  'docs <table_name> <file> [format]' - Export schema documentation")
                     print("  'quit' - Exit explorer")
                 else:
                     print("Unknown command. Type 'help' for available commands.")
@@ -528,4 +629,5 @@ class ProfileExplorer:
                 print("\n👋 Goodbye!")
                 break
             except Exception as e:
-                print(f"❌ Error: {e}")
+                tb = traceback.format_exc()
+                print(f"❌ Error: {e}\nTraceback:\n{tb}")
