@@ -10,6 +10,7 @@ Practical guide to deploy changes, upload Python libraries with variable injecti
 |--------|---------|--------------|
 | Deploy items | `ingen_fab deploy deploy` | Uses `FABRIC_WORKSPACE_REPO_DIR`, `FABRIC_ENVIRONMENT` |
 | Upload `python_libs` | `ingen_fab deploy upload-python-libs` | Injects variables during upload |
+| Upload dbt project to config lakehouse| `ingen_fab deploy upload-dbt-project` | `--dbt-project` (required)|
 | Extract metadata | `ingen_fab deploy get-metadata` | `--target`, `--schema`, `--table`, `--format`, `--output` |
 | Delete all items | `ingen_fab deploy delete-all` | `--force` |
 
@@ -40,6 +41,14 @@ ingen_fab deploy upload-python-libs
 Notes:
 - Code between injection markers is resolved using the active value set.
 - Upload progress and failures are shown in the console.
+
+## Upload dbt project to OneLake/Config Lakehouse
+
+Upload dbt project to the /Files section of the Config Lakehouse. Useful for Fabric Warehouse based projects to mount to Fabric Python notebooks
+
+```bash
+ingen_fab deploy upload-dbt-project --dbt-project <project_name>
+```
 
 ## Extract metadata (Lakehouse/Warehouse)
 
