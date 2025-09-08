@@ -602,6 +602,60 @@ class OneLakeUtils:
             service_client=self._get_datalake_service_client(),
             include_extensions=[".py"],
         )
+    
+    def upload_dbt_project_to_config_lakehouse(
+        self, dbt_project_name: str, dbt_project_path: str = None
+    ) -> dict:
+        """
+        Upload the dbt project directory to the config lakehouse's Files section.
+
+        Args:
+            dbt_project_path: Path to the dbt project directory (defaults to standard location)
+
+        Returns:
+            Dictionary with upload results
+        """
+        if dbt_project_path is None:
+            # Default to the standard dbt project location
+            current_dir = Path(__file__).parent
+            dbt_project_path = current_dir.parent
+
+        dbt_project_path = Path(dbt_project_path) / dbt_project_name
+
+        if not dbt_project_path.exists():
+            raise ValueError(f"dbt project directory not found: {dbt_project_path}")
+
+        # Get config lakehouse ID
+        config_lakehouse_id = self.get_config_lakehouse_id()
+
+        # Show upload info with rich formatting
+        self.msg_helper.print_info(
+            f"Uploading dbt project from: {dbt_project_path.name}"
+        )
+
+        if self.console:
+            from rich.panel import Panel
+
+            info_content = (
+                f"[cyan]Source:[/cyan] {dbt_project_path}\n"
+                f"[cyan]Target lakehouse ID:[/cyan] {config_lakehouse_id}\n"
+                f"[cyan]Target path:[/cyan] {dbt_project_name}"
+            )
+            panel = Panel(
+                info_content,
+                title="[bold]Upload Configuration[/bold]",
+                border_style="cyan",
+            )
+            self.console.print(panel)
+
+        # Upload all dbt project files
+        return self.upload_directory_to_lakehouse(
+            lakehouse_id=config_lakehouse_id,
+            directory_path=str(dbt_project_path),
+            target_prefix=f"{dbt_project_name}",
+            service_client=self._get_datalake_service_client(),
+            include_extensions=[".sql", ".yml", ".yaml", ".md", ".csv"],
+        )
 
     def list_lakehouse_files(
         self,
