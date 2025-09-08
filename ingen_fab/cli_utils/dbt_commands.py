@@ -24,7 +24,7 @@ def create_additional_notebooks(
     """
 
     # Check and update dbt profile if needed
-    if not ensure_dbt_profile(ctx, ask_confirmation=not skip_profile_confirmation):
+    if not ensure_dbt_profile(ctx, ask_confirmation=not skip_profile_confirmation, dbt_project_dir=dbt_project):
         raise typer.Exit(code=1)
 
     # Resolve workspace directory from context (set by main callback)
@@ -307,7 +307,7 @@ def convert_metadata_to_dbt_format(
     """
 
     # Check and update dbt profile if needed
-    if not ensure_dbt_profile(ctx, ask_confirmation=not skip_profile_confirmation):
+    if not ensure_dbt_profile(ctx, ask_confirmation=not skip_profile_confirmation, dbt_project_dir=dbt_project):
         raise typer.Exit(code=1)
 
     workspace_dir = ctx.obj.get("fabric_workspace_repo_dir") if ctx.obj else None
