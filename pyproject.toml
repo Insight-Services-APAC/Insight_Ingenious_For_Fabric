@@ -98,7 +98,7 @@ include = ["ingen_fab*"]
 exclude = [".pre-commit-cache*", "*.pre-commit-cache*"]
 
 [tool.setuptools.package-data]
-ingen_fab = ["**/*.json", "**/*.jinja", "**/*.jinja2", "**/*.sql", "**/*.py", "**/*.md", "**/*.yml", "**/*.yaml", "**/.platform", "project_templates/**/*.txt", "project_templates/**/.gitignore"]
+ingen_fab = ["**/*.json", "**/*.jinja", "**/*.jinja2", "**/*.j2", "**/*.sql", "**/*.py", "**/*.md", "**/*.yml", "**/*.yaml", "**/.platform", "project_templates/**/*.txt", "project_templates/**/.gitignore"]
 
 [project.scripts]
 ingen_fab = "ingen_fab.cli:app"

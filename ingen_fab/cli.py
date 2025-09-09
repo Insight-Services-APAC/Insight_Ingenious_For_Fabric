@@ -22,7 +22,7 @@ synthetic_data_commands = lazy_import.lazy_module(
 package_commands = lazy_import.lazy_module("ingen_fab.cli_utils.package_commands")
 test_commands = lazy_import.lazy_module("ingen_fab.cli_utils.test_commands")
 libs_commands = lazy_import.lazy_module("ingen_fab.cli_utils.libs_commands")
-dbt_commands = lazy_import.lazy_module("ingen_fab.cli_utils.dbt_commands")
+dbt_commands = lazy_import.lazy_module("ingen_fab.cli_utils.dbt.commands")
 profile_commands = lazy_import.lazy_module("ingen_fab.cli_utils.profile_commands")
 download_commands = lazy_import.lazy_module("ingen_fab.cli_utils.download_commands")
 
@@ -356,7 +356,11 @@ def delete_all(
 
 @deploy_app.command()
 def upload_python_libs(ctx: typer.Context):
-    """Inject code into python_libs (in-place) and upload to Fabric config lakehouse."""
+    """Inject code into python_libs (in-place) and upload to Fabric config lakehouse.
+    
+    Also uploads any dbt project packages found in {fabric_workspace_repo_dir}/{dbt_project}/ingen_fab/packages
+    to ingen_fab/packages/dbt/{dbt_project}/ in the config lakehouse.
+    """
     deploy_commands.upload_python_libs_to_config_lakehouse(
         environment=ctx.obj["fabric_environment"],
         project_path=ctx.obj["fabric_workspace_repo_dir"],
@@ -1010,6 +1014,38 @@ def dbt_convert_metadata(
     ingen_fab deploy get-metadata --target lakehouse
     """
     dbt_commands.convert_metadata_to_dbt_format(
+        ctx, dbt_project, skip_profile_confirmation
+    )
+
+
+@dbt_app.command("create-python-classes")
+def dbt_create_python_classes(
+    ctx: typer.Context,
+    dbt_project: Annotated[
+        str,
+        typer.Option(
+            "--dbt-project",
+            "-p",
+            help="Name of the dbt project directory under the workspace repo",
+        ),
+    ],
+    skip_profile_confirmation: Annotated[
+        bool,
+        typer.Option(
+            "--skip-profile-confirmation",
+            help="Skip confirmation prompt when updating dbt profile",
+        ),
+    ] = False,
+):
+    """Create Python classes from dbt SQL JSON files.
+
+    Scans {workspace}/{dbt_project}/target/sql and creates Python classes under
+    {workspace}/ingen_fab/packages/dbt/runtime/projects/{dbt_project}/.
+    
+    Each SQL JSON file is converted to a Python class with methods for executing
+    the SQL statements using PySpark.
+    """
+    dbt_commands.create_python_classes(
         ctx, dbt_project, skip_profile_confirmation
     )
 
