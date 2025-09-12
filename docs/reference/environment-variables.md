@@ -20,6 +20,8 @@ Reference for environment variables used by the CLI and deploy workflows.
 | `POSTGRES_USER` | Local testing | PostgreSQL user (default: postgres) | `postgres` |
 | `POSTGRES_DATABASE` | Local testing | PostgreSQL database name (default: local) | `local` |
 | `WORKSPACE_MANIFEST_LOCATION` | Remote manifest file | Used to allow manifest file to be stored in config lakehouse | `config_lakehouse`, `local` |
+| `ITEM_TYPES_TO_DEPLOY` | Deploy | Used to control which type of artefacts are deployed | `VariableLibrary,Lakehouse`, '' |
+| `IS_SINGLE_WORKSPACE` | Deploy | Used to allow unattended execution of ingen_fab init workspace | `Y` |
 
 Notes:
 - The CLI falls back to `FABRIC_WORKSPACE_REPO_DIR` and `FABRIC_ENVIRONMENT` if not provided by flags.
