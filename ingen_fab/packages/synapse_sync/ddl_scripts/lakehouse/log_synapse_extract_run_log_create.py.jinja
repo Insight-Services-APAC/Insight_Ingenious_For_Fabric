@@ -15,6 +15,7 @@ schema = StructType([
     StructField("extract_start_dt", DateType(), True),
     StructField("extract_end_dt", DateType(), True),
     StructField("partition_clause", StringType(), True),
+    StructField("custom_select_sql", StringType(), True),
     StructField("output_path", StringType(), True),
     StructField("extract_file_name", StringType(), True),
     StructField("external_table", StringType(), True),
