@@ -19,9 +19,16 @@ Below are two sample yml files that can be used for DevOps pipelines and have be
 
 ## yml Scripts
 
-The yml scripts are provied as samples and should be changed as required.
+The yml scripts are provided as samples and should be changed as required.
 
 Scripts contain only a single 'DEV' stage, and should be extended to include other stages (UAT, Prod etc)
+
+## Fabric configuration
+
+The settings below are required for the service principal defined in the DevOps Service Connection to call Fabric APIs.
+
+Developer Settings \ Service principals can create workspaces, connections, and deployment pipelines
+Developer Settings \ Service principals can call Fabric public APIs
 
 ## Fabric workspace
 
