@@ -3,42 +3,99 @@
 from datetime import datetime
 
 # Sample data
-sample_data = [
+data = []
+
+obj_set_b = [
     {
-        "synapse_connection_name": "SynapseConnection",
-        "source_schema_name": "dbo",
-        "source_table_name": "DimCustomer",
+        "synapse_connection_name": "EIMUATG2LAKE",
+        "source_schema_name": "EDW",
+        "source_table_name": "HANA_FCT_INVENTORYOPN_CODEDATE_INT",
+        "export_base_dir": "exports_ingen_fab",
         "extract_mode": "snapshot",
         "single_date_filter": None,
         "date_range_filter": None,
+        "custom_select_sql": None,
         "execution_group": 1,
         "active_yn": "Y",
-        "pipeline_id": "00000000-0000-0000-0000-000000000000",
-        "synapse_datasource_name": "SynapseDatasource",
-        "synapse_datasource_location": "https://onelake.dfs.fabric.microsoft.com/workspace/lakehouse/Files"
+        "pipeline_id": "cfc5654e-d935-421e-adc1-78d42d2a334a",
+        "synapse_datasource_name": "EIM_EDW_PROD_COPY_CURRENT",
+        "synapse_datasource_location": "abfss://synapse-exports@eimuatg2lake.dfs.core.windows.net"
     },
     {
-        "synapse_connection_name": "SynapseConnection",
-        "source_schema_name": "dbo",
-        "source_table_name": "FactSales",
+        "synapse_connection_name": "EIMUATG2LAKE",
+        "source_schema_name": "EDL",
+        "source_table_name": "HANA_FCT_PURCHASE_ORDER_LINE",
+        "export_base_dir": "exports_ingen_fab",
         "extract_mode": "incremental",
-        "single_date_filter": "WHERE DATE_SK = @date",
-        "date_range_filter": "WHERE DATE_SK BETWEEN @start_date AND @end_date",
+        "single_date_filter": "WHERE CREATED_DT >= '@date' AND CREATED_DT < DATEADD(DAY, 1, '@date')",
+        "date_range_filter": "WHERE CREATED_DT >= '@start_date' AND CREATED_DT < DATEADD(DAY, 1, '@end_date')",
+        "custom_select_sql": None,
         "execution_group": 2,
         "active_yn": "Y",
-        "pipeline_id": "00000000-0000-0000-0000-000000000000",
-        "synapse_datasource_name": "SynapseDatasource",
-        "synapse_datasource_location": "https://onelake.dfs.fabric.microsoft.com/workspace/lakehouse/Files"
+        "pipeline_id": "cfc5654e-d935-421e-adc1-78d42d2a334a",
+        "synapse_datasource_name": "EIM_EDW_PROD_COPY_CURRENT",
+        "synapse_datasource_location": "abfss://synapse-exports@eimuatg2lake.dfs.core.windows.net"
+    },
+    {
+        "synapse_connection_name": "EIMUATG2LAKE",
+        "source_schema_name": "EDL",
+        "source_table_name": "HANA_FCT_INVENTORY_FIN",
+        "export_base_dir": "exports_ingen_fab",
+        "extract_mode": "incremental",
+        "single_date_filter": "WHERE UPDATED_DT >= '@date' AND UPDATED_DT < DATEADD(DAY, 1, '@date')",
+        "date_range_filter": "WHERE UPDATED_DT >= '@start_date' AND UPDATED_DT < DATEADD(DAY, 1, '@end_date')",
+        "custom_select_sql": None,
+        "execution_group": 2,
+        "active_yn": "Y",
+        "pipeline_id": "cfc5654e-d935-421e-adc1-78d42d2a334a",
+        "synapse_datasource_name": "EIM_EDW_PROD_COPY_CURRENT",
+        "synapse_datasource_location": "abfss://synapse-exports@eimuatg2lake.dfs.core.windows.net"
+    },
+    {
+        "synapse_connection_name": "EIMUATG2LAKE",
+        "source_schema_name": "EDL",
+        "source_table_name": "HANA_FCT_OPERATIONAL_EVENT",
+        "export_base_dir": "exports_ingen_fab",
+        "extract_mode": "incremental",
+        "single_date_filter": "WHERE UPDATED_DT >= '@date' AND UPDATED_DT < DATEADD(DAY, 1, '@date')",
+        "date_range_filter": "WHERE UPDATED_DT >= '@start_date' AND UPDATED_DT < DATEADD(DAY, 1, '@end_date')",
+        "custom_select_sql": None,
+        "execution_group": 2,
+        "active_yn": "Y",
+        "pipeline_id": "cfc5654e-d935-421e-adc1-78d42d2a334a",
+        "synapse_datasource_name": "EIM_EDW_PROD_COPY_CURRENT",
+        "synapse_datasource_location": "abfss://synapse-exports@eimuatg2lake.dfs.core.windows.net"
+    },
+    {
+        "synapse_connection_name": "EIMUATG2LAKE",
+        "source_schema_name": "EDL",
+        "source_table_name": "HANA_FCT_YARD_APPOINTMENT",
+        "export_base_dir": "exports_ingen_fab",
+        "extract_mode": "incremental",
+        "single_date_filter": "WHERE UPDATED_DT >= '@date' AND UPDATED_DT < DATEADD(DAY, 1, '@date')",
+        "date_range_filter": "WHERE UPDATED_DT >= '@start_date' AND UPDATED_DT < DATEADD(DAY, 1, '@end_date')",
+        "custom_select_sql": None,
+        "execution_group": 2,
+        "active_yn": "Y",
+        "pipeline_id": "cfc5654e-d935-421e-adc1-78d42d2a334a",
+        "synapse_datasource_name": "EIM_EDW_PROD_COPY_CURRENT",
+        "synapse_datasource_location": "abfss://synapse-exports@eimuatg2lake.dfs.core.windows.net"
     }
 ]
 
+# Combine with existing sample data
+data.extend(obj_set_b)
+
+# Updated schema to match enhanced configuration table structure
 schema = StructType([
     StructField("synapse_connection_name", StringType(), False),
     StructField("source_schema_name", StringType(), False),
     StructField("source_table_name", StringType(), False),
+    StructField("export_base_dir", StringType(), True),
     StructField("extract_mode", StringType(), False),
     StructField("single_date_filter", StringType(), True),
     StructField("date_range_filter", StringType(), True),
+    StructField("custom_select_sql", StringType(), True),
     StructField("execution_group", IntegerType(), False),
     StructField("active_yn", StringType(), False),
     StructField("pipeline_id", StringType(), False),
@@ -47,7 +104,7 @@ schema = StructType([
 ])
 
 # Convert list to DataFrame using target_lakehouse
-df = target_lakehouse.spark.createDataFrame(sample_data, schema)
+df = target_lakehouse.spark.createDataFrame(data, schema)
 
 target_lakehouse.write_to_table(
     df=df,

@@ -1,0 +1,317 @@
+{%- import 'shared/notebook/macros/notebook_macros.py.jinja' as macros -%}
+# Fabric notebook source
+
+# METADATA ********************
+
+# META {
+# META   "kernel_info": {
+# META     "name": "synapse_pyspark",
+# META     "display_name": "Synapse PySpark"
+# META   },
+# META   "language_info": {
+# META     "name": "python"
+# META   }
+# META }
+
+{{ macros.parameters_cell() }}
+
+# Default parameters for historical extraction
+MASTER_EXECUTION_ID = None  # auto-UUID if None
+WORK_ITEMS_JSON = None      # JSON-encoded list of specific extraction items
+MAX_CONCURRENCY = 10
+
+{{ macros.python_cell_with_heading("## 📊 Synapse Extract Historical Driver") }}
+
+# **Synapse Extract Historical Driver**
+# Author: Synapse Sync Package  
+# Date: Generated from enhanced notebook implementations
+# 
+# ## Overview
+# 
+# The Historical Driver orchestrates specific table extractions and backfill operations for Azure Synapse Analytics data. This notebook:
+# 
+# 1. **Historical Extraction** - Processes specific tables/dates as defined in JSON input parameter `WORK_ITEMS_JSON`
+# 2. **Backfill Operations** - Supports custom date ranges and selective table processing
+# 3. **Ad-hoc Extractions** - Enables on-demand extraction of specific data sets
+# 
+# The process uses the same enhanced orchestration capabilities as the daily driver but with flexible work item configuration.
+
+{% set runtime_type = "pyspark" %}
+{% set language_group = "pyspark" %}
+{% set include_ddl_utils = false %}
+
+{% include 'shared/notebook/environment/library_loader.py.jinja' %}
+
+{{ macros.python_cell_with_heading("## 🔧 Load Configuration and Initialize") }}
+{% include 'shared/notebook/environment/config_loader.py.jinja' %}
+
+{{ macros.python_cell_with_heading("## Load Enhanced Synapse Libraries") }}
+
+# Load enhanced PySpark libraries for historical processing
+from ingen_fab.python_libs.pyspark.synapse_orchestrator import SynapseOrchestrator
+from ingen_fab.python_libs.pyspark.synapse_extract_utils import SynapseExtractUtils
+
+{{ macros.python_cell_with_heading("## Enhanced Imports for Historical Processing") }}
+
+# Enhanced imports for historical synapse sync processing
+import asyncio
+import json
+import logging
+import uuid
+from datetime import datetime
+from typing import Dict, List, Optional, Any
+
+# Third-party imports for enhanced functionality
+import nest_asyncio
+import numpy as np
+from delta.tables import DeltaTable
+
+# Fabric imports for pipeline orchestration
+import sempy.fabric as fabric
+from sempy.fabric.exceptions import FabricHTTPException, WorkspaceNotFoundException
+
+import pyspark.sql.functions as F
+from pyspark.sql.types import *
+
+# Configure logging for historical processing tracking
+logging.basicConfig(level=logging.INFO, format='%(asctime)s %(levelname)s %(message)s')
+logger = logging.getLogger(__name__)
+
+# Apply nest_asyncio for Jupyter compatibility
+nest_asyncio.apply()
+
+{{ macros.python_cell_with_heading("## Historical Processing Constants") }}
+
+# Inject Fabric variables from Variable Library value set (no template changes required)
+FABRIC_PIPELINE_ID = "{% raw %}{{varlib:synapse_sync_fabric_pipeline_id}}{% endraw %}"
+SYNAPSE_DATASOURCE_NAME = "{% raw %}{{varlib:synapse_datasource_name}}{% endraw %}"
+SYNAPSE_DATASOURCE_LOCATION = "{% raw %}{{varlib:synapse_datasource_location}}{% endraw %}"
+
+# Generate execution ID
+if MASTER_EXECUTION_ID is None:
+    master_execution_id = str(uuid.uuid4())
+else:
+    master_execution_id = MASTER_EXECUTION_ID
+
+# Historical execution parameters with Fabric integration
+MASTER_EXECUTION_PARAMETERS = {
+    "extraction_type": "historical",
+    "fabric_environment": "{% raw %}{{varlib:fabric_environment}}{% endraw %}",
+    "fabric_workspace_id": "{% raw %}{{varlib:fabric_deployment_workspace_id}}{% endraw %}",
+    "fabric_lakehouse_id": "{% raw %}{{varlib:config_lakehouse_id}}{% endraw %}",
+    "fabric_pipeline_id": FABRIC_PIPELINE_ID,
+    "execution_timestamp": datetime.utcnow().isoformat()
+}
+
+TRIGGER_TYPE = "Manual"
+
+{{ macros.python_cell_with_heading("## Initialize Enhanced Utilities") }}
+
+# Initialize lakehouse utilities with enhanced configuration
+lakehouse = lakehouse_utils(
+    target_workspace_id="{{ config_workspace_id }}", 
+    target_lakehouse_id="{{ config_lakehouse_id }}"
+)
+
+extract_utils = SynapseExtractUtils(lakehouse=lakehouse)
+orchestrator = SynapseOrchestrator(lakehouse=lakehouse)
+
+# Get fabric configuration for the current environment
+environment_name = "{{ fabric_environment }}"
+fabric_config = orchestrator.get_configs_as_object(environment_name)
+if not fabric_config:
+    logger.error(f"Configuration not found for environment: {environment_name}")
+    raise ValueError(f"Configuration not found for environment: {environment_name}")
+
+logger.info(f"Loaded configuration for environment: {fabric_config.fabric_environment}")
+logger.info(f"Using datasource: {SYNAPSE_DATASOURCE_NAME}")
+
+{{ macros.python_cell_with_heading("## Process Historical Work Items") }}
+
+# Validate WORK_ITEMS_JSON parameter
+if not WORK_ITEMS_JSON:
+    logger.error("WORK_ITEMS_JSON parameter is required for historical processing")
+    raise ValueError("Historical extraction requires WORK_ITEMS_JSON parameter with specific extraction items")
+
+try:
+    work_items_data = json.loads(WORK_ITEMS_JSON)
+    logger.info(f"Parsed {len(work_items_data)} work items from JSON input")
+except json.JSONDecodeError as e:
+    logger.error(f"Invalid JSON in WORK_ITEMS_JSON parameter: {e}")
+    raise ValueError(f"Invalid JSON format: {e}")
+
+# Convert work items data to WorkItem objects
+work_items = []
+for item_data in work_items_data:
+    # Validate required fields
+    required_fields = ["source_schema_name", "source_table_name", "extract_mode"]
+    for field in required_fields:
+        if field not in item_data:
+            logger.error(f"Missing required field '{field}' in work item: {item_data}")
+            raise ValueError(f"Work item missing required field: {field}")
+    
+    # Create WorkItem with enhanced validation
+    work_item = orchestrator.WorkItem(
+        source_schema_name=item_data["source_schema_name"],
+        source_table_name=item_data["source_table_name"],
+        extract_mode=item_data.get("extract_mode", "snapshot"),
+        execution_group=item_data.get("execution_group", 1),
+        extract_start_dt=item_data.get("extract_start_dt"),
+        extract_end_dt=item_data.get("extract_end_dt")
+    )
+    work_items.append(work_item)
+
+logger.info(f"HISTORICAL EXTRACTION MODE - Master Execution ID: {master_execution_id}")
+logger.info(f"Total Work Items: {len(work_items)}")
+logger.info(f"Max Concurrency: {MAX_CONCURRENCY}")
+
+# Analyze work items for summary
+extract_modes = {}
+execution_groups = {}
+date_ranges = set()
+
+for item in work_items:
+    # Count extract modes
+    mode = item.extract_mode
+    extract_modes[mode] = extract_modes.get(mode, 0) + 1
+    
+    # Count execution groups
+    group = item.execution_group
+    execution_groups[group] = execution_groups.get(group, 0) + 1
+    
+    # Collect date ranges for incremental extractions
+    if item.extract_mode == "incremental" and item.extract_start_dt:
+        if item.extract_end_dt and item.extract_end_dt != item.extract_start_dt:
+            date_ranges.add(f"{item.extract_start_dt} to {item.extract_end_dt}")
+        else:
+            date_ranges.add(item.extract_start_dt)
+
+logger.info(f"Extract Modes: {extract_modes}")
+logger.info(f"Execution Groups: {dict(sorted(execution_groups.items()))}")
+if date_ranges:
+    logger.info(f"Date Ranges: {sorted(date_ranges)}")
+
+{{ macros.python_cell_with_heading("## Execute Historical Orchestration") }}
+
+if work_items:
+    logger.info("Starting historical extraction orchestration process")
+    
+    # Pre-log records (Queued) and capture execution_id map
+    work_item_dicts = [
+        {
+            "source_schema_name": wi.source_schema_name,
+            "source_table_name": wi.source_table_name,
+            "extract_mode": wi.extract_mode,
+            "execution_group": wi.execution_group,
+            "extract_start_dt": wi.extract_start_dt,
+            "extract_end_dt": wi.extract_end_dt,
+            # Prefer var-lib injected values; fall back to any WorkItem values
+            "synapse_datasource_name": SYNAPSE_DATASOURCE_NAME,
+            "synapse_datasource_location": SYNAPSE_DATASOURCE_LOCATION,
+        }
+        for wi in work_items
+    ]
+    config_dict = dict(vars(fabric_config))
+    config_dict["master_execution_parameters"] = MASTER_EXECUTION_PARAMETERS
+    config_dict["trigger_type"] = TRIGGER_TYPE
+    # Also pass datasource values via config for downstream fallbacks
+    config_dict["synapse_datasource_name"] = SYNAPSE_DATASOURCE_NAME
+    config_dict["synapse_datasource_location"] = SYNAPSE_DATASOURCE_LOCATION
+    # Provide pipeline id at top level for any utils that may consult config
+    config_dict["fabric_pipeline_id"] = FABRIC_PIPELINE_ID
+    extraction_payloads = extract_utils.prepare_extract_payloads(
+        work_items=work_item_dicts,
+        master_execution_id=master_execution_id,
+        config=config_dict,
+    )
+    execution_id_map = extract_utils.bulk_insert_queued_extracts(extraction_payloads) if extraction_payloads else {}
+    external_table_map = {}
+    for r in (extraction_payloads or []):
+        key = f"{r['source_schema_name']}.{r['source_table_name']}|{r.get('extract_start_dt') or ''}|{r.get('extract_end_dt') or ''}|{r.get('extract_mode') or ''}"
+        external_table_map[key] = r.get('external_table')
+
+    # Execute orchestration with enhanced error handling
+    extraction_summary = await orchestrator.run_async_orchestration(
+        work_items=work_items,
+        config=fabric_config,
+        master_execution_id=master_execution_id,
+        max_concurrency=MAX_CONCURRENCY,
+        pipeline_id=FABRIC_PIPELINE_ID,
+        pipeline_workspace_id="{% raw %}{{varlib:fabric_deployment_workspace_id}}{% endraw %}",
+        extract_utils=extract_utils,
+        execution_id_map=execution_id_map,
+        external_table_map=external_table_map,
+    )
+    
+    logger.info("Historical extraction orchestration process completed")
+    
+    # Display comprehensive summary
+    logger.info("=" * 60)
+    logger.info("HISTORICAL EXTRACTION SUMMARY")
+    logger.info("=" * 60)
+    logger.info(f"Master Execution ID: {extraction_summary['master_execution_id']}")
+    logger.info(f"Mode: Historical • Completed: {extraction_summary['completion_time']}")
+    logger.info(f"Total Tables: {extraction_summary['total_tables']}")
+    logger.info(f"Successful: {extraction_summary['successful_extractions']}")
+    logger.info(f"Failed: {extraction_summary['failed_extractions']}")
+    logger.info(f"Success Rate: {extraction_summary['success_rate']}")
+    logger.info(f"Execution Groups Processed: {extraction_summary['execution_groups']}")
+    
+    # Enhanced failure reporting for historical processing
+    if extraction_summary['failed_extractions'] > 0:
+        logger.warning("FAILED HISTORICAL EXTRACTIONS:")
+        
+        # Group failures by type for better analysis
+        failure_by_mode = {}
+        failure_by_group = {}
+        
+        for failed_item in extraction_summary['failed_details']:
+            # Find original work item for analysis
+            table_name = failed_item['table']
+            original_item = next(
+                (item for item in work_items if f"{item.source_schema_name}.{item.source_table_name}" == table_name),
+                None
+            )
+            
+            if original_item:
+                mode = original_item.extract_mode
+                group = original_item.execution_group
+                
+                failure_by_mode[mode] = failure_by_mode.get(mode, 0) + 1
+                failure_by_group[group] = failure_by_group.get(group, 0) + 1
+            
+            logger.error(f"  • {table_name} - Error: {failed_item.get('error', 'Unknown error')}")
+        
+        if failure_by_mode:
+            logger.warning(f"Failures by extract mode: {failure_by_mode}")
+        if failure_by_group:
+            logger.warning(f"Failures by execution group: {failure_by_group}")
+        
+        print(f"\n⚠️  {extraction_summary['failed_extractions']} historical extractions failed")
+        print("📋 Check logs above for detailed failure analysis")
+        print("🔄 Consider using the retry helper notebook to reprocess failed items")
+        print(f"✅ {extraction_summary['successful_extractions']} extractions completed successfully")
+    else:
+        logger.info("🎉 All historical extractions completed successfully!")
+        print("✅ All historical extractions completed successfully!")
+    
+    print(f"\n📊 Historical extraction completed at: {datetime.utcnow()}")
+    print(f"📋 Master Execution ID: {master_execution_id}")
+    
+    # Provide guidance for next steps
+    if extraction_summary['failed_extractions'] > 0:
+        print(f"\n💡 Next Steps:")
+        print(f"   - Review failed extractions in the logs above")
+        print(f"   - Check source data availability for failed items")
+        print(f"   - Use retry helper notebook with Master Execution ID: {master_execution_id}")
+    else:
+        print(f"\n🎉 Historical extraction batch completed successfully!")
+        print(f"   - All {extraction_summary['total_tables']} items processed")
+        print(f"   - Results are available in the EDW lakehouse")
+else:
+    logger.warning("No work items provided for historical processing")
+    print("ℹ️  No work items found in WORK_ITEMS_JSON parameter")
+
+{{ macros.exit_notebook("success") }}
+
+{% include 'shared/notebook/cells/footer.py.jinja' %}
