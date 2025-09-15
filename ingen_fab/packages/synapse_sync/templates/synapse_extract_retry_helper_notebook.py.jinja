@@ -21,7 +21,7 @@ MAX_RETRIES = 3                # Maximum retry attempts per failed extraction
 MAX_CONCURRENCY = 5            # Concurrency for retry operations
 STATUS_FILTER = ["Failed", "Cancelled"]  # Statuses to consider for retry
 
-{{ macros.python_cell_with_heading("## 🔄 Synapse Extract Retry Helper") }}
+{{ macros.python_cell_with_heading("## Synapse Extract Retry Helper") }}
 
 # **Synapse Extract Retry Helper**
 # Author: Synapse Sync Package  
@@ -44,18 +44,14 @@ STATUS_FILTER = ["Failed", "Cancelled"]  # Statuses to consider for retry
 
 {% include 'shared/notebook/environment/library_loader.py.jinja' %}
 
-{{ macros.python_cell_with_heading("## 🔧 Load Configuration and Initialize") }}
+{{ macros.python_cell_with_heading("## Load configuration") }}
 {% include 'shared/notebook/environment/config_loader.py.jinja' %}
 
-{{ macros.python_cell_with_heading("## Load Enhanced Synapse Libraries") }}
+{{ macros.python_cell_with_heading("## Import libraries") }}
 
-# Load enhanced PySpark libraries for retry processing
 from ingen_fab.python_libs.pyspark.synapse_orchestrator import SynapseOrchestrator
 from ingen_fab.python_libs.pyspark.synapse_extract_utils import SynapseExtractUtils
 
-{{ macros.python_cell_with_heading("## Enhanced Imports for Retry Processing") }}
-
-# Enhanced imports for retry synapse sync processing
 import asyncio
 import json
 import logging
@@ -65,17 +61,15 @@ import random
 from datetime import datetime, timedelta
 from typing import Dict, List, Optional, Any
 
-# Third-party imports for enhanced retry functionality
 import nest_asyncio
 import numpy as np
 from delta.tables import DeltaTable
-
-# Fabric imports for pipeline orchestration
 import sempy.fabric as fabric
 from sempy.fabric.exceptions import FabricHTTPException, WorkspaceNotFoundException
-
 import pyspark.sql.functions as F
 from pyspark.sql.types import *
+
+{{ macros.python_cell_with_heading("## Configure logging") }}
 
 # Configure logging for retry processing tracking
 logging.basicConfig(level=logging.INFO, format='%(asctime)s %(levelname)s %(message)s')
@@ -84,7 +78,7 @@ logger = logging.getLogger(__name__)
 # Apply nest_asyncio for Jupyter compatibility
 nest_asyncio.apply()
 
-{{ macros.python_cell_with_heading("## Retry Processing Constants") }}
+{{ macros.python_cell_with_heading("## Define constants") }}
 
 # Inject Fabric variables from Variable Library value set (no template changes required)
 FABRIC_PIPELINE_ID = "{% raw %}{{varlib:synapse_sync_fabric_pipeline_id}}{% endraw %}"
@@ -104,7 +98,7 @@ RETRY_EXECUTION_PARAMETERS = {
 
 TRIGGER_TYPE = "Manual-Retry"
 
-{{ macros.python_cell_with_heading("## Initialize Enhanced Utilities") }}
+{{ macros.python_cell_with_heading("## Initialise utilities") }}
 
 # Initialize lakehouse utilities with enhanced configuration
 lakehouse = lakehouse_utils(
@@ -121,7 +115,7 @@ environment_name = "{{ fabric_environment }}"
 logger.info(f"Loaded configuration for environment: {environment_name}")
 logger.info(f"Using datasource: {SYNAPSE_DATASOURCE_NAME}")
 
-{{ macros.python_cell_with_heading("## Identify Failed Extractions") }}
+{{ macros.python_cell_with_heading("## Identify failed extractions") }}
 
 logger.info(f"RETRY HELPER MODE - Retry Execution ID: {retry_execution_id}")
 logger.info(f"Target Master Execution ID: {MASTER_EXECUTION_ID or 'Not provided'}")
@@ -151,7 +145,7 @@ else:
     
     logger.info(f"Found {len(failed_extractions)} candidate extractions for retry")
 
-{{ macros.python_cell_with_heading("## Convert Failed Extractions to Work Items") }}
+{{ macros.python_cell_with_heading("## Construct retry work items") }}
 
 if failed_extractions:
     # Convert failed extractions to work item dicts for retry
@@ -230,7 +224,7 @@ if failed_extractions:
     print(f"   Max Retry Attempts per Item: {MAX_RETRIES}")
     print(f"   Retry Concurrency: {MAX_CONCURRENCY}")
 
-{{ macros.python_cell_with_heading("## Execute Retry Processing (With Attempts)") }}
+{{ macros.python_cell_with_heading("## Orchestrate retry processing") }}
 
 if failed_extractions:
     # Pre-log retry payloads and map execution IDs (WorkItem carries all metadata)

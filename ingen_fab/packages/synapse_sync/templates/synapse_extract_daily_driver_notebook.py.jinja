@@ -14,15 +14,13 @@
 # META }
 
 {{ macros.parameters_cell() }}
-
-# ### Notebook Parameters
 MASTER_EXECUTION_ID = None  # auto-UUID if None
 MAX_CONCURRENCY = 10
 INCLUDE_SNAPSHOTS = True  # include snapshot tables in the extraction
 EXTRACTION_START_DATE = None  # string YYYY-MM-DD; defaults to current date - 4 days
 EXTRACTION_END_DATE = None    # string YYYY-MM-DD; defaults to current date
 
-{{ macros.python_cell_with_heading("## 🔄 Synapse Extract Daily Driver") }}
+{{ macros.python_cell_with_heading("## Synapse Extract Daily Driver") }}
 
 # **Synapse Extract Daily Driver**
 # Author: Synapse Sync Package  
@@ -85,19 +83,13 @@ EXTRACTION_END_DATE = None    # string YYYY-MM-DD; defaults to current date
 
 {% include 'shared/notebook/environment/library_loader.py.jinja' %}
 
-{{ macros.python_cell_with_heading("## 🔧 Load Configuration and Initialize") }}
+{{ macros.python_cell_with_heading("## Load configuration") }}
 {% include 'shared/notebook/environment/config_loader.py.jinja' %}
 
-{{ macros.python_cell_with_heading("## Load Enhanced Synapse Libraries") }}
+{{ macros.python_cell_with_heading("## Import libraries") }}
 
-# Load enhanced PySpark libraries with new orchestration capabilities
-from ingen_fab.python_libs.pyspark.synapse_orchestrator import SynapseOrchestrator
-from ingen_fab.python_libs.pyspark.synapse_extract_utils import SynapseExtractUtils
-
-{{ macros.python_cell_with_heading("## Enhanced Imports for Daily Processing") }}
-
-# Enhanced imports for daily synapse sync processing
 import asyncio
+import nest_asyncio
 import json
 import logging
 import uuid
@@ -106,27 +98,26 @@ from dataclasses import dataclass
 from datetime import date, datetime, timedelta
 from typing import Dict, List, Tuple, Optional, Any
 
-# Third-party imports for enhanced functionality
-import nest_asyncio
 import numpy as np
 import pyarrow as pa
 from delta.tables import DeltaTable
 
-# Fabric imports for pipeline orchestration
-import sempy.fabric as fabric
-from sempy.fabric.exceptions import FabricHTTPException, WorkspaceNotFoundException
-
 import pyspark.sql.functions as F
 from pyspark.sql.types import *
 
-# Configure logging for enhanced tracking
+from ingen_fab.python_libs.pyspark.synapse_orchestrator import SynapseOrchestrator
+from ingen_fab.python_libs.pyspark.synapse_extract_utils import SynapseExtractUtils
+
+import sempy.fabric as fabric
+from sempy.fabric.exceptions import FabricHTTPException, WorkspaceNotFoundException
+
+{{ macros.python_cell_with_heading("## Configure logging") }}
 logging.basicConfig(level=logging.INFO, format='%(asctime)s %(levelname)s %(message)s')
 logger = logging.getLogger(__name__)
 
-# Apply nest_asyncio for Jupyter compatibility
 nest_asyncio.apply()
 
-{{ macros.python_cell_with_heading("## Enhanced Constants and Configuration") }}
+{{ macros.python_cell_with_heading("## Define constants") }}
 
 # Enhanced constants for daily/historical processing
 # Parse global date params (strings) or apply sensible defaults
@@ -161,7 +152,7 @@ MASTER_EXECUTION_PARAMETERS = {
 
 TRIGGER_TYPE = "Manual"
 
-{{ macros.python_cell_with_heading("## Initialize Enhanced Utilities") }}
+{{ macros.python_cell_with_heading("## Initialise utilities") }}
 
 # Initialize lakehouse utilities with enhanced configuration
 lakehouse = lakehouse_utils(
@@ -177,7 +168,7 @@ orchestrator = SynapseOrchestrator(lakehouse=lakehouse)
 environment_name = "{% raw %}{{varlib:fabric_environment}}{% endraw %}"
 logger.info(f"Loaded configuration for environment: {environment_name}")
 
-{{ macros.python_cell_with_heading("## Prepare Daily Work Items") }}
+{{ macros.python_cell_with_heading("## Construct extract work items") }}
 
 # Generate master execution ID
 if MASTER_EXECUTION_ID is None:
@@ -262,7 +253,7 @@ else:
     
     logger.info(f"Execution groups: {dict(sorted(execution_groups.items()))}")
 
-{{ macros.python_cell_with_heading("## Execute Enhanced Daily Orchestration") }}
+{{ macros.python_cell_with_heading("## Orchestrate extraction") }}
 
 if work_items and extraction_payloads:
     logger.info("Starting enhanced extraction orchestration process")
