@@ -21,35 +21,6 @@ class SynapseExtractUtilsInterface(ABC):
         """Initialise the extract utils with a data store."""
         pass
 
-    @abstractmethod
-    def get_extract_sql_template(
-        self,
-        source_schema_name: str,
-        source_table_name: str,
-        extract_mode: str,
-        single_date_filter: Optional[str] = None,
-        date_range_filter: Optional[str] = None,
-        custom_select_sql: Optional[str] = None,
-        extract_start_dt: Optional[str] = None,
-        extract_end_dt: Optional[str] = None
-    ) -> str:
-        """
-        Generate SQL template for extraction with custom SQL support.
-
-        Args:
-            source_schema_name: Schema name of the source table
-            source_table_name: Table name to extract from
-            extract_mode: 'incremental' or 'snapshot'
-            single_date_filter: SQL filter for single date extracts
-            date_range_filter: SQL filter for date range extracts
-            custom_select_sql: Custom SQL for complex extractions
-            extract_start_dt: Start date for incremental extraction
-            extract_end_dt: End date for incremental extraction
-
-        Returns:
-            SQL template string for the extraction
-        """
-        pass
 
     @abstractmethod
     def bulk_insert_queued_extracts(
