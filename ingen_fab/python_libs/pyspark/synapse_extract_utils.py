@@ -81,7 +81,7 @@ class SynapseExtractUtils(SynapseExtractUtilsInterface):
         StructField("execution_group", IntegerType(), True),
         StructField("master_execution_parameters", StringType(), True),
         StructField("trigger_type", StringType(), True),
-        StructField("config_synapse_connection_name", StringType(), True),
+        StructField("synapse_sync_fabric_pipeline_id", StringType(), True),
         StructField("synapse_datasource_name", StringType(), True),
         StructField("synapse_datasource_location", StringType(), True),
         StructField("source_schema_name", StringType(), True),
@@ -406,8 +406,7 @@ class SynapseExtractUtils(SynapseExtractUtilsInterface):
             "execution_group": work_item.get("execution_group", 1),
             "master_execution_parameters": json.dumps(work_item.get("master_execution_parameters") or {}),
             "trigger_type": work_item.get("trigger_type", "Manual"),
-            "config_synapse_connection_name": work_item.get("synapse_connection_name"),
-            # Datasource details should come from WorkItem (varlib-derived) or per-item override
+            "synapse_sync_fabric_pipeline_id": work_item.get("synapse_sync_fabric_pipeline_id"),
             "synapse_datasource_name": work_item.get("synapse_datasource_name"),
             "synapse_datasource_location": work_item.get("synapse_datasource_location"),
             "source_schema_name": work_item["source_schema_name"],
