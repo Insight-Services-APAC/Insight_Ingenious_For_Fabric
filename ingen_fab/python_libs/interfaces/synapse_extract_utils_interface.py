@@ -268,23 +268,3 @@ class SynapseExtractUtilsInterface(ABC):
         """
         pass
 
-    @abstractmethod
-    def get_execution_summary(
-        self,
-        master_execution_id: str
-    ) -> Dict[str, Any]:
-        """
-        Deprecated: Prefer orchestrator-produced summaries.
-
-        This method is retained for compatibility but is not referenced by the
-        Synapse package notebooks. Use the summary returned by the orchestrator
-        (e.g., `SynapseOrchestrator.run_async_orchestration(...)`) for the 
-        execution summary.
-
-        Args:
-            master_execution_id: The master execution ID to summarise
-
-        Returns:
-            Dictionary containing execution statistics
-        """
-        pass
