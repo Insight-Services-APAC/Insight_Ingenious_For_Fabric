@@ -74,9 +74,6 @@ class SynapseExtractUtils(SynapseExtractUtilsInterface):
         """
     )
 
-    # TODO(auditing): Consider adding 'synapse_datasource_name' and
-    # 'synapse_datasource_location' to LOG_SCHEMA and corresponding DDL to persist
-    # datasource details for auditing (currently used only to build CETAS script).
     LOG_SCHEMA = StructType([
         StructField("master_execution_id", StringType(), True),
         StructField("execution_id", StringType(), True),
@@ -85,6 +82,8 @@ class SynapseExtractUtils(SynapseExtractUtilsInterface):
         StructField("master_execution_parameters", StringType(), True),
         StructField("trigger_type", StringType(), True),
         StructField("config_synapse_connection_name", StringType(), True),
+        StructField("synapse_datasource_name", StringType(), True),
+        StructField("synapse_datasource_location", StringType(), True),
         StructField("source_schema_name", StringType(), True),
         StructField("source_table_name", StringType(), True),
         StructField("extract_mode", StringType(), True),
