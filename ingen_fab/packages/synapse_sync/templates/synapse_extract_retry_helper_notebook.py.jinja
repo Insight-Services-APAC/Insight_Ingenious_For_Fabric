@@ -183,10 +183,11 @@ if failed_extractions:
             "extract_end_dt": failure.get("extract_end_dt"),
             # Preserve export base dir when recoverable from output_path
             "export_base_dir": export_base_dir,
+            "synapse_connection_name": None,
+            "single_date_filter": None,
+            "date_range_filter": None,
             # Carry forward the exact query shape used originally
             "custom_select_sql": orig_select,
-            # Preserve original partition clause for downstream visibility
-            "partition_clause": failure.get("partition_clause"),
             # Provide pipeline id on the work item (varlib-derived)
             "synapse_sync_fabric_pipeline_id": failure.get("synapse_sync_fabric_pipeline_id") or FABRIC_PIPELINE_ID,
             # Prefer var-lib injected values
@@ -255,6 +256,7 @@ if failed_extractions:
             execution_group=work_item.get("execution_group", 1),
             extract_start_dt=work_item.get("extract_start_dt"),
             extract_end_dt=work_item.get("extract_end_dt"),
+            export_base_dir=work_item.get("export_base_dir"),
             # Pass through SQL and datasource details so CETAS matches original
             custom_select_sql=work_item.get("custom_select_sql"),
             synapse_datasource_name=work_item.get("synapse_datasource_name"),
