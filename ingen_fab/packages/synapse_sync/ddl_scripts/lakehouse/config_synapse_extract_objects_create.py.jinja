@@ -12,9 +12,10 @@ schema = StructType([
     StructField("custom_select_sql", StringType(), True),
     StructField("execution_group", IntegerType(), False),
     StructField("active_yn", StringType(), False),
-    StructField("pipeline_id", StringType(), False),
-    StructField("synapse_datasource_name", StringType(), False),
-    StructField("synapse_datasource_location", StringType(), False)
+    # Pipeline/datasource now inferred from varlib; keep nullable in config
+    StructField("synapse_sync_fabric_pipeline_id", StringType(), True),
+    StructField("synapse_datasource_name", StringType(), True),
+    StructField("synapse_datasource_location", StringType(), True)
 ])
 
 target_lakehouse.create_table(

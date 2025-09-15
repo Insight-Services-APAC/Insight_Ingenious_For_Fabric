@@ -17,9 +17,9 @@ obj_set_b = [
         "custom_select_sql": None,
         "execution_group": 1,
         "active_yn": "Y",
-        "pipeline_id": "cfc5654e-d935-421e-adc1-78d42d2a334a",
-        "synapse_datasource_name": "EIM_EDW_PROD_COPY_CURRENT",
-        "synapse_datasource_location": "abfss://synapse-exports@eimuatg2lake.dfs.core.windows.net"
+        "synapse_sync_fabric_pipeline_id": None,
+        "synapse_datasource_name": None,
+        "synapse_datasource_location": None
     },
     {
         "synapse_connection_name": "EIMUATG2LAKE",
@@ -32,9 +32,9 @@ obj_set_b = [
         "custom_select_sql": None,
         "execution_group": 2,
         "active_yn": "Y",
-        "pipeline_id": "cfc5654e-d935-421e-adc1-78d42d2a334a",
-        "synapse_datasource_name": "EIM_EDW_PROD_COPY_CURRENT",
-        "synapse_datasource_location": "abfss://synapse-exports@eimuatg2lake.dfs.core.windows.net"
+        "synapse_sync_fabric_pipeline_id": None,
+        "synapse_datasource_name": None,
+        "synapse_datasource_location": None
     },
     {
         "synapse_connection_name": "EIMUATG2LAKE",
@@ -47,9 +47,9 @@ obj_set_b = [
         "custom_select_sql": None,
         "execution_group": 2,
         "active_yn": "Y",
-        "pipeline_id": "cfc5654e-d935-421e-adc1-78d42d2a334a",
-        "synapse_datasource_name": "EIM_EDW_PROD_COPY_CURRENT",
-        "synapse_datasource_location": "abfss://synapse-exports@eimuatg2lake.dfs.core.windows.net"
+        "synapse_sync_fabric_pipeline_id": None,
+        "synapse_datasource_name": None,
+        "synapse_datasource_location": None
     },
     {
         "synapse_connection_name": "EIMUATG2LAKE",
@@ -62,9 +62,9 @@ obj_set_b = [
         "custom_select_sql": None,
         "execution_group": 2,
         "active_yn": "Y",
-        "pipeline_id": "cfc5654e-d935-421e-adc1-78d42d2a334a",
-        "synapse_datasource_name": "EIM_EDW_PROD_COPY_CURRENT",
-        "synapse_datasource_location": "abfss://synapse-exports@eimuatg2lake.dfs.core.windows.net"
+        "synapse_sync_fabric_pipeline_id": None,
+        "synapse_datasource_name": None,
+        "synapse_datasource_location": None
     },
     {
         "synapse_connection_name": "EIMUATG2LAKE",
@@ -77,9 +77,9 @@ obj_set_b = [
         "custom_select_sql": None,
         "execution_group": 2,
         "active_yn": "Y",
-        "pipeline_id": "cfc5654e-d935-421e-adc1-78d42d2a334a",
-        "synapse_datasource_name": "EIM_EDW_PROD_COPY_CURRENT",
-        "synapse_datasource_location": "abfss://synapse-exports@eimuatg2lake.dfs.core.windows.net"
+        "synapse_sync_fabric_pipeline_id": None,
+        "synapse_datasource_name": None,
+        "synapse_datasource_location": None
     }
 ]
 
@@ -98,9 +98,9 @@ schema = StructType([
     StructField("custom_select_sql", StringType(), True),
     StructField("execution_group", IntegerType(), False),
     StructField("active_yn", StringType(), False),
-    StructField("pipeline_id", StringType(), False),
-    StructField("synapse_datasource_name", StringType(), False),
-    StructField("synapse_datasource_location", StringType(), False)
+    StructField("synapse_sync_fabric_pipeline_id", StringType(), True),
+    StructField("synapse_datasource_name", StringType(), True),
+    StructField("synapse_datasource_location", StringType(), True)
 ])
 
 # Convert list to DataFrame using target_lakehouse
