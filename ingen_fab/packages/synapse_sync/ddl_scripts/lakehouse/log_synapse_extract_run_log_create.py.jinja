@@ -9,6 +9,8 @@ schema = StructType([
     StructField("master_execution_parameters", StringType(), True),
     StructField("trigger_type", StringType(), True),
     StructField("config_synapse_connection_name", StringType(), True),
+    StructField("synapse_datasource_name", StringType(), True),
+    StructField("synapse_datasource_location", StringType(), True),
     StructField("source_schema_name", StringType(), True),
     StructField("source_table_name", StringType(), True),
     StructField("extract_mode", StringType(), True),
