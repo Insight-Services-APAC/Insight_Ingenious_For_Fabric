@@ -29,7 +29,7 @@ STATUS_FILTER = ["Failed", "Cancelled"]  # Statuses to consider for retry
 # 
 # ## Overview
 # 
-# The Retry Helper provides sophisticated retry functionality for failed Synapse extractions. This notebook:
+# The Retry Helper provides retry functionality for failed Synapse extractions. This notebook:
 # 
 # 1. **Intelligent Retry** - Identifies and retries failed extractions with exponential backoff
 # 2. **Selective Processing** - Can target specific execution IDs or time windows
@@ -39,7 +39,7 @@ STATUS_FILTER = ["Failed", "Cancelled"]  # Statuses to consider for retry
 # The process uses enhanced retry mechanisms with jitter and concurrent write detection.
 
 {% set runtime_type = "pyspark" %}
-{% set language_group = "pyspark" %}
+{% set language_group = "synapse_pyspark" %}
 {% set include_ddl_utils = false %}
 
 {% include 'shared/notebook/environment/library_loader.py.jinja' %}
@@ -100,10 +100,10 @@ TRIGGER_TYPE = "Manual-Retry"
 
 {{ macros.python_cell_with_heading("## Initialise utilities") }}
 
-# Initialize lakehouse utilities with enhanced configuration
 lakehouse = lakehouse_utils(
-    target_workspace_id="{{ config_workspace_id }}", 
-    target_lakehouse_id="{{ config_lakehouse_id }}"
+    target_workspace_id="{% raw %}{{varlib:fabric_deployment_workspace_id}}{% endraw %}", 
+    target_lakehouse_id="{% raw %}{{varlib:config_lakehouse_id}}{% endraw %}",
+    spark=spark
 )
 
 # Initialize enhanced orchestrator and extract utils
@@ -111,7 +111,7 @@ orchestrator = SynapseOrchestrator(lakehouse=lakehouse)
 extract_utils = SynapseExtractUtils(lakehouse=lakehouse)
 
 # Get environment name from Variable Library
-environment_name = "{{ fabric_environment }}"
+environment_name = "{% raw %}{{varlib:fabric_environment}}{% endraw %}"
 logger.info(f"Loaded configuration for environment: {environment_name}")
 logger.info(f"Using datasource: {SYNAPSE_DATASOURCE_NAME}")
 
