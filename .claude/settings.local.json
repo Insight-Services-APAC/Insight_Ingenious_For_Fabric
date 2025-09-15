@@ -8,7 +8,10 @@
       "Bash(python -m ingen_fab.cli profile:*)",
       "Bash(python:*)",
       "Bash(export FABRIC_ENVIRONMENT=\"local\")",
-      "Bash(export FABRIC_WORKSPACE_REPO_DIR=\"sample_project\")"
+      "Bash(export FABRIC_WORKSPACE_REPO_DIR=\"sample_project\")",
+      "WebFetch(domain:github.com)",
+      "WebFetch(domain:raw.githubusercontent.com)",
+      "Bash(curl:*)"
     ],
     "deny": [],
     "ask": [],

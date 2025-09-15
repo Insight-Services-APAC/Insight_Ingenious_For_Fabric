@@ -489,13 +489,25 @@ def convert_metadata_to_dbt_format(
 
 
 def create_python_classes(
-    ctx: typer.Context, dbt_project: str, skip_profile_confirmation: bool = False
+    ctx: typer.Context,
+    dbt_project: str,
+    skip_profile_confirmation: bool = False,
+    execution_mode: str = typer.Option(
+        "static",
+        "--execution-mode",
+        "-m",
+        help="Execution mode: 'static' embeds SQL in Python classes, 'dynamic' loads SQL at runtime"
+    )
 ) -> None:
     """Create Python classes from dbt SQL JSON files.
 
     This scans {fabric_workspace_repo_dir}/{dbt_project}/target/sql for JSON files,
     reads their SQL contents, and creates Python class files under
     {fabric_workspace_repo_dir}/ingen_fab/packages/dbt/runtime/projects/{dbt_project}/.
+
+    Execution modes:
+    - static: Embeds SQL directly in Python classes (default)
+    - dynamic: Creates lightweight wrappers that load SQL at runtime
     """
 
     # Check and update dbt profile if needed
@@ -547,7 +559,10 @@ def create_python_classes(
     if models_python_dir.exists():
         models_python_count = len(list(models_python_dir.glob("*.py")))
     
+    # Display execution mode info
+    mode_color = "green" if execution_mode == "dynamic" else "cyan"
     panel_text = f"Creating Python classes for [bold]{len(json_files)}[/bold] dbt SQL files"
+    panel_text += f"\nExecution mode: [bold {mode_color}]{execution_mode}[/bold {mode_color}]"
     if models_python_count > 0:
         panel_text += f"\nFound [bold]{models_python_count}[/bold] Python files in models_python directory for injection"
 
@@ -682,7 +697,25 @@ def create_python_classes(
 
             # Build normalized base name (strip category prefixes) - replicate create_notebooks logic
             if category == "model":
-                normalized_base = "model"
+                # Remove 'model.<project>.' prefix
+                parts = stem.split(".")
+                normalized_base = ".".join(parts[2:]) if len(parts) > 2 else stem
+                # Also remove embedded model name to avoid duplication in the model folder
+                if model_name_for_group:
+                    # Replace _<model_name>_ with _ and clean up edges
+                    normalized_base = normalized_base.replace(
+                        f"_{model_name_for_group}_", "_"
+                    )
+                    if normalized_base.startswith(f"{model_name_for_group}_"):
+                        normalized_base = normalized_base[
+                            len(model_name_for_group) + 1 :
+                        ]
+                    if normalized_base.endswith(f"_{model_name_for_group}"):
+                        normalized_base = normalized_base[
+                            : -len(model_name_for_group) - 1
+                        ]
+                    # Collapse any double underscores
+                    normalized_base = re.sub(r"__+", "_", normalized_base)
             elif category == "test":
                 # Remove 'test.<project>.' prefix
                 parts = stem.split(".")
@@ -751,16 +784,31 @@ def create_python_classes(
                         except Exception as e:
                             console.print(f"[yellow]Warning: Could not read {potential_file.name}: {e}[/yellow]")
 
-            # Generate Python class content
-            class_content = _generate_python_class(
-                class_name=class_name,
-                model_name=raw_model_name,
-                node_id=node_id,
-                session_id=session_id,
-                sql_statements=sql_statements,
-                json_file_name=json_path.name,
-                injected_python_code=injected_python_code,
-            )
+            # Generate Python class content based on execution mode
+            if execution_mode == "dynamic":
+                # Calculate relative path from class location to project root
+                class_location = dest_root
+                project_location = workspace_dir / dbt_project
+                # Calculate relative path (going up from class location to workspace, then down to project)
+                relative_parts = [".."] * (len(class_location.relative_to(workspace_dir).parts))
+                default_project_path = "/".join(relative_parts + [dbt_project])
+
+                class_content = _generate_dynamic_wrapper(
+                    class_name=class_name,
+                    model_name=raw_model_name,
+                    node_id=node_id,
+                    default_project_path=default_project_path,
+                )
+            else:
+                class_content = _generate_python_class(
+                    class_name=class_name,
+                    model_name=raw_model_name,
+                    node_id=node_id,
+                    session_id=session_id,
+                    sql_statements=sql_statements,
+                    json_file_name=json_path.name,
+                    injected_python_code=injected_python_code,
+                )
 
             # Write Python class file using encoded module name
             class_file = dest_root / f"{encoded_module_name}.py"
@@ -806,30 +854,96 @@ def create_python_classes(
         with main_init.open("w", encoding="utf-8") as f:
             f.write(main_init_content)
 
-    # Generate DAG executor class
-    try:
-        console.print("[cyan]Generating DAG executor...[/cyan]")
-        dag_executor_content = _generate_dag_executor_class(
-            dbt_project=dbt_project,
-            manifest=manifest,
-            nodes=nodes,
-            target_dir=target_dir,
-            created_dirs=created_dirs
-        )
-        
-        # Write DAG executor class
-        dag_executor_file = target_dir / "dag_executor.py"
-        with dag_executor_file.open("w", encoding="utf-8") as f:
-            f.write(dag_executor_content)
-        
-        console.print(f"[green]✓[/green] Created DAG executor: dag_executor.py")
-        
-    except Exception as e:
-        console.print(f"[yellow]Warning: Failed to generate DAG executor: {e}[/yellow]")
+    # Generate DAG executor class (only for static mode)
+    if execution_mode == "static":
+        try:
+            console.print("[cyan]Generating DAG executor...[/cyan]")
+            dag_executor_content = _generate_dag_executor_class(
+                dbt_project=dbt_project,
+                manifest=manifest,
+                nodes=nodes,
+                target_dir=target_dir,
+                created_dirs=created_dirs
+            )
 
+            # Write DAG executor class
+            dag_executor_file = target_dir / "dag_executor.py"
+            with dag_executor_file.open("w", encoding="utf-8") as f:
+                f.write(dag_executor_content)
+
+            console.print(f"[green]✓[/green] Created DAG executor: dag_executor.py")
+        except Exception as e:
+            console.print(f"[yellow]Warning: Failed to generate DAG executor: {e}[/yellow]")
+    else:
+        # For dynamic mode, create a simple launcher that uses DynamicDAGExecutor
+        try:
+            console.print("[cyan]Creating dynamic DAG launcher...[/cyan]")
+
+            # Calculate relative path from target_dir to project root
+            relative_parts = [".."] * (len(target_dir.relative_to(workspace_dir).parts))
+            default_project_path = "/".join(relative_parts + [dbt_project])
+
+            dag_launcher_content = f'''"""
+Dynamic DAG Launcher for dbt project: {dbt_project}
+
+This launcher uses the DynamicDAGExecutor to execute dbt models at runtime.
+"""
+
+from pathlib import Path
+from pyspark.sql import SparkSession
+
+from ingen_fab.packages.dbt.runtime.dynamic import DynamicDAGExecutor
+
+
+def create_dag_executor(spark: SparkSession, project_path: Path = None):
+    """
+    Create a DynamicDAGExecutor instance.
+
+    Args:
+        spark: Active SparkSession
+        project_path: Path to dbt project (defaults to {default_project_path})
+
+    Returns:
+        DynamicDAGExecutor instance
+    """
+    if project_path is None:
+        project_path = Path("{default_project_path}")
+
+    return DynamicDAGExecutor(spark, project_path)
+
+
+# Example usage
+if __name__ == "__main__":
+    from pyspark.sql import SparkSession
+
+    spark = SparkSession.builder.appName("DBT Dynamic Executor").getOrCreate()
+    executor = create_dag_executor(spark)
+
+    # Validate DAG
+    is_valid, cycles = executor.validate_dag()
+    if not is_valid:
+        print(f"DAG has cycles: {{cycles}}")
+    else:
+        print("DAG is valid")
+
+    # Execute all models
+    results = executor.execute_dag()
+    print(f"Execution completed: {{results}}")
+'''
+
+            dag_launcher_file = target_dir / "dynamic_dag_launcher.py"
+            with dag_launcher_file.open("w", encoding="utf-8") as f:
+                f.write(dag_launcher_content)
+
+            console.print(f"[green]✓[/green] Created dynamic DAG launcher: dynamic_dag_launcher.py")
+        except Exception as e:
+            console.print(f"[yellow]Warning: Failed to create dynamic DAG launcher: {e}[/yellow]")
+
+    mode_info = f" ({execution_mode} mode)" if execution_mode == "dynamic" else ""
     console.print(
         Panel.fit(
-            f"[bold green]✓ Created {created} Python class(es) + DAG executor in[/bold green]\n{target_dir}",
+            f"[bold green]✓ Created {created} Python classes{mode_info}[/bold green]\n"
+            f"Output directory: {target_dir}",
             title="Completed",
             border_style="green",
         )
@@ -902,6 +1016,36 @@ def _generate_method_name(sql: str, statement_number: int, total_statements: int
         return "finalize_data"
     else:
         return f"execute_statement_{statement_number}"
+
+
+def _generate_dynamic_wrapper(
+    class_name: str,
+    model_name: str,
+    node_id: str,
+    default_project_path: str,
+) -> str:
+    """Generate dynamic wrapper class content using Jinja2 template."""
+
+    # Set up Jinja2 environment
+    template_dir = Path(__file__).parent / "templates"
+    env = Environment(loader=FileSystemLoader(str(template_dir)))
+
+    try:
+        template = env.get_template("dynamic_wrapper.py.j2")
+    except TemplateNotFound:
+        console.print(f"[red]Template not found: {template_dir}/dynamic_wrapper.py.j2[/red]")
+        raise
+
+    # Prepare template variables
+    template_vars = {
+        "class_name": class_name,
+        "model_name": model_name,
+        "node_id": node_id,
+        "default_project_path": default_project_path,
+    }
+
+    # Render template
+    return template.render(**template_vars)
 
 
 def _generate_python_class(

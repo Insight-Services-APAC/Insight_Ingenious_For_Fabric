@@ -12,6 +12,7 @@ from rich.table import Table
 
 from ingen_fab.cli_utils.console_styles import ConsoleStyles
 from ingen_fab.fabric_api.utils import FabricApiUtils
+from ingen_fab.python_libs.pyspark import lakehouse_utils
 
 
 @dataclass
@@ -637,6 +638,63 @@ def warehouse_metadata(
         out_rows, output_format=output_format, output_path=output_path, console=console
     )
 
+def warehouse_metadata_local(
+    *,
+    ctx: Optional[Any],
+    output_format: str,
+    output_path: Optional[Path],
+) -> None:
+    console = Console()
+    ConsoleStyles.print_info(console, "Preparing local warehouse metadata extraction...")
+
+    # Initialize lakehouse with auto-registration
+    target_lakehouse = lakehouse_utils(
+        "",
+        "",
+    )
+
+    out_rows: list[ColumnRecord] = []
+
+    ct = target_lakehouse.spark.catalog
+    tbls = ct.listTables()
+    for tbl in tbls:
+        cols = ct.listColumns(tbl.name)
+        for col in cols:
+            co = ColumnRecord(
+            # ---------- #
+                workspace_id = "9c448b50-5e35-4c51-8f49-cc01c23f397d"
+                ,warehouse_id = ""
+                ,warehouse_name = ""
+                ,lakehouse_id = "9c448b50-5e35-4c51-8f49-cc01c23f397d"
+                ,lakehouse_name = "config"
+                ,sql_endpoint_id = ""
+                ,table_name= tbl.name
+                ,table_type = "USER"
+                ,column_name = col.name
+                ,data_type = col.dataType
+                ,ordinal_position = 1
+                
+            )
+            out_rows.append(co)
+
+    # Default cache path if not provided
+    if output_path is None:
+        if ctx:
+            base_dir = Path(ctx.obj["fabric_workspace_repo_dir"]) / "metadata"
+        else:
+            base_dir = Path("./sample_project") / "metadata"
+        base_dir.mkdir(parents=True, exist_ok=True)
+        ext = (
+            ".json"
+            if output_format == "json"
+            else ".csv"
+            if output_format == "csv"
+            else ".txt"
+        )
+        output_path = base_dir / f"lakehouse_metadata_all{ext}"
+    _render_output(
+        out_rows, output_format=output_format, output_path=output_path, console=console
+    )
 
 def lakehouse_summary(
     *,

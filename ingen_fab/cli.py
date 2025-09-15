@@ -25,6 +25,7 @@ libs_commands = lazy_import.lazy_module("ingen_fab.cli_utils.libs_commands")
 dbt_commands = lazy_import.lazy_module("ingen_fab.cli_utils.dbt.commands")
 profile_commands = lazy_import.lazy_module("ingen_fab.cli_utils.profile_commands")
 download_commands = lazy_import.lazy_module("ingen_fab.cli_utils.download_commands")
+sample_data_commands = lazy_import.lazy_module("ingen_fab.cli_utils.sample_data_commands")
 
 from ingen_fab.cli_utils.console_styles import ConsoleStyles
 
@@ -109,6 +110,11 @@ app.add_typer(
     profile_commands.app,
     name="profile",
     help="Commands for data profiling and quality analysis.",
+)
+app.add_typer(
+    sample_data_commands.app,
+    name="sample-data",
+    help="Commands for loading sample datasets into Fabric lakehouse.",
 )
 
 # New: extract commands
@@ -1172,7 +1178,7 @@ def dbt_exec(
     ctx: typer.Context,
 ):
     """Run dbt_wrapper from within the Fabric workspace repo, then return to the original directory."""
-    from ingen_fab.cli_utils.dbt_profile_manager import ensure_dbt_profile_for_exec
+    from ingen_fab.cli_utils.dbt.profile_manager import ensure_dbt_profile_for_exec
 
     workspace_dir = Path(ctx.obj["fabric_workspace_repo_dir"]).resolve()
     if not workspace_dir.exists():

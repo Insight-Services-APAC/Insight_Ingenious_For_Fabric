@@ -36,11 +36,12 @@ class {{ class_name }}:
         """
         sql = """{{ sql_method.sql_content | replace('"""', '\\"\\"\\"') }}"""
         
-        try:
-            result = self.spark.sql(sql)
-            return result
-        except Exception as e:
-            raise RuntimeError(f"Failed to execute {{ sql_method.method_name }} for {self.model_name}: {e}")
+        for s in sql.split(';\n'):
+            try:
+                result = self.spark.sql(s)
+                return result
+            except Exception as e:
+                raise RuntimeError(f"Failed to execute {{ sql_method.method_name }} for {self.model_name}: {e}")
 
 {% endfor %}
 {% if has_injected_code %}
@@ -71,9 +72,9 @@ class {{ class_name }}:
         try:
             injected_result = self.execute_injected_python()
             results.append(injected_result)
-            print(f"✓ Successfully executed {self.model_name}.execute_injected_python")
+            print(f"✓ Successfully executed {self.node_id}.execute_injected_python")
         except Exception as e:
-            print(f"✗ Failed to execute {self.model_name}.execute_injected_python: {e}")
+            print(f"✗ Failed to execute {self.node_id}.execute_injected_python: {e}")
             raise
         
 {% endif %}
@@ -82,9 +83,9 @@ class {{ class_name }}:
         try:
             result = self.{{ sql_method.method_name }}()
             results.append(result)
-            print(f"✓ Successfully executed {self.model_name}.{{ sql_method.method_name }}")
+            print(f"✓ Successfully executed {self.node_id}.{{ sql_method.method_name }}")
         except Exception as e:
-            print(f"✗ Failed to execute {self.model_name}.{{ sql_method.method_name }}: {e}")
+            print(f"✗ Failed to execute {self.node_id}.{{ sql_method.method_name }}: {e}")
             raise
         
 {% endfor %}

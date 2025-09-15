@@ -74,26 +74,101 @@ class lakehouse_utils(DataStoreInterface):
     def _get_or_create_spark_session(self) -> SparkSession:
         """Get existing Spark session or create a new one."""
         config = cu.get_configs_as_object()
-        
+
         if config.fabric_environment == "local":
             # Use the SparkSessionFactory for local environments
             from ingen_fab.python_libs.common.spark_session_factory import SparkSessionFactory
-            
+
             self.spark_version = "local"
-            
+
             # Get the local Spark provider from config (defaults to "native")
             provider = getattr(config, "local_spark_provider", "native")
-            
+
             print(f"Creating local Spark session with provider: {provider}")
-            
-            return SparkSessionFactory.get_or_create_spark_session(
+
+            spark_session = SparkSessionFactory.get_or_create_spark_session(
                 provider=provider,
                 app_name="LakehouseUtils",
                 lakesail_port=50051
             )
+
+            # Auto-register Delta tables for local environments
+            self._auto_register_delta_tables(spark_session)
+
+            return spark_session
         else:
             print("Using existing spark .. Fabric environment   .")
             return self.spark  # type: ignore  # noqa: F821
+
+    def _auto_register_delta_tables(self, spark_session: SparkSession) -> None:
+        """Auto-register Delta tables when creating a local Spark session."""
+        try:
+            print("🔄 Auto-registering Delta tables...")
+            registered_count = self.discover_and_register_delta_tables(spark_session)
+            if registered_count > 0:
+                print(f"✅ Auto-registered {registered_count} Delta tables")
+            else:
+                print("ℹ️  No Delta tables found to register")
+        except Exception as e:
+            print(f"⚠️  Auto-registration failed: {str(e)}")
+
+    def discover_and_register_delta_tables(self, spark_session: SparkSession = None) -> int:
+        """
+        Discover Delta tables in the tmp/spark/Tables directory and register them
+        with the Spark session catalog so they can be queried.
+
+        Args:
+            spark_session: Optional Spark session to use (defaults to self.spark)
+
+        Returns:
+            Number of tables successfully registered
+        """
+        if spark_session is None:
+            spark_session = self.spark
+
+        if self.spark_version != "local":
+            print("Delta table registration only needed for local environments")
+            return 0
+
+        # Path to the Delta tables directory
+        tables_dir = Path("tmp/spark/Tables")
+
+        if not tables_dir.exists():
+            print(f"Tables directory not found: {tables_dir}")
+            return 0
+
+        # Find all subdirectories that are Delta tables
+        potential_tables = []
+        for item in tables_dir.iterdir():
+            if item.is_dir():
+                # Check if it looks like a Delta table (has _delta_log directory)
+                delta_log = item / "_delta_log"
+                if delta_log.exists():
+                    potential_tables.append(item)
+
+        if not potential_tables:
+            print("No Delta tables found in the tables directory")
+            return 0
+
+        registered_count = 0
+        spark_session.sql("CREATE DATABASE IF NOT EXISTS config")
+        for table_path in potential_tables:
+            table_name = table_path.name
+            full_path = f"file://{table_path.absolute()}"
+
+            try:
+                # Register table directly in the metastore using SQL
+                spark_session.sql(f"""
+                    CREATE TABLE IF NOT EXISTS config.{table_name}
+                    USING DELTA
+                    LOCATION '{full_path}'
+                """)
+                registered_count += 1
+
+            except Exception as e:
+                print(f"Failed to register {table_name}: {str(e)}")
+
+        return registered_count
 
     def check_if_table_exists(
         self, table_name: str, schema_name: str | None = None

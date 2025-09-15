@@ -2111,8 +2111,8 @@ wheels = [
 
 [[package]]
 name = "fabric-cicd"
-version = "0.1.22"
-source = { url = "https://github.com/jrampono/fabric-cicd/archive/refs/tags/v0.0.1.tar.gz" }
+version = "0.1.25"
+source = { git = "https://github.com/jrampono/fabric-cicd?branch=feature%2Fstructured_log_output_V2#78f3a6af2646b4b0131981bb5fa8c220a5934a3b" }
 dependencies = [
     { name = "azure-identity" },
     { name = "dpath" },
@@ -2121,18 +2121,6 @@ dependencies = [
     { name = "packaging" },
     { name = "pyyaml" },
     { name = "requests" },
-]
-sdist = { hash = "sha256:7378776c30760241f56a7b8a41ce08629210f9db25088a4ad06531f863aa3ac5" }
-
-[package.metadata]
-requires-dist = [
-    { name = "azure-identity", specifier = ">=1.19.0" },
-    { name = "dpath", specifier = ">=2.2.0" },
-    { name = "filetype", specifier = ">=1.2.0" },
-    { name = "jsonpath-ng", specifier = ">=1.7.0" },
-    { name = "packaging", specifier = ">=24.2" },
-    { name = "pyyaml", specifier = ">=6.0.2" },
-    { name = "requests", specifier = ">=2.32.3" },
 ]
 
 [[package]]
@@ -2316,6 +2304,9 @@ dataprep = [
     { name = "python-dotenv" },
     { name = "scrapfly-sdk" },
 ]
+lakesail = [
+    { name = "pysail" },
+]
 tests = [
     { name = "pre-commit" },
     { name = "pytest" },
@@ -2371,7 +2362,7 @@ requires-dist = [
     { name = "azure-storage-file-datalake", specifier = "==12.21.0" },
     { name = "backoff", marker = "extra == 'dataprep'", specifier = "==2.2" },
     { name = "deltalake", specifier = "==1.0.2" },
-    { name = "fabric-cicd", url = "https://github.com/jrampono/fabric-cicd/archive/refs/tags/v0.0.1.tar.gz" },
+    { name = "fabric-cicd", git = "https://github.com/jrampono/fabric-cicd?branch=feature%2Fstructured_log_output_V2" },
     { name = "faker", specifier = ">=37.4.2" },
     { name = "jinja2" },
     { name = "lazy-import", specifier = ">=0.2.2" },
@@ -2380,6 +2371,7 @@ requires-dist = [
     { name = "psycopg2-binary", specifier = ">=2.9.9" },
     { name = "pyarrow", specifier = "==20.0.0" },
     { name = "pyodbc", specifier = ">=5.2.0" },
+    { name = "pysail", marker = "extra == 'lakesail'", specifier = ">=0.3.3" },
     { name = "pytest", marker = "extra == 'tests'", specifier = "==8.3.5" },
     { name = "pytest-asyncio", marker = "extra == 'tests'", specifier = "==0.26.0" },
     { name = "pytest-cov", marker = "extra == 'tests'", specifier = "==6.1.1" },
@@ -2393,7 +2385,7 @@ requires-dist = [
     { name = "typer", specifier = "==0.16.0" },
     { name = "vulture", marker = "extra == 'tests'", specifier = "==2.14" },
 ]
-provides-extras = ["dataprep", "profiling", "tests"]
+provides-extras = ["dataprep", "profiling", "lakesail", "tests"]
 
 [package.metadata.requires-dev]
 dbt = [{ name = "dbt-fabricsparknb", git = "https://github.com/Insight-Services-APAC/APAC-Capability-DAI-DbtFabricSparkNb.git?rev=dev-jr-upgrading-to-dbt-v1.9%2B" }]
@@ -3665,6 +3657,19 @@ source = { registry = "https://pypi.org/simple" }
 sdist = { url = "https://files.pythonhosted.org/packages/0f/49/4cea918a08f02817aabae639e3d0ac046fef9f9180518a3ad394e22da148/pyreadline3-3.5.4.tar.gz", hash = "sha256:8d57d53039a1c75adba8e50dd3d992b28143480816187ea5efbd5c78e6c885b7", size = 99839, upload-time = "2024-09-19T02:40:10.062Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/5a/dc/491b7661614ab97483abf2056be1deee4dc2490ecbf7bff9ab5cdbac86e1/pyreadline3-3.5.4-py3-none-any.whl", hash = "sha256:eaf8e6cc3c49bcccf145fc6067ba8643d1df34d604a1ec0eccbf7a18e6d3fae6", size = 83178, upload-time = "2024-09-19T02:40:08.598Z" },
+]
+
+[[package]]
+name = "pysail"
+version = "0.3.5"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/4c/cd/979eafd76101688b3ca8b80935e6a5b06e62c0a984a17709226742b388b5/pysail-0.3.5.tar.gz", hash = "sha256:8f3205b7e17658412755523f92b59c9c21db34b4aee9941549f673d107145d5b", size = 933483, upload-time = "2025-09-05T12:33:16.638Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/e9/dd/3f13644d749d8537e0dbc8cdc5938b9be5616f3d7b62324c6861ace26d3c/pysail-0.3.5-cp38-abi3-macosx_10_12_x86_64.whl", hash = "sha256:a1d13c4ca254ef7f714d55646a17b3461f784155e60cc7bb16529f660ac19098", size = 37816048, upload-time = "2025-09-05T12:33:02.105Z" },
+    { url = "https://files.pythonhosted.org/packages/0a/db/5c0108e92579a75fe61bae027d89db2143d8a3d27efbe895a829d367a4ca/pysail-0.3.5-cp38-abi3-macosx_11_0_arm64.whl", hash = "sha256:7ffe0d4a8af9ed668eb0f3b3e495c2d251c68d9ac08d5d0524fc26120d7c6d07", size = 34205653, upload-time = "2025-09-05T12:33:04.889Z" },
+    { url = "https://files.pythonhosted.org/packages/f3/48/dd6d5c0214895abd547ee6d1251260de20d5bc43c925e7464474939e3a96/pysail-0.3.5-cp38-abi3-manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:41079a6492b57d918f367e1cdef27c71731bdd4b8205928cc4590fd6cdeda34e", size = 41017983, upload-time = "2025-09-05T12:33:08.087Z" },
+    { url = "https://files.pythonhosted.org/packages/a0/0e/27f791118d955e3bf1e5643abaed3375221beffa0bd24e1653747aa2a03b/pysail-0.3.5-cp38-abi3-manylinux_2_24_aarch64.whl", hash = "sha256:c19df3c766e3254f04b2de9c9a6d1607d5ddb88a6be1962a52891c33b73be7e4", size = 36883880, upload-time = "2025-09-05T12:33:10.789Z" },
+    { url = "https://files.pythonhosted.org/packages/1f/c0/abc65a1ca02ce3aa471ff8e116c02c1406f6cf4376dd53a0dd7308127669/pysail-0.3.5-cp38-abi3-win_amd64.whl", hash = "sha256:aaf019904f43994882fad163917f0e91bcf29a4e78f243da507166ee443ddb05", size = 41046622, upload-time = "2025-09-05T12:33:13.965Z" },
 ]
 
 [[package]]

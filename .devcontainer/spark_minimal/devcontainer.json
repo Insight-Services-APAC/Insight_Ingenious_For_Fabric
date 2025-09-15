@@ -21,7 +21,6 @@
         "charliermarsh.ruff",
         "ms-python.vscode-python-envs",
         "bierner.emojisense",
-        "Oracle.mysql-shell-for-vs-code",
         "ms-ossdata.vscode-pgsql",
         "samuelcolvin.jinjahtml"
       ]

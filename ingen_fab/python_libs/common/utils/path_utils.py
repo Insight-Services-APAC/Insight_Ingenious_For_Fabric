@@ -246,24 +246,13 @@ class PathUtils:
             # Primary development indicators (similar to ingenious pattern)
             dev_indicators = [
                 cwd / "ingen_fab" / "cli.py",  # Main CLI entry point
-                cwd / "pyproject.toml",  # Python project file
-                cwd / "ingen_fab" / "project_templates",  # Our templates directory
-                cwd / ".git",  # Git repository
-                cwd / "README.md",  # Project documentation
             ]
 
-            # Check if we're in the package source structure
-            source_structure = [
-                cwd / "ingen_fab" / "__init__.py",
-                cwd / "ingen_fab" / "utils",
-                cwd / "ingen_fab" / "python_libs",
-            ]
 
             # Development environment if we find key indicators
             has_dev_indicators = any(indicator.exists() for indicator in dev_indicators)
-            has_source_structure = any(path.exists() for path in source_structure)
 
-            return has_dev_indicators or has_source_structure
+            return has_dev_indicators 
 
         except Exception:
             return False

@@ -87,6 +87,12 @@ class SparkSessionFactory:
                 "spark.sql.catalog.spark_catalog",
                 "org.apache.spark.sql.delta.catalog.DeltaCatalog",
             )
+            .config("spark.sql.extensions", "io.delta.sql.DeltaSparkSessionExtension")
+            .config("spark.sql.catalog.spark_catalog", "org.apache.spark.sql.delta.catalog.DeltaCatalog")
+            .config("spark.sql.defaultCatalog", "spark_catalog")           # ensure Delta-backed catalog is default
+            .config("spark.sql.defaultTableFormat", "delta")               # CTAS/CREATE default to Delta
+            .config("spark.sql.legacy.createHiveTableByDefault", "false")  # avoid Hive SerDe tables
+     
         )
 
         # Import and configure Delta
@@ -201,11 +207,13 @@ class SparkSessionFactory:
         # Auto-detect provider from config if not specified
         if provider is None:
             try:
-                from ingen_fab.python_libs.common.config_utils import get_configs_as_object
-                config = get_configs_as_object()
-                provider = getattr(config, "local_spark_provider", "native")
+                # Get  provider from Environment Variable
+                provider = os.environ.get("LOCAL_SPARK_PROVIDER", "native").lower()
+                print(f"Using Spark provider: {provider}")
             except Exception:
                 provider = "native"
+
+        print(f"Using Spark provider: {provider}")
 
         return SparkSessionFactory.create_local_spark_session(
             provider=provider,

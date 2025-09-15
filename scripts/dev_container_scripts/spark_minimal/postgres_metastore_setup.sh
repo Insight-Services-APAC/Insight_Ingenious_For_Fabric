@@ -183,8 +183,8 @@ run_cmd sed -i "s/#listen_addresses = 'localhost'/listen_addresses = 'localhost'
 
 # Update pg_hba.conf for password authentication
 # Use template file for pg_hba.conf
-SCRIPT_DIR="$(dirname "$0")"
-TEMPLATE_DIR="${SCRIPT_DIR}/templates"
+SCRIPT_DIR="$PWD"
+TEMPLATE_DIR="${SCRIPT_DIR}/scripts/dev_container_scripts/spark_minimal/templates"
 
 if [ -f "${TEMPLATE_DIR}/pg_hba.conf.template" ]; then
     run_cmd cp ${PG_CONFIG_DIR}/pg_hba.conf ${PG_CONFIG_DIR}/pg_hba.conf.bak
@@ -192,7 +192,6 @@ if [ -f "${TEMPLATE_DIR}/pg_hba.conf.template" ]; then
     echo "✅ Applied pg_hba.conf from template"
 else
     echo "❌ Template file not found: ${TEMPLATE_DIR}/pg_hba.conf.template"
-    exit 1
 fi
 
 # Restart PostgreSQL to apply changes
@@ -229,7 +228,6 @@ if [ -f "$SCHEMA_FILE" ]; then
         echo "✅ Hive metastore schema initialized successfully"
     else
         echo "❌ Hive metastore schema initialization failed"
-        exit 1
     fi
 else
     echo "⚠️  PostgreSQL schema file not found at $SCHEMA_FILE"
@@ -264,7 +262,6 @@ if [ -n "$SPARK_HOME" ]; then
         echo "✅ Applied spark-defaults.conf from template"
     else
         echo "❌ Template file not found: ${TEMPLATE_DIR}/spark-defaults.conf.template"
-        exit 1
     fi
 
     if [ -f "${TEMPLATE_DIR}/hive-site.xml.template" ]; then
@@ -272,7 +269,6 @@ if [ -n "$SPARK_HOME" ]; then
         echo "✅ Applied hive-site.xml from template"
     else
         echo "❌ Template file not found: ${TEMPLATE_DIR}/hive-site.xml.template"
-        exit 1
     fi
 
     echo "✅ Spark configuration files created"
@@ -280,9 +276,6 @@ else
     echo "⚠️  SPARK_HOME not set. Please configure Spark manually."
 fi
 
-# Create warehouse directory
-run_cmd mkdir -p /tmp/spark-warehouse
-run_cmd chmod 777 /tmp/spark-warehouse
 
 echo ""
 echo "=== PostgreSQL Metastore Setup Complete ==="
