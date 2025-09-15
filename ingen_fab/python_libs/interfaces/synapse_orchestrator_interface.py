@@ -43,7 +43,7 @@ class SynapseOrchestratorInterface(ABC):
 
     @abstractmethod
     def __init__(self, lakehouse: DataStoreInterface):
-        """Initialize the orchestrator with a data store."""
+        """Initialise the orchestrator with a data store."""
         pass
 
     # Note: config lookup via orchestrator is deprecated; notebooks should pass
@@ -105,6 +105,8 @@ class SynapseOrchestratorInterface(ABC):
         *,
         workspace_id: str,
         synapse_sync_fabric_pipeline_id: str,
+        extract_utils: Optional[Any] = None,
+        execution_id: Optional[str] = None,
     ) -> Tuple[bool, Optional[str]]:
         """
         Process a single extraction with complete lifecycle management.
@@ -114,6 +116,10 @@ class SynapseOrchestratorInterface(ABC):
             config: Optional context/config dictionary
             master_execution_id: The master execution ID for grouping
             semaphore: Concurrency control semaphore
+            workspace_id: Fabric workspace ID containing the pipeline
+            synapse_sync_fabric_pipeline_id: Pipeline item ID to trigger
+            extract_utils: Optional utils instance used for logging and parameter building
+            execution_id: Optional pre-logged execution_id for log updates
 
         Returns:
             Tuple of (success_flag, error_message)
@@ -129,6 +135,9 @@ class SynapseOrchestratorInterface(ABC):
         *,
         workspace_id: str,
         synapse_sync_fabric_pipeline_id: str,
+        extract_utils: Optional[Any] = None,
+        execution_id_map: Optional[Dict[str, str]] = None,
+        external_table_map: Optional[Dict[str, str]] = None,
     ) -> Dict[str, Any]:
         """
         Master orchestrator with concurrency control and execution groups.
@@ -137,6 +146,11 @@ class SynapseOrchestratorInterface(ABC):
             work_items: List of work items to process
             master_execution_id: The master execution ID for grouping
             max_concurrency: Maximum concurrent extractions
+            workspace_id: Fabric workspace ID containing the pipeline
+            synapse_sync_fabric_pipeline_id: Pipeline item ID to trigger
+            extract_utils: Optional utils instance used for logging and parameter building
+            execution_id_map: Optional mapping of external_table -> execution_id (pre-logged)
+            external_table_map: Optional mapping of payload key -> external_table
 
         Returns:
             Dictionary containing execution summary and results
