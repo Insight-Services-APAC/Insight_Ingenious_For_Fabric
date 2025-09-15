@@ -595,46 +595,6 @@ class SynapseExtractUtils(SynapseExtractUtilsInterface):
         
         return any(indicator in error_message for indicator in concurrent_write_indicators)
 
-    def get_execution_summary(self, master_execution_id: str) -> Dict[str, Any]:
-        """Get execution summary statistics.
-
-        Deprecated: Prefer orchestrator-produced summaries. This helper is not
-        currently used by the Synapse package notebooks; summaries are computed
-        from in-memory orchestration results. Consider relying on the
-        orchestrator output, or explicitly call this only when a persisted
-        log-based rollup is required. Subject to removal in a future release.
-        """
-        try:
-            spark = SparkSession.getActiveSession()
-            if not spark:
-                raise RuntimeError("No active Spark session found")
-            
-            df = spark.read.format("delta").load(self.log_table_uri).filter(
-                col("master_execution_id") == master_execution_id
-            )
-            
-            # Collect statistics
-            total_count = df.count()
-            status_counts = df.groupBy("status").count().collect()
-            
-            status_summary = {row["status"]: row["count"] for row in status_counts}
-            
-            # Calculate success rate
-            completed = status_summary.get("Completed", 0) + status_summary.get("Deduped", 0)
-            success_rate = (completed / total_count * 100) if total_count > 0 else 0
-            
-            return {
-                "master_execution_id": master_execution_id,
-                "total_extractions": total_count,
-                "status_breakdown": status_summary,
-                "success_rate": f"{success_rate:.1f}%",
-                "successful_extractions": completed,
-                "failed_extractions": status_summary.get("Failed", 0)
-            }
-            
-        except Exception as e:
-            logger.error(f"Error getting execution summary: {e}")
-            return {"error": str(e)}
 
     def _create_sql_script(self, template: str, replacements: Dict[str, str]) -> str:
         """Substitute values into SQL templates."""
