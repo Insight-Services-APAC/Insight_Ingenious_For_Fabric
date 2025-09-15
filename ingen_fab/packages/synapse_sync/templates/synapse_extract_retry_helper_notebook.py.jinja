@@ -164,11 +164,13 @@ if failed_extractions:
         # Derive export_base_dir from original output_path to preserve paths
         export_base_dir = None
         try:
-            opath = (failure.get("output_path") or "").strip()
-            if opath:
-                marker = "/incremental/" if "/incremental/" in opath else ("/snapshot/" if "/snapshot/" in opath else None)
-                if marker:
-                    export_base_dir = opath.split(marker, 1)[0]
+            original_output_path = (failure.get("output_path") or "").strip()
+            if original_output_path:
+                subdir_marker = "/incremental/" if "/incremental/" in original_output_path else (
+                    "/snapshot/" if "/snapshot/" in original_output_path else None
+                )
+                if subdir_marker:
+                    export_base_dir = original_output_path.split(subdir_marker, 1)[0]
         except Exception:
             export_base_dir = None
         # Attempt to preserve export path exactness by validating expected output_path
@@ -196,7 +198,7 @@ if failed_extractions:
         }
         # Validate that the path we would generate matches the failure's path (best-effort)
         try:
-            comp = extract_utils.build_path_components(
+            path_components = extract_utils.build_path_components(
                 source_schema_name=retry_item["source_schema_name"],
                 source_table_name=retry_item["source_table_name"],
                 extract_mode=retry_item.get("extract_mode", "snapshot"),
@@ -204,11 +206,11 @@ if failed_extractions:
                 extract_start_dt=retry_item.get("extract_start_dt"),
                 extract_end_dt=retry_item.get("extract_end_dt"),
             )
-            expected_path = comp.get("output_path")
-            original_path = failure.get("output_path")
-            if expected_path and original_path and expected_path != original_path:
+            expected_output_path = path_components.get("output_path")
+            original_output_path = failure.get("output_path")
+            if expected_output_path and original_output_path and expected_output_path != original_output_path:
                 logger.warning(
-                    f"Retry path differs from original: expected '{expected_path}', original '{original_path}'. "
+                    f"Retry path differs from original: expected '{expected_output_path}', original '{original_output_path}'. "
                     "Proceeding with preserved export_base_dir."
                 )
         except Exception:
