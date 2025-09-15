@@ -120,50 +120,6 @@ class SynapseExtractUtils(SynapseExtractUtilsInterface):
         self.lakehouse = lakehouse
         self.log_table_uri = f"{lakehouse.lakehouse_tables_uri()}synapse_extract_run_log"
 
-    def get_extract_sql_template(
-        self,
-        source_schema_name: str,
-        source_table_name: str,
-        extract_mode: str,
-        single_date_filter: Optional[str] = None,
-        date_range_filter: Optional[str] = None,
-        custom_select_sql: Optional[str] = None,
-        extract_start_dt: Optional[str] = None,
-        extract_end_dt: Optional[str] = None,
-    ) -> str:
-        """Return a CETAS SQL template with placeholders (production-aligned).
-
-        TODO: Deprecate
-
-        Note:
-            In the current PySpark Synapse package flow, CETAS statements are
-            typically constructed via ``build_cetas_script(...)`` using the
-            class-level ``CETAS_TEMPLATE``. This method is provided to satisfy
-            the shared interface contract and to support potential consumers
-            that prefer to fetch a template and substitute pieces externally.
-            For orchestration paths in this PySpark implementation, prefer
-            calling ``build_cetas_script`` directly.
-
-        - Returns a complete CETAS statement that still contains placeholders
-          like ``@ExternalTableName``, ``@LocationPath``, ``@TableSchema``,
-          ``@TableName`` and ``@PartitionClause`` to be substituted later.
-        - Emits datasource placeholders as ``@DataSourceName`` and
-          ``@DataSourceLocation`` to keep this function environment-agnostic.
-        - Partition logic is not applied here; callers can inject a clause via
-          ``build_cetas_script``.
-        """
-
-        select_statement = (
-            custom_select_sql.strip()
-            if custom_select_sql and custom_select_sql.strip()
-            else "SELECT * FROM [@TableSchema].[@TableName] @PartitionClause"
-        )
-
-        # Inject only the SELECT statement; leave other placeholders for callers
-        return self._create_sql_script(
-            self.CETAS_TEMPLATE,
-            {"SelectStatement": select_statement},
-        )
 
     def bulk_insert_queued_extracts(
         self,
@@ -557,8 +513,6 @@ class SynapseExtractUtils(SynapseExtractUtilsInterface):
                 )
         
         return ""
-
-    # enrich_work_item removed: WorkItem is authoritative; do not merge from config
 
     def get_log_schema(self) -> Dict[str, str]:
         """Get the schema definition for the extraction log table."""
