@@ -24,8 +24,6 @@ STATUS_FILTER = ["Failed", "Cancelled"]  # Statuses to consider for retry
 {{ macros.python_cell_with_heading("## Synapse Extract Retry Helper") }}
 
 # **Synapse Extract Retry Helper**
-# Author: Synapse Sync Package  
-# Date: Generated from enhanced notebook implementations
 # 
 # ## Overview
 # 
@@ -60,6 +58,7 @@ import time
 import random
 from datetime import datetime, timedelta
 from typing import Dict, List, Optional, Any
+from types import SimpleNamespace
 
 import nest_asyncio
 import numpy as np
@@ -80,15 +79,18 @@ nest_asyncio.apply()
 
 {{ macros.python_cell_with_heading("## Define constants") }}
 
-# Inject Fabric variables from Variable Library value set (no template changes required)
+# Inject Fabric variables from Variable Library value set
 FABRIC_PIPELINE_ID = "{% raw %}{{varlib:synapse_sync_fabric_pipeline_id}}{% endraw %}"
 SYNAPSE_DATASOURCE_NAME = "{% raw %}{{varlib:synapse_datasource_name}}{% endraw %}"
 SYNAPSE_DATASOURCE_LOCATION = "{% raw %}{{varlib:synapse_datasource_location}}{% endraw %}"
+FABRIC_WORKSPACE_ID = "{% raw %}{{varlib:fabric_deployment_workspace_id}}{% endraw %}"
+FABRIC_LAKEHOUSE_ID = "{% raw %}{{varlib:config_lakehouse_id}}{% endraw %}"
+FABRIC_ENVIRONMENT = "{% raw %}{{varlib:fabric_environment}}{% endraw %}"
 
 # Generate retry execution ID
 retry_execution_id = str(uuid.uuid4())
 
-# Retry execution parameters with enhanced configuration
+# Retry execution parameters
 RETRY_EXECUTION_PARAMETERS = {
     "extraction_type": "retry",
     "target_master_execution_id": MASTER_EXECUTION_ID,
@@ -101,18 +103,16 @@ TRIGGER_TYPE = "Manual-Retry"
 {{ macros.python_cell_with_heading("## Initialise utilities") }}
 
 lakehouse = lakehouse_utils(
-    target_workspace_id="{% raw %}{{varlib:fabric_deployment_workspace_id}}{% endraw %}", 
-    target_lakehouse_id="{% raw %}{{varlib:config_lakehouse_id}}{% endraw %}",
+    target_workspace_id=FABRIC_WORKSPACE_ID, 
+    target_lakehouse_id=FABRIC_LAKEHOUSE_ID,
     spark=spark
 )
 
-# Initialize enhanced orchestrator and extract utils
+# Initialise orchestrator and extract utils
 orchestrator = SynapseOrchestrator(lakehouse=lakehouse)
 extract_utils = SynapseExtractUtils(lakehouse=lakehouse)
 
-# Get environment name from Variable Library
-environment_name = "{% raw %}{{varlib:fabric_environment}}{% endraw %}"
-logger.info(f"Loaded configuration for environment: {environment_name}")
+logger.info(f"Loaded configuration for environment: {FABRIC_ENVIRONMENT}")
 logger.info(f"Using datasource: {SYNAPSE_DATASOURCE_NAME}")
 
 {{ macros.python_cell_with_heading("## Identify failed extractions") }}
@@ -241,11 +241,7 @@ if failed_extractions:
         key = f"{r['source_schema_name']}.{r['source_table_name']}|{r.get('extract_start_dt') or ''}|{r.get('extract_end_dt') or ''}|{r.get('extract_mode') or ''}"
         external_table_map[key] = r.get('external_table')
 
-    # Define retry wrapper using orchestrator.process_extract
-    from types import SimpleNamespace
-    import asyncio
-
-    # Global concurrency limiter shared across all tasks
+   
     CONCURRENCY_LIMITER = asyncio.Semaphore(MAX_CONCURRENCY)
 
     async def process_extract_with_retry(work_item: dict, max_retries: int = MAX_RETRIES):
@@ -279,7 +275,7 @@ if failed_extractions:
                 retry_execution_id,
                 CONCURRENCY_LIMITER,
                 synapse_sync_fabric_pipeline_id=FABRIC_PIPELINE_ID,
-                workspace_id="{% raw %}{{varlib:fabric_deployment_workspace_id}}{% endraw %}",
+                workspace_id=FABRIC_WORKSPACE_ID,
                 extract_utils=extract_utils,
                 execution_id=execution_id,
             )

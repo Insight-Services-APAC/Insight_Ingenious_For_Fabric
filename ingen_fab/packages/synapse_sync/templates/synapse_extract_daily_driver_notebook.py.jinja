@@ -23,8 +23,6 @@ EXTRACTION_END_DATE = None    # string YYYY-MM-DD; defaults to current date
 {{ macros.python_cell_with_heading("## Synapse Extract Daily Driver") }}
 
 # **Synapse Extract Daily Driver**
-# Author: Synapse Sync Package  
-# Date: Generated from enhanced notebook implementations
 # 
 # ## Overview
 # 
@@ -119,8 +117,7 @@ nest_asyncio.apply()
 
 {{ macros.python_cell_with_heading("## Define constants") }}
 
-# Enhanced constants for daily/historical processing
-# Parse global date params (strings) or apply sensible defaults
+# Parse global date params (strings) or apply defaults
 if EXTRACTION_START_DATE is None:
     EXTRACTION_START_DATE = (datetime.utcnow() - timedelta(days=4)).date()
 else:
@@ -131,12 +128,14 @@ if EXTRACTION_END_DATE is None:
 else:
     EXTRACTION_END_DATE = datetime.strptime(EXTRACTION_END_DATE, "%Y-%m-%d").date()
 
-# Inject Fabric variables from Variable Library value set (no template changes required)
+# Inject Fabric variables from Variable Library value set
 FABRIC_PIPELINE_ID = "{% raw %}{{varlib:synapse_sync_fabric_pipeline_id}}{% endraw %}"
 SYNAPSE_DATASOURCE_NAME = "{% raw %}{{varlib:synapse_datasource_name}}{% endraw %}"
 SYNAPSE_DATASOURCE_LOCATION = "{% raw %}{{varlib:synapse_datasource_location}}{% endraw %}"
+FABRIC_WORKSPACE_ID = "{% raw %}{{varlib:fabric_deployment_workspace_id}}{% endraw %}"
+FABRIC_LAKEHOUSE_ID = "{% raw %}{{varlib:config_lakehouse_id}}{% endraw %}"
+FABRIC_ENVIRONMENT = "{% raw %}{{varlib:fabric_environment}}{% endraw %}"
 
-# Enhanced execution parameters with Fabric integration
 MASTER_EXECUTION_PARAMETERS = {
     "start_date": {
         "year": EXTRACTION_START_DATE.year,
@@ -154,19 +153,17 @@ TRIGGER_TYPE = "Manual"
 
 {{ macros.python_cell_with_heading("## Initialise utilities") }}
 
-# Initialize lakehouse utilities with enhanced configuration
+# Initialise lakehouse utilities
 lakehouse = lakehouse_utils(
-    target_workspace_id="{% raw %}{{varlib:fabric_deployment_workspace_id}}{% endraw %}",
-    target_lakehouse_id="{% raw %}{{varlib:config_lakehouse_id}}{% endraw %}",
+    target_workspace_id=FABRIC_WORKSPACE_ID,
+    target_lakehouse_id=FABRIC_LAKEHOUSE_ID,
     spark=spark
 )
 
 extract_utils = SynapseExtractUtils(lakehouse=lakehouse)
 orchestrator = SynapseOrchestrator(lakehouse=lakehouse)
 
-# Get environment name from Variable Library
-environment_name = "{% raw %}{{varlib:fabric_environment}}{% endraw %}"
-logger.info(f"Loaded configuration for environment: {environment_name}")
+logger.info(f"Loaded configuration for environment: {FABRIC_ENVIRONMENT}")
 
 {{ macros.python_cell_with_heading("## Construct extract work items") }}
 
@@ -182,7 +179,7 @@ logger.info(f"Include Snapshots: {INCLUDE_SNAPSHOTS}")
 logger.info(f"Max Concurrency: {MAX_CONCURRENCY}")
 logger.info(f"Using datasource: {SYNAPSE_DATASOURCE_NAME}")
 
-# Prepare work items using enhanced orchestrator
+# Prepare work items
 work_items = orchestrator.prepare_work_items(
     synapse_sync_fabric_pipeline_id = FABRIC_PIPELINE_ID,
     synapse_datasource_name = SYNAPSE_DATASOURCE_NAME,
@@ -256,25 +253,24 @@ else:
 {{ macros.python_cell_with_heading("## Orchestrate extraction") }}
 
 if work_items and extraction_payloads:
-    logger.info("Starting enhanced extraction orchestration process")
+    logger.info("Starting extraction process")
     
-    # Execute orchestration with enhanced error handling and concurrency control
     extraction_summary = await orchestrator.run_async_orchestration(
         work_items=work_items,
         master_execution_id=master_execution_id,
         max_concurrency=MAX_CONCURRENCY,
         synapse_sync_fabric_pipeline_id=FABRIC_PIPELINE_ID,
-        workspace_id="{% raw %}{{varlib:fabric_deployment_workspace_id}}{% endraw %}",
+        workspace_id=FABRIC_WORKSPACE_ID,
         extract_utils=extract_utils,
         execution_id_map=execution_id_map,
         external_table_map=external_table_map
     )
-    
-    logger.info("Enhanced extraction orchestration process completed")
-    
+
+    logger.info("Extraction orchestration process completed")
+
     # Display comprehensive summary
     logger.info("=" * 60)
-    logger.info("ENHANCED EXTRACTION SUMMARY")
+    logger.info("EXTRACTION SUMMARY")
     logger.info("=" * 60)
     logger.info(f"Master Execution ID: {extraction_summary['master_execution_id']}")
     logger.info(f"Mode: Daily • Completed: {extraction_summary['completion_time']}")
