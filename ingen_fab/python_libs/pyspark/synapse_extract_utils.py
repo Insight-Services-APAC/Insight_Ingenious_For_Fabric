@@ -558,21 +558,7 @@ class SynapseExtractUtils(SynapseExtractUtilsInterface):
         
         return ""
 
-    def enrich_work_item(
-        self,
-        work_item: Dict[str, Any],
-        config: Dict[str, Any]
-    ) -> Dict[str, Any]:
-        """Deprecated: WorkItem already carries needed fields; return as-is.
-
-        Left in place for interface compatibility. Callers should not rely on
-        this to inject varlib-derived values; pass them on the work item.
-        """
-        logger.warning(
-            "enrich_work_item is deprecated and will be removed in a future release; "
-            "ensure WorkItem contains all required fields."
-        )
-        return work_item
+    # enrich_work_item removed: WorkItem is authoritative; do not merge from config
 
     def get_log_schema(self) -> Dict[str, str]:
         """Get the schema definition for the extraction log table."""

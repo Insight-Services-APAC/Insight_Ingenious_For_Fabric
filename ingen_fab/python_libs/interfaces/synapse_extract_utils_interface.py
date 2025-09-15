@@ -18,7 +18,7 @@ class SynapseExtractUtilsInterface(ABC):
 
     @abstractmethod
     def __init__(self, lakehouse: DataStoreInterface):
-        """Initialize the extract utils with a data store."""
+        """Initialise the extract utils with a data store."""
         pass
 
     @abstractmethod
@@ -156,15 +156,13 @@ class SynapseExtractUtilsInterface(ABC):
         self,
         work_item: Dict[str, Any],
         master_execution_id: str,
-        config: Dict[str, Any]
     ) -> Dict[str, Any]:
         """
-        Create an extraction record from a work item and configuration.
+        Create an extraction record from a work item.
 
         Args:
             work_item: The work item containing extraction details
             master_execution_id: The master execution ID for grouping
-            config: Configuration dictionary
 
         Returns:
             Complete extraction record dictionary
@@ -231,24 +229,6 @@ class SynapseExtractUtilsInterface(ABC):
 
         Returns:
             SQL WHERE clause string
-        """
-        pass
-
-    @abstractmethod
-    def enrich_work_item(
-        self,
-        work_item: Dict[str, Any],
-        config: Dict[str, Any]
-    ) -> Dict[str, Any]:
-        """
-        Deprecated: No-op in PySpark implementation. WorkItem is authoritative.
-
-        Args:
-            work_item: The base work item
-            config: Configuration dictionary
-
-        Returns:
-            Enriched work item with additional fields
         """
         pass
 
@@ -331,7 +311,7 @@ class SynapseExtractUtilsInterface(ABC):
         execution summary.
 
         Args:
-            master_execution_id: The master execution ID to summarize
+            master_execution_id: The master execution ID to summarise
 
         Returns:
             Dictionary containing execution statistics
