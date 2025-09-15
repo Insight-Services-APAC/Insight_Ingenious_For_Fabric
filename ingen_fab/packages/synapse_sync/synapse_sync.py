@@ -52,12 +52,6 @@ class SynapseSyncCompiler(BaseNotebookCompiler):
                 "display_name": "Synapse Extract Daily Driver",
                 "description": "TODO"
             },
-            # "historical": {
-            #     "template_name": "synapse_extract_historical_driver_notebook.py.jinja", 
-            #     "output_name": "synapse_extract_historical_driver",
-            #     "display_name": "Synapse Extract Historical Driver",
-            #     "description": "TODO"
-            # },
             "retry": {
                 "template_name": "synapse_extract_retry_helper_notebook.py.jinja",
                 "output_name": "synapse_extract_retry_helper", 
@@ -82,7 +76,7 @@ class SynapseSyncCompiler(BaseNotebookCompiler):
         """Compile all Synapse Sync notebook templates"""
         notebooks = {}
         
-        for notebook_type in ["daily", "historical", "retry"]:
+        for notebook_type in ["daily", "retry"]:
             try:
                 notebook_path = self.compile_notebook(template_vars, notebook_type)
                 notebooks[notebook_type] = notebook_path
