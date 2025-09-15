@@ -474,6 +474,9 @@ class SynapseOrchestrator(SynapseOrchestratorInterface):
         synapse_sync_fabric_pipeline_id: str,
         synapse_datasource_name: str,
         synapse_datasource_location: str,
+        *,
+        trigger_type: Optional[str] = "Manual",
+        master_execution_parameters: Optional[Dict[str, Any]] = None,
         work_items_json: Optional[str] = None,
         include_snapshots: bool = True,
         extraction_start_date: Optional[str] = None,
@@ -516,6 +519,8 @@ class SynapseOrchestrator(SynapseOrchestratorInterface):
                         ),
                         synapse_connection_name=item.get("synapse_connection_name"),
                         export_base_dir=item.get("export_base_dir"),
+                        trigger_type=item.get("trigger_type") or trigger_type,
+                        master_execution_parameters=item.get("master_execution_parameters") or master_execution_parameters,
                     ))
             else:
                 # Daily mode - prepare based on configuration
@@ -551,7 +556,9 @@ class SynapseOrchestrator(SynapseOrchestratorInterface):
                                 synapse_connection_name=getattr(row, "synapse_connection_name", None),
                                 synapse_datasource_name=synapse_datasource_name,
                                 synapse_datasource_location=synapse_datasource_location,
-                                export_base_dir=getattr(row, "export_base_dir", None)
+                                export_base_dir=getattr(row, "export_base_dir", None),
+                                trigger_type=trigger_type,
+                                master_execution_parameters=master_execution_parameters,
                             ))
                             cur += timedelta(days=1)
                     else:
@@ -571,6 +578,8 @@ class SynapseOrchestrator(SynapseOrchestratorInterface):
                             synapse_datasource_name=synapse_datasource_name,
                             synapse_datasource_location=synapse_datasource_location,
                             export_base_dir=getattr(row, "export_base_dir", None),
+                            trigger_type=trigger_type,
+                            master_execution_parameters=master_execution_parameters,
                         ))
             
             return work_items

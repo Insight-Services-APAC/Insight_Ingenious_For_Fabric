@@ -33,6 +33,9 @@ class WorkItem:
     synapse_datasource_name: Optional[str] = None
     synapse_datasource_location: Optional[str] = None
     export_base_dir: Optional[str] = None
+    # Run-scoped metadata (single source of truth; avoid separate config dicts)
+    trigger_type: Optional[str] = None
+    master_execution_parameters: Optional[Dict[str, Any]] = None
 
 
 class SynapseOrchestratorInterface(ABC):
@@ -146,6 +149,9 @@ class SynapseOrchestratorInterface(ABC):
         synapse_sync_fabric_pipeline_id: str,
         synapse_datasource_name: str,
         synapse_datasource_location: str,
+        *,
+        trigger_type: Optional[str] = "Manual",
+        master_execution_parameters: Optional[Dict[str, Any]] = None,
         work_items_json: Optional[str] = None,
         include_snapshots: bool = True,
         extraction_start_date: Optional[str] = None,
