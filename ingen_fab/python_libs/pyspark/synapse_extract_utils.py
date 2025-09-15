@@ -419,7 +419,6 @@ class SynapseExtractUtils(SynapseExtractUtilsInterface):
         self,
         work_item: Dict[str, Any],
         master_execution_id: str,
-        config: Dict[str, Any]
     ) -> Dict[str, Any]:
         """Create an extraction record from a work item and configuration."""
         execution_id = str(uuid.uuid4())
@@ -450,12 +449,12 @@ class SynapseExtractUtils(SynapseExtractUtilsInterface):
             "execution_id": execution_id,
             "pipeline_job_id": None,
             "execution_group": work_item.get("execution_group", 1),
-            "master_execution_parameters": json.dumps(config.get("master_execution_parameters", {})),
-            "trigger_type": config.get("trigger_type", "Manual"),
+            "master_execution_parameters": json.dumps(work_item.get("master_execution_parameters") or {}),
+            "trigger_type": work_item.get("trigger_type", "Manual"),
             "config_synapse_connection_name": work_item.get("synapse_connection_name"),
-            # Datasource details should come from Variable Library via config or per-item override
-            "synapse_datasource_name": work_item.get("synapse_datasource_name") or config.get("synapse_datasource_name"),
-            "synapse_datasource_location": work_item.get("synapse_datasource_location") or config.get("synapse_datasource_location"),
+            # Datasource details should come from WorkItem (varlib-derived) or per-item override
+            "synapse_datasource_name": work_item.get("synapse_datasource_name"),
+            "synapse_datasource_location": work_item.get("synapse_datasource_location"),
             "source_schema_name": work_item["source_schema_name"],
             "source_table_name": work_item["source_table_name"],
             "extract_mode": work_item.get("extract_mode", "snapshot"),
@@ -564,23 +563,16 @@ class SynapseExtractUtils(SynapseExtractUtilsInterface):
         work_item: Dict[str, Any],
         config: Dict[str, Any]
     ) -> Dict[str, Any]:
-        # TODO: Review configs used by function.
-        """Enrich a work item with additional configuration details."""
-        enriched_item = work_item.copy()
-        
-        # Add configuration details
-        enriched_item.update({
-            "synapse_connection_name": work_item.get("synapse_connection_name"), # TODO: obtain from work item via varlib.
-            # Prefer explicit values on the work item, otherwise fall back to config-injected values
-            "synapse_datasource_name": work_item.get("synapse_datasource_name") or config.get("synapse_datasource_name"),
-            "synapse_datasource_location": work_item.get("synapse_datasource_location") or config.get("synapse_datasource_location"),
-            # Pipeline ID: source exclusively from varlib-provided config
-            "pipeline_id": config.get("synapse_sync_fabric_pipeline_id"),
-            # Optional per-record export base dir
-            "export_base_dir": work_item.get("export_base_dir") or config.get("export_base_dir"),
-        })
-        
-        return enriched_item
+        """Deprecated: WorkItem already carries needed fields; return as-is.
+
+        Left in place for interface compatibility. Callers should not rely on
+        this to inject varlib-derived values; pass them on the work item.
+        """
+        logger.warning(
+            "enrich_work_item is deprecated and will be removed in a future release; "
+            "ensure WorkItem contains all required fields."
+        )
+        return work_item
 
     def get_log_schema(self) -> Dict[str, str]:
         """Get the schema definition for the extraction log table."""
@@ -590,18 +582,14 @@ class SynapseExtractUtils(SynapseExtractUtilsInterface):
         self,
         work_items: List[Dict[str, Any]],
         master_execution_id: str,
-        config: Dict[str, Any]
     ) -> List[Dict[str, Any]]:
         """Prepare extraction payloads for batch processing."""
         payloads = []
         
         for work_item in work_items:
-            # Enrich work item with configuration
-            enriched_item = self.enrich_work_item(work_item, config)
-            
             # Create extraction record
             extraction_record = self.create_extraction_record(
-                enriched_item, master_execution_id, config
+                work_item, master_execution_id
             )
             
             # Validate record

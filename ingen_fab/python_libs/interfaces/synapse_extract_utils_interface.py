@@ -241,7 +241,7 @@ class SynapseExtractUtilsInterface(ABC):
         config: Dict[str, Any]
     ) -> Dict[str, Any]:
         """
-        Enrich a work item with additional configuration details.
+        Deprecated: No-op in PySpark implementation. WorkItem is authoritative.
 
         Args:
             work_item: The base work item
@@ -267,7 +267,6 @@ class SynapseExtractUtilsInterface(ABC):
         self,
         work_items: List[Dict[str, Any]],
         master_execution_id: str,
-        config: Dict[str, Any]
     ) -> List[Dict[str, Any]]:
         """
         Prepare extraction payloads for batch processing.
@@ -275,7 +274,6 @@ class SynapseExtractUtilsInterface(ABC):
         Args:
             work_items: List of work items to process
             master_execution_id: The master execution ID for grouping
-            config: Configuration dictionary
 
         Returns:
             List of prepared extraction payloads

@@ -196,6 +196,8 @@ work_items = orchestrator.prepare_work_items(
     synapse_sync_fabric_pipeline_id = FABRIC_PIPELINE_ID,
     synapse_datasource_name = SYNAPSE_DATASOURCE_NAME,
     synapse_datasource_location = SYNAPSE_DATASOURCE_LOCATION,
+    trigger_type=TRIGGER_TYPE,
+    master_execution_parameters=MASTER_EXECUTION_PARAMETERS,
     work_items_json=None,  # None for daily mode
     include_snapshots=INCLUDE_SNAPSHOTS,
     extraction_start_date=str(EXTRACTION_START_DATE),
@@ -227,31 +229,14 @@ else:
         }
         for wi in work_items
     ]
-    # Build minimal varlib-only config for utils
-    config = {
-        # Context
-        "fabric_environment": "{% raw %}{{varlib:fabric_environment}}{% endraw %}",
-        "fabric_deployment_workspace_id": "{% raw %}{{varlib:fabric_deployment_workspace_id}}{% endraw %}",
-        "config_lakehouse_id": "{% raw %}{{varlib:config_lakehouse_id}}{% endraw %}",
+    # Attach run-scoped metadata to each work item dict (single source of truth)
+    for wi in work_item_dicts:
+        wi["trigger_type"] = TRIGGER_TYPE
+        wi["master_execution_parameters"] = MASTER_EXECUTION_PARAMETERS
 
-        # Pipeline linkage
-        "synapse_sync_fabric_pipeline_id": FABRIC_PIPELINE_ID,
-
-        # Datasource (CETAS)
-        "synapse_datasource_name": SYNAPSE_DATASOURCE_NAME,
-        "synapse_datasource_location": SYNAPSE_DATASOURCE_LOCATION,
-
-        # Optional execution metadata (logged by utils)
-        "master_execution_parameters": MASTER_EXECUTION_PARAMETERS,
-        "trigger_type": TRIGGER_TYPE,
-
-        # Optional path override
-        # "export_base_dir": None,
-    }
     extraction_payloads = extract_utils.prepare_extract_payloads(
         work_items=work_item_dicts,
         master_execution_id=master_execution_id,
-        config=config,
     )
     if not extraction_payloads:
         logger.warning("No extraction payloads prepared; skipping execution")
