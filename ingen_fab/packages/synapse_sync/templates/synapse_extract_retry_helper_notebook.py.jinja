@@ -61,6 +61,7 @@ import json
 import logging
 import uuid
 import time
+import random
 from datetime import datetime, timedelta
 from typing import Dict, List, Optional, Any
 
@@ -101,7 +102,7 @@ RETRY_EXECUTION_PARAMETERS = {
     "retry_timestamp": datetime.utcnow().isoformat()
 }
 
-TRIGGER_TYPE = "Manual"
+TRIGGER_TYPE = "Manual-Retry"
 
 {{ macros.python_cell_with_heading("## Initialize Enhanced Utilities") }}
 
@@ -166,13 +167,26 @@ if failed_extractions:
                 f"SELECT * FROM [{failure.get('source_schema_name')}]."
                 f"[{failure.get('source_table_name')}]" + part
             )
-        retry_work_items.append({
+        # Derive export_base_dir from original output_path to preserve paths
+        export_base_dir = None
+        try:
+            opath = (failure.get("output_path") or "").strip()
+            if opath:
+                marker = "/incremental/" if "/incremental/" in opath else ("/snapshot/" if "/snapshot/" in opath else None)
+                if marker:
+                    export_base_dir = opath.split(marker, 1)[0]
+        except Exception:
+            export_base_dir = None
+        # Attempt to preserve export path exactness by validating expected output_path
+        retry_item = {
             "source_schema_name": failure.get("source_schema_name"),
             "source_table_name": failure.get("source_table_name"),
             "extract_mode": failure.get("extract_mode", "snapshot"),
             "execution_group": failure.get("execution_group", 1),
             "extract_start_dt": failure.get("extract_start_dt"),
             "extract_end_dt": failure.get("extract_end_dt"),
+            # Preserve export base dir when recoverable from output_path
+            "export_base_dir": export_base_dir,
             # Carry forward the exact query shape used originally
             "custom_select_sql": orig_select,
             # Preserve original partition clause for downstream visibility
@@ -185,7 +199,28 @@ if failed_extractions:
             # Run-scoped metadata for logging
             "trigger_type": TRIGGER_TYPE,
             "master_execution_parameters": RETRY_EXECUTION_PARAMETERS,
-        })
+        }
+        # Validate that the path we would generate matches the failure's path (best-effort)
+        try:
+            comp = extract_utils.build_path_components(
+                source_schema_name=retry_item["source_schema_name"],
+                source_table_name=retry_item["source_table_name"],
+                extract_mode=retry_item.get("extract_mode", "snapshot"),
+                export_base_dir=retry_item.get("export_base_dir"),
+                extract_start_dt=retry_item.get("extract_start_dt"),
+                extract_end_dt=retry_item.get("extract_end_dt"),
+            )
+            expected_path = comp.get("output_path")
+            original_path = failure.get("output_path")
+            if expected_path and original_path and expected_path != original_path:
+                logger.warning(
+                    f"Retry path differs from original: expected '{expected_path}', original '{original_path}'. "
+                    "Proceeding with preserved export_base_dir."
+                )
+        except Exception:
+            # Non-fatal; continue with retry_item as constructed
+            pass
+        retry_work_items.append(retry_item)
     logger.info(f"Prepared {len(retry_work_items)} work items for retry processing")
     
     # Display retry summary
@@ -232,6 +267,8 @@ if failed_extractions:
         )
         attempt = 0
         last_error = None
+        base_delay = 1.0
+        max_backoff = 60.0
         while attempt < max_retries:
             attempt += 1
             # Look up execution_id by external_table derived from payload key
@@ -251,7 +288,11 @@ if failed_extractions:
             if success:
                 return True, None
             last_error = error
-            await asyncio.sleep(min(5 * attempt, 30))
+            # Exponential backoff with jitter
+            delay = min(base_delay * (2 ** (attempt - 1)), max_backoff)
+            # Jitter in [0, delay)
+            delay = delay + random.uniform(0, delay)
+            await asyncio.sleep(delay)
         return False, last_error
 
     async def run_retries():
