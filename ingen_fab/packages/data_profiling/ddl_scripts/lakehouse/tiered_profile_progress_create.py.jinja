@@ -1,0 +1,33 @@
+# Tiered Profile Progress table for tracking scan completion status - Lakehouse version
+from pyspark.sql.types import (
+    LongType,
+    StringType,
+    StructField,
+    StructType,
+    TimestampType,
+)
+
+schema = StructType([
+    StructField("table_name", StringType(), nullable=False),
+    StructField("level_1_completed", TimestampType(), nullable=True),
+    StructField("level_1_duration_ms", LongType(), nullable=True),
+    StructField("level_2_completed", TimestampType(), nullable=True),
+    StructField("level_2_duration_ms", LongType(), nullable=True),
+    StructField("level_3_completed", TimestampType(), nullable=True),
+    StructField("level_3_duration_ms", LongType(), nullable=True),
+    StructField("level_4_completed", TimestampType(), nullable=True),
+    StructField("level_4_duration_ms", LongType(), nullable=True),
+    StructField("last_error", StringType(), nullable=True),
+    StructField("last_error_time", TimestampType(), nullable=True),
+    StructField("last_updated", TimestampType(), nullable=False),
+])
+
+target_lakehouse.create_table(
+    table_name="tiered_profile_progress",
+    schema=schema,
+    mode="overwrite",
+    options={
+        "delta.autoOptimize.optimizeWrite": "true",
+        "delta.autoOptimize.autoCompact": "true"
+    }
+)

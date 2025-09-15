@@ -1,0 +1,13 @@
+-- Tiered Profile Profiles table for Level 3 & 4 detailed profiling results - Warehouse version
+CREATE TABLE IF NOT EXISTS [{{schema_name}}].[tiered_profile_profiles] (
+    [table_name] NVARCHAR(255) NOT NULL,
+    [row_count] BIGINT NOT NULL,
+    [column_count] BIGINT NOT NULL,
+    [profile_data] NVARCHAR(MAX) NOT NULL,  -- JSON serialized DatasetProfile
+    [scan_timestamp] DATETIME2 NOT NULL DEFAULT GETUTCDATE(),
+    CONSTRAINT PK_tiered_profile_profiles PRIMARY KEY ([table_name], [scan_timestamp])
+);
+
+-- Create index for efficient querying by timestamp
+CREATE NONCLUSTERED INDEX IX_tiered_profile_profiles_timestamp 
+ON [{{schema_name}}].[tiered_profile_profiles] ([scan_timestamp] DESC);

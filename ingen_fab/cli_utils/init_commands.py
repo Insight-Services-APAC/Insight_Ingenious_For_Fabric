@@ -605,6 +605,7 @@ def _check_and_update_artifacts(
                     ConsoleStyles.print_info(console, f"    - {var}")
 
             for id_var in lakehouse_id_vars:
+                ConsoleStyles.print_info(console, f"Processing {id_var}...")
                 # Derive the corresponding name variable
                 name_var = id_var.replace("_lakehouse_id", "_lakehouse_name")
 
@@ -612,6 +613,9 @@ def _check_and_update_artifacts(
                     lakehouse_name = var_map[name_var]["value"]
                     # Skip empty lakehouse names (optional lakehouses)
                     if not lakehouse_name:
+                        ConsoleStyles.print_warning(
+                            console, f"  ⚠️  Lakehouse name is empty for {id_var}"
+                        )
                         continue
                     if lakehouse_name in lakehouse_by_name:
                         # Update the ID
@@ -624,6 +628,10 @@ def _check_and_update_artifacts(
                         if old_id != new_id:
                             ConsoleStyles.print_info(
                                 console, f"  ✓ Updated {id_var}: {old_id} → {new_id}"
+                            )
+                        else:
+                            ConsoleStyles.print_info(
+                                console, f"  ✓ No change for {id_var}: {old_id}"
                             )
                     else:
                         missing_artifacts.append(f"Lakehouse '{lakehouse_name}'")
@@ -668,6 +676,10 @@ def _check_and_update_artifacts(
                         if old_id != new_id:
                             ConsoleStyles.print_info(
                                 console, f"  ✓ Updated {id_var}: {old_id} → {new_id}"
+                            )
+                        else:
+                            ConsoleStyles.print_info(
+                                console, f"  ✓ No change for {id_var}: {old_id}"
                             )
                     else:
                         missing_artifacts.append(f"Warehouse '{warehouse_name}'")

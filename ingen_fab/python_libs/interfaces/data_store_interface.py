@@ -323,6 +323,25 @@ class DataStoreInterface(ABC):
         pass
 
     @abstractmethod
+    def write_string_to_file(
+        self,
+        content: str,
+        file_path: str,
+        encoding: str = "utf-8",
+        mode: str = "overwrite",
+    ) -> None:
+        """
+        Write string content to a file.
+
+        Args:
+            content: String content to write
+            file_path: Path where to write the file
+            encoding: File encoding (default: utf-8)
+            mode: Write mode ("overwrite" or "append")
+        """
+        pass
+
+    @abstractmethod
     def file_exists(self, file_path: str) -> bool:
         """
         Check if a file exists.

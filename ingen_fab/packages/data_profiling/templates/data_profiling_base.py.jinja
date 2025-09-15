@@ -1,0 +1,119 @@
+{%- import 'shared/notebook/macros/notebook_macros.py.jinja' as macros -%}
+{% if language_group == "synapse_pyspark" %}
+{%- include "shared/notebook/headers/pyspark.py.jinja" %}
+{% else %}
+{%- include "shared/notebook/headers/python.py.jinja" %}
+{% endif %}
+
+{{ macros.parameters_cell() }}
+
+# Tiered Profiling Scan Level Control
+# The TieredProfiler uses 4 progressive scan levels:
+# Level 1: Discovery - Table metadata and basic stats
+# Level 2: Schema - Column metadata and data types  
+# Level 3: Profile - Detailed column statistics and distributions
+# Level 4: Advanced - Cross-column correlations and relationship discovery
+scan_levels = {{ scan_levels | default('[1, 2, 3, 4]') }}  # Which scan levels to run (default: all 4 levels)
+max_scan_level = {{ max_scan_level | default(4) }}  # Maximum scan level to execute (1-4)
+min_scan_level = {{ min_scan_level | default(1) }}  # Minimum scan level to execute (1-4)
+
+# Incremental scanning parameters
+enable_incremental = {{ enable_incremental | default(True) }}  # Skip tables already scanned at requested levels
+resume_from_level = {{ resume_from_level | default('None') }}  # Resume from specific level (None = auto-detect)
+force_rescan = {{ force_rescan | default(False) }}  # Force rescan even if results exist
+only_scan_new_tables = {{ only_scan_new_tables | default(False) }}  # Only scan tables not in metadata
+
+# Original parameters (for backward compatibility with profile_dataset method)
+profile_type = "{{ profile_type | default('full_with_relationships') }}"  # full_with_relationships triggers Level 4
+save_to_catalog = {{ save_to_catalog | default(True) }}  # Whether to save results to catalog tables
+generate_report = {{ generate_report | default(True) }}  # Whether to generate HTML/Markdown report
+generate_yaml_output = {{ generate_yaml_output | default(True) }}  # Whether to generate YAML output files
+output_format = "{{ output_format | default('yaml') }}"  # Report format: yaml, html, markdown, json
+sample_size = {{ sample_size | default('None') }}  # Sample fraction for Level 3+ (0-1) or None for full
+target_tables = []  # List of specific tables to profile, empty for all
+
+# Performance and filtering parameters
+exclude_views = {{ exclude_views | default(True) }}  # Exclude views from profiling (recommended)
+max_tables_per_batch = {{ max_tables_per_batch | default(10) }}  # Process tables in batches for large workspaces
+
+{% if datastore_type == "lakehouse" %}
+{{ macros.pyspark_cell_with_heading("## 📊 Data Profiling Notebook (Lakehouse)") }}
+{% else %}
+{{ macros.python_cell_with_heading("## 📊 Data Profiling Notebook (Warehouse)") }}
+{% endif %}
+
+# This notebook profiles datasets and generates data quality reports based on configuration metadata.
+# Uses modularized components from python_libs for maintainable and reusable code.
+
+{% set runtime_type = runtime_type %}
+{% set language_group = language_group %}
+{% set include_ddl_utils = include_ddl_utils %}
+{% include 'shared/notebook/environment/library_loader.py.jinja' %}
+
+{% if datastore_type == "lakehouse" %}
+{{ macros.pyspark_cell_with_heading("## 🔧 Load Configuration and Initialize") }}
+{% else %}
+{{ macros.python_cell_with_heading("## 🔧 Load Configuration and Initialize") }}
+{% endif %}
+{% include 'shared/notebook/environment/config_loader.py.jinja' %}
+
+# Additional imports for data profiling
+import uuid
+import json
+import time
+from datetime import datetime, date
+from typing import Dict, List, Optional, Any
+
+from ingen_fab.python_libs.pyspark.tiered_profiler import TieredProfiler
+from ingen_fab.packages.data_profiling.runtime.core import (
+    ProfileType,
+    DatasetProfile,
+    ColumnProfile,
+    SemanticType,
+    ValueFormat,
+    RelationshipType
+)
+
+# Import cross-profile analyzer for relationship discovery
+try:
+    from ingen_fab.python_libs.common.cross_profile_analyzer import CrossProfileAnalyzer
+    cross_profile_available = True
+except ImportError:
+    cross_profile_available = False
+    print("⚠️ Cross-profile analyzer not available - relationship discovery limited to single tables")
+
+{% block datastore_specific_imports %}
+# Datastore-specific imports will be defined in child templates
+{% endblock %}
+
+execution_id = str(uuid.uuid4())
+
+print(f"Execution ID: {execution_id}")
+print(f"Profile Type: {profile_type}")
+print(f"Save to Catalog: {save_to_catalog}")
+print(f"Generate Report: {generate_report}")
+
+{% if datastore_type == "lakehouse" %}
+{{ macros.pyspark_cell_with_heading("## 🚀 Main Execution") }}
+{% else %}
+{{ macros.python_cell_with_heading("## 🚀 Main Execution") }}
+{% endif %}
+
+{% block main_execution %}
+# Main execution logic will be defined in child templates
+{% endblock %}
+
+{% if add_debug_cells %}
+{% if datastore_type == "lakehouse" %}
+{{ macros.pyspark_cell_with_heading("## 🐛 Debug Cell") }}
+{% else %}
+{{ macros.python_cell_with_heading("## 🐛 Debug Cell") }}
+{% endif %}
+
+# Debug information
+print("Debug Information:")
+print(f"Spark Version: {spark.version}")
+print(f"Current Database: {spark.catalog.currentDatabase()}")
+print(f"Available Tables: {spark.catalog.listTables()}")
+
+{% endif %}

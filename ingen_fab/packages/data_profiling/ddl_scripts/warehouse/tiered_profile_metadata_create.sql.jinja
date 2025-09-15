@@ -1,0 +1,15 @@
+-- Tiered Profile Metadata table for Level 1 Discovery results - Warehouse version
+CREATE TABLE IF NOT EXISTS [{{schema_name}}].[tiered_profile_metadata] (
+    [table_name] NVARCHAR(255) NOT NULL,
+    [table_path] NVARCHAR(1000) NOT NULL,
+    [table_format] NVARCHAR(50) NOT NULL,
+    [row_count] BIGINT NULL,
+    [size_bytes] BIGINT NULL,
+    [num_files] BIGINT NULL,
+    [created_time] NVARCHAR(50) NULL,
+    [modified_time] NVARCHAR(50) NULL,
+    [partition_columns] NVARCHAR(MAX) NULL,  -- JSON array of partition column names
+    [properties] NVARCHAR(MAX) NULL,  -- JSON object with table properties
+    [scan_timestamp] DATETIME2 NOT NULL DEFAULT GETUTCDATE(),
+    CONSTRAINT PK_tiered_profile_metadata PRIMARY KEY ([table_name])
+);

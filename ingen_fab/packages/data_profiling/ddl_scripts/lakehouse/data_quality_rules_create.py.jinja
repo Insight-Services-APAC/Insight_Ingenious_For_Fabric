@@ -1,0 +1,37 @@
+# Data quality rules table for defining validation rules - Lakehouse version
+from pyspark.sql.types import (
+    BooleanType,
+    DoubleType,
+    StringType,
+    StructField,
+    StructType,
+    TimestampType,
+)
+
+schema = StructType([
+    StructField("rule_id", StringType(), nullable=False),
+    StructField("rule_name", StringType(), nullable=False),
+    StructField("table_name", StringType(), nullable=False),
+    StructField("column_name", StringType(), nullable=True),  # Null for table-level rules
+    StructField("rule_type", StringType(), nullable=False),  # completeness, uniqueness, validity, consistency, custom
+    StructField("rule_category", StringType(), nullable=False),  # critical, warning, info
+    StructField("rule_expression", StringType(), nullable=False),  # SQL expression or validation logic
+    StructField("threshold_value", DoubleType(), nullable=True),  # Threshold for numeric rules
+    StructField("expected_value", StringType(), nullable=True),  # Expected value for comparison
+    StructField("error_message", StringType(), nullable=True),  # Custom error message
+    StructField("auto_generated", BooleanType(), nullable=False),  # Whether rule was auto-suggested
+    StructField("active_yn", StringType(), nullable=False),
+    StructField("created_date", TimestampType(), nullable=False),
+    StructField("modified_date", TimestampType(), nullable=True),
+    StructField("created_by", StringType(), nullable=False),
+    StructField("modified_by", StringType(), nullable=True),
+])
+
+target_lakehouse.create_table(
+    table_name="data_quality_rules",
+    schema=schema,
+    mode="overwrite",
+    options={
+        "parquet.vorder.default": "true"
+    }
+)

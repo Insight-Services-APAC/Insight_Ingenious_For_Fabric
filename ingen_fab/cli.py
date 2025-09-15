@@ -22,7 +22,10 @@ synthetic_data_commands = lazy_import.lazy_module(
 package_commands = lazy_import.lazy_module("ingen_fab.cli_utils.package_commands")
 test_commands = lazy_import.lazy_module("ingen_fab.cli_utils.test_commands")
 libs_commands = lazy_import.lazy_module("ingen_fab.cli_utils.libs_commands")
-dbt_commands = lazy_import.lazy_module("ingen_fab.cli_utils.dbt_commands")
+dbt_commands = lazy_import.lazy_module("ingen_fab.cli_utils.dbt.commands")
+profile_commands = lazy_import.lazy_module("ingen_fab.cli_utils.profile_commands")
+download_commands = lazy_import.lazy_module("ingen_fab.cli_utils.download_commands")
+sample_data_commands = lazy_import.lazy_module("ingen_fab.cli_utils.sample_data_commands")
 
 from ingen_fab.cli_utils.console_styles import ConsoleStyles
 
@@ -51,6 +54,8 @@ extract_app = typer.Typer()
 synthetic_data_app = typer.Typer()
 libs_app = typer.Typer()
 dbt_app = typer.Typer()
+profile_app = typer.Typer()
+download_app = typer.Typer()
 
 # Add sub-apps to main app
 test_app.add_typer(
@@ -95,6 +100,21 @@ app.add_typer(
     dbt_app,
     name="dbt",
     help="Proxy commands to dbt_wrapper inside the Fabric workspace repo.",
+)
+app.add_typer(
+    download_app,
+    name="download",
+    help="Commands for downloading artifacts from Fabric workspaces.",
+)
+app.add_typer(
+    profile_commands.app,
+    name="profile",
+    help="Commands for data profiling and quality analysis.",
+)
+app.add_typer(
+    sample_data_commands.app,
+    name="sample-data",
+    help="Commands for loading sample datasets into Fabric lakehouse.",
 )
 
 # New: extract commands
@@ -163,6 +183,8 @@ def main(
     skip_validation = (
         ctx.invoked_subcommand is None
         or (ctx.params and ctx.params.get("help"))
+        or "--help" in sys.argv
+        or "-h" in sys.argv
         or (
             ctx.invoked_subcommand == "init"
             and len(sys.argv) > 2
@@ -205,12 +227,13 @@ def main(
             )
             raise typer.Exit(code=1)
 
-    console_styles.print_info(
-        console, f"Using Fabric workspace repo directory: {fabric_workspace_repo_dir}"
-    )
-    console_styles.print_info(
-        console, f"Using Fabric environment: {fabric_environment}"
-    )
+        console_styles.print_info(
+            console, f"Using Fabric workspace repo directory: {fabric_workspace_repo_dir}"
+        )
+        console_styles.print_info(
+            console, f"Using Fabric environment: {fabric_environment}"
+        )
+
     ctx.obj = {
         "fabric_workspace_repo_dir": fabric_workspace_repo_dir,
         "fabric_environment": fabric_environment,
@@ -289,6 +312,7 @@ def init_solution(
         Path, typer.Option("--path", help="Base path where the project will be created")
     ] = Path("."),
 ):
+    """Create a new Fabric Project."""
     init_commands.init_solution(project_name, path)
 
 
@@ -338,7 +362,11 @@ def delete_all(
 
 @deploy_app.command()
 def upload_python_libs(ctx: typer.Context):
-    """Inject code into python_libs (in-place) and upload to Fabric config lakehouse."""
+    """Inject code into python_libs (in-place) and upload to Fabric config lakehouse.
+    
+    Also uploads any dbt project packages found in {fabric_workspace_repo_dir}/{dbt_project}/ingen_fab/packages
+    to ingen_fab/packages/dbt/{dbt_project}/ in the config lakehouse.
+    """
     deploy_commands.upload_python_libs_to_config_lakehouse(
         environment=ctx.obj["fabric_environment"],
         project_path=ctx.obj["fabric_workspace_repo_dir"],
@@ -996,6 +1024,38 @@ def dbt_convert_metadata(
     )
 
 
+@dbt_app.command("create-python-classes")
+def dbt_create_python_classes(
+    ctx: typer.Context,
+    dbt_project: Annotated[
+        str,
+        typer.Option(
+            "--dbt-project",
+            "-p",
+            help="Name of the dbt project directory under the workspace repo",
+        ),
+    ],
+    skip_profile_confirmation: Annotated[
+        bool,
+        typer.Option(
+            "--skip-profile-confirmation",
+            help="Skip confirmation prompt when updating dbt profile",
+        ),
+    ] = False,
+):
+    """Create Python classes from dbt SQL JSON files.
+
+    Scans {workspace}/{dbt_project}/target/sql and creates Python classes under
+    {workspace}/ingen_fab/packages/dbt/runtime/projects/{dbt_project}/.
+    
+    Each SQL JSON file is converted to a Python class with methods for executing
+    the SQL statements using PySpark.
+    """
+    dbt_commands.create_python_classes(
+        ctx, dbt_project, skip_profile_confirmation
+    )
+
+
 # Package commands
 package_app.add_typer(
     ingest_app,
@@ -1118,7 +1178,7 @@ def dbt_exec(
     ctx: typer.Context,
 ):
     """Run dbt_wrapper from within the Fabric workspace repo, then return to the original directory."""
-    from ingen_fab.cli_utils.dbt_profile_manager import ensure_dbt_profile_for_exec
+    from ingen_fab.cli_utils.dbt.profile_manager import ensure_dbt_profile_for_exec
 
     workspace_dir = Path(ctx.obj["fabric_workspace_repo_dir"]).resolve()
     if not workspace_dir.exists():
@@ -1441,6 +1501,119 @@ def extract_run(
         execution_group=execution_group,
         environment=environment,
         run_type=run_type,
+    )
+
+
+# Download commands
+@download_app.command("item")
+def download_item(
+    ctx: typer.Context,
+    item_id: Annotated[str, typer.Argument(help="The ID of the item to download")],
+    workspace_id: Annotated[
+        Optional[str], typer.Option("--workspace-id", "-w", help="Workspace ID")
+    ] = None,
+    output_path: Annotated[
+        Optional[Path], typer.Option("--output", "-o", help="Path to save the downloaded item")
+    ] = None,
+    format: Annotated[
+        str, typer.Option("--format", "-f", help="Download format (DEFAULT, TMSL, TMDL, etc.)")
+    ] = "DEFAULT",
+):
+    """Download any Fabric item by its ID."""
+    download_commands.download_item(
+        ctx, item_id, workspace_id, output_path, format
+    )
+
+
+@download_app.command("semantic-model")
+def download_semantic_model(
+    ctx: typer.Context,
+    model_id: Annotated[str, typer.Argument(help="The ID of the semantic model to download")],
+    workspace_id: Annotated[
+        Optional[str], typer.Option("--workspace-id", "-w", help="Workspace ID")
+    ] = None,
+    output_path: Annotated[
+        Optional[Path], typer.Option("--output", "-o", help="Path to save the downloaded model")
+    ] = None,
+    format: Annotated[
+        str, typer.Option("--format", "-f", help="Download format (TMSL or TMDL)")
+    ] = "TMDL",
+):
+    """Download a semantic model (dataset) from Fabric."""
+    download_commands.download_semantic_model(
+        ctx, model_id, workspace_id, output_path, format
+    )
+
+
+@download_app.command("report")
+def download_report(
+    ctx: typer.Context,
+    report_id: Annotated[str, typer.Argument(help="The ID of the report to download")],
+    workspace_id: Annotated[
+        Optional[str], typer.Option("--workspace-id", "-w", help="Workspace ID")
+    ] = None,
+    output_path: Annotated[
+        Optional[Path], typer.Option("--output", "-o", help="Path to save the .pbix file")
+    ] = None,
+):
+    """Download a Power BI report (.pbix file) from Fabric."""
+    download_commands.download_report(
+        ctx, report_id, workspace_id, output_path
+    )
+
+
+@download_app.command("notebook")
+def download_notebook(
+    ctx: typer.Context,
+    notebook_id: Annotated[str, typer.Argument(help="The ID of the notebook to download")],
+    workspace_id: Annotated[
+        Optional[str], typer.Option("--workspace-id", "-w", help="Workspace ID")
+    ] = None,
+    output_path: Annotated[
+        Optional[Path], typer.Option("--output", "-o", help="Path to save the notebook")
+    ] = None,
+    format: Annotated[
+        str, typer.Option("--format", "-f", help="Download format (ipynb or py)")
+    ] = "ipynb",
+):
+    """Download a notebook from Fabric."""
+    download_commands.download_notebook(
+        ctx, notebook_id, workspace_id, output_path, format
+    )
+
+
+@download_app.command("all")
+def download_all(
+    ctx: typer.Context,
+    workspace_id: Annotated[
+        Optional[str], typer.Option("--workspace-id", "-w", help="Workspace ID")
+    ] = None,
+    output_dir: Annotated[
+        Path, typer.Option("--output-dir", "-o", help="Directory to save all downloads")
+    ] = Path("fabric_downloads"),
+    item_types: Annotated[
+        Optional[str], typer.Option("--types", "-t", help="Comma-separated list of item types")
+    ] = None,
+):
+    """Download all items from a workspace."""
+    download_commands.download_all(
+        ctx, workspace_id, output_dir, item_types
+    )
+
+
+@download_app.command("list")
+def download_list(
+    ctx: typer.Context,
+    workspace_id: Annotated[
+        Optional[str], typer.Option("--workspace-id", "-w", help="Workspace ID")
+    ] = None,
+    item_type: Annotated[
+        Optional[str], typer.Option("--type", "-t", help="Filter by item type")
+    ] = None,
+):
+    """List all items in a workspace."""
+    download_commands.list_items(
+        ctx, workspace_id, item_type
     )
 
 

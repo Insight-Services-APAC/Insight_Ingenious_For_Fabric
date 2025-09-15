@@ -1,0 +1,289 @@
+#!/usr/bin/env python3
+"""
+Table Analysis Hook
+
+This hook automatically executes the comprehensive table analysis when triggered,
+streamlining the SQL execution and documentation process.
+"""
+
+import sys
+import json
+from pathlib import Path
+
+# Add the project root to Python path
+project_root = Path(__file__).parent.parent
+sys.path.insert(0, str(project_root))
+
+from fabric_sql_query_tool import FabricWarehouseQueryTool
+
+
+def analyze_table(table_name: str, schema_name: str = "dbo"):
+    """
+    Execute comprehensive table analysis following the systematic template.
+    
+    Args:
+        table_name: Name of the table to analyze
+        schema_name: Schema name (default: dbo)
+    """
+    print(f"🔍 COMPREHENSIVE TABLE ANALYSIS: {schema_name}.{table_name}")
+    print("=" * 80)
+    
+    tool = FabricWarehouseQueryTool()
+    analysis_results = {}
+    
+    try:
+        # Step 1: Basic Table Information
+        print("\n1. BASIC TABLE INFORMATION")
+        print("=" * 40)
+        
+        print(f"SQL: Getting column structure for {table_name}")
+        print("SELECT COLUMN_NAME, DATA_TYPE, IS_NULLABLE, ORDINAL_POSITION,")
+        print("       CHARACTER_MAXIMUM_LENGTH, NUMERIC_PRECISION, NUMERIC_SCALE, COLUMN_DEFAULT")
+        print(f"FROM INFORMATION_SCHEMA.COLUMNS")
+        print(f"WHERE TABLE_NAME = '{table_name}' AND TABLE_SCHEMA = '{schema_name}'")
+        print("ORDER BY ORDINAL_POSITION")
+        
+        columns = tool.get_table_columns(table_name, schema_name)
+        analysis_results['columns'] = columns
+        analysis_results['column_count'] = len(columns)
+        
+        print(f"\n✅ Result: {len(columns)} columns found")
+        
+        # Categorize columns
+        core_fields = []
+        system_fields = []
+        relationship_fields = []
+        custom_fields = []
+        
+        for col in columns:
+            name = col['column_name'].lower()
+            if col['column_name'] in ['Id', 'name', 'accountnumber', 'firstname', 'lastname', 'telephone1', 'emailaddress1']:
+                core_fields.append(col)
+            elif any(pattern in name for pattern in ['statecode', 'statuscode', 'sink', 'createdon', 'modifiedon', 'ownerid', 'owningbusinessunit']):
+                system_fields.append(col)
+            elif name.endswith('id') and name != 'id':
+                relationship_fields.append(col)
+            else:
+                custom_fields.append(col)
+        
+        analysis_results['column_categories'] = {
+            'core': len(core_fields),
+            'system': len(system_fields),
+            'relationships': len(relationship_fields),
+            'custom': len(custom_fields)
+        }
+        
+        print(f"Column categorization:")
+        print(f"  📋 Core business fields: {len(core_fields)}")
+        print(f"  ⚙️  System fields: {len(system_fields)}")
+        print(f"  🔗 Relationship fields: {len(relationship_fields)}")
+        print(f"  🔧 Custom/extended fields: {len(custom_fields)}")
+        
+        # Step 2: Row Count Analysis
+        print(f"\n2. ROW COUNT ANALYSIS")
+        print("=" * 40)
+        
+        print(f"SQL: Getting row count for {table_name}")
+        print(f"SELECT COUNT(*) as [row_count] FROM [{schema_name}].[{table_name}]")
+        
+        try:
+            result = tool.execute_query(f"SELECT COUNT(*) as [row_count] FROM [{schema_name}].[{table_name}]")
+            row_count = result[0][0]
+            analysis_results['row_count'] = row_count
+            print(f"\n✅ Result: {row_count:,} total records")
+        except Exception as e:
+            print(f"❌ Row count error: {e}")
+            analysis_results['row_count'] = 'Unknown'
+        
+        # Step 3: Sample Data Analysis
+        print(f"\n3. SAMPLE DATA ANALYSIS")
+        print("=" * 40)
+        
+        # Get key field names
+        key_fields = ['Id', 'SinkCreatedOn', 'SinkModifiedOn', 'statecode', 'statuscode']
+        available_fields = [col['column_name'] for col in columns]
+        
+        # Add table-specific key fields
+        for field in ['name', 'firstname', 'lastname', 'accountnumber', 'telephone1', 'emailaddress1']:
+            if field in available_fields:
+                key_fields.append(field)
+        
+        # Limit to available fields
+        sample_fields = [f for f in key_fields if f in available_fields][:8]  # Max 8 fields
+        
+        fields_str = ', '.join(sample_fields)
+        print(f"SQL: Getting sample data from {table_name}")
+        print(f"SELECT TOP 5 {fields_str}")
+        print(f"FROM [{schema_name}].[{table_name}]")
+        print("ORDER BY SinkCreatedOn DESC")
+        
+        try:
+            sample_query = f"SELECT TOP 5 {fields_str} FROM [{schema_name}].[{table_name}] ORDER BY SinkCreatedOn DESC"
+            sample_data = tool.execute_query(sample_query, return_dict=True)
+            analysis_results['sample_data'] = sample_data
+            
+            print(f"\n✅ Result: {len(sample_data)} sample records")
+            if sample_data:
+                print(f"\nSample records:")
+                for i, record in enumerate(sample_data[:3], 1):
+                    print(f"  Record {i}:")
+                    for key, value in record.items():
+                        display_value = str(value)[:50] + '...' if value and len(str(value)) > 50 else str(value)
+                        print(f"    {key}: {display_value}")
+                    print()
+        except Exception as e:
+            print(f"❌ Sample data error: {e}")
+            analysis_results['sample_data'] = []
+        
+        # Step 4: Data Quality Analysis
+        print(f"\n4. DATA QUALITY ANALYSIS")
+        print("=" * 40)
+        
+        # Find key fields to analyze for completeness
+        quality_fields = []
+        for field in ['name', 'firstname', 'lastname', 'accountnumber', 'telephone1', 'emailaddress1', 'websiteurl']:
+            if field in available_fields:
+                quality_fields.append(field)
+        
+        if quality_fields:
+            count_selects = []
+            for field in quality_fields:
+                count_selects.append(f"COUNT({field}) as {field}_non_null")
+            
+            quality_query = f"""
+            SELECT 
+                COUNT(*) as total_rows,
+                {', '.join(count_selects)}
+            FROM [{schema_name}].[{table_name}]
+            """
+            
+            print(f"SQL: Analyzing data completeness")
+            print(quality_query.strip())
+            
+            try:
+                quality_data = tool.execute_query(quality_query, return_dict=True)[0]
+                analysis_results['data_quality'] = quality_data
+                
+                print(f"\n✅ Result: Data completeness analysis")
+                total = quality_data['total_rows']
+                print(f"  Total records: {total:,}")
+                
+                for field in quality_fields:
+                    non_null = quality_data[f'{field}_non_null']
+                    completeness = (non_null / total * 100) if total > 0 else 0
+                    
+                    if completeness >= 95:
+                        indicator = "✅"
+                        status = "Excellent"
+                    elif completeness >= 50:
+                        indicator = "⚠️"
+                        status = "Moderate"
+                    else:
+                        indicator = "❌"
+                        status = "Poor"
+                    
+                    print(f"  {indicator} {field}: {non_null:,}/{total:,} ({completeness:.1f}% - {status})")
+                    
+            except Exception as e:
+                print(f"❌ Data quality error: {e}")
+        
+        # Step 5: State/Status Analysis (for D365 tables)
+        if 'statecode' in available_fields and 'statuscode' in available_fields:
+            print(f"\n5. STATE/STATUS DISTRIBUTION")
+            print("=" * 40)
+            
+            state_query = f"""
+            SELECT statecode, statuscode, COUNT(*) as record_count,
+                   CAST((COUNT(*) * 100.0 / (SELECT COUNT(*) FROM [{schema_name}].[{table_name}])) as DECIMAL(5,2)) as percentage
+            FROM [{schema_name}].[{table_name}]
+            GROUP BY statecode, statuscode
+            ORDER BY record_count DESC
+            """
+            
+            print(f"SQL: Analyzing state/status distribution")
+            print(state_query.strip())
+            
+            try:
+                state_data = tool.execute_query(state_query, return_dict=True)
+                analysis_results['state_distribution'] = state_data
+                
+                print(f"\n✅ Result: State/Status distribution")
+                for row in state_data:
+                    state_desc = 'Active' if row['statecode'] == 0 else 'Inactive'
+                    print(f"  📊 State {row['statecode']} ({state_desc}), Status {row['statuscode']}: {row['record_count']:,} records ({row['percentage']}%)")
+                    
+            except Exception as e:
+                print(f"❌ State analysis error: {e}")
+        
+        # Step 6: Data Freshness Analysis
+        if 'SinkCreatedOn' in available_fields:
+            print(f"\n6. DATA FRESHNESS ANALYSIS")
+            print("=" * 40)
+            
+            freshness_query = f"""
+            SELECT 
+                MIN(SinkCreatedOn) as earliest_record,
+                MAX(SinkCreatedOn) as latest_record,
+                COUNT(DISTINCT CAST(SinkCreatedOn as DATE)) as distinct_days
+            FROM [{schema_name}].[{table_name}]
+            WHERE SinkCreatedOn IS NOT NULL
+            """
+            
+            print(f"SQL: Analyzing data loading patterns")
+            print(freshness_query.strip())
+            
+            try:
+                freshness_data = tool.execute_query(freshness_query, return_dict=True)[0]
+                analysis_results['data_freshness'] = freshness_data
+                
+                print(f"\n✅ Result: Data freshness analysis")
+                print(f"  📅 Earliest record: {freshness_data['earliest_record']}")
+                print(f"  📅 Latest record: {freshness_data['latest_record']}")
+                print(f"  📊 Loading days span: {freshness_data['distinct_days']} distinct days")
+                
+            except Exception as e:
+                print(f"❌ Freshness analysis error: {e}")
+        
+        # Summary
+        print(f"\n" + "=" * 80)
+        print(f"ANALYSIS SUMMARY")
+        print(f"=" * 80)
+        print(f"✅ Table: {schema_name}.{table_name}")
+        print(f"📊 Columns: {analysis_results.get('column_count', 'Unknown')}")
+        print(f"📈 Records: {analysis_results.get('row_count', 'Unknown'):,}" if isinstance(analysis_results.get('row_count'), int) else f"📈 Records: {analysis_results.get('row_count', 'Unknown')}")
+        print(f"🔧 Categories: {analysis_results.get('column_categories', {})}")
+        
+        # Save results to file for documentation
+        output_file = f"table_analysis_{table_name}_{schema_name}.json"
+        with open(output_file, 'w') as f:
+            json.dump(analysis_results, f, indent=2, default=str)
+        print(f"💾 Analysis results saved to: {output_file}")
+        
+        print(f"\n🎯 Next Steps:")
+        print(f"  1. Use results to create comprehensive documentation")
+        print(f"  2. Apply business context from Dynamics 365 knowledge")
+        print(f"  3. Add relationship mapping and integration points")
+        print(f"  4. Include practical query examples")
+        
+        return analysis_results
+        
+    except Exception as e:
+        print(f"❌ Analysis failed: {e}")
+        return None
+
+
+def main():
+    """Command line interface for table analysis."""
+    import argparse
+    
+    parser = argparse.ArgumentParser(description="Comprehensive table analysis for Fabric Data Warehouse")
+    parser.add_argument("table_name", help="Name of the table to analyze")
+    parser.add_argument("--schema", "-s", default="dbo", help="Schema name (default: dbo)")
+    
+    args = parser.parse_args()
+    
+    analyze_table(args.table_name, args.schema)
+
+
+if __name__ == "__main__":
+    main()

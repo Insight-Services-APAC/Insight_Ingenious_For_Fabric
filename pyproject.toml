@@ -13,7 +13,7 @@ dependencies = [
     "deltalake==1.0.2",
     "pyarrow==20.0.0",
     "azure-cli==2.76.0",
-    "fabric_cicd @ https://github.com/jrampono/fabric-cicd/archive/refs/tags/v0.0.1.tar.gz",
+    "fabric_cicd",
     "azure-storage-file-datalake==12.21.0",
     "azure-storage-blob>=12.26.0",
     "lazy-import>=0.2.2",
@@ -57,6 +57,7 @@ docs = [
     "mkdocs-get-deps==0.2.0",
     "mkdocs-git-revision-date-localized-plugin==1.4.7",
     "mkdocs-minify-plugin==0.8.0",
+    "mkdocs-mermaid2-plugin",
     "mike==2.1.3"
 ]
 
@@ -65,6 +66,12 @@ dataprep = [
     "scrapfly-sdk==0.8.23",
     "python-dotenv==1.0.1",
     "backoff==2.2"
+]
+
+profiling = []
+
+lakesail = [
+    "pysail>=0.3.3"
 ]
 
 tests = [
@@ -82,13 +89,16 @@ tests = [
 requires = ["setuptools>=61.0"]
 build-backend = "setuptools.build_meta"
 
+[tool.uv.sources]
+fabric-cicd = { git = "https://github.com/jrampono/fabric-cicd", branch = "feature/structured_log_output_V2" }
+
 [tool.setuptools.packages.find]
 where = ["."]
 include = ["ingen_fab*"]
 exclude = [".pre-commit-cache*", "*.pre-commit-cache*"]
 
 [tool.setuptools.package-data]
-ingen_fab = ["**/*.json", "**/*.jinja", "**/*.jinja2", "**/*.sql", "**/*.py", "**/*.md", "**/*.yml", "**/*.yaml", "**/.platform", "project_templates/**/*.txt", "project_templates/**/.gitignore"]
+ingen_fab = ["**/*.json", "**/*.jinja", "**/*.jinja2", "**/*.j2", "**/*.sql", "**/*.py", "**/*.md", "**/*.yml", "**/*.yaml", "**/.platform", "project_templates/**/*.txt", "project_templates/**/.gitignore"]
 
 [project.scripts]
 ingen_fab = "ingen_fab.cli:app"

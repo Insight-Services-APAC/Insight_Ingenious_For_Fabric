@@ -1,0 +1,16 @@
+-- Tiered Profile Progress table for tracking scan completion status - Warehouse version
+CREATE TABLE IF NOT EXISTS [{{schema_name}}].[tiered_profile_progress] (
+    [table_name] NVARCHAR(255) NOT NULL,
+    [level_1_completed] DATETIME2 NULL,
+    [level_1_duration_ms] BIGINT NULL,
+    [level_2_completed] DATETIME2 NULL,
+    [level_2_duration_ms] BIGINT NULL,
+    [level_3_completed] DATETIME2 NULL,
+    [level_3_duration_ms] BIGINT NULL,
+    [level_4_completed] DATETIME2 NULL,
+    [level_4_duration_ms] BIGINT NULL,
+    [last_error] NVARCHAR(MAX) NULL,
+    [last_error_time] DATETIME2 NULL,
+    [last_updated] DATETIME2 NOT NULL DEFAULT GETUTCDATE(),
+    CONSTRAINT PK_tiered_profile_progress PRIMARY KEY ([table_name])
+);

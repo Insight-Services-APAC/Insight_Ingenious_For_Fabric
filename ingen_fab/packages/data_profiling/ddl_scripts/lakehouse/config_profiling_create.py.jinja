@@ -1,0 +1,44 @@
+# Configuration table for data profiling metadata - Lakehouse version
+from pyspark.sql.types import (
+    BooleanType,
+    IntegerType,
+    StringType,
+    StructField,
+    StructType,
+    TimestampType,
+)
+
+schema = StructType([
+    StructField("config_id", StringType(), nullable=False),
+    StructField("table_name", StringType(), nullable=False),
+    StructField("schema_name", StringType(), nullable=True),
+    StructField("target_workspace_id", StringType(), nullable=True),  # Target workspace ID for the table
+    StructField("target_datastore_id", StringType(), nullable=True),  # Target lakehouse/warehouse ID
+    StructField("target_datastore_type", StringType(), nullable=True),  # 'lakehouse' or 'warehouse'
+    StructField("profile_frequency", StringType(), nullable=False),  # daily, weekly, monthly, on_demand
+    StructField("profile_type", StringType(), nullable=False),  # basic, statistical, data_quality, relationship, full
+    StructField("sample_size", StringType(), nullable=True),  # Sample fraction or null for full dataset
+    StructField("columns_to_profile", StringType(), nullable=True),  # Comma-separated list or null for all
+    StructField("quality_thresholds_json", StringType(), nullable=True),  # JSON with quality thresholds
+    StructField("validation_rules_json", StringType(), nullable=True),  # JSON with validation rules
+    StructField("alert_enabled", BooleanType(), nullable=False),
+    StructField("alert_threshold", StringType(), nullable=True),  # Quality score threshold for alerts
+    StructField("alert_recipients", StringType(), nullable=True),  # Comma-separated email addresses
+    StructField("last_profile_date", TimestampType(), nullable=True),
+    StructField("last_profile_status", StringType(), nullable=True),
+    StructField("execution_group", IntegerType(), nullable=False),
+    StructField("active_yn", StringType(), nullable=False),
+    StructField("created_date", TimestampType(), nullable=False),
+    StructField("modified_date", TimestampType(), nullable=True),
+    StructField("created_by", StringType(), nullable=False),
+    StructField("modified_by", StringType(), nullable=True),
+])
+
+target_lakehouse.create_table(
+    table_name="config_data_profiling",
+    schema=schema,
+    mode="overwrite",
+    options={
+        "parquet.vorder.default": "true"
+    }
+)

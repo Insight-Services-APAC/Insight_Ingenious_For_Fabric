@@ -1,0 +1,377 @@
+"""
+Generated DAG Executor for dbt project: {{ dbt_project }}
+Generated from manifest.json with {{ total_nodes }} nodes
+
+This class orchestrates the execution of dbt models, seeds, and tests
+based on the dependency graph defined in the manifest.json file.
+"""
+
+import logging
+import time
+from collections import defaultdict, deque
+from concurrent.futures import ThreadPoolExecutor, as_completed
+from typing import Any, Dict, List, Optional, Set, Tuple
+from pyspark.sql import DataFrame, SparkSession
+
+# Import generated model classes
+{% for class_info in node_to_class_map.values() %}
+from {{ class_info.import_path }} import {{ class_info.class_name }}
+{%- endfor %}
+
+logger = logging.getLogger(__name__)
+
+
+class {{ executor_class_name }}:
+    """
+    DAG Executor for dbt project: {{ dbt_project }}
+    
+    Orchestrates execution of {{ total_nodes }} dbt nodes based on dependency graph.
+    Supports parallel execution of independent nodes and respects dependency order.
+    """
+    
+    def __init__(self, spark_session: SparkSession, max_workers: int = 4):
+        """
+        Initialize the DAG executor.
+        
+        Args:
+            spark_session: Active SparkSession instance
+            max_workers: Maximum number of parallel workers for execution
+        """
+        self.spark = spark_session
+        self.max_workers = max_workers
+        
+        # Node registry - maps node_id to instantiated class
+        self.nodes: Dict[str, Any] = {}
+        
+        # Dependency graph from manifest
+        self.dependencies: Dict[str, List[str]] = {
+{%- for node in nodes %}
+            "{{ node.node_id }}": {{ node.dependencies | tojson }},
+{%- endfor %}
+        }
+        
+        # Node metadata
+        self.node_types: Dict[str, str] = {
+{%- for node in nodes %}
+            "{{ node.node_id }}": "{{ node.resource_type }}",
+{%- endfor %}
+        }
+        
+        # Execution tracking
+        self.execution_status: Dict[str, str] = {}  # pending, running, completed, failed
+        self.execution_results: Dict[str, Any] = {}
+        self.execution_times: Dict[str, float] = {}
+        
+        self._initialize_nodes()
+    
+    def _initialize_nodes(self):
+        """Initialize all node class instances."""
+{%- for node in nodes %}
+        # {{ node.node_id }} -> {{ node.class_info.class_name }}
+        self.nodes["{{ node.node_id }}"] = {{ node.class_info.class_name }}(self.spark)
+{%- endfor %}
+        
+        # Initialize all nodes as pending
+        for node_id in self.dependencies:
+            self.execution_status[node_id] = "pending"
+    
+    def validate_dag(self) -> bool:
+        """
+        Validate that the dependency graph is a valid DAG (no cycles).
+        
+        Returns:
+            True if valid DAG, raises RuntimeError if cycles detected
+        """
+        # Use DFS to detect cycles
+        visited = set()
+        rec_stack = set()
+        
+        def has_cycle(node_id: str) -> bool:
+            visited.add(node_id)
+            rec_stack.add(node_id)
+            
+            for dep in self.dependencies.get(node_id, []):
+                if dep not in visited:
+                    if has_cycle(dep):
+                        return True
+                elif dep in rec_stack:
+                    return True
+            
+            rec_stack.remove(node_id)
+            return False
+        
+        for node_id in self.dependencies:
+            if node_id not in visited:
+                if has_cycle(node_id):
+                    raise RuntimeError(f"Cycle detected in dependency graph involving node {node_id}")
+        
+        return True
+    
+    def get_execution_order(self) -> List[List[str]]:
+        """
+        Determine execution order using topological sort.
+        Returns list of batches where each batch can be executed in parallel.
+        
+        Returns:
+            List of batches, where each batch is a list of node_ids that can run in parallel
+            
+        Raises:
+            RuntimeError: If the dependency graph contains cycles
+        """
+        # Validate DAG first
+        self.validate_dag()
+        # Build reverse dependency graph (who depends on whom)
+        dependents: Dict[str, List[str]] = defaultdict(list)
+        in_degree: Dict[str, int] = {}
+        
+        # Initialize in-degree for all nodes
+        for node_id in self.dependencies:
+            in_degree[node_id] = 0
+            
+        # Calculate in-degrees and build dependents graph
+        for node_id, deps in self.dependencies.items():
+            in_degree[node_id] = len(deps)
+            for dep in deps:
+                if dep in self.dependencies:  # Only include deps that are in our node set
+                    dependents[dep].append(node_id)
+        
+        # Topological sort with batching for parallel execution
+        execution_order: List[List[str]] = []
+        processed_nodes = set()  # Track processed nodes to ensure no duplicates
+        queue = deque([node for node, degree in in_degree.items() if degree == 0])
+        
+        while queue:
+            # All nodes in current queue can be executed in parallel
+            current_batch = list(queue)
+            
+            # Ensure no duplicate processing
+            for node_id in current_batch:
+                if node_id in processed_nodes:
+                    raise RuntimeError(f"Node {node_id} would be processed multiple times!")
+                processed_nodes.add(node_id)
+            
+            execution_order.append(current_batch)
+            queue.clear()
+            
+            # Process each node in the current batch
+            for node_id in current_batch:
+                # Reduce in-degree for all dependents
+                for dependent in dependents[node_id]:
+                    in_degree[dependent] -= 1
+                    if in_degree[dependent] == 0:
+                        queue.append(dependent)
+        
+        # Validate all nodes were processed
+        total_nodes = len(self.dependencies)
+        processed_count = len(processed_nodes)
+        if processed_count != total_nodes:
+            missing_nodes = set(self.dependencies.keys()) - processed_nodes
+            raise RuntimeError(f"Failed to process all nodes. Expected {total_nodes}, processed {processed_count}. Missing nodes: {missing_nodes}")
+        
+        return execution_order
+    
+    def execute_node(self, node_id: str) -> Tuple[str, bool, Any, float]:
+        """
+        Execute a single node.
+        
+        Args:
+            node_id: The unique ID of the node to execute
+            
+        Returns:
+            Tuple of (node_id, success, result, execution_time)
+        """
+        # Check if node has already been executed
+        if self.execution_status.get(node_id) in ["completed", "failed", "running"]:
+            logger.warning(f"Node {node_id} has already been executed (status: {self.execution_status[node_id]})")
+            return node_id, self.execution_status[node_id] == "completed", self.execution_results.get(node_id), self.execution_times.get(node_id, 0)
+        
+        start_time = time.time()
+        self.execution_status[node_id] = "running"
+        
+        try:
+            logger.info(f"Executing {node_id}")
+            
+            # Get the node instance
+            if node_id not in self.nodes:
+                raise RuntimeError(f"Node {node_id} not found in registry")
+            
+            node_instance = self.nodes[node_id]
+            node_type = self.node_types.get(node_id, "unknown")
+            
+            # Execute based on node type
+            if node_type in ["model", "seed"]:
+                result = node_instance.execute_all()
+            elif node_type == "test":
+                # For tests, we might want different behavior
+                result = node_instance.execute_all()
+            else:
+                logger.warning(f"Unknown node type '{node_type}' for {node_id}")
+                result = node_instance.execute_all()
+            
+            execution_time = time.time() - start_time
+            self.execution_status[node_id] = "completed"
+            self.execution_results[node_id] = result
+            self.execution_times[node_id] = execution_time
+            
+            logger.info(f"✓ Completed {node_id} in {execution_time:.2f}s")
+            return node_id, True, result, execution_time
+            
+        except Exception as e:
+            execution_time = time.time() - start_time
+            self.execution_status[node_id] = "failed"
+            self.execution_times[node_id] = execution_time
+            
+            logger.error(f"✗ Failed {node_id} in {execution_time:.2f}s: {e}")
+            return node_id, False, str(e), execution_time
+    
+    def execute_batch(self, batch: List[str]) -> List[Tuple[str, bool, Any, float]]:
+        """
+        Execute a batch of nodes in parallel.
+        
+        Args:
+            batch: List of node_ids to execute in parallel
+            
+        Returns:
+            List of execution results
+        """
+        if len(batch) == 1:
+            # Single node - execute directly
+            return [self.execute_node(batch[0])]
+        
+        # Parallel execution
+        results = []
+        with ThreadPoolExecutor(max_workers=min(self.max_workers, len(batch))) as executor:
+            # Submit all tasks
+            future_to_node = {executor.submit(self.execute_node, node_id): node_id 
+                             for node_id in batch}
+            
+            # Collect results as they complete
+            for future in as_completed(future_to_node):
+                results.append(future.result())
+        
+        return results
+    
+    def execute_all(self, fail_fast: bool = True) -> Dict[str, Any]:
+        """
+        Execute all nodes in dependency order with maximum parallelization.
+        
+        Args:
+            fail_fast: Whether to stop execution on first failure
+            
+        Returns:
+            Dictionary containing execution summary
+        """
+        logger.info(f"Starting execution of {len(self.dependencies)} nodes")
+        start_time = time.time()
+        
+        execution_order = self.get_execution_order()
+        total_batches = len(execution_order)
+        failed_nodes = []
+        
+        logger.info(f"Execution plan: {total_batches} batches")
+        for i, batch in enumerate(execution_order):
+            logger.info(f"Batch {i+1}: {len(batch)} nodes - {batch}")
+        
+        # Execute batches sequentially, nodes within batch in parallel
+        for batch_num, batch in enumerate(execution_order, 1):
+            logger.info(f"Executing batch {batch_num}/{total_batches}: {batch}")
+            
+            # Skip batch if we have failures and fail_fast is True
+            if failed_nodes and fail_fast:
+                logger.warning(f"Skipping batch {batch_num} due to previous failures")
+                for node_id in batch:
+                    self.execution_status[node_id] = "skipped"
+                continue
+            
+            # Execute batch
+            batch_results = self.execute_batch(batch)
+            
+            # Check for failures in this batch
+            batch_failures = [result[0] for result in batch_results if not result[1]]
+            failed_nodes.extend(batch_failures)
+            
+            if batch_failures:
+                logger.error(f"Batch {batch_num} had {len(batch_failures)} failures: {batch_failures}")
+                if fail_fast:
+                    logger.error("Stopping execution due to failures (fail_fast=True)")
+                    break
+        
+        total_time = time.time() - start_time
+        
+        # Generate execution summary
+        completed = [n for n, s in self.execution_status.items() if s == "completed"]
+        failed = [n for n, s in self.execution_status.items() if s == "failed"]
+        skipped = [n for n, s in self.execution_status.items() if s == "skipped"]
+        
+        summary = {
+            "total_nodes": len(self.dependencies),
+            "completed": len(completed),
+            "failed": len(failed),
+            "skipped": len(skipped),
+            "total_time": total_time,
+            "execution_status": dict(self.execution_status),
+            "execution_times": dict(self.execution_times),
+            "failed_nodes": failed,
+            "completed_nodes": completed,
+        }
+        
+        logger.info(f"Execution complete: {len(completed)} completed, {len(failed)} failed, {len(skipped)} skipped in {total_time:.2f}s")
+        
+        return summary
+    
+    def execute_node_and_dependencies(self, node_id: str) -> Dict[str, Any]:
+        """
+        Execute a specific node and all its dependencies.
+        
+        Args:
+            node_id: The node to execute
+            
+        Returns:
+            Execution summary
+        """
+        # Find all dependencies recursively
+        def find_all_dependencies(node: str, visited: Set[str]) -> Set[str]:
+            if node in visited:
+                return set()
+            
+            visited.add(node)
+            deps = set([node])
+            
+            for dep in self.dependencies.get(node, []):
+                if dep in self.dependencies:  # Only include deps that exist in our graph
+                    deps.update(find_all_dependencies(dep, visited))
+            
+            return deps
+        
+        # Get all required nodes
+        required_nodes = find_all_dependencies(node_id, set())
+        logger.info(f"Executing {node_id} requires {len(required_nodes)} nodes: {sorted(required_nodes)}")
+        
+        # Create subgraph with only required nodes
+        original_dependencies = self.dependencies.copy()
+        original_status = self.execution_status.copy()
+        
+        # Filter dependencies to only required nodes
+        self.dependencies = {n: deps for n, deps in self.dependencies.items() if n in required_nodes}
+        self.execution_status = {n: "pending" for n in required_nodes}
+        
+        try:
+            # Execute the subgraph
+            result = self.execute_all()
+            return result
+        finally:
+            # Restore original state
+            self.dependencies = original_dependencies
+            self.execution_status = original_status
+    
+    def get_status_summary(self) -> str:
+        """Get a human-readable status summary."""
+        status_counts = defaultdict(int)
+        for status in self.execution_status.values():
+            status_counts[status] += 1
+        
+        return " | ".join([f"{status}: {count}" for status, count in sorted(status_counts.items())])
+    
+    def __repr__(self) -> str:
+        """String representation of the executor."""
+        return f"<{{ executor_class_name }}(nodes={len(self.dependencies)}, {self.get_status_summary()})>"

@@ -1,0 +1,73 @@
+-- Data Profiling Configuration Table Creation (Warehouse)
+-- This script creates the main configuration table for data profiling
+
+IF NOT EXISTS (SELECT * FROM sys.schemas WHERE name = 'config')
+BEGIN
+    EXEC('CREATE SCHEMA config')
+END
+
+-- Drop and recreate config_data_profiling table
+IF OBJECT_ID('config.config_data_profiling', 'U') IS NOT NULL
+    DROP TABLE config.config_data_profiling
+
+CREATE TABLE config.config_data_profiling (
+    id INT IDENTITY(1,1) PRIMARY KEY,
+    table_schema NVARCHAR(128) NOT NULL,
+    table_name NVARCHAR(128) NOT NULL,
+    full_table_name NVARCHAR(257) NOT NULL,
+    active_yn CHAR(1) NOT NULL DEFAULT 'Y',
+    profile_type NVARCHAR(50) NOT NULL DEFAULT 'basic',
+    profile_frequency NVARCHAR(50) NOT NULL DEFAULT 'daily',
+    sample_percentage FLOAT NULL,
+    enable_performance_mode BIT NOT NULL DEFAULT 0,
+    quality_thresholds_json NVARCHAR(MAX) NULL,
+    estimated_rows BIGINT NULL,
+    column_count INT NULL,
+    created_date DATETIME2 NOT NULL DEFAULT GETDATE(),
+    created_by NVARCHAR(100) NOT NULL DEFAULT SYSTEM_USER,
+    last_updated DATETIME2 NOT NULL DEFAULT GETDATE(),
+    last_profiled DATETIME2 NULL,
+    notes NVARCHAR(MAX) NULL,
+    
+    CONSTRAINT CK_config_profiling_active CHECK (active_yn IN ('Y', 'N')),
+    CONSTRAINT CK_config_profiling_type CHECK (profile_type IN ('basic', 'statistical', 'data_quality', 'relationship', 'full')),
+    CONSTRAINT CK_config_profiling_frequency CHECK (profile_frequency IN ('daily', 'weekly', 'monthly', 'on_demand')),
+    CONSTRAINT CK_config_profiling_sample CHECK (sample_percentage IS NULL OR (sample_percentage > 0 AND sample_percentage <= 100))
+)
+
+-- Create indexes for performance
+CREATE NONCLUSTERED INDEX IX_config_profiling_active_tables 
+ON config.config_data_profiling (active_yn, table_schema, table_name)
+
+CREATE NONCLUSTERED INDEX IX_config_profiling_frequency 
+ON config.config_data_profiling (profile_frequency, last_profiled)
+
+-- Add extended properties for documentation
+EXEC sys.sp_addextendedproperty 
+    @name = N'MS_Description', 
+    @value = N'Configuration table for automated data profiling', 
+    @level0type = N'SCHEMA', @level0name = N'config',
+    @level1type = N'TABLE', @level1name = N'config_data_profiling'
+
+EXEC sys.sp_addextendedproperty 
+    @name = N'MS_Description', 
+    @value = N'Unique identifier for the configuration', 
+    @level0type = N'SCHEMA', @level0name = N'config',
+    @level1type = N'TABLE', @level1name = N'config_data_profiling',
+    @level2type = N'COLUMN', @level2name = N'id'
+
+EXEC sys.sp_addextendedproperty 
+    @name = N'MS_Description', 
+    @value = N'Schema name of the table to profile', 
+    @level0type = N'SCHEMA', @level0name = N'config',
+    @level1type = N'TABLE', @level1name = N'config_data_profiling',
+    @level2type = N'COLUMN', @level2name = N'table_schema'
+
+EXEC sys.sp_addextendedproperty 
+    @name = N'MS_Description', 
+    @value = N'Name of the table to profile', 
+    @level0type = N'SCHEMA', @level0name = N'config',
+    @level1type = N'TABLE', @level1name = N'config_data_profiling',
+    @level2type = N'COLUMN', @level2name = N'table_name'
+
+PRINT 'Successfully created config.config_data_profiling table'

@@ -1,0 +1,32 @@
+# Tiered Profile Metadata table for Level 1 Discovery results - Lakehouse version
+from pyspark.sql.types import (
+    LongType,
+    StringType,
+    StructField,
+    StructType,
+    TimestampType,
+)
+
+schema = StructType([
+    StructField("table_name", StringType(), nullable=False),
+    StructField("table_path", StringType(), nullable=False),
+    StructField("table_format", StringType(), nullable=False),
+    StructField("row_count", LongType(), nullable=True),
+    StructField("size_bytes", LongType(), nullable=True),
+    StructField("num_files", LongType(), nullable=True),
+    StructField("created_time", StringType(), nullable=True),
+    StructField("modified_time", StringType(), nullable=True),
+    StructField("partition_columns", StringType(), nullable=True),  # JSON array of partition column names
+    StructField("properties", StringType(), nullable=True),  # JSON object with table properties
+    StructField("scan_timestamp", TimestampType(), nullable=False),
+])
+
+target_lakehouse.create_table(
+    table_name="tiered_profile_metadata",
+    schema=schema,
+    mode="overwrite",
+    options={
+        "delta.autoOptimize.optimizeWrite": "true",
+        "delta.autoOptimize.autoCompact": "true"
+    }
+)

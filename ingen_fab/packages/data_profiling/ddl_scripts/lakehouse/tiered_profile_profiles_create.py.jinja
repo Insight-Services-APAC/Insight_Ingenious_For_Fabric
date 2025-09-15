@@ -1,0 +1,27 @@
+# Tiered Profile Profiles table for Level 3 & 4 detailed profiling results - Lakehouse version
+from pyspark.sql.types import (
+    LongType,
+    StringType,
+    StructField,
+    StructType,
+    TimestampType,
+)
+
+schema = StructType([
+    StructField("table_name", StringType(), nullable=False),
+    StructField("row_count", LongType(), nullable=False),
+    StructField("column_count", LongType(), nullable=False),
+    StructField("profile_data", StringType(), nullable=False),  # JSON serialized DatasetProfile
+    StructField("scan_timestamp", TimestampType(), nullable=False),
+])
+
+target_lakehouse.create_table(
+    table_name="tiered_profile_profiles",
+    schema=schema,
+    mode="overwrite",
+    options={
+        "delta.autoOptimize.optimizeWrite": "true",
+        "delta.autoOptimize.autoCompact": "true"
+    },
+    partition_by=["scan_timestamp"]  # Partition by timestamp for efficient querying
+)

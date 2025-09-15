@@ -1047,6 +1047,18 @@ class warehouse_utils(DataStoreInterface):
             "File operations not supported for warehouse utilities"
         )
 
+    def write_string_to_file(
+        self,
+        content: str,
+        file_path: str,
+        encoding: str = "utf-8",
+        mode: str = "overwrite",
+    ) -> None:
+        """Implements DataStoreInterface: Write string to file (not applicable for warehouses)."""
+        raise NotImplementedError(
+            "File operations not supported for warehouse utilities"
+        )
+
     def file_exists(self, file_path: str) -> bool:
         """Implements DataStoreInterface: Check if a file exists (not applicable for warehouses)."""
         raise NotImplementedError(

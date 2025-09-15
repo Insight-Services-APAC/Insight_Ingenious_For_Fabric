@@ -113,11 +113,13 @@ nav:
     - examples/index.md
     - Sample Project: examples/sample_project.md
     - Project Templates: examples/templates.md
+    - Data Profiling Examples: examples/data_profiling_examples.md
   - Packages:
     - packages/index.md
     - Flat File Ingestion: packages/flat_file_ingestion.md
     - Extract Generation: packages/extract_generation.md
     - Synthetic Data Generation: packages/synthetic_data_generation.md
+    - Data Profiling: packages/data_profiling.md
     - Synapse Sync: packages/synapse_sync.md
   - API Reference:
     - api/index.md

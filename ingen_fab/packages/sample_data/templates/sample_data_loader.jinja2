@@ -1,0 +1,199 @@
+# Databricks notebook source
+# MAGIC %md
+# MAGIC # {{ display_name | default('Load Sample Datasets') }}
+# MAGIC {{ description | default('Load sample datasets from public repositories into the lakehouse') }}
+
+# COMMAND ----------
+
+# MAGIC %md
+# MAGIC ## Setup and Imports
+
+# COMMAND ----------
+
+import logging
+import sys
+from pathlib import Path
+
+# Configure logging
+logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+logger = logging.getLogger(__name__)
+
+# COMMAND ----------
+
+# Import required libraries
+import pandas as pd
+from IPython.display import display
+
+# Import lakehouse utilities based on environment
+try:
+    from pyspark.sql import SparkSession
+    spark = SparkSession.builder.getOrCreate()
+    from ingen_fab.python_libs.pyspark.lakehouse_utils import lakehouse_utils
+    logger.info("Using PySpark lakehouse_utils")
+except ImportError:
+    from ingen_fab.python_libs.python.lakehouse_utils import lakehouse_utils
+    logger.info("Using Python lakehouse_utils")
+
+# COMMAND ----------
+
+# MAGIC %md
+# MAGIC ## Initialize Sample Data Manager
+
+# COMMAND ----------
+
+# Import sample data components
+from ingen_fab.packages.sample_data.runtime.sample_data_manager import SampleDataManager
+from ingen_fab.packages.sample_data.runtime.dataset_registry import DatasetRegistry
+
+# Initialize lakehouse utils
+{% if workspace_id and lakehouse_id %}
+workspace_id = "{{ workspace_id }}"
+lakehouse_id = "{{ lakehouse_id }}"
+{% else %}
+# Get workspace and lakehouse IDs from environment or parameters
+import os
+workspace_id = os.environ.get("FABRIC_WORKSPACE_ID", "YOUR_WORKSPACE_ID")
+lakehouse_id = os.environ.get("FABRIC_LAKEHOUSE_ID", "YOUR_LAKEHOUSE_ID")
+{% endif %}
+
+lakehouse = lakehouse_utils(workspace_id, lakehouse_id)
+logger.info(f"Initialized lakehouse_utils for workspace: {workspace_id}")
+
+# Initialize sample data manager
+data_manager = SampleDataManager(lakehouse)
+logger.info("Sample Data Manager initialized")
+
+# COMMAND ----------
+
+# MAGIC %md
+# MAGIC ## Available Datasets
+
+# COMMAND ----------
+
+# Display available datasets
+available_datasets = data_manager.list_available_datasets()
+logger.info(f"Found {len(available_datasets)} available datasets")
+display(available_datasets)
+
+# COMMAND ----------
+
+# MAGIC %md
+# MAGIC ## Load Datasets
+
+# COMMAND ----------
+
+{% if auto_load %}
+# Auto-load selected datasets
+{% if datasets %}
+datasets_to_load = {{ datasets }}
+{% else %}
+# Load a selection of popular datasets
+datasets_to_load = ["iris", "titanic", "tips", "flights"]
+{% endif %}
+
+logger.info(f"Loading {len(datasets_to_load)} datasets...")
+
+loaded_datasets = {}
+for dataset_name in datasets_to_load:
+    try:
+        logger.info(f"Loading dataset: {dataset_name}")
+        df = data_manager.load_dataset(dataset_name, save_to_table=True)
+        loaded_datasets[dataset_name] = df
+        logger.info(f"✓ Loaded {dataset_name}: {len(df)} rows, {len(df.columns)} columns")
+        
+        # Display first few rows
+        print(f"\n{dataset_name.upper()} Dataset Preview:")
+        display(df.head())
+        
+    except Exception as e:
+        logger.error(f"✗ Failed to load {dataset_name}: {e}")
+
+# COMMAND ----------
+
+# Summary of loaded datasets
+if loaded_datasets:
+    print("\n" + "="*50)
+    print("LOADING SUMMARY")
+    print("="*50)
+    for name, df in loaded_datasets.items():
+        if df is not None:
+            print(f"✓ {name}: {len(df)} rows, {len(df.columns)} columns")
+    print("="*50)
+else:
+    logger.warning("No datasets were loaded")
+
+{% else %}
+# Manual dataset loading
+# Uncomment and modify the following code to load specific datasets
+
+# Load a single dataset
+# df_iris = data_manager.load_dataset("iris", save_to_table=True)
+# display(df_iris.head())
+
+# Load multiple datasets
+# datasets_to_load = ["iris", "titanic", "tips"]
+# loaded_datasets = data_manager.load_multiple_datasets(datasets_to_load, save_to_tables=True)
+
+# Load all datasets from a specific source
+# github_datasets = data_manager.load_all_from_source("GitHub API", save_to_tables=True)
+{% endif %}
+
+# COMMAND ----------
+
+# MAGIC %md
+# MAGIC ## Check Loaded Tables
+
+# COMMAND ----------
+
+# List all tables in the lakehouse
+existing_tables = lakehouse.list_tables()
+if existing_tables:
+    logger.info(f"Found {len(existing_tables)} tables in lakehouse:")
+    for table in existing_tables:
+        logger.info(f"  - {table}")
+else:
+    logger.info("No tables found in lakehouse")
+
+# COMMAND ----------
+
+{% if include_custom_loader %}
+# MAGIC %md
+# MAGIC ## Load Custom Dataset
+
+# COMMAND ----------
+
+# Example: Load a custom dataset from a URL
+# Uncomment and modify the following code to load your own datasets
+
+# custom_df = data_manager.load_custom_dataset(
+#     name="my_custom_data",
+#     url="https://example.com/data.csv",
+#     file_type="csv",
+#     description="My custom dataset",
+#     save_to_table=True
+# )
+# display(custom_df.head())
+
+# COMMAND ----------
+{% endif %}
+
+# MAGIC %md
+# MAGIC ## Refresh Datasets
+
+# COMMAND ----------
+
+# Example: Refresh an existing dataset
+# Uncomment to refresh a dataset with the latest data
+
+# refreshed_df = data_manager.refresh_dataset("titanic")
+# logger.info(f"Dataset refreshed: {len(refreshed_df)} rows")
+
+# COMMAND ----------
+
+# MAGIC %md
+# MAGIC ## Next Steps
+# MAGIC 
+# MAGIC 1. Use the loaded datasets for analysis and machine learning
+# MAGIC 2. Explore the data using the data explorer notebook
+# MAGIC 3. Load additional datasets as needed
+# MAGIC 4. Create custom datasets from your own URLs

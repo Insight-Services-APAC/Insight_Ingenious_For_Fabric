@@ -21,6 +21,14 @@ Guide to using and customizing project templates:
 - Template variables and substitution
 - Best practices for template development
 
+### [Data Profiling Examples](data_profiling_examples.md)
+Comprehensive examples for data profiling and relationship discovery:
+- Basic statistical profiling
+- Advanced relationship discovery
+- Data quality assessment and monitoring
+- Performance optimization techniques
+- Integration with data catalogs and governance tools
+
 ## Quick Examples
 
 ### Basic Project Setup

@@ -369,7 +369,7 @@ class OneLakeUtils:
         for file_path in dir_path.rglob("*"):
             if file_path.is_file():
                 path_parts = file_path.relative_to(dir_path).parts
-                if any(part.startswith("__") for part in path_parts):
+                if any(part.startswith("__pycache__") for part in path_parts):
                     continue
                 if include_extensions is not None:
                     if not any(
@@ -553,7 +553,7 @@ class OneLakeUtils:
         self, python_libs_path: str = None
     ) -> dict:
         """
-        Upload the python_libs directory to the config lakehouse's Files section.
+        Upload the python_libs directory, package runtime folders, and dbt project packages to the config lakehouse's Files section.
 
         Args:
             python_libs_path: Path to the python_libs directory (defaults to standard location)
@@ -567,25 +567,54 @@ class OneLakeUtils:
             python_libs_path = current_dir.parent / "python_libs"
 
         python_libs_path = Path(python_libs_path)
+        packages_path = current_dir.parent / "packages"
 
         if not python_libs_path.exists():
             raise ValueError(f"Python libs directory not found: {python_libs_path}")
 
         # Get config lakehouse ID
         config_lakehouse_id = self.get_config_lakehouse_id()
-
+        
+        # Find all runtime folders in packages
+        runtime_folders = []
+        if packages_path.exists():
+            runtime_folders = list(packages_path.glob("*/runtime"))
+        
+        # Find dbt project packages folders in workspace
+        dbt_packages_folders = []
+        workspace_path = self.project_path
+        print(f"Workspace path for dbt packages: {workspace_path}")
+        
+        # Look for dbt packages in workspace root: {workspace}/ingen_fab/packages/dbt/runtime/projects/{dbt_project}
+        workspace_dbt_packages = workspace_path / "ingen_fab" / "packages" / "dbt" / "runtime" / "projects"
+        if workspace_dbt_packages.exists() and workspace_dbt_packages.is_dir():
+            for dbt_project_dir in workspace_dbt_packages.iterdir():
+                if dbt_project_dir.is_dir() and not dbt_project_dir.name.startswith('.'):
+                    # Each directory here is a dbt project package
+                    dbt_packages_folders.append({
+                        'path': dbt_project_dir,
+                        'dbt_project': dbt_project_dir.name,
+                        'package_name': 'runtime'  # The package name for dbt runtime
+                    })
+        
         # Show upload info with rich formatting
+        total_items = len(runtime_folders) + len(dbt_packages_folders)
         self.msg_helper.print_info(
-            f"Uploading python_libs from: {python_libs_path.name}"
+            f"Uploading python_libs, {len(runtime_folders)} package runtime folders, and {len(dbt_packages_folders)} dbt packages"
         )
 
         if self.console:
             from rich.panel import Panel
 
+            runtime_list = "\n".join([f"  - {rf.parent.name}/runtime" for rf in runtime_folders])
+            dbt_packages_list = "\n".join([f"  - {dp['dbt_project']} ({len(list(dp['path'].rglob('*.py')))} files)" for dp in dbt_packages_folders])
+            
             info_content = (
-                f"[cyan]Source:[/cyan] {python_libs_path}\n"
+                f"[cyan]Python libs source:[/cyan] {python_libs_path}\n"
+                f"[cyan]Package runtime folders:[/cyan]\n{runtime_list}\n"
+                f"[cyan]DBT project packages:[/cyan]\n{dbt_packages_list}\n"
                 f"[cyan]Target lakehouse ID:[/cyan] {config_lakehouse_id}\n"
-                f"[cyan]Target path:[/cyan] ingen_fab/python_libs"
+                f"[cyan]Target paths:[/cyan] ingen_fab/python_libs, ingen_fab/packages/*/runtime, ingen_fab/packages/dbt/runtime/projects/*"
             )
             panel = Panel(
                 info_content,
@@ -594,14 +623,54 @@ class OneLakeUtils:
             )
             self.console.print(panel)
 
-        # Upload all files with "python_libs" prefix
-        return self.upload_directory_to_lakehouse(
+        # Upload python_libs
+        results = self.upload_directory_to_lakehouse(
             lakehouse_id=config_lakehouse_id,
             directory_path=str(python_libs_path),
             target_prefix="ingen_fab/python_libs",
             service_client=self._get_datalake_service_client(),
             include_extensions=[".py"],
         )
+        
+        service_client = self._get_datalake_service_client()
+        
+        # Upload each package's runtime folder
+        for runtime_folder in runtime_folders:
+            package_name = runtime_folder.parent.name
+            runtime_results = self.upload_directory_to_lakehouse(
+                lakehouse_id=config_lakehouse_id,
+                directory_path=str(runtime_folder),
+                target_prefix=f"ingen_fab/packages/{package_name}/runtime",
+                service_client=service_client,
+                include_extensions=[".py"],
+            )
+            
+            # Merge results
+            results["successful"].extend(runtime_results["successful"])
+            results["failed"].extend(runtime_results["failed"])
+            #results["skipped"].extend(runtime_results["skipped"])
+        
+        # Upload each dbt project package folder
+        for dbt_package in dbt_packages_folders:
+            package_path = dbt_package['path']
+            dbt_project_name = dbt_package['dbt_project']
+            package_name = dbt_package['package_name']
+            
+            # Upload recursively to ingen_fab/packages/dbt/runtime/projects/{dbt_project}
+            dbt_results = self.upload_directory_to_lakehouse(
+                lakehouse_id=config_lakehouse_id,
+                directory_path=str(package_path),
+                target_prefix=f"ingen_fab/packages/dbt/runtime/projects/{dbt_project_name}",
+                service_client=service_client,
+                include_extensions=[".py"],
+            )
+            
+            # Merge results
+            results["successful"].extend(dbt_results["successful"])
+            results["failed"].extend(dbt_results["failed"])
+            #results["skipped"].extend(dbt_results["skipped"])
+        
+        return results
     
     def upload_dbt_project_to_config_lakehouse(
         self, dbt_project_name: str, dbt_project_path: str = None

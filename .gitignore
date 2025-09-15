@@ -22,6 +22,7 @@ fabric_cicd.error.log
 ModuleAnalysisCache-AE0255EC
 StartupProfileData-Interactive
 /metastore_db/**/*/
+/metastore_db/*
 /node_modules/**/*/
 /sample_*/**/*/
 /sample_*/*
@@ -30,3 +31,4 @@ derby.log
 /artefacts/**/*/
 # pip install testing
 pip_install_test/
+/test_datasets/*

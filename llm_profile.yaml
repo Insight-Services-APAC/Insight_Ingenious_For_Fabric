@@ -1,0 +1,77 @@
+# Data Profile for LLM Analysis
+# This YAML contains structured metadata about the dataset
+# Use this information to understand the data schema and quality
+
+table_schema:
+  name: synthetic_orders
+  total_rows: 1200000
+  total_columns: 11
+  profile_timestamp: '2025-09-08T03:54:46.458710'
+data_quality:
+  overall_score: 75.0
+  issues_found: 0
+  recommendations: []
+column_definitions:
+- semantic_category: Status
+  columns:
+  - name: status
+    type: string
+    nullable: false
+    unique: false
+    description: Status field; never null; 6 distinct values
+  - name: payment_method
+    type: string
+    nullable: false
+    unique: false
+    description: Status field; never null; 5 distinct values
+- semantic_category: Foreign Key
+  columns:
+  - name: order_id
+    type: bigint
+    nullable: false
+    unique: false
+    description: Foreign Key field; never null
+  - name: customer_id
+    type: bigint
+    nullable: false
+    unique: false
+    description: Foreign Key field; never null
+- semantic_category: Measure
+  columns:
+  - name: order_total
+    type: double
+    nullable: false
+    unique: false
+    description: Measure field; never null
+  - name: discount_amount
+    type: double
+    nullable: false
+    unique: false
+    description: Measure field; never null
+  - name: shipping_cost
+    type: double
+    nullable: false
+    unique: false
+    description: Measure field; never null
+- semantic_category: Timestamp
+  columns:
+  - name: shipped_date
+    type: date
+    nullable: true
+    unique: false
+    description: Timestamp field; partially null; 5 distinct values
+  - name: delivered_date
+    type: date
+    nullable: true
+    unique: false
+    description: Timestamp field; mostly null; 7 distinct values
+  - name: created_timestamp
+    type: string
+    nullable: false
+    unique: false
+    description: Timestamp field; never null
+  - name: order_date
+    type: string
+    nullable: false
+    unique: false
+    description: Timestamp field; never null; constant value

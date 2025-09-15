@@ -1,0 +1,303 @@
+# Databricks notebook source
+# MAGIC %md
+# MAGIC # {{ display_name | default('Explore Sample Data') }}
+# MAGIC {{ description | default('Explore and analyze sample datasets in the lakehouse') }}
+
+# COMMAND ----------
+
+# MAGIC %md
+# MAGIC ## Setup and Imports
+
+# COMMAND ----------
+
+import logging
+import pandas as pd
+import numpy as np
+from IPython.display import display
+{% if include_visualization %}
+import matplotlib.pyplot as plt
+import seaborn as sns
+
+# Set visualization style
+sns.set_style("whitegrid")
+plt.rcParams['figure.figsize'] = (12, 6)
+{% endif %}
+
+# Configure logging
+logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+logger = logging.getLogger(__name__)
+
+# COMMAND ----------
+
+# Import lakehouse utilities
+try:
+    from pyspark.sql import SparkSession
+    spark = SparkSession.builder.getOrCreate()
+    from ingen_fab.python_libs.pyspark.lakehouse_utils import lakehouse_utils
+    using_spark = True
+    logger.info("Using PySpark environment")
+except ImportError:
+    from ingen_fab.python_libs.python.lakehouse_utils import lakehouse_utils
+    using_spark = False
+    logger.info("Using Python environment")
+
+# COMMAND ----------
+
+# Initialize lakehouse connection
+{% if workspace_id and lakehouse_id %}
+workspace_id = "{{ workspace_id }}"
+lakehouse_id = "{{ lakehouse_id }}"
+{% else %}
+import os
+workspace_id = os.environ.get("FABRIC_WORKSPACE_ID", "YOUR_WORKSPACE_ID")
+lakehouse_id = os.environ.get("FABRIC_LAKEHOUSE_ID", "YOUR_LAKEHOUSE_ID")
+{% endif %}
+
+lakehouse = lakehouse_utils(workspace_id, lakehouse_id)
+logger.info(f"Connected to lakehouse: {lakehouse_id}")
+
+# COMMAND ----------
+
+# MAGIC %md
+# MAGIC ## List Available Tables
+
+# COMMAND ----------
+
+# Get all tables in the lakehouse
+tables = lakehouse.list_tables()
+if tables:
+    logger.info(f"Found {len(tables)} tables in the lakehouse:")
+    for table in tables:
+        print(f"  📊 {table}")
+else:
+    logger.warning("No tables found in the lakehouse. Please run the sample data loader notebook first.")
+
+# COMMAND ----------
+
+# MAGIC %md
+# MAGIC ## Load and Explore Data
+
+# COMMAND ----------
+
+def load_table_as_dataframe(table_name):
+    """Load a table from lakehouse as a pandas DataFrame."""
+    if using_spark:
+        # Use Spark to read the table
+        df_spark = spark.table(table_name)
+        return df_spark.toPandas()
+    else:
+        # Use delta-rs to read the table
+        from deltalake import DeltaTable
+        table_path = f"{lakehouse.lakehouse_tables_uri()}{table_name}"
+        dt = DeltaTable(table_path)
+        return dt.to_pandas()
+
+# COMMAND ----------
+
+# Select a table to explore (modify as needed)
+if tables:
+    selected_table = tables[0]  # Select first table, or modify to choose specific one
+    logger.info(f"Loading table: {selected_table}")
+    
+    try:
+        df = load_table_as_dataframe(selected_table)
+        logger.info(f"Loaded {len(df)} rows and {len(df.columns)} columns")
+        
+        # Display basic information
+        print(f"\n{'='*50}")
+        print(f"TABLE: {selected_table}")
+        print(f"{'='*50}")
+        print(f"Shape: {df.shape}")
+        print(f"Memory Usage: {df.memory_usage(deep=True).sum() / 1024**2:.2f} MB")
+        
+        # Display first few rows
+        print("\nFirst 5 rows:")
+        display(df.head())
+        
+    except Exception as e:
+        logger.error(f"Failed to load table {selected_table}: {e}")
+        df = None
+
+# COMMAND ----------
+
+# MAGIC %md
+# MAGIC ## Data Profiling
+
+# COMMAND ----------
+
+{% if include_profiling %}
+def profile_dataframe(df, table_name=""):
+    """Generate a comprehensive profile of the DataFrame."""
+    
+    print(f"\n{'='*60}")
+    print(f"DATA PROFILE: {table_name}")
+    print(f"{'='*60}")
+    
+    # Basic Information
+    print(f"\n📋 BASIC INFORMATION")
+    print(f"  Rows: {len(df):,}")
+    print(f"  Columns: {len(df.columns)}")
+    print(f"  Memory Usage: {df.memory_usage(deep=True).sum() / 1024**2:.2f} MB")
+    
+    # Data Types
+    print(f"\n📊 DATA TYPES")
+    print(df.dtypes.value_counts())
+    
+    # Missing Values
+    print(f"\n❓ MISSING VALUES")
+    missing = df.isnull().sum()
+    if missing.sum() > 0:
+        missing_pct = (missing / len(df)) * 100
+        missing_df = pd.DataFrame({
+            'Column': missing[missing > 0].index,
+            'Missing Count': missing[missing > 0].values,
+            'Missing %': missing_pct[missing > 0].values
+        })
+        display(missing_df.sort_values('Missing %', ascending=False))
+    else:
+        print("  No missing values found!")
+    
+    # Numeric Columns Statistics
+    numeric_cols = df.select_dtypes(include=[np.number]).columns
+    if len(numeric_cols) > 0:
+        print(f"\n📈 NUMERIC COLUMNS STATISTICS")
+        display(df[numeric_cols].describe())
+    
+    # Categorical Columns
+    categorical_cols = df.select_dtypes(include=['object', 'category']).columns
+    if len(categorical_cols) > 0:
+        print(f"\n🏷️ CATEGORICAL COLUMNS")
+        for col in categorical_cols[:5]:  # Show first 5 categorical columns
+            unique_count = df[col].nunique()
+            print(f"\n  {col}:")
+            print(f"    Unique values: {unique_count}")
+            if unique_count <= 10:
+                print(f"    Values: {df[col].unique()[:10]}")
+    
+    # Duplicates
+    print(f"\n🔍 DUPLICATE ROWS")
+    duplicates = df.duplicated().sum()
+    print(f"  Duplicate rows: {duplicates:,} ({duplicates/len(df)*100:.2f}%)")
+    
+    return None
+
+# Profile the loaded DataFrame
+if df is not None:
+    profile_dataframe(df, selected_table)
+{% endif %}
+
+# COMMAND ----------
+
+# MAGIC %md
+# MAGIC ## Data Visualization
+
+# COMMAND ----------
+
+{% if include_visualization %}
+if df is not None:
+    # Identify numeric and categorical columns
+    numeric_cols = df.select_dtypes(include=[np.number]).columns.tolist()
+    categorical_cols = df.select_dtypes(include=['object', 'category']).columns.tolist()
+    
+    # Create visualizations based on data types
+    if numeric_cols:
+        # Correlation heatmap for numeric columns
+        if len(numeric_cols) > 1:
+            print("\n📊 CORRELATION HEATMAP")
+            fig, ax = plt.subplots(figsize=(10, 8))
+            correlation_matrix = df[numeric_cols].corr()
+            sns.heatmap(correlation_matrix, annot=True, cmap='coolwarm', center=0, ax=ax)
+            plt.title(f'Correlation Matrix - {selected_table}')
+            plt.tight_layout()
+            plt.show()
+        
+        # Distribution plots for numeric columns
+        print("\n📈 DISTRIBUTIONS")
+        n_cols = min(4, len(numeric_cols))
+        if n_cols > 0:
+            fig, axes = plt.subplots(1, n_cols, figsize=(5*n_cols, 4))
+            if n_cols == 1:
+                axes = [axes]
+            
+            for i, col in enumerate(numeric_cols[:n_cols]):
+                axes[i].hist(df[col].dropna(), bins=30, edgecolor='black', alpha=0.7)
+                axes[i].set_title(f'Distribution of {col}')
+                axes[i].set_xlabel(col)
+                axes[i].set_ylabel('Frequency')
+            
+            plt.tight_layout()
+            plt.show()
+    
+    if categorical_cols and len(categorical_cols) > 0:
+        # Bar plots for categorical columns
+        print("\n📊 CATEGORICAL DISTRIBUTIONS")
+        n_cats = min(2, len(categorical_cols))
+        fig, axes = plt.subplots(1, n_cats, figsize=(6*n_cats, 4))
+        if n_cats == 1:
+            axes = [axes]
+        
+        for i, col in enumerate(categorical_cols[:n_cats]):
+            value_counts = df[col].value_counts().head(10)
+            axes[i].bar(range(len(value_counts)), value_counts.values)
+            axes[i].set_xticks(range(len(value_counts)))
+            axes[i].set_xticklabels(value_counts.index, rotation=45, ha='right')
+            axes[i].set_title(f'Top 10 {col} Values')
+            axes[i].set_ylabel('Count')
+        
+        plt.tight_layout()
+        plt.show()
+{% endif %}
+
+# COMMAND ----------
+
+# MAGIC %md
+# MAGIC ## Explore Multiple Tables
+
+# COMMAND ----------
+
+# Load and display basic info for all tables
+if len(tables) > 1:
+    print("\n" + "="*60)
+    print("ALL TABLES SUMMARY")
+    print("="*60)
+    
+    table_info = []
+    for table in tables:
+        try:
+            df_temp = load_table_as_dataframe(table)
+            info = {
+                'Table': table,
+                'Rows': len(df_temp),
+                'Columns': len(df_temp.columns),
+                'Memory (MB)': f"{df_temp.memory_usage(deep=True).sum() / 1024**2:.2f}"
+            }
+            table_info.append(info)
+        except Exception as e:
+            logger.error(f"Could not load {table}: {e}")
+    
+    if table_info:
+        summary_df = pd.DataFrame(table_info)
+        display(summary_df)
+
+# COMMAND ----------
+
+# MAGIC %md
+# MAGIC ## Custom Analysis
+# MAGIC 
+# MAGIC Add your custom analysis code below:
+
+# COMMAND ----------
+
+# Custom analysis code here
+# Example: Join tables, perform aggregations, create new features, etc.
+
+# COMMAND ----------
+
+# MAGIC %md
+# MAGIC ## Next Steps
+# MAGIC 
+# MAGIC 1. Select different tables to explore
+# MAGIC 2. Perform deeper analysis on specific datasets
+# MAGIC 3. Create visualizations for insights
+# MAGIC 4. Export processed data for machine learning
+# MAGIC 5. Share findings with stakeholders

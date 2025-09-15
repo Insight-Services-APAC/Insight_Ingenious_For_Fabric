@@ -1,0 +1,27 @@
+# Tiered Profile Schemas table for Level 2 Schema Discovery results - Lakehouse version
+from pyspark.sql.types import (
+    IntegerType,
+    StringType,
+    StructField,
+    StructType,
+    TimestampType,
+)
+
+schema = StructType([
+    StructField("table_name", StringType(), nullable=False),
+    StructField("column_count", IntegerType(), nullable=False),
+    StructField("columns", StringType(), nullable=False),  # JSON array of column definitions
+    StructField("primary_key_candidates", StringType(), nullable=False),  # JSON array of potential PK columns
+    StructField("foreign_key_candidates", StringType(), nullable=False),  # JSON array of potential FK columns
+    StructField("scan_timestamp", TimestampType(), nullable=False),
+])
+
+target_lakehouse.create_table(
+    table_name="tiered_profile_schemas",
+    schema=schema,
+    mode="overwrite",
+    options={
+        "delta.autoOptimize.optimizeWrite": "true",
+        "delta.autoOptimize.autoCompact": "true"
+    }
+)

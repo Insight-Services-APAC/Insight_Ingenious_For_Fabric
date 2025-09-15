@@ -95,7 +95,7 @@ sample_project/
     },
     {
       "name": "config_workspace_name",
-      "value": "metcash_demo"
+      "value": "client_demo"
     }
   ]
 }
@@ -124,7 +124,7 @@ notebookutils.fs.mount(
 ```python
 # Generated notebook
 notebookutils.fs.mount(
-    "abfss://metcash_demo@onelake.dfs.fabric.microsoft.com/config.Lakehouse/Files/", 
+    "abfss://client_demo@onelake.dfs.fabric.microsoft.com/config.Lakehouse/Files/", 
     "/config_files"
 )
 ```
@@ -152,7 +152,7 @@ notebookutils.fs.mount(
 configs_dict = {
     'fabric_environment': 'development',
     'fabric_deployment_workspace_id': '544530ea-a8c9-4464-8878-f666d2a8f418',
-    'config_workspace_name': 'metcash_demo',
+    'config_workspace_name': 'client_demo',
     'config_lakehouse_id': '514ebe8f-2bf9-4a31-88f7-13d84706431c'
 }
 

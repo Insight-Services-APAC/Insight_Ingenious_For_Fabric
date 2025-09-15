@@ -36,6 +36,7 @@ configs_dict = {
     "edw_lakehouse_id": "REPLACE_WITH_EDW_LAKEHOUSE_GUID",
     "edw_warehouse_name": "edw",
     "edw_warehouse_id": "REPLACE_WITH_EDW_WAREHOUSE_GUID",
+    "local_spark_provider": "native",  # Options: "native" or "lakesail"
 }
 # All variables as an object
 
@@ -67,6 +68,7 @@ class ConfigsObject:
     edw_lakehouse_id: str
     edw_warehouse_name: str
     edw_warehouse_id: str
+    local_spark_provider: str = "native"  # Options: "native" or "lakesail"
 
 
 configs_object: ConfigsObject = ConfigsObject(**configs_dict)

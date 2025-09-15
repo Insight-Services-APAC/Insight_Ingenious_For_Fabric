@@ -1,0 +1,61 @@
+{
+  "commands": {
+    "analyze_table": {
+      "script": ".claude/commands/analyze_table.py",
+      "description": "Comprehensive table analysis with SQL execution logging",
+      "usage": "analyze_table <table_name> [--schema <schema>] [--save]",
+      "examples": [
+        "analyze_table account",
+        "analyze_table contact --schema dbo --save",
+        "analyze_table custtable --format json"
+      ]
+    },
+    "analyze-table": {
+      "script": ".claude/commands/analyze-table.sh",
+      "description": "Shell wrapper for table analysis with environment setup",
+      "usage": "./analyze-table.sh <table_name> [schema_name]",
+      "examples": [
+        "./analyze-table.sh account",
+        "./analyze-table.sh contact dbo",
+        "./analyze-table.sh custtable"
+      ]
+    }
+  },
+  "hooks": {
+    "table_analysis": {
+      "script": ".claude/hooks/table_analysis_hook.py",
+      "description": "Automated table analysis hook for comprehensive documentation",
+      "trigger": "Manual execution or integration with other tools",
+      "output": "JSON analysis results and console logging"
+    }
+  },
+  "environment": {
+    "required_vars": [
+      "FABRIC_SQL_SERVER",
+      "FABRIC_DATABASE"
+    ],
+    "optional_vars": [
+      "FABRIC_ENVIRONMENT",
+      "FABRIC_WORKSPACE_REPO_DIR"
+    ],
+    "default_schema": "dbo"
+  },
+  "output_formats": {
+    "json": {
+      "description": "Structured analysis results for programmatic use",
+      "file_pattern": "table_analysis_{schema}_{table}_{timestamp}.json"
+    },
+    "markdown": {
+      "description": "Human-readable documentation (future enhancement)",
+      "file_pattern": "table_analysis_{schema}_{table}.md"
+    }
+  },
+  "analysis_steps": {
+    "1": "Basic table information and column categorization",
+    "2": "Sample data analysis and pattern identification",
+    "3": "Data quality assessment and completeness metrics",
+    "4": "State/status distribution (D365 tables)",
+    "5": "Data freshness and loading pattern analysis",
+    "6": "Relationship field identification and mapping"
+  }
+}
