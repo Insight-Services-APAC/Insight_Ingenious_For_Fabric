@@ -104,7 +104,7 @@ class SynapseOrchestratorInterface(ABC):
         semaphore: asyncio.Semaphore,
         *,
         workspace_id: str,
-        synapse_sync_fabric_pipeline_id: str,
+        synapse_sync_fabric_pipeline_id: Optional[str] = None,
         extract_utils: Optional[Any] = None,
         execution_id: Optional[str] = None,
     ) -> Tuple[bool, Optional[str]]:
@@ -134,7 +134,7 @@ class SynapseOrchestratorInterface(ABC):
         max_concurrency: int = 10,
         *,
         workspace_id: str,
-        synapse_sync_fabric_pipeline_id: str,
+        synapse_sync_fabric_pipeline_id: Optional[str] = None,
         extract_utils: Optional[Any] = None,
         execution_id_map: Optional[Dict[str, str]] = None,
         external_table_map: Optional[Dict[str, str]] = None,
@@ -160,7 +160,7 @@ class SynapseOrchestratorInterface(ABC):
     @abstractmethod
     def prepare_work_items(
         self,
-        synapse_sync_fabric_pipeline_id: str,
+        synapse_sync_fabric_pipeline_id: Optional[str],
         synapse_datasource_name: str,
         synapse_datasource_location: str,
         *,

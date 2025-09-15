@@ -178,10 +178,10 @@ if failed_extractions:
             # Preserve original partition clause for downstream visibility
             "partition_clause": failure.get("partition_clause"),
             # Provide pipeline id on the work item (varlib-derived)
-            "synapse_sync_fabric_pipeline_id": FABRIC_PIPELINE_ID,
+            "synapse_sync_fabric_pipeline_id": failure.get("synapse_sync_fabric_pipeline_id") or FABRIC_PIPELINE_ID,
             # Prefer var-lib injected values
-            "synapse_datasource_name": SYNAPSE_DATASOURCE_NAME,
-            "synapse_datasource_location": SYNAPSE_DATASOURCE_LOCATION,
+            "synapse_datasource_name": failure.get("synapse_datasource_name") or SYNAPSE_DATASOURCE_NAME,
+            "synapse_datasource_location": failure.get("synapse_datasource_location") or SYNAPSE_DATASOURCE_LOCATION,
             # Run-scoped metadata for logging
             "trigger_type": TRIGGER_TYPE,
             "master_execution_parameters": RETRY_EXECUTION_PARAMETERS,
@@ -228,6 +228,7 @@ if failed_extractions:
             custom_select_sql=work_item.get("custom_select_sql"),
             synapse_datasource_name=work_item.get("synapse_datasource_name"),
             synapse_datasource_location=work_item.get("synapse_datasource_location"),
+            synapse_sync_fabric_pipeline_id=work_item.get("synapse_sync_fabric_pipeline_id"),
         )
         attempt = 0
         last_error = None
