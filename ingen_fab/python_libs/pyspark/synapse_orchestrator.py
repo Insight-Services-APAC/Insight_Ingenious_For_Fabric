@@ -208,7 +208,7 @@ class SynapseOrchestrator(SynapseOrchestratorInterface):
         semaphore: asyncio.Semaphore,
         *,
         workspace_id: str,
-        synapse_sync_fabric_pipeline_id: str,
+        synapse_sync_fabric_pipeline_id: Optional[str] = None,
         extract_utils: Any | None = None,
         execution_id: str | None = None,
     ) -> Tuple[bool, Optional[str]]:
@@ -241,7 +241,7 @@ class SynapseOrchestrator(SynapseOrchestratorInterface):
                             extract_end_dt=work_item.extract_end_dt,
                             export_base_dir=work_item.export_base_dir,
                         )
-                        record_like = {
+                        extraction_spec = {
                             "source_schema_name": work_item.source_schema_name,
                             "source_table_name": work_item.source_table_name,
                             "output_path": path_info.get("output_path"),
@@ -253,7 +253,7 @@ class SynapseOrchestrator(SynapseOrchestratorInterface):
                             "synapse_datasource_location": getattr(work_item, "synapse_datasource_location", None) or "",
                             "custom_select_sql": getattr(work_item, "custom_select_sql", None),
                         }
-                        pipeline_params = extract_utils.build_pipeline_parameters_from_record(record_like)
+                        pipeline_params = extract_utils.build_pipeline_parameters_from_record(extraction_spec)
                     except Exception:
                         pipeline_params = None
                 if pipeline_params is None:
@@ -261,6 +261,14 @@ class SynapseOrchestrator(SynapseOrchestratorInterface):
                 
                 logger.info(f"Processing {table_info} - Triggering pipeline...")
                 
+                # Use pipeline id resolved during work item creation process
+                synapse_sync_fabric_pipeline_id = getattr(work_item, "synapse_sync_fabric_pipeline_id", None)
+                if not synapse_sync_fabric_pipeline_id:
+                    raise ValueError(
+                        "Missing synapse_sync_fabric_pipeline_id on WorkItem. "
+                        "Ensure overrides are resolved in prepare_work_items or caller before execution."
+                    )
+
                 # Trigger pipeline
                 job_id, trigger_success = await self.trigger_pipeline(
                     workspace_id=workspace_id,
@@ -361,7 +369,7 @@ class SynapseOrchestrator(SynapseOrchestratorInterface):
         max_concurrency: int = 10,
         *,
         workspace_id: str,
-        synapse_sync_fabric_pipeline_id: str,
+        synapse_sync_fabric_pipeline_id: Optional[str] = None,
         extract_utils: Any | None = None,
         execution_id_map: Dict[str, str] | None = None,
         external_table_map: Dict[str, str] | None = None,
@@ -471,7 +479,7 @@ class SynapseOrchestrator(SynapseOrchestratorInterface):
 
     def prepare_work_items(
         self,
-        synapse_sync_fabric_pipeline_id: str,
+        synapse_sync_fabric_pipeline_id: Optional[str],
         synapse_datasource_name: str,
         synapse_datasource_location: str,
         *,
@@ -484,8 +492,45 @@ class SynapseOrchestrator(SynapseOrchestratorInterface):
     ) -> List[WorkItem]:
         """Prepare work items for processing based on configuration and parameters."""
         work_items = []
-        
+
         try:
+            # Helper to resolve and validate required per-item settings
+            def _resolve_work_item_config(
+                config_entry: Any,
+                default_pipeline_id: Optional[str],
+                default_ds_name: Optional[str],
+                default_ds_loc: Optional[str],
+            ) -> tuple[str, str, str]:
+                """Resolve pipeline/datasource with per-row override, else defaults; error if missing."""
+                row_pipeline = getattr(config_entry, "synapse_sync_fabric_pipeline_id", None) or (
+                    config_entry.get("synapse_sync_fabric_pipeline_id") if isinstance(config_entry, dict) else None
+                )
+                row_ds_name = getattr(config_entry, "synapse_datasource_name", None) or (
+                    config_entry.get("synapse_datasource_name") if isinstance(config_entry, dict) else None
+                )
+                row_ds_loc = getattr(config_entry, "synapse_datasource_location", None) or (
+                    config_entry.get("synapse_datasource_location") if isinstance(config_entry, dict) else None
+                )
+
+                synapse_sync_fabric_pipeline_id = (row_pipeline or (default_pipeline_id or "")).strip()
+                synapse_datasource_name = (row_ds_name or (default_ds_name or "")).strip()
+                synapse_datasource_location = (row_ds_loc or (default_ds_loc or "")).strip()
+
+                missing = []
+                if not synapse_sync_fabric_pipeline_id:
+                    missing.append("synapse_sync_fabric_pipeline_id")
+                if not synapse_datasource_name:
+                    missing.append("synapse_datasource_name")
+                if not synapse_datasource_location:
+                    missing.append("synapse_datasource_location")
+                if missing:
+                    raise ValueError(
+                        "Missing required settings on WorkItem: "
+                        + ", ".join(missing)
+                        + ". Set them via config table overrides or varlib defaults."
+                    )
+                return synapse_sync_fabric_pipeline_id, synapse_datasource_name, synapse_datasource_location
+
             # Read synapse extract objects configuration
             spark = SparkSession.getActiveSession()
             if not spark:
@@ -501,6 +546,12 @@ class SynapseOrchestrator(SynapseOrchestratorInterface):
                 # parse JSON input for work items
                 work_items_data = json.loads(work_items_json)
                 for item in work_items_data:
+                    synapse_sync_fabric_pipeline_id, synapse_datasource_name, synapse_datasource_location = _resolve_work_item_config(
+                        item,
+                        synapse_sync_fabric_pipeline_id,
+                        synapse_datasource_name,
+                        synapse_datasource_location,
+                    )
                     work_items.append(WorkItem(
                         source_schema_name=item["source_schema_name"],
                         source_table_name=item["source_table_name"],
@@ -508,15 +559,9 @@ class SynapseOrchestrator(SynapseOrchestratorInterface):
                         execution_group=item.get("execution_group", 1),
                         extract_start_dt=item.get("extract_start_dt"),
                         extract_end_dt=item.get("extract_end_dt"),
-                        synapse_sync_fabric_pipeline_id=(
-                            item.get("synapse_sync_fabric_pipeline_id") or synapse_sync_fabric_pipeline_id
-                        ),
-                        synapse_datasource_name=(
-                            item.get("synapse_datasource_name") or synapse_datasource_name
-                        ),
-                        synapse_datasource_location=(
-                            item.get("synapse_datasource_location") or synapse_datasource_location
-                        ),
+                        synapse_sync_fabric_pipeline_id=synapse_sync_fabric_pipeline_id,
+                        synapse_datasource_name=synapse_datasource_name,
+                        synapse_datasource_location=synapse_datasource_location,
                         synapse_connection_name=item.get("synapse_connection_name"),
                         export_base_dir=item.get("export_base_dir"),
                         trigger_type=item.get("trigger_type") or trigger_type,
@@ -542,6 +587,12 @@ class SynapseOrchestrator(SynapseOrchestratorInterface):
                         cur = start_dt
                         while cur <= end_dt:
                             day_str = cur.strftime("%Y-%m-%d")
+                            synapse_sync_fabric_pipeline_id, synapse_datasource_name, synapse_datasource_location = _resolve_work_item_config(
+                                row,
+                                synapse_sync_fabric_pipeline_id,
+                                synapse_datasource_name,
+                                synapse_datasource_location,
+                            )
                             work_items.append(WorkItem(
                                 source_schema_name=row.source_schema_name,
                                 source_table_name=row.source_table_name,
@@ -563,6 +614,12 @@ class SynapseOrchestrator(SynapseOrchestratorInterface):
                             cur += timedelta(days=1)
                     else:
                         # Snapshot or missing date range -> single item
+                        synapse_sync_fabric_pipeline_id, synapse_datasource_name, synapse_datasource_location = _resolve_work_item_config(
+                            row,
+                            synapse_sync_fabric_pipeline_id,
+                            synapse_datasource_name,
+                            synapse_datasource_location,
+                        )
                         work_items.append(WorkItem(
                             source_schema_name=row.source_schema_name,
                             source_table_name=row.source_table_name,
