@@ -3,14 +3,12 @@
 from datetime import datetime
 
 # Sample data
-data = []
-
-obj_set_b = [
+sample_data = [
     {
-        "synapse_connection_name": "EIMUATG2LAKE",
-        "source_schema_name": "EDW",
-        "source_table_name": "HANA_FCT_INVENTORYOPN_CODEDATE_INT",
-        "export_base_dir": "exports_ingen_fab",
+        "synapse_connection_name": "SynapseConnection",
+        "source_schema_name": "dbo",
+        "source_table_name": "DimCustomer",
+        "export_base_dir": "exports",
         "extract_mode": "snapshot",
         "single_date_filter": None,
         "date_range_filter": None,
@@ -22,13 +20,13 @@ obj_set_b = [
         "synapse_datasource_location": None
     },
     {
-        "synapse_connection_name": "EIMUATG2LAKE",
-        "source_schema_name": "EDL",
-        "source_table_name": "HANA_FCT_PURCHASE_ORDER_LINE",
-        "export_base_dir": "exports_ingen_fab",
+        "synapse_connection_name": "SynapseConnection",
+        "source_schema_name": "dbo",
+        "source_table_name": "FactSales",
+        "export_base_dir": "exports",
         "extract_mode": "incremental",
-        "single_date_filter": "WHERE CREATED_DT >= '@date' AND CREATED_DT < DATEADD(DAY, 1, '@date')",
-        "date_range_filter": "WHERE CREATED_DT >= '@start_date' AND CREATED_DT < DATEADD(DAY, 1, '@end_date')",
+        "single_date_filter": "WHERE SALE_DATE >= '@date' AND SALE_DATE < DATEADD(DAY, 1, '@date')",
+        "date_range_filter": "WHERE SALE_DATE >= '@start_date' AND SALE_DATE < DATEADD(DAY, 1, '@end_date')",
         "custom_select_sql": None,
         "execution_group": 2,
         "active_yn": "Y",
@@ -37,13 +35,13 @@ obj_set_b = [
         "synapse_datasource_location": None
     },
     {
-        "synapse_connection_name": "EIMUATG2LAKE",
-        "source_schema_name": "EDL",
-        "source_table_name": "HANA_FCT_INVENTORY_FIN",
-        "export_base_dir": "exports_ingen_fab",
+        "synapse_connection_name": "SynapseConnection",
+        "source_schema_name": "staging",
+        "source_table_name": "OrderLines",
+        "export_base_dir": "exports",
         "extract_mode": "incremental",
-        "single_date_filter": "WHERE UPDATED_DT >= '@date' AND UPDATED_DT < DATEADD(DAY, 1, '@date')",
-        "date_range_filter": "WHERE UPDATED_DT >= '@start_date' AND UPDATED_DT < DATEADD(DAY, 1, '@end_date')",
+        "single_date_filter": "WHERE MODIFIED_DATE >= '@date' AND MODIFIED_DATE < DATEADD(DAY, 1, '@date')",
+        "date_range_filter": "WHERE MODIFIED_DATE >= '@start_date' AND MODIFIED_DATE < DATEADD(DAY, 1, '@end_date')",
         "custom_select_sql": None,
         "execution_group": 2,
         "active_yn": "Y",
@@ -52,39 +50,21 @@ obj_set_b = [
         "synapse_datasource_location": None
     },
     {
-        "synapse_connection_name": "EIMUATG2LAKE",
-        "source_schema_name": "EDL",
-        "source_table_name": "HANA_FCT_OPERATIONAL_EVENT",
-        "export_base_dir": "exports_ingen_fab",
-        "extract_mode": "incremental",
-        "single_date_filter": "WHERE UPDATED_DT >= '@date' AND UPDATED_DT < DATEADD(DAY, 1, '@date')",
-        "date_range_filter": "WHERE UPDATED_DT >= '@start_date' AND UPDATED_DT < DATEADD(DAY, 1, '@end_date')",
-        "custom_select_sql": None,
-        "execution_group": 2,
-        "active_yn": "Y",
-        "synapse_sync_fabric_pipeline_id": None,
-        "synapse_datasource_name": None,
-        "synapse_datasource_location": None
-    },
-    {
-        "synapse_connection_name": "EIMUATG2LAKE",
-        "source_schema_name": "EDL",
-        "source_table_name": "HANA_FCT_YARD_APPOINTMENT",
-        "export_base_dir": "exports_ingen_fab",
-        "extract_mode": "incremental",
-        "single_date_filter": "WHERE UPDATED_DT >= '@date' AND UPDATED_DT < DATEADD(DAY, 1, '@date')",
-        "date_range_filter": "WHERE UPDATED_DT >= '@start_date' AND UPDATED_DT < DATEADD(DAY, 1, '@end_date')",
-        "custom_select_sql": None,
-        "execution_group": 2,
+        "synapse_connection_name": "SynapseConnection",
+        "source_schema_name": "reporting",
+        "source_table_name": "SalesMetrics",
+        "export_base_dir": "exports",
+        "extract_mode": "snapshot",
+        "single_date_filter": None,
+        "date_range_filter": None,
+        "custom_select_sql": "SELECT * FROM reporting.SalesMetrics WHERE region IN ('US', 'EU')",
+        "execution_group": 3,
         "active_yn": "Y",
         "synapse_sync_fabric_pipeline_id": None,
         "synapse_datasource_name": None,
         "synapse_datasource_location": None
     }
 ]
-
-# Combine with existing sample data
-data.extend(obj_set_b)
 
 # Updated schema to match enhanced configuration table structure
 schema = StructType([
@@ -104,7 +84,7 @@ schema = StructType([
 ])
 
 # Convert list to DataFrame using target_lakehouse
-df = target_lakehouse.spark.createDataFrame(data, schema)
+df = target_lakehouse.spark.createDataFrame(sample_data, schema)
 
 target_lakehouse.write_to_table(
     df=df,
