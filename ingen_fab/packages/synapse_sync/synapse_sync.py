@@ -42,21 +42,21 @@ class SynapseSyncCompiler(BaseNotebookCompiler):
             )
 
     def compile_notebook(self, template_vars: Dict[str, Any] = None, notebook_type: str = "daily") -> Path:
-        """Compile Synapse Sync notebook templates with support for 3 different types"""
+        """Compile Synapse Sync notebook templates (daily, retry)."""
         
-        # Define template mappings for the 3 notebook types
+        # Define template mappings for supported notebook types
         notebook_templates = {
             "daily": {
                 "template_name": "synapse_extract_daily_driver_notebook.py.jinja",
                 "output_name": "synapse_extract_daily_driver",
                 "display_name": "Synapse Extract Daily Driver",
-                "description": "TODO"
+                "description": "Main orchestration notebook for automated daily and historical Synapse data extractions."
             },
             "retry": {
                 "template_name": "synapse_extract_retry_helper_notebook.py.jinja",
-                "output_name": "synapse_extract_retry_helper", 
+                "output_name": "synapse_extract_retry_helper",
                 "display_name": "Synapse Extract Retry Helper",
-                "description": "TODO"
+                "description": "Retry helper for failed Synapse extractions, intended for cases where transient error handling is not sufficient."
             }
         }
         
@@ -236,7 +236,7 @@ class SynapseSyncCompiler(BaseNotebookCompiler):
         """Compile all templates and DDL scripts"""
 
         if compile_all_notebooks:
-            # Compile all 3 notebook types
+            # Compile all supported notebooks
             compile_functions = [
                 (self.compile_all_notebooks, [template_vars], {}),
                 (self.compile_ddl_scripts, [], {"include_sample_data": include_samples}),
@@ -324,7 +324,7 @@ def compile_synapse_sync_package(
         fabric_workspace_repo_dir: Target directory for compilation
         template_vars: Variables to inject into templates (includes new Fabric-specific variables)
         include_samples: Whether to include sample data scripts
-        compile_all_notebooks: Whether to compile all 3 notebook types (True) or just daily (False)
+        compile_all_notebooks: Whether to compile all notebooks (True) or just daily (False)
         
     Returns:
         Dict containing compilation results with enhanced notebook support
