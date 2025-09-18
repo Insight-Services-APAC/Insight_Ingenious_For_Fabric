@@ -173,6 +173,30 @@ def create_additional_notebooks(
                     # Fallback: keep alongside models bucket
                     dest_root = target_dir / "models"
                     category = "other"
+            elif stem.startswith("snapshot."):
+                # Place snapshots in a proper folder structure like models
+                dest_root = target_dir / "snapshots"
+                category = "snapshot"
+                node = nodes.get(stem, {})
+                rel_path = node.get("path") if isinstance(node, dict) else None
+                if rel_path:
+                    p = Path(rel_path)
+                    parts = list(p.parts)
+                    if "snapshots" in parts:
+                        try:
+                            idx = parts.index("snapshots")
+                            sub = Path(*parts[idx + 1:-1]) if len(parts) > idx + 1 else Path()
+                        except ValueError:
+                            sub = p.parent
+                    else:
+                        sub = p.parent
+                    # Append snapshot name folder under the subpath
+                    snapshot_name = stem.split(".")[-1]
+                    dest_root = dest_root / sub / snapshot_name
+                else:
+                    # No manifest path; still place under snapshots/<snapshot_name>
+                    snapshot_name = stem.split(".")[-1]
+                    dest_root = dest_root / snapshot_name
             elif stem.startswith("master"):
                 dest_root = target_dir / "masters"
                 category = "master"
@@ -205,6 +229,16 @@ def create_additional_notebooks(
                             : -len(model_name_for_group) - 1
                         ]
                     # Collapse any double underscores
+                    normalized_base = re.sub(r"__+", "_", normalized_base)
+            elif category == "snapshot":
+                parts = stem.split(".")
+                normalized_base = ".".join(parts[2:]) if len(parts) > 2 else stem
+                # Similar cleanup as models for snapshot names
+                if "snapshot_name" in locals():
+                    if normalized_base.startswith(f"{snapshot_name}_"):
+                        normalized_base = normalized_base[len(snapshot_name) + 1:]
+                    if normalized_base.endswith(f"_{snapshot_name}"):
+                        normalized_base = normalized_base[:-len(snapshot_name) - 1]
                     normalized_base = re.sub(r"__+", "_", normalized_base)
             elif category == "seed":
                 parts = stem.split(".")
