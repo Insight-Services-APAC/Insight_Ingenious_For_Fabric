@@ -226,13 +226,16 @@ class SynapseOrchestrator(SynapseOrchestratorInterface):
                 pipeline_params = None
                 if extract_utils is not None:
                     try:
-                        partition_clause = extract_utils.build_partition_clause(
-                            extract_mode=work_item.extract_mode,
-                            single_date_filter=getattr(work_item, "single_date_filter", None),
-                            date_range_filter=getattr(work_item, "date_range_filter", None),
-                            extract_start_dt=work_item.extract_start_dt,
-                            extract_end_dt=work_item.extract_end_dt,
-                        )
+                        # Prefer an explicit partition clause on the work item (e.g., from retry helper)
+                        partition_clause = getattr(work_item, "partition_clause", None)
+                        if not partition_clause:
+                            partition_clause = extract_utils.build_partition_clause(
+                                extract_mode=work_item.extract_mode,
+                                single_date_filter=getattr(work_item, "single_date_filter", None),
+                                date_range_filter=getattr(work_item, "date_range_filter", None),
+                                extract_start_dt=work_item.extract_start_dt,
+                                extract_end_dt=work_item.extract_end_dt,
+                            )
                         path_info = extract_utils.build_path_components(
                             source_schema_name=work_item.source_schema_name,
                             source_table_name=work_item.source_table_name,

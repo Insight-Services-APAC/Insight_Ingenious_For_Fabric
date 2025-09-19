@@ -245,6 +245,7 @@ if incomplete_extractions:
             execution_group=work_item.get("execution_group", 1),
             extract_start_dt=work_item.get("extract_start_dt"),
             extract_end_dt=work_item.get("extract_end_dt"),
+            partition_clause=work_item.get("partition_clause"),
             export_base_dir=work_item.get("export_base_dir"),
             # Pass through SQL and datasource details so CETAS matches original
             custom_select_sql=work_item.get("custom_select_sql"),
