@@ -553,18 +553,24 @@ class SynapseOrchestrator(SynapseOrchestratorInterface):
             config_table_uri = f"{self.lakehouse.lakehouse_tables_uri()}synapse_extract_objects"
             config_df = spark.read.format("delta").load(config_table_uri)
             
-            # Filter active objects
+            # Filter active rows only
             active_objects = config_df.filter(F.col("active_yn") == "Y")
+
+            # Capture varlib defaults once; do not mutate these when rows provide overrides
+            default_pipeline_id = synapse_sync_fabric_pipeline_id
+            default_ds_name = synapse_datasource_name
+            default_ds_loc = synapse_datasource_location
             
             if work_items_json:
                 # parse JSON input for work items
                 work_items_data = json.loads(work_items_json)
                 for item in work_items_data:
-                    synapse_sync_fabric_pipeline_id, synapse_datasource_name, synapse_datasource_location = _resolve_work_item_config(
+                    # Resolve per‑item overrides; otherwise fall back to immutable defaults
+                    resolved_pipeline_id, resolved_ds_name, resolved_ds_loc = _resolve_work_item_config(
                         item,
-                        synapse_sync_fabric_pipeline_id,
-                        synapse_datasource_name,
-                        synapse_datasource_location,
+                        default_pipeline_id,
+                        default_ds_name,
+                        default_ds_loc,
                     )
                     work_items.append(WorkItem(
                         source_schema_name=item["source_schema_name"],
@@ -573,9 +579,9 @@ class SynapseOrchestrator(SynapseOrchestratorInterface):
                         execution_group=item.get("execution_group", 1),
                         extract_start_dt=item.get("extract_start_dt"),
                         extract_end_dt=item.get("extract_end_dt"),
-                        synapse_sync_fabric_pipeline_id=synapse_sync_fabric_pipeline_id,
-                        synapse_datasource_name=synapse_datasource_name,
-                        synapse_datasource_location=synapse_datasource_location,
+                        synapse_sync_fabric_pipeline_id=resolved_pipeline_id,  # per‑item resolved value
+                        synapse_datasource_name=resolved_ds_name,
+                        synapse_datasource_location=resolved_ds_loc,
                         synapse_connection_name=item.get("synapse_connection_name"),
                         export_base_dir=item.get("export_base_dir"),
                         trigger_type=item.get("trigger_type") or trigger_type,
@@ -601,11 +607,12 @@ class SynapseOrchestrator(SynapseOrchestratorInterface):
                         cur = start_dt
                         while cur <= end_dt:
                             day_str = cur.strftime("%Y-%m-%d")
-                            synapse_sync_fabric_pipeline_id, synapse_datasource_name, synapse_datasource_location = _resolve_work_item_config(
+                            # Resolve per‑item overrides; otherwise fall back to immutable defaults
+                            resolved_pipeline_id, resolved_ds_name, resolved_ds_loc = _resolve_work_item_config(
                                 row,
-                                synapse_sync_fabric_pipeline_id,
-                                synapse_datasource_name,
-                                synapse_datasource_location,
+                                default_pipeline_id,
+                                default_ds_name,
+                                default_ds_loc,
                             )
                             work_items.append(WorkItem(
                                 source_schema_name=row.source_schema_name,
@@ -617,10 +624,10 @@ class SynapseOrchestrator(SynapseOrchestratorInterface):
                                 single_date_filter=getattr(row, "single_date_filter", None),
                                 date_range_filter=getattr(row, "date_range_filter", None),
                                 custom_select_sql=getattr(row, "custom_select_sql", None),
-                                synapse_sync_fabric_pipeline_id=synapse_sync_fabric_pipeline_id,
+                                synapse_sync_fabric_pipeline_id=resolved_pipeline_id,  # per‑item resolved value
                                 synapse_connection_name=getattr(row, "synapse_connection_name", None),
-                                synapse_datasource_name=synapse_datasource_name,
-                                synapse_datasource_location=synapse_datasource_location,
+                                synapse_datasource_name=resolved_ds_name,
+                                synapse_datasource_location=resolved_ds_loc,
                                 export_base_dir=getattr(row, "export_base_dir", None),
                                 trigger_type=trigger_type,
                                 master_execution_parameters=master_execution_parameters,
@@ -628,11 +635,12 @@ class SynapseOrchestrator(SynapseOrchestratorInterface):
                             cur += timedelta(days=1)
                     else:
                         # Snapshot or missing date range -> single item
-                        synapse_sync_fabric_pipeline_id, synapse_datasource_name, synapse_datasource_location = _resolve_work_item_config(
+                        # Resolve per‑item overrides; otherwise fall back to immutable defaults
+                        resolved_pipeline_id, resolved_ds_name, resolved_ds_loc = _resolve_work_item_config(
                             row,
-                            synapse_sync_fabric_pipeline_id,
-                            synapse_datasource_name,
-                            synapse_datasource_location,
+                            default_pipeline_id,
+                            default_ds_name,
+                            default_ds_loc,
                         )
                         work_items.append(WorkItem(
                             source_schema_name=row.source_schema_name,
@@ -644,10 +652,10 @@ class SynapseOrchestrator(SynapseOrchestratorInterface):
                             single_date_filter=getattr(row, "single_date_filter", None),
                             date_range_filter=getattr(row, "date_range_filter", None),
                             custom_select_sql=getattr(row, "custom_select_sql", None),
-                            synapse_sync_fabric_pipeline_id=synapse_sync_fabric_pipeline_id,
+                            synapse_sync_fabric_pipeline_id=resolved_pipeline_id,  # per‑item resolved value
                             synapse_connection_name=getattr(row, "synapse_connection_name", None),
-                            synapse_datasource_name=synapse_datasource_name,
-                            synapse_datasource_location=synapse_datasource_location,
+                            synapse_datasource_name=resolved_ds_name,
+                            synapse_datasource_location=resolved_ds_loc,
                             export_base_dir=getattr(row, "export_base_dir", None),
                             trigger_type=trigger_type,
                             master_execution_parameters=master_execution_parameters,
