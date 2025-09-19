@@ -11,7 +11,7 @@ import json
 import logging
 import time
 import uuid
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from typing import Any, Callable, Dict, List, Optional, Tuple, TypeVar
 
 import numpy as np
@@ -224,7 +224,7 @@ class SynapseExtractUtils(SynapseExtractUtilsInterface):
                 # Add end_timestamp_int for terminal statuses
                 if updates.get("status") in self.TERMINAL_STATUSES:
                     if "end_timestamp" not in updates:
-                        updates["end_timestamp"] = datetime.utcnow()
+                        updates["end_timestamp"] = datetime.now(timezone.utc)
                     # Format end_timestamp_int as yyyymmddHHMMSSsss (notebook-aligned)
                     if isinstance(updates["end_timestamp"], datetime):
                         dt = updates["end_timestamp"]
@@ -361,7 +361,7 @@ class SynapseExtractUtils(SynapseExtractUtilsInterface):
             
             # Optional time window filter
             if hours_back is not None:
-                cutoff_dt = datetime.utcnow() - timedelta(hours=hours_back)
+                cutoff_dt = datetime.now(timezone.utc) - timedelta(hours=hours_back)
                 filtered_df = filtered_df.filter(col("end_timestamp") >= cutoff_dt)
             
             return [row.asDict() for row in filtered_df.collect()]
@@ -419,7 +419,7 @@ class SynapseExtractUtils(SynapseExtractUtilsInterface):
             "output_path": path_components["output_path"],
             "extract_file_name": path_components["file_name"],
             "external_table": path_components.get("external_table"),
-            "start_timestamp": datetime.utcnow(),
+            "start_timestamp": datetime.now(timezone.utc),
             "end_timestamp": None,
             "duration_sec": None,
             "status": "Queued",
@@ -468,7 +468,7 @@ class SynapseExtractUtils(SynapseExtractUtilsInterface):
         if extract_mode == "incremental":
             # Prefer end date for naming; fallback to start date; else today (UTC)
             date_str = (extract_end_dt or extract_start_dt or "").strip()
-            d = self._parse_ymd(date_str) or datetime.utcnow().date()
+            d = self._parse_ymd(date_str) or datetime.now(timezone.utc).date()
             yyyy = f"{d.year:04d}"
             mm = f"{d.month:02d}"
             dd = f"{d.day:02d}"
