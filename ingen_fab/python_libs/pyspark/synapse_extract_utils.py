@@ -336,13 +336,13 @@ class SynapseExtractUtils(SynapseExtractUtilsInterface):
             logger.error(f"Error getting queued extracts: {e}")
             return []
 
-    def get_failed_extracts(
+    def get_incomplete_extracts(
         self,
         master_execution_id: Optional[str] = None,
         status_filter: Optional[List[str]] = None,
         hours_back: Optional[int] = None,
     ) -> List[Dict[str, Any]]:
-        """Get failed extracts for retry processing."""
+        """Get incomplete extracts for retry processing (e.g., Failed, Queued)."""
         try:
             spark = SparkSession.getActiveSession()
             if not spark:
@@ -367,8 +367,36 @@ class SynapseExtractUtils(SynapseExtractUtilsInterface):
             return [row.asDict() for row in filtered_df.collect()]
             
         except Exception as e:
-            logger.error(f"Error getting failed extracts: {e}")
+            logger.error(f"Error getting incomplete extracts: {e}")
             return []
+
+    def get_master_execution_parameters(self, master_execution_id: str) -> Dict[str, Any]:
+        """Fetch the original master_execution_parameters as a dict for a master execution id."""
+        try:
+            spark = SparkSession.getActiveSession()
+            if not spark:
+                raise RuntimeError("No active Spark session found")
+
+            df = self._log_df(spark)
+            row = (
+                df.filter(col("master_execution_id") == master_execution_id)
+                  .select("master_execution_parameters")
+                  .limit(1)
+                  .collect()
+            )
+            if not row:
+                return {}
+            raw = row[0]["master_execution_parameters"]
+            if not raw:
+                return {}
+            try:
+                return json.loads(raw)
+            except Exception:
+                # If stored as non-JSON, coerce to empty dict
+                return {}
+        except Exception as e:
+            logger.error(f"Error fetching master_execution_parameters: {e}")
+            return {}
 
     def create_extraction_record(
         self,
