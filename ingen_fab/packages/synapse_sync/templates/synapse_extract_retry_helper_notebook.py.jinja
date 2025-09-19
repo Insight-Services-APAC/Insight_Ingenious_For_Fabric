@@ -145,16 +145,10 @@ if incomplete_extractions:
     # Convert failed extractions to work item dicts for retry
     retry_work_items = []
     for failure in incomplete_extractions:
-        # Reuse original select if provided; otherwise reconstruct using partition_clause
-        orig_select = failure.get("custom_select_sql")
-        if not orig_select:
-            part = (failure.get("partition_clause") or "").strip()
-            # Ensure partition clause is prefixed with a space when present
-            part = f" {part}" if part else ""
-            orig_select = (
-                f"SELECT * FROM [{failure.get('source_schema_name')}]."
-                f"[{failure.get('source_table_name')}]" + part
-            )
+        # Honour a true override only: keep custom_select_sql if it existed originally.
+        # Otherwise, omit it and rely on partition_clause to mirror default behaviour.
+        # Keep the custom SELECT only when it was explicitly set in the original run
+        custom_select_sql = (failure.get("custom_select_sql") or "").strip()
         # Derive export_base_dir from original output_path to preserve paths
         export_base_dir = None
         try:
@@ -178,13 +172,13 @@ if incomplete_extractions:
             "execution_group": failure.get("execution_group", 1),
             "extract_start_dt": str(_start_dt) if _start_dt is not None else None,
             "extract_end_dt": str(_end_dt) if _end_dt is not None else None,
+            # Preserve the original partition clause so default SELECTs match prior run
+            "partition_clause": (failure.get("partition_clause") or ""),
             # Preserve export base dir when recoverable from output_path
             "export_base_dir": export_base_dir,
             "synapse_connection_name": None,
             "single_date_filter": None,
             "date_range_filter": None,
-            # Carry forward the exact query shape used originally
-            "custom_select_sql": orig_select,
             # Provide pipeline id on the work item (varlib-derived)
             "synapse_sync_fabric_pipeline_id": failure.get("synapse_sync_fabric_pipeline_id") or FABRIC_PIPELINE_ID,
             # Prefer var-lib injected values
@@ -194,6 +188,8 @@ if incomplete_extractions:
             "trigger_type": TRIGGER_TYPE,
             "master_execution_parameters": ORIGINAL_MASTER_EXECUTION_PARAMETERS,
         }
+        if custom_select_sql:
+            retry_item["custom_select_sql"] = custom_select_sql
         # Validate that the path we would generate matches the failure's path (best-effort)
         try:
             path_components = extract_utils.build_path_components(
