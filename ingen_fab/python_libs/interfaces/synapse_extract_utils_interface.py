@@ -103,22 +103,35 @@ class SynapseExtractUtilsInterface(ABC):
         pass
 
     @abstractmethod
-    def get_failed_extracts(
+    def get_incomplete_extracts(
         self,
         master_execution_id: Optional[str] = None,
         status_filter: Optional[List[str]] = None,
         hours_back: Optional[int] = None,
     ) -> List[Dict[str, Any]]:
         """
-        Get failed extracts for retry processing.
+        Get incomplete extracts for retry processing.
 
         Args:
             master_execution_id: Optional master execution ID to filter by
-            status_filter: Optional list of statuses to include (defaults to ["Failed"])
+            status_filter: Optional list of statuses to include (e.g., ["Failed", "Queued", ...]) 
             hours_back: Optional number of hours back to filter by time window
 
         Returns:
-            List of failed extraction records
+            List of incomplete extraction records
+        """
+        pass
+
+    @abstractmethod
+    def get_master_execution_parameters(
+        self,
+        master_execution_id: str,
+    ) -> Dict[str, Any]:
+        """
+        Fetch the original master_execution_parameters for a given master execution id.
+
+        Returns:
+            Parsed parameters dictionary (empty if not found)
         """
         pass
 
@@ -267,4 +280,3 @@ class SynapseExtractUtilsInterface(ABC):
             True if it's a concurrent write error, False otherwise
         """
         pass
-

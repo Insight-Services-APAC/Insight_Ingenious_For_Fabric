@@ -87,16 +87,8 @@ FABRIC_WORKSPACE_ID = "{% raw %}{{varlib:fabric_deployment_workspace_id}}{% endr
 FABRIC_LAKEHOUSE_ID = "{% raw %}{{varlib:config_lakehouse_id}}{% endraw %}"
 FABRIC_ENVIRONMENT = "{% raw %}{{varlib:fabric_environment}}{% endraw %}"
 
-# Generate retry execution ID
-retry_execution_id = str(uuid.uuid4())
-
-# Retry execution parameters
-RETRY_EXECUTION_PARAMETERS = {
-    "extraction_type": "retry",
-    "target_master_execution_id": MASTER_EXECUTION_ID,
-    "max_retry_attempts": MAX_RETRIES,
-    "retry_timestamp": datetime.now(timezone.utc).isoformat()
-}
+# Generate retry master execution ID
+retry_master_execution_id = str(uuid.uuid4())
 
 TRIGGER_TYPE = "Manual-Retry"
 
@@ -115,9 +107,9 @@ extract_utils = SynapseExtractUtils(lakehouse=lakehouse)
 logger.info(f"Loaded configuration for environment: {FABRIC_ENVIRONMENT}")
 logger.info(f"Using datasource: {SYNAPSE_DATASOURCE_NAME}")
 
-{{ macros.python_cell_with_heading("## Identify failed extractions") }}
+{{ macros.python_cell_with_heading("## Identify incomplete extractions") }}
 
-logger.info(f"RETRY HELPER MODE - Retry Execution ID: {retry_execution_id}")
+logger.info(f"RETRY HELPER MODE - Retry Master Execution ID: {retry_master_execution_id}")
 logger.info(f"Target Master Execution ID: {MASTER_EXECUTION_ID or 'Not provided'}")
 logger.info(f"Max Retry Attempts: {MAX_RETRIES}")
 logger.info(f"Max Concurrency: {MAX_CONCURRENCY}")
@@ -126,13 +118,16 @@ logger.info(f"Max Concurrency: {MAX_CONCURRENCY}")
 if not MASTER_EXECUTION_ID:
     raise ValueError("MASTER_EXECUTION_ID is required for retry processing")
 
+# Get original master parameters so retry logs match the original
+ORIGINAL_MASTER_EXECUTION_PARAMETERS = extract_utils.get_master_execution_parameters(MASTER_EXECUTION_ID)
+
 # Get candidate extractions using enhanced utils
-failed_extractions = extract_utils.get_failed_extracts(
+incomplete_extractions = extract_utils.get_incomplete_extracts(
     master_execution_id=MASTER_EXECUTION_ID,
     status_filter=STATUS_FILTER
 )
 
-if not failed_extractions:
+if not incomplete_extractions:
     logger.info("No failed extractions found matching the criteria")
     print("ℹ️  No failed extractions found")
     if MASTER_EXECUTION_ID:
@@ -141,16 +136,15 @@ if not failed_extractions:
         print(f"   - No failures found for execution ID: {MASTER_EXECUTION_ID}")
     print("\n✅ Nothing to retry!")
 else:
-    logger.info(f"Found {len(failed_extractions)} failed extractions for retry")
-    
-    logger.info(f"Found {len(failed_extractions)} candidate extractions for retry")
+    logger.info(f"Found {len(incomplete_extractions)} incomplete extractions for retry")
+    logger.info(f"Found {len(incomplete_extractions)} candidate extractions for retry")
 
 {{ macros.python_cell_with_heading("## Construct retry work items") }}
 
-if failed_extractions:
+if incomplete_extractions:
     # Convert failed extractions to work item dicts for retry
     retry_work_items = []
-    for failure in failed_extractions:
+    for failure in incomplete_extractions:
         # Reuse original select if provided; otherwise reconstruct using partition_clause
         orig_select = failure.get("custom_select_sql")
         if not orig_select:
@@ -174,13 +168,16 @@ if failed_extractions:
         except Exception:
             export_base_dir = None
         # Attempt to preserve export path exactness by validating expected output_path
+        # Normalise date fields to strings (align with daily driver behavior)
+        _start_dt = failure.get("extract_start_dt")
+        _end_dt = failure.get("extract_end_dt")
         retry_item = {
             "source_schema_name": failure.get("source_schema_name"),
             "source_table_name": failure.get("source_table_name"),
             "extract_mode": failure.get("extract_mode", "snapshot"),
             "execution_group": failure.get("execution_group", 1),
-            "extract_start_dt": failure.get("extract_start_dt"),
-            "extract_end_dt": failure.get("extract_end_dt"),
+            "extract_start_dt": str(_start_dt) if _start_dt is not None else None,
+            "extract_end_dt": str(_end_dt) if _end_dt is not None else None,
             # Preserve export base dir when recoverable from output_path
             "export_base_dir": export_base_dir,
             "synapse_connection_name": None,
@@ -195,7 +192,7 @@ if failed_extractions:
             "synapse_datasource_location": failure.get("synapse_datasource_location") or SYNAPSE_DATASOURCE_LOCATION,
             # Run-scoped metadata for logging
             "trigger_type": TRIGGER_TYPE,
-            "master_execution_parameters": RETRY_EXECUTION_PARAMETERS,
+            "master_execution_parameters": ORIGINAL_MASTER_EXECUTION_PARAMETERS,
         }
         # Validate that the path we would generate matches the failure's path (best-effort)
         try:
@@ -222,18 +219,18 @@ if failed_extractions:
     
     # Display retry summary
     print(f"\n🔄 RETRY PROCESSING SUMMARY")
-    print(f"   Total Candidate Extractions: {len(failed_extractions)}")
+    print(f"   Total Candidate Extractions: {len(incomplete_extractions)}")
     print(f"   Work Items Prepared for Retry: {len(retry_work_items)}")
     print(f"   Max Retry Attempts per Item: {MAX_RETRIES}")
     print(f"   Retry Concurrency: {MAX_CONCURRENCY}")
 
 {{ macros.python_cell_with_heading("## Orchestrate retry processing") }}
 
-if failed_extractions:
+if incomplete_extractions:
     # Pre-log retry payloads and map execution IDs (WorkItem carries all metadata)
     extraction_payloads = extract_utils.prepare_extract_payloads(
         work_items=retry_work_items,
-        master_execution_id=retry_execution_id,
+        master_execution_id=retry_master_execution_id,
     )
     execution_id_map = extract_utils.bulk_insert_queued_extracts(extraction_payloads) if extraction_payloads else {}
     external_table_map = {}
@@ -272,7 +269,7 @@ if failed_extractions:
             success, error = await orchestrator.process_extract(
                 wi,
                 None,
-                retry_execution_id,
+                retry_master_execution_id,
                 CONCURRENCY_LIMITER,
                 synapse_sync_fabric_pipeline_id=FABRIC_PIPELINE_ID,
                 workspace_id=FABRIC_WORKSPACE_ID,
@@ -310,7 +307,7 @@ if failed_extractions:
         failed = total - successes
         rate = f"{(successes/total*100):.1f}%" if total else "N/A"
         return {
-            "retry_master_execution_id": retry_execution_id,
+            "retry_master_execution_id": retry_master_execution_id,
             "total_tables": total,
             "successful_retries": successes,
             "failed_retries": failed,
