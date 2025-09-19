@@ -12,7 +12,7 @@ import asyncio
 import json
 import logging
 import time
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from typing import Any, Dict, List, Optional, Tuple
 
 import nest_asyncio
@@ -37,6 +37,7 @@ from ingen_fab.python_libs.interfaces.synapse_orchestrator_interface import (
 logger = logging.getLogger(__name__)
 
 # Constants
+DEFAULT_MAX_CONCURRENCY = 10
 POLL_INTERVAL = 60
 FAST_RETRY_SEC = 10
 POLL_TIMEOUT_SEC = 1800  # 30 minutes
@@ -61,7 +62,6 @@ class SynapseOrchestrator(SynapseOrchestratorInterface):
     def __init__(self, lakehouse: DataStoreInterface):
         """Initialise the orchestrator with a data store."""
         self.lakehouse = lakehouse
-        self.concurrency_limiter = asyncio.Semaphore(10)  # Default max concurrency
 
 
     async def trigger_pipeline(
@@ -303,7 +303,7 @@ class SynapseOrchestrator(SynapseOrchestratorInterface):
                             updates={
                                 "status": "Running",
                                 "pipeline_job_id": job_id,
-                                "start_timestamp": datetime.utcnow(),
+                                "start_timestamp": datetime.now(timezone.utc),
                             },
                         )
                     except Exception:
@@ -331,7 +331,7 @@ class SynapseOrchestrator(SynapseOrchestratorInterface):
                                 execution_id=execution_id,
                                 updates={
                                     "status": "Completed",
-                                    "end_timestamp": datetime.utcnow(),
+                                    "end_timestamp": datetime.now(timezone.utc),
                                     "duration_sec": float(duration_sec),
                                 },
                             )
@@ -348,7 +348,7 @@ class SynapseOrchestrator(SynapseOrchestratorInterface):
                                 updates={
                                     "status": final_state if final_state else "Failed",
                                     "error_messages": error_msg or "",
-                                    "end_timestamp": datetime.utcnow(),
+                                    "end_timestamp": datetime.now(timezone.utc),
                                     "duration_sec": float(duration_sec),
                                 },
                             )
@@ -368,7 +368,7 @@ class SynapseOrchestrator(SynapseOrchestratorInterface):
                             updates={
                                 "status": "Failed",
                                 "error_messages": error_message,
-                                "end_timestamp": datetime.utcnow(),
+                                "end_timestamp": datetime.now(timezone.utc),
                                 "duration_sec": float(duration_sec),
                             },
                         )
@@ -380,7 +380,7 @@ class SynapseOrchestrator(SynapseOrchestratorInterface):
         self,
         work_items: List[WorkItem],
         master_execution_id: str,
-        max_concurrency: int = 10,
+        max_concurrency: int = DEFAULT_MAX_CONCURRENCY,
         *,
         workspace_id: str,
         synapse_sync_fabric_pipeline_id: Optional[str] = None,
@@ -488,7 +488,7 @@ class SynapseOrchestrator(SynapseOrchestratorInterface):
             "success_rate": f"{(succeeded/total)*100:.1f}%" if total > 0 else "N/A",
             "execution_groups": execution_groups,
             "failed_details": failed_details,
-            "completion_time": datetime.utcnow().isoformat(),
+            "completion_time": datetime.now(timezone.utc).isoformat(),
         }
 
     def prepare_work_items(

@@ -56,7 +56,7 @@ import logging
 import uuid
 import time
 import random
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from typing import Dict, List, Optional, Any
 from types import SimpleNamespace
 
@@ -95,7 +95,7 @@ RETRY_EXECUTION_PARAMETERS = {
     "extraction_type": "retry",
     "target_master_execution_id": MASTER_EXECUTION_ID,
     "max_retry_attempts": MAX_RETRIES,
-    "retry_timestamp": datetime.utcnow().isoformat()
+    "retry_timestamp": datetime.now(timezone.utc).isoformat()
 }
 
 TRIGGER_TYPE = "Manual-Retry"

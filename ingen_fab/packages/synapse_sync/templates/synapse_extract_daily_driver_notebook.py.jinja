@@ -93,7 +93,7 @@ import logging
 import uuid
 import time
 from dataclasses import dataclass
-from datetime import date, datetime, timedelta
+from datetime import date, datetime, timedelta, timezone
 from typing import Dict, List, Tuple, Optional, Any
 
 import numpy as np
@@ -119,12 +119,12 @@ nest_asyncio.apply()
 
 # Parse global date params (strings) or apply defaults
 if EXTRACTION_START_DATE is None:
-    EXTRACTION_START_DATE = (datetime.utcnow() - timedelta(days=4)).date()
+    EXTRACTION_START_DATE = (datetime.now(timezone.utc) - timedelta(days=4)).date()
 else:
     EXTRACTION_START_DATE = datetime.strptime(EXTRACTION_START_DATE, "%Y-%m-%d").date()
 
 if EXTRACTION_END_DATE is None:
-    EXTRACTION_END_DATE = datetime.utcnow().date()
+    EXTRACTION_END_DATE = datetime.now(timezone.utc).date()
 else:
     EXTRACTION_END_DATE = datetime.strptime(EXTRACTION_END_DATE, "%Y-%m-%d").date()
 
@@ -297,7 +297,7 @@ if work_items and extraction_payloads:
         logger.info("🎉 All extractions completed successfully!")
         print("✅ All daily extractions completed successfully!")
     
-    print(f"\n📊 Daily extraction completed at: {datetime.utcnow()}")
+    print(f"\n📊 Daily extraction completed at: {datetime.now(timezone.utc)}")
     print(f"📋 Master Execution ID: {master_execution_id}")
 else:
     logger.info("No work items to process - Daily extraction completed with no operations")
