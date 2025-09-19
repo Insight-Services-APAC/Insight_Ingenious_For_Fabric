@@ -416,17 +416,17 @@ class SynapseExtractUtils(SynapseExtractUtilsInterface):
             export_base_dir=work_item.get("export_base_dir"),
         )
         
-        # Build partition clause
-        partition_clause = self.build_partition_clause(
-            extract_mode=work_item.get("extract_mode", "snapshot"),
-            single_date_filter=work_item.get("single_date_filter"),
-            date_range_filter=work_item.get("date_range_filter"),
-            extract_start_dt=work_item.get("extract_start_dt"),
-            extract_end_dt=work_item.get("extract_end_dt")
-        )
+        # Build partition clause: honour explicit clause if provided; otherwise compute
+        partition_clause = (work_item.get("partition_clause") or "").strip()
+        if not partition_clause:
+            partition_clause = self.build_partition_clause(
+                extract_mode=work_item.get("extract_mode", "snapshot"),
+                single_date_filter=work_item.get("single_date_filter"),
+                date_range_filter=work_item.get("date_range_filter"),
+                extract_start_dt=work_item.get("extract_start_dt"),
+                extract_end_dt=work_item.get("extract_end_dt")
+            )
         
-        # TODO(auditing): If adding datasource fields to the log table, also
-        # include them in the record persisted to Delta (extend LOG_SCHEMA/DDL).
         return {
             "master_execution_id": master_execution_id,
             "execution_id": execution_id,
