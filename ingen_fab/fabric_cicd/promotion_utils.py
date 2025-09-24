@@ -488,7 +488,7 @@ class SyncToFabricEnvironment:
                             output_dir
                         ),  # Changed: publish from output directory
                         item_type_in_scope=item_type_in_scope,
-                        environment="development",
+                        environment=os.getenv('FABRIC_ENVIRONMENT'),
                     )
 
                     status_entries = publish_all_items(
