@@ -47,14 +47,6 @@ TERMINAL_STATES = {"Completed", "Failed", "Cancelled", "Deduped"}
 EARLY_STATES = {"Failed", "NotStarted", "Unknown"}
 
 
-"""Configuration resolution for Synapse: varlib-only mapping.
-
-The orchestrator no longer consumes a FabricConfig object. Notebooks and
-callers provide required values directly from the Variable Library (e.g.,
-pipeline/workspace IDs), and utilities receive a minimal context dictionary
-when needed. This removes the dependency on any config table.
-"""
-
 
 class SynapseOrchestrator(SynapseOrchestratorInterface):
     """PySpark implementation of Synapse extract orchestration utilities."""
@@ -62,6 +54,72 @@ class SynapseOrchestrator(SynapseOrchestratorInterface):
     def __init__(self, lakehouse: DataStoreInterface):
         """Initialise the orchestrator with a data store."""
         self.lakehouse = lakehouse
+
+    @staticmethod
+    def resolve_pipeline_id_by_name(workspace_id: str, pipeline_name: str) -> str:
+        """Resolve a Fabric pipeline GUID by its display name using sempy.fabric.
+
+        Uses sempy.fabric where `fabric.list_items` returns a pandas
+        DataFrame with columns: `Id`, `Display Name`, `Description`, `Type`, and `Workspace Id`.
+        Filters items to DataPipeline type and matches Display Name case-insensitively to
+        provided pipeline name.
+        """
+        if not FABRIC_AVAILABLE:
+            raise RuntimeError("sempy.fabric is not available - cannot resolve pipeline by name")
+        if not workspace_id or not str(workspace_id).strip():
+            raise ValueError("workspace_id is required to resolve pipeline id by name")
+        if not pipeline_name or not str(pipeline_name).strip():
+            raise ValueError("pipeline_name is required to resolve pipeline id by name")
+
+        logger.debug(f"Resolving pipeline '{pipeline_name}' in workspace '{workspace_id}'")
+
+        try:
+            items_df = fabric.list_items(workspace=workspace_id)
+        except FabricHTTPException as fabric_exc:
+            logger.error(f"Fabric HTTP error listing items in workspace '{workspace_id}': {fabric_exc}")
+            raise RuntimeError(f"Failed to list items in workspace '{workspace_id}': {fabric_exc}")
+        except WorkspaceNotFoundException as workspace_exc:
+            logger.error(f"Workspace not found: '{workspace_id}': {workspace_exc}")
+            raise LookupError(f"Workspace '{workspace_id}' not found: {workspace_exc}")
+        except Exception as exc:
+            logger.error(f"Unexpected error listing items in workspace '{workspace_id}': {exc}")
+            raise RuntimeError(f"Unexpected error listing items in workspace '{workspace_id}': {exc}")
+
+        # Ensure required columns exist
+        required_cols = {"Id", "Display Name", "Type"}
+        if items_df.empty:
+            logger.warning(f"No items found in workspace '{workspace_id}'")
+            raise LookupError(f"No items found in workspace '{workspace_id}'")
+
+        missing = required_cols.difference(set(items_df.columns))  # type: ignore[arg-type]
+        if missing:
+            logger.error(f"Missing expected columns in list_items response: {missing}")
+            raise RuntimeError(f"list_items missing expected columns: {', '.join(sorted(missing))}")
+
+        # Filter to DataPipeline type and match pipeline name
+        pipelines_df = items_df[items_df["Type"] == "DataPipeline"]
+        logger.debug(f"Found {len(pipelines_df)} pipelines in workspace '{workspace_id}'")
+
+        if pipelines_df.empty:
+            raise LookupError(f"No pipelines found in workspace '{workspace_id}'")
+
+        matches = pipelines_df[
+            pipelines_df["Display Name"].str.casefold() == pipeline_name.casefold()
+        ]
+
+        count = len(matches)
+        if count == 0:
+            available_pipelines = pipelines_df["Display Name"].tolist()
+            logger.warning(f"Pipeline '{pipeline_name}' not found. Available pipelines: {available_pipelines}")
+            raise LookupError(f"No pipeline named '{pipeline_name}' found in workspace '{workspace_id}'")
+        if count > 1:
+            names = ", ".join(sorted(set(matches["Display Name"].tolist())))
+            logger.error(f"Multiple pipelines with name '{pipeline_name}' found: {names}")
+            raise LookupError(f"Multiple pipelines named '{pipeline_name}' found in workspace '{workspace_id}': {names}")
+
+        pipeline_id = str(matches.iloc[0]["Id"])
+        logger.info(f"Resolved pipeline '{pipeline_name}' to ID: {pipeline_id}")
+        return pipeline_id
 
 
     async def trigger_pipeline(
@@ -219,7 +277,7 @@ class SynapseOrchestrator(SynapseOrchestratorInterface):
             start_time = time.monotonic()
             
             try:
-                # Configuration object is optional in varlib-only mode; validate only when provided
+                # Configuration object is optional; validate only when provided
                 # Pipeline workspace comes from explicit parameter 'pipeline_workspace_id'.
 
                 # Build pipeline parameters using utils (preferred), else fallback
@@ -411,7 +469,7 @@ class SynapseOrchestrator(SynapseOrchestratorInterface):
 
         logger.info(f"Starting extraction process - Master Execution ID: {master_execution_id}")
         logger.info(f"Max Concurrency: {max_concurrency}")
-        logger.info(f"Using pipeline (varlib): {synapse_sync_fabric_pipeline_id}")
+        logger.info(f"Using pipeline ID: {synapse_sync_fabric_pipeline_id}")
 
         semaphore = asyncio.Semaphore(max_concurrency)
 
@@ -559,7 +617,7 @@ class SynapseOrchestrator(SynapseOrchestratorInterface):
             # Filter active rows only
             active_objects = config_df.filter(F.col("active_yn") == "Y")
 
-            # Capture varlib defaults once; do not mutate these when rows provide overrides
+            # Capture defaults once; do not mutate these when rows provide overrides
             default_pipeline_id = synapse_sync_fabric_pipeline_id
             default_ds_name = synapse_datasource_name
             default_ds_loc = synapse_datasource_location

@@ -129,12 +129,23 @@ else:
     EXTRACTION_END_DATE = datetime.strptime(EXTRACTION_END_DATE, "%Y-%m-%d").date()
 
 # Inject Fabric variables from Variable Library value set
-FABRIC_PIPELINE_ID = "{% raw %}{{varlib:synapse_sync_fabric_pipeline_id}}{% endraw %}"
 SYNAPSE_DATASOURCE_NAME = "{% raw %}{{varlib:synapse_datasource_name}}{% endraw %}"
 SYNAPSE_DATASOURCE_LOCATION = "{% raw %}{{varlib:synapse_datasource_location}}{% endraw %}"
 FABRIC_WORKSPACE_ID = "{% raw %}{{varlib:fabric_deployment_workspace_id}}{% endraw %}"
 FABRIC_LAKEHOUSE_ID = "{% raw %}{{varlib:config_lakehouse_id}}{% endraw %}"
 FABRIC_ENVIRONMENT = "{% raw %}{{varlib:fabric_environment}}{% endraw %}"
+
+# Pipeline name for the Synapse extract pipeline
+PIPELINE_NAME = "extract_from_synapse"
+
+# Resolve pipeline ID by name
+try:
+    FABRIC_PIPELINE_ID = SynapseOrchestrator.resolve_pipeline_id_by_name(
+        FABRIC_WORKSPACE_ID,
+        PIPELINE_NAME,
+    )
+except Exception as e:
+    raise RuntimeError(f"Cannot proceed without valid pipeline ID: {e}") from e
 
 MASTER_EXECUTION_PARAMETERS = {
     "start_date": {
