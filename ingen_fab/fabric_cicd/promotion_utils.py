@@ -27,6 +27,7 @@ from ingen_fab.config_utils.variable_lib import VariableLibraryUtils
 
 append_feature_flag("enable_shortcut_publish")
 
+
 class promotion_utils:
     """Utility class for promoting Fabric items between workspaces."""
 
@@ -80,7 +81,7 @@ class SyncToFabricEnvironment:
         self.environment = environment
         self.target_workspace_id = None
         self.console = console or Console()
-        self.workspace_manifest_location = os.getenv('WORKSPACE_MANIFEST_LOCATION')
+        self.workspace_manifest_location = os.getenv("WORKSPACE_MANIFEST_LOCATION")
 
     @dataclass
     class manifest_item:
@@ -177,18 +178,21 @@ class SyncToFabricEnvironment:
     def read_platform_manifest(
         self, manifest_path: Path
     ) -> Optional[SyncToFabricEnvironment.manifest]:
-        
         if self.workspace_manifest_location == "config_lakehouse":
             ConsoleStyles.print_info(
                 self.console, "Downloading manifest file from config lakehouse"
             )
             onelake_utils = OneLakeUtils(
-                environment=self.environment, project_path=Path(self.project_path), console=self.console
+                environment=self.environment,
+                project_path=Path(self.project_path),
+                console=self.console,
             )
             try:
                 config_lakehouse_id = onelake_utils.get_config_lakehouse_id()
                 onelake_utils._get_lakehouse_name(config_lakehouse_id)
-                onelake_utils.download_manifest_file_from_config_lakehouse(manifest_path)
+                onelake_utils.download_manifest_file_from_config_lakehouse(
+                    manifest_path
+                )
             except Exception:
                 ConsoleStyles.print_info(
                     self.console, "Config lakehouse does not yet exist."
@@ -307,13 +311,15 @@ class SyncToFabricEnvironment:
             yaml.safe_dump(
                 manifest.__dict__, f, default_flow_style=False, sort_keys=False
             )
-        
+
         if self.workspace_manifest_location == "config_lakehouse":
             ConsoleStyles.print_info(
                 self.console, "Uploading manifest file to config lakehouse"
             )
             onelake_utils = OneLakeUtils(
-                environment=self.environment, project_path=Path(self.project_path), console=self.console
+                environment=self.environment,
+                project_path=Path(self.project_path),
+                console=self.console,
             )
             onelake_utils.upload_manifest_file_to_config_lakehouse(output_path)
 

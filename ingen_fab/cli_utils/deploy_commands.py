@@ -97,8 +97,12 @@ def upload_python_libs_to_config_lakehouse(
             "Make sure you're authenticated with Azure and have the correct permissions.",
         )
 
+
 def upload_dbt_project_to_config_lakehouse(
-    environment: str, dbt_project_name: str, project_path: str, console: Console = Console()
+    environment: str,
+    dbt_project_name: str,
+    project_path: str,
+    console: Console = Console(),
 ):
     """Uploads a dbt project to the config lakehouse in OneLake with variable injection during upload."""
     try:
@@ -109,7 +113,9 @@ def upload_dbt_project_to_config_lakehouse(
         )
 
         # OneLakeUtils now handles all the UI messaging and progress tracking
-        results = onelake_utils.upload_dbt_project_to_config_lakehouse(dbt_project_name=dbt_project_name, dbt_project_path=project_path)
+        results = onelake_utils.upload_dbt_project_to_config_lakehouse(
+            dbt_project_name=dbt_project_name, dbt_project_path=project_path
+        )
 
         # Show any failed uploads in detail if needed
         if results["failed"]:
