@@ -626,11 +626,22 @@ ingen_fab libs compile --target-file path/to/mylib.py
 
 ## dbt {#dbt}
 
-Generate notebooks from dbt outputs and proxy commands to dbt_wrapper.
+Generate notebooks from dbt outputs and proxy commands to dbt_wrapper. The dbt integration includes automatic profile management that helps you select and configure the appropriate lakehouse for your dbt models.
+
+### Automatic Profile Management
+
+When running dbt commands through `ingen_fab`, the system automatically manages your dbt profile:
+
+1. **Discovers Available Lakehouses**: Scans your environment configuration for all configured lakehouses
+2. **Interactive Selection**: Prompts you to choose which lakehouse to use (if multiple are available)
+3. **Saves Preferences**: Remembers your selection for future use in the same environment
+4. **Environment-Specific**: Maintains different selections for different environments (development, test, production)
+
+The dbt profile is automatically created or updated at `~/.dbt/profiles.yml` with the name `fabric-spark-testnb`.
 
 #### `dbt create-notebooks`
 
-Generate Fabric notebooks from dbt models and tests.
+Generate Fabric notebooks from dbt models and tests. This command will prompt you to select a lakehouse if multiple options are available.
 
 ```bash
 ingen_fab dbt create-notebooks --dbt-project-name my_dbt_project
@@ -671,7 +682,11 @@ ingen_fab dbt convert-metadata --dbt-project-dir ./analytics/dbt_project
 
 #### `dbt` (proxy command)
 
-Proxy any dbt command to dbt_wrapper inside the Fabric workspace repo.
+Proxy any dbt command to dbt_wrapper inside the Fabric workspace repo. The `exec` command provides intelligent lakehouse selection:
+
+- **With saved preference**: Notifies user of chosen lakehouse and continues
+- **Without saved preference**: Always prompts for interactive selection
+- **Never fails silently**: Ensures user knows which lakehouse is being used
 
 ```bash
 ingen_fab dbt [DBT_COMMAND] [DBT_OPTIONS]
@@ -679,7 +694,7 @@ ingen_fab dbt [DBT_COMMAND] [DBT_OPTIONS]
 
 **Examples:**
 ```bash
-# Run dbt through the proxy
+# Run dbt through the proxy (smart lakehouse selection)
 ingen_fab dbt run --models my_model
 
 # Test dbt models
@@ -687,6 +702,16 @@ ingen_fab dbt test
 
 # Generate dbt docs
 ingen_fab dbt docs generate
+```
+
+**Typical Output:**
+```
+# With saved preference:
+Using saved lakehouse preference: Bronze Layer (Environment: development)
+
+# Without saved preference:
+No valid lakehouse preference found for environment 'development'. Please select a lakehouse:
+[Interactive selection table appears]
 ```
 
 ## Configuration
