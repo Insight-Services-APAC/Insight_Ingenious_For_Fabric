@@ -117,147 +117,147 @@ print(f"📊 Schema pattern: {schema_pattern}")
 print(f"🎯 Target environment: {{ target_environment }}")
 print(f"⚙️ Generation mode: {generation_mode}")
 {%- if generation_date is defined %}print(f"📅 Generation date: {generation_date}"){%- endif %}
-{%- if start_date is defined and end_date is defined %}print(f"📅 Date range: {start_date} to {end_date}"){%- endif %}
-{% if language_group == "synapse_pyspark" %}
-    # PySpark generation logic
-    if schema_pattern == "oltp":
-    # Generate OLTP tables
-    if "customers" in dataset_config.get("tables", []):
-    print("📋 Generating customers table...")
-    customers_df = generator.generate_customers_table(
-    dataset_config.get("customer_rows", {{ target_rows if target_rows is defined else 10000 }})
-    )
-    generated_tables["customers"] = customers_df
-    total_rows_generated += customers_df.count()
-    if "products" in dataset_config.get("tables", []):
-    print("🏷️ Generating products table...")
-    products_df = generator.generate_products_table(
-    dataset_config.get("product_rows", {{ target_rows // 10 if target_rows is defined else 1000 }})
-    )
-    generated_tables["products"] = products_df
-    total_rows_generated += products_df.count()
-    if "orders" in dataset_config.get("tables", []) and "customers" in generated_tables:
-    print("🛒 Generating orders table...")
-    orders_df = generator.generate_orders_table(
-    dataset_config.get("order_rows", {{ target_rows if target_rows is defined else 10000 }}),
-    generated_tables["customers"],
-    generated_tables.get("products")
-    )
-    generated_tables["orders"] = orders_df
-    total_rows_generated += orders_df.count()
-    if "order_items" in dataset_config.get("tables", []) and "orders" in generated_tables:
-    print("📦 Generating order items table...")
-    order_items_df = generator.generate_order_items_table(
-    generated_tables["orders"],
-    generated_tables.get("products")
-    )
-    generated_tables["order_items"] = order_items_df
-    total_rows_generated += order_items_df.count()
-    elif schema_pattern == "star_schema":
-    # Generate star schema tables
-    dimensions = {}
-    for dim in dataset_config.get("dimensions", []):
-    print(f"📐 Generating {dim}...")
-    if dim == "dim_date":
-    dim_df = generator.generate_date_dimension("2020-01-01", "2025-12-31")
-    elif dim == "dim_customer":
-    dim_df = generator.generate_customers_table(50000)
-    elif dim == "dim_product":
-    dim_df = generator.generate_products_table(5000)
-    else:
-    continue
-    dimensions[dim] = dim_df
-    generated_tables[dim] = dim_df
-    total_rows_generated += dim_df.count()
-    # Generate fact tables
-    for fact in dataset_config.get("fact_tables", []):
-    print(f"📊 Generating {fact}...")
-    if fact == "fact_sales":
-    fact_df = generator.generate_fact_sales({{ target_rows if target_rows is defined else 100000 }}, dimensions)
-    generated_tables[fact] = fact_df
-    total_rows_generated += fact_df.count()
-{% else %}
-    # Python generation logic
-    if schema_pattern == "oltp":
-    # Generate OLTP tables using Python
-    if "customers" in dataset_config.get("tables", []):
-    print("📋 Generating customers table...")
-    customers_df = generator.generate_customers_table(
-    dataset_config.get("customer_rows", {{ target_rows if target_rows is defined else 10000 }})
-    )
-    generated_tables["customers"] = customers_df
-    total_rows_generated += len(customers_df)
-    if "products" in dataset_config.get("tables", []):
-    print("🏷️ Generating products table...")
-    products_df = generator.generate_products_table(
-    dataset_config.get("product_rows", {{ target_rows // 10 if target_rows is defined else 1000 }})
-    )
-    generated_tables["products"] = products_df
-    total_rows_generated += len(products_df)
-    if "orders" in dataset_config.get("tables", []) and "customers" in generated_tables:
-    print("🛒 Generating orders table...")
-    orders_df = generator.generate_orders_table(
-    dataset_config.get("order_rows", {{ target_rows if target_rows is defined else 10000 }}),
-    generated_tables["customers"],
-    generated_tables.get("products")
-    )
-    generated_tables["orders"] = orders_df
-    total_rows_generated += len(orders_df)
-    if "order_items" in dataset_config.get("tables", []) and "orders" in generated_tables:
-    print("📦 Generating order items table...")
-    order_items_df = generator.generate_order_items_table(
-    generated_tables["orders"],
-    generated_tables.get("products")
-    )
-    generated_tables["order_items"] = order_items_df
-    total_rows_generated += len(order_items_df)
-    elif schema_pattern == "star_schema":
-    # Generate star schema using dataset builder
-    dataset_builder = DatasetBuilder(generator)
-    dataset_tables = dataset_builder.build_retail_star_schema(scale_factor=1.0)
-    for table_name, table_df in dataset_tables.items():
-    generated_tables[table_name] = table_df
-    total_rows_generated += len(table_df)
-    print(f"✅ Generated {table_name}: {len(table_df):,} rows")
-{% endif %}
-# Save generated tables
-{% if output_mode is defined and output_mode == "parquet" %}
-    print("💾 Saving tables as Parquet files...")
-    output_path = "synthetic_data_output"
-    generator.export_to_parquet(generated_tables, output_path)
-{% elif output_mode is defined and output_mode == "csv" %}
-    print("💾 Saving tables as CSV files...")
-    output_path = "synthetic_data_output"
-    generator.export_to_csv(generated_tables, output_path)
-{% else %}
-    # Save to target environment tables
-    print("💾 Saving tables to target environment...")
-    {% if target_environment == "warehouse" %}
-        for table_name, table_df in generated_tables.items():
-        sql_client.create_table_from_dataframe(table_df, table_name, overwrite=True)
-        print(f"✅ Saved {table_name} to warehouse with {len(table_df):,} rows")
-    {% else %}
-        for table_name, table_df in generated_tables.items():
-        lh_utils.write_dataframe_to_table(table_df, table_name, mode="overwrite")
-        print(f"✅ Saved {table_name} to lakehouse with {table_df.count() if hasattr(table_df, 'count') else len(table_df):,} rows")
-    {% endif %}
-{% endif %}
-execution_time = time.time() - execution_start_time
-print(f"⏱️ Total execution time: {execution_time:.2f} seconds")
-{{ macros.python_cell_with_heading("## ✅ Generation Complete") }}
-# Display summary
-print("=" * 60)
-print("SYNTHETIC DATA GENERATION COMPLETE")
-print("=" * 60)
-print(f"Dataset: {dataset_config.get('dataset_name', 'Custom Dataset')}")
-print(f"Generation Mode: {generation_mode}")
-{% if generation_date is defined %}print(f"Generation Date: {generation_date}"){% endif %}
-print(f"Tables Generated: {len(generated_tables)}")
-print(f"Total Rows: {total_rows_generated:,}")
-print(f"Execution Time: {execution_time:.2f} seconds")
-print("=" * 60)
-# Log completion
-if 'notebookutils' in globals() and hasattr(notebookutils, 'log'):
-notebookutils.log(f"Synthetic data generation completed for {dataset_config.get('dataset_id')}")
-{{ macros.exit_notebook("success") }}
-{% include 'shared/notebook/cells/footer.py.jinja' %}
+    {%- if start_date is defined and end_date is defined %}print(f"📅 Date range: {start_date} to {end_date}"){%- endif %}
+        {% if language_group == "synapse_pyspark" %}
+            # PySpark generation logic
+            if schema_pattern == "oltp":
+            # Generate OLTP tables
+            if "customers" in dataset_config.get("tables", []):
+            print("📋 Generating customers table...")
+            customers_df = generator.generate_customers_table(
+            dataset_config.get("customer_rows", {{ target_rows if target_rows is defined else 10000 }})
+            )
+            generated_tables["customers"] = customers_df
+            total_rows_generated += customers_df.count()
+            if "products" in dataset_config.get("tables", []):
+            print("🏷️ Generating products table...")
+            products_df = generator.generate_products_table(
+            dataset_config.get("product_rows", {{ target_rows // 10 if target_rows is defined else 1000 }})
+            )
+            generated_tables["products"] = products_df
+            total_rows_generated += products_df.count()
+            if "orders" in dataset_config.get("tables", []) and "customers" in generated_tables:
+            print("🛒 Generating orders table...")
+            orders_df = generator.generate_orders_table(
+            dataset_config.get("order_rows", {{ target_rows if target_rows is defined else 10000 }}),
+            generated_tables["customers"],
+            generated_tables.get("products")
+            )
+            generated_tables["orders"] = orders_df
+            total_rows_generated += orders_df.count()
+            if "order_items" in dataset_config.get("tables", []) and "orders" in generated_tables:
+            print("📦 Generating order items table...")
+            order_items_df = generator.generate_order_items_table(
+            generated_tables["orders"],
+            generated_tables.get("products")
+            )
+            generated_tables["order_items"] = order_items_df
+            total_rows_generated += order_items_df.count()
+            elif schema_pattern == "star_schema":
+            # Generate star schema tables
+            dimensions = {}
+            for dim in dataset_config.get("dimensions", []):
+            print(f"📐 Generating {dim}...")
+            if dim == "dim_date":
+            dim_df = generator.generate_date_dimension("2020-01-01", "2025-12-31")
+            elif dim == "dim_customer":
+            dim_df = generator.generate_customers_table(50000)
+            elif dim == "dim_product":
+            dim_df = generator.generate_products_table(5000)
+            else:
+            continue
+            dimensions[dim] = dim_df
+            generated_tables[dim] = dim_df
+            total_rows_generated += dim_df.count()
+            # Generate fact tables
+            for fact in dataset_config.get("fact_tables", []):
+            print(f"📊 Generating {fact}...")
+            if fact == "fact_sales":
+            fact_df = generator.generate_fact_sales({{ target_rows if target_rows is defined else 100000 }}, dimensions)
+            generated_tables[fact] = fact_df
+            total_rows_generated += fact_df.count()
+        {% else %}
+            # Python generation logic
+            if schema_pattern == "oltp":
+            # Generate OLTP tables using Python
+            if "customers" in dataset_config.get("tables", []):
+            print("📋 Generating customers table...")
+            customers_df = generator.generate_customers_table(
+            dataset_config.get("customer_rows", {{ target_rows if target_rows is defined else 10000 }})
+            )
+            generated_tables["customers"] = customers_df
+            total_rows_generated += len(customers_df)
+            if "products" in dataset_config.get("tables", []):
+            print("🏷️ Generating products table...")
+            products_df = generator.generate_products_table(
+            dataset_config.get("product_rows", {{ target_rows // 10 if target_rows is defined else 1000 }})
+            )
+            generated_tables["products"] = products_df
+            total_rows_generated += len(products_df)
+            if "orders" in dataset_config.get("tables", []) and "customers" in generated_tables:
+            print("🛒 Generating orders table...")
+            orders_df = generator.generate_orders_table(
+            dataset_config.get("order_rows", {{ target_rows if target_rows is defined else 10000 }}),
+            generated_tables["customers"],
+            generated_tables.get("products")
+            )
+            generated_tables["orders"] = orders_df
+            total_rows_generated += len(orders_df)
+            if "order_items" in dataset_config.get("tables", []) and "orders" in generated_tables:
+            print("📦 Generating order items table...")
+            order_items_df = generator.generate_order_items_table(
+            generated_tables["orders"],
+            generated_tables.get("products")
+            )
+            generated_tables["order_items"] = order_items_df
+            total_rows_generated += len(order_items_df)
+            elif schema_pattern == "star_schema":
+            # Generate star schema using dataset builder
+            dataset_builder = DatasetBuilder(generator)
+            dataset_tables = dataset_builder.build_retail_star_schema(scale_factor=1.0)
+            for table_name, table_df in dataset_tables.items():
+            generated_tables[table_name] = table_df
+            total_rows_generated += len(table_df)
+            print(f"✅ Generated {table_name}: {len(table_df):,} rows")
+        {% endif %}
+        # Save generated tables
+        {% if output_mode is defined and output_mode == "parquet" %}
+            print("💾 Saving tables as Parquet files...")
+            output_path = "synthetic_data_output"
+            generator.export_to_parquet(generated_tables, output_path)
+        {% elif output_mode is defined and output_mode == "csv" %}
+            print("💾 Saving tables as CSV files...")
+            output_path = "synthetic_data_output"
+            generator.export_to_csv(generated_tables, output_path)
+        {% else %}
+            # Save to target environment tables
+            print("💾 Saving tables to target environment...")
+            {% if target_environment == "warehouse" %}
+                for table_name, table_df in generated_tables.items():
+                sql_client.create_table_from_dataframe(table_df, table_name, overwrite=True)
+                print(f"✅ Saved {table_name} to warehouse with {len(table_df):,} rows")
+            {% else %}
+                for table_name, table_df in generated_tables.items():
+                lh_utils.write_dataframe_to_table(table_df, table_name, mode="overwrite")
+                print(f"✅ Saved {table_name} to lakehouse with {table_df.count() if hasattr(table_df, 'count') else len(table_df):,} rows")
+            {% endif %}
+        {% endif %}
+        execution_time = time.time() - execution_start_time
+        print(f"⏱️ Total execution time: {execution_time:.2f} seconds")
+        {{ macros.python_cell_with_heading("## ✅ Generation Complete") }}
+        # Display summary
+        print("=" * 60)
+        print("SYNTHETIC DATA GENERATION COMPLETE")
+        print("=" * 60)
+        print(f"Dataset: {dataset_config.get('dataset_name', 'Custom Dataset')}")
+        print(f"Generation Mode: {generation_mode}")
+        {% if generation_date is defined %}print(f"Generation Date: {generation_date}"){% endif %}
+        print(f"Tables Generated: {len(generated_tables)}")
+        print(f"Total Rows: {total_rows_generated:,}")
+        print(f"Execution Time: {execution_time:.2f} seconds")
+        print("=" * 60)
+        # Log completion
+        if 'notebookutils' in globals() and hasattr(notebookutils, 'log'):
+        notebookutils.log(f"Synthetic data generation completed for {dataset_config.get('dataset_id')}")
+        {{ macros.exit_notebook("success") }}
+        {% include 'shared/notebook/cells/footer.py.jinja' %}
