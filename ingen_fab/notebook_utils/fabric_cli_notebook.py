@@ -43,12 +43,9 @@ class FabricCLINotebook:
         cmd = [
             "fab",
             "import",
-            f"{self.workspace_name}.Workspace/{notebook_name}.Notebook",
+            f"{self.workspace_name}/{notebook_name}.Notebook",
             "-i",
             str(notebook_path),
-            "--format",
-            format,
-            "-f",
         ]
         subprocess.run(cmd, check=True, capture_output=True, text=True)
 
@@ -57,11 +54,17 @@ class FabricCLINotebook:
         cmd = [
             "fab",
             "job",
-            "start",
-            f"{self.workspace_name}.Workspace/{notebook_name}.Notebook",
+            "run",
+            f"{self.workspace_name}/{notebook_name}.Notebook",
         ]
         result = subprocess.run(cmd, check=True, capture_output=True, text=True)
-        return result.stdout.strip() if result.stdout else None
+        if result.stdout:
+            output = result.stdout.strip()
+            # Extract job ID from output like "Started job 0bfcc2a7-468d-473f-92e4-9a2a799f2522"
+            if output.startswith("Started job "):
+                return output.replace("Started job ", "")
+            return output
+        return None
 
     def status(self, notebook_name: str, job_id: str) -> str:
         """Return the CLI status output for a job."""
@@ -69,7 +72,7 @@ class FabricCLINotebook:
             "fab",
             "job",
             "run-status",
-            f"{self.workspace_name}.Workspace/{notebook_name}.Notebook",
+            f"{self.workspace_name}/{notebook_name}.Notebook",
             "--id",
             job_id,
         ]
@@ -82,7 +85,7 @@ class FabricCLINotebook:
         cmd = [
             "fab",
             "delete",
-            f"{self.workspace_name}.Workspace/{item_name}.{item_type}",
+            f"{self.workspace_name}/{item_name}.{item_type}",
             "-f",
         ]
         try:
@@ -93,7 +96,7 @@ class FabricCLINotebook:
 
     def list_items(self) -> list[dict[str, Any]]:
         """List all items in the workspace."""
-        cmd = ["fab", "list", f"{self.workspace_name}.Workspace", "--output", "json"]
+        cmd = ["fab", "list", f"{self.workspace_name}", "--output", "json"]
         result = subprocess.run(cmd, check=True, capture_output=True, text=True)
 
         if result.stdout:

@@ -19,7 +19,9 @@
 # ## 📦 Inject Reusable Classes and Functions
 # CELL ********************
 import sys
-notebookutils.fs.mount("abfss://{{ varlib:config_workspace_id }}@onelake.dfs.fabric.microsoft.com/{{ varlib:config_workspace_name }}.Lakehouse/Files/", "/config_files")
+{% raw %}
+    notebookutils.fs.mount("abfss://{{ varlib:config_workspace_id }}@onelake.dfs.fabric.microsoft.com/{{ varlib:config_workspace_name }}.Lakehouse/Files/", "/config_files")
+{% endraw %}
 new_Path = notebookutils.fs.getMountPath("/config_files")
 sys.path.insert(0, new_Path)
 import ingen_fab.python_libs.common.config_utils as cu
@@ -31,4 +33,4 @@ import ingen_fab.python_libs.common.config_utils as cu
 # MARKDOWN ********************
 # ## 🧪🧪 Testing Scripts Start
 # CELL ********************
-{{ test_scripts | required }}
+{{ content }}
