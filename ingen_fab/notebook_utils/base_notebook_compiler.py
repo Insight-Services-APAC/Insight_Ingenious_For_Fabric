@@ -146,15 +146,14 @@ class BaseNotebookCompiler(NotebookUtils):
 
         try:
             for func_info in compile_functions:
+                kwargs: dict[str, Any] = {}
                 if len(func_info) == 2:
                     func, args = func_info
-                    kwargs = {}
                 elif len(func_info) == 3:
                     func, args, kwargs = func_info
                 else:
                     func = func_info[0]
                     args = []
-                    kwargs = {}
 
                 # Execute function
                 if isinstance(args, dict):

@@ -12,7 +12,7 @@ class FabricNotebookConverter:
 
         nb = new_notebook()
         cells = []
-        current_cell_lines = []
+        current_cell_lines: list[str] = []
         current_cell_type = None
 
         def flush_cell():

@@ -252,7 +252,7 @@ class ExtractGenerationCompiler(BaseNotebookCompiler):
     ) -> Dict[str, Any]:
         """Compile all templates and DDL scripts"""
 
-        results = {
+        results: Dict[str, Any] = {
             "notebook_file": None,
             "ddl_files": [],
             "sample_files": [],
@@ -267,12 +267,13 @@ class ExtractGenerationCompiler(BaseNotebookCompiler):
 
             # Compile DDL scripts (use target_datastore as generation_mode)
             ddl_scripts = self.compile_ddl_scripts(template_vars, target_datastore)
-            results["ddl_files"] = ddl_scripts
+            if isinstance(ddl_scripts, list):
+                results["ddl_files"] = ddl_scripts
 
             # Create sample source tables DDL if requested
             if include_samples:
                 sample_ddl_path = self._create_sample_source_tables_ddl()
-                if sample_ddl_path:
+                if sample_ddl_path and isinstance(results["ddl_files"], list):
                     results["ddl_files"].append(sample_ddl_path)
 
             if self.console:
