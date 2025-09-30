@@ -29,7 +29,6 @@ print("Hello, World!")
         notebook_name="test_notebook",
         rendered_content=test_content,
         output_dir=test_output_dir,
-        relative_path="test_relative_path",
     )
 
     print(f"Successfully created notebook at: {result_path}")
