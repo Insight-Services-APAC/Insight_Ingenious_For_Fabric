@@ -19,7 +19,7 @@ class ResourceManager:
     def __init__(self):
         """Initialize the resource manager with empty caches."""
         self._template_cache: Dict[str, Template] = {}
-        self._resource_paths: Dict[str, Path] = {}
+        self._resource_paths: Dict[str, Dict[str, Path] | Path] = {}
         self._jinja_envs: Dict[str, Environment] = {}
 
     def get_ddl_templates(self) -> Dict[str, Path]:

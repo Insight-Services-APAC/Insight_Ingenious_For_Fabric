@@ -11,10 +11,10 @@ from pathlib import Path
 from typing import List, Optional
 
 try:
-    import importlib.resources as pkg_resources
+    import importlib.resources as pkg_resources  # type: ignore[no-redef]
 except ImportError:
     # Fallback for Python < 3.9
-    import importlib_resources as pkg_resources
+    import importlib_resources as pkg_resources  # type: ignore[no-redef]
 
 
 @dataclass
