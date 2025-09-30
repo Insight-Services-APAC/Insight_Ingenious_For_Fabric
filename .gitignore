@@ -1,32 +1,55 @@
+# Python
 .venv
 .venv*
 .venv_pip_test
+.venv_win
 **__pycache__**
+*.pyc
+*.pyo
+*.egg-info
+
+# Build artifacts
 /build
-/insight_ingenious_for_fabric.egg-info
 /output
-.DS_Store
+/insight_ingenious_for_fabric.egg-info
 /ingen_fab/insight_ingenious_for_fabric.egg-info
-temp-publish
-fabric_cicd.error.log
+
+# Temporary files
 /temp
 /tmp
+temp-publish
+
+# Logs
+*.log
+derby.log
+
+# Documentation build
+/site
+
+# Node modules
+/node_modules
+
+# Cache directories
 /.ruff_cache
 /.pytest_cache
 /.pre-commit-cache
-/fabric_cicd.error.log
-/.venv_win
-/site/**/*/
-/tmp/**/*/
-/node_modules/**/*/
-ModuleAnalysisCache-AE0255EC
-StartupProfileData-Interactive
-/metastore_db/**/*/
-/node_modules/**/*/
-/sample_*/**/*/
-/sample_*/*
-*.egg-info
-derby.log
-/artefacts/**/*/
-# pip install testing
+
+# Sample projects (gitignored to prevent accidental commits)
+/sample_*
+
+# Testing directories
 pip_install_test/
+/artefacts
+
+# Database
+/metastore_db
+
+# IDE specific
+ModuleAnalysisCache-*
+StartupProfileData-*
+
+# OS specific
+.DS_Store
+
+# Root-level notebooks (keep notebooks in proper directories)
+/*.ipynb
