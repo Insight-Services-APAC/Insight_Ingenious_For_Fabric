@@ -2,6 +2,14 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
+## Communication Style
+
+**CRITICAL**: When working with this codebase:
+- **NEVER use emojis** in any communication, code, comments, or documentation
+- **Always maintain a concise, professional tone** in all interactions
+- Provide direct, clear technical communication without unnecessary elaboration
+- Focus on facts and technical accuracy over conversational language
+
 ## Important: Environment Activation
 
 **ALWAYS activate the Python virtual environment and set required environment variables before running any commands:**
