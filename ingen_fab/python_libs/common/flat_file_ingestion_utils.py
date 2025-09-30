@@ -127,7 +127,7 @@ class DatePartitionUtils:
         Returns:
             List of tuples: (full_path, date_partition, table_name)
         """
-        results = []
+        results: list[tuple[str, str, str]] = []
 
         try:
             import os

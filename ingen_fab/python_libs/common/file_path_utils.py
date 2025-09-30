@@ -9,8 +9,8 @@ from __future__ import annotations
 
 import logging
 import os
-from dataclasses import dataclass
-from datetime import date, datetime
+from dataclasses import dataclass, field
+from datetime import date, datetime, timedelta
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
 
@@ -23,11 +23,7 @@ class FilePathTemplate:
     path_template: str
     description: str
     supports_partitioning: bool = False
-    partition_columns: List[str] = None
-
-    def __post_init__(self):
-        if self.partition_columns is None:
-            self.partition_columns = []
+    partition_columns: List[str] = field(default_factory=list)
 
 
 class DateBasedFilePathGenerator:
@@ -159,6 +155,7 @@ class DateBasedFilePathGenerator:
         Returns:
             Generated file path
         """
+        template: Optional[FilePathTemplate]
         if pattern == "custom" and custom_pattern:
             template = FilePathTemplate(
                 pattern_name="custom",
@@ -207,7 +204,7 @@ class DateBasedFilePathGenerator:
                 file_extension=file_extension,
             )
             paths.append(path)
-            current_date += datetime.timedelta(days=1)
+            current_date += timedelta(days=1)
 
         return paths
 
@@ -294,7 +291,7 @@ class DateBasedFilePathGenerator:
 
     def organize_paths_by_date(self, file_paths: List[str], pattern: str, table_name: str) -> Dict[str, List[str]]:
         """Organize file paths by their generation dates."""
-        organized = {}
+        organized: Dict[str, List[str]] = {}
 
         for path in file_paths:
             generation_date = self.extract_date_from_path(path, pattern, table_name)
@@ -395,7 +392,7 @@ class FilePathManager:
 
         return normalized
 
-    def get_path_components(self, file_path: str) -> Dict[str, str]:
+    def get_path_components(self, file_path: str) -> Dict[str, Any]:
         """Extract components from a file path."""
         path_obj = Path(file_path)
 
