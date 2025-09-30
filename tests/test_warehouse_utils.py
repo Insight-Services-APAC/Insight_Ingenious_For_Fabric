@@ -6,46 +6,6 @@ sys.path.insert(0, str(pathlib.Path(__file__).resolve().parents[1]))
 from ingen_fab.python_libs.python.warehouse_utils import warehouse_utils
 
 
-class DummyCursor:
-    def __init__(self):
-        self.executed = None
-        self.description = [("col",)]
-
-    def execute(self, query):
-        self.executed = query
-
-    def fetchall(self):
-        return [(1,)]
-
-
-class DummyConn:
-    def __init__(self):
-        self.cursor_obj = DummyCursor()
-        self.committed = False
-
-    def cursor(self):
-        return self.cursor_obj
-
-    def commit(self):
-        self.committed = True
-
-
-class DummyPD:
-    class DataFrame:
-        @classmethod
-        def from_records(cls, rows, columns):
-            return {"rows": rows, "columns": columns}
-
-
-class DummyFabricConn:
-    def __init__(self):
-        self.last_query = None
-
-    def query(self, q):
-        self.last_query = q
-        return [1]
-
-
 def test_get_connection_fabric():
     wu = warehouse_utils("ws", "wh")
     mock_conn = object()
