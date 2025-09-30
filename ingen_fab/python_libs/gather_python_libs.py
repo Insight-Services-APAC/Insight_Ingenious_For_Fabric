@@ -32,7 +32,8 @@ class GatherPythonLibs:
                 for alias in node.names:
                     imports.add(alias.name)
             elif isinstance(node, ast.ImportFrom):
-                imports.add(node.module)
+                if node.module:
+                    imports.add(node.module)
 
         # Filter out built-in libraries and keep only external libraries
         external_imports = [lib for lib in imports if not self.is_builtin_library(lib)]
@@ -241,7 +242,7 @@ class GatherPythonLibs:
 
         return additional_files
 
-    def gather_files(self, python_libs_path: Path, libs_to_include: List[str]) -> []:
+    def gather_files(self, python_libs_path: Path, libs_to_include: List[str]) -> List[str]:
         """
         Analyze python_libs files, sort by dependencies, and inject into lib.py.jinja.
         Includes files from common and interfaces directories when referenced.
@@ -253,11 +254,11 @@ class GatherPythonLibs:
 
             if not target_python_libs_path.exists():
                 self.console.print(f"[yellow]Warning: Python libs path not found: {target_python_libs_path}[/yellow]")
-                return
+                return []
 
         except FileNotFoundError:
             self.console.print("[yellow]Warning: Could not locate python_libs package resources[/yellow]")
-            return
+            return []
 
         # Get all Python files from the target directory
         target_python_files = []
@@ -278,7 +279,7 @@ class GatherPythonLibs:
 
         if not target_python_files:
             self.console.print(f"[yellow]Warning: No Python files found in {target_python_libs_path}[/yellow]")
-            return
+            return []
 
         # Discover additional files from common and interfaces directories
         additional_files = self._discover_additional_dependencies(target_python_files, base_python_libs_path)
