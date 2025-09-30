@@ -137,3 +137,8 @@ class NotebookUtilsFactory(NotebookUtilsFactoryBase):
             # Fallback to local
             logger.info("Creating local notebook utils instance (fallback)")
             return LocalNotebookUtils()
+
+
+def get_notebook_utils(notebookutils: Optional[Any] = None, force_local: bool = False) -> NotebookUtilsInterface:
+    """Convenience function to get notebook utils instance."""
+    return NotebookUtilsFactory.get_instance(notebookutils=notebookutils, force_local=force_local)
