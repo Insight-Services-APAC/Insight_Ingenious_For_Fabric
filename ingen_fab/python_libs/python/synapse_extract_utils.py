@@ -1,4 +1,3 @@
-import asyncio
 import json
 import logging
 import time
@@ -8,7 +7,6 @@ from typing import Any, Dict, List, Optional
 
 import numpy as np
 import pandas as pd
-import pyarrow as pa
 
 from ingen_fab.python_libs.python.error_categorization import (
     error_categorizer,
@@ -31,42 +29,8 @@ def timestamp_now() -> int:
     return int(datetime.now().timestamp() * 1000)
 
 
-async def random_delay_before_logging():
-    """Add random delay to reduce write contention."""
-    delay = np.random.random() * 0.5  # 0-0.5 seconds
-    await asyncio.sleep(delay)
-
-
 class SynapseExtractUtils:
     """Utility class for Synapse data extraction operations."""
-
-    # Schema definition that matches the original file
-    LOG_SCHEMA = pa.schema(
-        [
-            ("master_execution_id", pa.string()),
-            ("execution_id", pa.string()),
-            ("pipeline_job_id", pa.string()),
-            ("execution_group", pa.int32()),
-            ("master_execution_parameters", pa.string()),
-            ("trigger_type", pa.string()),
-            ("config_synapse_connection_name", pa.string()),
-            ("source_schema_name", pa.string()),
-            ("source_table_name", pa.string()),
-            ("extract_mode", pa.string()),
-            ("extract_start_dt", pa.date32()),
-            ("extract_end_dt", pa.date32()),
-            ("partition_clause", pa.string()),
-            ("output_path", pa.string()),
-            ("extract_file_name", pa.string()),
-            ("external_table", pa.string()),
-            ("start_timestamp", pa.timestamp("ms")),
-            ("end_timestamp", pa.timestamp("ms")),
-            ("duration_sec", pa.float64()),
-            ("status", pa.string()),
-            ("error_messages", pa.string()),
-            ("end_timestamp_int", pa.int64()),
-        ]
-    )
 
     def __init__(
         self,
