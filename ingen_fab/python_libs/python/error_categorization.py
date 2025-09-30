@@ -42,9 +42,6 @@ class ErrorCategorizer:
     for retry and handling decisions.
     """
 
-    # HTTP status codes that indicate transient errors
-    TRANSIENT_HTTP_CODES = {429, 500, 503, 504, 408}
-
     # Network-related error patterns
     NETWORK_ERROR_PATTERNS = [
         r"timeout",
