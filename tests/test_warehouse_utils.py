@@ -57,7 +57,7 @@ def test_get_connection_fabric():
 
 
 def test_get_connection_sqlserver():
-    wu = warehouse_utils(None, None, dialect="sqlserver", connection_string="dsn")
+    wu = warehouse_utils(None, None, dialect="sql_server", connection_string="dsn")
     mock_conn = object()
     with mock.patch(
         "ingen_fab.python_libs.python.warehouse_utils.pyodbc.connect",
