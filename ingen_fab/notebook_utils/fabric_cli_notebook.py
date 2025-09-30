@@ -14,9 +14,10 @@ class FabricCLINotebook:
 
     def __init__(self, workspace_name: str) -> None:
         self.workspace_name = workspace_name
-        self.jinja_env = jinja2.Environment(loader=jinja2.FileSystemLoader(Path(__file__).resolve().parent))
+        template_dir = Path(__file__).resolve().parent / "templates" / "platform_testing"
+        self.jinja_env = jinja2.Environment(loader=jinja2.FileSystemLoader(template_dir))
         self.platform_file_template = self.jinja_env.get_template("platform_file_template.json.jinja")
-        self.notebook_content_template = self.jinja_env.get_template("notebook-content_template.py.jinja")
+        self.notebook_content_template = self.jinja_env.get_template("notebook-content_template-python.py.jinja")
 
     def generate_functional_test_notebook(self):
         """Generate a functional test notebook using the Fabric CLI."""
