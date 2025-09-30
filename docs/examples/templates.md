@@ -440,4 +440,4 @@ print(debug_info)
 - [DDL Scripts](../developer_guide/ddl_scripts.md) - Template system details
 - [Notebook Utils](../developer_guide/notebook_utils.md) - Notebook integration
 - [Sample Project](sample_project.md) - Complete project example
-- [CLI Reference](../user_guide/cli_reference.md) - Command-line usage
+- [CLI Reference](../guides/cli-reference.md) - Command-line usage

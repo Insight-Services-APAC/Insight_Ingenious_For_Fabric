@@ -9,7 +9,7 @@ The Ingenious Fabric Accelerator is primarily a CLI tool for building, deploying
 ## API Categories
 
 ### CLI Commands
-Command-line interface for interacting with the accelerator tools. See the [CLI Reference](../user_guide/cli_reference.md) for complete documentation.
+Command-line interface for interacting with the accelerator tools. See the [CLI Reference](../guides/cli-reference.md) for complete documentation.
 
 ### [Python APIs](python_apis.md)
 Python libraries and modules for use in Fabric notebooks and local development.

@@ -489,7 +489,7 @@ config_files = {
 
 - [DDL Scripts](ddl_scripts.md) - Template system details
 - [Python Libraries](python_libraries.md) - Core library architecture
-- [CLI Reference](../user_guide/cli_reference.md) - Command documentation
+- [CLI Reference](../guides/cli-reference.md) - Command documentation
 
 ## Getting Help
 

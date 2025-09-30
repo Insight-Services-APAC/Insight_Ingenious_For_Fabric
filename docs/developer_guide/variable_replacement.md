@@ -385,7 +385,7 @@ print(f"Replacement result: {result}")
 
 - [Python Libraries](python_libraries.md) - Core library architecture
 - [DDL Scripts](ddl_scripts.md) - Template system integration
-- [CLI Reference](../user_guide/cli_reference.md) - Command usage
-- [Workflows](../user_guide/workflows.md) - End-to-end processes
+- [CLI Reference](../guides/cli-reference.md) - Command usage
+- [Workflows](../guides/workflows.md) - End-to-end processes
 
 The variable replacement system is fundamental to enabling environment-agnostic development and deployment in the Ingenious Fabric Accelerator. Understanding when and how replacements occur is crucial for effective use of the platform.

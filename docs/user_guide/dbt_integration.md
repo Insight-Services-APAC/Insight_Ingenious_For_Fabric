@@ -259,6 +259,6 @@ If your selection isn't remembered:
 
 ## Next Steps
 
-- [CLI Reference](cli_reference.md#dbt) - Complete dbt command reference
+- [CLI Reference](../guides/cli-reference.md#dbt) - Complete dbt command reference
 - [Deploy Guide](deploy_guide.md) - Deploying dbt models to Fabric
-- [Workflows](workflows.md) - Integrating dbt into your development workflow
+- [Workflows](../guides/workflows.md) - Integrating dbt into your development workflow
