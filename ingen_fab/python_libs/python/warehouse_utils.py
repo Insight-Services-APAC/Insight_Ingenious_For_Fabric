@@ -246,8 +246,8 @@ class warehouse_utils(DataStoreInterface):
         try:
             # Check if database exists
             check_db_sql = """
-            SELECT 1 
-            FROM sys.databases 
+            SELECT 1
+            FROM sys.databases
             WHERE name = 'local'
             """
             result = self.execute_query(conn, check_db_sql)

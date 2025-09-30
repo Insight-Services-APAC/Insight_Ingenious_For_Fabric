@@ -249,9 +249,9 @@ class PySparkFlatFileDiscovery(FlatFileDiscoveryInterface):
         try:
             # Query the log table to see if this date has been successfully processed
             log_df = self.lakehouse_utils.get_connection.sql(f"""
-                SELECT DISTINCT date_partition, status 
-                FROM log_flat_file_ingestion 
-                WHERE config_id = '{config.config_id}' 
+                SELECT DISTINCT date_partition, status
+                FROM log_flat_file_ingestion
+                WHERE config_id = '{config.config_id}'
                 AND date_partition = '{date_partition}'
                 AND status = 'completed'
                 LIMIT 1

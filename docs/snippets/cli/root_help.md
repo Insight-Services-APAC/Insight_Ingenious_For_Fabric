@@ -1,6 +1,6 @@
 ```text
-Usage: python -m ingen_fab.cli [OPTIONS] COMMAND [ARGS]...                     
-                                                                                
+Usage: python -m ingen_fab.cli [OPTIONS] COMMAND [ARGS]...
+
 ╭─ Options ────────────────────────────────────────────────────────────────────╮
 │ --fabric-workspace-repo-dir  -fwd      PATH  Directory containing fabric     │
 │                                              workspace repository files      │

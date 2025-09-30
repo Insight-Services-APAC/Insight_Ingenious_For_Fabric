@@ -181,7 +181,7 @@ export FABRIC_ENVIRONMENT=local
 # Test Python libraries
 ingen_fab test local python
 
-# Test PySpark libraries  
+# Test PySpark libraries
 ingen_fab test local pyspark
 
 # Test common libraries

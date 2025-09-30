@@ -138,7 +138,7 @@ for env in development test production; do
     ingen_fab deploy deploy \
         --fabric-workspace-repo-dir . \
         --fabric-environment $env
-    
+
     echo "Generating platform tests for $env..."
     ingen_fab test platform generate \
         --fabric-workspace-repo-dir . \
@@ -317,22 +317,22 @@ jobs:
     runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v4
-    
+
     - name: Setup Python
       uses: actions/setup-python@v4
       with:
         python-version: '3.12'
-    
+
     - name: Install dependencies
       run: |
         pip install uv
         uv sync
-    
+
     - name: Generate notebooks
       run: |
         uv run ingen_fab ddl compile --output-mode fabric_workspace_repo --generation-mode Warehouse
         uv run ingen_fab ddl compile --output-mode fabric_workspace_repo --generation-mode Lakehouse
-    
+
     - name: Deploy to staging
       run: |
         uv run ingen_fab deploy deploy --fabric-workspace-repo-dir . --fabric-environment staging

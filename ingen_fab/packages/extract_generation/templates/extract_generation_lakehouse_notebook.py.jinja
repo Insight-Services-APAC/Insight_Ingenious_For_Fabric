@@ -1,8 +1,6 @@
 {%- import 'shared/notebook/macros/notebook_macros.py.jinja' as macros -%}
 # Fabric notebook source
-
 # METADATA ********************
-
 # META {
 # META   "kernel_info": {
 # META     "name": "synapse_pyspark",
@@ -13,28 +11,21 @@
 # META     "language_group": "synapse_pyspark"
 # META   }
 # META }
-
 {{ macros.parameters_cell() }}
-
 # Default parameters
 execution_group = ""  # Optional: filter by execution group, empty = process all
 environment = "development"
 run_type = "FULL"  # FULL or INCREMENTAL
 max_parallel_extracts = 1  # Number of extracts to run in parallel (1 = serial, >1 = parallel)
-
 {{ macros.python_cell_with_heading("## 📤 Extract Generation Notebook (Lakehouse)") }}
-
 # This notebook generates extract files from lakehouse tables and views
 # based on configuration metadata, supporting multiple formats and compression options.
-
 {% set runtime_type = "pyspark" %}
 {% set language_group = "synapse_pyspark" %}
 {% set include_ddl_utils = true %}
 {% include 'shared/notebook/environment/library_loader.py.jinja' %}
-
 {{ macros.python_cell_with_heading("## 🔧 Load Configuration and Initialize") }}
 {% include 'shared/notebook/environment/config_loader.py.jinja' %}
-
 # Additional imports for extract generation
 import uuid
 import json
@@ -48,989 +39,829 @@ from pyspark.sql import functions as F
 from pyspark.sql.types import *
 from concurrent.futures import ThreadPoolExecutor, as_completed
 import threading
-
 # Import lakehouse_utils and sql_templates for lakehouse operations
 if run_mode == "local":
-    from ingen_fab.python_libs.pyspark.lakehouse_utils import lakehouse_utils
-    from ingen_fab.python_libs.python.sql_templates import SQLTemplates
+from ingen_fab.python_libs.pyspark.lakehouse_utils import lakehouse_utils
+from ingen_fab.python_libs.python.sql_templates import SQLTemplates
 else:
-    files_to_load = ["ingen_fab/python_libs/pyspark/lakehouse_utils.py", "ingen_fab/python_libs/python/sql_templates.py"]
-    load_python_modules_from_path(mount_path, files_to_load)
-
+files_to_load = ["ingen_fab/python_libs/pyspark/lakehouse_utils.py", "ingen_fab/python_libs/python/sql_templates.py"]
+load_python_modules_from_path(mount_path, files_to_load)
 import time
-
 run_id = str(uuid.uuid4())
 start_time = datetime.utcnow()
-
 print(f"Run ID: {run_id}")
 print(f"Execution Group Filter: {execution_group or 'ALL'}")
 print(f"Environment: {environment}")
 print(f"Run Type: {run_type}")
-
 {{ macros.python_cell_with_heading("## 📋 Load Extract Configuration") }}
-
 class ExtractConfiguration:
-    """Configuration class for extract generation"""
-    
-    def __init__(self, config_row, details_row):
-        # Main configuration
-        self.extract_name = config_row["extract_name"]
-        self.is_active = config_row["is_active"]
-        self.trigger_name = config_row.get("trigger_name")
-        self.extract_pipeline_name = config_row.get("extract_pipeline_name")
-        
-        # Source configuration
-        self.extract_table_name = config_row.get("extract_table_name")
-        self.extract_table_schema = config_row.get("extract_table_schema")
-        self.extract_view_name = config_row.get("extract_view_name")
-        self.extract_view_schema = config_row.get("extract_view_schema")
-        
-        # Note: Stored procedures not supported in lakehouse
-        self.extract_sp_name = None
-        self.extract_sp_schema = None
-        
-        # Validation configuration (simplified for lakehouse)
-        self.validation_table_sp_name = None
-        self.validation_table_sp_schema = None
-        
-        # Load configuration
-        self.is_full_load = config_row["is_full_load"]
-        self.execution_group = config_row.get("execution_group")
-        
-        # File details configuration
-        self.file_generation_group = details_row.get("file_generation_group")
-        self.extract_container = details_row.get("extract_container", "extracts")
-        self.extract_directory = details_row.get("extract_directory", "")
-        
-        # File naming
-        self.extract_file_name = details_row.get("extract_file_name", self.extract_name)
-        self.extract_file_name_timestamp_format = details_row.get("extract_file_name_timestamp_format")
-        # Convert to int if not None and not NaN to handle float values from DataFrame
-        import math
-        period_end_day = details_row.get("extract_file_name_period_end_day")
-        self.extract_file_name_period_end_day = int(period_end_day) if period_end_day is not None and not (isinstance(period_end_day, float) and math.isnan(period_end_day)) else None
-        self.extract_file_name_extension = details_row.get("extract_file_name_extension", "csv")
-        # Convert to int if not None and not NaN to handle float values from DataFrame  
-        ordering = details_row.get("extract_file_name_ordering", 1)
-        self.extract_file_name_ordering = int(ordering) if ordering is not None and not (isinstance(ordering, float) and math.isnan(ordering)) else 1
-        
-        # File properties
-        self.file_properties_column_delimiter = details_row.get("file_properties_column_delimiter", ",")
-        self.file_properties_row_delimiter = details_row.get("file_properties_row_delimiter", "\\n")
-        self.file_properties_encoding = details_row.get("file_properties_encoding", "UTF-8")
-        self.file_properties_quote_character = details_row.get("file_properties_quote_character", '"')
-        self.file_properties_escape_character = details_row.get("file_properties_escape_character", "\\")
-        self.file_properties_header = details_row.get("file_properties_header", True)
-        self.file_properties_null_value = details_row.get("file_properties_null_value", "")
-        # Convert to int if not None and not NaN to handle float values from DataFrame
-        max_rows = details_row.get("file_properties_max_rows_per_file")
-        self.file_properties_max_rows_per_file = int(max_rows) if max_rows is not None and not (isinstance(max_rows, float) and math.isnan(max_rows)) else None
-        
-        # Output format
-        self.output_format = details_row.get("output_format", "csv")
-        
-        # Trigger file
-        self.is_trigger_file = details_row.get("is_trigger_file", False)
-        self.trigger_file_extension = details_row.get("trigger_file_extension", ".done")
-        
-        # Compression
-        self.is_compressed = details_row.get("is_compressed", False)
-        self.compressed_type = details_row.get("compressed_type")
-        self.compressed_level = details_row.get("compressed_level", "NORMAL")
-        self.compressed_file_name = details_row.get("compressed_file_name")
-        self.compressed_extension = details_row.get("compressed_extension", ".zip")
-        
-        # Location configuration for source and target
-        # Source location (where data comes from)
-        self.source_workspace_id = details_row.get("source_workspace_id")
-        self.source_datastore_id = details_row.get("source_datastore_id") 
-        self.source_datastore_type = details_row.get("source_datastore_type", "lakehouse")
-        self.source_schema_name = details_row.get("source_schema_name", "default")
-        
-        # Target location (where extract files go)
-        self.target_workspace_id = details_row.get("target_workspace_id")
-        self.target_datastore_id = details_row.get("target_datastore_id")
-        self.target_datastore_type = details_row.get("target_datastore_type", "lakehouse") 
-        self.target_file_root_path = details_row.get("target_file_root_path", "Files")
-        
-        # Legacy Fabric paths (for backward compatibility)
-        self.fabric_lakehouse_path = details_row.get("fabric_lakehouse_path")
-        
-        # Performance options
-        # Default to True for backward compatibility - most extracts expect single file output
-        self.force_single_file = details_row.get("force_single_file", True)
-        
-    def get_source_query(self) -> Tuple[str, str]:
-        """Get the Spark SQL query to extract data and the source type"""
-        if self.extract_table_name:
-            # For lakehouse, we don't use schema prefixes typically
-            table_ref = self.extract_table_name
-            if self.extract_table_schema and self.extract_table_schema != "default":
-                table_ref = f"{self.extract_table_schema}.{self.extract_table_name}"
-            return f"SELECT * FROM {table_ref}", "TABLE"
-        elif self.extract_view_name:
-            view_ref = self.extract_view_name
-            if self.extract_view_schema and self.extract_view_schema != "default":
-                view_ref = f"{self.extract_view_schema}.{self.extract_view_name}"
-            return f"SELECT * FROM {view_ref}", "VIEW"
-        else:
-            raise ValueError("No source object defined for extract")
-    
-    def get_source_table_info(self) -> Tuple[str, str, str]:
-        """Get table name, schema, and type for read_table operation"""
-        if self.extract_table_name:
-            table_name = self.extract_table_name
-            schema_name = self.extract_table_schema if self.extract_table_schema and self.extract_table_schema != "default" else None
-            return table_name, schema_name, "TABLE"
-        elif self.extract_view_name:
-            table_name = self.extract_view_name
-            schema_name = self.extract_view_schema if self.extract_view_schema and self.extract_view_schema != "default" else None
-            return table_name, schema_name, "VIEW"
-        else:
-            raise ValueError("No source object defined for extract")
-    
-    def _convert_datetime_format(self, format_str: str) -> str:
-        """Convert Java/C# datetime format to Python strftime format"""
-        if not format_str:
-            return format_str
-            
-        # Common datetime format conversions
-        conversions = {
-            'yyyy': '%Y',
-            'yy': '%y',
-            'MM': '%m',
-            'dd': '%d',
-            'HH': '%H',
-            'mm': '%M',
-            'ss': '%S',
-            'SSS': '%f',  # milliseconds to microseconds (will need truncation)
-        }
-        
-        result = format_str
-        # Replace in order of longest to shortest to avoid partial replacements
-        for old, new in sorted(conversions.items(), key=lambda x: -len(x[0])):
-            result = result.replace(old, new)
-            
-        return result
-    
-    def generate_file_name(self, sequence: int = 1) -> str:
-        """Generate file name based on configuration"""
-        parts = []
-        
-        # Base name
-        parts.append(self.extract_file_name)
-        
-        # Timestamp
-        if self.extract_file_name_timestamp_format:
-            # Convert Java/C# format to Python format
-            python_format = self._convert_datetime_format(self.extract_file_name_timestamp_format)
-            
-            if self.extract_file_name_period_end_day:
-                # Calculate period end date
-                today = datetime.utcnow()
-                if today.day <= self.extract_file_name_period_end_day:
-                    # Previous month
-                    period_end = today.replace(day=1) - timedelta(days=1)
-                    period_end = period_end.replace(day=self.extract_file_name_period_end_day)
-                else:
-                    # Current month
-                    period_end = today.replace(day=self.extract_file_name_period_end_day)
-                timestamp_str = period_end.strftime(python_format)
-            else:
-                timestamp_str = datetime.utcnow().strftime(python_format)
-            parts.append(timestamp_str)
-        
-        # Sequence number for file splitting
-        if sequence > 1:
-            parts.append(f"part{sequence:04d}")
-        
-        # Join parts and add extension
-        file_name = "_".join(parts)
-        if not file_name.endswith(f".{self.extract_file_name_extension}"):
-            file_name = f"{file_name}.{self.extract_file_name_extension}"
-        
-        return file_name
-
+"""Configuration class for extract generation"""
+def __init__(self, config_row, details_row):
+# Main configuration
+self.extract_name = config_row["extract_name"]
+self.is_active = config_row["is_active"]
+self.trigger_name = config_row.get("trigger_name")
+self.extract_pipeline_name = config_row.get("extract_pipeline_name")
+# Source configuration
+self.extract_table_name = config_row.get("extract_table_name")
+self.extract_table_schema = config_row.get("extract_table_schema")
+self.extract_view_name = config_row.get("extract_view_name")
+self.extract_view_schema = config_row.get("extract_view_schema")
+# Note: Stored procedures not supported in lakehouse
+self.extract_sp_name = None
+self.extract_sp_schema = None
+# Validation configuration (simplified for lakehouse)
+self.validation_table_sp_name = None
+self.validation_table_sp_schema = None
+# Load configuration
+self.is_full_load = config_row["is_full_load"]
+self.execution_group = config_row.get("execution_group")
+# File details configuration
+self.file_generation_group = details_row.get("file_generation_group")
+self.extract_container = details_row.get("extract_container", "extracts")
+self.extract_directory = details_row.get("extract_directory", "")
+# File naming
+self.extract_file_name = details_row.get("extract_file_name", self.extract_name)
+self.extract_file_name_timestamp_format = details_row.get("extract_file_name_timestamp_format")
+# Convert to int if not None and not NaN to handle float values from DataFrame
+import math
+period_end_day = details_row.get("extract_file_name_period_end_day")
+self.extract_file_name_period_end_day = int(period_end_day) if period_end_day is not None and not (isinstance(period_end_day, float) and math.isnan(period_end_day)) else None
+self.extract_file_name_extension = details_row.get("extract_file_name_extension", "csv")
+# Convert to int if not None and not NaN to handle float values from DataFrame
+ordering = details_row.get("extract_file_name_ordering", 1)
+self.extract_file_name_ordering = int(ordering) if ordering is not None and not (isinstance(ordering, float) and math.isnan(ordering)) else 1
+# File properties
+self.file_properties_column_delimiter = details_row.get("file_properties_column_delimiter", ",")
+self.file_properties_row_delimiter = details_row.get("file_properties_row_delimiter", "\\n")
+self.file_properties_encoding = details_row.get("file_properties_encoding", "UTF-8")
+self.file_properties_quote_character = details_row.get("file_properties_quote_character", '"')
+self.file_properties_escape_character = details_row.get("file_properties_escape_character", "\\")
+self.file_properties_header = details_row.get("file_properties_header", True)
+self.file_properties_null_value = details_row.get("file_properties_null_value", "")
+# Convert to int if not None and not NaN to handle float values from DataFrame
+max_rows = details_row.get("file_properties_max_rows_per_file")
+self.file_properties_max_rows_per_file = int(max_rows) if max_rows is not None and not (isinstance(max_rows, float) and math.isnan(max_rows)) else None
+# Output format
+self.output_format = details_row.get("output_format", "csv")
+# Trigger file
+self.is_trigger_file = details_row.get("is_trigger_file", False)
+self.trigger_file_extension = details_row.get("trigger_file_extension", ".done")
+# Compression
+self.is_compressed = details_row.get("is_compressed", False)
+self.compressed_type = details_row.get("compressed_type")
+self.compressed_level = details_row.get("compressed_level", "NORMAL")
+self.compressed_file_name = details_row.get("compressed_file_name")
+self.compressed_extension = details_row.get("compressed_extension", ".zip")
+# Location configuration for source and target
+# Source location (where data comes from)
+self.source_workspace_id = details_row.get("source_workspace_id")
+self.source_datastore_id = details_row.get("source_datastore_id")
+self.source_datastore_type = details_row.get("source_datastore_type", "lakehouse")
+self.source_schema_name = details_row.get("source_schema_name", "default")
+# Target location (where extract files go)
+self.target_workspace_id = details_row.get("target_workspace_id")
+self.target_datastore_id = details_row.get("target_datastore_id")
+self.target_datastore_type = details_row.get("target_datastore_type", "lakehouse")
+self.target_file_root_path = details_row.get("target_file_root_path", "Files")
+# Legacy Fabric paths (for backward compatibility)
+self.fabric_lakehouse_path = details_row.get("fabric_lakehouse_path")
+# Performance options
+# Default to True for backward compatibility - most extracts expect single file output
+self.force_single_file = details_row.get("force_single_file", True)
+def get_source_query(self) -> Tuple[str, str]:
+"""Get the Spark SQL query to extract data and the source type"""
+if self.extract_table_name:
+# For lakehouse, we don't use schema prefixes typically
+table_ref = self.extract_table_name
+if self.extract_table_schema and self.extract_table_schema != "default":
+table_ref = f"{self.extract_table_schema}.{self.extract_table_name}"
+return f"SELECT * FROM {table_ref}", "TABLE"
+elif self.extract_view_name:
+view_ref = self.extract_view_name
+if self.extract_view_schema and self.extract_view_schema != "default":
+view_ref = f"{self.extract_view_schema}.{self.extract_view_name}"
+return f"SELECT * FROM {view_ref}", "VIEW"
+else:
+raise ValueError("No source object defined for extract")
+def get_source_table_info(self) -> Tuple[str, str, str]:
+"""Get table name, schema, and type for read_table operation"""
+if self.extract_table_name:
+table_name = self.extract_table_name
+schema_name = self.extract_table_schema if self.extract_table_schema and self.extract_table_schema != "default" else None
+return table_name, schema_name, "TABLE"
+elif self.extract_view_name:
+table_name = self.extract_view_name
+schema_name = self.extract_view_schema if self.extract_view_schema and self.extract_view_schema != "default" else None
+return table_name, schema_name, "VIEW"
+else:
+raise ValueError("No source object defined for extract")
+def _convert_datetime_format(self, format_str: str) -> str:
+"""Convert Java/C# datetime format to Python strftime format"""
+if not format_str:
+return format_str
+# Common datetime format conversions
+conversions = {
+'yyyy': '%Y',
+'yy': '%y',
+'MM': '%m',
+'dd': '%d',
+'HH': '%H',
+'mm': '%M',
+'ss': '%S',
+'SSS': '%f',  # milliseconds to microseconds (will need truncation)
+}
+result = format_str
+# Replace in order of longest to shortest to avoid partial replacements
+for old, new in sorted(conversions.items(), key=lambda x: -len(x[0])):
+result = result.replace(old, new)
+return result
+def generate_file_name(self, sequence: int = 1) -> str:
+"""Generate file name based on configuration"""
+parts = []
+# Base name
+parts.append(self.extract_file_name)
+# Timestamp
+if self.extract_file_name_timestamp_format:
+# Convert Java/C# format to Python format
+python_format = self._convert_datetime_format(self.extract_file_name_timestamp_format)
+if self.extract_file_name_period_end_day:
+# Calculate period end date
+today = datetime.utcnow()
+if today.day <= self.extract_file_name_period_end_day:
+# Previous month
+period_end = today.replace(day=1) - timedelta(days=1)
+period_end = period_end.replace(day=self.extract_file_name_period_end_day)
+else:
+# Current month
+period_end = today.replace(day=self.extract_file_name_period_end_day)
+timestamp_str = period_end.strftime(python_format)
+else:
+timestamp_str = datetime.utcnow().strftime(python_format)
+parts.append(timestamp_str)
+# Sequence number for file splitting
+if sequence > 1:
+parts.append(f"part{sequence:04d}")
+# Join parts and add extension
+file_name = "_".join(parts)
+if not file_name.endswith(f".{self.extract_file_name_extension}"):
+file_name = f"{file_name}.{self.extract_file_name_extension}"
+return file_name
 # Initialize location resolver for dynamic lakehouse resolution
 from ingen_fab.python_libs.common.location_resolver import LocationResolver, LocationType
-
 # Create location resolver with default configuration
 location_resolver = LocationResolver(
-    default_workspace_id=configs.config_workspace_id,
-    default_datastore_id=configs.config_lakehouse_id,
-    default_datastore_type="lakehouse",
-    default_file_root_path="Files",
-    default_schema_name="default"
+default_workspace_id=configs.config_workspace_id,
+default_datastore_id=configs.config_lakehouse_id,
+default_datastore_type="lakehouse",
+default_file_root_path="Files",
+default_schema_name="default"
 )
-
 # Initialize lakehouse utilities for configuration tables (always use config lakehouse)
 config_lakehouse = lakehouse_utils(
-    target_workspace_id=configs.config_workspace_id,
-    target_lakehouse_id=configs.config_lakehouse_id,
-    spark=spark
+target_workspace_id=configs.config_workspace_id,
+target_lakehouse_id=configs.config_lakehouse_id,
+spark=spark
 )
-
 # For backward compatibility, keep 'lakehouse' as alias to config_lakehouse
 lakehouse = config_lakehouse
-
 # Load extract configurations from lakehouse configuration tables
 print("📋 Loading extract configurations from lakehouse tables...")
-
 # Check if configuration tables exist
 if not lakehouse.check_if_table_exists("config_extract_generation"):
-    raise ValueError("Configuration table 'config_extract_generation' not found. Please run DDL scripts first.")
-
+raise ValueError("Configuration table 'config_extract_generation' not found. Please run DDL scripts first.")
 if not lakehouse.check_if_table_exists("config_extract_generation_details"):
-    raise ValueError("Configuration table 'config_extract_generation_details' not found. Please run DDL scripts first.")
-
+raise ValueError("Configuration table 'config_extract_generation_details' not found. Please run DDL scripts first.")
 # Load configuration tables using PySpark DataFrame API
 print("Loading configuration tables using PySpark DataFrame API...")
-
 # Read the main configuration table
 config_df = lakehouse.read_table(table_name="config_extract_generation")
-
-# Read the details configuration table  
+# Read the details configuration table
 details_df = lakehouse.read_table(table_name="config_extract_generation_details")
-
 # Filter for active configurations
 active_config_df = config_df.filter(F.col("is_active") == True)
-
 # Apply execution group filter if specified
 if execution_group:
-    print(f"Filtering by execution group: {execution_group}")
-    active_config_df = active_config_df.filter(F.col("execution_group") == execution_group)
-
+print(f"Filtering by execution group: {execution_group}")
+active_config_df = active_config_df.filter(F.col("execution_group") == execution_group)
 # Join configuration and details tables on extract_name
 configs_df = active_config_df.join(
-    details_df,
-    on="extract_name",
-    how="inner"
+details_df,
+on="extract_name",
+how="inner"
 ).select(
-    # Configuration columns with 'c' prefix
-    config_df["extract_name"],
-    config_df["is_active"],
-    config_df["trigger_name"],
-    config_df["extract_pipeline_name"],
-    config_df["extract_table_name"],
-    config_df["extract_table_schema"],
-    config_df["extract_view_name"],
-    config_df["extract_view_schema"],
-    config_df["is_full_load"],
-    config_df["execution_group"],
-    # Details columns with 'd' prefix
-    details_df["file_generation_group"],
-    details_df["extract_container"],
-    details_df["extract_directory"],
-    details_df["extract_file_name"],
-    details_df["extract_file_name_timestamp_format"],
-    details_df["extract_file_name_period_end_day"],
-    details_df["extract_file_name_extension"],
-    details_df["extract_file_name_ordering"],
-    details_df["file_properties_column_delimiter"],
-    details_df["file_properties_row_delimiter"],
-    details_df["file_properties_encoding"],
-    details_df["file_properties_quote_character"],
-    details_df["file_properties_escape_character"],
-    details_df["file_properties_header"],
-    details_df["file_properties_null_value"],
-    details_df["file_properties_max_rows_per_file"],
-    details_df["output_format"],
-    details_df["is_trigger_file"],
-    details_df["trigger_file_extension"],
-    details_df["is_compressed"],
-    details_df["compressed_type"],
-    details_df["compressed_level"],
-    details_df["compressed_file_name"],
-    details_df["compressed_extension"],
-    details_df["fabric_lakehouse_path"],
-    # Location resolution fields
-    details_df["source_workspace_id"],
-    details_df["source_datastore_id"],
-    details_df["source_datastore_type"],
-    details_df["source_schema_name"],
-    details_df["target_workspace_id"],
-    details_df["target_datastore_id"],
-    details_df["target_datastore_type"],
-    details_df["target_file_root_path"],
-    details_df["force_single_file"]
+# Configuration columns with 'c' prefix
+config_df["extract_name"],
+config_df["is_active"],
+config_df["trigger_name"],
+config_df["extract_pipeline_name"],
+config_df["extract_table_name"],
+config_df["extract_table_schema"],
+config_df["extract_view_name"],
+config_df["extract_view_schema"],
+config_df["is_full_load"],
+config_df["execution_group"],
+# Details columns with 'd' prefix
+details_df["file_generation_group"],
+details_df["extract_container"],
+details_df["extract_directory"],
+details_df["extract_file_name"],
+details_df["extract_file_name_timestamp_format"],
+details_df["extract_file_name_period_end_day"],
+details_df["extract_file_name_extension"],
+details_df["extract_file_name_ordering"],
+details_df["file_properties_column_delimiter"],
+details_df["file_properties_row_delimiter"],
+details_df["file_properties_encoding"],
+details_df["file_properties_quote_character"],
+details_df["file_properties_escape_character"],
+details_df["file_properties_header"],
+details_df["file_properties_null_value"],
+details_df["file_properties_max_rows_per_file"],
+details_df["output_format"],
+details_df["is_trigger_file"],
+details_df["trigger_file_extension"],
+details_df["is_compressed"],
+details_df["compressed_type"],
+details_df["compressed_level"],
+details_df["compressed_file_name"],
+details_df["compressed_extension"],
+details_df["fabric_lakehouse_path"],
+# Location resolution fields
+details_df["source_workspace_id"],
+details_df["source_datastore_id"],
+details_df["source_datastore_type"],
+details_df["source_schema_name"],
+details_df["target_workspace_id"],
+details_df["target_datastore_id"],
+details_df["target_datastore_type"],
+details_df["target_file_root_path"],
+details_df["force_single_file"]
 ).orderBy("extract_name")
-
 print(f"Loaded extract configurations using PySpark DataFrame operations")
-
 if configs_df.count() == 0:
-    filter_msg = f" for execution group '{execution_group}'" if execution_group else ""
-    raise ValueError(f"No active extract configurations found{filter_msg}")
-
+filter_msg = f" for execution group '{execution_group}'" if execution_group else ""
+raise ValueError(f"No active extract configurations found{filter_msg}")
 # Convert to Pandas for easier processing
 configs_pandas_df = configs_df.toPandas()
-
 # Create extract configuration objects
 extract_configs = []
 for _, row in configs_pandas_df.iterrows():
-    row_dict = row.to_dict()
-    
-    # Split into config and details based on expected columns
-    config_columns = ['extract_name', 'is_active', 'trigger_name', 'extract_pipeline_name',
-                     'extract_table_name', 'extract_table_schema', 'extract_view_name', 'extract_view_schema',
-                     'is_full_load', 'execution_group']
-    
-    config_data = {col: row_dict.get(col) for col in config_columns if col in row_dict}
-    details_data = {col: val for col, val in row_dict.items() if col not in config_columns}
-    
-    config = ExtractConfiguration(config_data, details_data)
-    extract_configs.append(config)
-
+row_dict = row.to_dict()
+# Split into config and details based on expected columns
+config_columns = ['extract_name', 'is_active', 'trigger_name', 'extract_pipeline_name',
+'extract_table_name', 'extract_table_schema', 'extract_view_name', 'extract_view_schema',
+'is_full_load', 'execution_group']
+config_data = {col: row_dict.get(col) for col in config_columns if col in row_dict}
+details_data = {col: val for col, val in row_dict.items() if col not in config_columns}
+config = ExtractConfiguration(config_data, details_data)
+extract_configs.append(config)
 print(f"Found {len(extract_configs)} active extracts to process")
 for config in extract_configs:
-    table_name, schema_name, source_type = config.get_source_table_info()
-    table_display = f"{schema_name}.{table_name}" if schema_name else table_name
-    print(f"  - {config.extract_name} ({source_type}: {table_display}, {config.output_format})")
-
+table_name, schema_name, source_type = config.get_source_table_info()
+table_display = f"{schema_name}.{table_name}" if schema_name else table_name
+print(f"  - {config.extract_name} ({source_type}: {table_display}, {config.output_format})")
 {{ macros.python_cell_with_heading("## 🌐 Location Resolution Helpers") }}
-
 def create_location_config_from_extract(config: ExtractConfiguration):
-    """Create a location config object that works with location_resolver"""
-    from dataclasses import dataclass
-    
-    @dataclass
-    class ExtractLocationConfig:
-        config_id: str
-        # Source location fields
-        source_workspace_id: str = None
-        source_datastore_id: str = None  
-        source_datastore_type: str = "lakehouse"
-        source_file_root_path: str = "Files"
-        # Target location fields
-        target_workspace_id: str = None
-        target_datastore_id: str = None
-        target_datastore_type: str = "lakehouse"
-        target_schema_name: str = "default"
-        target_table_name: str = None
-        
-    return ExtractLocationConfig(
-        config_id=config.extract_name,
-        source_workspace_id=config.source_workspace_id,
-        source_datastore_id=config.source_datastore_id,
-        source_datastore_type=config.source_datastore_type,
-        source_file_root_path="Files",
-        target_workspace_id=config.target_workspace_id,
-        target_datastore_id=config.target_datastore_id,
-        target_datastore_type=config.target_datastore_type,
-        target_schema_name=config.source_schema_name or "default",
-        target_table_name=config.extract_table_name or config.extract_view_name
-    )
-
+"""Create a location config object that works with location_resolver"""
+from dataclasses import dataclass
+@dataclass
+class ExtractLocationConfig:
+config_id: str
+# Source location fields
+source_workspace_id: str = None
+source_datastore_id: str = None
+source_datastore_type: str = "lakehouse"
+source_file_root_path: str = "Files"
+# Target location fields
+target_workspace_id: str = None
+target_datastore_id: str = None
+target_datastore_type: str = "lakehouse"
+target_schema_name: str = "default"
+target_table_name: str = None
+return ExtractLocationConfig(
+config_id=config.extract_name,
+source_workspace_id=config.source_workspace_id,
+source_datastore_id=config.source_datastore_id,
+source_datastore_type=config.source_datastore_type,
+source_file_root_path="Files",
+target_workspace_id=config.target_workspace_id,
+target_datastore_id=config.target_datastore_id,
+target_datastore_type=config.target_datastore_type,
+target_schema_name=config.source_schema_name or "default",
+target_table_name=config.extract_table_name or config.extract_view_name
+)
 def get_source_lakehouse_for_config(config: ExtractConfiguration):
-    """Get the appropriate source lakehouse utils for an extract configuration"""
-    try:
-        location_config = create_location_config_from_extract(config)
-        
-        # Use location resolver to get source utils
-        source_utils = location_resolver.get_utils(
-            location_config, LocationType.SOURCE, spark=spark
-        )
-        
-        print(f"📍 Using source lakehouse: {location_config.source_datastore_id or 'default'}")
-        return source_utils
-        
-    except Exception as e:
-        print(f"⚠️ Failed to resolve source location for {config.extract_name}: {e}")
-        print(f"⚠️ Falling back to config lakehouse")
-        return config_lakehouse
-
+"""Get the appropriate source lakehouse utils for an extract configuration"""
+try:
+location_config = create_location_config_from_extract(config)
+# Use location resolver to get source utils
+source_utils = location_resolver.get_utils(
+location_config, LocationType.SOURCE, spark=spark
+)
+print(f"📍 Using source lakehouse: {location_config.source_datastore_id or 'default'}")
+return source_utils
+except Exception as e:
+print(f"⚠️ Failed to resolve source location for {config.extract_name}: {e}")
+print(f"⚠️ Falling back to config lakehouse")
+return config_lakehouse
 def get_target_lakehouse_for_config(config: ExtractConfiguration):
-    """Get the appropriate target lakehouse utils for an extract configuration"""
-    try:
-        location_config = create_location_config_from_extract(config)
-        
-        # Use location resolver to get target utils  
-        target_utils = location_resolver.get_utils(
-            location_config, LocationType.TARGET, spark=spark
-        )
-        
-        print(f"📍 Using target lakehouse: {location_config.target_datastore_id or 'default'}")
-        return target_utils
-        
-    except Exception as e:
-        print(f"⚠️ Failed to resolve target location for {config.extract_name}: {e}")
-        print(f"⚠️ Falling back to config lakehouse")
-        return config_lakehouse
-
+"""Get the appropriate target lakehouse utils for an extract configuration"""
+try:
+location_config = create_location_config_from_extract(config)
+# Use location resolver to get target utils
+target_utils = location_resolver.get_utils(
+location_config, LocationType.TARGET, spark=spark
+)
+print(f"📍 Using target lakehouse: {location_config.target_datastore_id or 'default'}")
+return target_utils
+except Exception as e:
+print(f"⚠️ Failed to resolve target location for {config.extract_name}: {e}")
+print(f"⚠️ Falling back to config lakehouse")
+return config_lakehouse
 {{ macros.python_cell_with_heading("## 💾 Helper Functions") }}
-
 def write_dataframe_to_lakehouse_file(df: pd.DataFrame, file_path: str, output_format: str, config: ExtractConfiguration) -> dict:
-    """DEPRECATED: Backwards compatibility wrapper - converts Pandas to Spark and calls optimized version.
-    
-    This function is kept for backwards compatibility but will show a performance warning.
-    New code should use write_spark_dataframe_to_lakehouse_file() directly.
-    """
-    print("⚠️  WARNING: Using deprecated Pandas conversion path. Consider upgrading to Spark-native processing.")
-    
-    # Convert Pandas DataFrame to Spark DataFrame
-    spark_df = lakehouse.spark.createDataFrame(df)
-    
-    # Call the optimized version
-    return write_spark_dataframe_to_lakehouse_file(spark_df, file_path, output_format, config)
-
+"""DEPRECATED: Backwards compatibility wrapper - converts Pandas to Spark and calls optimized version.
+This function is kept for backwards compatibility but will show a performance warning.
+New code should use write_spark_dataframe_to_lakehouse_file() directly.
+"""
+print("⚠️  WARNING: Using deprecated Pandas conversion path. Consider upgrading to Spark-native processing.")
+# Convert Pandas DataFrame to Spark DataFrame
+spark_df = lakehouse.spark.createDataFrame(df)
+# Call the optimized version
+return write_spark_dataframe_to_lakehouse_file(spark_df, file_path, output_format, config)
 def write_spark_dataframe_to_lakehouse_file(spark_df, file_path: str, output_format: str, config: ExtractConfiguration, target_lakehouse=None) -> dict:
-    """Write Spark DataFrame directly to lakehouse Files using lakehouse_utils abstraction
-    
-    This optimized version works directly with Spark DataFrames to avoid expensive conversions.
-    Args:
-        target_lakehouse: The lakehouse_utils instance to use for writing. If None, uses the global lakehouse instance.
-    """
-    
-    # No conversion needed - work directly with Spark DataFrame
-    
-    # Check if single file output is required (default to True for backward compatibility)
-    force_single_file = getattr(config, 'force_single_file', True)
-    
-    if force_single_file:
-        # Use repartition(1) instead of coalesce(1) for better performance
-        # repartition allows full parallelism during processing, only combining at the end
-        spark_df = spark_df.repartition(1)
-        print(f"📄 Using single file output (repartition to 1 partition for better performance)")
-    else:
-        # For large datasets, use optimal partitioning
-        # Calculate optimal partition count based on data size (aim for ~128MB per partition)
-        row_count = spark_df.count()
-        if row_count > 1000000:
-            # For very large datasets, use more partitions
-            optimal_partitions = max(1, row_count // 500000)  # ~500k rows per partition
-            spark_df = spark_df.repartition(optimal_partitions)
-            print(f"📁 Using optimized partitioning ({optimal_partitions} partitions for {row_count:,} rows)")
-        else:
-            print(f"📁 Using default partitioning for better performance")
-    
-    # Prepare write options based on configuration
-    options = {
-        "mode": "overwrite"
-    }
-    
-    # Add compression options if configured
-    if config.is_compressed:
-        if config.compressed_type == "GZIP":
-            if output_format.lower() in ["csv", "tsv", "json", "text"]:
-                options["compression"] = "gzip"
-            elif output_format.lower() == "parquet":
-                options["compression"] = "gzip"
-        elif config.compressed_type == "SNAPPY":
-            if output_format.lower() == "parquet":
-                options["compression"] = "snappy"
-        elif config.compressed_type == "LZ4":
-            if output_format.lower() == "parquet":
-                options["compression"] = "lz4"
-        elif config.compressed_type == "BROTLI":
-            if output_format.lower() == "parquet":
-                options["compression"] = "brotli"
-    
-    if output_format.lower() == "csv":
-        options.update({
-            "header": str(config.file_properties_header).lower(),
-            "delimiter": config.file_properties_column_delimiter,
-            "encoding": config.file_properties_encoding,
-            "quote": config.file_properties_quote_character,
-            "escape": config.file_properties_escape_character,
-            "nullValue": config.file_properties_null_value
-        })
-    elif output_format.lower() == "parquet":
-        # Parquet has built-in compression support
-        if not config.is_compressed:
-            options["compression"] = "snappy"  # Default for Parquet
-    elif output_format.lower() == "tsv":
-        options.update({
-            "header": str(config.file_properties_header).lower(),
-            "delimiter": "\t",
-            "encoding": config.file_properties_encoding,
-            "quote": config.file_properties_quote_character,
-            "escape": config.file_properties_escape_character,
-            "nullValue": config.file_properties_null_value
-        })
-    elif output_format.lower() == "dat":
-        # DAT format - typically uses pipe delimiter by default but can be customized
-        delimiter = config.file_properties_column_delimiter if config.file_properties_column_delimiter else '|'
-        options.update({
-            "header": str(config.file_properties_header).lower(),
-            "delimiter": delimiter,
-            "encoding": config.file_properties_encoding,
-            "quote": config.file_properties_quote_character,
-            "escape": config.file_properties_escape_character,
-            "nullValue": config.file_properties_null_value
-        })
-    
-    # Map custom formats to Spark-supported formats
-    spark_format = output_format.lower()
-    if spark_format in ["tsv", "dat"]:
-        spark_format = "csv"  # Both TSV and DAT are CSV with different delimiters
-    
-    # Use the target lakehouse instance for writing
-    lakehouse_instance = target_lakehouse or lakehouse
-    
-    # Use lakehouse_utils to write the file
-    try:
-        # Note: Spark will create a directory with the file_path name containing part files
-        # With coalesce(1), there will be only one part file (e.g., part-00000-xxx.csv)
-        # This is standard Spark behavior and expected for lakehouse environments
-        lakehouse_instance.write_file(
-            df=spark_df,
-            file_path=file_path,
-            file_format=spark_format,
-            options=options
-        )
-        
-        # Return metadata about the written file
-        # Note: We avoid calling spark_df.count() again to prevent performance impact
-        return {
-            "file_path": file_path,
-            "rows": -1,  # Row count not available without performance cost
-            "format": output_format,
-            "success": True,
-            "compressed": config.is_compressed,
-            "compression_type": config.compressed_type if config.is_compressed else None,
-            "note": "Optimized Spark write without Pandas conversion"
-        }
-    except Exception as e:
-        print(f"❌ Error writing file {file_path}: {str(e)}")
-        return {
-            "file_path": file_path,
-            "rows": -1,  # Row count not available
-            "format": output_format,
-            "success": False,
-            "error": str(e),
-            "note": "Failed during optimized Spark write"
-        }
-
+"""Write Spark DataFrame directly to lakehouse Files using lakehouse_utils abstraction
+This optimized version works directly with Spark DataFrames to avoid expensive conversions.
+Args:
+target_lakehouse: The lakehouse_utils instance to use for writing. If None, uses the global lakehouse instance.
+"""
+# No conversion needed - work directly with Spark DataFrame
+# Check if single file output is required (default to True for backward compatibility)
+force_single_file = getattr(config, 'force_single_file', True)
+if force_single_file:
+# Use repartition(1) instead of coalesce(1) for better performance
+# repartition allows full parallelism during processing, only combining at the end
+spark_df = spark_df.repartition(1)
+print(f"📄 Using single file output (repartition to 1 partition for better performance)")
+else:
+# For large datasets, use optimal partitioning
+# Calculate optimal partition count based on data size (aim for ~128MB per partition)
+row_count = spark_df.count()
+if row_count > 1000000:
+# For very large datasets, use more partitions
+optimal_partitions = max(1, row_count // 500000)  # ~500k rows per partition
+spark_df = spark_df.repartition(optimal_partitions)
+print(f"📁 Using optimized partitioning ({optimal_partitions} partitions for {row_count:,} rows)")
+else:
+print(f"📁 Using default partitioning for better performance")
+# Prepare write options based on configuration
+options = {
+"mode": "overwrite"
+}
+# Add compression options if configured
+if config.is_compressed:
+if config.compressed_type == "GZIP":
+if output_format.lower() in ["csv", "tsv", "json", "text"]:
+options["compression"] = "gzip"
+elif output_format.lower() == "parquet":
+options["compression"] = "gzip"
+elif config.compressed_type == "SNAPPY":
+if output_format.lower() == "parquet":
+options["compression"] = "snappy"
+elif config.compressed_type == "LZ4":
+if output_format.lower() == "parquet":
+options["compression"] = "lz4"
+elif config.compressed_type == "BROTLI":
+if output_format.lower() == "parquet":
+options["compression"] = "brotli"
+if output_format.lower() == "csv":
+options.update({
+"header": str(config.file_properties_header).lower(),
+"delimiter": config.file_properties_column_delimiter,
+"encoding": config.file_properties_encoding,
+"quote": config.file_properties_quote_character,
+"escape": config.file_properties_escape_character,
+"nullValue": config.file_properties_null_value
+})
+elif output_format.lower() == "parquet":
+# Parquet has built-in compression support
+if not config.is_compressed:
+options["compression"] = "snappy"  # Default for Parquet
+elif output_format.lower() == "tsv":
+options.update({
+"header": str(config.file_properties_header).lower(),
+"delimiter": "\t",
+"encoding": config.file_properties_encoding,
+"quote": config.file_properties_quote_character,
+"escape": config.file_properties_escape_character,
+"nullValue": config.file_properties_null_value
+})
+elif output_format.lower() == "dat":
+# DAT format - typically uses pipe delimiter by default but can be customized
+delimiter = config.file_properties_column_delimiter if config.file_properties_column_delimiter else '|'
+options.update({
+"header": str(config.file_properties_header).lower(),
+"delimiter": delimiter,
+"encoding": config.file_properties_encoding,
+"quote": config.file_properties_quote_character,
+"escape": config.file_properties_escape_character,
+"nullValue": config.file_properties_null_value
+})
+# Map custom formats to Spark-supported formats
+spark_format = output_format.lower()
+if spark_format in ["tsv", "dat"]:
+spark_format = "csv"  # Both TSV and DAT are CSV with different delimiters
+# Use the target lakehouse instance for writing
+lakehouse_instance = target_lakehouse or lakehouse
+# Use lakehouse_utils to write the file
+try:
+# Note: Spark will create a directory with the file_path name containing part files
+# With coalesce(1), there will be only one part file (e.g., part-00000-xxx.csv)
+# This is standard Spark behavior and expected for lakehouse environments
+lakehouse_instance.write_file(
+df=spark_df,
+file_path=file_path,
+file_format=spark_format,
+options=options
+)
+# Return metadata about the written file
+# Note: We avoid calling spark_df.count() again to prevent performance impact
+return {
+"file_path": file_path,
+"rows": -1,  # Row count not available without performance cost
+"format": output_format,
+"success": True,
+"compressed": config.is_compressed,
+"compression_type": config.compressed_type if config.is_compressed else None,
+"note": "Optimized Spark write without Pandas conversion"
+}
+except Exception as e:
+print(f"❌ Error writing file {file_path}: {str(e)}")
+return {
+"file_path": file_path,
+"rows": -1,  # Row count not available
+"format": output_format,
+"success": False,
+"error": str(e),
+"note": "Failed during optimized Spark write"
+}
 def create_trigger_file(file_path: str, target_lakehouse=None) -> bool:
-    """Create a trigger file using lakehouse_utils"""
-    lakehouse_instance = target_lakehouse or lakehouse
-    try:
-        # Create an empty DataFrame for the trigger file
-        empty_df = lakehouse_instance.spark.createDataFrame([], "dummy STRING")
-        
-        # Write empty file as trigger
-        lakehouse_instance.write_file(
-            df=empty_df,
-            file_path=file_path,
-            file_format="text",
-            options={"mode": "overwrite"}
-        )
-        return True
-    except Exception as e:
-        print(f"❌ Error creating trigger file {file_path}: {str(e)}")
-        return False
-
+"""Create a trigger file using lakehouse_utils"""
+lakehouse_instance = target_lakehouse or lakehouse
+try:
+# Create an empty DataFrame for the trigger file
+empty_df = lakehouse_instance.spark.createDataFrame([], "dummy STRING")
+# Write empty file as trigger
+lakehouse_instance.write_file(
+df=empty_df,
+file_path=file_path,
+file_format="text",
+options={"mode": "overwrite"}
+)
+return True
+except Exception as e:
+print(f"❌ Error creating trigger file {file_path}: {str(e)}")
+return False
 {{ macros.python_cell_with_heading("## 📊 Performance Metrics Helper") }}
-
 import psutil
 import os
-
 def get_memory_usage_mb():
-    """Get current memory usage in MB"""
-    process = psutil.Process(os.getpid())
-    return round(process.memory_info().rss / 1024 / 1024, 2)
-
+"""Get current memory usage in MB"""
+process = psutil.Process(os.getpid())
+return round(process.memory_info().rss / 1024 / 1024, 2)
 def calculate_performance_metrics(start_time, end_time, total_rows, files_generated):
-    """Calculate performance metrics for an extract"""
-    duration_seconds = (end_time - start_time).total_seconds()
-    
-    metrics = {
-        "duration_seconds": round(duration_seconds, 3),
-        "duration_formatted": f"{duration_seconds:.3f}s",
-        "total_rows": total_rows,
-        "files_generated": len(files_generated),
-        "total_file_rows": sum(f.get("rows", 0) for f in files_generated if f.get("rows", 0) > 0),
-        "throughput_rows_per_second": 0,
-        "throughput_formatted": "0 rows/s"
-    }
-    
-    # Calculate throughput
-    if duration_seconds > 0 and total_rows > 0:
-        throughput = total_rows / duration_seconds
-        metrics["throughput_rows_per_second"] = round(throughput, 0)
-        
-        # Format throughput for readability
-        if throughput >= 1000000:
-            metrics["throughput_formatted"] = f"{throughput/1000000:.2f}M rows/s"
-        elif throughput >= 1000:
-            metrics["throughput_formatted"] = f"{throughput/1000:.1f}k rows/s"
-        else:
-            metrics["throughput_formatted"] = f"{throughput:.0f} rows/s"
-    
-    return metrics
-
+"""Calculate performance metrics for an extract"""
+duration_seconds = (end_time - start_time).total_seconds()
+metrics = {
+"duration_seconds": round(duration_seconds, 3),
+"duration_formatted": f"{duration_seconds:.3f}s",
+"total_rows": total_rows,
+"files_generated": len(files_generated),
+"total_file_rows": sum(f.get("rows", 0) for f in files_generated if f.get("rows", 0) > 0),
+"throughput_rows_per_second": 0,
+"throughput_formatted": "0 rows/s"
+}
+# Calculate throughput
+if duration_seconds > 0 and total_rows > 0:
+throughput = total_rows / duration_seconds
+metrics["throughput_rows_per_second"] = round(throughput, 0)
+# Format throughput for readability
+if throughput >= 1000000:
+metrics["throughput_formatted"] = f"{throughput/1000000:.2f}M rows/s"
+elif throughput >= 1000:
+metrics["throughput_formatted"] = f"{throughput/1000:.1f}k rows/s"
+else:
+metrics["throughput_formatted"] = f"{throughput:.0f} rows/s"
+return metrics
 def print_performance_summary(extract_name, metrics, memory_before, memory_after):
-    """Print a formatted performance summary"""
-    print(f"\n📊 PERFORMANCE METRICS - {extract_name}")
-    print(f"    ⏱️  Duration: {metrics['duration_formatted']}")
-    print(f"    📈 Throughput: {metrics['throughput_formatted']}")
-    print(f"    📝 Rows Processed: {metrics['total_rows']:,}")
-    print(f"    📁 Files Generated: {metrics['files_generated']}")
-    if memory_before and memory_after:
-        memory_delta = memory_after - memory_before
-        memory_indicator = "📈" if memory_delta > 0 else "📉" if memory_delta < 0 else "📊"
-        print(f"    {memory_indicator} Memory: {memory_before:.1f}MB → {memory_after:.1f}MB (Δ {memory_delta:+.1f}MB)")
-
+"""Print a formatted performance summary"""
+print(f"\n📊 PERFORMANCE METRICS - {extract_name}")
+print(f"    ⏱️  Duration: {metrics['duration_formatted']}")
+print(f"    📈 Throughput: {metrics['throughput_formatted']}")
+print(f"    📝 Rows Processed: {metrics['total_rows']:,}")
+print(f"    📁 Files Generated: {metrics['files_generated']}")
+if memory_before and memory_after:
+memory_delta = memory_after - memory_before
+memory_indicator = "📈" if memory_delta > 0 else "📉" if memory_delta < 0 else "📊"
+print(f"    {memory_indicator} Memory: {memory_before:.1f}MB → {memory_after:.1f}MB (Δ {memory_delta:+.1f}MB)")
 {{ macros.python_cell_with_heading("## 🔍 Process All Active Extracts") }}
-
 def log_extract_run(extract_config, status: str, extract_start_time, error_message: str = None, **kwargs):
-    """Log extract run (simplified for lakehouse - just print)"""
-    log_data = {
-        "extract_name": extract_config.extract_name,
-        "execution_group": extract_config.execution_group,
-        "run_id": run_id,
-        "run_timestamp": datetime.utcnow(),
-        "run_status": status,
-        "run_type": run_type,
-        "start_time": extract_start_time,
-        "end_time": datetime.utcnow(),
-        "duration_seconds": int((datetime.utcnow() - extract_start_time).total_seconds()),
-        "error_message": error_message,
-        "workspace_id": configs.config_workspace_id,
-        "lakehouse_id": configs.config_lakehouse_id,
-        "created_by": "extract_generation_lakehouse_notebook"
-    }
-    
-    # Add optional fields
-    log_data.update(kwargs)
-    
-    # For lakehouse, just print the log data
-    print(f"📝 LOG: {extract_config.extract_name} - {status}")
-    if error_message:
-        print(f"    Error: {error_message}")
-    if kwargs:
-        print(f"    Details: {kwargs}")
-
+"""Log extract run (simplified for lakehouse - just print)"""
+log_data = {
+"extract_name": extract_config.extract_name,
+"execution_group": extract_config.execution_group,
+"run_id": run_id,
+"run_timestamp": datetime.utcnow(),
+"run_status": status,
+"run_type": run_type,
+"start_time": extract_start_time,
+"end_time": datetime.utcnow(),
+"duration_seconds": int((datetime.utcnow() - extract_start_time).total_seconds()),
+"error_message": error_message,
+"workspace_id": configs.config_workspace_id,
+"lakehouse_id": configs.config_lakehouse_id,
+"created_by": "extract_generation_lakehouse_notebook"
+}
+# Add optional fields
+log_data.update(kwargs)
+# For lakehouse, just print the log data
+print(f"📝 LOG: {extract_config.extract_name} - {status}")
+if error_message:
+print(f"    Error: {error_message}")
+if kwargs:
+print(f"    Details: {kwargs}")
 # Thread-safe counter for tracking progress
 extract_counter_lock = threading.Lock()
 processed_count = 0
-
 def process_single_extract(config: ExtractConfiguration, extract_index: int, total_extracts: int):
-    """Process a single extract configuration - designed to be run in parallel"""
-    global processed_count
-    
-    extract_start_time = datetime.utcnow()
-    memory_before = get_memory_usage_mb()
-    thread_id = threading.current_thread().name
-    
-    # Thread-safe progress update
-    with extract_counter_lock:
-        processed_count += 1
-        current_count = processed_count
-    
-    print(f"\n{'='*60}")
-    print(f"[{thread_id}] Processing Extract {current_count}/{total_extracts}: {config.extract_name}")
-    print(f"{'='*60}")
-    
-    table_info = config.get_source_table_info()
-    table_display = f"{table_info[1]}.{table_info[0]}" if table_info[1] else table_info[0]
-    print(f"[{thread_id}] Source: {table_info[2]} - {table_display}")
-    print(f"[{thread_id}] Output: {config.output_format} | Compression: {'Yes' if config.is_compressed else 'No'}")
-    print(f"[{thread_id}] 💾 Initial Memory Usage: {memory_before:.1f}MB")
-    
-    result = {
-        "extract_name": config.extract_name,
-        "success": False,
-        "error": None,
-        "metrics": None
-    }
-    
-    try:
-        # Get source table information
-        table_name, schema_name, source_type = config.get_source_table_info()
-        
-        # Resolve source and target lakehouses for this extract
-        source_lakehouse = get_source_lakehouse_for_config(config)
-        target_lakehouse = get_target_lakehouse_for_config(config)
-        
-        # Read table using resolved source lakehouse
-        print(f"[{thread_id}] Reading table using source lakehouse: {table_name} (schema: {schema_name or 'default'})")
-        spark_df = source_lakehouse.read_table(table_name=table_name, schema_name=schema_name)
-        
-        # Get row count from PySpark DataFrame
-        total_rows = spark_df.count()
-        print(f"[{thread_id}] Retrieved {total_rows:,} rows from source")
-        
-        # PERFORMANCE OPTIMIZATION: Work directly with Spark DataFrame
-        print(f"[{thread_id}] ⚡ Using optimized Spark-native processing (no Pandas conversion)")
-        
-        # Log initial status
-        log_extract_run(
-            config, "IN_PROGRESS", extract_start_time,
-            source_type=source_type,
-            source_object=table_name,
-            source_schema=schema_name or "default",
-            rows_extracted=total_rows
-        )
-        
-        # Generate extract files for this extract using lakehouse_utils
-        files_generated = []
-        total_rows_written = 0
-        
-        # Show compression status
-        if config.is_compressed:
-            print(f"[{thread_id}] 🗜️ Compression enabled: {config.compressed_type} ({config.compressed_level})")
-        else:
-            print(f"[{thread_id}] 📄 No compression specified")
-        
-        # Check if we need to split files
-        max_rows = config.file_properties_max_rows_per_file
-        
-        if max_rows and total_rows > max_rows:
-            # Split into multiple files using Spark-native operations
-            num_files = (total_rows + max_rows - 1) // max_rows
-            print(f"[{thread_id}] Splitting into {num_files} files ({max_rows:,} rows each) using optimized Spark operations")
-            
-            # Add row numbers for splitting
-            from pyspark.sql.window import Window
-            window = Window.orderBy(spark_df.columns[0])  # Use first column for ordering
-            indexed_df = spark_df.withColumn("_row_num", F.row_number().over(window))
-            
-            for i in range(num_files):
-                start_row = i * max_rows + 1
-                end_row = min((i + 1) * max_rows, total_rows)
-                
-                # Filter chunk using Spark operations
-                df_chunk = indexed_df.filter(
-                    (F.col("_row_num") >= start_row) & (F.col("_row_num") <= end_row)
-                ).drop("_row_num")
-                
-                chunk_rows = end_row - start_row + 1
-                
-                # Generate file name
-                file_name = config.generate_file_name(sequence=i+1)
-                
-                # Build full file path for lakehouse Files
-                file_path = f"{config.extract_container}/{config.extract_directory}/{file_name}".replace("//", "/")
-                
-                compression_info = f" ({config.compressed_type})" if config.is_compressed else ""
-                print(f"[{thread_id}] 📄 Writing file chunk {i+1}/{num_files}: {file_path}{compression_info} ({chunk_rows:,} rows)")
-                
-                # Write using optimized lakehouse_utils abstraction
-                write_result = write_spark_dataframe_to_lakehouse_file(
-                    spark_df=df_chunk,
-                    file_path=file_path,
-                    output_format=config.output_format,
-                    config=config,
-                    target_lakehouse=target_lakehouse
-                )
-                
-                if write_result["success"]:
-                    files_generated.append({
-                        "file_name": file_name,
-                        "file_path": file_path,
-                        "file_size": 0,  # Size not available with lakehouse_utils
-                        "rows": chunk_rows,
-                        "compressed": write_result.get("compressed", False),
-                        "compression_type": write_result.get("compression_type")
-                    })
-                else:
-                    print(f"[{thread_id}] ❌ Failed to write file chunk {i+1}: {write_result.get('error', 'Unknown error')}")
-                
-                total_rows_written += chunk_rows
-        else:
-            # Single file
-            file_name = config.generate_file_name()
-            
-            # Build full file path for lakehouse Files
-            file_path = f"{config.extract_container}/{config.extract_directory}/{file_name}".replace("//", "/")
-            
-            compression_info = f" ({config.compressed_type})" if config.is_compressed else ""
-            print(f"[{thread_id}] 📄 Writing single file: {file_path}{compression_info}")
-            
-            # Write using optimized lakehouse_utils abstraction
-            write_result = write_spark_dataframe_to_lakehouse_file(
-                spark_df=spark_df,
-                file_path=file_path,
-                output_format=config.output_format,
-                config=config,
-                target_lakehouse=target_lakehouse
-            )
-            
-            if write_result["success"]:
-                files_generated.append({
-                    "file_name": file_name,
-                    "file_path": file_path,
-                    "file_size": 0,  # Size not available with lakehouse_utils
-                    "rows": total_rows,
-                    "compressed": write_result.get("compressed", False),
-                    "compression_type": write_result.get("compression_type")
-                })
-                total_rows_written = total_rows
-            else:
-                print(f"[{thread_id}] ❌ Failed to write file: {write_result.get('error', 'Unknown error')}")
-        
-        # Generate trigger file if configured
-        if config.is_trigger_file:
-            trigger_file_name = f"{config.extract_file_name}{config.trigger_file_extension}"
-            trigger_file_path = f"{config.extract_container}/{config.extract_directory}/{trigger_file_name}".replace("//", "/")
-            
-            print(f"[{thread_id}] 🎯 Creating trigger file: {trigger_file_path}")
-            trigger_success = create_trigger_file(trigger_file_path, target_lakehouse)
-            if not trigger_success:
-                print(f"[{thread_id}] ⚠️  Warning: Failed to create trigger file {trigger_file_path}")
-        
-        # Calculate and display performance metrics
-        extract_end_time = datetime.utcnow()
-        memory_after = get_memory_usage_mb()
-        
-        performance_metrics = calculate_performance_metrics(
-            extract_start_time, extract_end_time, total_rows_written, files_generated
-        )
-        
-        print(f"\n[{thread_id}] Extract: {config.extract_name}")
-        print_performance_summary(config.extract_name, performance_metrics, memory_before, memory_after)
-        
-        # Log successful completion with performance metrics
-        log_extract_run(
-            config, "SUCCESS", extract_start_time,
-            source_type=source_type,
-            source_object=table_name,
-            source_schema=schema_name or "default",
-            rows_extracted=total_rows,
-            rows_written=total_rows_written,
-            files_generated=len(files_generated),
-            output_format=config.output_format,
-            output_file_path=files_generated[0]["file_path"] if files_generated else None,
-            output_file_name=files_generated[0]["file_name"] if files_generated else None,
-            output_file_size_bytes=sum(f["file_size"] for f in files_generated),
-            is_compressed=config.is_compressed,
-            compression_type=config.compressed_type if config.is_compressed else None,
-            trigger_file_created=config.is_trigger_file,
-            trigger_file_path=trigger_file_path if config.is_trigger_file else None,
-            # Performance metrics
-            duration_seconds=performance_metrics["duration_seconds"],
-            throughput_rows_per_second=performance_metrics["throughput_rows_per_second"],
-            memory_usage_mb_before=memory_before,
-            memory_usage_mb_after=memory_after
-        )
-        
-        print(f"[{thread_id}] ✅ Extract {config.extract_name} completed successfully!")
-        print(f"[{thread_id}]    Files: {len(files_generated)} | Rows: {total_rows_written:,} | Duration: {performance_metrics['duration_formatted']} | Throughput: {performance_metrics['throughput_formatted']}")
-        
-        result["success"] = True
-        result["metrics"] = performance_metrics
-        
-    except Exception as e:
-        # Enhanced error reporting with line numbers and stack trace
-        import traceback
-        import sys
-        
-        # Get the current frame info for line number
-        exc_type, exc_value, exc_traceback = sys.exc_info()
-        
-        # Format the full traceback
-        full_traceback = ''.join(traceback.format_exception(exc_type, exc_value, exc_traceback))
-        
-        # Get the line number where the error occurred
-        if exc_traceback:
-            line_number = exc_traceback.tb_lineno
-            filename = exc_traceback.tb_frame.f_code.co_filename
-        else:
-            line_number = "Unknown"
-            filename = "Unknown"
-        
-        error_msg = f"Error extracting data from {config.extract_name}: {str(e)}"
-        detailed_error = f"""
+"""Process a single extract configuration - designed to be run in parallel"""
+global processed_count
+extract_start_time = datetime.utcnow()
+memory_before = get_memory_usage_mb()
+thread_id = threading.current_thread().name
+# Thread-safe progress update
+with extract_counter_lock:
+processed_count += 1
+current_count = processed_count
+print(f"\n{'='*60}")
+print(f"[{thread_id}] Processing Extract {current_count}/{total_extracts}: {config.extract_name}")
+print(f"{'='*60}")
+table_info = config.get_source_table_info()
+table_display = f"{table_info[1]}.{table_info[0]}" if table_info[1] else table_info[0]
+print(f"[{thread_id}] Source: {table_info[2]} - {table_display}")
+print(f"[{thread_id}] Output: {config.output_format} | Compression: {'Yes' if config.is_compressed else 'No'}")
+print(f"[{thread_id}] 💾 Initial Memory Usage: {memory_before:.1f}MB")
+result = {
+"extract_name": config.extract_name,
+"success": False,
+"error": None,
+"metrics": None
+}
+try:
+# Get source table information
+table_name, schema_name, source_type = config.get_source_table_info()
+# Resolve source and target lakehouses for this extract
+source_lakehouse = get_source_lakehouse_for_config(config)
+target_lakehouse = get_target_lakehouse_for_config(config)
+# Read table using resolved source lakehouse
+print(f"[{thread_id}] Reading table using source lakehouse: {table_name} (schema: {schema_name or 'default'})")
+spark_df = source_lakehouse.read_table(table_name=table_name, schema_name=schema_name)
+# Get row count from PySpark DataFrame
+total_rows = spark_df.count()
+print(f"[{thread_id}] Retrieved {total_rows:,} rows from source")
+# PERFORMANCE OPTIMIZATION: Work directly with Spark DataFrame
+print(f"[{thread_id}] ⚡ Using optimized Spark-native processing (no Pandas conversion)")
+# Log initial status
+log_extract_run(
+config, "IN_PROGRESS", extract_start_time,
+source_type=source_type,
+source_object=table_name,
+source_schema=schema_name or "default",
+rows_extracted=total_rows
+)
+# Generate extract files for this extract using lakehouse_utils
+files_generated = []
+total_rows_written = 0
+# Show compression status
+if config.is_compressed:
+print(f"[{thread_id}] 🗜️ Compression enabled: {config.compressed_type} ({config.compressed_level})")
+else:
+print(f"[{thread_id}] 📄 No compression specified")
+# Check if we need to split files
+max_rows = config.file_properties_max_rows_per_file
+if max_rows and total_rows > max_rows:
+# Split into multiple files using Spark-native operations
+num_files = (total_rows + max_rows - 1) // max_rows
+print(f"[{thread_id}] Splitting into {num_files} files ({max_rows:,} rows each) using optimized Spark operations")
+# Add row numbers for splitting
+from pyspark.sql.window import Window
+window = Window.orderBy(spark_df.columns[0])  # Use first column for ordering
+indexed_df = spark_df.withColumn("_row_num", F.row_number().over(window))
+for i in range(num_files):
+start_row = i * max_rows + 1
+end_row = min((i + 1) * max_rows, total_rows)
+# Filter chunk using Spark operations
+df_chunk = indexed_df.filter(
+(F.col("_row_num") >= start_row) & (F.col("_row_num") <= end_row)
+).drop("_row_num")
+chunk_rows = end_row - start_row + 1
+# Generate file name
+file_name = config.generate_file_name(sequence=i+1)
+# Build full file path for lakehouse Files
+file_path = f"{config.extract_container}/{config.extract_directory}/{file_name}".replace("//", "/")
+compression_info = f" ({config.compressed_type})" if config.is_compressed else ""
+print(f"[{thread_id}] 📄 Writing file chunk {i+1}/{num_files}: {file_path}{compression_info} ({chunk_rows:,} rows)")
+# Write using optimized lakehouse_utils abstraction
+write_result = write_spark_dataframe_to_lakehouse_file(
+spark_df=df_chunk,
+file_path=file_path,
+output_format=config.output_format,
+config=config,
+target_lakehouse=target_lakehouse
+)
+if write_result["success"]:
+files_generated.append({
+"file_name": file_name,
+"file_path": file_path,
+"file_size": 0,  # Size not available with lakehouse_utils
+"rows": chunk_rows,
+"compressed": write_result.get("compressed", False),
+"compression_type": write_result.get("compression_type")
+})
+else:
+print(f"[{thread_id}] ❌ Failed to write file chunk {i+1}: {write_result.get('error', 'Unknown error')}")
+total_rows_written += chunk_rows
+else:
+# Single file
+file_name = config.generate_file_name()
+# Build full file path for lakehouse Files
+file_path = f"{config.extract_container}/{config.extract_directory}/{file_name}".replace("//", "/")
+compression_info = f" ({config.compressed_type})" if config.is_compressed else ""
+print(f"[{thread_id}] 📄 Writing single file: {file_path}{compression_info}")
+# Write using optimized lakehouse_utils abstraction
+write_result = write_spark_dataframe_to_lakehouse_file(
+spark_df=spark_df,
+file_path=file_path,
+output_format=config.output_format,
+config=config,
+target_lakehouse=target_lakehouse
+)
+if write_result["success"]:
+files_generated.append({
+"file_name": file_name,
+"file_path": file_path,
+"file_size": 0,  # Size not available with lakehouse_utils
+"rows": total_rows,
+"compressed": write_result.get("compressed", False),
+"compression_type": write_result.get("compression_type")
+})
+total_rows_written = total_rows
+else:
+print(f"[{thread_id}] ❌ Failed to write file: {write_result.get('error', 'Unknown error')}")
+# Generate trigger file if configured
+if config.is_trigger_file:
+trigger_file_name = f"{config.extract_file_name}{config.trigger_file_extension}"
+trigger_file_path = f"{config.extract_container}/{config.extract_directory}/{trigger_file_name}".replace("//", "/")
+print(f"[{thread_id}] 🎯 Creating trigger file: {trigger_file_path}")
+trigger_success = create_trigger_file(trigger_file_path, target_lakehouse)
+if not trigger_success:
+print(f"[{thread_id}] ⚠️  Warning: Failed to create trigger file {trigger_file_path}")
+# Calculate and display performance metrics
+extract_end_time = datetime.utcnow()
+memory_after = get_memory_usage_mb()
+performance_metrics = calculate_performance_metrics(
+extract_start_time, extract_end_time, total_rows_written, files_generated
+)
+print(f"\n[{thread_id}] Extract: {config.extract_name}")
+print_performance_summary(config.extract_name, performance_metrics, memory_before, memory_after)
+# Log successful completion with performance metrics
+log_extract_run(
+config, "SUCCESS", extract_start_time,
+source_type=source_type,
+source_object=table_name,
+source_schema=schema_name or "default",
+rows_extracted=total_rows,
+rows_written=total_rows_written,
+files_generated=len(files_generated),
+output_format=config.output_format,
+output_file_path=files_generated[0]["file_path"] if files_generated else None,
+output_file_name=files_generated[0]["file_name"] if files_generated else None,
+output_file_size_bytes=sum(f["file_size"] for f in files_generated),
+is_compressed=config.is_compressed,
+compression_type=config.compressed_type if config.is_compressed else None,
+trigger_file_created=config.is_trigger_file,
+trigger_file_path=trigger_file_path if config.is_trigger_file else None,
+# Performance metrics
+duration_seconds=performance_metrics["duration_seconds"],
+throughput_rows_per_second=performance_metrics["throughput_rows_per_second"],
+memory_usage_mb_before=memory_before,
+memory_usage_mb_after=memory_after
+)
+print(f"[{thread_id}] ✅ Extract {config.extract_name} completed successfully!")
+print(f"[{thread_id}]    Files: {len(files_generated)} | Rows: {total_rows_written:,} | Duration: {performance_metrics['duration_formatted']} | Throughput: {performance_metrics['throughput_formatted']}")
+result["success"] = True
+result["metrics"] = performance_metrics
+except Exception as e:
+# Enhanced error reporting with line numbers and stack trace
+import traceback
+import sys
+# Get the current frame info for line number
+exc_type, exc_value, exc_traceback = sys.exc_info()
+# Format the full traceback
+full_traceback = ''.join(traceback.format_exception(exc_type, exc_value, exc_traceback))
+# Get the line number where the error occurred
+if exc_traceback:
+line_number = exc_traceback.tb_lineno
+filename = exc_traceback.tb_frame.f_code.co_filename
+else:
+line_number = "Unknown"
+filename = "Unknown"
+error_msg = f"Error extracting data from {config.extract_name}: {str(e)}"
+detailed_error = f"""
 [{thread_id}] ❌ EXTRACT GENERATION ERROR DETAILS (LAKEHOUSE):
-   Extract Name: {config.extract_name}
-   Error Type: {type(e).__name__}
-   Error Message: {str(e)}
-   File: {filename}
-   Line Number: {line_number}
-   
+Extract Name: {config.extract_name}
+Error Type: {type(e).__name__}
+Error Message: {str(e)}
+File: {filename}
+Line Number: {line_number}
 📋 Full Traceback:
 {full_traceback}
-        """
-        
-        print(detailed_error)
-        log_extract_run(config, "FAILED", extract_start_time, error_message=f"{str(e)} (Line: {line_number})")
-        
-        result["error"] = str(e)
-    
-    return result
-
+"""
+print(detailed_error)
+log_extract_run(config, "FAILED", extract_start_time, error_message=f"{str(e)} (Line: {line_number})")
+result["error"] = str(e)
+return result
 # Process each extract configuration
 total_extracts = len(extract_configs)
 successful_extracts = 0
 failed_extracts = 0
-
 # Validate and set parallelism level
 if max_parallel_extracts < 1:
-    max_parallel_extracts = 1
-    print(f"⚠️ Invalid max_parallel_extracts value. Setting to 1 (serial processing)")
+max_parallel_extracts = 1
+print(f"⚠️ Invalid max_parallel_extracts value. Setting to 1 (serial processing)")
 elif max_parallel_extracts > total_extracts:
-    max_parallel_extracts = total_extracts
-    print(f"ℹ️ Adjusting max_parallel_extracts to {total_extracts} (number of extracts)")
-
+max_parallel_extracts = total_extracts
+print(f"ℹ️ Adjusting max_parallel_extracts to {total_extracts} (number of extracts)")
 # Display processing mode
 if max_parallel_extracts == 1:
-    print(f"\n🚀 Starting SERIAL extract processing for {total_extracts} extracts...")
+print(f"\n🚀 Starting SERIAL extract processing for {total_extracts} extracts...")
 else:
-    print(f"\n🚀 Starting PARALLEL extract processing for {total_extracts} extracts...")
-    print(f"⚡ Max parallel threads: {max_parallel_extracts}")
-
+print(f"\n🚀 Starting PARALLEL extract processing for {total_extracts} extracts...")
+print(f"⚡ Max parallel threads: {max_parallel_extracts}")
 # Reset the global counter for progress tracking
 processed_count = 0
-
 # Process extracts based on parallelism setting
 if max_parallel_extracts == 1:
-    # Serial processing (original behavior)
-    for extract_index, config in enumerate(extract_configs, 1):
-        result = process_single_extract(config, extract_index, total_extracts)
-        if result["success"]:
-            successful_extracts += 1
-        else:
-            failed_extracts += 1
+# Serial processing (original behavior)
+for extract_index, config in enumerate(extract_configs, 1):
+result = process_single_extract(config, extract_index, total_extracts)
+if result["success"]:
+successful_extracts += 1
 else:
-    # Parallel processing using ThreadPoolExecutor
-    print(f"\n📊 Starting parallel execution with {max_parallel_extracts} workers...")
-    
-    # Dictionary to track futures and their configs
-    future_to_config = {}
-    results = []
-    
-    with ThreadPoolExecutor(max_workers=max_parallel_extracts, thread_name_prefix="Extract") as executor:
-        # Submit all extract jobs
-        for index, config in enumerate(extract_configs, 1):
-            future = executor.submit(process_single_extract, config, index, total_extracts)
-            future_to_config[future] = config
-        
-        # Process completed futures as they finish
-        for future in as_completed(future_to_config):
-            config = future_to_config[future]
-            try:
-                result = future.result()
-                results.append(result)
-                
-                if result["success"]:
-                    successful_extracts += 1
-                    print(f"✅ Completed: {result['extract_name']}")
-                else:
-                    failed_extracts += 1
-                    print(f"❌ Failed: {result['extract_name']} - {result['error']}")
-                    
-            except Exception as exc:
-                failed_extracts += 1
-                print(f"❌ Exception for {config.extract_name}: {exc}")
-                results.append({
-                    "extract_name": config.extract_name,
-                    "success": False,
-                    "error": str(exc),
-                    "metrics": None
-                })
-    
-    print(f"\n✅ Parallel execution completed!")
-    
-    # Display summary of parallel results
-    if results:
-        print(f"\n📋 Parallel Execution Summary:")
-        for result in results:
-            status = "✅" if result["success"] else "❌"
-            print(f"  {status} {result['extract_name']}")
-            if result.get("metrics"):
-                metrics = result["metrics"]
-                print(f"      Duration: {metrics['duration_formatted']} | Throughput: {metrics['throughput_formatted']}")
-
+failed_extracts += 1
+else:
+# Parallel processing using ThreadPoolExecutor
+print(f"\n📊 Starting parallel execution with {max_parallel_extracts} workers...")
+# Dictionary to track futures and their configs
+future_to_config = {}
+results = []
+with ThreadPoolExecutor(max_workers=max_parallel_extracts, thread_name_prefix="Extract") as executor:
+# Submit all extract jobs
+for index, config in enumerate(extract_configs, 1):
+future = executor.submit(process_single_extract, config, index, total_extracts)
+future_to_config[future] = config
+# Process completed futures as they finish
+for future in as_completed(future_to_config):
+config = future_to_config[future]
+try:
+result = future.result()
+results.append(result)
+if result["success"]:
+successful_extracts += 1
+print(f"✅ Completed: {result['extract_name']}")
+else:
+failed_extracts += 1
+print(f"❌ Failed: {result['extract_name']} - {result['error']}")
+except Exception as exc:
+failed_extracts += 1
+print(f"❌ Exception for {config.extract_name}: {exc}")
+results.append({
+"extract_name": config.extract_name,
+"success": False,
+"error": str(exc),
+"metrics": None
+})
+print(f"\n✅ Parallel execution completed!")
+# Display summary of parallel results
+if results:
+print(f"\n📋 Parallel Execution Summary:")
+for result in results:
+status = "✅" if result["success"] else "❌"
+print(f"  {status} {result['extract_name']}")
+if result.get("metrics"):
+metrics = result["metrics"]
+print(f"      Duration: {metrics['duration_formatted']} | Throughput: {metrics['throughput_formatted']}")
 # End of extract processing loop
 print(f"\n🎉 Batch extract processing completed!")
 print(f"📊 Summary:")
@@ -1038,15 +869,11 @@ print(f"   Total Extracts: {total_extracts}")
 print(f"   ✅ Successful: {successful_extracts}")
 print(f"   ❌ Failed: {failed_extracts}")
 print(f"   ⏱️ Total Duration: {int((datetime.utcnow() - start_time).total_seconds())} seconds")
-
 if failed_extracts > 0:
-    print(f"\n⚠️ WARNING: {failed_extracts} extracts failed. Check logs for details.")
+print(f"\n⚠️ WARNING: {failed_extracts} extracts failed. Check logs for details.")
 else:
-    print(f"\n🎯 All extracts completed successfully!")
-
-
+print(f"\n🎯 All extracts completed successfully!")
 {{ macros.python_cell_with_heading("## 📊 Final Summary") }}
-
 # Display final batch summary
 print(f"🔄 Batch Extract Run Complete (Lakehouse)")
 print(f"Run ID: {run_id}")
@@ -1056,8 +883,6 @@ print(f"   • Total Extracts Processed: {total_extracts}")
 print(f"   • ✅ Successfully Completed: {successful_extracts}")
 print(f"   • ❌ Failed: {failed_extracts}")
 print(f"   • 📊 Success Rate: {(successful_extracts/total_extracts*100):.1f}%" if total_extracts > 0 else "   • 📊 Success Rate: 0%")
-
 if execution_group:
-    print(f"   • 🎯 Execution Group Filter: {execution_group}")
-
+print(f"   • 🎯 Execution Group Filter: {execution_group}")
 print(f"\n🏁 Lakehouse extract generation batch processing completed at {datetime.utcnow().strftime('%Y-%m-%d %H:%M:%S')} UTC")

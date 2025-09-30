@@ -11,7 +11,7 @@ Ingenious Fabric Accelerator is a comprehensive command line tool built with [Ty
 - **Notebook Utilities**: Scan, analyze, and transform existing notebook code and content
 - **Testing Framework**: Test notebooks both locally and on the Fabric platform
 - **Python Libraries**: Reusable Python and PySpark libraries with variable injection for common Fabric operations
-- **Extension Packages**: 
+- **Extension Packages**:
   - Flat file ingestion for lakehouses and warehouses
   - Synapse synchronization with incremental and snapshot support
   - Extract generation for automated data extraction workflows
@@ -97,7 +97,7 @@ ingen_fab ddl compile \
     --output-mode fabric_workspace_repo \
     --generation-mode Warehouse
 
-# Generate DDL notebooks for lakehouses  
+# Generate DDL notebooks for lakehouses
 ingen_fab ddl compile \
     --output-mode fabric_workspace_repo \
     --generation-mode Lakehouse
@@ -170,7 +170,7 @@ ingen_fab deploy get-metadata --target both --format table
 # Compile flat file ingestion package for lakehouse
 ingen_fab package ingest compile --target-datastore lakehouse --include-samples
 
-# Compile flat file ingestion package for warehouse 
+# Compile flat file ingestion package for warehouse
 ingen_fab package ingest compile --target-datastore warehouse --include-samples
 
 # Run flat file ingestion

@@ -1,11 +1,10 @@
 # Configuration table for flat file ingestion metadata - Universal schema (Lakehouse version)
 {% include 'ddl/schemas/flat_file_config_schema_universal.py.jinja' %}
-
 target_lakehouse.create_table(
-    table_name="config_flat_file_ingestion",
-    schema=schema,
-    mode="overwrite",
-    options={
-        "parquet.vorder.default": "true"
-    }
+table_name="config_flat_file_ingestion",
+schema=schema,
+mode="overwrite",
+options={
+"parquet.vorder.default": "true"
+}
 )

@@ -16,7 +16,7 @@ echo "Detected architecture: $ARCH"
 POSTGRES_VERSION="15"
 
 # Check if running inside devcontainer or with sudo access
-if [ "$EUID" -ne 0 ] && ! sudo -n true 2>/dev/null; then 
+if [ "$EUID" -ne 0 ] && ! sudo -n true 2>/dev/null; then
     echo "This script requires sudo access. Please run with sudo or ensure passwordless sudo is configured."
     exit 1
 fi
@@ -216,7 +216,7 @@ PGPASSWORD=hivepassword psql -h localhost -U hive -d metastore -c "SELECT versio
 
 # Verify database encoding and locale settings
 echo "Verifying database encoding and locale settings..."
-PGPASSWORD=hivepassword psql -h localhost -U hive -d metastore -c "SELECT 
+PGPASSWORD=hivepassword psql -h localhost -U hive -d metastore -c "SELECT
     current_setting('server_encoding') as encoding,
     current_setting('lc_collate') as lc_collate,
     current_setting('lc_ctype') as lc_ctype;" 2>/dev/null || echo "Could not verify database settings"
@@ -228,11 +228,11 @@ SCHEMA_FILE="./scripts/dev_container_scripts/spark_minimal/hive-schema-4.0.0.pos
 if [ -f "$SCHEMA_FILE" ]; then
     echo "Found PostgreSQL schema file: $SCHEMA_FILE"
     PGPASSWORD=hivepassword psql -h localhost -U hive -d metastore -f "$SCHEMA_FILE"
-    
+
     # Verify schema was created
     TABLES_COUNT=$(PGPASSWORD=hivepassword psql -h localhost -U hive -d metastore -t -c "SELECT COUNT(*) FROM information_schema.tables WHERE table_schema='public' AND table_type='BASE TABLE';" | xargs)
     echo "Created $TABLES_COUNT metastore tables"
-    
+
     if [ "$TABLES_COUNT" -gt 0 ]; then
         echo "✅ Hive metastore schema initialized successfully"
     else
@@ -265,7 +265,7 @@ echo "Step 6: Configuring Spark for PostgreSQL metastore..."
 
 if [ -n "$SPARK_HOME" ]; then
     run_cmd mkdir -p $SPARK_HOME/conf
-    
+
     # Create spark-defaults.conf
     run_cmd tee $SPARK_HOME/conf/spark-defaults.conf > /dev/null << 'EOF'
 # PostgreSQL Metastore Configuration

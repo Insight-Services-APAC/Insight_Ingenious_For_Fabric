@@ -306,7 +306,7 @@ BEGIN
         country NVARCHAR(50),
         created_date DATETIME2(7) DEFAULT GETUTCDATE()
     );
-    
+
     -- Insert sample data
     INSERT INTO [dbo].[customers] (customer_name, email, phone, address, city, country) VALUES
     ('Acme Corp', 'contact@acme.com', '555-0100', '123 Main St', 'New York', 'USA'),
@@ -328,7 +328,7 @@ BEGIN
         transaction_date DATETIME2(7),
         status VARCHAR(20)
     );
-    
+
     -- Generate sample transactions (this would be larger in production)
     DECLARE @i INT = 1;
     WHILE @i <= 100
@@ -372,7 +372,7 @@ END;
 GO
 
 CREATE VIEW [reporting].[v_sales_summary] AS
-SELECT 
+SELECT
     YEAR(t.transaction_date) as year,
     MONTH(t.transaction_date) as month,
     c.country,
@@ -401,8 +401,8 @@ GO
 CREATE PROCEDURE [finance].[sp_generate_financial_report]
 AS
 BEGIN
-    SELECT 
-        'Q' + CAST(DATEPART(QUARTER, t.transaction_date) AS VARCHAR(1)) + ' ' + 
+    SELECT
+        'Q' + CAST(DATEPART(QUARTER, t.transaction_date) AS VARCHAR(1)) + ' ' +
         CAST(YEAR(t.transaction_date) AS VARCHAR(4)) as reporting_period,
         c.country as region,
         COUNT(DISTINCT t.customer_id) as active_customers,
@@ -414,11 +414,11 @@ BEGIN
     FROM [dbo].[transactions] t
     INNER JOIN [dbo].[customers] c ON t.customer_id = c.customer_id
     WHERE t.transaction_date >= DATEADD(MONTH, -12, GETDATE())
-    GROUP BY 
+    GROUP BY
         DATEPART(QUARTER, t.transaction_date),
         YEAR(t.transaction_date),
         c.country
-    ORDER BY 
+    ORDER BY
         YEAR(t.transaction_date) DESC,
         DATEPART(QUARTER, t.transaction_date) DESC,
         c.country;
@@ -435,10 +435,10 @@ AS
 BEGIN
     -- Simple validation: ensure we have recent orders
     DECLARE @recent_count INT;
-    SELECT @recent_count = COUNT(*) 
-    FROM [dbo].[orders] 
+    SELECT @recent_count = COUNT(*)
+    FROM [dbo].[orders]
     WHERE order_date >= DATEADD(DAY, -7, GETDATE());
-    
+
     IF @recent_count = 0
     BEGIN
         RAISERROR('No recent orders found for extraction', 16, 1);

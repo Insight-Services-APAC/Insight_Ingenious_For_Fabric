@@ -36,4 +36,3 @@ export AZURE_TENANT_ID="<tenant-guid>"
 export AZURE_CLIENT_ID="<client-id>"
 export AZURE_CLIENT_SECRET="<secret>"
 ```
-

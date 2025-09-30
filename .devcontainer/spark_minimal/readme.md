@@ -5,12 +5,12 @@ This Dev Container is designed to provide a minimal setup for running a local de
 1. First Install Powershell. Open a terminal in the Dev Container and run the following commands:
 
 ``` bash
-source ./scripts/dev_container_scripts/spark_minimal/pwsh_install.sh 
+source ./scripts/dev_container_scripts/spark_minimal/pwsh_install.sh
 ```
 2. After installing PowerShell, you can start it by running:
 
 ``` bash
-pwsh  
+pwsh
 ```
 
 Next let's install some development tools. In the PowerShell terminal, run:
@@ -22,7 +22,7 @@ Great! Now you have a minimal development environment set up with PowerShell and
 Restart your powershell terminal to apply the changes.
 
 ``` pwsh
-. $PROFILE  
+. $PROFILE
 ```
 Install SQL Server and SQL Connectivity tools. In the PowerShell terminal, run:
 

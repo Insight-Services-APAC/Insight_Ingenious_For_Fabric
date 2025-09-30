@@ -58,4 +58,3 @@ Your selection is saved and reused automatically for future commands in the same
 Tip: set environment variables once to simplify commands.
 
 --8<-- "_includes/environment_setup.md"
-

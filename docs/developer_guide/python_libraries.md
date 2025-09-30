@@ -20,7 +20,7 @@ graph TB
     classDef green fill:#228B22,stroke:#000,stroke-width:1px,color:#fff;
 
     class C grey;
-    class D green;   
+    class D green;
 
 ```
 
@@ -39,8 +39,8 @@ graph TB
     classDef green fill:#228B22,stroke:#000,stroke-width:1px,color:#fff;
 
     class N,P grey;
-    class O,Q green;    
-    
+    class O,Q green;
+
 
 ```
 
@@ -127,7 +127,7 @@ class DataStoreInterface(ABC):
     @abstractmethod
     def read_table(self, table_name: str) -> Any:
         pass
-    
+
     @abstractmethod
     def write_table(self, table_name: str, data: Any) -> None:
         pass
@@ -141,7 +141,7 @@ class DDLUtilsInterface(ABC):
     @abstractmethod
     def execute_ddl(self, sql: str, description: str) -> None:
         pass
-    
+
     @abstractmethod
     def log_execution(self, script_name: str, description: str) -> None:
         pass
@@ -300,12 +300,12 @@ try:
 except Exception as e:
     # Categorize the error
     error_info = error_cat.categorize(e)
-    
+
     # Get error details
     print(f"Category: {error_info.category}")
     print(f"Severity: {error_info.severity}")
     print(f"Action: {error_info.recommended_action}")
-    
+
     # Log structured error
     error_cat.log_error(e, context={'operation': 'data_load'})
 ```
@@ -476,8 +476,8 @@ from ingen_fab.python_libs.python.sql_templates import SQLTemplateFactory
 template_factory = SQLTemplateFactory(dialect="fabric")  # or "sql_server"
 
 # Generate SQL
-sql = template_factory.get_sql("check_table_exists", 
-                               schema_name="config", 
+sql = template_factory.get_sql("check_table_exists",
+                               schema_name="config",
                                table_name="metadata")
 ```
 
@@ -526,11 +526,11 @@ ingen_fab test platform generate
    ```python
    # python_libs/python/my_new_utils.py
    from .notebook_utils_abstraction import get_notebook_utils
-   
+
    class MyNewUtils:
        def __init__(self):
            self.notebook_utils = get_notebook_utils()
-       
+
        def my_method(self):
            return "result"
    ```
@@ -540,7 +540,7 @@ ingen_fab test platform generate
    # python_libs_tests/python/test_my_new_utils_pytest.py
    import pytest
    from ingen_fab.python_libs.python.my_new_utils import MyNewUtils
-   
+
    def test_my_method():
        utils = MyNewUtils()
        assert utils.my_method() == "result"
@@ -560,7 +560,7 @@ When creating new implementations:
    ```python
    # interfaces/my_interface.py
    from abc import ABC, abstractmethod
-   
+
    class MyInterface(ABC):
        @abstractmethod
        def my_method(self) -> str:
@@ -571,7 +571,7 @@ When creating new implementations:
    ```python
    # python/my_implementation.py
    from ..interfaces.my_interface import MyInterface
-   
+
    class MyImplementation(MyInterface):
        def my_method(self) -> str:
            return "python implementation"
@@ -581,7 +581,7 @@ When creating new implementations:
    ```python
    # pyspark/my_implementation.py
    from ..interfaces.my_interface import MyInterface
-   
+
    class MyImplementation(MyInterface):
        def my_method(self) -> str:
            return "pyspark implementation"
@@ -602,7 +602,7 @@ Libraries are automatically injected into generated notebooks:
 ```python
 # In generated notebook (libraries are injected automatically)
 from lakehouse_utils import LakehouseUtils
-from warehouse_utils import WarehouseUtils  
+from warehouse_utils import WarehouseUtils
 from ddl_utils import DDLUtils
 
 # Libraries are available for use with proper initialization

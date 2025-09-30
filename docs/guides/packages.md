@@ -26,7 +26,7 @@ A comprehensive package for processing various file formats (CSV, JSON, Parquet,
 # Compile the package for lakehouse target
 ingen_fab package ingest compile --target-datastore lakehouse --include-samples
 
-# Compile the package for warehouse target  
+# Compile the package for warehouse target
 ingen_fab package ingest compile --target-datastore warehouse --include-samples
 
 # Run ingestion (displays what parameters would be used)
@@ -140,7 +140,7 @@ ingen_fab package ingest compile           # Flat file ingestion package
 ingen_fab package ingest run               # Run flat file ingestion
 ingen_fab package extract compile          # Extract generation package
 ingen_fab package extract run              # Run extract generation
-ingen_fab package synapse compile          # Synapse sync package  
+ingen_fab package synapse compile          # Synapse sync package
 ingen_fab package synapse run              # Run synapse sync
 ingen_fab package synthetic-data compile   # Synthetic data generation package
 ingen_fab package synthetic-data run       # Run synthetic data generation

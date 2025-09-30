@@ -1,24 +1,15 @@
 # METADATA ********************
-
 # META {
 # META   "language": "python",
-# META   "language_group": "{{language_group | required}}"
+# META   "language_group": "{{ language_group | required }}"
 # META }
-
 # MARKDOWN ********************
-
-# ## 📄 {{heading_name}}
-
+# ## 📄 {{ heading_name }}
 # CELL ********************
-
-guid="{{script_guid}}"
-object_name = "{{script_name}}"
-
+guid="{{ script_guid }}"
+object_name = "{{ script_name }}"
 def script_to_execute():
-    {% for line in content.split('\n') %}{{ line }}
-    {% endfor %}
-
-du.run_once(script_to_execute, "{{script_name}}","{{script_guid}}")
-
+{% for line in content.split('\n') %}{{ line }}{% endfor %}
+du.run_once(script_to_execute, "{{ script_name }}","{{ script_guid }}")
 def script_to_execute():
-    print("Script block is empty. No action taken.")
+print("Script block is empty. No action taken.")

@@ -43,14 +43,14 @@ SCHEMA_FILE="./scripts/dev_container_scripts/spark_minimal/hive-schema-4.0.0.pos
 if [ -f "$SCHEMA_FILE" ]; then
     echo "Initializing Hive metastore schema..."
     PGPASSWORD=hivepassword psql -h localhost -U hive -d metastore -f "$SCHEMA_FILE"
-    
+
     # Verify schema was created
     TABLES_COUNT=$(PGPASSWORD=hivepassword psql -h localhost -U hive -d metastore -t -c "SELECT COUNT(*) FROM information_schema.tables WHERE table_schema='public' AND table_type='BASE TABLE';" | xargs)
     echo "Created $TABLES_COUNT metastore tables"
-    
+
     if [ "$TABLES_COUNT" -gt 0 ]; then
         echo "✅ Hive metastore schema initialized successfully"
-        
+
         # Show some key tables
         echo ""
         echo "Key metastore tables:"

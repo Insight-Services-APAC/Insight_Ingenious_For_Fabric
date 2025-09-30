@@ -2,8 +2,8 @@
 # Prerequisites
 
 # Update the list of packages
-# Iinstall sudo 
-apt-get update 
+# Iinstall sudo
+apt-get update
 apt-get install -y sudo
 sudo apt-get update
 

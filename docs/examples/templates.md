@@ -183,7 +183,7 @@ Templates can extend base templates:
 class BaseWarehouse:
     def __init__(self):
         self.connection = get_connection()
-    
+
     def create_schema(self, schema_name):
         """Base schema creation"""
         pass
@@ -216,7 +216,7 @@ def validate_template(template_path, variables):
     """Validate template can be rendered"""
     with open(template_path, 'r') as f:
         template = Template(f.read())
-    
+
     try:
         result = template.render(**variables)
         return True, result

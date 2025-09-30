@@ -36,24 +36,24 @@ def get_available_lakehouses(self, values: Dict[str, Any]) -> Dict[str, Dict[str
     """Extract all available lakehouse configurations from the values."""
     lakehouses = {}
     lakehouse_prefixes = set()
-    
+
     # Find all variables ending with "_lakehouse_id"
     for key in values.keys():
         if "_lakehouse_id" in key:
             prefix = key.replace("_lakehouse_id", "")
             lakehouse_prefixes.add(prefix)
-    
+
     # For each prefix, gather related configuration
     for prefix in lakehouse_prefixes:
         lakehouse_id = values.get(f"{prefix}_lakehouse_id", "")
         lakehouse_name = values.get(f"{prefix}_lakehouse_name", prefix)
         workspace_id = values.get(f"{prefix}_workspace_id", "")
-        
+
         # Skip placeholders
-        if (lakehouse_id and workspace_id and 
-            "REPLACE_WITH" not in lakehouse_id and 
+        if (lakehouse_id and workspace_id and
+            "REPLACE_WITH" not in lakehouse_id and
             "REPLACE_WITH" not in workspace_id):
-            
+
             lakehouses[prefix] = {
                 "lakehouse_id": lakehouse_id,
                 "lakehouse_name": lakehouse_name,
@@ -61,7 +61,7 @@ def get_available_lakehouses(self, values: Dict[str, Any]) -> Dict[str, Dict[str
                 "workspace_name": workspace_name,
                 "prefix": prefix
             }
-    
+
     return lakehouses
 ```
 
@@ -77,7 +77,7 @@ The manager expects variables following this pattern in `valueSets/*.json`:
       "value": "workspace-guid"
     },
     {
-      "name": "{prefix}_lakehouse_id", 
+      "name": "{prefix}_lakehouse_id",
       "value": "lakehouse-guid"
     },
     {
@@ -123,13 +123,13 @@ def prompt_for_lakehouse_selection(self, lakehouses: Dict[str, Dict[str, str]]) 
     table.add_column("Lakehouse Name", style="green")
     table.add_column("Workspace Name", style="yellow")
     table.add_column("Lakehouse ID", style="dim")
-    
+
     # Add rows for each lakehouse
     for idx, config in enumerate(options, 1):
         table.add_row(...)
-    
+
     console.print(table)
-    
+
     # Prompt for selection
     choice = Prompt.ask(
         "Select a lakehouse configuration by number",

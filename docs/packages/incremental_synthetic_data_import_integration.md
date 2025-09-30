@@ -81,7 +81,7 @@ The sample configurations are provided in DDL scripts:
 ### Lakehouse Version
 Location: `ddl_scripts/Lakehouses/Config/002_Sample_Data_Ingestion/004_incremental_synthetic_data_sample_configs.py`
 
-### Warehouse Version  
+### Warehouse Version
 Location: `ddl_scripts/Warehouses/Config_WH/002_Sample_Data_Ingestion/004_incremental_synthetic_data_sample_configs.sql`
 
 ## Key Configuration Features
@@ -135,7 +135,7 @@ ingen_fab ddl compile --generation-mode=lakehouse
 # Group 1: Master/Reference Data
 ingen_fab run package flat-file-ingestion run --execution-group=1
 
-# Group 2: Transactional Data  
+# Group 2: Transactional Data
 ingen_fab run package flat-file-ingestion run --execution-group=2
 
 # Group 3: Snapshot Data
@@ -171,11 +171,11 @@ Row(
 ### Incremental Table Example (Orders)
 ```python
 Row(
-    config_id="retail_orders_incremental", 
+    config_id="retail_orders_incremental",
     source_file_path="tmp/spark/Files/synthetic_data/retail_oltp_incremental",
     write_mode="append",
     merge_keys=None,
-    import_pattern="date_partitioned", 
+    import_pattern="date_partitioned",
     date_partition_format="YYYY/MM/DD",
     file_discovery_pattern="**/orders/*.csv",
     skip_existing_dates=False,
@@ -188,7 +188,7 @@ Row(
 
 ### Check Import Status
 ```sql
-SELECT 
+SELECT
     config_id,
     execution_id,
     status,
@@ -205,7 +205,7 @@ ORDER BY job_start_time DESC;
 ### Verify Data Completeness
 ```sql
 -- Check date coverage
-SELECT 
+SELECT
     'customers' as table_name,
     DATE_TRUNC('day', _ingestion_timestamp) as ingestion_date,
     COUNT(*) as record_count
@@ -214,10 +214,10 @@ GROUP BY DATE_TRUNC('day', _ingestion_timestamp)
 
 UNION ALL
 
-SELECT 
+SELECT
     'orders' as table_name,
     DATE_TRUNC('day', order_date) as ingestion_date,
-    COUNT(*) as record_count  
+    COUNT(*) as record_count
 FROM bronze.orders
 GROUP BY DATE_TRUNC('day', order_date)
 
@@ -227,7 +227,7 @@ ORDER BY table_name, ingestion_date;
 ### Check Referential Integrity
 ```sql
 -- Verify order-customer relationships
-SELECT 
+SELECT
     COUNT(*) as total_orders,
     COUNT(DISTINCT o.customer_id) as unique_customers,
     COUNT(c.customer_id) as valid_customer_refs

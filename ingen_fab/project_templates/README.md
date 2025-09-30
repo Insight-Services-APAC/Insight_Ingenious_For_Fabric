@@ -20,10 +20,10 @@ Microsoft Fabric workspace project created with InGen Fab.
    ```bash
    export FABRIC_WORKSPACE_REPO_DIR="./{project_name}"
    export FABRIC_ENVIRONMENT="development"
-   
+
    # Generate lakehouse DDL notebooks
    ingen_fab ddl compile --output-mode fabric_workspace_repo --generation-mode Lakehouse
-   
+
    # Generate warehouse DDL notebooks (optional)
    ingen_fab ddl compile --output-mode fabric_workspace_repo --generation-mode Warehouse
    ```

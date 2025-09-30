@@ -310,7 +310,7 @@ graph LR
     C --> D[Transform Notebook]
     D --> E[Warehouse Tables]
     E --> F[Analytics]
-    
+
     G[Configuration] --> B
     G --> D
     H[Logging] --> B
@@ -373,10 +373,10 @@ Configuration-driven data pipelines:
    # ddl_scripts/Lakehouses/Config/001_Initial_Creation/007_new_table_create.py
    from lakehouse_utils import LakehouseUtils
    from ddl_utils import DDLUtils
-   
+
    lakehouse_utils = LakehouseUtils()
    ddl_utils = DDLUtils()
-   
+
    sql = """
    CREATE TABLE IF NOT EXISTS config.new_table (
        id BIGINT,
@@ -385,7 +385,7 @@ Configuration-driven data pipelines:
    ) USING DELTA
    LOCATION 'Tables/config/new_table'
    """
-   
+
    ddl_utils.execute_ddl(sql, "Create new table")
    print("✅ New table created successfully")
    ```
@@ -460,17 +460,17 @@ jobs:
     runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v4
-    
+
     - name: Setup Python
       uses: actions/setup-python@v4
       with:
         python-version: '3.12'
-    
+
     - name: Install dependencies
       run: |
         pip install uv
         uv sync
-    
+
     - name: Deploy sample project
       run: |
         cd sample_project
@@ -491,7 +491,7 @@ jobs:
    ```bash
    # Check Azure authentication
    az account show
-   
+
    # Or use environment variables
    export AZURE_TENANT_ID="your-tenant-id"
    export AZURE_CLIENT_ID="your-client-id"
@@ -502,7 +502,7 @@ jobs:
    ```bash
    # Verify variable files exist and are valid JSON
    cat fabric_workspace_items/config/var_lib.VariableLibrary/valueSets/development.json | jq .
-   
+
    # Test variable injection (Note: --dry-run option not implemented)
    # Check variable files manually or use the deploy command directly
    ```

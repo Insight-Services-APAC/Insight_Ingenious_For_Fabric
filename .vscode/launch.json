@@ -58,12 +58,12 @@
                 "./ingen_fab/python_libs_tests/pyspark/lakehouse_utils/test_lakehouse_utils_pytest.py"
             ],
             "console": "integratedTerminal"
-        },        
+        },
         {
             "name": "Run Package Ingest",
             "type": "debugpy",
             "request": "launch",
-            "module": "ingen_fab.packages.flat_file_ingestion.test_compiled_notebooks",           
+            "module": "ingen_fab.packages.flat_file_ingestion.test_compiled_notebooks",
             "console": "integratedTerminal"
         }
     ]

@@ -4,7 +4,7 @@
 
 This guide will help you install and set up the Ingenious Fabric Accelerator using pip.
 
-!!! tip "Learning Path"  
+!!! tip "Learning Path"
     **New User Journey**: Installation (you are here) → [Quick Start](quick-start.md) → [First Project](first-project.md) → [CLI Reference](../guides/cli-reference.md)
 
 ## Requirements
@@ -283,7 +283,7 @@ If `ingen_fab` is not recognized:
     # Install Python 3.12+ if needed
     # Download installer from:
     # https://www.python.org/downloads/windows/
-    
+
     # Or use winget:
     winget install Python.Python.3.12
     ```

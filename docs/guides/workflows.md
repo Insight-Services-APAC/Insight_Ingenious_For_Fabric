@@ -15,7 +15,7 @@ ingen_fab init new --project-name "Data Analytics Platform"
 # Navigate to the project directory
 cd "Data Analytics Platform"
 
-# Configure your environment variables  
+# Configure your environment variables
 --8<-- "_includes/environment_setup.md"
 ```
 
@@ -47,7 +47,7 @@ graph TD
    ```bash
    # For warehouses
    ingen_fab ddl compile --output-mode fabric_workspace_repo --generation-mode Warehouse
-   
+
    # For lakehouses
    ingen_fab ddl compile --output-mode fabric_workspace_repo --generation-mode Lakehouse
    ```
@@ -56,10 +56,10 @@ graph TD
    ```bash
    # Set environment for local testing
    export FABRIC_ENVIRONMENT=local
-   
+
    # Test Python implementations
    ingen_fab test local python
-   
+
    # Test PySpark implementations
    ingen_fab test local pyspark
    ```
@@ -68,7 +68,7 @@ graph TD
    ```bash
    # Set environment back to development
    export FABRIC_ENVIRONMENT=development
-   
+
    # Deploy
    ingen_fab deploy deploy --fabric-workspace-repo-dir . --fabric-environment development
    ```
@@ -268,28 +268,28 @@ jobs:
     runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v4
-    
+
     - name: Setup Python
       uses: actions/setup-python@v4
       with:
         python-version: '3.12'
-    
+
     - name: Install dependencies
       run: |
         pip install uv
         uv sync
-    
+
     - name: Run tests
       run: |
         export FABRIC_ENVIRONMENT=local
         uv run ingen_fab test local python
         uv run ingen_fab test local pyspark
-    
+
     - name: Generate notebooks
       run: |
         uv run ingen_fab ddl compile --output-mode fabric_workspace_repo --generation-mode Warehouse
         uv run ingen_fab ddl compile --output-mode fabric_workspace_repo --generation-mode Lakehouse
-    
+
     - name: Deploy to staging
       if: github.ref == 'refs/heads/main'
       run: |
@@ -309,7 +309,7 @@ jobs:
    ```bash
    # Check Azure CLI authentication
    az account show
-   
+
    # Or use environment variables
    export AZURE_TENANT_ID="your-tenant-id"
    export AZURE_CLIENT_ID="your-client-id"
@@ -320,7 +320,7 @@ jobs:
    ```bash
    # Check script syntax locally
    python ddl_scripts/Lakehouses/Config/001_Initial_Setup/001_create_tables.py
-   
+
    # Review generated notebooks
    cat fabric_workspace_items/ddl_scripts/Lakehouses/Config/001_Initial_Creation_Config_Lakehouses.Notebook/notebook-content.py
    ```
@@ -329,7 +329,7 @@ jobs:
    ```bash
    # Verify variable files
    cat fabric_workspace_items/config/var_lib.VariableLibrary/valueSets/development.json
-   
+
    # Compile libraries with variable injection
    ingen_fab libs compile
    ```

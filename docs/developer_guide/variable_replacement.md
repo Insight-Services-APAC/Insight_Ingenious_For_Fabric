@@ -90,7 +90,7 @@ sample_project/
       "value": "544530ea-a8c9-4464-8878-f666d2a8f418"
     },
     {
-      "name": "config_lakehouse_id", 
+      "name": "config_lakehouse_id",
       "value": "514ebe8f-2bf9-4a31-88f7-13d84706431c"
     },
     {
@@ -105,8 +105,8 @@ sample_project/
 
 ### 1. Placeholder Replacement
 
-**When**: Template compilation and deployment  
-**Format**: `{{varlib:variable_name}}`  
+**When**: Template compilation and deployment
+**Format**: `{{varlib:variable_name}}`
 **Usage**: Connection strings, configuration values
 
 #### Example Template
@@ -114,7 +114,7 @@ sample_project/
 ```python
 # Template (library_loader.py.jinja)
 notebookutils.fs.mount(
-    "abfss://{{varlib:config_workspace_name}}@onelake.dfs.fabric.microsoft.com/{{varlib:config_lakehouse_name}}.Lakehouse/Files/", 
+    "abfss://{{varlib:config_workspace_name}}@onelake.dfs.fabric.microsoft.com/{{varlib:config_lakehouse_name}}.Lakehouse/Files/",
     "/config_files"
 )
 ```
@@ -124,15 +124,15 @@ notebookutils.fs.mount(
 ```python
 # Generated notebook
 notebookutils.fs.mount(
-    "abfss://metcash_demo@onelake.dfs.fabric.microsoft.com/config.Lakehouse/Files/", 
+    "abfss://metcash_demo@onelake.dfs.fabric.microsoft.com/config.Lakehouse/Files/",
     "/config_files"
 )
 ```
 
 ### 2. Code Injection
 
-**When**: Development and deployment workflows  
-**Format**: Injection markers  
+**When**: Development and deployment workflows
+**Format**: Injection markers
 **Usage**: Variable dictionaries and objects
 
 #### Injection Markers
@@ -160,10 +160,10 @@ configs_dict = {
 from dataclasses import dataclass
 @dataclass
 class ConfigsObject:
-    fabric_environment: str 
-    fabric_deployment_workspace_id: str 
-    config_workspace_name: str 
-    config_lakehouse_id: str 
+    fabric_environment: str
+    fabric_deployment_workspace_id: str
+    config_workspace_name: str
+    config_lakehouse_id: str
 
 configs_object: ConfigsObject = ConfigsObject(**configs_dict)
 # variableLibraryInjectionEnd: var_lib
@@ -229,7 +229,7 @@ injector = DevelopmentVariableInjector(project_path, environment)
 injector.inject_variables()  # Code injection only, preserves placeholders
 ```
 
-### DeploymentVariableInjector  
+### DeploymentVariableInjector
 
 Pre-configured for deployment workflows:
 
@@ -292,7 +292,7 @@ VariableLibraryCache.clear_cache()  # Clear when switching environments
 ### 1. Environment Separation
 
 - ✅ **Do**: Use separate JSON files for each environment
-- ✅ **Do**: Keep sensitive values in production-only configs  
+- ✅ **Do**: Keep sensitive values in production-only configs
 - ❌ **Don't**: Hardcode environment-specific values in templates
 
 ### 2. Template Design
@@ -384,7 +384,7 @@ print(f"Replacement result: {result}")
 ## Related Documentation
 
 - [Python Libraries](python_libraries.md) - Core library architecture
-- [DDL Scripts](ddl_scripts.md) - Template system integration  
+- [DDL Scripts](ddl_scripts.md) - Template system integration
 - [CLI Reference](../user_guide/cli_reference.md) - Command usage
 - [Workflows](../user_guide/workflows.md) - End-to-end processes
 

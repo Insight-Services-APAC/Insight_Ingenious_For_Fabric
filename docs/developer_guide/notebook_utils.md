@@ -126,15 +126,15 @@ class NotebookUtils:
     def execute_query(self, query: str) -> Any:
         """Execute SQL query in current environment"""
         pass
-    
+
     def read_file(self, path: str) -> Any:
         """Read file from storage"""
         pass
-    
+
     def write_file(self, path: str, data: Any) -> None:
         """Write file to storage"""
         pass
-    
+
     def get_connection(self) -> Any:
         """Get database connection"""
         pass

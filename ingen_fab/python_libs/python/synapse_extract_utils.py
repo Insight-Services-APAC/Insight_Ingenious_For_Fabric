@@ -105,7 +105,7 @@ class SynapseExtractUtils:
         SELECT
             *
         FROM
-            sys.external_file_formats 
+            sys.external_file_formats
         WHERE
             name = 'parquet'
     )
@@ -131,9 +131,9 @@ class SynapseExtractUtils:
     DROP EXTERNAL TABLE exports.@ExternalTableName;
 
     CREATE EXTERNAL TABLE exports.@ExternalTableName WITH (
-        LOCATION = '@LocationPath', 
+        LOCATION = '@LocationPath',
         DATA_SOURCE = [{self.datasource_name.strip()}],
-        FILE_FORMAT = parquet 
+        FILE_FORMAT = parquet
     ) AS
     SELECT
         *

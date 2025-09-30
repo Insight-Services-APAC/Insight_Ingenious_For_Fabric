@@ -1,53 +1,37 @@
 {% macro python_cell_with_heading(heading, language_group="") %}
-{% include "shared/notebook/cells/python.py.jinja" %}
-{% include "shared/notebook/cells/markdown.py.jinja" %}
-
-# {{ heading }}
-
-{% include "shared/notebook/cells/metadata.py.jinja" %}
+    {% include "shared/notebook/cells/python.py.jinja" %}
+    {% include "shared/notebook/cells/markdown.py.jinja" %}
+    # {{ heading }}
+    {% include "shared/notebook/cells/metadata.py.jinja" %}
 {% endmacro %}
-
 {% macro pyspark_cell_with_heading(heading) %}
-# METADATA ********************
-
-# META {
-# META   "language": "python",
-# META   "language_group": "synapse_pyspark"
-# META }
-
-# MARKDOWN ********************
-
-# ## {{ heading }}
-
-# CELL ********************
+    # METADATA ********************
+    # META {
+    # META   "language": "python",
+    # META   "language_group": "synapse_pyspark"
+    # META }
+    # MARKDOWN ********************
+    # ## {{ heading }}
+    # CELL ********************
 {% endmacro %}
-
 {% macro parameters_cell(parameters_content="") %}
-# MARKDOWN ********************
-
-# ## 『』Parameters
-
-{% include "shared/notebook/cells/parameters.py.jinja" %}
+    # MARKDOWN ********************
+    # ## 『』Parameters
+    {% include "shared/notebook/cells/parameters.py.jinja" %}
 {% endmacro %}
-
 {% macro exit_notebook(message="success", runtime_type="pyspark") %}
-# METADATA ********************
-
-# META {
-# META   "language": "python"{{ ',
-# META   "language_group": "synapse_pyspark"' if runtime_type == "pyspark" else '' }}
-# META }
-
-# MARKDOWN ********************
-
-# ## ✔️ Exit notebook with result
-
-# CELL ********************
-
-{% if runtime_type == "pyspark" %}
-notebookutils.mssparkutils.notebook.exit("{{ message }}")
-{% else %}
-# Exit with result: {{ message }}
-print("Notebook completed with result: {{ message }}")
-{% endif %}
+    # METADATA ********************
+    # META {
+    # META   "language": "python"{{ ',
+    # META   "language_group": "synapse_pyspark"' if runtime_type == "pyspark" else '' }}
+    # META }
+    # MARKDOWN ********************
+    # ## ✔️ Exit notebook with result
+    # CELL ********************
+    {% if runtime_type == "pyspark" %}
+        notebookutils.mssparkutils.notebook.exit("{{ message }}")
+    {% else %}
+        # Exit with result: {{ message }}
+        print("Notebook completed with result: {{ message }}")
+    {% endif %}
 {% endmacro %}

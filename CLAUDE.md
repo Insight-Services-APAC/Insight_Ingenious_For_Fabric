@@ -177,13 +177,10 @@ Python libraries follow interface-based design:
 
 ## Testing Strategy
 
-- Unit tests in `tests/` and `python_libs_tests/` 
+- Unit tests in `tests/` and `python_libs_tests/`
 - Integration tests marked with `@pytest.mark.e2e`
 - Platform tests can run against live Fabric environments
 - Tests are designed to run offline by default
 
 ## Linting and Formatting
 - Uses `ruff` for linting and formatting
-
-
-

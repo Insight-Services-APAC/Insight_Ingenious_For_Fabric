@@ -14,7 +14,7 @@ The flat file ingestion package provides automated ingestion of various file for
 - **Core Compiler**: `ingen_fab/packages/flat_file_ingestion/flat_file_ingestion.py` - Extends BaseNotebookCompiler
 - **Templates**: `templates/flat_file_ingestion_notebook.py.jinja` - Main processing notebook template
 - **DDL Scripts**: Separate for Lakehouse/Warehouse with config and log table definitions
-- **Sample Data**: CSV and Parquet files for testing 
+- **Sample Data**: CSV and Parquet files for testing
 
 ## Key Components
 1. **FlatFileIngestionCompiler**: Manages template compilation and DDL script generation

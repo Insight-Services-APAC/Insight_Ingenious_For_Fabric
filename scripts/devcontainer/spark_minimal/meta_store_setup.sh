@@ -31,7 +31,7 @@ sudo pkill -f mysqld_safe 2>/dev/null || true
 # Create mysql user
 sudo useradd -r -s /bin/false mysql 2>/dev/null || true
 
-apt-get install lsb-release 
+apt-get install lsb-release
 apt-get install gnupg
 
 # Download MySQL 8.0 binary
@@ -50,47 +50,47 @@ echo "Using metastore type: $METASTORE_TYPE"
 
 if [[ "$METASTORE_TYPE" == "postgresql" ]]; then
     echo "Installing PostgreSQL..."
-    
+
     # Install locales and ensure UTF-8 locale is available
     echo "Setting up locales for PostgreSQL..."
     sudo apt-get update
     sudo apt-get install -y locales
-    
+
     # Generate en_US.UTF-8 locale if not present
     if ! locale -a | grep -q "en_US.utf8"; then
         echo "en_US.UTF-8 UTF-8" | sudo tee -a /etc/locale.gen
         sudo locale-gen
     fi
-    
+
     # Set locale environment variables for PostgreSQL
     export LC_ALL=en_US.UTF-8
     export LANG=en_US.UTF-8
     export LANGUAGE=en_US.UTF-8
-    
+
     # Install PostgreSQL
     sudo apt-get install -y wget gnupg2 lsb-release
     echo "deb http://apt.postgresql.org/pub/repos/apt $(lsb_release -cs)-pgdg main" | sudo tee /etc/apt/sources.list.d/pgdg.list
     wget --quiet -O - https://www.postgresql.org/media/keys/ACCC4CF8.asc | sudo apt-key add -
     sudo apt-get update
     sudo apt-get install -y postgresql-15 postgresql-client-15
-    
+
     # Configure PostgreSQL
     echo "Configuring PostgreSQL for Hive metastore..."
     sudo -u postgres pg_ctlcluster 15 main start
-    
+
     # Create metastore database and user with explicit UTF-8 encoding
     sudo -u postgres psql -c "CREATE DATABASE metastore WITH ENCODING='UTF8' LC_COLLATE='en_US.UTF-8' LC_CTYPE='en_US.UTF-8' TEMPLATE=template0;"
     sudo -u postgres psql -c "CREATE USER hive WITH PASSWORD 'hivepassword';"
     sudo -u postgres psql -c "GRANT ALL PRIVILEGES ON DATABASE metastore TO hive;"
     sudo -u postgres psql -c "ALTER DATABASE metastore OWNER TO hive;"
-    
+
     # Configure PostgreSQL for remote connections (localhost only)
     sudo sed -i "s/#listen_addresses = 'localhost'/listen_addresses = 'localhost'/" /etc/postgresql/15/main/postgresql.conf
     echo "host    metastore       hive            127.0.0.1/32            md5" | sudo tee -a /etc/postgresql/15/main/pg_hba.conf
-    
+
     # Restart PostgreSQL
     sudo -u postgres pg_ctlcluster 15 main restart
-    
+
     # Wait for PostgreSQL to be ready
     echo "Waiting for PostgreSQL to start..."
     MAX_ATTEMPTS=30
@@ -104,14 +104,14 @@ if [[ "$METASTORE_TYPE" == "postgresql" ]]; then
         sleep 2
         ATTEMPT=$((ATTEMPT + 1))
     done
-    
+
     echo "✅ PostgreSQL is ready!"
-    
+
     # Download PostgreSQL JDBC driver
     echo "Downloading PostgreSQL JDBC driver..."
     POSTGRES_JDBC_URL="https://jdbc.postgresql.org/download/postgresql-42.7.5.jar"
     wget -q "$POSTGRES_JDBC_URL" -O $SPARK_HOME/jars/postgresql-42.7.5.jar
-    
+
 else
     echo "Installing MySQL Server from apt..."
     sudo DEBIAN_FRONTEND=noninteractive apt-get install -y mysql-server mysql-client
@@ -149,7 +149,7 @@ EOF
 
     # Start MySQL service manually (no systemctl in container)
     echo "Starting MySQL service manually..."
-    
+
     # Completely clean up MySQL data directory and reinstall system tables
     echo "Completely cleaning MySQL data directory..."
     sudo pkill -f mysqld 2>/dev/null || true
@@ -177,7 +177,7 @@ EOF
 
 
     echo "Initializing MySQL data directory..."
-    sudo mysqld --initialize-insecure --user=mysql --datadir=/var/lib/mysql 
+    sudo mysqld --initialize-insecure --user=mysql --datadir=/var/lib/mysql
 
     # Start MySQL daemon manually
     echo "Starting MySQL daemon..."
@@ -275,7 +275,7 @@ spark.hadoop.datanucleus.schema.validateTables=false
 spark.hadoop.datanucleus.schema.validateColumns=false
 spark.hadoop.datanucleus.schema.validateConstraints=false
 
-# Connection pooling 
+# Connection pooling
 spark.hadoop.datanucleus.connectionPool.maxActive=10
 spark.hadoop.datanucleus.connectionPool.maxIdle=5
 spark.hadoop.datanucleus.connectionPool.minIdle=1
@@ -385,11 +385,11 @@ if [[ "$METASTORE_TYPE" == "postgresql" ]]; then
     echo "User: hive / Password: hivepassword"
     echo "Warehouse location: /tmp/spark-warehouse"
     echo "Delta Lake extensions enabled"
-    
+
     # Test database connection
     echo "Testing database connection..."
     PGPASSWORD=hivepassword psql -h localhost -U hive -d metastore -c "\dt" 2>/dev/null && echo "✅ Database connection successful" || echo "❌ Database connection failed"
-    
+
     # Verify database encoding
     echo "Verifying database encoding..."
     PGPASSWORD=hivepassword psql -h localhost -U hive -d metastore -c "SELECT current_setting('server_encoding'), current_setting('lc_collate'), current_setting('lc_ctype');" 2>/dev/null
@@ -399,7 +399,7 @@ else
     echo "User: hive / Password: hivepassword"
     echo "Warehouse location: /tmp/spark-warehouse"
     echo "Delta Lake extensions enabled"
-    
+
     # Test database connection
     echo "Testing database connection..."
     mysql -u hive -phivepassword -h localhost metastore -e "SHOW TABLES;" 2>/dev/null && echo "✅ Database connection successful" || echo "❌ Database connection failed"

@@ -77,8 +77,8 @@ class PythonFlatFileDiscovery(FlatFileDiscoveryInterface):
             # Query the log table to see if this date has been successfully processed
             query = f"""
                 SELECT COUNT(*) as count_records
-                FROM log_flat_file_ingestion 
-                WHERE config_id = '{config.config_id}' 
+                FROM log_flat_file_ingestion
+                WHERE config_id = '{config.config_id}'
                 AND source_file_path LIKE '%{date_partition.replace("-", "")}%'
                 AND status = 'completed'
             """
@@ -263,7 +263,7 @@ class PythonFlatFileLogging(FlatFileLoggingInterface):
             # For warehouse implementation, we can store partition info as JSON in a future enhancement
             # Currently just log the basic execution start
             log_query = f"""
-                INSERT INTO log_flat_file_ingestion 
+                INSERT INTO log_flat_file_ingestion
                 (log_id, config_id, execution_id, job_start_time, status, source_file_path, target_table_name)
                 VALUES (
                     '{str(uuid.uuid4())}',
@@ -294,9 +294,9 @@ class PythonFlatFileLogging(FlatFileLoggingInterface):
             # For warehouse implementation, we can store partition info as JSON in a future enhancement
             # Currently just log the basic execution completion
             log_query = f"""
-                INSERT INTO log_flat_file_ingestion 
-                (log_id, config_id, execution_id, job_start_time, job_end_time, status, 
-                 source_file_path, target_table_name, records_processed, records_inserted, 
+                INSERT INTO log_flat_file_ingestion
+                (log_id, config_id, execution_id, job_start_time, job_end_time, status,
+                 source_file_path, target_table_name, records_processed, records_inserted,
                  records_updated, records_deleted, records_failed)
                 VALUES (
                     '{str(uuid.uuid4())}',
@@ -337,8 +337,8 @@ class PythonFlatFileLogging(FlatFileLoggingInterface):
             # For warehouse implementation, we can store partition info as JSON in a future enhancement
             # Currently just log the basic execution error
             log_query = f"""
-                INSERT INTO log_flat_file_ingestion 
-                (log_id, config_id, execution_id, job_start_time, job_end_time, status, 
+                INSERT INTO log_flat_file_ingestion
+                (log_id, config_id, execution_id, job_start_time, job_end_time, status,
                  source_file_path, target_table_name, error_message, error_details,
                  records_processed, records_inserted, records_updated, records_deleted, records_failed)
                 VALUES (

@@ -7,6 +7,6 @@
 ALTER TABLE [log].[log_extract_generation] DROP CONSTRAINT IF EXISTS PK_log_extract_generation;
 
 -- Add the primary key constraint
-ALTER TABLE [log].[log_extract_generation] 
-ADD CONSTRAINT PK_log_extract_generation 
+ALTER TABLE [log].[log_extract_generation]
+ADD CONSTRAINT PK_log_extract_generation
 PRIMARY KEY NONCLUSTERED (log_id) NOT ENFORCED;

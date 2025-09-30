@@ -116,7 +116,7 @@ from .notebook_utils_abstraction import NotebookUtilsFactory
 class warehouse_utils:
     def __init__(self, ...):
         self.notebook_utils = NotebookUtilsFactory.get_instance()
-        
+
     def get_connection(self):
         if self.dialect == "fabric":
             return self.notebook_utils.connect_to_artifact(
@@ -134,7 +134,7 @@ from .notebook_utils_abstraction import get_notebook_utils
 class ddl_utils:
     def __init__(self, ...):
         self.notebook_utils = get_notebook_utils()
-        
+
     def print_log(self):
         # ... query execution
         self.notebook_utils.display(df)

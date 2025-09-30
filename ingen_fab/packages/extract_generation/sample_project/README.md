@@ -46,7 +46,7 @@ The sample data includes various extract scenarios:
 3. **Generate Extract Notebook**:
    ```python
    from ingen_fab.packages.extract_generation import ExtractGenerationCompiler
-   
+
    compiler = ExtractGenerationCompiler()
    notebook_path = compiler.compile_notebook()
    ```
@@ -97,7 +97,7 @@ extracts/
 
 ## Best Practices
 
-1. **Performance**: 
+1. **Performance**:
    - Use appropriate `file_properties_max_rows_per_file` for large extracts
    - Consider Parquet format for analytical workloads
    - Enable compression for network transfer optimization

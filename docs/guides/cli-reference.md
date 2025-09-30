@@ -841,7 +841,7 @@ ingen_fab --help
 
 # Get help for specific command groups
 ingen_fab deploy --help
-ingen_fab ddl --help  
+ingen_fab ddl --help
 ingen_fab package --help
 
 # Get help for specific commands

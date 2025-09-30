@@ -18,7 +18,7 @@ The extract report generation package provides automated generation of flat file
 ## Key Components
 1. **ExtractGenerationCompiler**: Manages template compilation and DDL script generation
 2. **ExtractProcessor**: Runtime processor using warehouse_utils abstractions for SQL execution
-3. **Configuration Tables**: 
+3. **Configuration Tables**:
    - `config_extract_generation` - Main extract configuration (maps to ConfigurationExtract)
    - `config_extract_details` - File generation details (maps to ConfigurationExtractDetails)
 4. **Logging Tables**: `log_extract_generation` tracks execution history
@@ -179,7 +179,7 @@ class ExtractProcessor:
     def __init__(self, warehouse_utils, ddl_utils):
         self.warehouse = warehouse_utils
         self.ddl = ddl_utils
-    
+
     def process_extract(self, config, details):
         # Determine source type (table/view/sp)
         # Execute query/procedure

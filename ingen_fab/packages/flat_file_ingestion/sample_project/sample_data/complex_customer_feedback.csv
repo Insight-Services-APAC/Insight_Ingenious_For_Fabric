@@ -2,12 +2,12 @@ feedback_id,customer_id,product_id,rating,feedback_text,feedback_date
 1,12345,ABC-123,5,"This product is amazing!
 It works exactly as described and the customer service was excellent.
 I would definitely recommend it to others.",2024-01-15
-2,67890,DEF-456,3,"The product is ""okay"" but not great. 
+2,67890,DEF-456,3,"The product is ""okay"" but not great.
 Quality could be better, especially for the price.",2024-01-16
 3,11111,GHI-789,1,"Terrible experience! The item broke after 2 days.
 Customer service was unhelpful and rude.
 Money wasted, will never buy again!",2024-01-17
-4,22222,JKL-012,4,"Good product overall. 
+4,22222,JKL-012,4,"Good product overall.
 Minor issues with packaging - some items were damaged.
 But the core functionality works fine.",2024-01-18
 5,33333,MNO-345,5,"Excellent! Exceeded my expectations.
