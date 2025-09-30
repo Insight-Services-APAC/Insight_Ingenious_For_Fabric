@@ -7,7 +7,7 @@ from __future__ import annotations
 import json
 import re
 from pathlib import Path
-from typing import Any
+from typing import Any, Optional
 
 try:
     from rich.console import Console
@@ -24,7 +24,7 @@ from ingen_fab.cli_utils.progress_utils import ProgressTracker
 class VariableLibraryUtils:
     """Utility class for handling variable library operations."""
 
-    def __init__(self, project_path: Path = None, environment: str = None):
+    def __init__(self, project_path: Optional[Path] = None, environment: Optional[str] = None):
         """Initialize the VariableLibraryUtils class."""
 
         self.project_path = project_path
@@ -38,16 +38,18 @@ class VariableLibraryUtils:
         self.progress_tracker = ProgressTracker(self.console)
 
         # Load variables with progress indication
-        if self.console and RICH_AVAILABLE:
+        if self.console and RICH_AVAILABLE and project_path and environment:
             with self.console.status(
                 f"[blue]Loading variable library for environment: {environment}[/blue]",
                 spinner="dots",
             ):
                 varlib_data = self._load_variable_library(project_path, environment)
                 self.variables = self._extract_variables(varlib_data)
-        else:
+        elif project_path and environment:
             varlib_data = self._load_variable_library(project_path, environment)
             self.variables = self._extract_variables(varlib_data)
+        else:
+            self.variables = {}
 
     def _load_variable_library(self, project_path: Path, environment: str = "development") -> dict[str, Any]:
         """Load variable library JSON file for the specified environment."""
