@@ -53,10 +53,10 @@ class FlatFileIngestionConfig:
 
     # Schema and processing options
     custom_schema_json: Optional[str] = None
-    partition_columns: List[str] = None
-    sort_columns: List[str] = None
+    partition_columns: Optional[List[str]] = None
+    sort_columns: Optional[List[str]] = None
     write_mode: str = "overwrite"
-    merge_keys: List[str] = None
+    merge_keys: Optional[List[str]] = None
     data_validation_rules: Optional[str] = None
     error_handling_strategy: str = "fail"
     execution_group: int = 1

@@ -165,7 +165,6 @@ class LocationResolver:
             utils_instance = warehouse_utils(
                 target_workspace_id=location_config.workspace_id,
                 target_warehouse_id=location_config.datastore_id,
-                connection=connection,
             )
 
         else:
@@ -214,7 +213,7 @@ class LocationResolver:
             return config.source_file_path
 
         # Handle paths that already include the root
-        if config.source_file_path.startswith(source_config.file_root_path):
+        if source_config.file_root_path and config.source_file_path.startswith(source_config.file_root_path):
             return config.source_file_path
 
         # Combine root path with relative path
