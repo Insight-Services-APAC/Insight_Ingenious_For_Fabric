@@ -59,7 +59,6 @@ class SynapseExtractUtils:
 
         # Table names for metadata and logging
         self.log_table_name = "synapse_extract_run_log"
-        self.config_table_name = "synapse_extract_objects"
         self.schema_name = "dbo"
 
     def get_extract_sql_template(self) -> str:
