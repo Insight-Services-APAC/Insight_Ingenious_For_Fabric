@@ -98,6 +98,7 @@ extend-select = ["I"]
 ignore = ["E402"]
 
 [tool.ruff]
+line-length = 120
 exclude = [
     "sample_project",
     "project_templates",
@@ -106,6 +107,10 @@ exclude = [
 ]
 
 [tool.pytest.ini_options]
+asyncio_default_fixture_loop_scope = "function"
 markers = [
     "e2e: live network integration test (requires SCRAPFLY_API_KEY)",
 ]
+
+[tool.flake8]
+max-line-length = 120
