@@ -92,7 +92,9 @@ class LocalNotebookUtils(LocalNotebookUtilsBase):
     def connect_to_artifact(self, artifact_id: str, workspace_id: str) -> Any:
         """Connect to a local SQL Server instead of Fabric artifact."""
         try:
-            return self._connect_to_local_sql_server()
+            import pyodbc
+
+            return pyodbc.connect(self.connection_string)
         except ImportError:
             raise RuntimeError("pyodbc not available - cannot connect to local SQL Server")
 

@@ -83,11 +83,14 @@ class TestLocalNotebookUtils:
             mock_print.assert_called_once_with("test string")
 
     def test_exit_notebook_logs_value(self):
-        """Test that exit_notebook logs the value."""
+        """Test that exit_notebook logs the value and raises NotebookExit."""
+        from ingen_fab.python_libs.interfaces.notebook_utils_interface import NotebookExit
+
         local_utils = LocalNotebookUtils()
 
         with patch("builtins.print") as mock_print:
-            local_utils.exit_notebook("test_value")
+            with pytest.raises(NotebookExit, match="test_value"):
+                local_utils.exit_notebook("test_value")
             mock_print.assert_called_once_with("Notebook would exit with value: test_value")
 
     def test_connect_to_artifact_returns_pyodbc_connection(self):
