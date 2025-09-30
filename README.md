@@ -1,5 +1,11 @@
 # Ingenious Fabric Accelerator
 
+[![Version](https://img.shields.io/badge/version-alpha-blue.svg)](https://github.com/Insight-Services-APAC/Insight_Ingenious_For_Fabric/)
+[![Python](https://img.shields.io/badge/python-3.13+-green.svg)](https://www.python.org/downloads/)
+[![Ask DeepWiki](https://deepwiki.com/badge.svg)](https://deepwiki.com/Insight-Services-APAC/Insight_Ingenious_For_Fabric)
+[![Ruff](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/astral-sh/ruff/main/assets/badge/v2.json)](https://github.com/astral-sh/ruff)
+[![License](https://img.shields.io/badge/license-MIT-purple.svg)](LICENSE)
+
 Ingenious Fabric Accelerator is a comprehensive command line tool built with [Typer](https://typer.tiangolo.com/) that helps create and manage Microsoft Fabric workspace projects. It provides a complete development workflow for Fabric workspaces, including project initialization, DDL notebook generation, environment management, deployment automation, and data integration through packages for flat file ingestion, Synapse synchronization, and extract generation.
 
 ## Features
@@ -258,4 +264,4 @@ mkdocs serve --dev-addr=0.0.0.0:8000
 
 ## License
 
-This project is provided for demonstration purposes and has no specific license.
+This project is licensed under the terms specified in the [LICENSE](https://github.com/Insight-Services-APAC/Insight_Ingenious_For_Fabric/blob/main/LICENSE) file.
