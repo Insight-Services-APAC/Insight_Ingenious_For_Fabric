@@ -89,10 +89,10 @@ class NotebookGenerator(BaseNotebookCompiler):
         # TODO: Create configuration templates if needed
         # For now, create a simple placeholder notebook
         rendered_config = f"""# Configuration Notebook for {self.entities_folder}
-        
+
 # This is a placeholder configuration notebook
 # Add configuration logic here as needed
-        
+
 print(f"Configuration notebook for {self.entities_folder}")
 """
 
@@ -300,7 +300,7 @@ print(f"Configuration notebook for {self.entities_folder}")
         gpl = GatherPythonLibs(console=self.console)  # Replace with actual console instance
         combined_content = gpl.gather_files(lib_path, libs_to_include)  # Call the method to gather and process files
         # Write to lib.py.jinja template
-        lib_template_path = self.templates_dir / "lib.py.jinja"
+        lib_template_path = self.templates_dirs[0] / "lib.py.jinja"
 
         try:
             with lib_template_path.open("w", encoding="utf-8") as f:
