@@ -3,6 +3,7 @@ OneLake utilities for interacting with Microsoft Fabric OneLake storage using Az
 """
 
 import logging
+import os
 from pathlib import Path
 from typing import Optional
 
@@ -17,8 +18,6 @@ from ingen_fab.config_utils.variable_lib_factory import (
     get_workspace_id_from_environment,
 )
 from ingen_fab.fabric_api.utils import FabricApiUtils
-
-import os
 
 try:
     from rich.console import Console
@@ -214,7 +213,7 @@ class OneLakeUtils:
             download = file_client.download_file()
             
             with open(file_path_obj, "wb") as my_file:
-                downloaded_bytes = download.readinto(my_file)
+                download.readinto(my_file)
 
             if verbose:
                 self.msg_helper.print_success(f"Downloaded {full_source_path}")

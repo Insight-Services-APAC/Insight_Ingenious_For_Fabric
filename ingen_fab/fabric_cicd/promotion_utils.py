@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import os
 import shutil
 from dataclasses import dataclass
 from pathlib import Path
@@ -10,6 +11,7 @@ from typing import Optional
 import yaml
 from fabric_cicd import (
     FabricWorkspace,
+    append_feature_flag,
     constants,
     publish_all_items,
     unpublish_all_orphan_items,
@@ -17,22 +19,11 @@ from fabric_cicd import (
 from fabric_cicd.publish_log_entry import PublishLogEntry
 from rich.console import Console
 
+from ingen_fab.az_cli.onelake_utils import OneLakeUtils
 from ingen_fab.cli_utils.console_styles import ConsoleStyles
 
 # from fabric_cicd.fabric_workspace import PublishLogEntry
 from ingen_fab.config_utils.variable_lib import VariableLibraryUtils
-
-from ingen_fab.az_cli.onelake_utils import OneLakeUtils
-
-from fabric_cicd import (
-    FabricWorkspace,
-    constants,
-    publish_all_items,
-    unpublish_all_orphan_items,
-    append_feature_flag
-)
-
-import os
 
 append_feature_flag("enable_shortcut_publish")
 
@@ -189,7 +180,7 @@ class SyncToFabricEnvironment:
         
         if self.workspace_manifest_location == "config_lakehouse":
             ConsoleStyles.print_info(
-                self.console, f"Downloading manifest file from config lakehouse"
+                self.console, "Downloading manifest file from config lakehouse"
             )
             onelake_utils = OneLakeUtils(
                 environment=self.environment, project_path=Path(self.project_path), console=self.console
@@ -197,10 +188,10 @@ class SyncToFabricEnvironment:
             try:
                 config_lakehouse_id = onelake_utils.get_config_lakehouse_id()
                 onelake_utils._get_lakehouse_name(config_lakehouse_id)
-                results = onelake_utils.download_manifest_file_from_config_lakehouse(manifest_path)
-            except Exception as e:
+                onelake_utils.download_manifest_file_from_config_lakehouse(manifest_path)
+            except Exception:
                 ConsoleStyles.print_info(
-                    self.console, f"Config lakehouse does not yet exist."
+                    self.console, "Config lakehouse does not yet exist."
                 )
 
         """Read the platform folders manifest from a YAML file."""
@@ -319,12 +310,12 @@ class SyncToFabricEnvironment:
         
         if self.workspace_manifest_location == "config_lakehouse":
             ConsoleStyles.print_info(
-                self.console, f"Uploading manifest file to config lakehouse"
+                self.console, "Uploading manifest file to config lakehouse"
             )
             onelake_utils = OneLakeUtils(
                 environment=self.environment, project_path=Path(self.project_path), console=self.console
             )
-            results = onelake_utils.upload_manifest_file_to_config_lakehouse(output_path)
+            onelake_utils.upload_manifest_file_to_config_lakehouse(output_path)
 
     def sync_environment(self):
         """Synchronize environment variables and platform folders. Upload to Fabric."""
