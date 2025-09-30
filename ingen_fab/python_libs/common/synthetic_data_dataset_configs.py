@@ -311,9 +311,9 @@ class DatasetConfigurationRepository:
                     config = pattern_configs[table].copy()
                     # Apply scale factor
                     if "base_rows" in config:
-                        config["base_rows"] = int(config["base_rows"] * scale_factor)
+                        config["base_rows"] = int(float(config["base_rows"]) * scale_factor)  # type: ignore[arg-type]
                     if "base_rows_per_day" in config:
-                        config["base_rows_per_day"] = int(config["base_rows_per_day"] * scale_factor)
+                        config["base_rows_per_day"] = int(float(config["base_rows_per_day"]) * scale_factor)  # type: ignore[arg-type]
                     table_configs[table] = config
 
         # Add dimension tables for star schema
@@ -322,7 +322,7 @@ class DatasetConfigurationRepository:
                 if dim in pattern_configs:
                     config = pattern_configs[dim].copy()
                     if "base_rows" in config:
-                        config["base_rows"] = int(config["base_rows"] * scale_factor)
+                        config["base_rows"] = int(float(config["base_rows"]) * scale_factor)  # type: ignore[arg-type]
                     table_configs[dim] = config
 
         # Add fact tables for star schema
@@ -331,7 +331,7 @@ class DatasetConfigurationRepository:
                 if fact in pattern_configs:
                     config = pattern_configs[fact].copy()
                     if "base_rows_per_day" in config:
-                        config["base_rows_per_day"] = int(config["base_rows_per_day"] * scale_factor)
+                        config["base_rows_per_day"] = int(float(config["base_rows_per_day"]) * scale_factor)  # type: ignore[arg-type]
                     table_configs[fact] = config
 
         return table_configs

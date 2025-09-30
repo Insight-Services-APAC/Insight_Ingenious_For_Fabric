@@ -35,13 +35,13 @@ class TableGenerationConfig:
     holiday_multiplier: float = 1.0
     custom_multipliers: Dict[str, float] = field(default_factory=dict)
     date_columns: List[str] = field(default_factory=list)
-    primary_date_column: str = None
+    primary_date_column: Optional[str] = None
 
     def calculate_target_rows(
         self,
         generation_date: date,
-        current_size: int = None,
-        seasonal_multipliers: Dict[str, float] = None,
+        current_size: Optional[int] = None,
+        seasonal_multipliers: Optional[Dict[str, float]] = None,
     ) -> int:
         """Calculate target rows for a specific generation date."""
         if self.table_type == "snapshot":
@@ -49,7 +49,7 @@ class TableGenerationConfig:
         else:
             return self._calculate_incremental_rows(generation_date, seasonal_multipliers)
 
-    def _calculate_snapshot_rows(self, generation_date: date, current_size: int = None) -> int:
+    def _calculate_snapshot_rows(self, generation_date: date, current_size: Optional[int] = None) -> int:
         """Calculate snapshot table rows with growth/churn."""
         if current_size is None:
             current_size = self.base_rows
@@ -68,7 +68,9 @@ class TableGenerationConfig:
 
         return max(current_size, 100)
 
-    def _calculate_incremental_rows(self, generation_date: date, seasonal_multipliers: Dict[str, float] = None) -> int:
+    def _calculate_incremental_rows(
+        self, generation_date: date, seasonal_multipliers: Optional[Dict[str, float]] = None
+    ) -> int:
         """Calculate incremental table rows with seasonal adjustments."""
         base_rows = self.base_rows_per_day
 

@@ -242,12 +242,12 @@ class NotebookParameterValidator:
 
         # Validate dataset_id
         is_valid, error = cls.validate_dataset_id(parameters["dataset_id"])
-        if not is_valid:
+        if not is_valid and error:
             errors.append(error)
 
         # Validate date range
         is_valid, error = cls.validate_date_range(parameters["start_date"], parameters["end_date"])
-        if not is_valid:
+        if not is_valid and error:
             errors.append(error)
         else:
             # Calculate date range for batch size validation
@@ -258,26 +258,26 @@ class NotebookParameterValidator:
             # Validate batch size
             batch_size = parameters.get("batch_size", 10)
             is_valid, error = cls.validate_batch_size(batch_size, date_range_days)
-            if not is_valid:
+            if not is_valid and error:
                 errors.append(error)
 
         # Validate output mode
         output_mode = parameters.get("output_mode", "table")
         target_environment = parameters.get("target_environment", "lakehouse")
         is_valid, error = cls.validate_output_mode(output_mode, target_environment)
-        if not is_valid:
+        if not is_valid and error:
             errors.append(error)
 
         # Validate path format
         path_format = parameters.get("path_format", "nested")
         is_valid, error = cls.validate_path_format(path_format)
-        if not is_valid:
+        if not is_valid and error:
             errors.append(error)
 
         # Validate generation mode
         generation_mode = parameters.get("generation_mode", "auto")
         is_valid, error = cls.validate_generation_mode(generation_mode, target_environment)
-        if not is_valid:
+        if not is_valid and error:
             errors.append(error)
 
         return len(errors) == 0, errors
@@ -303,37 +303,37 @@ class NotebookParameterValidator:
 
         # Validate dataset_id
         is_valid, error = cls.validate_dataset_id(parameters["dataset_id"])
-        if not is_valid:
+        if not is_valid and error:
             errors.append(error)
 
         # Validate target rows
         generation_mode = parameters.get("generation_mode", "auto")
         is_valid, error = cls.validate_target_rows(parameters["target_rows"], generation_mode)
-        if not is_valid:
+        if not is_valid and error:
             errors.append(error)
 
         # Validate output mode
         output_mode = parameters.get("output_mode", "table")
         target_environment = parameters.get("target_environment", "lakehouse")
         is_valid, error = cls.validate_output_mode(output_mode, target_environment)
-        if not is_valid:
+        if not is_valid and error:
             errors.append(error)
 
         # Validate generation mode
         is_valid, error = cls.validate_generation_mode(generation_mode, target_environment)
-        if not is_valid:
+        if not is_valid and error:
             errors.append(error)
 
         # Validate scale factor
         scale_factor = parameters.get("scale_factor", 1.0)
         is_valid, error = cls.validate_scale_factor(scale_factor)
-        if not is_valid:
+        if not is_valid and error:
             errors.append(error)
 
         # Validate custom schema
         custom_schema = parameters.get("custom_schema")
         is_valid, error = cls.validate_custom_schema(custom_schema)
-        if not is_valid:
+        if not is_valid and error:
             errors.append(error)
 
         return len(errors) == 0, errors
