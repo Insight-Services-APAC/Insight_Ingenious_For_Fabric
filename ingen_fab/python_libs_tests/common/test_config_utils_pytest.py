@@ -46,18 +46,9 @@ def test_configs_object_structure():
     assert hasattr(configs_obj, "edw_warehouse_name")
 
     # Test values match configs_dict
-    assert (
-        configs_obj.fabric_environment
-        == config_utils.configs_dict["fabric_environment"]
-    )
-    assert (
-        configs_obj.config_lakehouse_name
-        == config_utils.configs_dict["config_lakehouse_name"]
-    )
-    assert (
-        configs_obj.edw_warehouse_name
-        == config_utils.configs_dict["edw_warehouse_name"]
-    )
+    assert configs_obj.fabric_environment == config_utils.configs_dict["fabric_environment"]
+    assert configs_obj.config_lakehouse_name == config_utils.configs_dict["config_lakehouse_name"]
+    assert configs_obj.edw_warehouse_name == config_utils.configs_dict["edw_warehouse_name"]
 
 
 def test_configs_object_get_attribute_success():
@@ -68,19 +59,14 @@ def test_configs_object_get_attribute_success():
     assert configs_obj.get_attribute("fabric_environment") == "local"
     assert configs_obj.get_attribute("config_lakehouse_name") == "config"
     assert configs_obj.get_attribute("edw_warehouse_name") == "edw"
-    assert (
-        configs_obj.get_attribute("legacy_synapse_connection_name")
-        == "synapse_connection"
-    )
+    assert configs_obj.get_attribute("legacy_synapse_connection_name") == "synapse_connection"
 
 
 def test_configs_object_get_attribute_error():
     """Test that get_attribute method raises error for non-existent attributes."""
     configs_obj = config_utils.configs_object
 
-    with pytest.raises(
-        AttributeError, match="ConfigsObject has no attribute 'non_existent_attr'"
-    ):
+    with pytest.raises(AttributeError, match="ConfigsObject has no attribute 'non_existent_attr'"):
         configs_obj.get_attribute("non_existent_attr")
 
 
@@ -165,9 +151,7 @@ def test_configs_object_attributes_match_dict():
 
     for key, value in configs_dict.items():
         assert hasattr(configs_obj, key), f"ConfigsObject missing attribute '{key}'"
-        assert getattr(configs_obj, key) == value, (
-            f"ConfigsObject.{key} doesn't match configs_dict['{key}']"
-        )
+        assert getattr(configs_obj, key) == value, f"ConfigsObject.{key} doesn't match configs_dict['{key}']"
 
 
 def test_module_constants():

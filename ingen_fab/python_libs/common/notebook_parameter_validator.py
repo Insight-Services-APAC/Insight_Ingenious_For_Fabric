@@ -35,9 +35,7 @@ class NotebookParameterValidator:
             )
 
     @staticmethod
-    def validate_date_range(
-        start_date: str, end_date: str
-    ) -> Tuple[bool, Optional[str]]:
+    def validate_date_range(start_date: str, end_date: str) -> Tuple[bool, Optional[str]]:
         """
         Validate date format and range logic.
 
@@ -65,9 +63,7 @@ class NotebookParameterValidator:
             return False, f"Invalid date format. Use YYYY-MM-DD format. Error: {e}"
 
     @staticmethod
-    def validate_batch_size(
-        batch_size: int, date_range_days: int
-    ) -> Tuple[bool, Optional[str]]:
+    def validate_batch_size(batch_size: int, date_range_days: int) -> Tuple[bool, Optional[str]]:
         """
         Validate batch size is reasonable for the date range.
 
@@ -92,9 +88,7 @@ class NotebookParameterValidator:
         return True, None
 
     @staticmethod
-    def validate_output_mode(
-        output_mode: str, target_environment: str
-    ) -> Tuple[bool, Optional[str]]:
+    def validate_output_mode(output_mode: str, target_environment: str) -> Tuple[bool, Optional[str]]:
         """
         Validate output mode is compatible with target environment.
 
@@ -131,9 +125,7 @@ class NotebookParameterValidator:
         return True, None
 
     @staticmethod
-    def validate_generation_mode(
-        generation_mode: str, target_environment: str
-    ) -> Tuple[bool, Optional[str]]:
+    def validate_generation_mode(generation_mode: str, target_environment: str) -> Tuple[bool, Optional[str]]:
         """
         Validate generation mode is compatible with environment.
 
@@ -152,9 +144,7 @@ class NotebookParameterValidator:
         return True, None
 
     @staticmethod
-    def validate_target_rows(
-        target_rows: int, generation_mode: str = "auto"
-    ) -> Tuple[bool, Optional[str]]:
+    def validate_target_rows(target_rows: int, generation_mode: str = "auto") -> Tuple[bool, Optional[str]]:
         """
         Validate target rows count is reasonable.
 
@@ -232,9 +222,7 @@ class NotebookParameterValidator:
         return True, None
 
     @classmethod
-    def validate_incremental_series_parameters(
-        cls, parameters: Dict[str, Any]
-    ) -> Tuple[bool, List[str]]:
+    def validate_incremental_series_parameters(cls, parameters: Dict[str, Any]) -> Tuple[bool, List[str]]:
         """
         Validate all parameters for incremental series generation.
 
@@ -258,9 +246,7 @@ class NotebookParameterValidator:
             errors.append(error)
 
         # Validate date range
-        is_valid, error = cls.validate_date_range(
-            parameters["start_date"], parameters["end_date"]
-        )
+        is_valid, error = cls.validate_date_range(parameters["start_date"], parameters["end_date"])
         if not is_valid:
             errors.append(error)
         else:
@@ -290,18 +276,14 @@ class NotebookParameterValidator:
 
         # Validate generation mode
         generation_mode = parameters.get("generation_mode", "auto")
-        is_valid, error = cls.validate_generation_mode(
-            generation_mode, target_environment
-        )
+        is_valid, error = cls.validate_generation_mode(generation_mode, target_environment)
         if not is_valid:
             errors.append(error)
 
         return len(errors) == 0, errors
 
     @classmethod
-    def validate_single_dataset_parameters(
-        cls, parameters: Dict[str, Any]
-    ) -> Tuple[bool, List[str]]:
+    def validate_single_dataset_parameters(cls, parameters: Dict[str, Any]) -> Tuple[bool, List[str]]:
         """
         Validate all parameters for single dataset generation.
 
@@ -326,9 +308,7 @@ class NotebookParameterValidator:
 
         # Validate target rows
         generation_mode = parameters.get("generation_mode", "auto")
-        is_valid, error = cls.validate_target_rows(
-            parameters["target_rows"], generation_mode
-        )
+        is_valid, error = cls.validate_target_rows(parameters["target_rows"], generation_mode)
         if not is_valid:
             errors.append(error)
 
@@ -340,9 +320,7 @@ class NotebookParameterValidator:
             errors.append(error)
 
         # Validate generation mode
-        is_valid, error = cls.validate_generation_mode(
-            generation_mode, target_environment
-        )
+        is_valid, error = cls.validate_generation_mode(generation_mode, target_environment)
         if not is_valid:
             errors.append(error)
 
@@ -365,9 +343,7 @@ class SmartDefaultProvider:
     """Provides intelligent defaults for notebook parameters."""
 
     @staticmethod
-    def get_optimal_batch_size(
-        date_range_days: int, target_rows_per_day: int = 100000
-    ) -> int:
+    def get_optimal_batch_size(date_range_days: int, target_rows_per_day: int = 100000) -> int:
         """
         Calculate optimal batch size based on data volume and date range.
 
@@ -397,9 +373,7 @@ class SmartDefaultProvider:
         return 1
 
     @staticmethod
-    def suggest_generation_mode(
-        target_rows: int, target_environment: str, date_range_days: int = 1
-    ) -> str:
+    def suggest_generation_mode(target_rows: int, target_environment: str, date_range_days: int = 1) -> str:
         """
         Auto-suggest generation mode based on data size and environment.
 
@@ -421,9 +395,7 @@ class SmartDefaultProvider:
         return "pyspark" if total_rows > 1_000_000 else "python"
 
     @staticmethod
-    def suggest_output_mode(
-        target_rows: int, target_environment: str, use_case: str = "general"
-    ) -> str:
+    def suggest_output_mode(target_rows: int, target_environment: str, use_case: str = "general") -> str:
         """
         Suggest optimal output mode based on requirements.
 
@@ -445,9 +417,7 @@ class SmartDefaultProvider:
         return "table"
 
     @staticmethod
-    def get_parameter_recommendations(
-        notebook_type: str, basic_params: Dict[str, Any]
-    ) -> Dict[str, Any]:
+    def get_parameter_recommendations(notebook_type: str, basic_params: Dict[str, Any]) -> Dict[str, Any]:
         """
         Get comprehensive parameter recommendations for a notebook type.
 
@@ -462,36 +432,28 @@ class SmartDefaultProvider:
 
         if notebook_type == "incremental_series":
             # Calculate date range
-            start_date = datetime.strptime(
-                basic_params["start_date"], "%Y-%m-%d"
-            ).date()
+            start_date = datetime.strptime(basic_params["start_date"], "%Y-%m-%d").date()
             end_date = datetime.strptime(basic_params["end_date"], "%Y-%m-%d").date()
             date_range_days = (end_date - start_date).days + 1
 
             # Recommend batch size
             if "batch_size" not in recommendations:
-                recommendations["batch_size"] = (
-                    SmartDefaultProvider.get_optimal_batch_size(date_range_days)
-                )
+                recommendations["batch_size"] = SmartDefaultProvider.get_optimal_batch_size(date_range_days)
 
             # Recommend generation mode
             if "generation_mode" not in recommendations:
-                recommendations["generation_mode"] = (
-                    SmartDefaultProvider.suggest_generation_mode(
-                        basic_params.get("target_rows_per_day", 100000),
-                        basic_params.get("target_environment", "lakehouse"),
-                        date_range_days,
-                    )
+                recommendations["generation_mode"] = SmartDefaultProvider.suggest_generation_mode(
+                    basic_params.get("target_rows_per_day", 100000),
+                    basic_params.get("target_environment", "lakehouse"),
+                    date_range_days,
                 )
 
         elif notebook_type == "single_dataset":
             # Recommend generation mode
             if "generation_mode" not in recommendations:
-                recommendations["generation_mode"] = (
-                    SmartDefaultProvider.suggest_generation_mode(
-                        basic_params["target_rows"],
-                        basic_params.get("target_environment", "lakehouse"),
-                    )
+                recommendations["generation_mode"] = SmartDefaultProvider.suggest_generation_mode(
+                    basic_params["target_rows"],
+                    basic_params.get("target_environment", "lakehouse"),
                 )
 
         # Common recommendations

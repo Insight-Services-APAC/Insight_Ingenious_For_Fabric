@@ -23,9 +23,7 @@ def main():
     # Get notebook utils - automatically detects environment
     utils = get_notebook_utils()
 
-    print(
-        f"Environment detected: {'Fabric' if utils.__class__.__name__ == 'FabricNotebookUtils' else 'Local'}"
-    )
+    print(f"Environment detected: {'Fabric' if utils.__class__.__name__ == 'FabricNotebookUtils' else 'Local'}")
     print(f"Utils available: {utils.is_available()}\n")
 
     # Example 1: Display data

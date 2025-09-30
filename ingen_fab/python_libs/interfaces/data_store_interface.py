@@ -27,9 +27,7 @@ class DataStoreInterface(ABC):
         pass
 
     @abstractmethod
-    def check_if_table_exists(
-        self, table_name: str, schema_name: str | None = None
-    ) -> bool:
+    def check_if_table_exists(self, table_name: str, schema_name: str | None = None) -> bool:
         """
         Check if a table exists in the data store.
 
@@ -64,9 +62,7 @@ class DataStoreInterface(ABC):
         pass
 
     @abstractmethod
-    def drop_all_tables(
-        self, schema_name: str | None = None, table_prefix: str | None = None
-    ) -> None:
+    def drop_all_tables(self, schema_name: str | None = None, table_prefix: str | None = None) -> None:
         """
         Drop all tables in the data store.
 
@@ -110,9 +106,7 @@ class DataStoreInterface(ABC):
         pass
 
     @abstractmethod
-    def get_table_schema(
-        self, table_name: str, schema_name: str | None = None
-    ) -> dict[str, Any]:
+    def get_table_schema(self, table_name: str, schema_name: str | None = None) -> dict[str, Any]:
         """
         Get the schema/column definitions for a table.
 

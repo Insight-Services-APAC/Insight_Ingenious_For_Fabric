@@ -128,9 +128,7 @@ class TableGenerationMetrics:
 
         if primary_col.min_date and primary_col.max_date:
             if primary_col.min_date == primary_col.max_date:
-                correlation_parts.append(
-                    f"with {primary_col.column_name} = {primary_col.min_date}"
-                )
+                correlation_parts.append(f"with {primary_col.column_name} = {primary_col.min_date}")
             else:
                 correlation_parts.append(
                     f"with {primary_col.column_name} from {primary_col.min_date} to {primary_col.max_date}"
@@ -170,11 +168,7 @@ class DatasetGenerationSummary:
     def get_table_by_name(self, table_name: str) -> Optional[TableGenerationMetrics]:
         """Get metrics for a specific table."""
         return next(
-            (
-                metrics
-                for metrics in self.table_metrics
-                if metrics.table_name == table_name
-            ),
+            (metrics for metrics in self.table_metrics if metrics.table_name == table_name),
             None,
         )
 
@@ -201,9 +195,7 @@ class SyntheticDataLogger:
             console_handler = logging.StreamHandler(sys.stdout)
             console_handler.setLevel(log_level)
 
-            console_formatter = logging.Formatter(
-                "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
-            )
+            console_formatter = logging.Formatter("%(asctime)s - %(name)s - %(levelname)s - %(message)s")
             console_handler.setFormatter(console_formatter)
             self.logger.addHandler(console_handler)
 
@@ -212,9 +204,7 @@ class SyntheticDataLogger:
             file_handler = logging.FileHandler(log_file_path)
             file_handler.setLevel(log_level)
 
-            file_formatter = logging.Formatter(
-                "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
-            )
+            file_formatter = logging.Formatter("%(asctime)s - %(name)s - %(levelname)s - %(message)s")
             file_handler.setFormatter(file_formatter)
             self.logger.addHandler(file_handler)
 
@@ -238,15 +228,11 @@ class SyntheticDataLogger:
         date_columns = []  # noqa: F841
 
         if PYSPARK_AVAILABLE and hasattr(df, "schema"):
-            return self._analyze_pyspark_dataframe(
-                df, table_name, expected_date_columns
-            )
+            return self._analyze_pyspark_dataframe(df, table_name, expected_date_columns)
         elif PANDAS_AVAILABLE and hasattr(df, "dtypes"):
             return self._analyze_pandas_dataframe(df, table_name, expected_date_columns)
         else:
-            self.logger.warning(
-                f"Unable to analyze date columns for {table_name} - unsupported DataFrame type"
-            )
+            self.logger.warning(f"Unable to analyze date columns for {table_name} - unsupported DataFrame type")
             return []
 
     def _analyze_pyspark_dataframe(
@@ -286,9 +272,7 @@ class SyntheticDataLogger:
                 max_date_str = str(stats["max_date"]) if stats["max_date"] else None
 
                 # Determine data type
-                field_type = next(
-                    (f.dataType for f in df.schema.fields if f.name == col_name), None
-                )
+                field_type = next((f.dataType for f in df.schema.fields if f.name == col_name), None)
                 data_type = str(field_type) if field_type else "unknown"
 
                 date_col_info = DateColumnInfo(
@@ -299,17 +283,14 @@ class SyntheticDataLogger:
                     null_count=null_count,
                     total_count=total_count,
                     is_primary_date=(
-                        col_name in (expected_date_columns or [])
-                        and expected_date_columns.index(col_name) == 0
+                        col_name in (expected_date_columns or []) and expected_date_columns.index(col_name) == 0
                     ),
                 )
 
                 date_columns.append(date_col_info)
 
             except Exception as e:
-                self.logger.warning(
-                    f"Error analyzing date column {col_name} in {table_name}: {e}"
-                )
+                self.logger.warning(f"Error analyzing date column {col_name} in {table_name}: {e}")
 
         return date_columns
 
@@ -354,26 +335,19 @@ class SyntheticDataLogger:
                 date_col_info = DateColumnInfo(
                     column_name=col_name,
                     data_type=str(df[col_name].dtype),
-                    min_date=min_date.strftime("%Y-%m-%d")
-                    if pd.notna(min_date)
-                    else None,
-                    max_date=max_date.strftime("%Y-%m-%d")
-                    if pd.notna(max_date)
-                    else None,
+                    min_date=min_date.strftime("%Y-%m-%d") if pd.notna(min_date) else None,
+                    max_date=max_date.strftime("%Y-%m-%d") if pd.notna(max_date) else None,
                     null_count=int(null_count),
                     total_count=total_count,
                     is_primary_date=(
-                        col_name in (expected_date_columns or [])
-                        and expected_date_columns.index(col_name) == 0
+                        col_name in (expected_date_columns or []) and expected_date_columns.index(col_name) == 0
                     ),
                 )
 
                 date_columns.append(date_col_info)
 
             except Exception as e:
-                self.logger.warning(
-                    f"Error analyzing date column {col_name} in {table_name}: {e}"
-                )
+                self.logger.warning(f"Error analyzing date column {col_name} in {table_name}: {e}")
 
         return date_columns
 
@@ -392,13 +366,9 @@ class SyntheticDataLogger:
         self.logger.info(f"   🎯 Target rows: {target_rows:,}")
 
         if config_applied:
-            self.logger.debug(
-                f"   ⚙️ Configuration: {json.dumps(config_applied, indent=2)}"
-            )
+            self.logger.debug(f"   ⚙️ Configuration: {json.dumps(config_applied, indent=2)}")
 
-    def log_table_generation_complete(
-        self, table_metrics: TableGenerationMetrics
-    ) -> str:
+    def log_table_generation_complete(self, table_metrics: TableGenerationMetrics) -> str:
         """
         Log the completion of table generation with detailed metrics.
 
@@ -408,35 +378,25 @@ class SyntheticDataLogger:
         # Log basic completion info
         self.logger.info(f"✅ Completed generation for {table_metrics.table_name}")
         self.logger.info(f"   📈 Rows generated: {table_metrics.rows_generated:,}")
-        self.logger.info(
-            f"   ⏱️ Duration: {table_metrics.generation_duration_seconds:.2f} seconds"
-        )
-        self.logger.info(
-            f"   🚀 Rate: {table_metrics.generation_rate_rows_per_second:.0f} rows/second"
-        )
+        self.logger.info(f"   ⏱️ Duration: {table_metrics.generation_duration_seconds:.2f} seconds")
+        self.logger.info(f"   🚀 Rate: {table_metrics.generation_rate_rows_per_second:.0f} rows/second")
         self.logger.info(f"   📁 File: {table_metrics.file_path}")
 
         # Log date column information
         if table_metrics.date_columns:
-            self.logger.info(
-                f"   📅 Date columns identified: {len(table_metrics.date_columns)}"
-            )
+            self.logger.info(f"   📅 Date columns identified: {len(table_metrics.date_columns)}")
 
             for date_col in table_metrics.date_columns:
                 primary_indicator = " (PRIMARY)" if date_col.is_primary_date else ""
                 completeness = f"{date_col.completeness_percentage:.1f}%"
 
-                self.logger.info(
-                    f"     • {date_col.column_name}{primary_indicator}: {completeness} complete"
-                )
+                self.logger.info(f"     • {date_col.column_name}{primary_indicator}: {completeness} complete")
 
                 if date_col.min_date and date_col.max_date:
                     if date_col.min_date == date_col.max_date:
                         self.logger.info(f"       Date value: {date_col.min_date}")
                     else:
-                        self.logger.info(
-                            f"       Date range: {date_col.min_date} to {date_col.max_date}"
-                        )
+                        self.logger.info(f"       Date range: {date_col.min_date} to {date_col.max_date}")
         else:
             self.logger.info("   📅 No date columns identified")
 
@@ -462,19 +422,13 @@ class SyntheticDataLogger:
         self.logger.info(f"   📊 Total tables: {summary.total_tables}")
         self.logger.info(f"   📈 Total rows: {summary.total_rows:,}")
         self.logger.info(f"   💾 Total size: {summary.total_size_mb:.2f} MB")
-        self.logger.info(
-            f"   ⏱️ Total duration: {summary.total_duration_seconds:.2f} seconds"
-        )
-        self.logger.info(
-            f"   🚀 Overall rate: {summary.overall_generation_rate:.0f} rows/second"
-        )
+        self.logger.info(f"   ⏱️ Total duration: {summary.total_duration_seconds:.2f} seconds")
+        self.logger.info(f"   🚀 Overall rate: {summary.overall_generation_rate:.0f} rows/second")
 
         # Log per-table breakdown
         self.logger.info("   📋 Table breakdown:")
         for table_metrics in summary.table_metrics:
-            primary_date_col = next(
-                (col for col in table_metrics.date_columns if col.is_primary_date), None
-            )
+            primary_date_col = next((col for col in table_metrics.date_columns if col.is_primary_date), None)
 
             if primary_date_col and primary_date_col.min_date:
                 date_info = (
@@ -485,9 +439,7 @@ class SyntheticDataLogger:
             else:
                 date_info = ""
 
-            self.logger.info(
-                f"     • {table_metrics.table_name}: {table_metrics.rows_generated:,} rows{date_info}"
-            )
+            self.logger.info(f"     • {table_metrics.table_name}: {table_metrics.rows_generated:,} rows{date_info}")
 
     def create_table_metrics(
         self,
@@ -506,16 +458,12 @@ class SyntheticDataLogger:
         # Analyze date columns if DataFrame provided
         date_columns = []
         if dataframe is not None:
-            date_columns = self.analyze_dataframe_date_columns(
-                dataframe, table_name, expected_date_columns
-            )
+            date_columns = self.analyze_dataframe_date_columns(dataframe, table_name, expected_date_columns)
 
         # Determine primary date column
         primary_date_column = None
         if date_columns:
-            primary_col = next(
-                (col for col in date_columns if col.is_primary_date), None
-            )
+            primary_col = next((col for col in date_columns if col.is_primary_date), None)
             if primary_col:
                 primary_date_column = primary_col.column_name
             elif expected_date_columns:
@@ -575,9 +523,7 @@ class SyntheticDataLogger:
                 df = pd.DataFrame(flattened_data)
                 df.to_csv(output_path, index=False)
 
-            self.logger.info(
-                f"Exported {len(self._generation_logs)} log entries to {output_path}"
-            )
+            self.logger.info(f"Exported {len(self._generation_logs)} log entries to {output_path}")
 
         except Exception as e:
             self.logger.error(f"Failed to export logs: {e}")
@@ -588,9 +534,7 @@ class SyntheticDataLogger:
             return {}
 
         total_rows = sum(log.rows_generated for log in self._generation_logs)
-        total_duration = sum(
-            log.generation_duration_seconds for log in self._generation_logs
-        )
+        total_duration = sum(log.generation_duration_seconds for log in self._generation_logs)
         total_tables = len(self._generation_logs)
 
         table_types = {}
@@ -601,16 +545,10 @@ class SyntheticDataLogger:
             "total_tables_generated": total_tables,
             "total_rows_generated": total_rows,
             "total_duration_seconds": total_duration,
-            "average_rows_per_table": total_rows / total_tables
-            if total_tables > 0
-            else 0,
-            "overall_generation_rate": total_rows / total_duration
-            if total_duration > 0
-            else 0,
+            "average_rows_per_table": total_rows / total_tables if total_tables > 0 else 0,
+            "overall_generation_rate": total_rows / total_duration if total_duration > 0 else 0,
             "table_types_breakdown": table_types,
-            "generation_dates": list(
-                set(log.generation_date for log in self._generation_logs)
-            ),
+            "generation_dates": list(set(log.generation_date for log in self._generation_logs)),
         }
 
 
@@ -636,12 +574,8 @@ class DataCorrelationTracker:
             "file_path": file_path,
             "table_name": table_name,
             "generation_date": generation_date.isoformat(),
-            "data_min_date": data_date_range[0].isoformat()
-            if data_date_range[0]
-            else None,
-            "data_max_date": data_date_range[1].isoformat()
-            if data_date_range[1]
-            else None,
+            "data_min_date": data_date_range[0].isoformat() if data_date_range[0] else None,
+            "data_max_date": data_date_range[1].isoformat() if data_date_range[1] else None,
             "row_count": row_count,
             "correlation_timestamp": datetime.now().isoformat(),
         }
@@ -649,19 +583,11 @@ class DataCorrelationTracker:
     def get_correlations_for_date(self, target_date: date) -> List[Dict[str, Any]]:
         """Get all correlations for a specific date."""
         target_str = target_date.isoformat()
-        return [
-            corr
-            for corr in self._correlations.values()
-            if corr["generation_date"] == target_str
-        ]
+        return [corr for corr in self._correlations.values() if corr["generation_date"] == target_str]
 
     def get_correlations_for_table(self, table_name: str) -> List[Dict[str, Any]]:
         """Get all correlations for a specific table."""
-        return [
-            corr
-            for corr in self._correlations.values()
-            if corr["table_name"] == table_name
-        ]
+        return [corr for corr in self._correlations.values() if corr["table_name"] == table_name]
 
     def export_correlations(self, output_path: str):
         """Export correlation tracking data."""
@@ -669,9 +595,7 @@ class DataCorrelationTracker:
             with open(output_path, "w") as f:
                 json.dump(list(self._correlations.values()), f, indent=2)
 
-            self.logger.logger.info(
-                f"Exported {len(self._correlations)} correlations to {output_path}"
-            )
+            self.logger.logger.info(f"Exported {len(self._correlations)} correlations to {output_path}")
 
         except Exception as e:
             self.logger.logger.error(f"Failed to export correlations: {e}")

@@ -52,11 +52,7 @@ print("Client Secret created.")
 
 # === STEP 4 (optional): Assign Azure RBAC role at subscription or resource group level ===
 # You may replace with actual scope such as resource group or Fabric resource
-subscription_id = (
-    subprocess.check_output(["az", "account", "show", "--query", "id", "-o", "tsv"])
-    .decode()
-    .strip()
-)
+subscription_id = subprocess.check_output(["az", "account", "show", "--query", "id", "-o", "tsv"]).decode().strip()
 scope = f"/subscriptions/{subscription_id}"
 print(f"Assigning role '{role}' at scope: {scope}")
 subprocess.run(
@@ -78,7 +74,5 @@ subprocess.run(
 print("\n==== Service Principal Credentials ====")
 print(f"Client ID: {sp_app_id}")
 print(f"Client Secret: {client_secret}")
-print(
-    f"Tenant ID: {app['publisherDomain']} (or use 'az account show --query tenantId')"
-)
+print(f"Tenant ID: {app['publisherDomain']} (or use 'az account show --query tenantId')")
 print("======================================")

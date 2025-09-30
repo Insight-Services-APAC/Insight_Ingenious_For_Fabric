@@ -64,31 +64,21 @@ class NotebookContentFinder:
 
                 if end_line_idx is not None:
                     replacement_start_idx_in_block_content = 0
-                    replacement_end_idx_in_block_content = len(
-                        block_content_lines_with_idx
-                    )
+                    replacement_end_idx_in_block_content = len(block_content_lines_with_idx)
 
                     # Find where the content ends: BEFORE the last '# METADATA ********************' section.
                     for idx in range(len(block_content_lines_with_idx) - 1, -1, -1):
-                        if (
-                            "# METADATA ********************"
-                            in block_content_lines_with_idx[idx][1]
-                        ):
+                        if "# METADATA ********************" in block_content_lines_with_idx[idx][1]:
                             # --- MODIFIED LINE HERE ---
-                            replacement_end_idx_in_block_content = idx  # Original line, included METADATA line index for slicing
-                            if (
-                                replacement_end_idx_in_block_content > 0
-                            ):  # Ensure we don't go negative
-                                replacement_end_idx_in_block_content -= (
-                                    1  # Exclude the empty line before METADATA
-                                )
+                            replacement_end_idx_in_block_content = (
+                                idx  # Original line, included METADATA line index for slicing
+                            )
+                            if replacement_end_idx_in_block_content > 0:  # Ensure we don't go negative
+                                replacement_end_idx_in_block_content -= 1  # Exclude the empty line before METADATA
                             break
 
                     replacement_lines_data = []
-                    if (
-                        replacement_start_idx_in_block_content
-                        < replacement_end_idx_in_block_content
-                    ):
+                    if replacement_start_idx_in_block_content < replacement_end_idx_in_block_content:
                         replacement_lines_data = block_content_lines_with_idx[
                             replacement_start_idx_in_block_content:replacement_end_idx_in_block_content
                         ]
@@ -129,9 +119,7 @@ class NotebookContentFinder:
 
         return blocks
 
-    def find_notebook_content_files(
-        self, base_dir: Path | None = None
-    ) -> List[Dict[str, Any]]:
+    def find_notebook_content_files(self, base_dir: Path | None = None) -> List[Dict[str, Any]]:
         """
         Scan directory recursively for all notebook-content.py files.
 
@@ -229,12 +217,8 @@ class NotebookContentFinder:
                 self.console.print(f"[dim]{file_path}[/dim]\n")
 
                 for block in blocks:
-                    self.console.print(
-                        f"[bold green]Block: {block['block_name']}[/bold green]"
-                    )
-                    self.console.print(
-                        f"Full block: lines {block['start_line']}-{block['end_line']}"
-                    )
+                    self.console.print(f"[bold green]Block: {block['block_name']}[/bold green]")
+                    self.console.print(f"Full block: lines {block['start_line']}-{block['end_line']}")
                     self.console.print(
                         f"Content to replace: lines {block['replacement_start_line']}-{block['replacement_end_line']}"
                     )
@@ -257,25 +241,17 @@ class NotebookContentFinder:
 
     def scan_and_display_blocks(self) -> dict[str, list[dict[str, Any]]]:
         fabric_workspace_dir = self.base_dir
-        self.console.print(
-            f"[bold blue]Scanning directory:[/bold blue] {fabric_workspace_dir}"
-        )
+        self.console.print(f"[bold blue]Scanning directory:[/bold blue] {fabric_workspace_dir}")
         if not fabric_workspace_dir.exists():
-            self.console.print(
-                f"[red]Error: Directory does not exist: {fabric_workspace_dir}[/red]"
-            )
+            self.console.print(f"[red]Error: Directory does not exist: {fabric_workspace_dir}[/red]")
             return {}
         try:
             notebook_files = self.find_notebook_content_files(fabric_workspace_dir)
             if not notebook_files:
-                self.console.print(
-                    "[yellow]No notebook-content.py files found.[/yellow]"
-                )
+                self.console.print("[yellow]No notebook-content.py files found.[/yellow]")
                 return {}
             all_blocks = {}
-            with self.console.status(
-                "[bold green]Scanning for content blocks..."
-            ) as status:
+            with self.console.status("[bold green]Scanning for content blocks...") as status:
                 for notebook_info in notebook_files:
                     file_path = notebook_info["absolute_path"]
                     status.update(f"Scanning {notebook_info['notebook_name']}...")
@@ -284,9 +260,7 @@ class NotebookContentFinder:
                         if blocks:
                             all_blocks[str(file_path)] = blocks
                     except Exception as e:
-                        self.console.print(
-                            f"[red]Error processing {file_path}: {str(e)}[/red]"
-                        )
+                        self.console.print(f"[red]Error processing {file_path}: {str(e)}[/red]")
             self.display_blocks_summary(all_blocks)
             return all_blocks
         except Exception as e:
@@ -322,13 +296,9 @@ class NotebookContentFinder:
         if filename_base.endswith("_"):
             filename_base = filename_base[:-1]
 
-        replacement_file_path = (
-            self.python_libs_dir / subdirectory / f"{filename_base}.py"
-        )
+        replacement_file_path = self.python_libs_dir / subdirectory / f"{filename_base}.py"
 
-        self.console.print(
-            f"\n[bold blue]Looking for replacement file: {replacement_file_path}...[/bold blue]"
-        )
+        self.console.print(f"\n[bold blue]Looking for replacement file: {replacement_file_path}...[/bold blue]")
 
         if not replacement_file_path.exists():
             self.console.print(
@@ -345,9 +315,7 @@ class NotebookContentFinder:
             )
             return content
         except Exception as e:
-            self.console.print(
-                f"[red]Error reading replacement file {replacement_file_path}: {str(e)}[/red]"
-            )
+            self.console.print(f"[red]Error reading replacement file {replacement_file_path}: {str(e)}[/red]")
             return None
 
     def apply_replacements(self, all_blocks: Dict[str, List[Dict[str, Any]]]) -> None:
@@ -362,15 +330,11 @@ class NotebookContentFinder:
         for file_path_str, blocks in all_blocks.items():
             file_path = Path(file_path_str)
             if not file_path.exists():
-                self.console.print(
-                    f"[red]Skipping {file_path_str}: File not found.[/red]"
-                )
+                self.console.print(f"[red]Skipping {file_path_str}: File not found.[/red]")
                 continue
 
             # --- CRITICAL: Create a backup before modifying the file ---
-            self.console.print(
-                f"\n[bold blue]Creating backup for {file_path.name}...[/bold blue]"
-            )
+            self.console.print(f"\n[bold blue]Creating backup for {file_path.name}...[/bold blue]")
             backup_file_path = file_path.with_suffix(file_path.suffix + ".bak")
             try:
                 shutil.copyfile(file_path, backup_file_path)
@@ -389,9 +353,7 @@ class NotebookContentFinder:
             file_was_modified = False
 
             # Sort blocks by their start line in reverse order to avoid index shifting issues
-            blocks_to_process = sorted(
-                blocks, key=lambda b: b["replacement_start_line"], reverse=True
-            )
+            blocks_to_process = sorted(blocks, key=lambda b: b["replacement_start_line"], reverse=True)
 
             for block in blocks_to_process:
                 block_name = block["block_name"]
@@ -416,14 +378,11 @@ class NotebookContentFinder:
                     )
                     end_replace_idx = start_replace_idx - 1
 
-                replacement_lines = [
-                    line + "\n" for line in replacement_content.splitlines()
-                ]
+                replacement_lines = [line + "\n" for line in replacement_content.splitlines()]
                 if (
                     replacement_lines
                     and not original_lines[-1].endswith("\n")
-                    and start_replace_idx + len(replacement_lines)
-                    >= len(original_lines)
+                    and start_replace_idx + len(replacement_lines) >= len(original_lines)
                 ):
                     replacement_lines[-1] = replacement_lines[-1].rstrip("\n")
 
@@ -444,13 +403,9 @@ class NotebookContentFinder:
                 try:
                     with file_path.open("w", encoding="utf-8") as f:
                         f.writelines(new_lines)
-                    self.console.print(
-                        f"[green]\nFile update complete: {file_path.name} has been modified.[/green]\n"
-                    )
+                    self.console.print(f"[green]\nFile update complete: {file_path.name} has been modified.[/green]\n")
                 except Exception as e:
-                    self.console.print(
-                        f"[red]Error writing to {file_path.name}: {str(e)}[/red]"
-                    )
+                    self.console.print(f"[red]Error writing to {file_path.name}: {str(e)}[/red]")
             else:
                 self.console.print(
                     f"[yellow]\nNo blocks were successfully replaced in {file_path.name}. File remains unchanged.[/yellow]\n"

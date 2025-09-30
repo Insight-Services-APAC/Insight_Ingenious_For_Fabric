@@ -88,9 +88,7 @@ class TestLocalNotebookUtils:
 
         with patch("builtins.print") as mock_print:
             local_utils.exit_notebook("test_value")
-            mock_print.assert_called_once_with(
-                "Notebook would exit with value: test_value"
-            )
+            mock_print.assert_called_once_with("Notebook would exit with value: test_value")
 
     def test_connect_to_artifact_returns_pyodbc_connection(self):
         """Test that connect_to_artifact returns a pyodbc connection."""

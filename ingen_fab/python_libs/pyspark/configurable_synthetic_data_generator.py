@@ -139,17 +139,13 @@ class ConfigurableSyntheticDataGenerator:
             Generation results with enhanced metrics
         """
         if not ENHANCED_UTILS_AVAILABLE:
-            raise RuntimeError(
-                "Enhanced utilities not available. Install required dependencies."
-            )
+            raise RuntimeError("Enhanced utilities not available. Install required dependencies.")
 
         # Determine configuration to use
         if dataset_config_id:
             config = self.config_manager.get_predefined_config(dataset_config_id)
             if not config:
-                raise ValueError(
-                    f"Predefined configuration '{dataset_config_id}' not found"
-                )
+                raise ValueError(f"Predefined configuration '{dataset_config_id}' not found")
         elif dataset_config:
             if isinstance(dataset_config, dict):
                 config = DatasetConfiguration.from_dict(dataset_config)
@@ -158,9 +154,7 @@ class ConfigurableSyntheticDataGenerator:
         elif self.base_config:
             config = self.base_config
         else:
-            raise ValueError(
-                "No configuration provided. Specify dataset_config_id, dataset_config, or set base_config"
-            )
+            raise ValueError("No configuration provided. Specify dataset_config_id, dataset_config, or set base_config")
 
         # Set default generation date
         if generation_date is None:
@@ -217,17 +211,13 @@ class ConfigurableSyntheticDataGenerator:
 
         # Apply seasonal adjustments
         if seasonal_adjustments:
-            runtime_overrides.setdefault("incremental_config", {})[
-                "seasonal_multipliers"
-            ] = seasonal_adjustments
+            runtime_overrides.setdefault("incremental_config", {})["seasonal_multipliers"] = seasonal_adjustments
 
         # Apply table-specific multipliers
         if table_multipliers:
             runtime_overrides["table_configs"] = {}
             for table_name, multiplier in table_multipliers.items():
-                runtime_overrides["table_configs"][table_name] = {
-                    "row_multiplier": multiplier
-                }
+                runtime_overrides["table_configs"][table_name] = {"row_multiplier": multiplier}
 
         return self.generate_dataset_from_config(
             dataset_config_id=base_config_id,
@@ -269,9 +259,7 @@ class ConfigurableSyntheticDataGenerator:
                 base_rows_per_day=table_def.get("base_rows_per_day", 1000),
                 seasonal_enabled=table_def.get("seasonal_enabled", True),
                 date_columns=table_def.get("date_columns", ["created_date"]),
-                primary_date_column=table_def.get(
-                    "primary_date_column", "created_date"
-                ),
+                primary_date_column=table_def.get("primary_date_column", "created_date"),
             )
 
         # Create dataset configuration
@@ -287,9 +275,7 @@ class ConfigurableSyntheticDataGenerator:
         if output_settings:
             config.output_settings.update(output_settings)
 
-        return self.generate_dataset_from_config(
-            dataset_config=config, generation_date=generation_date
-        )
+        return self.generate_dataset_from_config(dataset_config=config, generation_date=generation_date)
 
     def generate_date_series(
         self,
@@ -358,9 +344,7 @@ class ConfigurableSyntheticDataGenerator:
             config = self.config_manager.get_predefined_config(dataset_config_id)
         elif dataset_config:
             config = (
-                DatasetConfiguration.from_dict(dataset_config)
-                if isinstance(dataset_config, dict)
-                else dataset_config
+                DatasetConfiguration.from_dict(dataset_config) if isinstance(dataset_config, dict) else dataset_config
             )
         else:
             raise ValueError("Must provide dataset_config_id or dataset_config")
@@ -512,16 +496,12 @@ class ConfigurableDatasetBuilder:
                 "customers": {"base_rows": scale_config["customers"]},
                 "products": {"base_rows": scale_config["products"]},
                 "orders": {"base_rows_per_day": scale_config["orders_per_day"]},
-                "order_items": {
-                    "base_rows_per_day": scale_config["orders_per_day"] * 2
-                },  # 2 items per order avg
+                "order_items": {"base_rows_per_day": scale_config["orders_per_day"] * 2},  # 2 items per order avg
             }
         }
 
         if seasonal_adjustments:
-            runtime_overrides["incremental_config"] = {
-                "seasonal_multipliers": seasonal_adjustments
-            }
+            runtime_overrides["incremental_config"] = {"seasonal_multipliers": seasonal_adjustments}
 
         return self.generator.generate_dataset_from_config(
             dataset_config_id="retail_oltp_enhanced",

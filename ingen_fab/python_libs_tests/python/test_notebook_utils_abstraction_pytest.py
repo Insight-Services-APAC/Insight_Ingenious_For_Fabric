@@ -33,9 +33,7 @@ class TestFabricNotebookUtils:
 
     def test_init_with_notebookutils(self, mock_notebookutils):
         """Test initialization with notebookutils."""
-        with patch(
-            "ingen_fab.python_libs.python.notebook_utils_abstraction.get_configs_as_object"
-        ) as mock_config:
+        with patch("ingen_fab.python_libs.python.notebook_utils_abstraction.get_configs_as_object") as mock_config:
             mock_config.return_value.fabric_environment = "development"
 
             utils = FabricNotebookUtils(mock_notebookutils)
@@ -44,9 +42,7 @@ class TestFabricNotebookUtils:
 
     def test_init_local_environment(self, mock_notebookutils):
         """Test initialization in local environment."""
-        with patch(
-            "ingen_fab.python_libs.python.notebook_utils_abstraction.get_configs_as_object"
-        ) as mock_config:
+        with patch("ingen_fab.python_libs.python.notebook_utils_abstraction.get_configs_as_object") as mock_config:
             mock_config.return_value.fabric_environment = "local"
 
             utils = FabricNotebookUtils(mock_notebookutils)
@@ -54,24 +50,18 @@ class TestFabricNotebookUtils:
 
     def test_connect_to_artifact_available(self, mock_notebookutils):
         """Test connecting to artifact when available."""
-        with patch(
-            "ingen_fab.python_libs.python.notebook_utils_abstraction.get_configs_as_object"
-        ) as mock_config:
+        with patch("ingen_fab.python_libs.python.notebook_utils_abstraction.get_configs_as_object") as mock_config:
             mock_config.return_value.fabric_environment = "development"
 
             utils = FabricNotebookUtils(mock_notebookutils)
             result = utils.connect_to_artifact("test-artifact", "test-workspace")
 
-            mock_notebookutils.data.connect_to_artifact.assert_called_once_with(
-                "test-artifact", "test-workspace"
-            )
+            mock_notebookutils.data.connect_to_artifact.assert_called_once_with("test-artifact", "test-workspace")
             assert result is not None
 
     def test_connect_to_artifact_unavailable(self, mock_notebookutils):
         """Test connecting to artifact when unavailable."""
-        with patch(
-            "ingen_fab.python_libs.python.notebook_utils_abstraction.get_configs_as_object"
-        ) as mock_config:
+        with patch("ingen_fab.python_libs.python.notebook_utils_abstraction.get_configs_as_object") as mock_config:
             mock_config.return_value.fabric_environment = "local"
 
             utils = FabricNotebookUtils(mock_notebookutils)
@@ -81,9 +71,7 @@ class TestFabricNotebookUtils:
 
     def test_display_available(self, mock_notebookutils):
         """Test display when available."""
-        with patch(
-            "ingen_fab.python_libs.python.notebook_utils_abstraction.get_configs_as_object"
-        ) as mock_config:
+        with patch("ingen_fab.python_libs.python.notebook_utils_abstraction.get_configs_as_object") as mock_config:
             mock_config.return_value.fabric_environment = "development"
 
             utils = FabricNotebookUtils(mock_notebookutils)
@@ -94,9 +82,7 @@ class TestFabricNotebookUtils:
 
     def test_display_unavailable(self, mock_notebookutils):
         """Test display when unavailable falls back to print."""
-        with patch(
-            "ingen_fab.python_libs.python.notebook_utils_abstraction.get_configs_as_object"
-        ) as mock_config:
+        with patch("ingen_fab.python_libs.python.notebook_utils_abstraction.get_configs_as_object") as mock_config:
             mock_config.return_value.fabric_environment = "local"
 
             utils = FabricNotebookUtils(mock_notebookutils)
@@ -107,9 +93,7 @@ class TestFabricNotebookUtils:
 
     def test_exit_notebook_unavailable(self, mock_notebookutils):
         """Test exit notebook when unavailable."""
-        with patch(
-            "ingen_fab.python_libs.python.notebook_utils_abstraction.get_configs_as_object"
-        ) as mock_config:
+        with patch("ingen_fab.python_libs.python.notebook_utils_abstraction.get_configs_as_object") as mock_config:
             mock_config.return_value.fabric_environment = "local"
 
             utils = FabricNotebookUtils(mock_notebookutils)
@@ -118,9 +102,7 @@ class TestFabricNotebookUtils:
 
     def test_get_secret_unavailable(self, mock_notebookutils):
         """Test get secret when unavailable."""
-        with patch(
-            "ingen_fab.python_libs.python.notebook_utils_abstraction.get_configs_as_object"
-        ) as mock_config:
+        with patch("ingen_fab.python_libs.python.notebook_utils_abstraction.get_configs_as_object") as mock_config:
             mock_config.return_value.fabric_environment = "local"
 
             utils = FabricNotebookUtils(mock_notebookutils)
@@ -272,9 +254,7 @@ class TestLocalNotebookUtils:
         utils = LocalNotebookUtils()
         with patch("builtins.print") as mock_print:
             utils.exit_notebook("test value")
-            mock_print.assert_called_once_with(
-                "Notebook would exit with value: test value"
-            )
+            mock_print.assert_called_once_with("Notebook would exit with value: test value")
 
     def test_exit_notebook_no_value(self):
         """Test exit notebook without value."""
@@ -319,16 +299,12 @@ class TestNotebookUtilsFactory:
 
     def test_create_instance_with_notebookutils(self, mock_notebookutils):
         """Test creating instance with notebookutils."""
-        instance = NotebookUtilsFactory.create_instance(
-            notebookutils=mock_notebookutils
-        )
+        instance = NotebookUtilsFactory.create_instance(notebookutils=mock_notebookutils)
         assert isinstance(instance, FabricNotebookUtils)
 
     def test_create_instance_force_local(self, mock_notebookutils):
         """Test creating local instance when forced."""
-        instance = NotebookUtilsFactory.create_instance(
-            notebookutils=mock_notebookutils, force_local=True
-        )
+        instance = NotebookUtilsFactory.create_instance(notebookutils=mock_notebookutils, force_local=True)
         assert isinstance(instance, LocalNotebookUtils)
 
     def test_create_instance_fallback_to_local(self):

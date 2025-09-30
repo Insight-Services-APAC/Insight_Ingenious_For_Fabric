@@ -18,9 +18,7 @@ class ExtractGenerationCompiler(BaseNotebookCompiler):
     def __init__(self, fabric_workspace_repo_dir: str = None):
         try:
             # Use path utilities for package resource discovery
-            package_base = PathUtils.get_package_resource_path(
-                "packages/extract_generation"
-            )
+            package_base = PathUtils.get_package_resource_path("packages/extract_generation")
             self.package_dir = package_base
             self.templates_dir = package_base / "templates"
             self.ddl_scripts_dir = package_base / "ddl_scripts"
@@ -42,19 +40,11 @@ class ExtractGenerationCompiler(BaseNotebookCompiler):
         )
 
         if self.console:
-            self.console.print(
-                f"[bold blue]Package Directory:[/bold blue] {self.package_dir}"
-            )
-            self.console.print(
-                f"[bold blue]Templates Directory:[/bold blue] {self.templates_dir}"
-            )
-            self.console.print(
-                f"[bold blue]DDL Scripts Directory:[/bold blue] {self.ddl_scripts_dir}"
-            )
+            self.console.print(f"[bold blue]Package Directory:[/bold blue] {self.package_dir}")
+            self.console.print(f"[bold blue]Templates Directory:[/bold blue] {self.templates_dir}")
+            self.console.print(f"[bold blue]DDL Scripts Directory:[/bold blue] {self.ddl_scripts_dir}")
 
-    def compile_notebook(
-        self, template_vars: Dict[str, Any] = None, target_datastore: str = "warehouse"
-    ) -> Path:
+    def compile_notebook(self, template_vars: Dict[str, Any] = None, target_datastore: str = "warehouse") -> Path:
         """Compile the extract generation notebook template"""
 
         # Select template based on target datastore
@@ -94,9 +84,7 @@ class ExtractGenerationCompiler(BaseNotebookCompiler):
         mode_dir = self.ddl_scripts_dir / generation_mode.lower()
 
         if not mode_dir.exists():
-            raise ValueError(
-                f"DDL scripts directory not found for mode: {generation_mode}"
-            )
+            raise ValueError(f"DDL scripts directory not found for mode: {generation_mode}")
 
         # For lakehouse, look for Python files; for warehouse, look for SQL files
         if generation_mode.lower() == "lakehouse":
@@ -181,9 +169,7 @@ class ExtractGenerationCompiler(BaseNotebookCompiler):
                 target_path.write_text(script.read_text())
                 compiled_scripts.append(target_path)
                 if self.console:
-                    self.console.print(
-                        f"[green]✓ DDL script copied:[/green] {target_path}"
-                    )
+                    self.console.print(f"[green]✓ DDL script copied:[/green] {target_path}")
 
         return compiled_scripts
 
@@ -290,9 +276,7 @@ class ExtractGenerationCompiler(BaseNotebookCompiler):
                     results["ddl_files"].append(sample_ddl_path)
 
             if self.console:
-                self.console.print(
-                    "[green]✓ Successfully compiled extract generation package[/green]"
-                )
+                self.console.print("[green]✓ Successfully compiled extract generation package[/green]")
                 self.console.print(f"  Notebook: {notebook_path}")
                 self.console.print(f"  DDL Scripts: {len(results['ddl_files'])} files")
 
@@ -469,9 +453,7 @@ GO
         output_path.write_text(sample_ddl)
 
         if self.console:
-            self.console.print(
-                f"[green]✓ Created sample source tables DDL:[/green] {output_path}"
-            )
+            self.console.print(f"[green]✓ Created sample source tables DDL:[/green] {output_path}")
 
         return output_path
 

@@ -23,16 +23,13 @@ def validate_local_environment() -> None:
     fabric_env = os.getenv("FABRIC_ENVIRONMENT")
     if fabric_env != "local":
         console.print(
-            f"[red]Error: FABRIC_ENVIRONMENT must be set to 'local' for local tests. "
-            f"Current value: {fabric_env}[/red]"
+            f"[red]Error: FABRIC_ENVIRONMENT must be set to 'local' for local tests. Current value: {fabric_env}[/red]"
         )
         console.print("[yellow]Please set: FABRIC_ENVIRONMENT=local[/yellow]")
         raise typer.Exit(code=1)
 
 
-def run_pytest_command(
-    base_path: str, lib: Optional[str] = None, verbose: bool = True
-) -> None:
+def run_pytest_command(base_path: str, lib: Optional[str] = None, verbose: bool = True) -> None:
     """Run pytest with standardized configuration."""
     if lib:
         test_file = f"{base_path}/{lib}_pytest.py"

@@ -107,21 +107,11 @@ class ErrorCategorizer:
 
     def __init__(self):
         """Initialize the error categorizer with compiled patterns."""
-        self.network_regex = re.compile(
-            "|".join(self.NETWORK_ERROR_PATTERNS), re.IGNORECASE
-        )
-        self.resource_regex = re.compile(
-            "|".join(self.RESOURCE_ERROR_PATTERNS), re.IGNORECASE
-        )
-        self.transient_regex = re.compile(
-            "|".join(self.TRANSIENT_OPERATION_PATTERNS), re.IGNORECASE
-        )
-        self.config_regex = re.compile(
-            "|".join(self.CONFIG_ERROR_PATTERNS), re.IGNORECASE
-        )
-        self.permanent_regex = re.compile(
-            "|".join(self.PERMANENT_ERROR_PATTERNS), re.IGNORECASE
-        )
+        self.network_regex = re.compile("|".join(self.NETWORK_ERROR_PATTERNS), re.IGNORECASE)
+        self.resource_regex = re.compile("|".join(self.RESOURCE_ERROR_PATTERNS), re.IGNORECASE)
+        self.transient_regex = re.compile("|".join(self.TRANSIENT_OPERATION_PATTERNS), re.IGNORECASE)
+        self.config_regex = re.compile("|".join(self.CONFIG_ERROR_PATTERNS), re.IGNORECASE)
+        self.permanent_regex = re.compile("|".join(self.PERMANENT_ERROR_PATTERNS), re.IGNORECASE)
 
     def categorize_http_error(
         self, status_code: int, response_text: str = ""
@@ -223,9 +213,7 @@ class ErrorCategorizer:
             # Unknown exception type
             return ErrorCategory.UNKNOWN, ErrorSeverity.MEDIUM, True
 
-    def categorize_pipeline_failure(
-        self, failure_reason: Dict[str, Any]
-    ) -> Tuple[ErrorCategory, ErrorSeverity, bool]:
+    def categorize_pipeline_failure(self, failure_reason: Dict[str, Any]) -> Tuple[ErrorCategory, ErrorSeverity, bool]:
         """
         Categorize pipeline failure reasons.
 
@@ -259,9 +247,7 @@ class ErrorCategorizer:
             # Unknown pipeline failure
             return ErrorCategory.UNKNOWN, ErrorSeverity.HIGH, False
 
-    def should_retry(
-        self, category: ErrorCategory, attempt: int, max_retries: int
-    ) -> bool:
+    def should_retry(self, category: ErrorCategory, attempt: int, max_retries: int) -> bool:
         """
         Determine if an error should be retried based on category and attempt count.
 
@@ -290,9 +276,7 @@ class ErrorCategorizer:
             # Don't retry permanent or configuration errors
             return False
 
-    def get_retry_delay(
-        self, category: ErrorCategory, attempt: int, base_delay: float = 2.0
-    ) -> float:
+    def get_retry_delay(self, category: ErrorCategory, attempt: int, base_delay: float = 2.0) -> float:
         """
         Calculate retry delay based on error category and attempt.
 

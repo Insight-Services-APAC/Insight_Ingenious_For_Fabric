@@ -41,9 +41,7 @@ def insert_sample_config_data():
         if result.returncode == 0:
             print("✓ Config and log tables created successfully")
         else:
-            print(
-                "⚠️ Initial creation notebook completed with warnings (may already exist)"
-            )
+            print("⚠️ Initial creation notebook completed with warnings (may already exist)")
             print("Output:", result.stdout[-500:] if result.stdout else "No output")
 
         # Step 2: Run the sample data insertion notebook

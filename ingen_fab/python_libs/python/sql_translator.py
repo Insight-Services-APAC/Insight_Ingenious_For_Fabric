@@ -71,9 +71,7 @@ class FabricSQLTranslator:
             environment = getattr(config, "fabric_environment", "production")
             return self.DIALECT_MAPPING.get(environment, "fabric")
         except Exception as e:
-            logger.warning(
-                f"Could not determine environment, defaulting to fabric: {e}"
-            )
+            logger.warning(f"Could not determine environment, defaulting to fabric: {e}")
             return "fabric"
 
     def translate_sql(self, sql: str, **kwargs) -> str:
@@ -107,9 +105,7 @@ class FabricSQLTranslator:
             )
 
             if not result:
-                raise SQLTranslatorError(
-                    f"SQLGlot returned empty result for SQL: {sql}"
-                )
+                raise SQLTranslatorError(f"SQLGlot returned empty result for SQL: {sql}")
 
             # Handle multiple statements
             if len(result) > 1:
@@ -128,9 +124,7 @@ class FabricSQLTranslator:
                 # Apply post-translation fixes
                 final_sql = self._apply_post_translation_fixes(final_sql)
 
-            logger.debug(
-                f"Translated SQL from {self.source_dialect} to {self.target_dialect}:"
-            )
+            logger.debug(f"Translated SQL from {self.source_dialect} to {self.target_dialect}:")
             logger.debug(f"Original: {sql}")
             logger.debug(f"Translated: {final_sql}")
 
@@ -157,9 +151,7 @@ class FabricSQLTranslator:
             # Convert: PRIMARY KEY NONCLUSTERED (column) NOT ENFORCED
             # To:      PRIMARY KEY (column)
             pk_pattern = r"PRIMARY\s+KEY\s+NONCLUSTERED\s*\(([^)]+)\)\s*NOT\s+ENFORCED"
-            result = re.sub(
-                pk_pattern, r"PRIMARY KEY (\1)", result, flags=re.IGNORECASE
-            )
+            result = re.sub(pk_pattern, r"PRIMARY KEY (\1)", result, flags=re.IGNORECASE)
 
         # Handle DROP CONSTRAINT IF EXISTS (convert to PostgreSQL syntax)
         if "DROP CONSTRAINT IF EXISTS" in result.upper():
@@ -197,17 +189,11 @@ class FabricSQLTranslator:
 
             # Remove NULLS FIRST/NULLS LAST from PRIMARY KEY constraints (PostgreSQL doesn't support this)
             if "PRIMARY KEY" in result.upper():
-                result = re.sub(
-                    r"\s+NULLS\s+(FIRST|LAST)", "", result, flags=re.IGNORECASE
-                )
+                result = re.sub(r"\s+NULLS\s+(FIRST|LAST)", "", result, flags=re.IGNORECASE)
 
             # Handle SQL Server specific data types
-            result = re.sub(
-                r"\bDATETIME2\(\d+\)", "TIMESTAMP", result, flags=re.IGNORECASE
-            )
-            result = re.sub(
-                r"\bTIMESTAMP\(\d+\)", "TIMESTAMP", result, flags=re.IGNORECASE
-            )
+            result = re.sub(r"\bDATETIME2\(\d+\)", "TIMESTAMP", result, flags=re.IGNORECASE)
+            result = re.sub(r"\bTIMESTAMP\(\d+\)", "TIMESTAMP", result, flags=re.IGNORECASE)
             result = re.sub(r"\bBYTEA\(\d+\)", "BYTEA", result, flags=re.IGNORECASE)
             # Convert BIT to SMALLINT instead of BOOLEAN to maintain compatibility
             # This allows 0/1 values to work in both Fabric and PostgreSQL without conversion

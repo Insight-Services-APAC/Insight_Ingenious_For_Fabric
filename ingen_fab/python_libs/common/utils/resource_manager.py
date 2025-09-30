@@ -113,9 +113,7 @@ class ResourceManager:
                 def required_filter(value, var_name=""):
                     """Jinja2 filter: raises an error if value is not provided or is falsy."""
                     if value is None or (hasattr(value, "__len__") and len(value) == 0):
-                        raise ValueError(
-                            f"Required variable '{var_name}' is missing or empty"
-                        )
+                        raise ValueError(f"Required variable '{var_name}' is missing or empty")
                     return value
 
                 env.filters["required"] = required_filter
@@ -173,9 +171,7 @@ class ResourceManager:
                             available.append(template_name)
 
                         if available:
-                            available_msg = (
-                                f"Available templates: {', '.join(available[:10])}"
-                            )
+                            available_msg = f"Available templates: {', '.join(available[:10])}"
                             if len(available) > 10:
                                 available_msg += f" ... and {len(available) - 10} more"
                         else:

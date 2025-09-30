@@ -77,9 +77,7 @@ class IncrementalSyntheticDataGenerationCompiler(SyntheticDataGenerationCompiler
             generation_date = datetime.strptime(generation_date, "%Y-%m-%d").date()
 
         # Enhance dataset config with incremental settings
-        enhanced_config = self._enhance_config_for_incremental(
-            dataset_config, generation_date, path_format
-        )
+        enhanced_config = self._enhance_config_for_incremental(dataset_config, generation_date, path_format)
 
         # Set generation mode based on target environment
         if target_environment == "lakehouse":
@@ -114,9 +112,7 @@ class IncrementalSyntheticDataGenerationCompiler(SyntheticDataGenerationCompiler
         # Generate notebook name
         dataset_id = enhanced_config.get("dataset_id", "custom")
         date_str = generation_date.strftime("%Y%m%d")
-        notebook_name = (
-            f"incremental_synthetic_data_{dataset_id}_{date_str}_{generation_mode}"
-        )
+        notebook_name = f"incremental_synthetic_data_{dataset_id}_{date_str}_{generation_mode}"
 
         # Set default output_subdir if not provided
         if output_subdir is None:
@@ -176,9 +172,7 @@ class IncrementalSyntheticDataGenerationCompiler(SyntheticDataGenerationCompiler
         }
 
         # Enhance dataset config for series generation
-        enhanced_config = self._enhance_config_for_incremental(
-            dataset_config, start_date, path_format
-        )
+        enhanced_config = self._enhance_config_for_incremental(dataset_config, start_date, path_format)
         enhanced_config["date_range"] = date_range
         enhanced_config["series_generation"] = True
 
@@ -226,12 +220,8 @@ class IncrementalSyntheticDataGenerationCompiler(SyntheticDataGenerationCompiler
         if output_subdir is None:
             output_subdir = f"synthetic_data_generation/incremental_series/{dataset_id}"
 
-        print(
-            "💡 [NOTICE] Consider using the new generic template system for better flexibility!"
-        )
-        print(
-            "   Use 'compile-generic-templates' and 'execute-with-parameters' commands."
-        )
+        print("💡 [NOTICE] Consider using the new generic template system for better flexibility!")
+        print("   Use 'compile-generic-templates' and 'execute-with-parameters' commands.")
         print(
             f"   Example: python -m ingen_fab.cli package synthetic-data compile-generic-templates --target-environment {target_environment}"
         )
@@ -259,17 +249,13 @@ class IncrementalSyntheticDataGenerationCompiler(SyntheticDataGenerationCompiler
         # Add incremental configuration if not present
         if "incremental_config" not in enhanced_config:
             # Get from repository with domain-specific adjustments
-            enhanced_config["incremental_config"] = (
-                DatasetConfigurationRepository.get_incremental_config(
-                    dataset_id, enhanced_config.get("incremental_config")
-                )
+            enhanced_config["incremental_config"] = DatasetConfigurationRepository.get_incremental_config(
+                dataset_id, enhanced_config.get("incremental_config")
             )
 
         # Add table configurations if not present
         if "table_configs" not in enhanced_config:
-            enhanced_config["table_configs"] = self._get_default_table_configs(
-                enhanced_config
-            )
+            enhanced_config["table_configs"] = self._get_default_table_configs(enhanced_config)
 
         # Add date-specific configuration
         enhanced_config["generation_date"] = generation_date.isoformat()
@@ -281,9 +267,7 @@ class IncrementalSyntheticDataGenerationCompiler(SyntheticDataGenerationCompiler
         """Get default incremental configuration from repository."""
         return DatasetConfigurationRepository.DEFAULT_INCREMENTAL_CONFIG.copy()
 
-    def _get_default_table_configs(
-        self, dataset_config: Dict[str, Any]
-    ) -> Dict[str, Dict[str, Any]]:
+    def _get_default_table_configs(self, dataset_config: Dict[str, Any]) -> Dict[str, Dict[str, Any]]:
         """Get default table configurations based on dataset type."""
         dataset_id = dataset_config.get("dataset_id", "custom")
         try:
@@ -324,12 +308,8 @@ class IncrementalSyntheticDataGenerationCompiler(SyntheticDataGenerationCompiler
         enhanced_configs = {}
         for dataset_id, config in base_configs.items():
             enhanced_config = config.copy()
-            enhanced_config["incremental_config"] = (
-                DatasetConfigurationRepository.get_incremental_config(dataset_id)
-            )
-            enhanced_config["table_configs"] = (
-                DatasetConfigurationRepository.get_table_configs(dataset_id)
-            )
+            enhanced_config["incremental_config"] = DatasetConfigurationRepository.get_incremental_config(dataset_id)
+            enhanced_config["table_configs"] = DatasetConfigurationRepository.get_table_configs(dataset_id)
             enhanced_configs[dataset_id] = enhanced_config
 
         return enhanced_configs
@@ -346,21 +326,15 @@ class IncrementalSyntheticDataGenerationCompiler(SyntheticDataGenerationCompiler
                 incremental_id = f"{dataset_id}_incremental"
                 incremental_config = config.copy()
                 incremental_config["dataset_id"] = incremental_id
-                incremental_config["dataset_name"] = config["dataset_name"].replace(
-                    " -", " Incremental -"
-                )
-                incremental_config["description"] = (
-                    config["description"] + " with incremental generation"
-                )
+                incremental_config["dataset_name"] = config["dataset_name"].replace(" -", " Incremental -")
+                incremental_config["description"] = config["description"] + " with incremental generation"
 
                 # Add incremental-specific configurations
-                incremental_config["incremental_config"] = (
-                    DatasetConfigurationRepository.get_incremental_config(dataset_id)
+                incremental_config["incremental_config"] = DatasetConfigurationRepository.get_incremental_config(
+                    dataset_id
                 )
-                incremental_config["table_configs"] = (
-                    DatasetConfigurationRepository.get_table_configs(
-                        dataset_id, scale_factor=5.0
-                    )
+                incremental_config["table_configs"] = DatasetConfigurationRepository.get_table_configs(
+                    dataset_id, scale_factor=5.0
                 )  # Scale up for incremental
 
                 incremental_configs[incremental_id] = incremental_config
@@ -380,6 +354,4 @@ def compile_incremental_synthetic_data_package(
 
     # For now, we'll use the base compile method but could extend this
     # to include incremental-specific DDL scripts and sample notebooks
-    return compiler.compile_all_synthetic_data_notebooks(
-        target_environment=target_environment
-    )
+    return compiler.compile_all_synthetic_data_notebooks(target_environment=target_environment)

@@ -51,9 +51,7 @@ def unified_generate(
     try:
         mode_enum = GenerationMode(mode)
     except ValueError:
-        console.print(
-            f"[red]Error: Invalid mode '{mode}'. Must be one of: single, incremental, series[/red]"
-        )
+        console.print(f"[red]Error: Invalid mode '{mode}'. Must be one of: single, incremental, series[/red]")
         raise typer.Exit(code=1)
 
     # Initialize generator
@@ -97,9 +95,7 @@ def unified_generate(
                 raise typer.Exit(code=1)
 
         if dry_run:
-            console.print(
-                "[yellow]This was a dry run - no files were generated[/yellow]"
-            )
+            console.print("[yellow]This was a dry run - no files were generated[/yellow]")
     else:
         console.print("[red]❌ Generation failed![/red]")
         for error in result.get("errors", []):
@@ -127,9 +123,7 @@ def unified_list(
     try:
         list_type_enum = ListType(list_type)
     except ValueError:
-        console.print(
-            f"[red]Error: Invalid type '{list_type}'. Must be one of: datasets, templates, all[/red]"
-        )
+        console.print(f"[red]Error: Invalid type '{list_type}'. Must be one of: datasets, templates, all[/red]")
         raise typer.Exit(code=1)
 
     # Initialize generator (no context needed for listing)
@@ -176,17 +170,11 @@ def unified_compile(
 
     # If no template specified, compile all available templates
     if template is None:
-        console.print(
-            "[blue]No template specified - compiling all available templates...[/blue]"
-        )
-        _compile_all_templates(
-            generator, config_dict, output_format, target_environment
-        )
+        console.print("[blue]No template specified - compiling all available templates...[/blue]")
+        _compile_all_templates(generator, config_dict, output_format, target_environment)
     else:
         # Compile specific template
-        _compile_single_template(
-            generator, template, config_dict, output_format, target_environment
-        )
+        _compile_single_template(generator, template, config_dict, output_format, target_environment)
 
 
 def _compile_single_template(
@@ -215,9 +203,7 @@ def _compile_single_template(
         raise typer.Exit(code=1)
 
 
-def _compile_all_templates(
-    generator, config_dict: dict, output_format: str, target_environment: str
-):
+def _compile_all_templates(generator, config_dict: dict, output_format: str, target_environment: str):
     """Compile all available templates."""
     # Get available templates
     items = generator.list_items()
@@ -256,54 +242,38 @@ def _compile_all_templates(
             )
 
             if result["success"]:
-                console.print(
-                    f"[green]  ✅ {template_name} compiled successfully![/green]"
-                )
+                console.print(f"[green]  ✅ {template_name} compiled successfully![/green]")
                 for item_type, item_path in result["compiled_items"].items():
                     console.print(f"[dim]    • {item_type}: {item_path}[/dim]")
                 compiled_count += 1
             else:
                 # Check if the error is due to an unimplemented template
                 error_messages = result.get("errors", [])
-                if any(
-                    "Unknown generic template" in str(error) for error in error_messages
-                ):
-                    console.print(
-                        f"[yellow]  ⚠️ {template_name} not implemented yet, skipping...[/yellow]"
-                    )
+                if any("Unknown generic template" in str(error) for error in error_messages):
+                    console.print(f"[yellow]  ⚠️ {template_name} not implemented yet, skipping...[/yellow]")
                     # Don't count as failed if template is not implemented
                     continue
                 else:
-                    console.print(
-                        f"[red]  ❌ {template_name} compilation failed![/red]"
-                    )
+                    console.print(f"[red]  ❌ {template_name} compilation failed![/red]")
                     for error in error_messages:
                         console.print(f"[red]    • {error}[/red]")
                     failed_count += 1
         except ValueError as e:
             if "Unknown generic template" in str(e):
-                console.print(
-                    f"[yellow]  ⚠️ {template_name} not implemented yet, skipping...[/yellow]"
-                )
+                console.print(f"[yellow]  ⚠️ {template_name} not implemented yet, skipping...[/yellow]")
                 # Don't count as failed if template is not implemented
                 continue
             else:
-                console.print(
-                    f"[red]  ❌ {template_name} compilation failed: {e}[/red]"
-                )
+                console.print(f"[red]  ❌ {template_name} compilation failed: {e}[/red]")
                 failed_count += 1
         except Exception as e:
-            console.print(
-                f"[red]  ❌ {template_name} compilation failed with exception: {e}[/red]"
-            )
+            console.print(f"[red]  ❌ {template_name} compilation failed with exception: {e}[/red]")
             failed_count += 1
 
     # Summary
     console.print("\n" + "=" * 60)
     console.print("[blue]COMPILATION SUMMARY[/blue]")
-    console.print(
-        f"[green]  ✅ Successfully compiled: {compiled_count} templates[/green]"
-    )
+    console.print(f"[green]  ✅ Successfully compiled: {compiled_count} templates[/green]")
     if failed_count > 0:
         console.print(f"[red]  ❌ Failed to compile: {failed_count} templates[/red]")
         raise typer.Exit(code=1)

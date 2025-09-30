@@ -22,9 +22,5 @@ target_lakehouse.create_table(  # noqa: F821
     options={"parquet.vorder.default": "true"},
 )
 
-print(
-    "✓ Created log_flat_file_ingestion table with updated schema including partition tracking columns"
-)
-print(
-    "✓ Table now includes: source_file_partition_cols, source_file_partition_values, date_partition"
-)
+print("✓ Created log_flat_file_ingestion table with updated schema including partition tracking columns")
+print("✓ Table now includes: source_file_partition_cols, source_file_partition_values, date_partition")

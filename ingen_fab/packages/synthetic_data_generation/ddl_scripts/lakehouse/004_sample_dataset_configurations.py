@@ -155,6 +155,4 @@ print(f"✅ Inserted {len(sample_configs)} sample dataset configurations")
 # Show what was inserted using injected utils
 configs_table = target_lakehouse.read_table("config_synthetic_data_datasets")  # noqa: F821
 print("📋 Sample configurations:")
-configs_table.select("dataset_id", "dataset_name", "dataset_type", "domain").show(
-    truncate=False
-)
+configs_table.select("dataset_id", "dataset_name", "dataset_type", "domain").show(truncate=False)

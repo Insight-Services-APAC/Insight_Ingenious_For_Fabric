@@ -20,15 +20,10 @@ class FabricNotebookConverter:
             if not current_cell_lines:
                 return
             if current_cell_type == "code":
-                cells.append(
-                    new_code_cell(source="".join(current_cell_lines))
-                )  # join with no extra newline
+                cells.append(new_code_cell(source="".join(current_cell_lines)))  # join with no extra newline
             elif current_cell_type == "markdown":
                 # Remove `# ` from start of each line
-                stripped = [
-                    line[2:] if line.startswith("# ") else line
-                    for line in current_cell_lines
-                ]
+                stripped = [line[2:] if line.startswith("# ") else line for line in current_cell_lines]
                 cells.append(new_markdown_cell(source="\n".join(stripped)))
             current_cell_lines = []
 
@@ -38,9 +33,7 @@ class FabricNotebookConverter:
             if line_strip.startswith("# MARKDOWN"):
                 flush_cell()
                 current_cell_type = "markdown"
-            elif line_strip.startswith("# PARAMETERS CELL") or line_strip.startswith(
-                "# CELL"
-            ):
+            elif line_strip.startswith("# PARAMETERS CELL") or line_strip.startswith("# CELL"):
                 flush_cell()
                 current_cell_type = "code"
             elif line_strip.startswith("# META") or line_strip.startswith("# METADATA"):

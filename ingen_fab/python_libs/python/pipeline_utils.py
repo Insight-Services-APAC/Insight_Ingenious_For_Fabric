@@ -73,17 +73,11 @@ class MockPipelineClient:
                 else:
                     status = current_status
 
-                logger.debug(
-                    f"🧪 Mock pipeline status check - Job ID: {job_id}, Status: {status}"
-                )
+                logger.debug(f"🧪 Mock pipeline status check - Job ID: {job_id}, Status: {status}")
 
-                return MockResponse(
-                    status_code=200, json_data={"status": status, "jobId": job_id}
-                )
+                return MockResponse(status_code=200, json_data={"status": status, "jobId": job_id})
             else:
-                return MockResponse(
-                    status_code=404, json_data={"error": "Job not found"}
-                )
+                return MockResponse(status_code=404, json_data={"error": "Job not found"})
 
         return MockResponse(status_code=404, json_data={"error": "Not found"})
 
@@ -134,9 +128,7 @@ class PipelineUtils:
                 logger.info("🧪 Using mock pipeline client for local testing")
                 return _mock_client_instance
         except ImportError:
-            logger.warning(
-                "Could not import config_utils, assuming non-local environment"
-            )
+            logger.warning("Could not import config_utils, assuming non-local environment")
 
         # Use real Fabric client for non-local environments
         if self._use_semantic_link():
@@ -151,9 +143,7 @@ class PipelineUtils:
                 def __init__(self, base_url: str, credential: DefaultAzureCredential):
                     self.base_url = base_url
                     self.session = requests.Session()
-                    token = credential.get_token(
-                        "https://api.fabric.microsoft.com/.default"
-                    ).token
+                    token = credential.get_token("https://api.fabric.microsoft.com/.default").token
                     self.session.headers.update(
                         {
                             "Authorization": f"Bearer {token}",
@@ -170,13 +160,9 @@ class PipelineUtils:
                     return self.session.get(url)
 
             credential = DefaultAzureCredential()
-            return FabricRestClient(
-                base_url="https://api.fabric.microsoft.com", credential=credential
-            )
+            return FabricRestClient(base_url="https://api.fabric.microsoft.com", credential=credential)
 
-    async def trigger_pipeline(
-        self, workspace_id: str, pipeline_id: str, payload: Dict[str, Any]
-    ) -> str:
+    async def trigger_pipeline(self, workspace_id: str, pipeline_id: str, payload: Dict[str, Any]) -> str:
         """
         Trigger a Fabric pipeline job via REST API with robust retry logic matching original complexity.
 
@@ -220,10 +206,8 @@ class PipelineUtils:
                 # Handle HTTP errors using error categorization
                 else:
                     # Categorize HTTP error
-                    category, severity, is_retryable = (
-                        error_categorizer.categorize_http_error(
-                            response.status_code, response.text
-                        )
+                    category, severity, is_retryable = error_categorizer.categorize_http_error(
+                        response.status_code, response.text
                     )
 
                     # Log with appropriate context
@@ -241,14 +225,10 @@ class PipelineUtils:
 
                     # Check if we should retry
                     if attempt == max_retries or not is_retryable:
-                        raise RuntimeError(
-                            f"HTTP {response.status_code}: {response.text}"
-                        )
+                        raise RuntimeError(f"HTTP {response.status_code}: {response.text}")
 
                     # Calculate delay based on error category
-                    sleep_time = error_categorizer.get_retry_delay(
-                        category, attempt, retry_delay
-                    )
+                    sleep_time = error_categorizer.get_retry_delay(category, attempt, retry_delay)
                     jitter = 0.8 + (0.4 * np.random.random())
                     sleep_time = sleep_time * jitter
 
@@ -260,9 +240,7 @@ class PipelineUtils:
 
             except Exception as exc:
                 # Categorize the error
-                category, severity, is_retryable = (
-                    error_categorizer.categorize_exception(exc)
-                )
+                category, severity, is_retryable = error_categorizer.categorize_exception(exc)
 
                 # Log error with appropriate context
                 error_categorizer.log_error(
@@ -285,9 +263,7 @@ class PipelineUtils:
                     raise
 
                 # Calculate delay based on error category
-                sleep_time = error_categorizer.get_retry_delay(
-                    category, attempt, retry_delay
-                )
+                sleep_time = error_categorizer.get_retry_delay(category, attempt, retry_delay)
 
                 # Add jitter (±20%) to avoid thundering herd problem
                 jitter = 0.8 + (0.4 * np.random.random())
@@ -317,9 +293,7 @@ class PipelineUtils:
             - status: Pipeline status or None for transient errors
             - error_message: Detailed error message if applicable
         """
-        status_url = (
-            f"v1/workspaces/{workspace_id}/items/{pipeline_id}/jobs/instances/{job_id}"
-        )
+        status_url = f"v1/workspaces/{workspace_id}/items/{pipeline_id}/jobs/instances/{job_id}"
 
         try:
             response = self.client.get(status_url)
@@ -328,24 +302,18 @@ class PipelineUtils:
             if response.status_code >= 400:
                 if response.status_code == 404:
                     # Job not found - could be a temporary issue or job is still initializing
-                    logger.info(
-                        f"Pipeline {job_id} for {table_name}: Job not found (404) - may be initializing"
-                    )
+                    logger.info(f"Pipeline {job_id} for {table_name}: Job not found (404) - may be initializing")
                     return None, f"Job not found (404): {job_id}"
                 elif response.status_code >= 500 or response.status_code in [429, 408]:
                     # Server-side error or rate limiting - likely temporary
-                    logger.info(
-                        f"Pipeline {job_id} for {table_name}: Server error ({response.status_code})"
-                    )
+                    logger.info(f"Pipeline {job_id} for {table_name}: Server error ({response.status_code})")
                     return (
                         None,
                         f"Server error ({response.status_code}): {response.text[:100]}",
                     )
                 else:
                     # Other client errors (4xx)
-                    logger.error(
-                        f"Pipeline {job_id} for {table_name}: API error ({response.status_code})"
-                    )
+                    logger.error(f"Pipeline {job_id} for {table_name}: API error ({response.status_code})")
                     return (
                         "Error",
                         f"API error ({response.status_code}): {response.text[:100]}",
@@ -356,9 +324,7 @@ class PipelineUtils:
                 data = response.json()
             except Exception as e:
                 # Invalid JSON in response
-                logger.warning(
-                    f"Pipeline {job_id} for {table_name}: Invalid response format"
-                )
+                logger.warning(f"Pipeline {job_id} for {table_name}: Invalid response format")
                 return None, f"Invalid response format: {str(e)}"
 
             status = data.get("status")
@@ -368,9 +334,7 @@ class PipelineUtils:
                 fr = data["failureReason"]
 
                 # Use error categorization for pipeline failures
-                category, severity, is_retryable = (
-                    error_categorizer.categorize_pipeline_failure(fr)
-                )
+                category, severity, is_retryable = error_categorizer.categorize_pipeline_failure(fr)
 
                 # Log with appropriate context
                 error_categorizer.log_error(
@@ -386,9 +350,7 @@ class PipelineUtils:
 
                 # Return None for retryable errors, status for permanent ones
                 if is_retryable:
-                    logger.info(
-                        f"Pipeline {job_id} for {table_name}: Retryable failure ({category.value})"
-                    )
+                    logger.info(f"Pipeline {job_id} for {table_name}: Retryable failure ({category.value})")
                     return None, fr.get("message", "")
                 else:
                     logger.error(
@@ -414,27 +376,19 @@ class PipelineUtils:
             # Categorize exceptions with more specificity
             if "timeout" in error_msg.lower() or "connection" in error_msg.lower():
                 # Network-related issues are transient
-                logger.warning(
-                    f"Pipeline {job_id} for {table_name}: Network error: {error_msg[:100]}"
-                )
+                logger.warning(f"Pipeline {job_id} for {table_name}: Network error: {error_msg[:100]}")
                 return None, f"Network error: {error_msg}"
             elif "not valid for Guid" in error_msg:
                 # Invalid GUID format - this is likely a client error
-                logger.error(
-                    f"Pipeline {job_id} for {table_name}: Invalid job ID format"
-                )
+                logger.error(f"Pipeline {job_id} for {table_name}: Invalid job ID format")
                 return "Error", f"Invalid job ID format: {error_msg}"
             elif "httperror" in error_msg.lower():
                 # HTTP errors that weren't caught above
-                logger.warning(
-                    f"Pipeline {job_id} for {table_name}: HTTP error: {error_msg[:100]}"
-                )
+                logger.warning(f"Pipeline {job_id} for {table_name}: HTTP error: {error_msg[:100]}")
                 return None, f"HTTP error: {error_msg}"
             else:
                 # Unexpected exceptions
-                logger.error(
-                    f"Failed to check pipeline status for {table_name}: {error_msg[:100]}"
-                )
+                logger.error(f"Failed to check pipeline status for {table_name}: {error_msg[:100]}")
                 return None, error_msg
 
     async def poll_job(self, job_url: str, table_name: str = "") -> str:
@@ -494,13 +448,8 @@ class PipelineUtils:
                 state = (response_data.get("status") or "Unknown").title()
 
                 # early non-terminal states during grace window
-                if (
-                    state in {"Failed", "NotStarted", "Unknown"}
-                    and time.monotonic() < grace_end
-                ):
-                    logger.info(
-                        f"Job {table_name} in early state {state}, retrying in grace period..."
-                    )
+                if state in {"Failed", "NotStarted", "Unknown"} and time.monotonic() < grace_end:
+                    logger.info(f"Job {table_name} in early state {state}, retrying in grace period...")
                     await asyncio.sleep(FAST_RETRY_SEC)
                     continue
 
@@ -510,24 +459,18 @@ class PipelineUtils:
                     return state
 
                 # still executing, wait
-                logger.debug(
-                    f"Job {table_name} still running in state {state}, polling..."
-                )
+                logger.debug(f"Job {table_name} still running in state {state}, polling...")
                 await asyncio.sleep(POLL_INTERVAL)
 
             except Exception as e:
                 # Handle exceptions during polling
                 error_msg = str(e)
                 if "timeout" in error_msg.lower() or "connection" in error_msg.lower():
-                    logger.warning(
-                        f"Network error polling job {table_name}: {error_msg}"
-                    )
+                    logger.warning(f"Network error polling job {table_name}: {error_msg}")
                     await asyncio.sleep(POLL_INTERVAL)
                     continue
                 else:
-                    logger.error(
-                        f"Unexpected error polling job {table_name}: {error_msg}"
-                    )
+                    logger.error(f"Unexpected error polling job {table_name}: {error_msg}")
                     raise
 
     async def trigger_pipeline_with_polling(
@@ -556,9 +499,7 @@ class PipelineUtils:
         job_id = await self.trigger_pipeline(workspace_id, pipeline_id, payload)
 
         # Construct the job URL for polling
-        job_url = (
-            f"v1/workspaces/{workspace_id}/items/{pipeline_id}/jobs/instances/{job_id}"
-        )
+        job_url = f"v1/workspaces/{workspace_id}/items/{pipeline_id}/jobs/instances/{job_id}"
 
         # Poll until completion
         final_status = await self.poll_job(job_url, table_name)

@@ -28,16 +28,12 @@ class ISyntheticDataGenerator(ABC):
         pass
 
     @abstractmethod
-    def generate_orders_table(
-        self, num_rows: int, customers_df: Any, products_df: Any, **kwargs
-    ) -> Any:
+    def generate_orders_table(self, num_rows: int, customers_df: Any, products_df: Any, **kwargs) -> Any:
         """Generate an orders table with realistic order data."""
         pass
 
     @abstractmethod
-    def generate_order_items_table(
-        self, orders_df: Any, products_df: Any, **kwargs
-    ) -> Any:
+    def generate_order_items_table(self, orders_df: Any, products_df: Any, **kwargs) -> Any:
         """Generate an order items table linking orders to products."""
         pass
 
@@ -47,9 +43,7 @@ class ISyntheticDataGenerator(ABC):
         pass
 
     @abstractmethod
-    def generate_custom_table(
-        self, table_config: Dict[str, Any], num_rows: int, **kwargs
-    ) -> Any:
+    def generate_custom_table(self, table_config: Dict[str, Any], num_rows: int, **kwargs) -> Any:
         """Generate a custom table based on configuration."""
         pass
 
@@ -62,37 +56,27 @@ class IDatasetBuilder(ABC):
         self.generator = generator
 
     @abstractmethod
-    def build_retail_oltp_dataset(
-        self, scale_factor: float = 1.0, **kwargs
-    ) -> Dict[str, Any]:
+    def build_retail_oltp_dataset(self, scale_factor: float = 1.0, **kwargs) -> Dict[str, Any]:
         """Build a complete retail OLTP dataset."""
         pass
 
     @abstractmethod
-    def build_retail_star_schema(
-        self, scale_factor: float = 1.0, **kwargs
-    ) -> Dict[str, Any]:
+    def build_retail_star_schema(self, scale_factor: float = 1.0, **kwargs) -> Dict[str, Any]:
         """Build a retail star schema dataset."""
         pass
 
     @abstractmethod
-    def build_financial_dataset(
-        self, scale_factor: float = 1.0, **kwargs
-    ) -> Dict[str, Any]:
+    def build_financial_dataset(self, scale_factor: float = 1.0, **kwargs) -> Dict[str, Any]:
         """Build a financial services dataset."""
         pass
 
     @abstractmethod
-    def build_healthcare_dataset(
-        self, scale_factor: float = 1.0, **kwargs
-    ) -> Dict[str, Any]:
+    def build_healthcare_dataset(self, scale_factor: float = 1.0, **kwargs) -> Dict[str, Any]:
         """Build a healthcare dataset."""
         pass
 
     @abstractmethod
-    def build_custom_dataset(
-        self, dataset_config: Dict[str, Any], **kwargs
-    ) -> Dict[str, Any]:
+    def build_custom_dataset(self, dataset_config: Dict[str, Any], **kwargs) -> Dict[str, Any]:
         """Build a custom dataset based on configuration."""
         pass
 
@@ -114,16 +98,12 @@ class IIncrementalDataGenerator(ABC):
         pass
 
     @abstractmethod
-    def apply_seasonal_patterns(
-        self, base_rows: int, generation_date: date, seasonal_config: Dict[str, Any]
-    ) -> int:
+    def apply_seasonal_patterns(self, base_rows: int, generation_date: date, seasonal_config: Dict[str, Any]) -> int:
         """Apply seasonal patterns to determine row count."""
         pass
 
     @abstractmethod
-    def apply_data_drift(
-        self, data: Any, drift_config: Dict[str, Any], generation_date: date
-    ) -> Any:
+    def apply_data_drift(self, data: Any, drift_config: Dict[str, Any], generation_date: date) -> Any:
         """Apply data drift to simulate changing patterns over time."""
         pass
 

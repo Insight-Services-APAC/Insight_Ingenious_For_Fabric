@@ -190,9 +190,7 @@ def _normalize_sql_rowset(result: dict[str, Any]) -> tuple[list[str], list[list[
     Raises ValueError if the shape cannot be recognized.
     """
     if isinstance(result, dict) and "columns" in result and "rows" in result:
-        columns = [
-            c["name"] if isinstance(c, dict) else str(c) for c in result["columns"]
-        ]
+        columns = [c["name"] if isinstance(c, dict) else str(c) for c in result["columns"]]
         rows = result["rows"]
         return columns, rows
     raise ValueError("Unexpected SQL result shape; expected keys: columns, rows")
@@ -241,35 +239,25 @@ def lakehouse_metadata(
 
     columns_query = (
         "SELECT table_schema, table_name, column_name, data_type, is_nullable, ordinal_position "
-        "FROM INFORMATION_SCHEMA.COLUMNS"
-        + where_sql
-        + " ORDER BY table_schema, table_name, ordinal_position"
+        "FROM INFORMATION_SCHEMA.COLUMNS" + where_sql + " ORDER BY table_schema, table_name, ordinal_position"
     )
 
     # Helper to run one lakehouse and return ColumnRecord list
-    def _run_single(
-        _lakehouse_id: str, _lakehouse_name: Optional[str]
-    ) -> list[ColumnRecord]:
+    def _run_single(_lakehouse_id: str, _lakehouse_name: Optional[str]) -> list[ColumnRecord]:
         nonlocal sql_endpoint_id, sql_endpoint_server
 
         result: dict | None = None
         # Prefer ODBC path first
         try:
             if not sql_endpoint_server:
-                sql_endpoint_server = fab.get_sql_server_for_lakehouse(
-                    fab.workspace_id, _lakehouse_id
-                )
-            db_name = _lakehouse_name or fab.get_lakehouse_name_from_id(
-                fab.workspace_id, _lakehouse_id
-            )
+                sql_endpoint_server = fab.get_sql_server_for_lakehouse(fab.workspace_id, _lakehouse_id)
+            db_name = _lakehouse_name or fab.get_lakehouse_name_from_id(fab.workspace_id, _lakehouse_id)
             if not db_name:
                 raise RuntimeError("Could not resolve lakehouse name for ODBC path.")
             _rows = _execute_sql_via_odbc(
                 sql_endpoint_server=sql_endpoint_server,
                 database=f"{db_name}",
-                query=columns_query.replace(
-                    "@schema", f"'{schema}'" if schema else "@schema"
-                )
+                query=columns_query.replace("@schema", f"'{schema}'" if schema else "@schema")
                 .replace(
                     "@table",
                     f"'%{table_filter}%'" if table_filter else "@table",
@@ -287,16 +275,12 @@ def lakehouse_metadata(
             ]
             result = {"columns": cols, "rows": _rows}
         except Exception as e:
-            ConsoleStyles.print_warning(
-                console, f"ODBC path failed for lakehouse {_lakehouse_id}: {e}"
-            )
+            ConsoleStyles.print_warning(console, f"ODBC path failed for lakehouse {_lakehouse_id}: {e}")
 
         # REST fallback
         if result is None and method in {"sql-endpoint", "sql-endpoint-rest"}:
             if not sql_endpoint_id:
-                sql_endpoint_id = fab.get_sql_endpoint_id_for_lakehouse(
-                    fab.workspace_id, _lakehouse_id
-                )
+                sql_endpoint_id = fab.get_sql_endpoint_id_for_lakehouse(fab.workspace_id, _lakehouse_id)
             if not sql_endpoint_id:
                 ConsoleStyles.print_warning(
                     console,
@@ -374,13 +358,7 @@ def lakehouse_metadata(
         if output_path is None:
             base_dir = Path(ctx.obj["fabric_workspace_repo_dir"]) / "metadata"
             base_dir.mkdir(parents=True, exist_ok=True)
-            ext = (
-                ".json"
-                if output_format == "json"
-                else ".csv"
-                if output_format == "csv"
-                else ".txt"
-            )
+            ext = ".json" if output_format == "json" else ".csv" if output_format == "csv" else ".txt"
             output_path = base_dir / f"lakehouse_metadata_all{ext}"
         _render_output(
             all_rows,
@@ -393,9 +371,7 @@ def lakehouse_metadata(
     # Resolve single lakehouse id via precedence: explicit id > name
     if not lakehouse_id:
         if not lakehouse_name:
-            ConsoleStyles.print_error(
-                console, "Provide --lakehouse-id or --lakehouse-name"
-            )
+            ConsoleStyles.print_error(console, "Provide --lakehouse-id or --lakehouse-name")
             raise SystemExit(1)
         lid = fab.get_lakehouse_id_from_name(fab.workspace_id, lakehouse_name)
         if not lid:
@@ -418,9 +394,7 @@ def lakehouse_metadata(
         raise SystemExit(1)
 
     if method == "onelake":
-        ConsoleStyles.print_error(
-            console, "The --method onelake path is not implemented yet."
-        )
+        ConsoleStyles.print_error(console, "The --method onelake path is not implemented yet.")
         raise SystemExit(2)
 
     out_rows = _run_single(lakehouse_id, lakehouse_name)
@@ -430,17 +404,9 @@ def lakehouse_metadata(
         base_dir.mkdir(parents=True, exist_ok=True)
         name_or_id = lakehouse_name or lakehouse_id or "unknown"
         safe = re.sub(r"[^a-zA-Z0-9_-]+", "_", str(name_or_id)).lower()
-        ext = (
-            ".json"
-            if output_format == "json"
-            else ".csv"
-            if output_format == "csv"
-            else ".txt"
-        )
+        ext = ".json" if output_format == "json" else ".csv" if output_format == "csv" else ".txt"
         output_path = base_dir / f"lakehouse_{safe}_columns{ext}"
-    _render_output(
-        out_rows, output_format=output_format, output_path=output_path, console=console
-    )
+    _render_output(out_rows, output_format=output_format, output_path=output_path, console=console)
 
 
 def warehouse_metadata(
@@ -477,9 +443,7 @@ def warehouse_metadata(
     # Resolve warehouse id
     if not warehouse_id:
         if not warehouse_name:
-            ConsoleStyles.print_error(
-                console, "Provide --warehouse-id or --warehouse-name"
-            )
+            ConsoleStyles.print_error(console, "Provide --warehouse-id or --warehouse-name")
             raise SystemExit(1)
         wid = fab.get_warehouse_id_from_name(fab.workspace_id, warehouse_name)
         if not wid:
@@ -518,13 +482,9 @@ def warehouse_metadata(
 
     if use_rest:
         if not sql_endpoint_id:
-            sql_endpoint_id = fab.get_sql_endpoint_id_for_warehouse(
-                fab.workspace_id, warehouse_id
-            )
+            sql_endpoint_id = fab.get_sql_endpoint_id_for_warehouse(fab.workspace_id, warehouse_id)
         if not sql_endpoint_id:
-            rest_error = Exception(
-                "Could not resolve SQL endpoint ID for warehouse via REST."
-            )
+            rest_error = Exception("Could not resolve SQL endpoint ID for warehouse via REST.")
         else:
             try:
                 result = fab.execute_sql_on_sql_endpoint(
@@ -542,17 +502,13 @@ def warehouse_metadata(
     if result is None and method == "sql-endpoint-odbc":
         # Fallback to ODBC path
         try:
-            db_name = warehouse_name or fab.get_warehouse_name_from_id(
-                fab.workspace_id, warehouse_id
-            )
+            db_name = warehouse_name or fab.get_warehouse_name_from_id(fab.workspace_id, warehouse_id)
             if not db_name:
                 raise RuntimeError("Could not resolve warehouse name for ODBC path.")
             _rows = _execute_sql_via_odbc(
                 sql_endpoint_server=sql_endpoint_server,
                 database=db_name,
-                query=columns_query.replace(
-                    "@schema", f"'{schema}'" if schema else "@schema"
-                )
+                query=columns_query.replace("@schema", f"'{schema}'" if schema else "@schema")
                 .replace(
                     "@table",
                     f"'%{table_filter}%'" if table_filter else "@table",
@@ -579,9 +535,7 @@ def warehouse_metadata(
     if result is None:
         if rest_error:
             ConsoleStyles.print_error(console, f"REST path failed: {rest_error}")
-        ConsoleStyles.print_error(
-            console, "No result returned for warehouse metadata query."
-        )
+        ConsoleStyles.print_error(console, "No result returned for warehouse metadata query.")
         raise SystemExit(1)
 
     cols, rows = _normalize_sql_rowset(result)
@@ -598,21 +552,13 @@ def warehouse_metadata(
                 schema_name=str(r[name_to_idx.get("table_schema")])
                 if name_to_idx.get("table_schema") is not None
                 else "",
-                table_name=str(r[name_to_idx.get("table_name")])
-                if name_to_idx.get("table_name") is not None
-                else "",
-                table_type=str(r[name_to_idx.get("table_type")])
-                if name_to_idx.get("table_type") is not None
-                else None,
+                table_name=str(r[name_to_idx.get("table_name")]) if name_to_idx.get("table_name") is not None else "",
+                table_type=str(r[name_to_idx.get("table_type")]) if name_to_idx.get("table_type") is not None else None,
                 column_name=str(r[name_to_idx.get("column_name")])
                 if name_to_idx.get("column_name") is not None
                 else "",
-                data_type=str(r[name_to_idx.get("data_type")])
-                if name_to_idx.get("data_type") is not None
-                else None,
-                is_nullable=r[name_to_idx.get("is_nullable")]
-                if name_to_idx.get("is_nullable") is not None
-                else None,
+                data_type=str(r[name_to_idx.get("data_type")]) if name_to_idx.get("data_type") is not None else None,
+                is_nullable=r[name_to_idx.get("is_nullable")] if name_to_idx.get("is_nullable") is not None else None,
                 ordinal_position=int(r[name_to_idx.get("ordinal_position")])
                 if name_to_idx.get("ordinal_position") is not None
                 else None,
@@ -625,17 +571,9 @@ def warehouse_metadata(
         base_dir.mkdir(parents=True, exist_ok=True)
         name_or_id = warehouse_name or warehouse_id or "unknown"
         safe = re.sub(r"[^a-zA-Z0-9_-]+", "_", str(name_or_id)).lower()
-        ext = (
-            ".json"
-            if output_format == "json"
-            else ".csv"
-            if output_format == "csv"
-            else ".txt"
-        )
+        ext = ".json" if output_format == "json" else ".csv" if output_format == "csv" else ".txt"
         output_path = base_dir / f"warehouse_{safe}_columns{ext}"
-    _render_output(
-        out_rows, output_format=output_format, output_path=output_path, console=console
-    )
+    _render_output(out_rows, output_format=output_format, output_path=output_path, console=console)
 
 
 def lakehouse_summary(
@@ -668,21 +606,15 @@ def lakehouse_summary(
         fab.workspace_id = resolved
 
     # Helper to run summary for a single lakehouse
-    def _run_single(
-        _lakehouse_id: str, _lakehouse_name: Optional[str]
-    ) -> list[SchemaSummaryRecord]:
+    def _run_single(_lakehouse_id: str, _lakehouse_name: Optional[str]) -> list[SchemaSummaryRecord]:
         nonlocal sql_endpoint_id, sql_endpoint_server
         result: dict | None = None
 
         # ODBC first
         try:
             if not sql_endpoint_server:
-                sql_endpoint_server = fab.get_sql_server_for_lakehouse(
-                    fab.workspace_id, _lakehouse_id
-                )
-            db_name = _lakehouse_name or fab.get_lakehouse_name_from_id(
-                fab.workspace_id, _lakehouse_id
-            )
+                sql_endpoint_server = fab.get_sql_server_for_lakehouse(fab.workspace_id, _lakehouse_id)
+            db_name = _lakehouse_name or fab.get_lakehouse_name_from_id(fab.workspace_id, _lakehouse_id)
             if not db_name:
                 raise RuntimeError("Could not resolve lakehouse name for ODBC path.")
             _rows = _execute_sql_via_odbc(
@@ -696,16 +628,12 @@ def lakehouse_summary(
             ]
             result = {"columns": cols, "rows": _rows}
         except Exception as e:
-            ConsoleStyles.print_warning(
-                console, f"ODBC path failed for lakehouse {_lakehouse_id}: {e}"
-            )
+            ConsoleStyles.print_warning(console, f"ODBC path failed for lakehouse {_lakehouse_id}: {e}")
 
         # REST fallback
         if result is None and method in {"sql-endpoint", "sql-endpoint-rest"}:
             if not sql_endpoint_id:
-                sql_endpoint_id = fab.get_sql_endpoint_id_for_lakehouse(
-                    fab.workspace_id, _lakehouse_id
-                )
+                sql_endpoint_id = fab.get_sql_endpoint_id_for_lakehouse(fab.workspace_id, _lakehouse_id)
             if not sql_endpoint_id:
                 ConsoleStyles.print_warning(
                     console,
@@ -723,9 +651,7 @@ def lakehouse_summary(
 
         cols, rows = _normalize_sql_rowset(result)
         name_to_idx = {name.lower(): i for i, name in enumerate(cols)}
-        db_name = _lakehouse_name or fab.get_lakehouse_name_from_id(
-            fab.workspace_id, _lakehouse_id
-        )
+        db_name = _lakehouse_name or fab.get_lakehouse_name_from_id(fab.workspace_id, _lakehouse_id)
         out_rows: list[SchemaSummaryRecord] = []
         for r in rows:
             out_rows.append(
@@ -769,13 +695,7 @@ def lakehouse_summary(
         if output_path is None:
             base_dir = Path(ctx.obj["fabric_workspace_repo_dir"]) / "metadata"
             base_dir.mkdir(parents=True, exist_ok=True)
-            ext = (
-                ".json"
-                if output_format == "json"
-                else ".csv"
-                if output_format == "csv"
-                else ".txt"
-            )
+            ext = ".json" if output_format == "json" else ".csv" if output_format == "csv" else ".txt"
             output_path = base_dir / f"lakehouse_summary_all{ext}"
         _render_summary(
             all_rows,
@@ -788,9 +708,7 @@ def lakehouse_summary(
     # Single lakehouse path: resolve missing ID if needed, then run
     if not lakehouse_id:
         if not lakehouse_name:
-            ConsoleStyles.print_error(
-                console, "Provide --lakehouse-id or --lakehouse-name"
-            )
+            ConsoleStyles.print_error(console, "Provide --lakehouse-id or --lakehouse-name")
             raise SystemExit(1)
         lid = fab.get_lakehouse_id_from_name(fab.workspace_id, lakehouse_name)
         if not lid:
@@ -804,17 +722,9 @@ def lakehouse_summary(
         base_dir.mkdir(parents=True, exist_ok=True)
         name_or_id = lakehouse_name or lakehouse_id or "unknown"
         safe = re.sub(r"[^a-zA-Z0-9_-]+", "_", str(name_or_id)).lower()
-        ext = (
-            ".json"
-            if output_format == "json"
-            else ".csv"
-            if output_format == "csv"
-            else ".txt"
-        )
+        ext = ".json" if output_format == "json" else ".csv" if output_format == "csv" else ".txt"
         output_path = base_dir / f"lakehouse_{safe}_summary{ext}"
-    _render_summary(
-        out_rows, output_format=output_format, output_path=output_path, console=console
-    )
+    _render_summary(out_rows, output_format=output_format, output_path=output_path, console=console)
 
 
 def warehouse_summary(
@@ -847,9 +757,7 @@ def warehouse_summary(
 
     if not warehouse_id:
         if not warehouse_name:
-            ConsoleStyles.print_error(
-                console, "Provide --warehouse-id or --warehouse-name"
-            )
+            ConsoleStyles.print_error(console, "Provide --warehouse-id or --warehouse-name")
             raise SystemExit(1)
         wid = fab.get_warehouse_id_from_name(fab.workspace_id, warehouse_name)
         if not wid:
@@ -875,9 +783,7 @@ def warehouse_summary(
     # ODBC first if requested
     if method == "sql-endpoint-odbc":
         try:
-            db_name = warehouse_name or fab.get_warehouse_name_from_id(
-                fab.workspace_id, warehouse_id
-            )
+            db_name = warehouse_name or fab.get_warehouse_name_from_id(fab.workspace_id, warehouse_id)
             if not db_name:
                 raise RuntimeError("Could not resolve warehouse name for ODBC path.")
             _rows = _execute_sql_via_odbc(
@@ -893,13 +799,9 @@ def warehouse_summary(
     # REST (or fallback)
     if result is None and method in {"sql-endpoint", "sql-endpoint-rest"}:
         if not sql_endpoint_id:
-            sql_endpoint_id = fab.get_sql_endpoint_id_for_warehouse(
-                fab.workspace_id, warehouse_id
-            )
+            sql_endpoint_id = fab.get_sql_endpoint_id_for_warehouse(fab.workspace_id, warehouse_id)
         if not sql_endpoint_id:
-            ConsoleStyles.print_error(
-                console, "Could not resolve SQL endpoint ID for warehouse via REST."
-            )
+            ConsoleStyles.print_error(console, "Could not resolve SQL endpoint ID for warehouse via REST.")
             raise SystemExit(1)
         result = fab.execute_sql_on_sql_endpoint(
             workspace_id=fab.workspace_id,
@@ -908,16 +810,12 @@ def warehouse_summary(
         )
 
     if result is None:
-        ConsoleStyles.print_error(
-            console, "No result returned for warehouse schema summary."
-        )
+        ConsoleStyles.print_error(console, "No result returned for warehouse schema summary.")
         raise SystemExit(1)
 
     cols, rows = _normalize_sql_rowset(result)
     name_to_idx = {name.lower(): i for i, name in enumerate(cols)}
-    db_name = warehouse_name or fab.get_warehouse_name_from_id(
-        fab.workspace_id, warehouse_id
-    )
+    db_name = warehouse_name or fab.get_warehouse_name_from_id(fab.workspace_id, warehouse_id)
     out_rows: list[SchemaSummaryRecord] = []
     for r in rows:
         out_rows.append(
@@ -928,9 +826,7 @@ def warehouse_summary(
                 schema_name=str(r[name_to_idx.get("table_schema")])
                 if name_to_idx.get("table_schema") is not None
                 else "",
-                table_count=int(r[name_to_idx.get("table_count")])
-                if name_to_idx.get("table_count") is not None
-                else 0,
+                table_count=int(r[name_to_idx.get("table_count")]) if name_to_idx.get("table_count") is not None else 0,
             )
         )
 
@@ -940,22 +836,12 @@ def warehouse_summary(
         base_dir.mkdir(parents=True, exist_ok=True)
         name_or_id = warehouse_name or warehouse_id or "unknown"
         safe = re.sub(r"[^a-zA-Z0-9_-]+", "_", str(name_or_id)).lower()
-        ext = (
-            ".json"
-            if output_format == "json"
-            else ".csv"
-            if output_format == "csv"
-            else ".txt"
-        )
+        ext = ".json" if output_format == "json" else ".csv" if output_format == "csv" else ".txt"
         output_path = base_dir / f"warehouse_{safe}_summary{ext}"
-    _render_summary(
-        out_rows, output_format=output_format, output_path=output_path, console=console
-    )
+    _render_summary(out_rows, output_format=output_format, output_path=output_path, console=console)
 
 
-def _execute_sql_via_odbc(
-    *, sql_endpoint_server: Optional[str], database: str, query: str
-) -> list[list[Any]]:
+def _execute_sql_via_odbc(*, sql_endpoint_server: Optional[str], database: str, query: str) -> list[list[Any]]:
     """Execute SQL via ODBC using Azure CLI token against Fabric SQL endpoint.
 
     - sql_endpoint_server: server prefix without domain; forms {server}.datawarehouse.fabric.microsoft.com
@@ -963,9 +849,7 @@ def _execute_sql_via_odbc(
     - query: SQL text to execute
     """
     if not sql_endpoint_server:
-        raise ValueError(
-            "--sql-endpoint-server is required for ODBC path (e.g., 'myws-abc123')."
-        )
+        raise ValueError("--sql-endpoint-server is required for ODBC path (e.g., 'myws-abc123').")
     try:
         import struct
         from itertools import chain, repeat

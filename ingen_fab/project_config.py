@@ -38,12 +38,8 @@ class ProjectConfig:
 
         functional_tests_data = data.get("functional_tests", {})
         functional_tests = FunctionalTests(
-            target_workspace_name=functional_tests_data.get(
-                "target_workspace_name", ""
-            ),
-            target_warehouse_name=functional_tests_data.get(
-                "target_warehouse_name", ""
-            ),
+            target_workspace_name=functional_tests_data.get("target_workspace_name", ""),
+            target_warehouse_name=functional_tests_data.get("target_warehouse_name", ""),
         )
 
         return cls(workspaces=workspaces, functional_tests=functional_tests)

@@ -75,9 +75,7 @@ configs_object: ConfigsObject = ConfigsObject(**configs_dict)
 # Module-level configuration constants
 fabric_environments_table_name = "fabric_environments"
 fabric_environments_table_schema = "config"
-fabric_environments_table = (
-    f"{fabric_environments_table_schema}.{fabric_environments_table_name}"
-)
+fabric_environments_table = f"{fabric_environments_table_schema}.{fabric_environments_table_name}"
 
 
 def get_configs_as_dict() -> Dict[str, Any]:

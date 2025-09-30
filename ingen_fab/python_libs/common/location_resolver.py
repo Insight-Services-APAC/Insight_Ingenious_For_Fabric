@@ -60,9 +60,7 @@ class LocationResolver:
         # Cache for lakehouse/warehouse utilities to avoid repeated initialization
         self._utils_cache: Dict[str, Any] = {}
 
-    def resolve_location(
-        self, config: FlatFileIngestionConfig, location_type: LocationType
-    ) -> LocationConfig:
+    def resolve_location(self, config: FlatFileIngestionConfig, location_type: LocationType) -> LocationConfig:
         """
         Resolve location configuration for source or target
 
@@ -80,21 +78,11 @@ class LocationResolver:
         else:
             raise ValueError(f"Unsupported location type: {location_type}")
 
-    def _resolve_source_location(
-        self, config: FlatFileIngestionConfig
-    ) -> LocationConfig:
+    def _resolve_source_location(self, config: FlatFileIngestionConfig) -> LocationConfig:
         """Resolve source location with intelligent defaults"""
-        workspace_id = (
-            config.source_workspace_id
-            or config.target_workspace_id
-            or self.default_workspace_id
-        )
+        workspace_id = config.source_workspace_id or config.target_workspace_id or self.default_workspace_id
 
-        datastore_id = (
-            config.source_datastore_id
-            or self.default_datastore_id
-            or config.target_datastore_id
-        )
+        datastore_id = config.source_datastore_id or self.default_datastore_id or config.target_datastore_id
 
         datastore_type = config.source_datastore_type or self.default_datastore_type
 
@@ -114,9 +102,7 @@ class LocationResolver:
             location_type="source",
         )
 
-    def _resolve_target_location(
-        self, config: FlatFileIngestionConfig
-    ) -> LocationConfig:
+    def _resolve_target_location(self, config: FlatFileIngestionConfig) -> LocationConfig:
         """Resolve target location with intelligent defaults"""
         workspace_id = config.target_workspace_id or self.default_workspace_id
         datastore_id = config.target_datastore_id or self.default_datastore_id
@@ -138,9 +124,7 @@ class LocationResolver:
             location_type="target",
         )
 
-    def create_utils(
-        self, location_config: LocationConfig, spark=None, connection=None
-    ) -> Any:
+    def create_utils(self, location_config: LocationConfig, spark=None, connection=None) -> Any:
         """
         Create appropriate utils instance for the location
 
@@ -173,9 +157,7 @@ class LocationResolver:
 
         elif location_config.datastore_type == "warehouse":
             if connection is None:
-                raise ValueError(
-                    "Database connection is required for warehouse operations"
-                )
+                raise ValueError("Database connection is required for warehouse operations")
 
             # Import here to avoid circular dependencies
             from ingen_fab.python_libs.python.warehouse_utils import warehouse_utils
@@ -187,9 +169,7 @@ class LocationResolver:
             )
 
         else:
-            raise ValueError(
-                f"Unsupported datastore type: {location_config.datastore_type}"
-            )
+            raise ValueError(f"Unsupported datastore type: {location_config.datastore_type}")
 
         # Cache the instance
         self._utils_cache[cache_key] = utils_instance
@@ -238,9 +218,7 @@ class LocationResolver:
             return config.source_file_path
 
         # Combine root path with relative path
-        return f"{source_config.file_root_path}/{config.source_file_path}".replace(
-            "//", "/"
-        )
+        return f"{source_config.file_root_path}/{config.source_file_path}".replace("//", "/")
 
     def clear_cache(self):
         """Clear the utils cache - useful for testing or memory management"""
@@ -248,26 +226,16 @@ class LocationResolver:
 
     def get_cache_info(self) -> Dict[str, str]:
         """Get information about cached utils instances"""
-        return {
-            key: str(type(utils).__name__) for key, utils in self._utils_cache.items()
-        }
+        return {key: str(type(utils).__name__) for key, utils in self._utils_cache.items()}
 
     # Backward compatibility methods
-    def get_source_utils(
-        self, config: FlatFileIngestionConfig, spark=None, connection=None
-    ) -> Any:
+    def get_source_utils(self, config: FlatFileIngestionConfig, spark=None, connection=None) -> Any:
         """Legacy method for backward compatibility"""
-        return self.get_utils(
-            config, LocationType.SOURCE, spark=spark, connection=connection
-        )
+        return self.get_utils(config, LocationType.SOURCE, spark=spark, connection=connection)
 
-    def get_target_utils(
-        self, config: FlatFileIngestionConfig, spark=None, connection=None
-    ) -> Any:
+    def get_target_utils(self, config: FlatFileIngestionConfig, spark=None, connection=None) -> Any:
         """Legacy method for backward compatibility"""
-        return self.get_utils(
-            config, LocationType.TARGET, spark=spark, connection=connection
-        )
+        return self.get_utils(config, LocationType.TARGET, spark=spark, connection=connection)
 
     def resolve_source_config(self, config: FlatFileIngestionConfig) -> LocationConfig:
         """Legacy method for backward compatibility"""

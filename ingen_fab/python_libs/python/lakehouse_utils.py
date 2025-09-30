@@ -44,9 +44,7 @@ class lakehouse_utils(DataStoreInterface):
         else:
             return f"abfss://{self._target_workspace_id}@onelake.dfs.fabric.microsoft.com/{self._target_lakehouse_id}/Tables/"
 
-    def check_if_table_exists(
-        self, table_name: str, schema_name: str | None = None
-    ) -> bool:
+    def check_if_table_exists(self, table_name: str, schema_name: str | None = None) -> bool:
         """Check if a Delta table exists at the given table name."""
         table_path = f"{self.lakehouse_tables_uri()}{table_name}"
 
@@ -104,9 +102,7 @@ class lakehouse_utils(DataStoreInterface):
                     tables.append(item)
         return tables
 
-    def drop_all_tables(
-        self, schema_name: str | None = None, table_prefix: str | None = None
-    ) -> None:
+    def drop_all_tables(self, schema_name: str | None = None, table_prefix: str | None = None) -> None:
         """Drop all Delta tables in the lakehouse directory using filesystem operations."""
         import shutil
         from pathlib import Path
@@ -142,9 +138,7 @@ class lakehouse_utils(DataStoreInterface):
                         continue
 
         if dropped_tables:
-            print(
-                f"Successfully dropped {len(dropped_tables)} tables: {dropped_tables}"
-            )
+            print(f"Successfully dropped {len(dropped_tables)} tables: {dropped_tables}")
         else:
             print("No tables found to drop")
 
@@ -152,9 +146,7 @@ class lakehouse_utils(DataStoreInterface):
         """delta-rs does not support SQL queries directly."""
         raise NotImplementedError("delta-rs does not support SQL queries directly.")
 
-    def get_table_schema(
-        self, table_name: str, schema_name: str | None = None
-    ) -> dict[str, Any]:
+    def get_table_schema(self, table_name: str, schema_name: str | None = None) -> dict[str, Any]:
         """Get the schema/column definitions for a table using delta-rs API."""
         table_path = f"{self.lakehouse_tables_uri()}{table_name}"
         delta_table = DeltaTable(table_path)
@@ -169,9 +161,7 @@ class lakehouse_utils(DataStoreInterface):
         filters: dict[str, Any] | None = None,
     ) -> Any:
         """Read data from a table using delta-rs API."""
-        print(
-            f"Reading table: {table_name} with columns: {columns}, limit: {limit}, filters: {filters}"
-        )
+        print(f"Reading table: {table_name} with columns: {columns}, limit: {limit}, filters: {filters}")
         print(f"Table path: {self.lakehouse_tables_uri()}{table_name}")
         table_path = f"{self.lakehouse_tables_uri()}{table_name}"
         delta_table = DeltaTable(table_path)
@@ -197,9 +187,7 @@ class lakehouse_utils(DataStoreInterface):
     ) -> int:
         """Delete rows from a table matching filters using delta-rs API. Returns number of rows deleted."""
         # delta-rs does not support row-level deletes via Python API as of now.
-        raise NotImplementedError(
-            "delta-rs does not support row-level deletes via Python API."
-        )
+        raise NotImplementedError("delta-rs does not support row-level deletes via Python API.")
 
     def rename_table(
         self,
@@ -222,9 +210,7 @@ class lakehouse_utils(DataStoreInterface):
         options: dict[str, Any] | None = None,
     ) -> None:
         """Create a new table with a given schema (delta-rs does not support this directly)."""
-        raise NotImplementedError(
-            "delta-rs does not support creating tables from schema directly."
-        )
+        raise NotImplementedError("delta-rs does not support creating tables from schema directly.")
 
     def drop_table(
         self,
@@ -347,9 +333,7 @@ class lakehouse_utils(DataStoreInterface):
                 return files
             else:
                 return [
-                    os.path.join(dir_path, f)
-                    for f in os.listdir(dir_path)
-                    if os.path.isfile(os.path.join(dir_path, f))
+                    os.path.join(dir_path, f) for f in os.listdir(dir_path) if os.path.isfile(os.path.join(dir_path, f))
                 ]
 
     def get_file_info(self, file_path: str) -> dict[str, Any]:

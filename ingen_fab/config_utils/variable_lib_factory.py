@@ -37,9 +37,7 @@ class VariableLibraryCache:
         """
         key = (str(project_path), environment)
         if key not in cls._instances:
-            cls._instances[key] = VariableLibraryUtils(
-                project_path=project_path, environment=environment
-            )
+            cls._instances[key] = VariableLibraryUtils(project_path=project_path, environment=environment)
         return cls._instances[key]
 
     @classmethod
@@ -73,14 +71,10 @@ class VariableLibraryFactory:
         if use_cache:
             return VariableLibraryCache.get_instance(project_path, environment)
         else:
-            return VariableLibraryUtils(
-                environment=environment, project_path=project_path
-            )
+            return VariableLibraryUtils(environment=environment, project_path=project_path)
 
     @staticmethod
-    def from_environment_and_path(
-        environment: str, project_path: Path, use_cache: bool = True
-    ) -> VariableLibraryUtils:
+    def from_environment_and_path(environment: str, project_path: Path, use_cache: bool = True) -> VariableLibraryUtils:
         """Create VariableLibraryUtils with explicit environment and path.
 
         Args:
@@ -94,9 +88,7 @@ class VariableLibraryFactory:
         if use_cache:
             return VariableLibraryCache.get_instance(project_path, environment)
         else:
-            return VariableLibraryUtils(
-                environment=environment, project_path=project_path
-            )
+            return VariableLibraryUtils(environment=environment, project_path=project_path)
 
     @staticmethod
     def from_instance_vars(instance, use_cache: bool = True) -> VariableLibraryUtils:
@@ -110,20 +102,14 @@ class VariableLibraryFactory:
             Configured VariableLibraryUtils instance
         """
         if use_cache:
-            return VariableLibraryCache.get_instance(
-                instance.project_path, instance.environment
-            )
+            return VariableLibraryCache.get_instance(instance.project_path, instance.environment)
         else:
-            return VariableLibraryUtils(
-                environment=instance.environment, project_path=instance.project_path
-            )
+            return VariableLibraryUtils(environment=instance.environment, project_path=instance.project_path)
 
     # Workflow-specific factory methods
 
     @staticmethod
-    def for_development(
-        environment: str, project_path: Path, use_cache: bool = True
-    ) -> DevelopmentVariableInjector:
+    def for_development(environment: str, project_path: Path, use_cache: bool = True) -> DevelopmentVariableInjector:
         """Create a DevelopmentVariableInjector instance.
 
         Args:
@@ -145,9 +131,7 @@ class VariableLibraryFactory:
             return DevelopmentVariableInjector(project_path, environment)
 
     @staticmethod
-    def for_deployment(
-        environment: str, project_path: Path, use_cache: bool = True
-    ) -> DeploymentVariableInjector:
+    def for_deployment(environment: str, project_path: Path, use_cache: bool = True) -> DeploymentVariableInjector:
         """Create a DeploymentVariableInjector instance.
 
         Args:
@@ -169,9 +153,7 @@ class VariableLibraryFactory:
             return DeploymentVariableInjector(project_path, environment)
 
     @staticmethod
-    def for_testing(
-        environment: str, project_path: Path, use_cache: bool = True
-    ) -> TestingVariableInjector:
+    def for_testing(environment: str, project_path: Path, use_cache: bool = True) -> TestingVariableInjector:
         """Create a TestingVariableInjector instance.
 
         Args:
@@ -193,9 +175,7 @@ class VariableLibraryFactory:
             return TestingVariableInjector(project_path, environment)
 
     @staticmethod
-    def for_readonly(
-        environment: str, project_path: Path, use_cache: bool = True
-    ) -> ReadOnlyVariableLibrary:
+    def for_readonly(environment: str, project_path: Path, use_cache: bool = True) -> ReadOnlyVariableLibrary:
         """Create a ReadOnlyVariableLibrary instance.
 
         Args:
@@ -217,26 +197,18 @@ class VariableLibraryFactory:
             return ReadOnlyVariableLibrary(project_path, environment)
 
     @staticmethod
-    def for_development_from_cli(
-        ctx, use_cache: bool = True
-    ) -> DevelopmentVariableInjector:
+    def for_development_from_cli(ctx, use_cache: bool = True) -> DevelopmentVariableInjector:
         """Create DevelopmentVariableInjector from CLI context."""
         environment = ctx.obj.get("fabric_environment")
         project_path = Path(ctx.obj.get("fabric_workspace_repo_dir"))
-        return VariableLibraryFactory.for_development(
-            environment, project_path, use_cache
-        )
+        return VariableLibraryFactory.for_development(environment, project_path, use_cache)
 
     @staticmethod
-    def for_deployment_from_cli(
-        ctx, use_cache: bool = True
-    ) -> DeploymentVariableInjector:
+    def for_deployment_from_cli(ctx, use_cache: bool = True) -> DeploymentVariableInjector:
         """Create DeploymentVariableInjector from CLI context."""
         environment = ctx.obj.get("fabric_environment")
         project_path = Path(ctx.obj.get("fabric_workspace_repo_dir"))
-        return VariableLibraryFactory.for_deployment(
-            environment, project_path, use_cache
-        )
+        return VariableLibraryFactory.for_deployment(environment, project_path, use_cache)
 
     @staticmethod
     def for_readonly_from_cli(ctx, use_cache: bool = True) -> ReadOnlyVariableLibrary:
@@ -269,9 +241,7 @@ def get_variable_from_cli(ctx, variable_name: str) -> str:
     Returns:
         Variable value from variable library
     """
-    return VariableLibraryFactory.from_cli_context(ctx).get_variable_value(
-        variable_name
-    )
+    return VariableLibraryFactory.from_cli_context(ctx).get_variable_value(variable_name)
 
 
 def get_workspace_id_from_environment(environment: str, project_path: Path) -> str:
@@ -284,14 +254,10 @@ def get_workspace_id_from_environment(environment: str, project_path: Path) -> s
     Returns:
         Workspace ID from variable library
     """
-    return VariableLibraryFactory.from_environment_and_path(
-        environment, project_path
-    ).get_workspace_id()
+    return VariableLibraryFactory.from_environment_and_path(environment, project_path).get_workspace_id()
 
 
-def get_variable_from_environment(
-    environment: str, project_path: Path, variable_name: str
-) -> str:
+def get_variable_from_environment(environment: str, project_path: Path, variable_name: str) -> str:
     """Quick variable lookup from environment and path.
 
     Args:
@@ -302,9 +268,7 @@ def get_variable_from_environment(
     Returns:
         Variable value from variable library
     """
-    return VariableLibraryFactory.from_environment_and_path(
-        environment, project_path
-    ).get_variable_value(variable_name)
+    return VariableLibraryFactory.from_environment_and_path(environment, project_path).get_variable_value(variable_name)
 
 
 def process_file_content(
@@ -373,6 +337,4 @@ def process_file_content_from_cli(
         True if file was modified, False otherwise
     """
     varlib_utils = VariableLibraryFactory.from_cli_context(ctx)
-    return process_file_content(
-        file_path, varlib_utils, replace_placeholders, inject_code
-    )
+    return process_file_content(file_path, varlib_utils, replace_placeholders, inject_code)

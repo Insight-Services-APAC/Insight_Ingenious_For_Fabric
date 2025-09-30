@@ -28,9 +28,7 @@ def ensure_sql_server_running() -> None:
                 )
                 time.sleep(10)  # Give SQL Server time to start
             else:
-                print(
-                    f"[pytest] SQL Server binary not found at {sqlservr_path}. Please install SQL Server."
-                )
+                print(f"[pytest] SQL Server binary not found at {sqlservr_path}. Please install SQL Server.")
         else:
             print("[pytest] SQL Server is already running.")
     except Exception as e:
@@ -43,9 +41,7 @@ ensure_sql_server_running()
 @pytest.fixture(scope="module")
 def utils():
     # Replace with actual workspace/lakehouse IDs or config
-    return warehouse_utils(
-        "your-workspace-id", "your-lakehouse-id", dialect="sql_server"
-    )
+    return warehouse_utils("your-workspace-id", "your-lakehouse-id", dialect="sql_server")
 
 
 @pytest.fixture

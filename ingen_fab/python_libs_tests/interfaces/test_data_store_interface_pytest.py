@@ -12,9 +12,7 @@ from ingen_fab.python_libs.interfaces.data_store_interface import DataStoreInter
 class MockDataStoreImplementation(DataStoreInterface):
     """Concrete implementation of DataStoreInterface for testing."""
 
-    def __init__(
-        self, workspace_id: str = "test-workspace", store_id: str = "test-store"
-    ):
+    def __init__(self, workspace_id: str = "test-workspace", store_id: str = "test-store"):
         self._workspace_id = workspace_id
         self._store_id = store_id
         self._tables = {}
@@ -29,9 +27,7 @@ class MockDataStoreImplementation(DataStoreInterface):
     def target_store_id(self) -> str:
         return self._store_id
 
-    def check_if_table_exists(
-        self, table_name: str, schema_name: str | None = None
-    ) -> bool:
+    def check_if_table_exists(self, table_name: str, schema_name: str | None = None) -> bool:
         key = f"{schema_name}.{table_name}" if schema_name else table_name
         return key in self._tables
 
@@ -46,13 +42,9 @@ class MockDataStoreImplementation(DataStoreInterface):
         key = f"{schema_name}.{table_name}" if schema_name else table_name
         self._tables[key] = {"df": df, "mode": mode, "options": options}
 
-    def drop_all_tables(
-        self, schema_name: str | None = None, table_prefix: str | None = None
-    ) -> None:
+    def drop_all_tables(self, schema_name: str | None = None, table_prefix: str | None = None) -> None:
         if schema_name:
-            keys_to_remove = [
-                k for k in self._tables.keys() if k.startswith(f"{schema_name}.")
-            ]
+            keys_to_remove = [k for k in self._tables.keys() if k.startswith(f"{schema_name}.")]
         else:
             keys_to_remove = list(self._tables.keys())
 
@@ -71,9 +63,7 @@ class MockDataStoreImplementation(DataStoreInterface):
     def execute_query(self, query: str):
         return f"Executed: {query}"
 
-    def get_table_schema(
-        self, table_name: str, schema_name: str | None = None
-    ) -> dict[str, Any]:
+    def get_table_schema(self, table_name: str, schema_name: str | None = None) -> dict[str, Any]:
         key = f"{schema_name}.{table_name}" if schema_name else table_name
         if key in self._tables:
             return {"column1": "string", "column2": "integer"}
@@ -132,17 +122,13 @@ class MockDataStoreImplementation(DataStoreInterface):
     def list_schemas(self) -> list[str]:
         return self._schemas
 
-    def get_table_row_count(
-        self, table_name: str, schema_name: str | None = None
-    ) -> int:
+    def get_table_row_count(self, table_name: str, schema_name: str | None = None) -> int:
         key = f"{schema_name}.{table_name}" if schema_name else table_name
         if key in self._tables:
             return 100  # Mock return value
         return 0
 
-    def get_table_metadata(
-        self, table_name: str, schema_name: str | None = None
-    ) -> dict[str, Any]:
+    def get_table_metadata(self, table_name: str, schema_name: str | None = None) -> dict[str, Any]:
         key = f"{schema_name}.{table_name}" if schema_name else table_name
         if key in self._tables:
             return {"created_at": "2023-01-01", "size": "1MB"}

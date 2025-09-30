@@ -40,9 +40,7 @@ class DevelopmentVariableInjector(VariableLibraryUtils):
 
     def inject_python_libs(self) -> None:
         """Inject variables into python_libs using development workflow defaults."""
-        return self.inject_variables_into_python_libs(
-            replace_placeholders=False, inject_code=True
-        )
+        return self.inject_variables_into_python_libs(replace_placeholders=False, inject_code=True)
 
 
 class DeploymentVariableInjector(VariableLibraryUtils):
@@ -201,20 +199,17 @@ class ReadOnlyVariableLibrary(VariableLibraryUtils):
     def inject_for_development(self, *args, **kwargs) -> None:
         """Disabled in read-only mode."""
         raise NotImplementedError(
-            "Variable injection is disabled in ReadOnlyVariableLibrary. "
-            "Use DevelopmentVariableInjector instead."
+            "Variable injection is disabled in ReadOnlyVariableLibrary. Use DevelopmentVariableInjector instead."
         )
 
     def inject_for_deployment(self, *args, **kwargs) -> None:
         """Disabled in read-only mode."""
         raise NotImplementedError(
-            "Variable injection is disabled in ReadOnlyVariableLibrary. "
-            "Use DeploymentVariableInjector instead."
+            "Variable injection is disabled in ReadOnlyVariableLibrary. Use DeploymentVariableInjector instead."
         )
 
     def inject_python_libs_for_development(self, *args, **kwargs) -> None:
         """Disabled in read-only mode."""
         raise NotImplementedError(
-            "Variable injection is disabled in ReadOnlyVariableLibrary. "
-            "Use DevelopmentVariableInjector instead."
+            "Variable injection is disabled in ReadOnlyVariableLibrary. Use DevelopmentVariableInjector instead."
         )

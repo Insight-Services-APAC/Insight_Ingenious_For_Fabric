@@ -75,9 +75,7 @@ def test_execute_query_fabric():
             mock.patch.object(wu, "get_connection", return_value="conn"),
             mock.patch.object(wu, "execute_query", return_value=[(1,)]),
         ):
-            wu.create_schema_if_not_exists(
-                "myschema"
-            )  # Should not attempt to create schema if exists
+            wu.create_schema_if_not_exists("myschema")  # Should not attempt to create schema if exists
 
     def test_create_schema_if_not_exists_schema_missing():
         wu = warehouse_utils("ws", "wh")
@@ -224,9 +222,7 @@ def test_execute_query_fabric():
         wu = warehouse_utils("ws", "wh")
         with (
             mock.patch.object(wu, "get_connection", return_value="conn"),
-            mock.patch.object(
-                wu, "execute_query", side_effect=[[{"name": "t1"}], None]
-            ),
+            mock.patch.object(wu, "execute_query", side_effect=[[{"name": "t1"}], None]),
             mock.patch.object(wu.sql, "render", side_effect=["LIST", "DROP"]),
         ):
             wu.drop_all_tables()

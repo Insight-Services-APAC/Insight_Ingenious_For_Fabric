@@ -5,13 +5,7 @@ app_id = "7ca469d6-2266-4611-a022-8af7505df6b8"
 print("\n=== Adding API permissions for Livy endpoint ===")
 
 # Get tenant ID
-tenant_id = (
-    subprocess.check_output(
-        ["az", "account", "show", "--query", "tenantId", "-o", "tsv"]
-    )
-    .decode()
-    .strip()
-)
+tenant_id = subprocess.check_output(["az", "account", "show", "--query", "tenantId", "-o", "tsv"]).decode().strip()
 
 # The Livy endpoint in Microsoft Fabric requires Azure Storage API permissions
 # Azure Storage API ID: e406a681-f3d4-42a8-90b6-c2b029497af1

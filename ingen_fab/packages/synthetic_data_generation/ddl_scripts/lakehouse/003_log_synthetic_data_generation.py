@@ -16,9 +16,7 @@ log_schema = StructType(
     [
         StructField("log_id", StringType(), False),
         StructField("job_id", StringType(), False),
-        StructField(
-            "execution_step", StringType(), False
-        ),  # 'initialization', 'generation', 'validation'
+        StructField("execution_step", StringType(), False),  # 'initialization', 'generation', 'validation'
         StructField("table_name", StringType(), True),
         StructField("rows_generated", LongType(), True),
         StructField("chunk_number", IntegerType(), True),

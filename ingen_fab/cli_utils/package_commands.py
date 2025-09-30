@@ -38,9 +38,7 @@ def validate_target_datastore(target_datastore: str, valid_options: list) -> Non
         raise typer.Exit(code=1)
 
 
-def handle_package_compilation_result(
-    results: Dict[str, Any], package_name: str
-) -> None:
+def handle_package_compilation_result(results: Dict[str, Any], package_name: str) -> None:
     """Handle compilation results with consistent output format."""
     if results["success"]:
         console.print(f"[green]✓ {package_name} package compiled successfully![/green]")

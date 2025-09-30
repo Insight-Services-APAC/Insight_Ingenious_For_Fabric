@@ -16,9 +16,7 @@ deploy_commands = lazy_import.lazy_module("ingen_fab.cli_utils.deploy_commands")
 init_commands = lazy_import.lazy_module("ingen_fab.cli_utils.init_commands")
 notebook_commands = lazy_import.lazy_module("ingen_fab.cli_utils.notebook_commands")
 workspace_commands = lazy_import.lazy_module("ingen_fab.cli_utils.workspace_commands")
-synthetic_data_commands = lazy_import.lazy_module(
-    "ingen_fab.cli_utils.synthetic_data_commands"
-)
+synthetic_data_commands = lazy_import.lazy_module("ingen_fab.cli_utils.synthetic_data_commands")
 package_commands = lazy_import.lazy_module("ingen_fab.cli_utils.package_commands")
 test_commands = lazy_import.lazy_module("ingen_fab.cli_utils.test_commands")
 libs_commands = lazy_import.lazy_module("ingen_fab.cli_utils.libs_commands")
@@ -28,9 +26,7 @@ from ingen_fab.cli_utils.console_styles import ConsoleStyles
 
 # Lazy import for heavyweight modules
 notebook_generator = lazy_import.lazy_module("ingen_fab.ddl_scripts.notebook_generator")
-PathUtils = lazy_import.lazy_callable(
-    "ingen_fab.python_libs.common.utils.path_utils.PathUtils"
-)
+PathUtils = lazy_import.lazy_callable("ingen_fab.python_libs.common.utils.path_utils.PathUtils")
 
 console = Console()
 console_styles = ConsoleStyles()
@@ -69,13 +65,9 @@ app.add_typer(
     name="deploy",
     help="Commands for deploying to environments and managing workspace items.",
 )
-app.add_typer(
-    init_app, name="init", help="Commands for initializing solutions and projects."
-)
+app.add_typer(init_app, name="init", help="Commands for initializing solutions and projects.")
 app.add_typer(ddl_app, name="ddl", help="Commands for compiling DDL notebooks.")
-app.add_typer(
-    test_app, name="test", help="Commands for testing notebooks and Python blocks."
-)
+app.add_typer(test_app, name="test", help="Commands for testing notebooks and Python blocks.")
 app.add_typer(
     notebook_app,
     name="notebook",
@@ -147,9 +139,7 @@ def main(
     if fabric_environment is None:
         env_val = os.environ.get("FABRIC_ENVIRONMENT")
         if env_val:
-            console_styles.print_warning(
-                console, "Falling back to FABRIC_ENVIRONMENT environment variable."
-            )
+            console_styles.print_warning(console, "Falling back to FABRIC_ENVIRONMENT environment variable.")
             fabric_environment = Path(env_val)
             fabric_environment_source = "env"
         else:
@@ -163,11 +153,7 @@ def main(
     skip_validation = (
         ctx.invoked_subcommand is None
         or (ctx.params and ctx.params.get("help"))
-        or (
-            ctx.invoked_subcommand == "init"
-            and len(sys.argv) > 2
-            and sys.argv[2] == "new"
-        )
+        or (ctx.invoked_subcommand == "init" and len(sys.argv) > 2 and sys.argv[2] == "new")
     )
 
     if not skip_validation:
@@ -205,12 +191,8 @@ def main(
             )
             raise typer.Exit(code=1)
 
-    console_styles.print_info(
-        console, f"Using Fabric workspace repo directory: {fabric_workspace_repo_dir}"
-    )
-    console_styles.print_info(
-        console, f"Using Fabric environment: {fabric_environment}"
-    )
+    console_styles.print_info(console, f"Using Fabric workspace repo directory: {fabric_workspace_repo_dir}")
+    console_styles.print_info(console, f"Using Fabric environment: {fabric_environment}")
     ctx.obj = {
         "fabric_workspace_repo_dir": fabric_workspace_repo_dir,
         "fabric_environment": fabric_environment,
@@ -225,15 +207,11 @@ def compile(
     ctx: typer.Context,
     output_mode: Annotated[
         Optional[str],
-        typer.Option(
-            "--output-mode", "-o", help="Output mode: fabric_workspace_repo or local"
-        ),
+        typer.Option("--output-mode", "-o", help="Output mode: fabric_workspace_repo or local"),
     ] = None,
     generation_mode: Annotated[
         Optional[str],
-        typer.Option(
-            "--generation-mode", "-g", help="Generation mode: Lakehouse or Warehouse"
-        ),
+        typer.Option("--generation-mode", "-g", help="Generation mode: Lakehouse or Warehouse"),
     ] = None,
     verbose: Annotated[bool, typer.Option("--verbose", "-v")] = False,
 ):
@@ -246,31 +224,18 @@ def compile(
         try:
             output_mode = notebook_generator.NotebookGenerator.OutputMode(output_mode)
         except ValueError:
-            valid_modes = [
-                mode.value for mode in notebook_generator.NotebookGenerator.OutputMode
-            ]
+            valid_modes = [mode.value for mode in notebook_generator.NotebookGenerator.OutputMode]
             console.print(f"[red]Error: Invalid output mode '{output_mode}'[/red]")
-            console.print(
-                f"[yellow]Valid output modes: {', '.join(valid_modes)}[/yellow]"
-            )
+            console.print(f"[yellow]Valid output modes: {', '.join(valid_modes)}[/yellow]")
             raise typer.Exit(code=1)
 
     if generation_mode:
         try:
-            generation_mode = notebook_generator.NotebookGenerator.GenerationMode(
-                generation_mode
-            )
+            generation_mode = notebook_generator.NotebookGenerator.GenerationMode(generation_mode)
         except ValueError:
-            valid_modes = [
-                mode.value
-                for mode in notebook_generator.NotebookGenerator.GenerationMode
-            ]
-            console.print(
-                f"[red]Error: Invalid generation mode '{generation_mode}'[/red]"
-            )
-            console.print(
-                f"[yellow]Valid generation modes: {', '.join(valid_modes)}[/yellow]"
-            )
+            valid_modes = [mode.value for mode in notebook_generator.NotebookGenerator.GenerationMode]
+            console.print(f"[red]Error: Invalid generation mode '{generation_mode}'[/red]")
+            console.print(f"[yellow]Valid generation modes: {', '.join(valid_modes)}[/yellow]")
             raise typer.Exit(code=1)
 
     notebook_commands.compile_ddl_notebooks(ctx, output_mode, generation_mode, verbose)
@@ -285,9 +250,7 @@ def init_solution(
         Optional[str],
         typer.Option("--project-name", "-p", help="Name of the project to create"),
     ] = None,
-    path: Annotated[
-        Path, typer.Option("--path", help="Base path where the project will be created")
-    ] = Path("."),
+    path: Annotated[Path, typer.Option("--path", help="Base path where the project will be created")] = Path("."),
 ):
     init_commands.init_solution(project_name, path)
 
@@ -370,27 +333,13 @@ def upload_dbt_project(
 @deploy_app.command("get-metadata")
 def deploy_get_metadata(
     ctx: typer.Context,
-    workspace_id: Annotated[
-        Optional[str], typer.Option("--workspace-id", help="Workspace ID")
-    ] = None,
-    workspace_name: Annotated[
-        Optional[str], typer.Option("--workspace-name", help="Workspace name")
-    ] = None,
-    lakehouse_id: Annotated[
-        Optional[str], typer.Option("--lakehouse-id", help="Lakehouse ID")
-    ] = None,
-    lakehouse_name: Annotated[
-        Optional[str], typer.Option("--lakehouse-name", help="Lakehouse name")
-    ] = None,
-    warehouse_id: Annotated[
-        Optional[str], typer.Option("--warehouse-id", help="Warehouse ID")
-    ] = None,
-    warehouse_name: Annotated[
-        Optional[str], typer.Option("--warehouse-name", help="Warehouse name")
-    ] = None,
-    schema: Annotated[
-        Optional[str], typer.Option("--schema", "-s", help="Schema name filter")
-    ] = None,
+    workspace_id: Annotated[Optional[str], typer.Option("--workspace-id", help="Workspace ID")] = None,
+    workspace_name: Annotated[Optional[str], typer.Option("--workspace-name", help="Workspace name")] = None,
+    lakehouse_id: Annotated[Optional[str], typer.Option("--lakehouse-id", help="Lakehouse ID")] = None,
+    lakehouse_name: Annotated[Optional[str], typer.Option("--lakehouse-name", help="Lakehouse name")] = None,
+    warehouse_id: Annotated[Optional[str], typer.Option("--warehouse-id", help="Warehouse ID")] = None,
+    warehouse_name: Annotated[Optional[str], typer.Option("--warehouse-name", help="Warehouse name")] = None,
+    schema: Annotated[Optional[str], typer.Option("--schema", "-s", help="Schema name filter")] = None,
     table: Annotated[
         Optional[str],
         typer.Option("--table", "-t", help="Table name filter (substring match)"),
@@ -418,21 +367,15 @@ def deploy_get_metadata(
     ] = None,
     output_format: Annotated[
         str,
-        typer.Option(
-            "--format", "-f", help="Output format: csv (default), json, or table"
-        ),
+        typer.Option("--format", "-f", help="Output format: csv (default), json, or table"),
     ] = "csv",
     output: Annotated[
         Optional[Path],
-        typer.Option(
-            "--output", "-o", help="Write output to file (defaults to metadata cache)"
-        ),
+        typer.Option("--output", "-o", help="Write output to file (defaults to metadata cache)"),
     ] = None,
     all_lakehouses: Annotated[
         bool,
-        typer.Option(
-            "--all", help="For lakehouse target, extract all lakehouses in workspace"
-        ),
+        typer.Option("--all", help="For lakehouse target, extract all lakehouses in workspace"),
     ] = False,
     target: Annotated[
         str,
@@ -451,9 +394,7 @@ def deploy_get_metadata(
 
     selected = (target or "lakehouse").strip().lower()
     if selected not in {"lakehouse", "warehouse", "both"}:
-        console_styles.print_error(
-            console, "--target must be one of: lakehouse, warehouse, both"
-        )
+        console_styles.print_error(console, "--target must be one of: lakehouse, warehouse, both")
         raise typer.Exit(code=2)
 
     if selected in {"lakehouse", "both"}:
@@ -506,9 +447,7 @@ def run_livy_notebook(
     ctx: typer.Context,
     workspace_id: Annotated[str, typer.Option("--workspace-id", "-w")],
     lakehouse_id: Annotated[str, typer.Option("--lakehouse-id", "-l")],
-    code: Annotated[
-        str, typer.Option("--code", "-c")
-    ] = "print('Hello from Fabric Livy API!')",
+    code: Annotated[str, typer.Option("--code", "-c")] = "print('Hello from Fabric Livy API!')",
     timeout: Annotated[int, typer.Option("--timeout", "-t")] = 600,
 ):
     notebook_commands.run_livy_notebook(ctx, workspace_id, lakehouse_id, code, timeout)
@@ -528,9 +467,7 @@ def generate(ctx: typer.Context):
 def pyspark(
     lib: Annotated[
         Optional[str],
-        typer.Argument(
-            help="Optional test file (without _pytest.py) to run, e.g. 'my_utils'"
-        ),
+        typer.Argument(help="Optional test file (without _pytest.py) to run, e.g. 'my_utils'"),
     ] = None,
 ):
     """Run pytest on ingen_fab/python_libs_tests/pyspark or a specific test file if provided."""
@@ -541,9 +478,7 @@ def pyspark(
 def python(
     lib: Annotated[
         Optional[str],
-        typer.Argument(
-            help="Optional test file (without _pytest.py) to run, e.g. 'ddl_utils'"
-        ),
+        typer.Argument(help="Optional test file (without _pytest.py) to run, e.g. 'ddl_utils'"),
     ] = None,
 ):
     """Run pytest on ingen_fab/python_libs_tests/python or a specific test file if provided."""
@@ -554,9 +489,7 @@ def python(
 def common(
     lib: Annotated[
         Optional[str],
-        typer.Argument(
-            help="Optional test file (without _pytest.py) to run, e.g. 'my_utils'"
-        ),
+        typer.Argument(help="Optional test file (without _pytest.py) to run, e.g. 'my_utils'"),
     ] = None,
 ):
     """Run pytest on ingen_fab/python_libs_tests/common or a specific test file if provided."""
@@ -566,21 +499,15 @@ def common(
 # Notebook commands
 @notebook_app.command()
 def find_notebook_content_files(
-    base_dir: Annotated[Path, typer.Option("--base-dir", "-b")] = Path(
-        "fabric_workspace_items"
-    ),
+    base_dir: Annotated[Path, typer.Option("--base-dir", "-b")] = Path("fabric_workspace_items"),
 ):
     notebook_commands.find_notebook_content_files(base_dir)
 
 
 @notebook_app.command()
 def scan_notebook_blocks(
-    base_dir: Annotated[Path, typer.Option("--base-dir", "-b")] = Path(
-        "fabric_workspace_items"
-    ),
-    apply_replacements: Annotated[
-        bool, typer.Option("--apply-replacements", "-a")
-    ] = False,
+    base_dir: Annotated[Path, typer.Option("--base-dir", "-b")] = Path("fabric_workspace_items"),
+    apply_replacements: Annotated[bool, typer.Option("--apply-replacements", "-a")] = False,
 ):
     notebook_commands.scan_notebook_blocks(base_dir, apply_replacements)
 
@@ -601,9 +528,7 @@ def perform_code_replacements(
     ),
 ):
     """Inject code between markers in notebook files (modifies files in place by default)."""
-    deploy_commands.perform_code_replacements(
-        ctx, output_dir=output_dir, preserve_structure=not no_preserve_structure
-    )
+    deploy_commands.perform_code_replacements(ctx, output_dir=output_dir, preserve_structure=not no_preserve_structure)
 
 
 # Extract commands (moved to deploy.get-metadata)
@@ -668,15 +593,11 @@ def extract_lakehouse_metadata(
     ] = None,
     output_format: Annotated[
         str,
-        typer.Option(
-            "--format", "-f", help="Output format: csv (default), json, or table"
-        ),
+        typer.Option("--format", "-f", help="Output format: csv (default), json, or table"),
     ] = "csv",
     output: Annotated[
         Optional[Path],
-        typer.Option(
-            "--output", "-o", help="Write output to file (defaults to stdout)"
-        ),
+        typer.Option("--output", "-o", help="Write output to file (defaults to stdout)"),
     ] = None,
     all_lakehouses: Annotated[
         bool,
@@ -712,21 +633,11 @@ def extract_lakehouse_metadata(
 ## Removed: warehouse-metadata (now under deploy get-metadata)
 def extract_warehouse_metadata(
     ctx: typer.Context,
-    workspace_id: Annotated[
-        Optional[str], typer.Option("--workspace-id", help="Workspace ID")
-    ] = None,
-    workspace_name: Annotated[
-        Optional[str], typer.Option("--workspace-name", help="Workspace name")
-    ] = None,
-    warehouse_id: Annotated[
-        Optional[str], typer.Option("--warehouse-id", help="Warehouse ID")
-    ] = None,
-    warehouse_name: Annotated[
-        Optional[str], typer.Option("--warehouse-name", help="Warehouse name")
-    ] = None,
-    schema: Annotated[
-        Optional[str], typer.Option("--schema", "-s", help="Schema name filter")
-    ] = None,
+    workspace_id: Annotated[Optional[str], typer.Option("--workspace-id", help="Workspace ID")] = None,
+    workspace_name: Annotated[Optional[str], typer.Option("--workspace-name", help="Workspace name")] = None,
+    warehouse_id: Annotated[Optional[str], typer.Option("--warehouse-id", help="Warehouse ID")] = None,
+    warehouse_name: Annotated[Optional[str], typer.Option("--warehouse-name", help="Warehouse name")] = None,
+    schema: Annotated[Optional[str], typer.Option("--schema", "-s", help="Schema name filter")] = None,
     table: Annotated[
         Optional[str],
         typer.Option("--table", "-t", help="Table name filter (substring match)"),
@@ -757,15 +668,11 @@ def extract_warehouse_metadata(
     ] = None,
     output_format: Annotated[
         str,
-        typer.Option(
-            "--format", "-f", help="Output format: csv (default), json, or table"
-        ),
+        typer.Option("--format", "-f", help="Output format: csv (default), json, or table"),
     ] = "csv",
     output: Annotated[
         Optional[Path],
-        typer.Option(
-            "--output", "-o", help="Write output to file (defaults to stdout)"
-        ),
+        typer.Option("--output", "-o", help="Write output to file (defaults to stdout)"),
     ] = None,
 ):
     """Extract warehouse schema/table/column metadata via Fabric SQL endpoint.
@@ -793,18 +700,10 @@ def extract_warehouse_metadata(
 ## Removed: lakehouse-summary (now covered by deploy get-metadata output files)
 def extract_lakehouse_summary(
     ctx: typer.Context,
-    workspace_id: Annotated[
-        Optional[str], typer.Option("--workspace-id", help="Workspace ID")
-    ] = None,
-    workspace_name: Annotated[
-        Optional[str], typer.Option("--workspace-name", help="Workspace name")
-    ] = None,
-    lakehouse_id: Annotated[
-        Optional[str], typer.Option("--lakehouse-id", help="Lakehouse ID")
-    ] = None,
-    lakehouse_name: Annotated[
-        Optional[str], typer.Option("--lakehouse-name", help="Lakehouse name")
-    ] = None,
+    workspace_id: Annotated[Optional[str], typer.Option("--workspace-id", help="Workspace ID")] = None,
+    workspace_name: Annotated[Optional[str], typer.Option("--workspace-name", help="Workspace name")] = None,
+    lakehouse_id: Annotated[Optional[str], typer.Option("--lakehouse-id", help="Lakehouse ID")] = None,
+    lakehouse_name: Annotated[Optional[str], typer.Option("--lakehouse-name", help="Lakehouse name")] = None,
     method: Annotated[
         str,
         typer.Option(
@@ -831,15 +730,11 @@ def extract_lakehouse_summary(
     ] = None,
     output_format: Annotated[
         str,
-        typer.Option(
-            "--format", "-f", help="Output format: csv (default), json, or table"
-        ),
+        typer.Option("--format", "-f", help="Output format: csv (default), json, or table"),
     ] = "csv",
     output: Annotated[
         Optional[Path],
-        typer.Option(
-            "--output", "-o", help="Write output to file (defaults to stdout)"
-        ),
+        typer.Option("--output", "-o", help="Write output to file (defaults to stdout)"),
     ] = None,
     all_lakehouses: Annotated[
         bool,
@@ -870,18 +765,10 @@ def extract_lakehouse_summary(
 ## Removed: warehouse-summary (now covered by deploy get-metadata output files)
 def extract_warehouse_summary(
     ctx: typer.Context,
-    workspace_id: Annotated[
-        Optional[str], typer.Option("--workspace-id", help="Workspace ID")
-    ] = None,
-    workspace_name: Annotated[
-        Optional[str], typer.Option("--workspace-name", help="Workspace name")
-    ] = None,
-    warehouse_id: Annotated[
-        Optional[str], typer.Option("--warehouse-id", help="Warehouse ID")
-    ] = None,
-    warehouse_name: Annotated[
-        Optional[str], typer.Option("--warehouse-name", help="Warehouse name")
-    ] = None,
+    workspace_id: Annotated[Optional[str], typer.Option("--workspace-id", help="Workspace ID")] = None,
+    workspace_name: Annotated[Optional[str], typer.Option("--workspace-name", help="Workspace name")] = None,
+    warehouse_id: Annotated[Optional[str], typer.Option("--warehouse-id", help="Warehouse ID")] = None,
+    warehouse_name: Annotated[Optional[str], typer.Option("--warehouse-name", help="Warehouse name")] = None,
     method: Annotated[
         str,
         typer.Option(
@@ -908,15 +795,11 @@ def extract_warehouse_summary(
     ] = None,
     output_format: Annotated[
         str,
-        typer.Option(
-            "--format", "-f", help="Output format: csv (default), json, or table"
-        ),
+        typer.Option("--format", "-f", help="Output format: csv (default), json, or table"),
     ] = "csv",
     output: Annotated[
         Optional[Path],
-        typer.Option(
-            "--output", "-o", help="Write output to file (defaults to stdout)"
-        ),
+        typer.Option("--output", "-o", help="Write output to file (defaults to stdout)"),
     ] = None,
 ):
     """Summarize warehouse tables by schema (database, schema, table_count)."""
@@ -961,9 +844,7 @@ def dbt_create_notebooks(
     Scans {workspace}/{dbt_project}/target/notebooks_fabric_py and creates notebooks under
     {workspace}/fabric_workspace_items/{dbt_project}/.
     """
-    dbt_commands.create_additional_notebooks(
-        ctx, dbt_project, skip_profile_confirmation
-    )
+    dbt_commands.create_additional_notebooks(ctx, dbt_project, skip_profile_confirmation)
 
 
 @dbt_app.command("convert-metadata")
@@ -993,9 +874,7 @@ def dbt_convert_metadata(
     The metadata must first be extracted using:
     ingen_fab deploy get-metadata --target lakehouse
     """
-    dbt_commands.convert_metadata_to_dbt_format(
-        ctx, dbt_project, skip_profile_confirmation
-    )
+    dbt_commands.convert_metadata_to_dbt_format(ctx, dbt_project, skip_profile_confirmation)
 
 
 # Package commands
@@ -1113,9 +992,7 @@ def synthetic_data_unified_generate(
 # ===== DBT WRAPPER COMMANDS =====
 
 
-@dbt_app.command(
-    "exec", context_settings={"allow_extra_args": True, "ignore_unknown_options": True}
-)
+@dbt_app.command("exec", context_settings={"allow_extra_args": True, "ignore_unknown_options": True})
 def dbt_exec(
     ctx: typer.Context,
 ):
@@ -1124,9 +1001,7 @@ def dbt_exec(
 
     workspace_dir = Path(ctx.obj["fabric_workspace_repo_dir"]).resolve()
     if not workspace_dir.exists():
-        console_styles.print_error(
-            console, f"❌ Fabric workspace repo not found: {workspace_dir}"
-        )
+        console_styles.print_error(console, f"❌ Fabric workspace repo not found: {workspace_dir}")
         raise typer.Exit(code=1)
 
     # Check and update dbt profile with exec-specific behavior
@@ -1197,9 +1072,7 @@ def synthetic_data_unified_list(
       # Output in JSON format for scripting
       ingen_fab package synthetic-data list --format json
     """
-    synthetic_data_commands.unified_list(
-        list_type=list_type, output_format=output_format
-    )
+    synthetic_data_commands.unified_list(list_type=list_type, output_format=output_format)
 
 
 @synthetic_data_app.command("compile")
@@ -1279,9 +1152,7 @@ def ingest_app_compile(
     ] = None,
     include_samples: Annotated[
         bool,
-        typer.Option(
-            "--include-samples", "-s", help="Include sample data DDL and files"
-        ),
+        typer.Option("--include-samples", "-s", help="Include sample data DDL and files"),
     ] = False,
     target_datastore: Annotated[
         str,
@@ -1316,12 +1187,8 @@ def run(
         str,
         typer.Option("--config-id", "-c", help="Specific configuration ID to process"),
     ] = "",
-    execution_group: Annotated[
-        int, typer.Option("--execution-group", "-g", help="Execution group number")
-    ] = 1,
-    environment: Annotated[
-        str, typer.Option("--environment", "-e", help="Environment name")
-    ] = "development",
+    execution_group: Annotated[int, typer.Option("--execution-group", "-g", help="Execution group number")] = 1,
+    environment: Annotated[str, typer.Option("--environment", "-e", help="Environment name")] = "development",
 ):
     """Run flat file ingestion for specified configuration or execution group."""
     package_commands.ingest_run(
@@ -1341,23 +1208,17 @@ def synapse_app_compile(
     ] = None,
     include_samples: Annotated[
         bool,
-        typer.Option(
-            "--include-samples", "-s", help="Include sample data DDL and files"
-        ),
+        typer.Option("--include-samples", "-s", help="Include sample data DDL and files"),
     ] = False,
 ):
     """Compile synapse sync package templates and DDL scripts."""
-    package_commands.synapse_compile(
-        ctx=ctx, template_vars=template_vars, include_samples=include_samples
-    )
+    package_commands.synapse_compile(ctx=ctx, template_vars=template_vars, include_samples=include_samples)
 
 
 @synapse_app.command("run")
 def synapse_app_run(
     ctx: typer.Context,
-    master_execution_id: Annotated[
-        str, typer.Option("--master-execution-id", "-m", help="Master execution ID")
-    ] = "",
+    master_execution_id: Annotated[str, typer.Option("--master-execution-id", "-m", help="Master execution ID")] = "",
     work_items_json: Annotated[
         str,
         typer.Option(
@@ -1366,15 +1227,11 @@ def synapse_app_run(
             help="JSON string of work items for historical mode",
         ),
     ] = "",
-    max_concurrency: Annotated[
-        int, typer.Option("--max-concurrency", "-c", help="Maximum concurrency level")
-    ] = 10,
+    max_concurrency: Annotated[int, typer.Option("--max-concurrency", "-c", help="Maximum concurrency level")] = 10,
     include_snapshots: Annotated[
         bool, typer.Option("--include-snapshots", "-s", help="Include snapshot tables")
     ] = True,
-    environment: Annotated[
-        str, typer.Option("--environment", "-e", help="Environment name")
-    ] = "development",
+    environment: Annotated[str, typer.Option("--environment", "-e", help="Environment name")] = "development",
 ):
     """Run synapse sync extraction for specified configuration."""
     package_commands.synapse_run(
@@ -1397,15 +1254,11 @@ def extract_app_compile(
     ] = None,
     include_samples: Annotated[
         bool,
-        typer.Option(
-            "--include-samples", "-s", help="Include sample data DDL and source tables"
-        ),
+        typer.Option("--include-samples", "-s", help="Include sample data DDL and source tables"),
     ] = False,
     target_datastore: Annotated[
         str,
-        typer.Option(
-            "--target-datastore", "-d", help="Target datastore type (warehouse)"
-        ),
+        typer.Option("--target-datastore", "-d", help="Target datastore type (warehouse)"),
     ] = "warehouse",
 ):
     """Compile extract generation package templates and DDL scripts."""
@@ -1422,19 +1275,11 @@ def extract_run(
     ctx: typer.Context,
     extract_name: Annotated[
         str,
-        typer.Option(
-            "--extract-name", "-n", help="Specific extract configuration to process"
-        ),
+        typer.Option("--extract-name", "-n", help="Specific extract configuration to process"),
     ] = "",
-    execution_group: Annotated[
-        str, typer.Option("--execution-group", "-g", help="Execution group to process")
-    ] = "",
-    environment: Annotated[
-        str, typer.Option("--environment", "-e", help="Environment name")
-    ] = "development",
-    run_type: Annotated[
-        str, typer.Option("--run-type", "-r", help="Run type: FULL or INCREMENTAL")
-    ] = "FULL",
+    execution_group: Annotated[str, typer.Option("--execution-group", "-g", help="Execution group to process")] = "",
+    environment: Annotated[str, typer.Option("--environment", "-e", help="Environment name")] = "development",
+    run_type: Annotated[str, typer.Option("--run-type", "-r", help="Run type: FULL or INCREMENTAL")] = "FULL",
 ):
     """Run extract generation for specified configuration or execution group."""
     package_commands.extract_run(

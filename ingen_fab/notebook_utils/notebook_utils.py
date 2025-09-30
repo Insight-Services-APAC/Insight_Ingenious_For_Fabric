@@ -19,9 +19,7 @@ from ingen_fab.python_libs.common.utils.path_utils import PathUtils
 def required_filter(value, var_name=""):
     """Jinja2 filter: raises an error if value is not provided or is falsy."""
     if value is None or (hasattr(value, "__len__") and len(value) == 0):
-        raise exceptions.TemplateRuntimeError(
-            f"Required parameter '{var_name or 'unknown'}' was not provided!"
-        )
+        raise exceptions.TemplateRuntimeError(f"Required parameter '{var_name or 'unknown'}' was not provided!")
     return value
 
 
@@ -53,9 +51,7 @@ class NotebookUtils:
             enable_console: Whether to enable Rich console output
         """
         # Set up console
-        self.console = (
-            console if console is not None else Console() if enable_console else None
-        )
+        self.console = console if console is not None else Console() if enable_console else None
 
         # Set up directories
         self._setup_directories(templates_dir, output_dir, fabric_workspace_repo_dir)
@@ -92,22 +88,14 @@ class NotebookUtils:
         """Set up Jinja2 environment with multi-path template loading."""
         template_search_paths = [str(td) for td in self.templates_dirs]
 
-        self.env = Environment(
-            loader=FileSystemLoader(template_search_paths), autoescape=False
-        )
-        self.env.filters["required"] = lambda value, var_name="": required_filter(
-            value, var_name
-        )
+        self.env = Environment(loader=FileSystemLoader(template_search_paths), autoescape=False)
+        self.env.filters["required"] = lambda value, var_name="": required_filter(value, var_name)
 
     def _print_initialization_info(self):
         """Print initialization information to console."""
         if self.console:
-            self.console.print(
-                f"[bold blue]Fabric Workspace Dir:[/bold blue] {self.fabric_workspace_repo_dir}"
-            )
-            self.console.print(
-                f"[bold blue]Output Directory:[/bold blue] {self.output_dir}"
-            )
+            self.console.print(f"[bold blue]Fabric Workspace Dir:[/bold blue] {self.fabric_workspace_repo_dir}")
+            self.console.print(f"[bold blue]Output Directory:[/bold blue] {self.output_dir}")
             self.console.print("[bold blue]Template Directories:[/bold blue]")
             for i, td in enumerate(self.templates_dirs, 1):
                 self.console.print(f"  {i}. {td}")
@@ -125,29 +113,21 @@ class NotebookUtils:
         try:
             if get_configs_as_object is None:
                 if self.console:
-                    self.console.print(
-                        "[yellow]Warning: config_utils not available[/yellow]"
-                    )
+                    self.console.print("[yellow]Warning: config_utils not available[/yellow]")
                 return {}
 
             configs = get_configs_as_object()
             return {
                 "varlib": {
                     "config_workspace_id": getattr(configs, "config_workspace_id", ""),
-                    "config_workspace_name": getattr(
-                        configs, "config_workspace_name", ""
-                    ),
-                    "config_lakehouse_workspace_id": getattr(
-                        configs, "config_lakehouse_workspace_id", ""
-                    ),
+                    "config_workspace_name": getattr(configs, "config_workspace_name", ""),
+                    "config_lakehouse_workspace_id": getattr(configs, "config_lakehouse_workspace_id", ""),
                     "config_lakehouse_id": getattr(configs, "config_lakehouse_id", ""),
                 }
             }
         except Exception as e:
             if self.console:
-                self.console.print(
-                    f"[yellow]Warning: Could not load config variables: {e}[/yellow]"
-                )
+                self.console.print(f"[yellow]Warning: Could not load config variables: {e}[/yellow]")
             return {"varlib": {}}
 
     def load_template(self, template_name: str) -> Template:
@@ -256,17 +236,13 @@ class NotebookUtils:
                 except Exception:
                     # Fallback to programmatic generation
                     platform_metadata = json.dumps(
-                        self.create_platform_metadata(
-                            notebook_name, display_name, description
-                        ),
+                        self.create_platform_metadata(notebook_name, display_name, description),
                         indent=2,
                     )
             else:
                 # Use programmatic generation
                 platform_metadata = json.dumps(
-                    self.create_platform_metadata(
-                        notebook_name, display_name, description
-                    ),
+                    self.create_platform_metadata(notebook_name, display_name, description),
                     indent=2,
                 )
 
@@ -278,9 +254,7 @@ class NotebookUtils:
 
         return output_path
 
-    def copy_files(
-        self, source_files: List[tuple], base_source_dir: Path, base_output_dir: Path
-    ) -> List[Path]:
+    def copy_files(self, source_files: List[tuple], base_source_dir: Path, base_output_dir: Path) -> List[Path]:
         """
         Copy multiple files from source to destination with rename support.
 
@@ -310,9 +284,7 @@ class NotebookUtils:
                 if self.console:
                     self.console.print(f"[green]✓ File copied: {target_path}[/green]")
             elif self.console:
-                self.console.print(
-                    f"[yellow]Warning: Source file not found: {source_path}[/yellow]"
-                )
+                self.console.print(f"[yellow]Warning: Source file not found: {source_path}[/yellow]")
 
         return copied_files
 
@@ -322,9 +294,7 @@ class NotebookUtils:
 
         return hashlib.sha256(str(input_string).encode("utf-8")).hexdigest()[:12]
 
-    def print_success_panel(
-        self, title: str, message: str, border_style: str = "green"
-    ) -> None:
+    def print_success_panel(self, title: str, message: str, border_style: str = "green") -> None:
         """Print a success panel using Rich console."""
         if self.console:
             self.console.print(
@@ -338,6 +308,4 @@ class NotebookUtils:
     def print_header_panel(self, title: str, border_style: str = "cyan") -> None:
         """Print a header panel using Rich console."""
         if self.console:
-            self.console.print(
-                Panel.fit(f"[bold cyan]{title}[/bold cyan]", border_style=border_style)
-            )
+            self.console.print(Panel.fit(f"[bold cyan]{title}[/bold cyan]", border_style=border_style))

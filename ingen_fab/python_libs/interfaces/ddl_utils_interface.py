@@ -61,9 +61,7 @@ class DDLUtilsInterface(Protocol):
         """
         ...
 
-    def write_to_execution_log(
-        self, object_guid: str, object_name: str, script_status: str
-    ) -> None:
+    def write_to_execution_log(self, object_guid: str, object_name: str, script_status: str) -> None:
         """
         Write an execution entry to the log table.
 
@@ -74,9 +72,7 @@ class DDLUtilsInterface(Protocol):
         """
         ...
 
-    def run_once(
-        self, work_fn: Callable[[], None], object_name: str, guid: str | None = None
-    ) -> None:
+    def run_once(self, work_fn: Callable[[], None], object_name: str, guid: str | None = None) -> None:
         """
         Execute a function exactly once, tracked by GUID.
 

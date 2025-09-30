@@ -14,15 +14,9 @@ class FabricCLINotebook:
 
     def __init__(self, workspace_name: str) -> None:
         self.workspace_name = workspace_name
-        self.jinja_env = jinja2.Environment(
-            loader=jinja2.FileSystemLoader(Path(__file__).resolve().parent)
-        )
-        self.platform_file_template = self.jinja_env.get_template(
-            "platform_file_template.json.jinja"
-        )
-        self.notebook_content_template = self.jinja_env.get_template(
-            "notebook-content_template.py.jinja"
-        )
+        self.jinja_env = jinja2.Environment(loader=jinja2.FileSystemLoader(Path(__file__).resolve().parent))
+        self.platform_file_template = self.jinja_env.get_template("platform_file_template.json.jinja")
+        self.notebook_content_template = self.jinja_env.get_template("notebook-content_template.py.jinja")
 
     def generate_functional_test_notebook(self):
         """Generate a functional test notebook using the Fabric CLI."""
@@ -43,9 +37,7 @@ class FabricCLINotebook:
         with open(platform_file_path, "w", encoding="utf-8") as f:
             f.write(platform_file_content)
 
-    def upload(
-        self, notebook_path: Path, notebook_name: str, format: str = ".py"
-    ) -> None:
+    def upload(self, notebook_path: Path, notebook_name: str, format: str = ".py") -> None:
         """Upload a notebook to the workspace."""
         cmd = [
             "fab",
@@ -120,13 +112,9 @@ class FabricLivyNotebook:
         self.workspace_id = workspace_id
         self.lakehouse_id = lakehouse_id
         self.credential = DefaultAzureCredential()
-        self.base_url = (
-            f"https://api.fabric.microsoft.com/v1/workspaces/{workspace_id}/lakehouses"
-        )
+        self.base_url = f"https://api.fabric.microsoft.com/v1/workspaces/{workspace_id}/lakehouses"
         if lakehouse_id:
-            self.livy_url = (
-                f"{self.base_url}/{lakehouse_id}/livyapi/versions/2023-12-01/sessions"
-            )
+            self.livy_url = f"{self.base_url}/{lakehouse_id}/livyapi/versions/2023-12-01/sessions"
 
     def _get_token(self) -> str:
         """Get authentication token for Fabric API."""
@@ -155,9 +143,7 @@ class FabricLivyNotebook:
             },
         }
 
-        response = requests.post(
-            self.livy_url, headers=self._get_headers(), json=payload
-        )
+        response = requests.post(self.livy_url, headers=self._get_headers(), json=payload)
         response.raise_for_status()
 
         session_data = response.json()
@@ -165,9 +151,7 @@ class FabricLivyNotebook:
 
     def get_session_status(self, session_id: str) -> Dict[str, Any]:
         """Get the status of a Spark session."""
-        response = requests.get(
-            f"{self.livy_url}/{session_id}", headers=self._get_headers()
-        )
+        response = requests.get(f"{self.livy_url}/{session_id}", headers=self._get_headers())
         response.raise_for_status()
         return response.json()
 
@@ -201,9 +185,7 @@ class FabricLivyNotebook:
 
         return response.json()
 
-    def get_statement_status(
-        self, session_id: str, statement_id: int
-    ) -> Dict[str, Any]:
+    def get_statement_status(self, session_id: str, statement_id: int) -> Dict[str, Any]:
         """Get the status and result of a statement."""
         response = requests.get(
             f"{self.livy_url}/{session_id}/statements/{statement_id}",
@@ -212,9 +194,7 @@ class FabricLivyNotebook:
         response.raise_for_status()
         return response.json()
 
-    def wait_for_statement_completion(
-        self, session_id: str, statement_id: int, timeout: int = 300
-    ) -> Dict[str, Any]:
+    def wait_for_statement_completion(self, session_id: str, statement_id: int, timeout: int = 300) -> Dict[str, Any]:
         """Wait for statement to complete and return the result."""
         start_time = time.time()
 
@@ -229,9 +209,7 @@ class FabricLivyNotebook:
 
             time.sleep(2)
 
-        raise TimeoutError(
-            f"Statement {statement_id} did not complete within {timeout} seconds"
-        )
+        raise TimeoutError(f"Statement {statement_id} did not complete within {timeout} seconds")
 
     def run_notebook_code(self, code: str, timeout: int = 600) -> Dict[str, Any]:
         """
@@ -254,9 +232,7 @@ class FabricLivyNotebook:
             statement_id = statement["id"]
 
             # Wait for completion
-            result = self.wait_for_statement_completion(
-                session_id, statement_id, timeout
-            )
+            result = self.wait_for_statement_completion(session_id, statement_id, timeout)
 
             return {
                 "session_id": session_id,
@@ -279,9 +255,7 @@ class FabricLivyNotebook:
     def delete_session(self, session_id: str) -> None:
         """Delete a Spark session."""
         try:
-            response = requests.delete(
-                f"{self.livy_url}/{session_id}", headers=self._get_headers()
-            )
+            response = requests.delete(f"{self.livy_url}/{session_id}", headers=self._get_headers())
             response.raise_for_status()
             print(f"Deleted session: {session_id}")
         except Exception as e:

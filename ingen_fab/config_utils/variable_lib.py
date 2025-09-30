@@ -49,9 +49,7 @@ class VariableLibraryUtils:
             varlib_data = self._load_variable_library(project_path, environment)
             self.variables = self._extract_variables(varlib_data)
 
-    def _load_variable_library(
-        self, project_path: Path, environment: str = "development"
-    ) -> dict[str, Any]:
+    def _load_variable_library(self, project_path: Path, environment: str = "development") -> dict[str, Any]:
         """Load variable library JSON file for the specified environment."""
         varlib_path = (
             project_path
@@ -89,13 +87,9 @@ class VariableLibraryUtils:
             border_style="blue",
         )
 
-    def _display_processing_stats(
-        self, stats: dict, total_files: int, updated_files_count: int
-    ) -> None:
+    def _display_processing_stats(self, stats: dict, total_files: int, updated_files_count: int) -> None:
         """Display processing statistics in a nice table format."""
-        self.table_builder.create_statistics_table(
-            stats, total_files, updated_files_count
-        )
+        self.table_builder.create_statistics_table(stats, total_files, updated_files_count)
 
     def _create_operation_setup(
         self,
@@ -128,15 +122,9 @@ class VariableLibraryUtils:
         # Create operation details using helper methods
         operations = []
         if replace_placeholders:
-            operations.append(
-                self.message_helper.format_check_item(
-                    "Replace {{varlib:...}} placeholders"
-                )
-            )
+            operations.append(self.message_helper.format_check_item("Replace {{varlib:...}} placeholders"))
         if inject_code:
-            operations.append(
-                self.message_helper.format_check_item("Inject code between markers")
-            )
+            operations.append(self.message_helper.format_check_item("Inject code between markers"))
 
         operation_details = self.message_helper.create_operation_details(
             environment=self.environment,
@@ -304,9 +292,7 @@ class VariableLibraryUtils:
         ret_val = None
         ret_val = self.variables.get("fabric_deployment_workspace_id", None)
         if ret_val is None:
-            raise ValueError(
-                "fabric_deployment_workspace_id not found in variable library"
-            )
+            raise ValueError("fabric_deployment_workspace_id not found in variable library")
         return ret_val
 
     def get_variable_value(self, variable_name: str) -> str:
@@ -332,9 +318,7 @@ class VariableLibraryUtils:
             if var_name in self.variables:
                 replacement_value = str(self.variables[var_name])
                 # Debug output when replacement occurs
-                self.message_helper.print_info(
-                    f"Replacing {{{{varlib:{var_name}}}}} with '{replacement_value}'"
-                )
+                self.message_helper.print_info(f"Replacing {{{{varlib:{var_name}}}}} with '{replacement_value}'")
                 return replacement_value
             else:
                 # Debug output when variable not found
@@ -398,9 +382,7 @@ class VariableLibraryUtils:
             new_lines.append(f"configs_dict = {repr(self.variables)}")
             new_lines.append("# All variables as an object")
             new_lines.append("\n".join(class_definition_lines))
-            new_lines.append(
-                "configs_object: ConfigsObject = ConfigsObject(**configs_dict)"
-            )
+            new_lines.append("configs_object: ConfigsObject = ConfigsObject(**configs_dict)")
 
             new_content = start_marker + "\n".join(new_lines) + "\n" + end_marker
             return new_content
@@ -480,9 +462,7 @@ class VariableLibraryUtils:
 
         Convenience method for the common python_libs development workflow.
         """
-        return self.inject_variables_into_python_libs(
-            replace_placeholders=False, inject_code=True
-        )
+        return self.inject_variables_into_python_libs(replace_placeholders=False, inject_code=True)
 
     def inject_variables_into_template(
         self,
@@ -535,9 +515,7 @@ class VariableLibraryUtils:
                     files_to_update.append(python_file)
 
             if not files_to_update:
-                self.message_helper.print_warning(
-                    f"No files found in {workspace_items_path}"
-                )
+                self.message_helper.print_warning(f"No files found in {workspace_items_path}")
                 return
 
         # Create output directory if specified
@@ -592,9 +570,7 @@ class VariableLibraryUtils:
         # Report results with rich formatting
         if updated_files:
             if output_dir:
-                self.message_helper.print_success(
-                    f"Saved {len(updated_files)} updated file(s) to {output_dir}"
-                )
+                self.message_helper.print_success(f"Saved {len(updated_files)} updated file(s) to {output_dir}")
 
                 self.panel_builder.create_results_panel(
                     updated_files,
@@ -622,17 +598,11 @@ class VariableLibraryUtils:
                 )
         else:
             if target_file:
-                self.message_helper.print_info(
-                    f"No changes needed for target file: {target_file}"
-                )
+                self.message_helper.print_info(f"No changes needed for target file: {target_file}")
             else:
-                self.message_helper.print_info(
-                    "No files with injection markers or placeholders found"
-                )
+                self.message_helper.print_info("No files with injection markers or placeholders found")
 
-    def inject_variables_into_python_libs(
-        self, replace_placeholders: bool = False, inject_code: bool = True
-    ) -> None:
+    def inject_variables_into_python_libs(self, replace_placeholders: bool = False, inject_code: bool = True) -> None:
         """Inject variables into python_libs files only (not notebooks).
 
         Args:
@@ -648,18 +618,14 @@ class VariableLibraryUtils:
         python_libs_path = Path("ingen_fab") / Path("python_libs")
 
         if not python_libs_path.exists():
-            self.message_helper.print_warning(
-                f"Python libs directory not found: {python_libs_path}"
-            )
+            self.message_helper.print_warning(f"Python libs directory not found: {python_libs_path}")
             return
 
         # Find all Python files in python_libs
         python_files = list(python_libs_path.rglob("*.py"))
 
         if not python_files:
-            self.message_helper.print_warning(
-                "No Python files found in python_libs directory"
-            )
+            self.message_helper.print_warning("No Python files found in python_libs directory")
             return
 
         # Show operation summary with rich formatting
@@ -690,9 +656,7 @@ class VariableLibraryUtils:
             None,  # No project path needed for python files
         ):
             # Process file
-            result = self._process_python_lib_file_with_stats(
-                py_file, replace_placeholders, inject_code, stats
-            )
+            result = self._process_python_lib_file_with_stats(py_file, replace_placeholders, inject_code, stats)
             if result:
                 updated_files.append(result)
 
@@ -712,6 +676,4 @@ class VariableLibraryUtils:
                 border_style="green",
             )
         else:
-            self.message_helper.print_info(
-                "No python_libs files with injection markers or placeholders found"
-            )
+            self.message_helper.print_info("No python_libs files with injection markers or placeholders found")

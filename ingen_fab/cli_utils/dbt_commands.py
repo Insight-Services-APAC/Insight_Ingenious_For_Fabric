@@ -13,9 +13,7 @@ from ingen_fab.notebook_utils.notebook_utils import NotebookUtils
 console = Console()
 
 
-def create_additional_notebooks(
-    ctx: typer.Context, dbt_project: str, skip_profile_confirmation: bool = False
-) -> None:
+def create_additional_notebooks(ctx: typer.Context, dbt_project: str, skip_profile_confirmation: bool = False) -> None:
     """Create notebooks in fabric_workspace_items/{dbt_project} from dbt target outputs.
 
     This scans {workspace}/{dbt_project}/target/notebooks_fabric_py for Python notebooks,
@@ -63,9 +61,7 @@ def create_additional_notebooks(
             with manifest_path.open("r", encoding="utf-8") as mf:
                 manifest = json.load(mf)
         except Exception as e:
-            console.print(
-                f"[yellow]Warning: Could not read manifest.json: {e}[/yellow]"
-            )
+            console.print(f"[yellow]Warning: Could not read manifest.json: {e}[/yellow]")
 
     nodes = manifest.get("nodes", {}) if isinstance(manifest, dict) else {}
 
@@ -108,11 +104,7 @@ def create_additional_notebooks(
                         try:
                             idx = parts.index("models")
                             # subdirs under models, excluding the filename
-                            sub = (
-                                Path(*parts[idx + 1 : -1])
-                                if len(parts) > idx + 1
-                                else Path()
-                            )
+                            sub = Path(*parts[idx + 1 : -1]) if len(parts) > idx + 1 else Path()
                         except ValueError:
                             sub = p.parent
                     else:
@@ -137,27 +129,19 @@ def create_additional_notebooks(
                     deps = node.get("depends_on", {})
                     if isinstance(deps, dict):
                         for dep_uid in deps.get("nodes", []) or []:
-                            if isinstance(dep_uid, str) and dep_uid.startswith(
-                                "model."
-                            ):
+                            if isinstance(dep_uid, str) and dep_uid.startswith("model."):
                                 model_uid = dep_uid
                                 break
                 if model_uid and model_uid in nodes:
                     model_node = nodes[model_uid]
-                    rel_path = (
-                        model_node.get("path") if isinstance(model_node, dict) else None
-                    )
+                    rel_path = model_node.get("path") if isinstance(model_node, dict) else None
                     if rel_path:
                         p = Path(rel_path)
                         parts = list(p.parts)
                         if "models" in parts:
                             try:
                                 idx = parts.index("models")
-                                sub = (
-                                    Path(*parts[idx + 1 : -1])
-                                    if len(parts) > idx + 1
-                                    else Path()
-                                )
+                                sub = Path(*parts[idx + 1 : -1]) if len(parts) > idx + 1 else Path()
                             except ValueError:
                                 sub = p.parent
                         else:
@@ -193,17 +177,11 @@ def create_additional_notebooks(
                 # Also remove embedded model name to avoid duplication in the model folder
                 if model_name_for_group:
                     # Replace _<model_name>_ with _ and clean up edges
-                    normalized_base = normalized_base.replace(
-                        f"_{model_name_for_group}_", "_"
-                    )
+                    normalized_base = normalized_base.replace(f"_{model_name_for_group}_", "_")
                     if normalized_base.startswith(f"{model_name_for_group}_"):
-                        normalized_base = normalized_base[
-                            len(model_name_for_group) + 1 :
-                        ]
+                        normalized_base = normalized_base[len(model_name_for_group) + 1 :]
                     if normalized_base.endswith(f"_{model_name_for_group}"):
-                        normalized_base = normalized_base[
-                            : -len(model_name_for_group) - 1
-                        ]
+                        normalized_base = normalized_base[: -len(model_name_for_group) - 1]
                     # Collapse any double underscores
                     normalized_base = re.sub(r"__+", "_", normalized_base)
             elif category == "seed":
@@ -226,9 +204,7 @@ def create_additional_notebooks(
             )
             created += 1
         except Exception as e:
-            console.print(
-                f"[yellow]Warning: Failed to create notebook for {nb_path.name}: {e}[/yellow]"
-            )
+            console.print(f"[yellow]Warning: Failed to create notebook for {nb_path.name}: {e}[/yellow]")
 
     console.print(
         Panel.fit(

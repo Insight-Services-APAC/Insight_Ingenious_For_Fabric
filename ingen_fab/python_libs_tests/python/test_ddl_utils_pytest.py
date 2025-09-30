@@ -32,9 +32,7 @@ def test_run_once_auto_guid(ddl_utility: DDLUtilsInterface) -> None:
     def create_example_table() -> None:
         called["ran"] = True
 
-    ddl_utility.run_once(
-        work_fn=create_example_table, object_name="example_table", guid=None
-    )
+    ddl_utility.run_once(work_fn=create_example_table, object_name="example_table", guid=None)
     assert called["ran"] is True
     # Should now be marked as run
     assert (

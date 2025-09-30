@@ -33,11 +33,7 @@ class DBTProfileManager:
         self.environment = environment
         self.profile_path = Path.home() / ".dbt" / "profiles.yml"
         self.var_lib_path = (
-            workspace_dir
-            / "fabric_workspace_items"
-            / "config"
-            / "var_lib.VariableLibrary"
-            / "valueSets"
+            workspace_dir / "fabric_workspace_items" / "config" / "var_lib.VariableLibrary" / "valueSets"
         )
 
     def get_workspace_config(self) -> Dict[str, Any]:
@@ -64,9 +60,7 @@ class DBTProfileManager:
 
         return values
 
-    def get_available_lakehouses(
-        self, values: Dict[str, Any]
-    ) -> Dict[str, Dict[str, str]]:
+    def get_available_lakehouses(self, values: Dict[str, Any]) -> Dict[str, Dict[str, str]]:
         """Extract all available lakehouse configurations from the values.
 
         Args:
@@ -115,9 +109,7 @@ class DBTProfileManager:
 
         return lakehouses
 
-    def prompt_for_lakehouse_selection(
-        self, lakehouses: Dict[str, Dict[str, str]]
-    ) -> Dict[str, str]:
+    def prompt_for_lakehouse_selection(self, lakehouses: Dict[str, Dict[str, str]]) -> Dict[str, str]:
         """Prompt the user to select a lakehouse from available options.
 
         Args:
@@ -127,16 +119,12 @@ class DBTProfileManager:
             Selected lakehouse configuration
         """
         if not lakehouses:
-            raise ValueError(
-                "No valid lakehouse configurations found in the environment file."
-            )
+            raise ValueError("No valid lakehouse configurations found in the environment file.")
 
         # If only one lakehouse is available, use it automatically
         if len(lakehouses) == 1:
             selected = list(lakehouses.values())[0]
-            console.print(
-                f"[green]Using the only available lakehouse: {selected['lakehouse_name']}[/green]"
-            )
+            console.print(f"[green]Using the only available lakehouse: {selected['lakehouse_name']}[/green]")
             return selected
 
         # Display available lakehouses
@@ -156,9 +144,7 @@ class DBTProfileManager:
                 config["prefix"],
                 config["lakehouse_name"],
                 config["workspace_name"] or "N/A",
-                config["lakehouse_id"][:8] + "..."
-                if len(config["lakehouse_id"]) > 8
-                else config["lakehouse_id"],
+                config["lakehouse_id"][:8] + "..." if len(config["lakehouse_id"]) > 8 else config["lakehouse_id"],
             )
 
         console.print(table)
@@ -175,18 +161,14 @@ class DBTProfileManager:
                 idx = int(choice) - 1
                 if 0 <= idx < len(options):
                     selected = options[idx]
-                    console.print(
-                        f"\n[green]Selected: {selected['lakehouse_name']}[/green]"
-                    )
+                    console.print(f"\n[green]Selected: {selected['lakehouse_name']}[/green]")
                     return selected
             except (ValueError, IndexError):
                 pass
 
             console.print("[red]Invalid selection. Please try again.[/red]")
 
-    def get_saved_lakehouse_preference(
-        self, existing_config: Optional[Dict[str, Any]]
-    ) -> Optional[str]:
+    def get_saved_lakehouse_preference(self, existing_config: Optional[Dict[str, Any]]) -> Optional[str]:
         """Get the saved lakehouse preference from existing profile.
 
         Args:
@@ -238,9 +220,7 @@ class DBTProfileManager:
                 selected_prefix = saved_prefix
             else:
                 # Let user select which lakehouse to use
-                selected_lakehouse = self.prompt_for_lakehouse_selection(
-                    available_lakehouses
-                )
+                selected_lakehouse = self.prompt_for_lakehouse_selection(available_lakehouses)
                 selected_prefix = selected_lakehouse["prefix"]
 
             workspace_id = selected_lakehouse["workspace_id"]
@@ -251,9 +231,7 @@ class DBTProfileManager:
             # Fallback to the old behavior if no lakehouses found or selection disabled
             # Get the sample_lh values as they're most commonly used for dbt
             workspace_id = values.get("sample_lh_workspace_id", "")
-            workspace_name = values.get(
-                "config_workspace_name", ""
-            )  # Use workspace name from config
+            workspace_name = values.get("config_workspace_name", "")  # Use workspace name from config
             lakehouse_id = values.get("sample_lh_lakehouse_id", "")
             lakehouse_name = values.get("sample_lh_lakehouse_name", "sample_lh")
 
@@ -292,9 +270,7 @@ class DBTProfileManager:
 
         # Save the selection preference if we have one
         if selected_prefix:
-            profile_config["fabric-spark-testnb"]["outputs"]["my_project_target"][
-                "_lakehouse_prefix"
-            ] = selected_prefix
+            profile_config["fabric-spark-testnb"]["outputs"]["my_project_target"]["_lakehouse_prefix"] = selected_prefix
 
         return profile_config
 
@@ -311,9 +287,7 @@ class DBTProfileManager:
             with self.profile_path.open("r", encoding="utf-8") as f:
                 return yaml.safe_load(f)
         except Exception as e:
-            console.print(
-                f"[yellow]Warning: Could not read existing profile: {e}[/yellow]"
-            )
+            console.print(f"[yellow]Warning: Could not read existing profile: {e}[/yellow]")
             return None
 
     def write_profile(self, config: Dict[str, Any]) -> None:
@@ -338,9 +312,7 @@ class DBTProfileManager:
             True if profile was updated or already correct, False if user declined
         """
         existing_config = self.read_existing_profile()
-        new_config = self.generate_profile_config(
-            ask_for_selection=ask_confirmation, existing_config=existing_config
-        )
+        new_config = self.generate_profile_config(ask_for_selection=ask_confirmation, existing_config=existing_config)
 
         if existing_config is None:
             # No profile exists, create it
@@ -362,9 +334,7 @@ class DBTProfileManager:
                     return False
 
             self.write_profile(new_config)
-            console.print(
-                f"[green]✓ Created dbt profile at {self.profile_path}[/green]"
-            )
+            console.print(f"[green]✓ Created dbt profile at {self.profile_path}[/green]")
             return True
 
         # Check if fabric-spark-testnb exists and matches
@@ -389,9 +359,7 @@ class DBTProfileManager:
             )
 
             if ask_confirmation:
-                console.print(
-                    "\n[bold]Current fabric-spark-testnb configuration:[/bold]"
-                )
+                console.print("\n[bold]Current fabric-spark-testnb configuration:[/bold]")
                 console.print(
                     yaml.dump(
                         {"fabric-spark-testnb": existing_fabric},
@@ -399,24 +367,16 @@ class DBTProfileManager:
                     )
                 )
                 console.print("\n[bold]New configuration:[/bold]")
-                console.print(
-                    yaml.dump(
-                        {"fabric-spark-testnb": new_fabric}, default_flow_style=False
-                    )
-                )
+                console.print(yaml.dump({"fabric-spark-testnb": new_fabric}, default_flow_style=False))
 
-                if not Confirm.ask(
-                    "Update the fabric-spark-testnb configuration?", default=True
-                ):
+                if not Confirm.ask("Update the fabric-spark-testnb configuration?", default=True):
                     console.print("[red]Profile update cancelled.[/red]")
                     return False
 
             # Update the configuration
             existing_config["fabric-spark-testnb"] = new_fabric
             self.write_profile(existing_config)
-            console.print(
-                f"[green]✓ Updated dbt profile at {self.profile_path}[/green]"
-            )
+            console.print(f"[green]✓ Updated dbt profile at {self.profile_path}[/green]")
             return True
 
         else:
@@ -434,18 +394,14 @@ class DBTProfileManager:
                 console.print("\n[bold]Configuration to be added:[/bold]")
                 console.print(yaml.dump(new_config, default_flow_style=False))
 
-                if not Confirm.ask(
-                    "Add this configuration to your dbt profile?", default=True
-                ):
+                if not Confirm.ask("Add this configuration to your dbt profile?", default=True):
                     console.print("[red]Profile update cancelled.[/red]")
                     return False
 
             # Add the new configuration
             existing_config.update(new_config)
             self.write_profile(existing_config)
-            console.print(
-                f"[green]✓ Added fabric-spark-testnb to dbt profile at {self.profile_path}[/green]"
-            )
+            console.print(f"[green]✓ Added fabric-spark-testnb to dbt profile at {self.profile_path}[/green]")
             return True
 
 

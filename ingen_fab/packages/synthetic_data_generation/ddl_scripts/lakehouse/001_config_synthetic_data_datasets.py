@@ -15,15 +15,9 @@ config_datasets_schema = StructType(
     [
         StructField("dataset_id", StringType(), False),
         StructField("dataset_name", StringType(), False),
-        StructField(
-            "dataset_type", StringType(), False
-        ),  # 'transactional' or 'analytical'
-        StructField(
-            "schema_pattern", StringType(), False
-        ),  # 'oltp', 'star_schema', 'snowflake'
-        StructField(
-            "domain", StringType(), False
-        ),  # e.g., 'retail', 'finance', 'healthcare'
+        StructField("dataset_type", StringType(), False),  # 'transactional' or 'analytical'
+        StructField("schema_pattern", StringType(), False),  # 'oltp', 'star_schema', 'snowflake'
+        StructField("domain", StringType(), False),  # e.g., 'retail', 'finance', 'healthcare'
         StructField("max_recommended_rows", LongType(), False),
         StructField("description", StringType(), True),
         StructField("config_json", StringType(), True),  # JSON configuration

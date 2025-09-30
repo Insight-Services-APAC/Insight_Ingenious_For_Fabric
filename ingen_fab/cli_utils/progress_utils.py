@@ -110,9 +110,7 @@ class ProgressTracker:
                         else:
                             item_name = str(item)
 
-                        self.update_task(
-                            task_id, description=f"[cyan]Processing:[/cyan] {item_name}"
-                        )
+                        self.update_task(task_id, description=f"[cyan]Processing:[/cyan] {item_name}")
 
                         yield item
 

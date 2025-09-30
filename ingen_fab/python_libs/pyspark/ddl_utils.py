@@ -34,9 +34,7 @@ class ddl_utils(DDLUtilsInterface):
         )
         self.target_workspace_id = target_workspace_id
         self.target_lakehouse_id = target_lakehouse_id
-        self.lakehouse_utils: lakehouse_utils = lakehouse_utils(
-            target_workspace_id, target_lakehouse_id, spark=spark
-        )
+        self.lakehouse_utils: lakehouse_utils = lakehouse_utils(target_workspace_id, target_lakehouse_id, spark=spark)
         self.execution_log_table_name = "ddl_script_executions"
         self.initialise_ddl_script_executions_table()
 
@@ -85,13 +83,9 @@ class ddl_utils(DDLUtilsInterface):
             f"{self.target_workspace_id} | lakehouse_id {self.target_lakehouse_id}"
         )
 
-    def write_to_execution_log(
-        self, object_guid: str, object_name: str, script_status: str
-    ) -> None:
+    def write_to_execution_log(self, object_guid: str, object_name: str, script_status: str) -> None:
         data = [(object_guid, object_name, script_status, datetime.now())]
-        new_df = self.lakehouse_utils.spark.createDataFrame(
-            data=data, schema=ddl_utils.execution_log_schema()
-        )
+        new_df = self.lakehouse_utils.spark.createDataFrame(data=data, schema=ddl_utils.execution_log_schema())
         new_df.write.format("delta").mode("append").save(
             f"{self.lakehouse_utils.lakehouse_tables_uri()}{self.execution_log_table_name}"
         )
@@ -108,9 +102,7 @@ class ddl_utils(DDLUtilsInterface):
             try:
                 src = inspect.getsource(work_fn)
             except (OSError, TypeError):
-                raise ValueError(
-                    "work_fn must be a named function defined at top-level"
-                )
+                raise ValueError("work_fn must be a named function defined at top-level")
             # compute SHA256 and take first 12 hex chars
             digest = hashlib.sha256(src.encode("utf-8")).hexdigest()
             guid = digest
@@ -120,19 +112,13 @@ class ddl_utils(DDLUtilsInterface):
         if not self.check_if_script_has_run(script_id=guid):
             try:
                 work_fn()
-                self.write_to_execution_log(
-                    object_guid=guid, object_name=object_name, script_status="Success"
-                )
+                self.write_to_execution_log(object_guid=guid, object_name=object_name, script_status="Success")
                 logger.info(f"Successfully executed work_fn for guid={guid}")
             except Exception as e:
-                error_message = (
-                    f"Error in work_fn for {guid}: {e}\n{traceback.format_exc()}"
-                )
+                error_message = f"Error in work_fn for {guid}: {e}\n{traceback.format_exc()}"
                 logger.error(error_message)
 
-                self.write_to_execution_log(
-                    object_guid=guid, object_name=object_name, script_status="Failure"
-                )
+                self.write_to_execution_log(object_guid=guid, object_name=object_name, script_status="Failure")
                 # Print the error message to stderr and raise a RuntimeError
                 import sys
 
@@ -148,16 +134,12 @@ class ddl_utils(DDLUtilsInterface):
         guid = "b8c83c87-36d2-46a8-9686-ced38363e169"
         object_name = "ddl_script_executions"
         # Check if the execution log table exists
-        table_exists = self.lakehouse_utils.check_if_table_exists(
-            self.execution_log_table_name
-        )
+        table_exists = self.lakehouse_utils.check_if_table_exists(self.execution_log_table_name)
         if not table_exists:
             print(
                 f"Creating execution log table at {self.lakehouse_utils.lakehouse_tables_uri()}{self.execution_log_table_name}"
             )
-            empty_df = self.lakehouse_utils.spark.createDataFrame(
-                data=[], schema=ddl_utils.execution_log_schema()
-            )
+            empty_df = self.lakehouse_utils.spark.createDataFrame(data=[], schema=ddl_utils.execution_log_schema())
 
             self.lakehouse_utils.write_to_table(
                 empty_df,
@@ -166,8 +148,6 @@ class ddl_utils(DDLUtilsInterface):
                 options={"parquet.vorder.default": "true"},
             )
 
-            self.write_to_execution_log(
-                object_guid=guid, object_name=object_name, script_status="Success"
-            )
+            self.write_to_execution_log(object_guid=guid, object_name=object_name, script_status="Success")
         else:
             print(f"Skipping {object_name} as it already exists")

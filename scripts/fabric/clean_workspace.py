@@ -121,9 +121,7 @@ def clean_workspace(workspace_name: str, dry_run: bool = False) -> None:
 
     # Summary
     print("\n" + "=" * 50)
-    print(
-        f"Deletion complete: {success_count}/{len(items_to_delete)} items deleted successfully"
-    )
+    print(f"Deletion complete: {success_count}/{len(items_to_delete)} items deleted successfully")
 
     if success_count < len(items_to_delete):
         print(f"Failed to delete {len(items_to_delete) - success_count} items")

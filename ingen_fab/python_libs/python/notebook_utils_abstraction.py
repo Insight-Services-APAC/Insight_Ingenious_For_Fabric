@@ -25,9 +25,7 @@ class FabricNotebookUtils(NotebookUtilsInterface):
 
     def __init__(self, notebookutils: Optional[Any] = None):
         self._notebookutils = notebookutils
-        self._mssparkutils = (
-            None  # Not used in python implementation, but can be added if needed
-        )
+        self._mssparkutils = None  # Not used in python implementation, but can be added if needed
         self._available = self._check_availability()
 
     def _check_availability(self) -> bool:
@@ -41,9 +39,7 @@ class FabricNotebookUtils(NotebookUtilsInterface):
     def connect_to_artifact(self, artifact_id: str, workspace_id: str) -> Any:
         """Connect to a Fabric artifact."""
         if not self._available:
-            raise RuntimeError(
-                "notebookutils not available - cannot connect to artifact"
-            )
+            raise RuntimeError("notebookutils not available - cannot connect to artifact")
         logging.info(
             f"Connecting to artifact (artifact_id: {artifact_id}, workspace_id: {workspace_id}) using Fabric notebookutils"
         )
@@ -82,9 +78,7 @@ class FabricNotebookUtils(NotebookUtilsInterface):
         """Check if Fabric notebook utils are available."""
         return self._available
 
-    def run_notebook(
-        self, notebook_name: str, timeout: int = 60, params: dict = None
-    ) -> str:
+    def run_notebook(self, notebook_name: str, timeout: int = 60, params: dict = None) -> str:
         """Run a notebook using notebookutils.notebook.run."""
         if not self._available:
             raise RuntimeError("notebookutils not available - cannot run notebook")
@@ -100,9 +94,7 @@ class LocalNotebookUtils(LocalNotebookUtilsBase):
         try:
             return self._connect_to_local_sql_server()
         except ImportError:
-            raise RuntimeError(
-                "pyodbc not available - cannot connect to local SQL Server"
-            )
+            raise RuntimeError("pyodbc not available - cannot connect to local SQL Server")
 
     def display(self, obj: Any) -> None:
         """Display an object using print."""
@@ -125,20 +117,14 @@ class NotebookUtilsFactory(NotebookUtilsFactoryBase):
     """Factory for creating notebook utils instances."""
 
     @classmethod
-    def get_instance(
-        cls, notebookutils: Optional[Any] = None, force_local: bool = False
-    ) -> NotebookUtilsInterface:
+    def get_instance(cls, notebookutils: Optional[Any] = None, force_local: bool = False) -> NotebookUtilsInterface:
         """Get a singleton instance of notebook utils."""
         if cls._instance is None:
-            cls._instance = cls.create_instance(
-                notebookutils=notebookutils, force_local=force_local
-            )
+            cls._instance = cls.create_instance(notebookutils=notebookutils, force_local=force_local)
         return cls._instance
 
     @classmethod
-    def create_instance(
-        cls, notebookutils: Optional[Any] = None, force_local: bool = False
-    ) -> NotebookUtilsInterface:
+    def create_instance(cls, notebookutils: Optional[Any] = None, force_local: bool = False) -> NotebookUtilsInterface:
         """Create a new instance of notebook utils."""
         if force_local:
             logger.info("Creating local notebook utils instance (forced)")

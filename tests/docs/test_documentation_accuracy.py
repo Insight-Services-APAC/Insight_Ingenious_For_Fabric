@@ -34,9 +34,7 @@ class TestDocumentationAccuracy:
 
         # Verify all documented commands exist
         missing_commands = documented_commands - cli_commands
-        assert not missing_commands, (
-            f"Commands documented but not implemented: {missing_commands}"
-        )
+        assert not missing_commands, f"Commands documented but not implemented: {missing_commands}"
 
     def test_environment_variables_documented(self):
         """Verify all environment variables used in code are documented."""
@@ -47,23 +45,15 @@ class TestDocumentationAccuracy:
         documented_env_vars = self._extract_documented_env_vars()
 
         # Check for undocumented variables (excluding test-specific ones)
-        undocumented = (
-            env_vars_in_code
-            - documented_env_vars
-            - {"HOME", "PATH", "USER", "PWD", "SHELL", "TERM", "LANG"}
-        )
-        assert not undocumented, (
-            f"Environment variables used but not documented: {undocumented}"
-        )
+        undocumented = env_vars_in_code - documented_env_vars - {"HOME", "PATH", "USER", "PWD", "SHELL", "TERM", "LANG"}
+        assert not undocumented, f"Environment variables used but not documented: {undocumented}"
 
     def test_package_commands_accuracy(self):
         """Verify package commands match implementation."""
         cli_source = self.cli_file.read_text()
 
         # Check for package subcommands
-        assert "package_app.add_typer" in cli_source, (
-            "Package app should have subcommands"
-        )
+        assert "package_app.add_typer" in cli_source, "Package app should have subcommands"
         assert "ingest_app" in cli_source, "Ingest package should exist"
         assert "synapse_app" in cli_source, "Synapse package should exist"
         assert "extract_app" in cli_source, "Extract package should exist"
@@ -80,9 +70,9 @@ class TestDocumentationAccuracy:
 
                 # Check README mentions correct version
                 readme_content = self.readme_file.read_text()
-                assert (
-                    "Python 3.12" in readme_content or version_req in readme_content
-                ), f"README should mention Python version requirement: {version_req}"
+                assert "Python 3.12" in readme_content or version_req in readme_content, (
+                    f"README should mention Python version requirement: {version_req}"
+                )
 
     def test_project_structure_documentation(self):
         """Verify documented project structure matches actual structure."""
@@ -171,10 +161,9 @@ class TestDocumentationAccuracy:
                 if command != "root":
                     # Verify command exists in CLI
                     cli_source = self.cli_file.read_text()
-                    assert (
-                        f"{command}_app = typer.Typer()" in cli_source
-                        or f'name="{command}"' in cli_source
-                    ), f"Command {command} referenced in snippets should exist in CLI"
+                    assert f"{command}_app = typer.Typer()" in cli_source or f'name="{command}"' in cli_source, (
+                        f"Command {command} referenced in snippets should exist in CLI"
+                    )
 
     def test_readme_no_outdated_extract_command(self):
         """Verify README doesn't contain outdated extract lakehouse-metadata command."""
@@ -182,9 +171,7 @@ class TestDocumentationAccuracy:
         assert "extract lakehouse-metadata" not in readme_content, (
             "README should not contain outdated 'extract lakehouse-metadata' command"
         )
-        assert "deploy get-metadata" in readme_content, (
-            "README should document the new 'deploy get-metadata' command"
-        )
+        assert "deploy get-metadata" in readme_content, "README should document the new 'deploy get-metadata' command"
 
     # Helper methods for parsing and extraction
 
@@ -241,14 +228,10 @@ class TestDocumentationAccuracy:
             try:
                 content = py_file.read_text()
                 # Find os.environ.get("VAR") or os.getenv("VAR")
-                for match in re.finditer(
-                    r'os\.(?:environ\.get|getenv)\s*\(\s*["\']([^"\']+)["\']', content
-                ):
+                for match in re.finditer(r'os\.(?:environ\.get|getenv)\s*\(\s*["\']([^"\']+)["\']', content):
                     env_vars.add(match.group(1))
                 # Find os.environ["VAR"]
-                for match in re.finditer(
-                    r'os\.environ\s*\[\s*["\']([^"\']+)["\']', content
-                ):
+                for match in re.finditer(r'os\.environ\s*\[\s*["\']([^"\']+)["\']', content):
                     env_vars.add(match.group(1))
             except Exception:
                 continue

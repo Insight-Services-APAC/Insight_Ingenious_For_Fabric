@@ -23,9 +23,7 @@ class warehouse_utils(DataStoreInterface):
         self, notebookutils: Optional[Any] = None, mssparkutils: Optional[Any] = None
     ) -> bool:
         """Check if notebookutils is importable (for Fabric dialect)."""
-        return NotebookUtilsFactory.create_instance(
-            notebookutils=notebookutils
-        ).is_available()
+        return NotebookUtilsFactory.create_instance(notebookutils=notebookutils).is_available()
 
     """Utilities for interacting with Fabric or local SQL Server warehouses."""
 
@@ -48,16 +46,11 @@ class warehouse_utils(DataStoreInterface):
             )
 
         # Initialize notebook utils abstraction
-        self.notebook_utils = NotebookUtilsFactory.get_instance(
-            notebookutils=notebookutils
-        )
+        self.notebook_utils = NotebookUtilsFactory.get_instance(notebookutils=notebookutils)
 
         # Use fabric_environment from config_utils to determine local database dialect
         # This ensures consistency with sql_translator and other parts of the codebase
-        if (
-            dialect == "fabric"
-            and type(self.notebook_utils).__name__ == "LocalNotebookUtils"
-        ):
+        if dialect == "fabric" and type(self.notebook_utils).__name__ == "LocalNotebookUtils":
             # Get the fabric_environment to determine which local database to use
             try:
                 config = get_configs_as_object()
@@ -65,9 +58,7 @@ class warehouse_utils(DataStoreInterface):
 
                 if fabric_env == "local":
                     # Use PostgreSQL for local development (matching sql_translator)
-                    logger.info(
-                        "Running in local environment, using PostgreSQL for database operations."
-                    )
+                    logger.info("Running in local environment, using PostgreSQL for database operations.")
                     self.dialect = "postgres"
                 else:
                     # Non-local environments without notebookutils shouldn't happen
@@ -83,14 +74,10 @@ class warehouse_utils(DataStoreInterface):
                 is_arm = machine_arch in ["arm64", "aarch64", "arm"]
 
                 if is_arm:
-                    logger.warning(
-                        f"Falling back to MySQL for ARM architecture ({machine_arch})."
-                    )
+                    logger.warning(f"Falling back to MySQL for ARM architecture ({machine_arch}).")
                     self.dialect = "mysql"
                 else:
-                    logger.warning(
-                        f"Falling back to SQL Server for {machine_arch} architecture."
-                    )
+                    logger.warning(f"Falling back to SQL Server for {machine_arch} architecture.")
                     self.dialect = "sql_server"
 
         # Set default connection string based on final dialect if not provided
@@ -128,9 +115,7 @@ class warehouse_utils(DataStoreInterface):
             # Use PostgreSQL for local development
             conn = self._connect_to_local_postgresql()
         else:
-            conn = self.notebook_utils.connect_to_artifact(
-                self._target_warehouse_id, self._target_workspace_id
-            )
+            conn = self.notebook_utils.connect_to_artifact(self._target_warehouse_id, self._target_workspace_id)
         return conn
 
     def execute_query(
@@ -166,9 +151,7 @@ class warehouse_utils(DataStoreInterface):
         # Retry logic with exponential backoff
         for attempt in range(max_retries + 1):
             try:
-                logging.debug(
-                    f"Executing query (attempt {attempt + 1}/{max_retries + 1}): {query}"
-                )
+                logging.debug(f"Executing query (attempt {attempt + 1}/{max_retries + 1}): {query}")
                 if params:
                     logging.debug(f"Query parameters: {params}")
 
@@ -230,17 +213,13 @@ class warehouse_utils(DataStoreInterface):
                     try:
                         conn = self.get_connection()
                     except Exception as conn_error:
-                        logging.error(
-                            f"Failed to get new connection for retry: {conn_error}"
-                        )
+                        logging.error(f"Failed to get new connection for retry: {conn_error}")
 
                     continue
                 else:
                     # Non-retryable error or max retries exceeded
                     if attempt == max_retries:
-                        logging.error(
-                            f"Max retries ({max_retries}) exceeded for query: {query}"
-                        )
+                        logging.error(f"Max retries ({max_retries}) exceeded for query: {query}")
                     else:
                         logging.error(f"Non-retryable error for query: {query}")
 
@@ -305,9 +284,7 @@ class warehouse_utils(DataStoreInterface):
         try:
             import pyodbc
 
-            logger.debug(
-                f"Connecting to local SQL Server with connection string: {self.connection_string}"
-            )
+            logger.debug(f"Connecting to local SQL Server with connection string: {self.connection_string}")
 
             # First connect without database specified to create the database
             conn = pyodbc.connect(self.connection_string)
@@ -322,17 +299,11 @@ class warehouse_utils(DataStoreInterface):
                 and "INITIAL CATALOG=" not in self.connection_string.upper()
             ):
                 # Add local database to connection string and reconnect
-                local_connection_string = (
-                    self.connection_string.rstrip(";") + ";DATABASE=local;"
-                )
-                logger.debug(
-                    f"Reconnecting with local database: {local_connection_string}"
-                )
+                local_connection_string = self.connection_string.rstrip(";") + ";DATABASE=local;"
+                logger.debug(f"Reconnecting with local database: {local_connection_string}")
                 conn.close()
                 conn = pyodbc.connect(local_connection_string)
-                logger.debug(
-                    f"Successfully connected to local database: {local_connection_string}"
-                )
+                logger.debug(f"Successfully connected to local database: {local_connection_string}")
             else:
                 logger.debug(
                     f"Local database already specified in connection string, using existing connection: {self.connection_string}"
@@ -376,9 +347,7 @@ class warehouse_utils(DataStoreInterface):
 
             return conn
         except ImportError:
-            logger.error(
-                "mysql-connector-python not available, using mock connection for testing"
-            )
+            logger.error("mysql-connector-python not available, using mock connection for testing")
 
     def _connect_to_local_postgresql(self):
         """Connect to local PostgreSQL using psycopg2, or return mock connection for testing."""
@@ -395,9 +364,7 @@ class warehouse_utils(DataStoreInterface):
                 "database": "postgres",  # Connect to postgres db first to create target db
             }
 
-            logger.debug(
-                f"Connecting to local PostgreSQL with params: {connection_params}"
-            )
+            logger.debug(f"Connecting to local PostgreSQL with params: {connection_params}")
 
             # First connect to postgres database to create the target database if needed
             conn = psycopg2.connect(**connection_params)
@@ -411,37 +378,26 @@ class warehouse_utils(DataStoreInterface):
             conn.close()
             connection_params["database"] = os.getenv("POSTGRES_DATABASE", "local")
             conn = psycopg2.connect(**connection_params)
-            logger.debug(
-                f"Successfully connected to local PostgreSQL database: {connection_params['database']}"
-            )
+            logger.debug(f"Successfully connected to local PostgreSQL database: {connection_params['database']}")
 
             return conn
         except ImportError:
-            logger.error(
-                "psycopg2 not available. Please install it with: uv pip install psycopg2-binary"
-            )
+            logger.error("psycopg2 not available. Please install it with: uv pip install psycopg2-binary")
             return None
         except psycopg2.OperationalError as e:
             error_msg = str(e)
             logger.error(f"Failed to connect to PostgreSQL: {e}")
 
             # Provide helpful messages based on the error
-            if (
-                "could not connect to server" in error_msg
-                or "Connection refused" in error_msg
-            ):
+            if "could not connect to server" in error_msg or "Connection refused" in error_msg:
                 error_message = "\n" + "=" * 70 + "\n"
                 error_message += "PostgreSQL Connection Error - Server Not Available\n"
                 error_message += "=" * 70 + "\n"
-                error_message += (
-                    "\nPostgreSQL server is not running or not accessible.\n"
-                )
+                error_message += "\nPostgreSQL server is not running or not accessible.\n"
                 error_message += "\nTo fix this issue, try one of the following:\n"
                 error_message += "\n1. Start PostgreSQL (if already installed):\n"
                 error_message += "   - Ubuntu/Debian: sudo service postgresql start\n"
-                error_message += (
-                    "   - macOS (Homebrew): brew services start postgresql\n"
-                )
+                error_message += "   - macOS (Homebrew): brew services start postgresql\n"
                 error_message += "   - macOS (Postgres.app): Open Postgres.app\n"
                 error_message += "   - Windows: net start postgresql-x64-15\n"
 
@@ -450,33 +406,22 @@ class warehouse_utils(DataStoreInterface):
                 error_message += "   - macOS: brew install postgresql\n"
                 error_message += "   - Windows: Download from https://www.postgresql.org/download/windows/\n"
 
-                error_message += (
-                    "\n3. Check if PostgreSQL is running on a different port:\n"
-                )
-                error_message += (
-                    f"   Current port: {connection_params.get('port', 5432)}\n"
-                )
-                error_message += (
-                    "   Set custom port: export POSTGRES_PORT=<your_port>\n"
-                )
+                error_message += "\n3. Check if PostgreSQL is running on a different port:\n"
+                error_message += f"   Current port: {connection_params.get('port', 5432)}\n"
+                error_message += "   Set custom port: export POSTGRES_PORT=<your_port>\n"
                 error_message += "=" * 70 + "\n"
 
                 # Log and print for visibility
                 logger.error(error_message)
                 print(error_message, file=sys.stderr)
 
-            elif (
-                "password authentication failed" in error_msg
-                or "no password supplied" in error_msg
-            ):
+            elif "password authentication failed" in error_msg or "no password supplied" in error_msg:
                 error_message = "\n" + "=" * 70 + "\n"
                 error_message += "PostgreSQL Authentication Error\n"
                 error_message += "=" * 70 + "\n"
                 error_message += "\nFailed to authenticate with PostgreSQL server.\n"
                 error_message += "\nTo fix this issue:\n"
-                error_message += (
-                    "\n1. Set the PostgreSQL password for the 'postgres' user:\n"
-                )
+                error_message += "\n1. Set the PostgreSQL password for the 'postgres' user:\n"
                 error_message += "   sudo -u postgres psql -c \"ALTER USER postgres PASSWORD 'password';\"\n"
 
                 error_message += "\n2. Configure environment variables:\n"
@@ -484,23 +429,15 @@ class warehouse_utils(DataStoreInterface):
                 error_message += "   export POSTGRES_PASSWORD=password\n"
                 error_message += "   export POSTGRES_DATABASE=local\n"
 
-                error_message += (
-                    "\n3. Or use a different user with proper credentials:\n"
-                )
+                error_message += "\n3. Or use a different user with proper credentials:\n"
                 error_message += "   export POSTGRES_USER=<your_username>\n"
                 error_message += "   export POSTGRES_PASSWORD=<your_password>\n"
 
                 error_message += "\nCurrent connection parameters:\n"
-                error_message += (
-                    f"   Host: {connection_params.get('host', 'localhost')}\n"
-                )
+                error_message += f"   Host: {connection_params.get('host', 'localhost')}\n"
                 error_message += f"   Port: {connection_params.get('port', 5432)}\n"
-                error_message += (
-                    f"   User: {connection_params.get('user', 'postgres')}\n"
-                )
-                error_message += (
-                    f"   Database: {connection_params.get('database', 'postgres')}\n"
-                )
+                error_message += f"   User: {connection_params.get('user', 'postgres')}\n"
+                error_message += f"   Database: {connection_params.get('database', 'postgres')}\n"
                 error_message += "=" * 70 + "\n"
 
                 # Log and print for visibility
@@ -540,12 +477,8 @@ class warehouse_utils(DataStoreInterface):
             return None
         except Exception as e:
             logger.error(f"Unexpected error connecting to PostgreSQL: {e}")
-            logger.error(
-                "\nFor local development with ingen_fab, PostgreSQL is required."
-            )
-            logger.error(
-                "Please ensure PostgreSQL is properly installed and configured."
-            )
+            logger.error("\nFor local development with ingen_fab, PostgreSQL is required.")
+            logger.error("Please ensure PostgreSQL is properly installed and configured.")
             return None
 
     def _create_local_postgresql_database_with_connection(self, conn) -> None:
@@ -608,9 +541,7 @@ class warehouse_utils(DataStoreInterface):
 
                 # Create schema if it doesn't exist
                 if not schema_exists:
-                    create_schema_query = self.sql.render(
-                        "create_schema", schema_name=schema_name
-                    )
+                    create_schema_query = self.sql.render("create_schema", schema_name=schema_name)
                     self.execute_query(conn, create_schema_query)
                     logging.info(f"Created schema '{schema_name}'.")
 
@@ -629,31 +560,23 @@ class warehouse_utils(DataStoreInterface):
                     "cannot create schema",
                 ]
 
-                is_schema_exists_error = any(
-                    err in error_str for err in schema_exists_errors
-                )
+                is_schema_exists_error = any(err in error_str for err in schema_exists_errors)
 
                 if is_schema_exists_error:
                     # Schema was created by another process - this is actually success
-                    logging.info(
-                        f"Schema '{schema_name}' already exists (created by another process)."
-                    )
+                    logging.info(f"Schema '{schema_name}' already exists (created by another process).")
                     return
 
                 elif attempt < max_retries:
                     # Other error, retry with exponential backoff
                     delay = 0.5 * (2**attempt)
-                    logging.warning(
-                        f"Error creating schema '{schema_name}' on attempt {attempt + 1}: {e}"
-                    )
+                    logging.warning(f"Error creating schema '{schema_name}' on attempt {attempt + 1}: {e}")
                     logging.warning(f"Retrying in {delay:.1f} seconds...")
                     time.sleep(delay)
                     continue
                 else:
                     # Max retries exceeded
-                    logging.error(
-                        f"Error creating schema {schema_name} after {max_retries} retries: {e}"
-                    )
+                    logging.error(f"Error creating schema {schema_name} after {max_retries} retries: {e}")
                     print(
                         f"Error creating schema for ddl log table {schema_name}: {e}",
                         file=sys.stderr,
@@ -663,9 +586,7 @@ class warehouse_utils(DataStoreInterface):
     def check_if_table_exists(self, table_name, schema_name: str = "dbo") -> bool:
         try:
             conn = self.get_connection()
-            query = self.sql.render(
-                "check_table_exists", table_name=table_name, schema_name=schema_name
-            )
+            query = self.sql.render("check_table_exists", table_name=table_name, schema_name=schema_name)
             result = self.execute_query(conn, query)
             table_exists = len(result) > 0 if result is not None else False
             return table_exists
@@ -700,9 +621,7 @@ class warehouse_utils(DataStoreInterface):
             # Handle different write modes
             if mode == "overwrite":
                 # Drop table if exists
-                drop_query = self.sql.render(
-                    "drop_table", table_name=table_name, schema_name=schema_name
-                )
+                drop_query = self.sql.render("drop_table", table_name=table_name, schema_name=schema_name)
                 self.execute_query(conn, drop_query)
 
                 # Create table from dataframe using SELECT INTO syntax
@@ -791,9 +710,7 @@ class warehouse_utils(DataStoreInterface):
                 if not self.check_if_table_exists(table_name, schema_name=schema_name):
                     values = []
                     for _, row in pandas_df.iterrows():
-                        row_values = ", ".join(
-                            [f"'{v}'" if isinstance(v, str) else str(v) for v in row]
-                        )
+                        row_values = ", ".join([f"'{v}'" if isinstance(v, str) else str(v) for v in row])
                         values.append(f"({row_values})")
 
                     # Get column names from DataFrame
@@ -812,9 +729,7 @@ class warehouse_utils(DataStoreInterface):
             logging.error(f"Error writing to table {table_name} with mode {mode}: {e}")
             raise
 
-    def drop_all_tables(
-        self, schema_name: str | None = None, table_prefix: str | None = None
-    ) -> None:
+    def drop_all_tables(self, schema_name: str | None = None, table_prefix: str | None = None) -> None:
         try:
             conn = self.get_connection()
             query = self.sql.render("list_tables", prefix=table_prefix)
@@ -823,47 +738,33 @@ class warehouse_utils(DataStoreInterface):
             # You can use .itertuples() for efficient row access
             for row in tables.itertuples(index=False):
                 # Adjust attribute names to match DataFrame columns
-                schema_name = getattr(row, "table_schema", None) or getattr(
-                    row, "TABLE_SCHEMA", None
-                )
-                table_name = getattr(row, "table_name", None) or getattr(
-                    row, "TABLE_NAME", None
-                )
+                schema_name = getattr(row, "table_schema", None) or getattr(row, "TABLE_SCHEMA", None)
+                table_name = getattr(row, "table_name", None) or getattr(row, "TABLE_NAME", None)
 
                 if not schema_name or not table_name:
                     logging.warning(f"Skipping row with missing schema/table: {row}")
                     continue
 
                 try:
-                    drop_query = self.sql.render(
-                        "drop_table", schema_name=schema_name, table_name=table_name
-                    )
+                    drop_query = self.sql.render("drop_table", schema_name=schema_name, table_name=table_name)
                     self.execute_query(conn, drop_query)
                     logging.info(f"✔ Dropped table: {schema_name}.{table_name}")
                 except Exception as e:
-                    logging.error(
-                        f"⚠ Error dropping table {schema_name}.{table_name}: {e}"
-                    )
+                    logging.error(f"⚠ Error dropping table {schema_name}.{table_name}: {e}")
 
             logging.info("✅ All eligible tables have been dropped.")
         except Exception as e:
             logging.error(f"Error dropping tables with prefix {table_prefix}: {e}")
 
     # --- DataStoreInterface required methods ---
-    def get_table_schema(
-        self, table_name: str, schema_name: str | None = None
-    ) -> dict[str, object]:
+    def get_table_schema(self, table_name: str, schema_name: str | None = None) -> dict[str, object]:
         """Implements DataStoreInterface: Get the schema/column definitions for a table."""
         conn = self.get_connection()
-        query = self.sql.render(
-            "get_table_schema", table_name=table_name, schema_name=schema_name or "dbo"
-        )
+        query = self.sql.render("get_table_schema", table_name=table_name, schema_name=schema_name or "dbo")
         result = self.execute_query(conn, query)
         if result is not None and not result.empty:
             # Expect columns: COLUMN_NAME, DATA_TYPE
-            return {
-                row["COLUMN_NAME"]: row["DATA_TYPE"] for _, row in result.iterrows()
-            }
+            return {row["COLUMN_NAME"]: row["DATA_TYPE"] for _, row in result.iterrows()}
         return {}
 
     def read_table(
@@ -958,11 +859,7 @@ class warehouse_utils(DataStoreInterface):
         query = self.sql.render("list_tables")
         result = self.execute_query(conn, query)
         if result is not None and not result.empty:
-            return (
-                result["table_name"].tolist()
-                if "table_name" in result.columns
-                else result.iloc[:, 0].tolist()
-            )
+            return result["table_name"].tolist() if "table_name" in result.columns else result.iloc[:, 0].tolist()
         return []
 
     def list_schemas(self) -> list[str]:
@@ -971,11 +868,7 @@ class warehouse_utils(DataStoreInterface):
         query = self.sql.render("list_schemas")
         result = self.execute_query(conn, query)
         if result is not None and not result.empty:
-            return (
-                result["schema_name"].tolist()
-                if "schema_name" in result.columns
-                else result.iloc[:, 0].tolist()
-            )
+            return result["schema_name"].tolist() if "schema_name" in result.columns else result.iloc[:, 0].tolist()
         return []
 
     def get_table_row_count(
@@ -1031,9 +924,7 @@ class warehouse_utils(DataStoreInterface):
         options: dict[str, Any] | None = None,
     ) -> Any:
         """Implements DataStoreInterface: Read a file (not applicable for warehouses)."""
-        raise NotImplementedError(
-            "File operations not supported for warehouse utilities"
-        )
+        raise NotImplementedError("File operations not supported for warehouse utilities")
 
     def write_file(
         self,
@@ -1043,15 +934,11 @@ class warehouse_utils(DataStoreInterface):
         options: dict[str, Any] | None = None,
     ) -> None:
         """Implements DataStoreInterface: Write a file (not applicable for warehouses)."""
-        raise NotImplementedError(
-            "File operations not supported for warehouse utilities"
-        )
+        raise NotImplementedError("File operations not supported for warehouse utilities")
 
     def file_exists(self, file_path: str) -> bool:
         """Implements DataStoreInterface: Check if a file exists (not applicable for warehouses)."""
-        raise NotImplementedError(
-            "File operations not supported for warehouse utilities"
-        )
+        raise NotImplementedError("File operations not supported for warehouse utilities")
 
     def list_files(
         self,
@@ -1060,15 +947,11 @@ class warehouse_utils(DataStoreInterface):
         recursive: bool = False,
     ) -> list[str]:
         """Implements DataStoreInterface: List files in a directory (not applicable for warehouses)."""
-        raise NotImplementedError(
-            "File operations not supported for warehouse utilities"
-        )
+        raise NotImplementedError("File operations not supported for warehouse utilities")
 
     def get_file_info(self, file_path: str) -> dict[str, Any]:
         """Implements DataStoreInterface: Get file information (not applicable for warehouses)."""
-        raise NotImplementedError(
-            "File operations not supported for warehouse utilities"
-        )
+        raise NotImplementedError("File operations not supported for warehouse utilities")
 
     # --- End DataStoreInterface required methods ---
 

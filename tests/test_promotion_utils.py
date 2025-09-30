@@ -9,15 +9,9 @@ from ingen_fab.fabric_cicd.promotion_utils import promotion_utils
 def test_promote_calls_publish_only():
     promoter = promotion_utils("ws1", "repo")
     with (
-        mock.patch(
-            "ingen_fab.python_libs.python.promotion_utils.FabricWorkspace"
-        ) as fw_mock,
-        mock.patch(
-            "ingen_fab.python_libs.python.promotion_utils.publish_all_items"
-        ) as pub_mock,
-        mock.patch(
-            "ingen_fab.python_libs.python.promotion_utils.unpublish_all_orphan_items"
-        ) as unpub_mock,
+        mock.patch("ingen_fab.python_libs.python.promotion_utils.FabricWorkspace") as fw_mock,
+        mock.patch("ingen_fab.python_libs.python.promotion_utils.publish_all_items") as pub_mock,
+        mock.patch("ingen_fab.python_libs.python.promotion_utils.unpublish_all_orphan_items") as unpub_mock,
     ):
         fw_mock.return_value = object()
         promoter.promote(delete_orphans=False)
@@ -28,15 +22,9 @@ def test_promote_calls_publish_only():
 def test_promote_with_unpublish():
     promoter = promotion_utils("ws1", "repo")
     with (
-        mock.patch(
-            "ingen_fab.python_libs.python.promotion_utils.FabricWorkspace"
-        ) as fw_mock,
-        mock.patch(
-            "ingen_fab.python_libs.python.promotion_utils.publish_all_items"
-        ) as pub_mock,
-        mock.patch(
-            "ingen_fab.python_libs.python.promotion_utils.unpublish_all_orphan_items"
-        ) as unpub_mock,
+        mock.patch("ingen_fab.python_libs.python.promotion_utils.FabricWorkspace") as fw_mock,
+        mock.patch("ingen_fab.python_libs.python.promotion_utils.publish_all_items") as pub_mock,
+        mock.patch("ingen_fab.python_libs.python.promotion_utils.unpublish_all_orphan_items") as unpub_mock,
     ):
         fw_mock.return_value = object()
         promoter.promote(delete_orphans=True)

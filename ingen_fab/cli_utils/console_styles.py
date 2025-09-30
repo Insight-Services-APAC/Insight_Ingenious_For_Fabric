@@ -150,9 +150,7 @@ class MessageHelpers:
         """Format a list of operations."""
         if not operations:
             return ""
-        return MessageHelpers.format_label_value(
-            "Operations", "\n" + "\n".join(f"  {op}" for op in operations)
-        )
+        return MessageHelpers.format_label_value("Operations", "\n" + "\n".join(f"  {op}" for op in operations))
 
     def create_operation_details(
         self,

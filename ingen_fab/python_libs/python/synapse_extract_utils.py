@@ -214,9 +214,7 @@ class SynapseExtractUtils:
         pipeline_utils = self.get_pipeline_utils()
 
         # Construct job URL for polling
-        job_url = (
-            f"v1/workspaces/{workspace_id}/items/{pipeline_id}/jobs/instances/{job_id}"
-        )
+        job_url = f"v1/workspaces/{workspace_id}/items/{pipeline_id}/jobs/instances/{job_id}"
 
         # Use the advanced polling logic from PipelineUtils
         return await pipeline_utils.poll_job(job_url, table_name)
@@ -241,9 +239,7 @@ class SynapseExtractUtils:
                 return fn()
             except Exception as exc:
                 # Categorize the error
-                category, severity, is_retryable = (
-                    error_categorizer.categorize_exception(exc)
-                )
+                category, severity, is_retryable = error_categorizer.categorize_exception(exc)
 
                 # Log error with appropriate context
                 error_categorizer.log_error(
@@ -258,9 +254,7 @@ class SynapseExtractUtils:
                     raise
 
                 # Calculate delay based on error category
-                delay = error_categorizer.get_retry_delay(
-                    category, attempt, initial_delay
-                )
+                delay = error_categorizer.get_retry_delay(category, attempt, initial_delay)
 
                 # Add jitter to prevent thundering herd
                 jitter = 0.8 + (0.4 * np.random.random())
@@ -294,9 +288,7 @@ class SynapseExtractUtils:
         Raises:
             Exception: If bulk insert fails after retries
         """
-        logger.info(
-            f"Pre-logging {len(extraction_payloads)} extractions as 'Queued'..."
-        )
+        logger.info(f"Pre-logging {len(extraction_payloads)} extractions as 'Queued'...")
 
         records = []
         # Create timestamp with millisecond precision, no timezone
@@ -358,9 +350,7 @@ class SynapseExtractUtils:
                 schema_name=self.schema_name,
                 mode="append",
             )
-            logger.info(
-                f"Successfully queued {len(extraction_payloads)} extractions in log table"
-            )
+            logger.info(f"Successfully queued {len(extraction_payloads)} extractions in log table")
             # Return mapping using external table name as key (guaranteed unique)
             return {r["external_table"]: r["execution_id"] for r in records}
         except Exception as exc:
@@ -411,9 +401,7 @@ class SynapseExtractUtils:
 
         if status in {"Completed", "Failed", "Cancelled", "Deduped"}:
             updates["end_timestamp"] = current_time
-            updates["end_timestamp_int"] = int(
-                current_time.strftime("%Y%m%d%H%M%S%f")[:-3]
-            )
+            updates["end_timestamp_int"] = int(current_time.strftime("%Y%m%d%H%M%S%f")[:-3])
 
         if duration_sec is not None:
             updates["duration_sec"] = duration_sec
@@ -474,9 +462,7 @@ class SynapseExtractUtils:
 
         try:
             self.warehouse_utils.execute_query(query=sql, params=params)
-            logger.debug(
-                f"Updated log record: execution_id={execution_id}, status={status}"
-            )
+            logger.debug(f"Updated log record: execution_id={execution_id}, status={status}")
         except Exception as exc:
             logger.error(f"Failed to update log record: {exc}")
             raise
@@ -580,9 +566,7 @@ def build_path_components(item: Dict[str, Any]) -> Dict[str, str]:
 
         # External table gets a tier + date suffix so names stay unique
         date_suffix = f"{run_year:04d}_{run_month:02d}_{run_day:02d}"
-        external_table_name = (
-            f"{item['source_schema']}_{item['source_table']}_{load_tier}_{date_suffix}"
-        )
+        external_table_name = f"{item['source_schema']}_{item['source_table']}_{load_tier}_{date_suffix}"
     else:
         # For snapshot loads, use base path and set table name (without suffix)
         full_path = base_path
@@ -648,11 +632,7 @@ def build_partition_clause(item: Dict[str, Any]) -> str:
     else:
         # Date range - use date range filter
         if item.get("date_range_filter"):
-            return (
-                item["date_range_filter"]
-                .replace("@start_date", start_date_sql)
-                .replace("@end_date", end_date_sql)
-            )
+            return item["date_range_filter"].replace("@start_date", start_date_sql).replace("@end_date", end_date_sql)
         else:
             # Default date range filter if not provided
             return f"WHERE DATE_SK between {start_date_sql} and {end_date_sql}"
@@ -731,9 +711,7 @@ def enrich_work_item(
     return enriched_item
 
 
-def prepare_extract_payloads(
-    work_items: List[Dict[str, Any]], sql_template: str
-) -> List[Dict[str, Any]]:
+def prepare_extract_payloads(work_items: List[Dict[str, Any]], sql_template: str) -> List[Dict[str, Any]]:
     """
     Prepare the CETAS SQL statements and pipeline payloads for each extraction work item.
 

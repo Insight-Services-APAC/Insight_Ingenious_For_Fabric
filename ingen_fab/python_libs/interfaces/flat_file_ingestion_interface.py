@@ -75,12 +75,8 @@ class FlatFileIngestionConfig:
     source_is_folder: bool = False
 
     # Hierarchical nested structure support
-    table_subfolder: Optional[str] = (
-        None  # Table name within date partition (e.g., "orders", "customers")
-    )
-    hierarchical_date_structure: bool = (
-        False  # Enable YYYY/MM/DD hierarchical date discovery
-    )
+    table_subfolder: Optional[str] = None  # Table name within date partition (e.g., "orders", "customers")
+    hierarchical_date_structure: bool = False  # Enable YYYY/MM/DD hierarchical date discovery
     nested_path_separator: str = "/"  # Path separator for nested structures
 
     def __post_init__(self):
@@ -128,12 +124,8 @@ class FlatFileIngestionConfig:
             quote_character=config_row.get("quote_character", '"'),
             escape_character=config_row.get("escape_character", "\\"),
             multiline_values=config_row.get("multiline_values", True),
-            ignore_leading_whitespace=config_row.get(
-                "ignore_leading_whitespace", False
-            ),
-            ignore_trailing_whitespace=config_row.get(
-                "ignore_trailing_whitespace", False
-            ),
+            ignore_leading_whitespace=config_row.get("ignore_leading_whitespace", False),
+            ignore_trailing_whitespace=config_row.get("ignore_trailing_whitespace", False),
             null_value=config_row.get("null_value", ""),
             empty_value=config_row.get("empty_value", ""),
             comment_character=config_row.get("comment_character"),
@@ -160,9 +152,7 @@ class FlatFileIngestionConfig:
             source_is_folder=config_row.get("source_is_folder", False),
             # Hierarchical nested structure support
             table_subfolder=config_row.get("table_subfolder"),
-            hierarchical_date_structure=config_row.get(
-                "hierarchical_date_structure", False
-            ),
+            hierarchical_date_structure=config_row.get("hierarchical_date_structure", False),
             nested_path_separator=config_row.get("nested_path_separator", "/"),
         )
 
@@ -204,23 +194,17 @@ class FlatFileDiscoveryInterface(ABC):
     """Interface for file discovery operations"""
 
     @abstractmethod
-    def discover_files(
-        self, config: FlatFileIngestionConfig
-    ) -> List[FileDiscoveryResult]:
+    def discover_files(self, config: FlatFileIngestionConfig) -> List[FileDiscoveryResult]:
         """Discover files based on configuration"""
         pass
 
     @abstractmethod
-    def extract_date_from_folder_name(
-        self, folder_name: str, date_format: str
-    ) -> Optional[str]:
+    def extract_date_from_folder_name(self, folder_name: str, date_format: str) -> Optional[str]:
         """Extract date from folder name based on format"""
         pass
 
     @abstractmethod
-    def extract_date_from_path(
-        self, file_path: str, base_path: str, date_format: str
-    ) -> Optional[str]:
+    def extract_date_from_path(self, file_path: str, base_path: str, date_format: str) -> Optional[str]:
         """Extract date from file path based on format"""
         pass
 
@@ -230,9 +214,7 @@ class FlatFileDiscoveryInterface(ABC):
         pass
 
     @abstractmethod
-    def date_already_processed(
-        self, date_partition: str, config: FlatFileIngestionConfig
-    ) -> bool:
+    def date_already_processed(self, date_partition: str, config: FlatFileIngestionConfig) -> bool:
         """Check if a date has already been processed"""
         pass
 
@@ -241,30 +223,22 @@ class FlatFileProcessorInterface(ABC):
     """Interface for flat file processing operations"""
 
     @abstractmethod
-    def read_file(
-        self, config: FlatFileIngestionConfig, file: FileDiscoveryResult
-    ) -> Tuple[Any, ProcessingMetrics]:
+    def read_file(self, config: FlatFileIngestionConfig, file: FileDiscoveryResult) -> Tuple[Any, ProcessingMetrics]:
         """Read a file based on configuration and return DataFrame with metrics"""
         pass
 
     @abstractmethod
-    def read_folder(
-        self, config: FlatFileIngestionConfig, folder_path: str
-    ) -> Tuple[Any, ProcessingMetrics]:
+    def read_folder(self, config: FlatFileIngestionConfig, folder_path: str) -> Tuple[Any, ProcessingMetrics]:
         """Read all files in a folder based on configuration"""
         pass
 
     @abstractmethod
-    def write_data(
-        self, data: Any, config: FlatFileIngestionConfig
-    ) -> ProcessingMetrics:
+    def write_data(self, data: Any, config: FlatFileIngestionConfig) -> ProcessingMetrics:
         """Write data to target destination"""
         pass
 
     @abstractmethod
-    def validate_data(
-        self, data: Any, config: FlatFileIngestionConfig
-    ) -> Dict[str, Any]:
+    def validate_data(self, data: Any, config: FlatFileIngestionConfig) -> Dict[str, Any]:
         """Validate data based on configuration rules"""
         pass
 
@@ -321,15 +295,11 @@ class FlatFileIngestionOrchestrator(ABC):
         self.logging_service = logging_service
 
     @abstractmethod
-    def process_configuration(
-        self, config: FlatFileIngestionConfig, execution_id: str
-    ) -> Dict[str, Any]:
+    def process_configuration(self, config: FlatFileIngestionConfig, execution_id: str) -> Dict[str, Any]:
         """Process a single configuration"""
         pass
 
     @abstractmethod
-    def process_configurations(
-        self, configs: List[FlatFileIngestionConfig], execution_id: str
-    ) -> Dict[str, Any]:
+    def process_configurations(self, configs: List[FlatFileIngestionConfig], execution_id: str) -> Dict[str, Any]:
         """Process multiple configurations"""
         pass

@@ -18,9 +18,7 @@ class FlatFileIngestionCompiler(BaseNotebookCompiler):
     def __init__(self, fabric_workspace_repo_dir: str = None):
         try:
             # Use path utilities for package resource discovery
-            package_base = PathUtils.get_package_resource_path(
-                "packages/flat_file_ingestion"
-            )
+            package_base = PathUtils.get_package_resource_path("packages/flat_file_ingestion")
             self.package_dir = package_base
             self.templates_dir = package_base / "templates"
             self.ddl_scripts_dir = package_base / "ddl_scripts"
@@ -47,19 +45,11 @@ class FlatFileIngestionCompiler(BaseNotebookCompiler):
         )
 
         if self.console:
-            self.console.print(
-                f"[bold blue]Package Directory:[/bold blue] {self.package_dir}"
-            )
-            self.console.print(
-                f"[bold blue]Templates Directory:[/bold blue] {self.templates_dir}"
-            )
-            self.console.print(
-                f"[bold blue]DDL Scripts Directory:[/bold blue] {self.ddl_scripts_dir}"
-            )
+            self.console.print(f"[bold blue]Package Directory:[/bold blue] {self.package_dir}")
+            self.console.print(f"[bold blue]Templates Directory:[/bold blue] {self.templates_dir}")
+            self.console.print(f"[bold blue]DDL Scripts Directory:[/bold blue] {self.ddl_scripts_dir}")
 
-    def compile_notebook(
-        self, template_vars: Dict[str, Any] = None, target_datastore: str = "lakehouse"
-    ) -> Path:
+    def compile_notebook(self, template_vars: Dict[str, Any] = None, target_datastore: str = "lakehouse") -> Path:
         """Compile the flat file ingestion notebook template"""
 
         # Select template based on target datastore
@@ -70,14 +60,14 @@ class FlatFileIngestionCompiler(BaseNotebookCompiler):
 
         template_name = template_mapping.get(target_datastore)
         if not template_name:
-            raise ValueError(
-                f"Unsupported target datastore: {target_datastore}. Must be 'lakehouse' or 'warehouse'"
-            )
+            raise ValueError(f"Unsupported target datastore: {target_datastore}. Must be 'lakehouse' or 'warehouse'")
 
         # Customize output name and description based on target
         output_name = f"flat_file_ingestion_processor_{target_datastore}"
         display_name = f"Flat File Ingestion Processor ({target_datastore.title()})"
-        description = f"Processes flat files and loads them into {target_datastore} tables based on configuration metadata"
+        description = (
+            f"Processes flat files and loads them into {target_datastore} tables based on configuration metadata"
+        )
 
         if target_datastore == "warehouse":
             description += " using COPY INTO operations"
@@ -104,9 +94,7 @@ class FlatFileIngestionCompiler(BaseNotebookCompiler):
 
         template_name = template_mapping.get(target_datastore)
         if not template_name:
-            raise ValueError(
-                f"Unsupported target datastore: {target_datastore}. Must be 'lakehouse' or 'warehouse'"
-            )
+            raise ValueError(f"Unsupported target datastore: {target_datastore}. Must be 'lakehouse' or 'warehouse'")
 
         # Default template variables for config generation
         default_vars = {
@@ -124,7 +112,9 @@ class FlatFileIngestionCompiler(BaseNotebookCompiler):
         # Customize output name and description based on target
         output_name = f"flat_file_config_generator_{target_datastore}"
         display_name = f"Flat File Configuration Generator ({target_datastore.title()})"
-        description = f"Scans folders to discover files and auto-generates ingestion configurations for {target_datastore}"
+        description = (
+            f"Scans folders to discover files and auto-generates ingestion configurations for {target_datastore}"
+        )
 
         return self.compile_notebook_from_template(
             template_name=template_name,
@@ -135,9 +125,7 @@ class FlatFileIngestionCompiler(BaseNotebookCompiler):
             output_subdir="flat_file_ingestion",
         )
 
-    def compile_ddl_scripts(
-        self, include_sample_data: bool = False, target_datastore: str = "both"
-    ) -> List[Path]:
+    def compile_ddl_scripts(self, include_sample_data: bool = False, target_datastore: str = "both") -> List[Path]:
         """Compile DDL scripts to the target directory"""
 
         ddl_output_base = self.fabric_workspace_repo_dir / "ddl_scripts"
@@ -181,13 +169,9 @@ class FlatFileIngestionCompiler(BaseNotebookCompiler):
         # Filter script mappings based on target datastore
         script_mappings = {}
         if target_datastore == "lakehouse":
-            script_mappings = {
-                k: v for k, v in all_script_mappings.items() if "Lakehouses" in k
-            }
+            script_mappings = {k: v for k, v in all_script_mappings.items() if "Lakehouses" in k}
         elif target_datastore == "warehouse":
-            script_mappings = {
-                k: v for k, v in all_script_mappings.items() if "Warehouses" in k
-            }
+            script_mappings = {k: v for k, v in all_script_mappings.items() if "Warehouses" in k}
         elif target_datastore == "both":
             script_mappings = all_script_mappings
         else:
@@ -196,9 +180,7 @@ class FlatFileIngestionCompiler(BaseNotebookCompiler):
             )
 
         # Process DDL scripts with template rendering
-        results = self._compile_ddl_scripts_with_templates(
-            self.ddl_scripts_dir, ddl_output_base, script_mappings
-        )
+        results = self._compile_ddl_scripts_with_templates(self.ddl_scripts_dir, ddl_output_base, script_mappings)
 
         # Flatten results into a single list for backward compatibility
         compiled_files = []
@@ -242,14 +224,10 @@ class FlatFileIngestionCompiler(BaseNotebookCompiler):
                             template_paths = [ddl_source_dir]
                             # Add the unified templates directory using PathUtils
                             try:
-                                unified_templates_dir = (
-                                    PathUtils.get_package_resource_path("templates")
-                                )
+                                unified_templates_dir = PathUtils.get_package_resource_path("templates")
                             except FileNotFoundError:
                                 # Fallback for compatibility
-                                unified_templates_dir = (
-                                    Path(__file__).parent.parent.parent / "templates"
-                                )
+                                unified_templates_dir = Path(__file__).parent.parent.parent / "templates"
                             template_paths.append(unified_templates_dir)
 
                             env = jinja2.Environment(
@@ -262,34 +240,24 @@ class FlatFileIngestionCompiler(BaseNotebookCompiler):
 
                             target_path.write_text(rendered_content)
                             if self.console:
-                                self.console.print(
-                                    f"[green]✓ Template rendered:[/green] {target_path}"
-                                )
+                                self.console.print(f"[green]✓ Template rendered:[/green] {target_path}")
                         else:
                             if self.console:
-                                self.console.print(
-                                    f"[red]✗ Template file not found:[/red] {source_path}"
-                                )
+                                self.console.print(f"[red]✗ Template file not found:[/red] {source_path}")
                             continue
                     except Exception as e:
                         if self.console:
-                            self.console.print(
-                                f"[red]✗ Template error:[/red] {source_file} - {e}"
-                            )
+                            self.console.print(f"[red]✗ Template error:[/red] {source_file} - {e}")
                         continue
                 else:
                     # Copy file directly
                     if source_path.exists():
                         target_path.write_bytes(source_path.read_bytes())
                         if self.console:
-                            self.console.print(
-                                f"[green]✓ File copied:[/green] {target_path}"
-                            )
+                            self.console.print(f"[green]✓ File copied:[/green] {target_path}")
                     else:
                         if self.console:
-                            self.console.print(
-                                f"[red]✗ Source file not found:[/red] {source_path}"
-                            )
+                            self.console.print(f"[red]✗ Source file not found:[/red] {source_path}")
                         continue
 
                 folder_results.append(target_path)
@@ -355,9 +323,7 @@ class FlatFileIngestionCompiler(BaseNotebookCompiler):
                             file_path=f"file://{file_path.absolute()}",
                             file_format="json",
                         )
-                        raw_lakehouse.write_file(
-                            df=df, file_path=relative_path, file_format="json"
-                        )
+                        raw_lakehouse.write_file(df=df, file_path=relative_path, file_format="json")
                     elif file_path.suffix == ".parquet":
                         # Read Parquet and write using lakehouse_utils
                         # For local files, use file:// prefix to indicate absolute path
@@ -365,29 +331,21 @@ class FlatFileIngestionCompiler(BaseNotebookCompiler):
                             file_path=f"file://{file_path.absolute()}",
                             file_format="parquet",
                         )
-                        raw_lakehouse.write_file(
-                            df=df, file_path=relative_path, file_format="parquet"
-                        )
+                        raw_lakehouse.write_file(df=df, file_path=relative_path, file_format="parquet")
                     else:
                         # For other file types, copy as-is (not supported in this implementation)
                         if self.console:
-                            self.console.print(
-                                f"[yellow]⚠ Skipping unsupported file type:[/yellow] {file_path.name}"
-                            )
+                            self.console.print(f"[yellow]⚠ Skipping unsupported file type:[/yellow] {file_path.name}")
                         continue
 
                     uploaded_files.append(Path(relative_path))
                     if self.console:
-                        self.console.print(
-                            f"[green]✓ File uploaded:[/green] {relative_path}"
-                        )
+                        self.console.print(f"[green]✓ File uploaded:[/green] {relative_path}")
 
         except Exception as e:
             # Fallback to file copy if lakehouse_utils is not available
             if self.console:
-                self.console.print(
-                    f"[yellow]⚠ Lakehouse upload not available, falling back to file copy:[/yellow] {e}"
-                )
+                self.console.print(f"[yellow]⚠ Lakehouse upload not available, falling back to file copy:[/yellow] {e}")
 
             sample_output_dir = self.fabric_workspace_repo_dir / "Files" / "sample_data"
             sample_output_dir.mkdir(parents=True, exist_ok=True)
@@ -399,9 +357,7 @@ class FlatFileIngestionCompiler(BaseNotebookCompiler):
                     target_path.write_bytes(file_path.read_bytes())
                     uploaded_files.append(target_path)
                     if self.console:
-                        self.console.print(
-                            f"[green]✓ File copied:[/green] {target_path}"
-                        )
+                        self.console.print(f"[green]✓ File copied:[/green] {target_path}")
 
         return uploaded_files
 
@@ -416,9 +372,7 @@ class FlatFileIngestionCompiler(BaseNotebookCompiler):
 
         # Handle "both" option by compiling both variants
         if target_datastore == "both":
-            lakehouse_results = self.compile_all(
-                template_vars, include_samples, "lakehouse", include_config_generator
-            )
+            lakehouse_results = self.compile_all(template_vars, include_samples, "lakehouse", include_config_generator)
             warehouse_results = self.compile_all(
                 template_vars,
                 include_samples,
@@ -427,13 +381,9 @@ class FlatFileIngestionCompiler(BaseNotebookCompiler):
             )
 
             # Combine results
-            combined_success = (
-                lakehouse_results["success"] and warehouse_results["success"]
-            )
+            combined_success = lakehouse_results["success"] and warehouse_results["success"]
             combined_errors = lakehouse_results["errors"] + warehouse_results["errors"]
-            combined_ddl_files = (
-                lakehouse_results["ddl_files"] + warehouse_results["ddl_files"]
-            )
+            combined_ddl_files = lakehouse_results["ddl_files"] + warehouse_results["ddl_files"]
 
             success_message = (
                 f"✓ Successfully compiled flat file ingestion package for both lakehouse and warehouse\n"
@@ -449,9 +399,7 @@ class FlatFileIngestionCompiler(BaseNotebookCompiler):
             success_message += f"DDL Scripts: {len(combined_ddl_files)} files"
 
             if lakehouse_results.get("sample_files"):
-                success_message += (
-                    f"\nSample Files: {len(lakehouse_results['sample_files'])} files"
-                )
+                success_message += f"\nSample Files: {len(lakehouse_results['sample_files'])} files"
 
             if combined_success:
                 self.print_success_panel("Compilation Complete", success_message)
@@ -511,9 +459,7 @@ class FlatFileIngestionCompiler(BaseNotebookCompiler):
             notebook_file = results["compiled_items"].get("compile_notebook")
             ddl_files = results["compiled_items"].get("compile_ddl_scripts", [])
             sample_files = results["compiled_items"].get("compile_sample_files", [])
-            config_generator_file = results["compiled_items"].get(
-                "compile_config_generator_notebook"
-            )
+            config_generator_file = results["compiled_items"].get("compile_config_generator_notebook")
 
             success_message = (
                 f"✓ Successfully compiled flat file ingestion package for {target_datastore}\n"

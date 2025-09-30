@@ -11,9 +11,7 @@ from ingen_fab.config_utils.variable_lib_factory import (
 )
 
 # Suppress verbose Azure SDK logging
-logging.getLogger("azure.core.pipeline.policies.http_logging_policy").setLevel(
-    logging.WARNING
-)
+logging.getLogger("azure.core.pipeline.policies.http_logging_policy").setLevel(logging.WARNING)
 logging.getLogger("azure.identity").setLevel(logging.WARNING)
 
 
@@ -67,9 +65,7 @@ class FabricApiUtils:
                     return ws["id"]
         return None
 
-    def get_lakehouse_id_from_name(
-        self, workspace_id: str, lakehouse_name: str
-    ) -> Optional[str]:
+    def get_lakehouse_id_from_name(self, workspace_id: str, lakehouse_name: str) -> Optional[str]:
         headers = {
             "Authorization": f"Bearer {self._get_token()}",
             "Content-Type": "application/json",
@@ -81,16 +77,11 @@ class FabricApiUtils:
         if response.status_code == 200:
             items = response.json()
             for item in items.get("value", []):
-                if (
-                    item["displayName"] == lakehouse_name
-                    and item["type"] == "Lakehouse"
-                ):
+                if item["displayName"] == lakehouse_name and item["type"] == "Lakehouse":
                     return item["id"]
         return None
 
-    def get_lakehouse_name_from_id(
-        self, workspace_id: str, lakehouse_id: str
-    ) -> Optional[str]:
+    def get_lakehouse_name_from_id(self, workspace_id: str, lakehouse_id: str) -> Optional[str]:
         headers = {
             "Authorization": f"Bearer {self._get_token()}",
             "Content-Type": "application/json",
@@ -105,9 +96,7 @@ class FabricApiUtils:
                 return item.get("displayName")
         return None
 
-    def get_warehouse_id_from_name(
-        self, workspace_id: str, warehouse_name: str
-    ) -> Optional[str]:
+    def get_warehouse_id_from_name(self, workspace_id: str, warehouse_name: str) -> Optional[str]:
         headers = {
             "Authorization": f"Bearer {self._get_token()}",
             "Content-Type": "application/json",
@@ -123,9 +112,7 @@ class FabricApiUtils:
                     return item.get("id")
         return None
 
-    def get_warehouse_name_from_id(
-        self, workspace_id: str, warehouse_id: str
-    ) -> Optional[str]:
+    def get_warehouse_name_from_id(self, workspace_id: str, warehouse_id: str) -> Optional[str]:
         headers = {
             "Authorization": f"Bearer {self._get_token()}",
             "Content-Type": "application/json",
@@ -187,9 +174,7 @@ class FabricApiUtils:
             response = requests.get(url, headers=headers)
 
             if response.status_code != 200:
-                raise Exception(
-                    f"Failed to list workspace items: {response.status_code} - {response.text}"
-                )
+                raise Exception(f"Failed to list workspace items: {response.status_code} - {response.text}")
 
             data = response.json()
             items = data.get("value", [])
@@ -257,9 +242,7 @@ class FabricApiUtils:
                 url += f"?continuationToken={continuation_token}"
             response = requests.get(url, headers=headers)
             if response.status_code != 200:
-                raise Exception(
-                    f"Failed to list workspace items: {response.status_code} - {response.text}"
-                )
+                raise Exception(f"Failed to list workspace items: {response.status_code} - {response.text}")
             data = response.json()
             items.extend(data.get("value", []))
             continuation_token = data.get("continuationToken")
@@ -267,9 +250,7 @@ class FabricApiUtils:
                 break
         return items
 
-    def get_sql_endpoint_id_for_lakehouse(
-        self, workspace_id: str, lakehouse_id: str
-    ) -> Optional[str]:
+    def get_sql_endpoint_id_for_lakehouse(self, workspace_id: str, lakehouse_id: str) -> Optional[str]:
         """Resolve SQL endpoint ID for a given Lakehouse.
 
         Uses the dedicated SQL Endpoints listing endpoint and matches by relationship
@@ -284,11 +265,7 @@ class FabricApiUtils:
         for ep in endpoints:
             # print(ep)
             # Common potential keys seen across previews
-            related_id = (
-                ep.get("lakehouseId")
-                or ep.get("lakehouseItemId")
-                or ep.get("lakehouseArtifactId")
-            )
+            related_id = ep.get("lakehouseId") or ep.get("lakehouseItemId") or ep.get("lakehouseArtifactId")
             if related_id and related_id == lakehouse_id:
                 return ep.get("id")
 
@@ -301,9 +278,7 @@ class FabricApiUtils:
 
         return None
 
-    def get_sql_endpoint_id_for_warehouse(
-        self, workspace_id: str, warehouse_id: str
-    ) -> Optional[str]:
+    def get_sql_endpoint_id_for_warehouse(self, workspace_id: str, warehouse_id: str) -> Optional[str]:
         """Resolve SQL endpoint ID for a given Warehouse.
 
         Attempts to match by explicit relationship fields or by display name equality.
@@ -311,11 +286,7 @@ class FabricApiUtils:
         endpoints = self.list_sql_endpoints(workspace_id)
 
         for ep in endpoints:
-            related_id = (
-                ep.get("warehouseId")
-                or ep.get("warehouseItemId")
-                or ep.get("warehouseArtifactId")
-            )
+            related_id = ep.get("warehouseId") or ep.get("warehouseItemId") or ep.get("warehouseArtifactId")
             if related_id and related_id == warehouse_id:
                 return ep.get("id")
 
@@ -354,9 +325,7 @@ class FabricApiUtils:
 
         response = requests.post(url, headers=headers, json=body)
         if response.status_code != 200:
-            raise Exception(
-                f"SQL endpoint query failed: {response.status_code} - {response.text}"
-            )
+            raise Exception(f"SQL endpoint query failed: {response.status_code} - {response.text}")
         return response.json()
 
     def list_sql_endpoints(self, workspace_id: Optional[str] = None) -> list[dict]:
@@ -372,16 +341,10 @@ class FabricApiUtils:
         url = f"https://api.fabric.microsoft.com/v1/workspaces/{wsid}/sqlEndpoints"
         response = requests.get(url, headers=headers)
         if response.status_code != 200:
-            raise Exception(
-                f"Failed to list SQL endpoints: {response.status_code} - {response.text}"
-            )
+            raise Exception(f"Failed to list SQL endpoints: {response.status_code} - {response.text}")
         data = response.json()
         # Some APIs return {"value": [...]}; normalize to list
-        if (
-            isinstance(data, dict)
-            and "value" in data
-            and isinstance(data["value"], list)
-        ):
+        if isinstance(data, dict) and "value" in data and isinstance(data["value"], list):
             return data["value"]
         # Or return as-is if already a list
         if isinstance(data, list):
@@ -389,9 +352,7 @@ class FabricApiUtils:
         return []
 
     # --- Connectivity helpers ---
-    def _parse_server_prefix_from_sql_endpoint(
-        self, value: Optional[str]
-    ) -> Optional[str]:
+    def _parse_server_prefix_from_sql_endpoint(self, value: Optional[str]) -> Optional[str]:
         """Extract server prefix (before .datawarehouse.fabric.microsoft.com) from a connection string or URL.
 
         Examples of inputs observed in Fabric responses:
@@ -426,9 +387,7 @@ class FabricApiUtils:
             return None
         return None
 
-    def get_lakehouse_details(
-        self, workspace_id: str, lakehouse_id: str
-    ) -> Optional[dict]:
+    def get_lakehouse_details(self, workspace_id: str, lakehouse_id: str) -> Optional[dict]:
         """Fetch Lakehouse details via the Lakehouse-specific endpoint.
 
         GET /v1/workspaces/{workspaceId}/lakehouses/{lakehouseId}
@@ -443,18 +402,14 @@ class FabricApiUtils:
             return response.json()
         return None
 
-    def get_sql_server_for_lakehouse(
-        self, workspace_id: str, lakehouse_id: str
-    ) -> Optional[str]:
+    def get_sql_server_for_lakehouse(self, workspace_id: str, lakehouse_id: str) -> Optional[str]:
         """Return the SQL endpoint connection string for a lakehouse using the Lakehouse API."""
         details = self.get_lakehouse_details(workspace_id, lakehouse_id)
         if not details:
             return None
 
         # Prefer connectionString from sqlEndpointProperties when available
-        sql_endpoint_properties = details.get("properties", {}).get(
-            "sqlEndpointProperties", {}
-        )
+        sql_endpoint_properties = details.get("properties", {}).get("sqlEndpointProperties", {})
         connection_string = sql_endpoint_properties.get("connectionString")
         if connection_string:
             return connection_string
@@ -496,9 +451,7 @@ class FabricApiUtils:
         sql_endpoint = (
             warehouse_details.get("connectivityEndpoints", {}).get("sql")
             or warehouse_details.get("properties", {}).get("sqlEndpoint")
-            or warehouse_details.get(
-                "webUrl"
-            )  # fallback; webUrl may contain it, parse if needed
+            or warehouse_details.get("webUrl")  # fallback; webUrl may contain it, parse if needed
         )
 
         print(f"SQL Endpoint: {sql_endpoint}")
@@ -517,9 +470,7 @@ class FabricApiUtils:
             return response.json()
         return None
 
-    def create_workspace(
-        self, workspace_name: str, description: Optional[str] = None
-    ) -> str:
+    def create_workspace(self, workspace_name: str, description: Optional[str] = None) -> str:
         """
         Create a new Fabric workspace and return its ID.
 
@@ -541,8 +492,7 @@ class FabricApiUtils:
         # Prepare the workspace creation payload
         create_payload = {
             "displayName": workspace_name,
-            "description": description
-            or "Workspace created by Ingenious Fabric Accelerator",
+            "description": description or "Workspace created by Ingenious Fabric Accelerator",
         }
 
         create_url = "https://api.fabric.microsoft.com/v1/workspaces"
@@ -590,9 +540,7 @@ class FabricApiUtils:
         if response.status_code == 200:
             return response.json().get("value", [])
         else:
-            raise Exception(
-                f"Failed to list lakehouses: {response.status_code} - {response.text}"
-            )
+            raise Exception(f"Failed to list lakehouses: {response.status_code} - {response.text}")
 
     def list_warehouses(self, workspace_id: str) -> list[dict]:
         """
@@ -615,9 +563,7 @@ class FabricApiUtils:
         if response.status_code == 200:
             return response.json().get("value", [])
         else:
-            raise Exception(
-                f"Failed to list warehouses: {response.status_code} - {response.text}"
-            )
+            raise Exception(f"Failed to list warehouses: {response.status_code} - {response.text}")
 
     def list_lakehouses_api(self, workspace_id: str) -> list[dict]:
         """List all lakehouses via the Lakehouse-specific API.
@@ -640,17 +586,13 @@ class FabricApiUtils:
                 url += f"?continuationToken={continuation_token}"
             response = requests.get(url, headers=headers)
             if response.status_code != 200:
-                raise Exception(
-                    f"Failed to list lakehouses: {response.status_code} - {response.text}"
-                )
+                raise Exception(f"Failed to list lakehouses: {response.status_code} - {response.text}")
             data = response.json() or {}
             vals = data.get("value", []) if isinstance(data, dict) else []
             if not isinstance(vals, list):
                 vals = []
             lakehouses.extend(vals)
-            continuation_token = (
-                data.get("continuationToken") if isinstance(data, dict) else None
-            )
+            continuation_token = data.get("continuationToken") if isinstance(data, dict) else None
             if not continuation_token:
                 break
 
