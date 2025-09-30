@@ -109,9 +109,7 @@ class SynapseOrchestrator:
                     master_execution_id=master_execution_id,
                     status=final_status,
                     duration_sec=duration_sec,
-                    output_path=extract_item.get("output_path")
-                    if final_status in {"Completed", "Deduped"}
-                    else None,
+                    output_path=extract_item.get("output_path") if final_status in {"Completed", "Deduped"} else None,
                     extract_file_name=extract_item.get("extract_file_name")
                     if final_status in {"Completed", "Deduped"}
                     else None,
@@ -123,9 +121,7 @@ class SynapseOrchestrator:
                 success = final_status in {"Completed", "Deduped"}
 
                 if success:
-                    logger.info(
-                        f"✅ {table_info} completed successfully - Duration: {duration_sec:.2f}s"
-                    )
+                    logger.info(f"✅ {table_info} completed successfully - Duration: {duration_sec:.2f}s")
                 else:
                     logger.warning(
                         f"⚠️ {table_info} finished with status: {final_status} - Duration: {duration_sec:.2f}s"
@@ -146,9 +142,7 @@ class SynapseOrchestrator:
                     error=error_message,
                 )
 
-                logger.error(
-                    f"❌ {table_info} failed - Duration: {duration_sec:.2f}s - Error: {error_message}"
-                )
+                logger.error(f"❌ {table_info} failed - Duration: {duration_sec:.2f}s - Error: {error_message}")
                 return (False, table_info, "Failed", error_message)
 
     async def _update_status(
@@ -219,9 +213,7 @@ class SynapseOrchestrator:
         # Process each execution group sequentially
         for group in execution_groups:
             group_payloads = grouped_payloads[group]
-            logger.info(
-                f"Processing execution group {group} ({len(group_payloads)} extractions)"
-            )
+            logger.info(f"Processing execution group {group} ({len(group_payloads)} extractions)")
 
             # Process all extractions in this group concurrently
             group_tasks = [
@@ -239,18 +231,12 @@ class SynapseOrchestrator:
             # Log group summary
             group_success = sum(1 for result in group_results if result[0])
             group_failed = len(group_results) - group_success
-            logger.info(
-                f"Group {group} completed: {group_success} successful, {group_failed} failed"
-            )
+            logger.info(f"Group {group} completed: {group_success} successful, {group_failed} failed")
 
         # Generate final summary
-        return self._generate_summary(
-            all_results, master_execution_id, execution_groups
-        )
+        return self._generate_summary(all_results, master_execution_id, execution_groups)
 
-    def _group_by_execution_group(
-        self, extraction_payloads: List[Dict[str, Any]]
-    ) -> Dict[int, List[Dict[str, Any]]]:
+    def _group_by_execution_group(self, extraction_payloads: List[Dict[str, Any]]) -> Dict[int, List[Dict[str, Any]]]:
         """Group extraction payloads by execution_group."""
         grouped = {}
         for payload in extraction_payloads:
@@ -268,9 +254,7 @@ class SynapseOrchestrator:
         trigger_type: str,
     ) -> Dict[str, str]:
         """Pre-log all extractions as 'Queued' and return execution ID mapping."""
-        logger.info(
-            f"Pre-logging {len(extraction_payloads)} extractions as 'Queued'..."
-        )
+        logger.info(f"Pre-logging {len(extraction_payloads)} extractions as 'Queued'...")
 
         # Use the SynapseExtractUtils bulk insert method
         return self.synapse_utils.bulk_insert_queued_extracts(
@@ -293,9 +277,7 @@ class SynapseOrchestrator:
         skipped_extractions = sum(1 for result in all_results if result[2] == "Skipped")
 
         failed_details = [
-            {"table": result[1], "status": result[2], "error": result[3]}
-            for result in all_results
-            if not result[0]
+            {"table": result[1], "status": result[2], "error": result[3]} for result in all_results if not result[0]
         ]
 
         return {

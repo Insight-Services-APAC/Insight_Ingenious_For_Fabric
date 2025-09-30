@@ -24,9 +24,7 @@ def get_flat_file_ingestion_log_schema() -> StructType:
             StructField("execution_id", StringType(), nullable=False),
             StructField("job_start_time", TimestampType(), nullable=False),
             StructField("job_end_time", TimestampType(), nullable=True),
-            StructField(
-                "status", StringType(), nullable=False
-            ),  # running, completed, failed, cancelled
+            StructField("status", StringType(), nullable=False),  # running, completed, failed, cancelled
             StructField("source_file_path", StringType(), nullable=False),
             StructField("source_file_size_bytes", LongType(), nullable=True),
             StructField("source_file_modified_time", TimestampType(), nullable=True),
@@ -61,12 +59,8 @@ def get_flat_file_ingestion_log_schema() -> StructType:
             StructField(
                 "source_file_partition_cols", StringType(), nullable=True
             ),  # JSON array of partition column names
-            StructField(
-                "source_file_partition_values", StringType(), nullable=True
-            ),  # JSON array of partition values
-            StructField(
-                "date_partition", StringType(), nullable=True
-            ),  # Extracted date partition (YYYY-MM-DD format)
+            StructField("source_file_partition_values", StringType(), nullable=True),  # JSON array of partition values
+            StructField("date_partition", StringType(), nullable=True),  # Extracted date partition (YYYY-MM-DD format)
             StructField("created_date", TimestampType(), nullable=False),
             StructField("created_by", StringType(), nullable=False),
         ]

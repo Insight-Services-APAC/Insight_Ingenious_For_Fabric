@@ -9,9 +9,7 @@ from ingen_fab.fabric_api.utils import FabricApiUtils
 def delete_workspace_items(environment: str, project_path: Path, force: bool):
     console = Console()
     try:
-        fabric_utils = FabricApiUtils(
-            environment=environment, project_path=project_path
-        )
+        fabric_utils = FabricApiUtils(environment=environment, project_path=project_path)
         if not force:
             console.print(
                 f"\n[yellow]Warning: This will delete all items in workspace {fabric_utils.workspace_id} except lakehouses and warehouses.[/yellow]"
@@ -29,9 +27,7 @@ def delete_workspace_items(environment: str, project_path: Path, force: bool):
         errors = result["errors"]
         total_deleted = result["total_deleted"]
         if total_deleted > 0:
-            console.print(
-                f"\n[green]Successfully deleted {total_deleted} items:[/green]"
-            )
+            console.print(f"\n[green]Successfully deleted {total_deleted} items:[/green]")
             table = Table(title="Deleted Items by Type")
             table.add_column("Item Type", style="cyan")
             table.add_column("Count", style="green")

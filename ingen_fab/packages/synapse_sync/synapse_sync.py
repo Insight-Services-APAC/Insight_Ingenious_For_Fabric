@@ -31,15 +31,9 @@ class SynapseSyncCompiler(BaseNotebookCompiler):
         )
 
         if self.console:
-            self.console.print(
-                f"[bold blue]Package Directory:[/bold blue] {self.package_dir}"
-            )
-            self.console.print(
-                f"[bold blue]Templates Directory:[/bold blue] {self.templates_dir}"
-            )
-            self.console.print(
-                f"[bold blue]DDL Scripts Directory:[/bold blue] {self.ddl_scripts_dir}"
-            )
+            self.console.print(f"[bold blue]Package Directory:[/bold blue] {self.package_dir}")
+            self.console.print(f"[bold blue]Templates Directory:[/bold blue] {self.templates_dir}")
+            self.console.print(f"[bold blue]DDL Scripts Directory:[/bold blue] {self.ddl_scripts_dir}")
 
     def compile_notebook(self, template_vars: Dict[str, Any] = None) -> Path:
         """Compile the synapse sync notebook template"""
@@ -98,9 +92,7 @@ class SynapseSyncCompiler(BaseNotebookCompiler):
             ]
 
         # Process DDL scripts with template rendering
-        results = self._compile_ddl_scripts_with_templates(
-            self.ddl_scripts_dir, ddl_output_base, script_mappings
-        )
+        results = self._compile_ddl_scripts_with_templates(self.ddl_scripts_dir, ddl_output_base, script_mappings)
 
         # Flatten results into a single list for backward compatibility
         compiled_files = []
@@ -142,9 +134,7 @@ class SynapseSyncCompiler(BaseNotebookCompiler):
                             # Create a template environment that includes our DDL scripts directory and unified templates
                             template_paths = [ddl_source_dir]
                             # Add the unified templates directory
-                            unified_templates_dir = (
-                                Path.cwd() / "ingen_fab" / "templates"
-                            )
+                            unified_templates_dir = Path.cwd() / "ingen_fab" / "templates"
                             template_paths.append(unified_templates_dir)
 
                             env = jinja2.Environment(
@@ -157,34 +147,24 @@ class SynapseSyncCompiler(BaseNotebookCompiler):
 
                             target_path.write_text(rendered_content)
                             if self.console:
-                                self.console.print(
-                                    f"[green]✓ Template rendered:[/green] {target_path}"
-                                )
+                                self.console.print(f"[green]✓ Template rendered:[/green] {target_path}")
                         else:
                             if self.console:
-                                self.console.print(
-                                    f"[red]✗ Template file not found:[/red] {source_path}"
-                                )
+                                self.console.print(f"[red]✗ Template file not found:[/red] {source_path}")
                             continue
                     except Exception as e:
                         if self.console:
-                            self.console.print(
-                                f"[red]✗ Template error:[/red] {source_file} - {e}"
-                            )
+                            self.console.print(f"[red]✗ Template error:[/red] {source_file} - {e}")
                         continue
                 else:
                     # Copy file directly
                     if source_path.exists():
                         target_path.write_bytes(source_path.read_bytes())
                         if self.console:
-                            self.console.print(
-                                f"[green]✓ File copied:[/green] {target_path}"
-                            )
+                            self.console.print(f"[green]✓ File copied:[/green] {target_path}")
                     else:
                         if self.console:
-                            self.console.print(
-                                f"[red]✗ Source file not found:[/red] {source_path}"
-                            )
+                            self.console.print(f"[red]✗ Source file not found:[/red] {source_path}")
                         continue
 
                 folder_results.append(target_path)
@@ -193,9 +173,7 @@ class SynapseSyncCompiler(BaseNotebookCompiler):
 
         return results
 
-    def compile_all(
-        self, template_vars: Dict[str, Any] = None, include_samples: bool = False
-    ) -> Dict[str, Any]:
+    def compile_all(self, template_vars: Dict[str, Any] = None, include_samples: bool = False) -> Dict[str, Any]:
         """Compile all templates and DDL scripts"""
 
         compile_functions = [
@@ -203,9 +181,7 @@ class SynapseSyncCompiler(BaseNotebookCompiler):
             (self.compile_ddl_scripts, [], {"include_sample_data": include_samples}),
         ]
 
-        results = self.compile_all_with_results(
-            compile_functions, "Synapse Sync Package Compiler"
-        )
+        results = self.compile_all_with_results(compile_functions, "Synapse Sync Package Compiler")
 
         # Transform results for backward compatibility
         if results["success"]:

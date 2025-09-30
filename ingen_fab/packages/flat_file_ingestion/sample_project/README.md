@@ -39,7 +39,7 @@ Before running the flat file ingestion:
 3. Execute the flat file ingestion processor with execution_group=1 or 2
 4. Verify the data has been loaded into the raw schema tables:
    - raw.synthetic_customers
-   - raw.synthetic_products  
+   - raw.synthetic_products
    - raw.synthetic_orders
    - raw.synthetic_order_items
 

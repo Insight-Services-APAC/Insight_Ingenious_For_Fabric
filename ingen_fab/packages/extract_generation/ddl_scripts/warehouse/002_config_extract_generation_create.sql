@@ -17,17 +17,17 @@ CREATE TABLE [config].[config_extract_generation] (
     validation_table_sp_name VARCHAR(100),
     validation_table_sp_schema VARCHAR(100),
     is_full_load BIT NOT NULL,
-    
+
     -- Additional Fabric-specific columns
     workspace_id VARCHAR(100),
     lakehouse_id VARCHAR(100),
     warehouse_id VARCHAR(100),
     execution_group VARCHAR(50),
-    
+
     -- Metadata columns
     created_by VARCHAR(100),
     created_timestamp DATETIME2(6),
     modified_by VARCHAR(100),
     modified_timestamp DATETIME2(6),
-    
+
 );

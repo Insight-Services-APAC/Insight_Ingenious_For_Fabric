@@ -4,7 +4,7 @@
 
 This guide will help you install and set up the Ingenious Fabric Accelerator using pip.
 
-!!! tip "Learning Path"  
+!!! tip "Learning Path"
     **New User Journey**: Installation (you are here) → [Quick Start](quick-start.md) → [First Project](first-project.md) → [CLI Reference](../guides/cli-reference.md)
 
 ## Requirements
@@ -19,6 +19,16 @@ Before installing, ensure your system meets these requirements:
 ## Quick Installation
 
 --8<-- "_includes/pip_install.md"
+
+### Installing with Optional Dependencies
+
+```bash
+# Install with dbt support
+pip install "insight-ingenious-for-fabric[dbt]"
+
+# Install with all optional dependencies
+pip install "insight-ingenious-for-fabric[dbt,dataprep]"
+```
 
 ## Recommended Setup
 
@@ -53,11 +63,34 @@ Before installing, ensure your system meets these requirements:
 ### 3. Verify Installation
 
 ```bash
-# Check the CLI is available
+# Check the installation
+pip show insight-ingenious-for-fabric
+
+# Display CLI help
 ingen_fab --help
 
-# Create your first project
-ingen_fab init new --project-name "My Project"
+# Check version
+ingen_fab --version
+```
+
+Expected output:
+```
+Usage: ingen_fab [OPTIONS] COMMAND [ARGS]...
+
+Options:
+  --fabric-workspace-repo-dir  -fwd  Directory containing fabric workspace repository files
+  --fabric-environment         -fe   The name of your fabric environment
+  --help                            Show this message and exit.
+
+Commands:
+  deploy    Commands for deploying to environments and managing workspace items
+  init      Commands for initializing solutions and projects
+  ddl       Commands for compiling DDL notebooks
+  test      Commands for testing notebooks and Python blocks
+  notebook  Commands for managing and scanning notebook content
+  package   Commands for running extension packages
+  libs      Commands for compiling and managing Python libraries
+  dbt       Commands for dbt integration
 ```
 
 ## Platform-Specific Instructions
@@ -95,6 +128,34 @@ ingen_fab init new --project-name "My Project"
     $env:FABRIC_ENVIRONMENT = "development"
     ```
 
+## Shell Configuration (Optional)
+
+Add convenience aliases to your shell profile for faster access:
+
+=== "macOS/Linux"
+
+    ```bash
+    # Add to ~/.bashrc or ~/.zshrc
+    # Ensure pip packages are in PATH
+    export PATH="$PATH:$HOME/.local/bin"
+
+    # Create convenient aliases
+    alias ifab="ingen_fab"
+    alias ifab-help="ingen_fab --help"
+    ```
+
+=== "Windows"
+
+    ```powershell
+    # Add to PowerShell profile ($PROFILE)
+    # Ensure pip packages are in PATH
+    $env:PATH += ";$env:LOCALAPPDATA\Programs\Python\Python312\Scripts"
+
+    # Create convenient aliases
+    Set-Alias ifab ingen_fab
+    Set-Alias ifab-help "ingen_fab --help"
+    ```
+
 ## Authentication Setup
 
 ### Azure CLI (Recommended)
@@ -112,12 +173,23 @@ az account show
 
 ### Service Principal (CI/CD)
 
-```bash
-# Set service principal credentials
-export AZURE_TENANT_ID="your-tenant-id"
-export AZURE_CLIENT_ID="your-client-id"
-export AZURE_CLIENT_SECRET="your-client-secret"
-```
+=== "macOS/Linux"
+
+    ```bash
+    # Set service principal credentials
+    export AZURE_TENANT_ID="your-tenant-id"
+    export AZURE_CLIENT_ID="your-client-id"
+    export AZURE_CLIENT_SECRET="your-client-secret"
+    ```
+
+=== "Windows"
+
+    ```powershell
+    # Set service principal credentials
+    $env:AZURE_TENANT_ID = "your-tenant-id"
+    $env:AZURE_CLIENT_ID = "your-client-id"
+    $env:AZURE_CLIENT_SECRET = "your-client-secret"
+    ```
 
 ## Troubleshooting
 
@@ -211,10 +283,58 @@ If `ingen_fab` is not recognized:
     # Install Python 3.12+ if needed
     # Download installer from:
     # https://www.python.org/downloads/windows/
-    
+
     # Or use winget:
     winget install Python.Python.3.12
     ```
+
+### Platform-Specific Notes
+
+=== "macOS"
+
+    - May need to use `pip3` instead of `pip`
+    - Install Command Line Tools if needed: `xcode-select --install`
+    - Consider using Homebrew for Python: `brew install python@3.12`
+    - Ensure `~/.local/bin` is in your PATH
+
+=== "Linux"
+
+    - May need to use `pip3` instead of `pip`
+    - Install pip if not available: `sudo apt install python3-pip`
+    - May need to add `~/.local/bin` to PATH
+    - On some distributions, use python3.12 explicitly
+
+=== "Windows"
+
+    - Use PowerShell or Command Prompt as Administrator for global installation
+    - Virtual environment activation: `fabric-env\Scripts\activate`
+    - Add Python Scripts to PATH: Settings → System → Advanced → Environment Variables
+    - Consider using Windows Terminal for better CLI experience
+
+## Updating
+
+To update to the latest version:
+
+```bash
+# Update the package
+pip install --upgrade insight-ingenious-for-fabric
+
+# Or update from GitHub
+pip install --upgrade git+https://github.com/Insight-Services-APAC/Insight_Ingenious_For_Fabric.git
+```
+
+## Uninstalling
+
+To remove the package:
+
+```bash
+# Uninstall the package
+pip uninstall insight-ingenious-for-fabric
+
+# If using a virtual environment, you can just delete it
+deactivate
+rm -rf fabric-env  # On Windows: rmdir /s fabric-env
+```
 
 ## Next Steps
 
@@ -224,6 +344,15 @@ Once installed, proceed to:
 2. **[First Project](first-project.md)** - Detailed walkthrough
 3. **[CLI Reference](../guides/cli-reference.md)** - Learn all commands
 
+!!! tip "Learning Path"
+    **Continue Learning**: Next, follow the [Quick Start](quick-start.md) guide to create your first project and explore the core features.
+
 ## Developer Installation
 
 Need to modify the source code? See the [Developer Guide](../developer_guide/index.md#development-setup) for repository setup instructions.
+
+## Support
+
+- **Documentation**: This guide and related documentation
+- **Issues**: [GitHub Issues](https://github.com/Insight-Services-APAC/Insight_Ingenious_For_Fabric/issues)
+- **CLI Help**: Run `ingen_fab --help` or `ingen_fab COMMAND --help`

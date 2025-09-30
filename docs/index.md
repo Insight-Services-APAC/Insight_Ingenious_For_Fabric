@@ -12,7 +12,7 @@ Ingenious for Fabric is a comprehensive command line tool built with [Typer](htt
 
     Scaffold a workspace repo with a default variable library, sample DDL, and ready-to-run, workload-oriented notebooks.
 
-    [:octicons-arrow-right-24: Learn more](user_guide/quick_start.md)
+    [:octicons-arrow-right-24: Learn more](getting-started/quick-start.md)
 
 -   :material-table:{ .lg .middle } **DDL Notebook Generation**
 
@@ -36,7 +36,7 @@ Ingenious for Fabric is a comprehensive command line tool built with [Typer](htt
 
     Auto-generate orchestrators that run DDL notebooks in sequence with logging and safety checks.
 
-    [:octicons-arrow-right-24: Learn more](user_guide/quick_start.md#step-4-generate-ddl-notebooks)
+    [:octicons-arrow-right-24: Learn more](getting-started/quick-start.md#step-4-generate-ddl-notebooks)
 
 -   :material-magnify-scan:{ .lg .middle } **Notebook Utilities**
 
@@ -52,7 +52,7 @@ Ingenious for Fabric is a comprehensive command line tool built with [Typer](htt
 
     Run local library tests and platform validations to keep notebooks and libs reliable.
 
-    [:octicons-arrow-right-24: Learn more](user_guide/cli_reference.md#test)
+    [:octicons-arrow-right-24: Learn more](guides/cli-reference.md#test)
 
 -   :material-language-python:{ .lg .middle } **Python Libraries**
 
@@ -75,7 +75,7 @@ Ingenious for Fabric is a comprehensive command line tool built with [Typer](htt
 ## Getting Started
 
 !!! tip "New to Ingenious Fabric Accelerator?"
-    Start with our [Installation Guide](user_guide/installation.md) to get up and running quickly.
+    Start with our [Installation Guide](getting-started/installation.md) to get up and running quickly.
 
 !!! example "Ready to dive in?"
     Check out our [Sample Project](examples/sample_project.md) for a complete walkthrough.
@@ -167,13 +167,13 @@ project_templates/        # Templates for new project initialization
 
 ## Command Groups
 
-- **[`init`](user_guide/cli_reference.md#init)** - Initialize solutions and projects
-- **[`ddl`](user_guide/cli_reference.md#ddl)** - Compile DDL notebooks from templates
-- **[`deploy`](user_guide/cli_reference.md#deploy)** - Deploy to environments and manage workspace items
-- **[`notebook`](user_guide/cli_reference.md#notebook)** - Manage and scan notebook content
-- **[`test`](user_guide/cli_reference.md#test)** - Test notebooks and Python blocks (local and platform)
-- **[`package`](user_guide/cli_reference.md#package)** - Compile and run extension packages
-- **[`libs`](user_guide/cli_reference.md#libs)** - Compile and manage Python libraries
+- **[`init`](guides/cli-reference.md#init)** - Initialize solutions and projects
+- **[`ddl`](guides/cli-reference.md#ddl)** - Compile DDL notebooks from templates
+- **[`deploy`](guides/cli-reference.md#deploy)** - Deploy to environments and manage workspace items
+- **[`notebook`](guides/cli-reference.md#notebook)** - Manage and scan notebook content
+- **[`test`](guides/cli-reference.md#test)** - Test notebooks and Python blocks (local and platform)
+- **[`package`](guides/cli-reference.md#package)** - Compile and run extension packages
+- **[`libs`](guides/cli-reference.md#libs)** - Compile and manage Python libraries
 
 ## Core Concepts
 
@@ -202,7 +202,7 @@ Comprehensive testing framework supporting both local development and Fabric pla
 
     Install and configure Ingenious Fabric Accelerator
 
-    [:octicons-arrow-right-24: Installation Guide](user_guide/installation.md)
+    [:octicons-arrow-right-24: Installation Guide](getting-started/installation.md)
 
 -   :material-book-open-page-variant:{ .lg .middle } **User Guide**
 

@@ -27,8 +27,8 @@ class ProgressTracker:
 
     def __init__(self, console: Optional[Console] = None):
         self.console = console if console and RICH_AVAILABLE else None
-        self._progress = None
-        self._task_id = None
+        self._progress: Optional[Progress] = None
+        self._task_id: Optional[TaskID] = None
 
     def create_progress_bar(
         self, total: int, description: str = "Processing...", spinner_name: str = "dots"
@@ -91,36 +91,35 @@ class ProgressTracker:
         total = len(items)
 
         if self.console and total > 1:
-            with self.create_progress_bar(total, description) as progress:
-                if progress:
-                    task_id = self.add_task(description, total)
+            progress_bar = self.create_progress_bar(total, description)
+            if progress_bar:
+                with progress_bar as progress:
+                    if progress:
+                        task_id = self.add_task(description, total)
 
-                    for idx, item in enumerate(items):
-                        # Update description with current item info
-                        if hasattr(item, "name"):
-                            item_name = item.name
-                        elif isinstance(item, Path):
-                            if project_path:
-                                try:
-                                    item_name = str(item.relative_to(project_path))
-                                except ValueError:
+                        for idx, item in enumerate(items):
+                            # Update description with current item info
+                            if hasattr(item, "name"):
+                                item_name = item.name
+                            elif isinstance(item, Path):
+                                if project_path:
+                                    try:
+                                        item_name = str(item.relative_to(project_path))
+                                    except ValueError:
+                                        item_name = item.name
+                                else:
                                     item_name = item.name
                             else:
-                                item_name = item.name
-                        else:
-                            item_name = str(item)
+                                item_name = str(item)
 
-                        self.update_task(
-                            task_id, description=f"[cyan]Processing:[/cyan] {item_name}"
-                        )
+                            self.update_task(task_id, description=f"[cyan]Processing:[/cyan] {item_name}")
 
-                        yield item
-
-                        self.advance_task(task_id)
-                else:
-                    # Fallback when progress creation fails
-                    for item in items:
-                        yield item
+                            yield item
+                            self.advance_task(task_id)
+                    else:
+                        # Fallback when progress creation fails
+                        for item in items:
+                            yield item
         else:
             # Fallback for single item or when rich not available
             for item in items:

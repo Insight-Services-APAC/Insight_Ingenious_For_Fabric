@@ -64,9 +64,7 @@ class TableBuilder:
     ) -> None:
         """Create and display a statistics table."""
         if self.console:
-            stats_table = Table(
-                title=f"[bold]{title}[/bold]", border_style=border_style
-            )
+            stats_table = Table(title=f"[bold]{title}[/bold]", border_style=border_style)
             stats_table.add_column("Metric", style="cyan", no_wrap=True)
             stats_table.add_column("Count", style="green", justify="right")
             stats_table.add_column("Percentage", style="yellow", justify="right")
@@ -75,29 +73,21 @@ class TableBuilder:
             stats_table.add_row(
                 "Files updated",
                 str(updated_files_count),
-                f"{(updated_files_count / total_files * 100):.1f}%"
-                if total_files > 0
-                else "0.0%",
+                f"{(updated_files_count / total_files * 100):.1f}%" if total_files > 0 else "0.0%",
             )
             stats_table.add_row(
                 "Files skipped (no changes)",
                 str(stats["files_skipped"]),
-                f"{(stats['files_skipped'] / total_files * 100):.1f}%"
-                if total_files > 0
-                else "0.0%",
+                f"{(stats['files_skipped'] / total_files * 100):.1f}%" if total_files > 0 else "0.0%",
             )
-            stats_table.add_row(
-                "Placeholder replacements", str(stats["placeholders_replaced"]), "-"
-            )
+            stats_table.add_row("Placeholder replacements", str(stats["placeholders_replaced"]), "-")
             stats_table.add_row("Code injections", str(stats["code_injected"]), "-")
 
             if stats["errors"] > 0:
                 stats_table.add_row(
                     "Errors",
                     str(stats["errors"]),
-                    f"{(stats['errors'] / total_files * 100):.1f}%"
-                    if total_files > 0
-                    else "0.0%",
+                    f"{(stats['errors'] / total_files * 100):.1f}%" if total_files > 0 else "0.0%",
                 )
 
             self.console.print(stats_table)
@@ -174,14 +164,10 @@ class PanelBuilder:
         if self.console:
             file_list = []
             for orig_file, output_file in file_results[:max_files_shown]:
-                file_list.append(
-                    f"[cyan]{orig_file}[/cyan] → [green]{output_file}[/green]"
-                )
+                file_list.append(f"[cyan]{orig_file}[/cyan] → [green]{output_file}[/green]")
 
             if len(file_results) > max_files_shown:
-                file_list.append(
-                    f"[dim]... and {len(file_results) - max_files_shown} more files[/dim]"
-                )
+                file_list.append(f"[dim]... and {len(file_results) - max_files_shown} more files[/dim]")
 
             panel_content = "\n".join(file_list)
             panel = Panel(
@@ -221,9 +207,7 @@ class PanelBuilder:
                 file_list.append(f"[green]✓[/green] [cyan]{file_name}[/cyan]")
 
             if len(files) > max_files_shown:
-                file_list.append(
-                    f"[dim]... and {len(files) - max_files_shown} more files[/dim]"
-                )
+                file_list.append(f"[dim]... and {len(files) - max_files_shown} more files[/dim]")
 
             panel_content = "\n".join(file_list)
             panel = Panel(

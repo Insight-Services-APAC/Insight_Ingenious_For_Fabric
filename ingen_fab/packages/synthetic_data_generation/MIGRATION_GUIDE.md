@@ -141,7 +141,7 @@ result = generator.generate(
 
 # Generate incremental
 result = generator.generate(
-    config="retail_oltp_small_incremental", 
+    config="retail_oltp_small_incremental",
     mode=GenerationMode.INCREMENTAL,
     parameters={"generation_date": "2024-01-01"}
 )

@@ -34,9 +34,7 @@ class PySparkFlatFileDiscovery(FlatFileDiscoveryInterface):
         self.location_resolver = location_resolver
         self.spark = spark
 
-    def discover_files(
-        self, config: FlatFileIngestionConfig
-    ) -> List[FileDiscoveryResult]:
+    def discover_files(self, config: FlatFileIngestionConfig) -> List[FileDiscoveryResult]:
         """Discover files based on configuration using dynamic source resolution"""
 
         # Resolve full source path
@@ -56,9 +54,7 @@ class PySparkFlatFileDiscovery(FlatFileDiscoveryInterface):
 
             # Check if hierarchical nested structure is enabled
             if config.hierarchical_date_structure and config.table_subfolder:
-                print(
-                    f"🏗️ Using hierarchical structure with table: {config.table_subfolder}"
-                )
+                print(f"🏗️ Using hierarchical structure with table: {config.table_subfolder}")
                 return self._discover_nested_hierarchical_files(config, base_path)
 
             # Original flat structure discovery
@@ -79,9 +75,7 @@ class PySparkFlatFileDiscovery(FlatFileDiscoveryInterface):
 
         try:
             # Get source utilities for this configuration
-            source_utils = self.location_resolver.get_source_utils(
-                config, spark=self.spark
-            )
+            source_utils = self.location_resolver.get_source_utils(config, spark=self.spark)
 
             # Convert base_path to absolute local path for file system operations
             if hasattr(source_utils, "lakehouse_files_uri"):
@@ -117,17 +111,13 @@ class PySparkFlatFileDiscovery(FlatFileDiscoveryInterface):
                     config.date_range_end,
                 ):
                     # Check if we should skip existing dates
-                    if config.skip_existing_dates and self.date_already_processed(
-                        date_partition, config
-                    ):
+                    if config.skip_existing_dates and self.date_already_processed(date_partition, config):
                         print(f"⏭️ Skipping already processed date: {date_partition}")
                         continue
 
                     # Convert back to relative path for processing
                     if full_local_path in table_path:
-                        relative_table_path = table_path.replace(
-                            full_local_path, ""
-                        ).lstrip("/")
+                        relative_table_path = table_path.replace(full_local_path, "").lstrip("/")
                         if not relative_table_path.startswith(config.source_file_path):
                             relative_table_path = f"{config.source_file_path.rstrip('/')}/{relative_table_path}"
                     else:
@@ -141,9 +131,7 @@ class PySparkFlatFileDiscovery(FlatFileDiscoveryInterface):
                             nested_structure=True,
                         )
                     )
-                    print(
-                        f"📁 Added nested path: {relative_table_path} (date: {date_partition}, table: {table_name})"
-                    )
+                    print(f"📁 Added nested path: {relative_table_path} (date: {date_partition}, table: {table_name})")
                 else:
                     print(
                         f"📅 Date {date_partition} from table {table_name} is outside range ({config.date_range_start} to {config.date_range_end})"
@@ -171,9 +159,9 @@ class PySparkFlatFileDiscovery(FlatFileDiscoveryInterface):
         try:
             # List all directories in the source directory to find folders matching the pattern
             try:
-                directory_items = self.location_resolver.get_source_utils(
-                    config, spark=self.spark
-                ).list_directories(base_path, recursive=False)
+                directory_items = self.location_resolver.get_source_utils(config, spark=self.spark).list_directories(
+                    base_path, recursive=False
+                )
                 print(f"📂 Found {len(directory_items)} directories in base directory")
                 print(f"🔍 First few directories: {directory_items[:3]}")
             except Exception as e:
@@ -187,20 +175,14 @@ class PySparkFlatFileDiscovery(FlatFileDiscoveryInterface):
             for item_path in directory_items:
                 try:
                     # Extract the folder name from the path
-                    folder_name = FilePatternUtils.extract_folder_name_from_path(
-                        item_path
-                    )
+                    folder_name = FilePatternUtils.extract_folder_name_from_path(item_path)
 
                     # Check if folder matches the file discovery pattern
-                    if not FilePatternUtils.matches_pattern(
-                        folder_name, config.file_discovery_pattern
-                    ):
+                    if not FilePatternUtils.matches_pattern(folder_name, config.file_discovery_pattern):
                         continue
 
                     # Extract date from folder name based on date_partition_format
-                    date_partition = self.extract_date_from_folder_name(
-                        folder_name, config.date_partition_format
-                    )
+                    date_partition = self.extract_date_from_folder_name(folder_name, config.date_partition_format)
 
                     if date_partition:
                         # Check if date is within the specified range
@@ -210,13 +192,8 @@ class PySparkFlatFileDiscovery(FlatFileDiscoveryInterface):
                             config.date_range_end,
                         ):
                             # Check if we should skip existing dates
-                            if (
-                                config.skip_existing_dates
-                                and self.date_already_processed(date_partition, config)
-                            ):
-                                print(
-                                    f"⏭️ Skipping already processed date: {date_partition}"
-                                )
+                            if config.skip_existing_dates and self.date_already_processed(date_partition, config):
+                                print(f"⏭️ Skipping already processed date: {date_partition}")
                                 continue
 
                             # Add this folder as a target for processing
@@ -228,17 +205,13 @@ class PySparkFlatFileDiscovery(FlatFileDiscoveryInterface):
                                     folder_name=folder_name,
                                 )
                             )
-                            print(
-                                f"📁 Added date folder: {folder_name} (date: {date_partition})"
-                            )
+                            print(f"📁 Added date folder: {folder_name} (date: {date_partition})")
                         else:
                             print(
                                 f"📅 Date {date_partition} from folder {folder_name} is outside range ({config.date_range_start} to {config.date_range_end})"
                             )
                     else:
-                        print(
-                            f"⚠️ Could not extract date from folder name: {folder_name}"
-                        )
+                        print(f"⚠️ Could not extract date from folder name: {folder_name}")
 
                 except Exception as e:
                     print(f"⚠️ Error processing directory item {item_path}: {e}")
@@ -250,9 +223,7 @@ class PySparkFlatFileDiscovery(FlatFileDiscoveryInterface):
             print(f"📁 Discovered {len(discovered_files)} date folders for processing")
 
             if not discovered_files:
-                print(
-                    f"⚠️ No files discovered for date-partitioned import {config.config_name}"
-                )
+                print(f"⚠️ No files discovered for date-partitioned import {config.config_name}")
 
         except Exception as e:
             print(f"⚠️ Warning: File discovery failed: {e}")
@@ -261,36 +232,26 @@ class PySparkFlatFileDiscovery(FlatFileDiscoveryInterface):
 
         return discovered_files
 
-    def extract_date_from_folder_name(
-        self, folder_name: str, date_format: str
-    ) -> Optional[str]:
+    def extract_date_from_folder_name(self, folder_name: str, date_format: str) -> Optional[str]:
         """Extract date from folder name based on format"""
-        return DatePartitionUtils.extract_date_from_folder_name(
-            folder_name, date_format
-        )
+        return DatePartitionUtils.extract_date_from_folder_name(folder_name, date_format)
 
-    def extract_date_from_path(
-        self, file_path: str, base_path: str, date_format: str
-    ) -> Optional[str]:
+    def extract_date_from_path(self, file_path: str, base_path: str, date_format: str) -> Optional[str]:
         """Extract date from file path based on format"""
-        return DatePartitionUtils.extract_date_from_path(
-            file_path, base_path, date_format
-        )
+        return DatePartitionUtils.extract_date_from_path(file_path, base_path, date_format)
 
     def is_date_in_range(self, date_str: str, start_date: str, end_date: str) -> bool:
         """Check if date is within specified range"""
         return DatePartitionUtils.is_date_in_range(date_str, start_date, end_date)
 
-    def date_already_processed(
-        self, date_partition: str, config: FlatFileIngestionConfig
-    ) -> bool:
+    def date_already_processed(self, date_partition: str, config: FlatFileIngestionConfig) -> bool:
         """Check if a date has already been processed (for skip_existing_dates feature)"""
         try:
             # Query the log table to see if this date has been successfully processed
             log_df = self.lakehouse_utils.get_connection.sql(f"""
-                SELECT DISTINCT date_partition, status 
-                FROM log_flat_file_ingestion 
-                WHERE config_id = '{config.config_id}' 
+                SELECT DISTINCT date_partition, status
+                FROM log_flat_file_ingestion
+                WHERE config_id = '{config.config_id}'
                 AND date_partition = '{date_partition}'
                 AND status = 'completed'
                 LIMIT 1
@@ -320,18 +281,14 @@ class PySparkFlatFileProcessor(FlatFileProcessorInterface):
 
         try:
             # Get source utilities for this configuration
-            source_utils = self.location_resolver.get_source_utils(
-                config, spark=self.spark
-            )
+            source_utils = self.location_resolver.get_source_utils(config, spark=self.spark)
 
             # Get file reading options based on configuration
             options = ConfigurationUtils.get_file_read_options(config)
 
             # Read file using dynamic source utilities
             if config.source_is_folder:
-                df = self._read_folder_contents(
-                    config, file_path, options, source_utils
-                )
+                df = self._read_folder_contents(config, file_path, options, source_utils)
             else:
                 df = source_utils.read_file(
                     file_path=file_path.file_path,
@@ -345,9 +302,7 @@ class PySparkFlatFileProcessor(FlatFileProcessorInterface):
             metrics.source_row_count = df.count()
             metrics.records_processed = metrics.source_row_count
 
-            print(
-                f"Read {metrics.source_row_count} records from source file in {metrics.read_duration_ms}ms"
-            )
+            print(f"Read {metrics.source_row_count} records from source file in {metrics.read_duration_ms}ms")
 
             return df, metrics
 
@@ -357,9 +312,7 @@ class PySparkFlatFileProcessor(FlatFileProcessorInterface):
             print(f"❌ Error reading file {file_path}: {e}")
             raise
 
-    def read_folder(
-        self, config: FlatFileIngestionConfig, folder_path: str
-    ) -> Tuple[DataFrame, ProcessingMetrics]:
+    def read_folder(self, config: FlatFileIngestionConfig, folder_path: str) -> Tuple[DataFrame, ProcessingMetrics]:
         """Read all files in a folder based on configuration"""
         return self.read_file(config, folder_path)
 
@@ -409,9 +362,7 @@ class PySparkFlatFileProcessor(FlatFileProcessorInterface):
             # Analyze folder contents
             try:
                 all_files = source_utils.list_files(file.file_path, recursive=False)
-                all_directories = source_utils.list_directories(
-                    directory_path=file.file_path, recursive=False
-                )
+                all_directories = source_utils.list_directories(directory_path=file.file_path, recursive=False)
                 analysis["total_files"] = len([item for item in all_files])
                 analysis["total_folders"] = len([item for item in all_directories])
                 analysis["contains_files"] = analysis["total_files"] > 0
@@ -425,16 +376,9 @@ class PySparkFlatFileProcessor(FlatFileProcessorInterface):
                         analysis["file_extensions"].add(ext)
 
                     # Categorize by type
-                    if (
-                        item.endswith("_SUCCESS")
-                        or item.endswith(".crc")
-                        or item.startswith(".")
-                    ):
+                    if item.endswith("_SUCCESS") or item.endswith(".crc") or item.startswith("."):
                         analysis["metadata_files"].append(item)
-                    elif (
-                        "part-" in item
-                        or config.source_file_format.lower() in item.lower()
-                    ):
+                    elif "part-" in item or config.source_file_format.lower() in item.lower():
                         analysis["data_files"].append(item)
                     else:
                         analysis["other_files"].append(item)
@@ -443,49 +387,27 @@ class PySparkFlatFileProcessor(FlatFileProcessorInterface):
                     analysis["subfolders"].append(dir_item)
 
                 # Check for Spark-style output structure
-                if any(
-                    "part-" in f for f in analysis["data_files"]
-                ) and "_SUCCESS" in str(analysis["metadata_files"]):
+                if any("part-" in f for f in analysis["data_files"]) and "_SUCCESS" in str(analysis["metadata_files"]):
                     analysis["has_spark_structure"] = True
 
                 # Determine recommended approach based on analysis
-                if (
-                    len(analysis["data_files"]) == 0
-                    and len(analysis["subfolders"]) >= 0
-                ):
-                    analysis["recommended_approach"] = (
-                        "subfolder_processing"  # Process subfolders individually
-                    )
+                if len(analysis["data_files"]) == 0 and len(analysis["subfolders"]) >= 0:
+                    analysis["recommended_approach"] = "subfolder_processing"  # Process subfolders individually
                 if len(analysis["data_files"]) == 0:
                     if len(analysis["other_files"]) > 0:
-                        analysis["recommended_approach"] = (
-                            "wildcard_pattern"  # Let Spark try to read other files
-                        )
+                        analysis["recommended_approach"] = "wildcard_pattern"  # Let Spark try to read other files
                     else:
-                        analysis["recommended_approach"] = (
-                            "spark_fallback"  # No obvious data files
-                        )
+                        analysis["recommended_approach"] = "spark_fallback"  # No obvious data files
                 elif len(analysis["data_files"]) == 1:
                     analysis["recommended_approach"] = "direct_read"
-                elif (
-                    config.source_file_format.lower() == "parquet"
-                    and len(analysis["data_files"]) > 1
-                ):
-                    analysis["recommended_approach"] = (
-                        "individual_union"  # Avoid schema warnings
-                    )
+                elif config.source_file_format.lower() == "parquet" and len(analysis["data_files"]) > 1:
+                    analysis["recommended_approach"] = "individual_union"  # Avoid schema warnings
                 elif analysis["has_spark_structure"]:
-                    analysis["recommended_approach"] = (
-                        "individual_union"  # Handle Spark output properly
-                    )
+                    analysis["recommended_approach"] = "individual_union"  # Handle Spark output properly
                 elif len(analysis["data_files"]) <= 5:
-                    analysis["recommended_approach"] = (
-                        "individual_union"  # Small number, union is efficient
-                    )
+                    analysis["recommended_approach"] = "individual_union"  # Small number, union is efficient
                 else:
-                    analysis["recommended_approach"] = (
-                        "wildcard_pattern"  # Large number, let Spark handle
-                    )
+                    analysis["recommended_approach"] = "wildcard_pattern"  # Large number, let Spark handle
 
             except Exception as list_error:
                 print(f"ℹ️ Cannot analyze folder contents: {list_error}")
@@ -515,23 +437,15 @@ class PySparkFlatFileProcessor(FlatFileProcessorInterface):
         if path_analysis["path_exists"]:
             print(f"✓ Path exists ({'file' if path_analysis['is_file'] else 'folder'})")
             if path_analysis["is_folder"]:
-                print(
-                    f"📊 Contains: {path_analysis['total_files']} files, {path_analysis['total_folders']} folders"
-                )
+                print(f"📊 Contains: {path_analysis['total_files']} files, {path_analysis['total_folders']} folders")
                 if path_analysis["data_files"]:
-                    print(
-                        f"📄 Data files: {len(path_analysis['data_files'])} matching format"
-                    )
+                    print(f"📄 Data files: {len(path_analysis['data_files'])} matching format")
                 if path_analysis["metadata_files"]:
-                    print(
-                        f"🏷️ Metadata files: {len(path_analysis['metadata_files'])} (_SUCCESS, .crc, etc.)"
-                    )
+                    print(f"🏷️ Metadata files: {len(path_analysis['metadata_files'])} (_SUCCESS, .crc, etc.)")
                 if path_analysis["has_spark_structure"]:
                     print("⚡ Detected Spark output structure")
                 if path_analysis["file_extensions"]:
-                    print(
-                        f"📝 File types: {', '.join(path_analysis['file_extensions'])}"
-                    )
+                    print(f"📝 File types: {', '.join(path_analysis['file_extensions'])}")
         else:
             print(f"❌ Error reading folder {file.file_path}")
             raise Exception(f"Unable to read data from folder: {file.file_path}")
@@ -545,32 +459,20 @@ class PySparkFlatFileProcessor(FlatFileProcessorInterface):
                 )
                 path_analysis["recommended_approach"] = "subfolder_processing"
                 # Implement subfolder processing logic here
-            elif (
-                path_analysis["total_folders"] == 0
-                and len(path_analysis["data_files"]) > 0
-            ):
+            elif path_analysis["total_folders"] == 0 and len(path_analysis["data_files"]) > 0:
                 print("🔄 Using individual file union approach...")
                 # Use the individual files and union them
             else:
-                print(
-                    f"❌ Configuration source_is_folder is True, but no subfolders exist at {file.file_path}."
-                )
+                print(f"❌ Configuration source_is_folder is True, but no subfolders exist at {file.file_path}.")
                 raise Exception(f"No subfolders found in folder: {file.file_path}")
 
         # Apply intelligent optimization based on analysis
-        if (
-            path_analysis["recommended_approach"] == "individual_union"
-            and path_analysis["data_files"]
-        ):
+        if path_analysis["recommended_approach"] == "individual_union" and path_analysis["data_files"]:
             print("🎯 Using optimized individual file reading approach")
             try:
-                return self._read_individual_files_and_union(
-                    path_analysis["data_files"], config, options, source_utils
-                )
+                return self._read_individual_files_and_union(path_analysis["data_files"], config, options, source_utils)
             except Exception as opt_error:
-                print(
-                    f"ℹ️ Optimization failed, falling back to standard Spark processing: {opt_error}"
-                )
+                print(f"ℹ️ Optimization failed, falling back to standard Spark processing: {opt_error}")
                 # Fall through to Spark fallback
 
         elif path_analysis["recommended_approach"] == "direct_read":
@@ -599,9 +501,7 @@ class PySparkFlatFileProcessor(FlatFileProcessorInterface):
                 print(f"✓ Successfully read using wildcard pattern: {wildcard_path}")
                 return df
             except Exception as wildcard_error:
-                print(
-                    f"ℹ️ Wildcard read failed, trying individual files: {wildcard_error}"
-                )
+                print(f"ℹ️ Wildcard read failed, trying individual files: {wildcard_error}")
                 # Fall through to individual files approach
 
         elif path_analysis["recommended_approach"] == "subfolder_processing":
@@ -614,9 +514,7 @@ class PySparkFlatFileProcessor(FlatFileProcessorInterface):
                     # Re-list files as last resort
                     file_list = source_utils.list_files(file.file_path, recursive=False)
                     if not file_list:
-                        raise Exception(
-                            f"No data files found in folder: {file.file_path}"
-                        )
+                        raise Exception(f"No data files found in folder: {file.file_path}")
 
                     data_files = [
                         f
@@ -624,27 +522,18 @@ class PySparkFlatFileProcessor(FlatFileProcessorInterface):
                         if not f.endswith("_SUCCESS")
                         and not f.endswith(".crc")
                         and not f.startswith(".")
-                        and (
-                            "part-" in f
-                            or config.source_file_format.lower() in f.lower()
-                        )
+                        and ("part-" in f or config.source_file_format.lower() in f.lower())
                     ]
 
                     if not data_files:
-                        raise Exception(
-                            f"No data files found in folder: {file.file_path}"
-                        )
+                        raise Exception(f"No data files found in folder: {file.file_path}")
 
                     print(f"📂 Found {len(data_files)} data files to process")
 
                 # Read individual files and union them
-                return self._read_individual_files_and_union(
-                    data_files, config, options, source_utils
-                )
+                return self._read_individual_files_and_union(data_files, config, options, source_utils)
             except Exception as subfolder_error:
-                print(
-                    f"ℹ️ Subfolder read failed, trying individual files: {subfolder_error}"
-                )
+                print(f"ℹ️ Subfolder read failed, trying individual files: {subfolder_error}")
                 # Fall through to individual files approach
 
         # Standard Spark processing with graceful fallbacks
@@ -677,26 +566,18 @@ class PySparkFlatFileProcessor(FlatFileProcessorInterface):
                 return df
 
             except Exception:
-                print(
-                    "ℹ️ Wildcard pattern not supported, using individual file approach..."
-                )
+                print("ℹ️ Wildcard pattern not supported, using individual file approach...")
 
                 try:
                     # Fallback 2: Use analysis data or list files
                     if path_analysis["data_files"]:
                         data_files = path_analysis["data_files"]
-                        print(
-                            f"📂 Using pre-analyzed data files ({len(data_files)} files)"
-                        )
+                        print(f"📂 Using pre-analyzed data files ({len(data_files)} files)")
                     else:
                         # Re-list files as last resort
-                        file_list = source_utils.list_files(
-                            file.file_path, recursive=False
-                        )
+                        file_list = source_utils.list_files(file.file_path, recursive=False)
                         if not file_list:
-                            raise Exception(
-                                f"No data files found in folder: {file.file_path}"
-                            )
+                            raise Exception(f"No data files found in folder: {file.file_path}")
 
                         data_files = [
                             f
@@ -704,29 +585,20 @@ class PySparkFlatFileProcessor(FlatFileProcessorInterface):
                             if not f.endswith("_SUCCESS")
                             and not f.endswith(".crc")
                             and not f.startswith(".")
-                            and (
-                                "part-" in f
-                                or config.source_file_format.lower() in f.lower()
-                            )
+                            and ("part-" in f or config.source_file_format.lower() in f.lower())
                         ]
 
                         if not data_files:
-                            raise Exception(
-                                f"No data files found in folder: {file.file_path}"
-                            )
+                            raise Exception(f"No data files found in folder: {file.file_path}")
 
                         print(f"📂 Found {len(data_files)} data files to process")
 
                     # Read individual files and union them
-                    return self._read_individual_files_and_union(
-                        data_files, config, options, source_utils
-                    )
+                    return self._read_individual_files_and_union(data_files, config, options, source_utils)
 
                 except Exception as fallback_error:
                     print(f"❌ Error reading folder {file.file_path}: {fallback_error}")
-                    raise Exception(
-                        f"Unable to read data from folder: {file.file_path}. Error: {str(fallback_error)}"
-                    )
+                    raise Exception(f"Unable to read data from folder: {file.file_path}. Error: {str(fallback_error)}")
 
     def _read_individual_files_and_union(
         self,
@@ -740,9 +612,7 @@ class PySparkFlatFileProcessor(FlatFileProcessorInterface):
             print(f"📊 Reading {len(data_files)} individual files...")
 
             # Read first file to get schema
-            logging.debug(
-                f"   Reading file 1/{len(data_files)}: {data_files[0].split('/')[-1]}"
-            )
+            logging.debug(f"   Reading file 1/{len(data_files)}: {data_files[0].split('/')[-1]}")
             first_df = source_utils.read_file(
                 file_path=data_files[0],
                 file_format=config.source_file_format,
@@ -758,9 +628,7 @@ class PySparkFlatFileProcessor(FlatFileProcessorInterface):
             print(f"📊 Combining {len(data_files)} files...")
             all_dfs = [first_df]
             for i, file_path in enumerate(data_files[1:], 2):
-                logging.debug(
-                    f"   Reading file {i}/{len(data_files)}: {file_path.split('/')[-1]}"
-                )
+                logging.debug(f"   Reading file {i}/{len(data_files)}: {file_path.split('/')[-1]}")
                 df = source_utils.read_file(
                     file_path=file_path,
                     file_format=config.source_file_format,
@@ -773,27 +641,21 @@ class PySparkFlatFileProcessor(FlatFileProcessorInterface):
             for df in all_dfs[1:]:
                 result_df = result_df.union(df)
 
-            print(
-                f"✓ Successfully combined {len(data_files)} files into single DataFrame"
-            )
+            print(f"✓ Successfully combined {len(data_files)} files into single DataFrame")
             return result_df
 
         except Exception as e:
             print(f"❌ Error reading individual files: {e}")
             raise Exception(f"Unable to read individual files. Error: {str(e)}")
 
-    def write_data(
-        self, data: DataFrame, config: FlatFileIngestionConfig
-    ) -> ProcessingMetrics:
+    def write_data(self, data: DataFrame, config: FlatFileIngestionConfig) -> ProcessingMetrics:
         """Write data to target destination using dynamic target resolution"""
         write_start = time.time()
         metrics = ProcessingMetrics()
 
         try:
             # Get target utilities for this configuration
-            target_utils = self.location_resolver.get_target_utils(
-                config, spark=self.spark
-            )
+            target_utils = self.location_resolver.get_target_utils(config, spark=self.spark)
 
             # Get target row count before write (for reconciliation)
             try:
@@ -825,17 +687,11 @@ class PySparkFlatFileProcessor(FlatFileProcessorInterface):
                 metrics.records_inserted = metrics.target_row_count_after
                 metrics.records_deleted = metrics.target_row_count_before
             elif config.write_mode == "append":
-                metrics.records_inserted = (
-                    metrics.target_row_count_after - metrics.target_row_count_before
-                )
+                metrics.records_inserted = metrics.target_row_count_after - metrics.target_row_count_before
 
-            print(
-                f"Wrote data to {config.target_table_name} in {metrics.write_duration_ms}ms"
-            )
+            print(f"Wrote data to {config.target_table_name} in {metrics.write_duration_ms}ms")
 
-            return ProcessingMetricsUtils.calculate_performance_metrics(
-                metrics, config.write_mode
-            )
+            return ProcessingMetricsUtils.calculate_performance_metrics(metrics, config.write_mode)
 
         except Exception as e:
             write_end = time.time()
@@ -843,9 +699,7 @@ class PySparkFlatFileProcessor(FlatFileProcessorInterface):
             print(f"❌ Error writing data to {config.target_table_name}: {e}")
             raise
 
-    def validate_data(
-        self, data: DataFrame, config: FlatFileIngestionConfig
-    ) -> Dict[str, Any]:
+    def validate_data(self, data: DataFrame, config: FlatFileIngestionConfig) -> Dict[str, Any]:
         """Validate data based on configuration rules"""
         validation_results = {
             "is_valid": True,
@@ -966,9 +820,7 @@ class PySparkFlatFileLogging(FlatFileLoggingInterface):
                     StructField("status", StringType(), nullable=False),
                     StructField("source_file_path", StringType(), nullable=False),
                     StructField("source_file_size_bytes", LongType(), nullable=True),
-                    StructField(
-                        "source_file_modified_time", TimestampType(), nullable=True
-                    ),
+                    StructField("source_file_modified_time", TimestampType(), nullable=True),
                     StructField("target_table_name", StringType(), nullable=False),
                     StructField("records_processed", LongType(), nullable=True),
                     StructField("records_inserted", LongType(), nullable=True),
@@ -979,9 +831,7 @@ class PySparkFlatFileLogging(FlatFileLoggingInterface):
                     StructField("staging_row_count", LongType(), nullable=True),
                     StructField("target_row_count_before", LongType(), nullable=True),
                     StructField("target_row_count_after", LongType(), nullable=True),
-                    StructField(
-                        "row_count_reconciliation_status", StringType(), nullable=True
-                    ),
+                    StructField("row_count_reconciliation_status", StringType(), nullable=True),
                     StructField("row_count_difference", LongType(), nullable=True),
                     StructField("data_read_duration_ms", LongType(), nullable=True),
                     StructField("staging_write_duration_ms", LongType(), nullable=True),
@@ -992,16 +842,10 @@ class PySparkFlatFileLogging(FlatFileLoggingInterface):
                     StructField("throughput_mb_per_second", FloatType(), nullable=True),
                     StructField("error_message", StringType(), nullable=True),
                     StructField("error_details", StringType(), nullable=True),
-                    StructField(
-                        "execution_duration_seconds", IntegerType(), nullable=True
-                    ),
+                    StructField("execution_duration_seconds", IntegerType(), nullable=True),
                     StructField("spark_application_id", StringType(), nullable=True),
-                    StructField(
-                        "source_file_partition_cols", StringType(), nullable=True
-                    ),
-                    StructField(
-                        "source_file_partition_values", StringType(), nullable=True
-                    ),
+                    StructField("source_file_partition_cols", StringType(), nullable=True),
+                    StructField("source_file_partition_values", StringType(), nullable=True),
                     StructField("date_partition", StringType(), nullable=True),
                     StructField("created_date", TimestampType(), nullable=False),
                     StructField("created_by", StringType(), nullable=False),
@@ -1010,9 +854,7 @@ class PySparkFlatFileLogging(FlatFileLoggingInterface):
 
             log_df = self.lakehouse_utils.spark.createDataFrame(log_data, schema)
 
-            self.lakehouse_utils.write_to_table(
-                df=log_df, table_name="log_flat_file_ingestion", mode="append"
-            )
+            self.lakehouse_utils.write_to_table(df=log_df, table_name="log_flat_file_ingestion", mode="append")
 
         except Exception as e:
             print(f"⚠️ Failed to log execution start: {e}")
@@ -1087,9 +929,7 @@ class PySparkFlatFileLogging(FlatFileLoggingInterface):
                     metrics.throughput_mb_per_second,
                     None,  # error_message
                     None,  # error_details
-                    int(metrics.total_duration_ms / 1000)
-                    if metrics.total_duration_ms
-                    else None,
+                    int(metrics.total_duration_ms / 1000) if metrics.total_duration_ms else None,
                     None,  # spark_application_id
                     partition_cols,  # source_file_partition_cols
                     partition_values,  # source_file_partition_values
@@ -1110,9 +950,7 @@ class PySparkFlatFileLogging(FlatFileLoggingInterface):
                     StructField("status", StringType(), nullable=False),
                     StructField("source_file_path", StringType(), nullable=False),
                     StructField("source_file_size_bytes", LongType(), nullable=True),
-                    StructField(
-                        "source_file_modified_time", TimestampType(), nullable=True
-                    ),
+                    StructField("source_file_modified_time", TimestampType(), nullable=True),
                     StructField("target_table_name", StringType(), nullable=False),
                     StructField("records_processed", LongType(), nullable=True),
                     StructField("records_inserted", LongType(), nullable=True),
@@ -1123,9 +961,7 @@ class PySparkFlatFileLogging(FlatFileLoggingInterface):
                     StructField("staging_row_count", LongType(), nullable=True),
                     StructField("target_row_count_before", LongType(), nullable=True),
                     StructField("target_row_count_after", LongType(), nullable=True),
-                    StructField(
-                        "row_count_reconciliation_status", StringType(), nullable=True
-                    ),
+                    StructField("row_count_reconciliation_status", StringType(), nullable=True),
                     StructField("row_count_difference", LongType(), nullable=True),
                     StructField("data_read_duration_ms", LongType(), nullable=True),
                     StructField("staging_write_duration_ms", LongType(), nullable=True),
@@ -1136,16 +972,10 @@ class PySparkFlatFileLogging(FlatFileLoggingInterface):
                     StructField("throughput_mb_per_second", FloatType(), nullable=True),
                     StructField("error_message", StringType(), nullable=True),
                     StructField("error_details", StringType(), nullable=True),
-                    StructField(
-                        "execution_duration_seconds", IntegerType(), nullable=True
-                    ),
+                    StructField("execution_duration_seconds", IntegerType(), nullable=True),
                     StructField("spark_application_id", StringType(), nullable=True),
-                    StructField(
-                        "source_file_partition_cols", StringType(), nullable=True
-                    ),
-                    StructField(
-                        "source_file_partition_values", StringType(), nullable=True
-                    ),
+                    StructField("source_file_partition_cols", StringType(), nullable=True),
+                    StructField("source_file_partition_values", StringType(), nullable=True),
                     StructField("date_partition", StringType(), nullable=True),
                     StructField("created_date", TimestampType(), nullable=False),
                     StructField("created_by", StringType(), nullable=False),
@@ -1154,9 +984,7 @@ class PySparkFlatFileLogging(FlatFileLoggingInterface):
 
             log_df = self.lakehouse_utils.spark.createDataFrame(log_data, schema)
 
-            self.lakehouse_utils.write_to_table(
-                df=log_df, table_name="log_flat_file_ingestion", mode="append"
-            )
+            self.lakehouse_utils.write_to_table(df=log_df, table_name="log_flat_file_ingestion", mode="append")
 
         except Exception as e:
             print(f"⚠️ Failed to log execution completion: {e}")
@@ -1250,9 +1078,7 @@ class PySparkFlatFileLogging(FlatFileLoggingInterface):
                     StructField("status", StringType(), nullable=False),
                     StructField("source_file_path", StringType(), nullable=False),
                     StructField("source_file_size_bytes", LongType(), nullable=True),
-                    StructField(
-                        "source_file_modified_time", TimestampType(), nullable=True
-                    ),
+                    StructField("source_file_modified_time", TimestampType(), nullable=True),
                     StructField("target_table_name", StringType(), nullable=False),
                     StructField("records_processed", LongType(), nullable=True),
                     StructField("records_inserted", LongType(), nullable=True),
@@ -1263,9 +1089,7 @@ class PySparkFlatFileLogging(FlatFileLoggingInterface):
                     StructField("staging_row_count", LongType(), nullable=True),
                     StructField("target_row_count_before", LongType(), nullable=True),
                     StructField("target_row_count_after", LongType(), nullable=True),
-                    StructField(
-                        "row_count_reconciliation_status", StringType(), nullable=True
-                    ),
+                    StructField("row_count_reconciliation_status", StringType(), nullable=True),
                     StructField("row_count_difference", LongType(), nullable=True),
                     StructField("data_read_duration_ms", LongType(), nullable=True),
                     StructField("staging_write_duration_ms", LongType(), nullable=True),
@@ -1276,16 +1100,10 @@ class PySparkFlatFileLogging(FlatFileLoggingInterface):
                     StructField("throughput_mb_per_second", FloatType(), nullable=True),
                     StructField("error_message", StringType(), nullable=True),
                     StructField("error_details", StringType(), nullable=True),
-                    StructField(
-                        "execution_duration_seconds", IntegerType(), nullable=True
-                    ),
+                    StructField("execution_duration_seconds", IntegerType(), nullable=True),
                     StructField("spark_application_id", StringType(), nullable=True),
-                    StructField(
-                        "source_file_partition_cols", StringType(), nullable=True
-                    ),
-                    StructField(
-                        "source_file_partition_values", StringType(), nullable=True
-                    ),
+                    StructField("source_file_partition_cols", StringType(), nullable=True),
+                    StructField("source_file_partition_values", StringType(), nullable=True),
                     StructField("date_partition", StringType(), nullable=True),
                     StructField("created_date", TimestampType(), nullable=False),
                     StructField("created_by", StringType(), nullable=False),
@@ -1294,9 +1112,7 @@ class PySparkFlatFileLogging(FlatFileLoggingInterface):
 
             log_df = self.lakehouse_utils.spark.createDataFrame(log_data, schema)
 
-            self.lakehouse_utils.write_to_table(
-                df=log_df, table_name="log_flat_file_ingestion", mode="append"
-            )
+            self.lakehouse_utils.write_to_table(df=log_df, table_name="log_flat_file_ingestion", mode="append")
 
         except Exception as e:
             print(f"⚠️ Failed to log execution error: {e}")
@@ -1305,9 +1121,7 @@ class PySparkFlatFileLogging(FlatFileLoggingInterface):
 class PySparkFlatFileIngestionOrchestrator(FlatFileIngestionOrchestrator):
     """PySpark implementation of flat file ingestion orchestrator"""
 
-    def process_configuration(
-        self, config: FlatFileIngestionConfig, execution_id: str
-    ) -> Dict[str, Any]:
+    def process_configuration(self, config: FlatFileIngestionConfig, execution_id: str) -> Dict[str, Any]:
         """Process a single configuration"""
         start_time = time.time()
         result = {
@@ -1340,9 +1154,7 @@ class PySparkFlatFileIngestionOrchestrator(FlatFileIngestionOrchestrator):
 
             if not discovered_files:
                 result["status"] = "no_data_found"
-                print(
-                    f"⚠️ No source data found for {config.config_name}. Skipping write and reconciliation operations."
-                )
+                print(f"⚠️ No source data found for {config.config_name}. Skipping write and reconciliation operations.")
                 return result
 
             # Process discovered files sequentially
@@ -1359,14 +1171,10 @@ class PySparkFlatFileIngestionOrchestrator(FlatFileIngestionOrchestrator):
                             "date_partition": file_result.date_partition,
                         }
                         # Log start for this specific partition
-                        self.logging_service.log_execution_start(
-                            config, execution_id, partition_info
-                        )
+                        self.logging_service.log_execution_start(config, execution_id, partition_info)
 
                     # Read file
-                    df, read_metrics = self.processor_service.read_file(
-                        config, file_result
-                    )
+                    df, read_metrics = self.processor_service.read_file(config, file_result)
 
                     if read_metrics.source_row_count == 0:
                         print(f"⚠️ No data found in file: {file_result.file_path}")
@@ -1404,12 +1212,8 @@ class PySparkFlatFileIngestionOrchestrator(FlatFileIngestionOrchestrator):
                             "config_id": config.config_id,
                         },
                     )
-                    result["errors"].append(
-                        f"Error processing file {file_result.file_path}: {file_error}"
-                    )
-                    print(
-                        f"❌ Error processing file {file_result.file_path}: {file_error}"
-                    )
+                    result["errors"].append(f"Error processing file {file_result.file_path}: {file_error}")
+                    print(f"❌ Error processing file {file_result.file_path}: {file_error}")
 
                     # Log error with partition info if available
                     if file_result.date_partition:
@@ -1428,9 +1232,7 @@ class PySparkFlatFileIngestionOrchestrator(FlatFileIngestionOrchestrator):
 
             # Aggregate metrics
             if all_metrics:
-                result["metrics"] = ProcessingMetricsUtils.merge_metrics(
-                    all_metrics, config.write_mode
-                )
+                result["metrics"] = ProcessingMetricsUtils.merge_metrics(all_metrics, config.write_mode)
                 result["status"] = "completed"
 
                 # Calculate processing time
@@ -1444,23 +1246,15 @@ class PySparkFlatFileIngestionOrchestrator(FlatFileIngestionOrchestrator):
                 print(f"Records updated: {result['metrics'].records_updated}")
                 print(f"Records deleted: {result['metrics'].records_deleted}")
                 print(f"Source rows: {result['metrics'].source_row_count}")
-                print(
-                    f"Target rows before: {result['metrics'].target_row_count_before}"
-                )
+                print(f"Target rows before: {result['metrics'].target_row_count_before}")
                 print(f"Target rows after: {result['metrics'].target_row_count_after}")
-                print(
-                    f"Row count reconciliation: {result['metrics'].row_count_reconciliation_status}"
-                )
+                print(f"Row count reconciliation: {result['metrics'].row_count_reconciliation_status}")
 
                 # Log completion
-                self.logging_service.log_execution_completion(
-                    config, execution_id, result["metrics"], "completed"
-                )
+                self.logging_service.log_execution_completion(config, execution_id, result["metrics"], "completed")
             else:
                 result["status"] = "no_data_processed"
-                print(
-                    f"Processing completed in {time.time() - start_time:.2f} seconds (no data processed)"
-                )
+                print(f"Processing completed in {time.time() - start_time:.2f} seconds (no data processed)")
                 print("Row count reconciliation: skipped (no source data)")
 
         except Exception as e:
@@ -1469,16 +1263,12 @@ class PySparkFlatFileIngestionOrchestrator(FlatFileIngestionOrchestrator):
             error_details = ErrorHandlingUtils.format_error_details(
                 e, {"config_id": config.config_id, "config_name": config.config_name}
             )
-            self.logging_service.log_execution_error(
-                config, execution_id, str(e), str(error_details)
-            )
+            self.logging_service.log_execution_error(config, execution_id, str(e), str(error_details))
             print(f"Error processing {config.config_name}: {e}")
 
         return result
 
-    def process_configurations(
-        self, configs: List[FlatFileIngestionConfig], execution_id: str
-    ) -> Dict[str, Any]:
+    def process_configurations(self, configs: List[FlatFileIngestionConfig], execution_id: str) -> Dict[str, Any]:
         """Process multiple configurations with parallel execution within groups"""
         from collections import defaultdict
 
@@ -1502,9 +1292,7 @@ class PySparkFlatFileIngestionOrchestrator(FlatFileIngestionOrchestrator):
 
         # Process execution groups in ascending order
         execution_groups = sorted(grouped_configs.keys())
-        print(
-            f"\n🔄 Processing {len(execution_groups)} execution groups: {execution_groups}"
-        )
+        print(f"\n🔄 Processing {len(execution_groups)} execution groups: {execution_groups}")
 
         for group_num in execution_groups:
             group_configs = grouped_configs[group_num]
@@ -1512,9 +1300,7 @@ class PySparkFlatFileIngestionOrchestrator(FlatFileIngestionOrchestrator):
             print(f"Processing {len(group_configs)} configurations in parallel")
 
             # Process configurations in this group in parallel
-            group_results = self._process_execution_group_parallel(
-                group_configs, execution_id, group_num
-            )
+            group_results = self._process_execution_group_parallel(group_configs, execution_id, group_num)
 
             # Aggregate results
             results["configurations"].extend(group_results)
@@ -1549,18 +1335,12 @@ class PySparkFlatFileIngestionOrchestrator(FlatFileIngestionOrchestrator):
 
         # Multiple configurations - process in parallel
         max_workers = min(len(configs), 4)  # Limit concurrent threads
-        print(
-            f"  🔀 Using {max_workers} parallel workers for {len(configs)} configurations"
-        )
+        print(f"  🔀 Using {max_workers} parallel workers for {len(configs)} configurations")
 
-        with ThreadPoolExecutor(
-            max_workers=max_workers, thread_name_prefix=f"FlatFileGroup{group_num}"
-        ) as executor:
+        with ThreadPoolExecutor(max_workers=max_workers, thread_name_prefix=f"FlatFileGroup{group_num}") as executor:
             # Submit all configurations for processing
             future_to_config = {
-                executor.submit(
-                    self._process_configuration_with_thread_info, config, execution_id
-                ): config
+                executor.submit(self._process_configuration_with_thread_info, config, execution_id): config
                 for config in configs
             }
 
@@ -1595,9 +1375,7 @@ class PySparkFlatFileIngestionOrchestrator(FlatFileIngestionOrchestrator):
 
         try:
             result = self.process_configuration(config, execution_id)
-            print(
-                f"  🧵 [{thread_name}] Finished: {config.config_name} ({result['status']})"
-            )
+            print(f"  🧵 [{thread_name}] Finished: {config.config_name} ({result['status']})")
             return result
         except Exception as e:
             print(f"  🧵 [{thread_name}] Error: {config.config_name} - {str(e)}")

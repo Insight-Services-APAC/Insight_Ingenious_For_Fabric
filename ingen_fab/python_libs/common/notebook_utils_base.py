@@ -22,9 +22,7 @@ class LocalNotebookUtilsBase(NotebookUtilsInterface):
     """Base class for local development notebook utilities implementation."""
 
     def __init__(self, connection_string: Optional[str] = None):
-        self.connection_string = (
-            connection_string or self._get_default_connection_string()
-        )
+        self.connection_string = connection_string or self._get_default_connection_string()
         self._secrets = self._load_local_secrets()
 
     def _get_default_connection_string(self) -> str:
@@ -63,9 +61,7 @@ class LocalNotebookUtilsBase(NotebookUtilsInterface):
             secret_value = os.getenv(env_key)
 
         if secret_value is None:
-            raise ValueError(
-                f"Secret '{secret_name}' not found in environment variables"
-            )
+            raise ValueError(f"Secret '{secret_name}' not found in environment variables")
 
         return secret_value
 
@@ -84,9 +80,7 @@ class LocalNotebookUtilsBase(NotebookUtilsInterface):
                 raise NotebookExit(value or "success")
 
             @staticmethod
-            def run(
-                name: str, timeoutSeconds: int = 60, arguements: dict = None
-            ) -> str:
+            def run(name: str, timeoutSeconds: int = 60, arguements: dict = None) -> str:
                 """Run the notebook in value."""
                 # Search sample_project/fabric_workspace_items Find the directory of the notebook
                 # Find the current working directory and navigate to the fabric_workspace_items root
@@ -100,9 +94,7 @@ class LocalNotebookUtilsBase(NotebookUtilsInterface):
 
                 print(f"DEBUG: Searching for notebooks in: {workspace_items_path}")
                 pu = SyncToFabricEnvironment(str(workspace_items_path))
-                folders = pu.find_platform_folders(
-                    workspace_items_path, adjust_paths=False
-                )
+                folders = pu.find_platform_folders(workspace_items_path, adjust_paths=False)
 
                 # print each folder
                 for folder in folders:
@@ -113,14 +105,10 @@ class LocalNotebookUtilsBase(NotebookUtilsInterface):
                         and folder.name.endswith(".Notebook")
                     ):
                         # Run the notebook-content.py file
-                        notebook_content_path = (
-                            Path(folder.path) / "notebook-content.py"
-                        )
+                        notebook_content_path = Path(folder.path) / "notebook-content.py"
                         import importlib.util
 
-                        spec = importlib.util.spec_from_file_location(
-                            "notebook_content", notebook_content_path
-                        )
+                        spec = importlib.util.spec_from_file_location("notebook_content", notebook_content_path)
                         notebook_content = importlib.util.module_from_spec(spec)
                         try:
                             result = spec.loader.exec_module(notebook_content)

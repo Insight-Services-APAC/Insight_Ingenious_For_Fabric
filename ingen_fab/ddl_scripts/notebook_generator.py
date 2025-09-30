@@ -63,9 +63,7 @@ class NotebookGenerator(BaseNotebookCompiler):
         elif output_mode == NotebookGenerator.OutputMode.local:
             output_dir = self.base_dir / "output" / "ddl_scripts" / self.entities_folder
         else:
-            raise ValueError(
-                "Invalid output mode. Choose 'fabric_workspace_repo' or 'local'."
-            )
+            raise ValueError("Invalid output mode. Choose 'fabric_workspace_repo' or 'local'.")
 
         # Initialize base class
         super().__init__(
@@ -78,30 +76,23 @@ class NotebookGenerator(BaseNotebookCompiler):
         # Override output_dir for fabric_workspace_repo mode
         if self.output_mode == NotebookGenerator.OutputMode.fabric_workspace_repo:
             self.output_dir = (
-                self.fabric_workspace_repo_dir
-                / "fabric_workspace_items"
-                / "ddl_scripts"
-                / self.entities_folder
+                self.fabric_workspace_repo_dir / "fabric_workspace_items" / "ddl_scripts" / self.entities_folder
             ).resolve()
 
-        self.entities_dir = (
-            self.fabric_workspace_repo_dir / "ddl_scripts" / self.entities_folder
-        )
+        self.entities_dir = self.fabric_workspace_repo_dir / "ddl_scripts" / self.entities_folder
 
         if self.console:
-            self.console.print(
-                f"[bold blue]Lakehouses or Warehouses Directory:[/bold blue] {self.entities_dir}"
-            )
+            self.console.print(f"[bold blue]Lakehouses or Warehouses Directory:[/bold blue] {self.entities_dir}")
 
     def generate_config_notebook(self, output_dir):
         """Generate a configuration notebook for the current entity."""
         # TODO: Create configuration templates if needed
         # For now, create a simple placeholder notebook
         rendered_config = f"""# Configuration Notebook for {self.entities_folder}
-        
+
 # This is a placeholder configuration notebook
 # Add configuration logic here as needed
-        
+
 print(f"Configuration notebook for {self.entities_folder}")
 """
 
@@ -123,9 +114,7 @@ print(f"Configuration notebook for {self.entities_folder}")
         parent_task=None,
     ):
         """Generate a notebook and its .platform file for a specific entity configuration."""
-        notebook_template = self.load_template(
-            f"ddl/{self.generation_mode.lower()}/notebook_content.py.jinja"
-        )
+        notebook_template = self.load_template(f"ddl/{self.generation_mode.lower()}/notebook_content.py.jinja")
         cells = []
 
         config_folder = Path(config_folder)
@@ -145,19 +134,13 @@ print(f"Configuration notebook for {self.entities_folder}")
         # Iterate through sorted files
         for file_path in sorted_files:
             if progress and parent_task is not None:
-                progress.update(
-                    cell_task, description=f"[dim]Processing {file_path.name}[/dim]"
-                )
+                progress.update(cell_task, description=f"[dim]Processing {file_path.name}[/dim]")
 
             # Determine the template to use based on file extension
             if file_path.suffix == ".py":
-                cell_template = self.load_template(
-                    "ddl/execution_cells/pyspark.py.jinja"
-                )
+                cell_template = self.load_template("ddl/execution_cells/pyspark.py.jinja")
             elif file_path.suffix == ".sql":
-                cell_template = self.load_template(
-                    "ddl/execution_cells/spark_sql.py.jinja"
-                )
+                cell_template = self.load_template("ddl/execution_cells/spark_sql.py.jinja")
             else:
                 continue  # Skip unsupported file types
 
@@ -181,14 +164,12 @@ print(f"Configuration notebook for {self.entities_folder}")
                 target_workspace_id="example-workspace-id",
                 target_lakehouse_id=(
                     "example-lakehouse-id"
-                    if self.generation_mode
-                    == NotebookGenerator.GenerationMode.lakehouse
+                    if self.generation_mode == NotebookGenerator.GenerationMode.lakehouse
                     else None
                 ),
                 target_warehouse_id=(
                     "example-warehouse-id"
-                    if self.generation_mode
-                    == NotebookGenerator.GenerationMode.warehouse
+                    if self.generation_mode == NotebookGenerator.GenerationMode.warehouse
                     else None
                 ),
                 language_group=self.language_group,
@@ -234,9 +215,7 @@ print(f"Configuration notebook for {self.entities_folder}")
         """Generate an orchestrator notebook that runs all notebooks for an entity in sequence."""
 
         # Load the orchestrator template
-        orchestrator_template = self.load_template(
-            f"ddl/{self.generation_mode.lower()}/orchestrator_notebook.py.jinja"
-        )
+        orchestrator_template = self.load_template(f"ddl/{self.generation_mode.lower()}/orchestrator_notebook.py.jinja")
 
         # Prepare notebook execution data
         notebooks = []
@@ -318,22 +297,16 @@ print(f"Configuration notebook for {self.entities_folder}")
                 "config_utils",
             ]
 
-        gpl = GatherPythonLibs(
-            console=self.console
-        )  # Replace with actual console instance
-        combined_content = gpl.gather_files(
-            lib_path, libs_to_include
-        )  # Call the method to gather and process files
+        gpl = GatherPythonLibs(console=self.console)  # Replace with actual console instance
+        combined_content = gpl.gather_files(lib_path, libs_to_include)  # Call the method to gather and process files
         # Write to lib.py.jinja template
-        lib_template_path = self.templates_dir / "lib.py.jinja"
+        lib_template_path = self.templates_dirs[0] / "lib.py.jinja"
 
         try:
             with lib_template_path.open("w", encoding="utf-8") as f:
                 f.write("\n".join(combined_content))
 
-            self.console.print(
-                f"\n[green]✓ Successfully injected libs into {lib_template_path}[/green]"
-            )
+            self.console.print(f"\n[green]✓ Successfully injected libs into {lib_template_path}[/green]")
 
         except Exception as e:
             self.console.print(f"[red]Error writing to {lib_template_path}: {e}[/red]")
@@ -341,11 +314,7 @@ print(f"Configuration notebook for {self.entities_folder}")
     def run_all(self):
         """Main function to generate notebooks and .platform files."""
         # Print header
-        self.console.print(
-            Panel.fit(
-                "[bold cyan]DDL Notebook Generator[/bold cyan]", border_style="cyan"
-            )
-        )
+        self.console.print(Panel.fit("[bold cyan]DDL Notebook Generator[/bold cyan]", border_style="cyan"))
         self.console.print()
 
         # Get sorted entity directories
@@ -364,9 +333,7 @@ print(f"Configuration notebook for {self.entities_folder}")
             entity_names.append(entity_path.name)
 
             for config_path in config_dirs:
-                cell_files = self.get_sorted_files(
-                    config_path, extensions=[".py", ".sql"]
-                )
+                cell_files = self.get_sorted_files(config_path, extensions=[".py", ".sql"])
                 total_cells += len(cell_files)
 
         # Show summary (updated to include all_lakehouses_orchestrator)
@@ -375,9 +342,7 @@ print(f"Configuration notebook for {self.entities_folder}")
         summary_table.add_column("Value", style="green")
         summary_table.add_row(f"{self.entities_folder} Found", str(len(entity_dirs)))
         summary_table.add_row("Total Notebooks to Generate", str(total_tasks))
-        summary_table.add_row(
-            f"{self.entity_type} Orchestrators to Generate", str(len(entity_dirs))
-        )
+        summary_table.add_row(f"{self.entity_type} Orchestrators to Generate", str(len(entity_dirs)))
         summary_table.add_row("Master Orchestrator", "1")
         summary_table.add_row("Total Cells to Process", str(total_cells))
         summary_table.add_row("Output Directory", str(self.output_dir))
@@ -409,19 +374,11 @@ print(f"Configuration notebook for {self.entities_folder}")
 
                 # Generate individual notebooks
                 for config_path in config_dirs:
-                    task_description = (
-                        f"[yellow]{entity_path.name}/{config_path.name}[/yellow]"
-                    )
-                    progress.update(
-                        main_task, description=f"Processing {task_description}"
-                    )
+                    task_description = f"[yellow]{entity_path.name}/{config_path.name}[/yellow]"
+                    progress.update(main_task, description=f"Processing {task_description}")
 
-                    output_path = (
-                        self.output_dir / entity_path.name / f"{config_path.name}"
-                    )
-                    notebook_display_name = (
-                        f"{config_path.name}_{entity_path.name}_{self.entities_folder}"
-                    )
+                    output_path = self.output_dir / entity_path.name / f"{config_path.name}"
+                    notebook_display_name = f"{config_path.name}_{entity_path.name}_{self.entities_folder}"
                     notebook_names.append(f"{notebook_display_name}")
 
                     try:
@@ -436,9 +393,7 @@ print(f"Configuration notebook for {self.entities_folder}")
                             parent_task=main_task,
                         )
                         success_count += 1
-                        progress.console.print(
-                            f"[green]✓[/green] Generated notebook for {task_description}"
-                        )
+                        progress.console.print(f"[green]✓[/green] Generated notebook for {task_description}")
                     except Exception as e:
                         error_count += 1
                         progress.console.print_exception()
@@ -461,9 +416,7 @@ print(f"Configuration notebook for {self.entities_folder}")
                         target_lakehouse_config_prefix=entity_path.name,
                     )
                     orchestrator_count += 1
-                    progress.console.print(
-                        f"[green]✓[/green] Generated orchestrator for {entity_path.name}"
-                    )
+                    progress.console.print(f"[green]✓[/green] Generated orchestrator for {entity_path.name}")
                     progress.advance(main_task)
                 except Exception as e:
                     progress.console.print_exception()
@@ -476,8 +429,7 @@ print(f"Configuration notebook for {self.entities_folder}")
             try:
                 progress.update(
                     main_task,
-                    description=f"Generating master orchestrator for all "
-                    f"{self.entities_folder.lower()}",
+                    description=f"Generating master orchestrator for all {self.entities_folder.lower()}",
                 )
                 self.generate_all_entities_orchestrator(entity_names, self.output_dir)
                 # self.generate_config_notebook(self.output_dir)
@@ -487,9 +439,7 @@ print(f"Configuration notebook for {self.entities_folder}")
                 progress.advance(main_task)
             except Exception as e:
                 progress.console.print_exception()
-                progress.console.print(
-                    f"[red]✗[/red] Error generating master orchestrator: {str(e)}"
-                )
+                progress.console.print(f"[red]✗[/red] Error generating master orchestrator: {str(e)}")
                 progress.advance(main_task)
 
         # Print final summary

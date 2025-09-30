@@ -88,7 +88,7 @@ ingen_fab package ingest compile --target-datastore both --include-samples
 **Warehouse Target:**
 ```json
 {
-    "config_id": "csv_warehouse_001", 
+    "config_id": "csv_warehouse_001",
     "config_name": "Sales Data to Warehouse",
     "source_file_path": "Files/data/sales.csv",
     "source_file_format": "csv",
@@ -110,7 +110,7 @@ ingen_fab package ingest compile --target-datastore both --include-samples
 - **Libraries**: Uses `lakehouse_utils` for Delta operations
 - **Processing**: Direct DataFrame operations with Delta optimizations
 
-### Warehouse Version  
+### Warehouse Version
 - **Notebook**: `flat_file_ingestion_processor_warehouse.Notebook`
 - **Runtime**: Python (synapse_python)
 - **Libraries**: Uses `warehouse_utils` and `ddl_utils` for SQL operations
@@ -136,7 +136,7 @@ ingen_fab package ingest compile --target-datastore both --include-samples
 ### Write Modes
 
 - **Overwrite**: Truncate and reload (both targets)
-- **Append**: Add new records (both targets) 
+- **Append**: Add new records (both targets)
 - **Merge**: Upsert based on merge keys (warehouse with custom SQL)
 
 ### Error Handling Strategies
@@ -152,7 +152,7 @@ ingen_fab package ingest compile --target-datastore both --include-samples
 - Use Delta optimizations (Z-ORDER, VACUUM)
 - Enable schema evolution for changing data structures
 
-### Warehouse Optimization  
+### Warehouse Optimization
 - Use COPY INTO for bulk loading efficiency
 - Implement staging patterns for data validation
 - Leverage columnstore indexes for analytical queries

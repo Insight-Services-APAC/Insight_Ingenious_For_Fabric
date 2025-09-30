@@ -125,9 +125,7 @@ def test_write_and_read_table(utils, sales_schema, sales_data):
     table_name = "sales_data"
     sales_df = utils.spark.createDataFrame(sales_data, sales_schema)
     utils.write_to_table(sales_df, table_name, mode="overwrite")
-    assert utils.check_if_table_exists(table_name), (
-        f"Table {table_name} was not created"
-    )
+    assert utils.check_if_table_exists(table_name), f"Table {table_name} was not created"
     read_df = utils.get_table_row_count(table_name)
     assert read_df == len(sales_data), f"Row count mismatch: expected {len(sales_data)}"
     # Pretty print a sample row for debugging
@@ -144,9 +142,7 @@ def test_write_with_custom_options(utils, sales_schema, sales_data, option, expe
     table_name = "sales_data"
     sales_df = utils.spark.createDataFrame(sales_data, sales_schema)
     utils.write_to_table(sales_df, table_name, options=option)
-    assert utils.check_if_table_exists(table_name) is expected, (
-        f"Custom options {option} did not yield expected result"
-    )
+    assert utils.check_if_table_exists(table_name) is expected, f"Custom options {option} did not yield expected result"
 
 
 def test_append_mode(utils, sales_schema):
@@ -157,17 +153,13 @@ def test_append_mode(utils, sales_schema):
     pre_count = utils.get_table_row_count(table_name)
     utils.write_to_table(additional_df, table_name, mode="append")
     post_count = utils.get_table_row_count(table_name)
-    assert post_count == pre_count + 1, (
-        f"Append mode failed: before={pre_count}, after={post_count}"
-    )
+    assert post_count == pre_count + 1, f"Append mode failed: before={pre_count}, after={post_count}"
 
 
 def test_list_tables(utils):
     tables = utils.list_tables()
     assert isinstance(tables, list), "list_tables() did not return a list"
-    assert any("sales_data" in t for t in tables), (
-        "sales_data not found in listed tables"
-    )
+    assert any("sales_data" in t for t in tables), "sales_data not found in listed tables"
 
 
 def test_multiple_table_management(

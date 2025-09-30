@@ -82,9 +82,7 @@ class TestSQLTemplates:
     def test_get_template_not_exists(self):
         """Test getting a non-existent template."""
         sql_templates = SQLTemplates("fabric")
-        with pytest.raises(
-            FileNotFoundError, match="Template nonexistent for dialect fabric not found"
-        ):
+        with pytest.raises(FileNotFoundError, match="Template nonexistent for dialect fabric not found"):
             sql_templates.get_template("nonexistent", "fabric")
 
     def test_get_template_wrong_dialect(self):
@@ -106,9 +104,7 @@ class TestSQLTemplates:
     def test_render_check_table_exists(self):
         """Test rendering check_table_exists template."""
         sql_templates = SQLTemplates("fabric")
-        result = sql_templates.render(
-            "check_table_exists", schema_name="test_schema", table_name="test_table"
-        )
+        result = sql_templates.render("check_table_exists", schema_name="test_schema", table_name="test_table")
         assert "INFORMATION_SCHEMA.TABLES" in result
         assert "TABLE_SCHEMA = 'test_schema'" in result
         assert "TABLE_NAME = 'test_table'" in result
@@ -147,17 +143,13 @@ class TestSQLTemplates:
     def test_render_drop_table(self):
         """Test rendering drop_table template."""
         sql_templates = SQLTemplates("fabric")
-        result = sql_templates.render(
-            "drop_table", schema_name="test_schema", table_name="test_table"
-        )
+        result = sql_templates.render("drop_table", schema_name="test_schema", table_name="test_table")
         assert "DROP TABLE IF EXISTS test_schema.test_table" in result
 
     def test_render_read_table_basic(self):
         """Test rendering read_table template basic."""
         sql_templates = SQLTemplates("fabric")
-        result = sql_templates.render(
-            "read_table", schema_name="test_schema", table_name="test_table"
-        )
+        result = sql_templates.render("read_table", schema_name="test_schema", table_name="test_table")
         assert "SELECT *" in result
         assert "FROM test_schema.test_table" in result
 
@@ -191,9 +183,7 @@ class TestSQLTemplates:
     def test_render_read_table_with_limit(self):
         """Test rendering read_table template with limit."""
         sql_templates = SQLTemplates("fabric")
-        result = sql_templates.render(
-            "read_table", schema_name="test_schema", table_name="test_table", limit=100
-        )
+        result = sql_templates.render("read_table", schema_name="test_schema", table_name="test_table", limit=100)
         assert "FROM test_schema.test_table" in result
         assert "LIMIT 100" in result
 
@@ -240,9 +230,7 @@ class TestSQLTemplates:
     def test_render_get_table_schema(self):
         """Test rendering get_table_schema template."""
         sql_templates = SQLTemplates("fabric")
-        result = sql_templates.render(
-            "get_table_schema", schema_name="test_schema", table_name="test_table"
-        )
+        result = sql_templates.render("get_table_schema", schema_name="test_schema", table_name="test_table")
         assert "SELECT COLUMN_NAME, DATA_TYPE" in result
         assert "FROM INFORMATION_SCHEMA.COLUMNS" in result
         assert "TABLE_SCHEMA = 'test_schema'" in result
@@ -251,18 +239,14 @@ class TestSQLTemplates:
     def test_render_get_table_row_count(self):
         """Test rendering get_table_row_count template."""
         sql_templates = SQLTemplates("fabric")
-        result = sql_templates.render(
-            "get_table_row_count", schema_name="test_schema", table_name="test_table"
-        )
+        result = sql_templates.render("get_table_row_count", schema_name="test_schema", table_name="test_table")
         assert "SELECT COUNT(*)" in result
         assert "FROM test_schema.test_table" in result
 
     def test_render_get_table_metadata(self):
         """Test rendering get_table_metadata template."""
         sql_templates = SQLTemplates("fabric")
-        result = sql_templates.render(
-            "get_table_metadata", schema_name="test_schema", table_name="test_table"
-        )
+        result = sql_templates.render("get_table_metadata", schema_name="test_schema", table_name="test_table")
         assert "SELECT *" in result
         assert "INFORMATION_SCHEMA.TABLES" in result
         assert "TABLE_SCHEMA = 'test_schema'" in result
@@ -293,9 +277,7 @@ class TestSQLTemplates:
     def test_render_vacuum_table(self):
         """Test rendering vacuum_table template."""
         sql_templates = SQLTemplates("fabric")
-        result = sql_templates.render(
-            "vacuum_table", schema_name="test_schema", table_name="test_table"
-        )
+        result = sql_templates.render("vacuum_table", schema_name="test_schema", table_name="test_table")
         assert "-- No-op for SQL warehouses" in result
 
     def test_render_list_schemas(self):

@@ -29,8 +29,8 @@ from sql_templates import SQLTemplates
 templates = SQLTemplates(dialect="fabric")  # or "sqlserver"
 
 # Render a template
-sql = templates.render("check_table_exists", 
-                      schema_name="my_schema", 
+sql = templates.render("check_table_exists",
+                      schema_name="my_schema",
                       table_name="my_table")
 ```
 

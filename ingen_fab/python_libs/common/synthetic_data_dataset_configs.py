@@ -166,9 +166,7 @@ class DatasetConfigurationRepository:
         """Get a predefined dataset configuration by ID."""
         configs = cls._get_all_predefined_datasets()
         if dataset_id not in configs:
-            raise ValueError(
-                f"Unknown dataset_id: {dataset_id}. Available: {list(configs.keys())}"
-            )
+            raise ValueError(f"Unknown dataset_id: {dataset_id}. Available: {list(configs.keys())}")
         return configs[dataset_id]
 
     @classmethod
@@ -248,9 +246,7 @@ class DatasetConfigurationRepository:
         }
 
     @classmethod
-    def get_incremental_config(
-        cls, dataset_id: str, custom_config: Optional[Dict[str, Any]] = None
-    ) -> Dict[str, Any]:
+    def get_incremental_config(cls, dataset_id: str, custom_config: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
         """Get incremental configuration for a dataset."""
         base_dataset = cls.get_predefined_dataset(dataset_id)
         incremental_config = cls.DEFAULT_INCREMENTAL_CONFIG.copy()
@@ -299,9 +295,7 @@ class DatasetConfigurationRepository:
         return incremental_config
 
     @classmethod
-    def get_table_configs(
-        cls, dataset_id: str, scale_factor: float = 1.0
-    ) -> Dict[str, Dict[str, Any]]:
+    def get_table_configs(cls, dataset_id: str, scale_factor: float = 1.0) -> Dict[str, Dict[str, Any]]:
         """Get table configurations for a dataset."""
         base_dataset = cls.get_predefined_dataset(dataset_id)
         schema_pattern = base_dataset.get("schema_pattern", "oltp")
@@ -317,11 +311,9 @@ class DatasetConfigurationRepository:
                     config = pattern_configs[table].copy()
                     # Apply scale factor
                     if "base_rows" in config:
-                        config["base_rows"] = int(config["base_rows"] * scale_factor)
+                        config["base_rows"] = int(float(config["base_rows"]) * scale_factor)  # type: ignore[arg-type]
                     if "base_rows_per_day" in config:
-                        config["base_rows_per_day"] = int(
-                            config["base_rows_per_day"] * scale_factor
-                        )
+                        config["base_rows_per_day"] = int(float(config["base_rows_per_day"]) * scale_factor)  # type: ignore[arg-type]
                     table_configs[table] = config
 
         # Add dimension tables for star schema
@@ -330,7 +322,7 @@ class DatasetConfigurationRepository:
                 if dim in pattern_configs:
                     config = pattern_configs[dim].copy()
                     if "base_rows" in config:
-                        config["base_rows"] = int(config["base_rows"] * scale_factor)
+                        config["base_rows"] = int(float(config["base_rows"]) * scale_factor)  # type: ignore[arg-type]
                     table_configs[dim] = config
 
         # Add fact tables for star schema
@@ -339,9 +331,7 @@ class DatasetConfigurationRepository:
                 if fact in pattern_configs:
                     config = pattern_configs[fact].copy()
                     if "base_rows_per_day" in config:
-                        config["base_rows_per_day"] = int(
-                            config["base_rows_per_day"] * scale_factor
-                        )
+                        config["base_rows_per_day"] = int(float(config["base_rows_per_day"]) * scale_factor)  # type: ignore[arg-type]
                     table_configs[fact] = config
 
         return table_configs
@@ -350,10 +340,7 @@ class DatasetConfigurationRepository:
     def list_available_datasets(cls) -> Dict[str, str]:
         """List all available dataset IDs with descriptions."""
         configs = cls._get_all_predefined_datasets()
-        return {
-            dataset_id: config.get("description", "No description")
-            for dataset_id, config in configs.items()
-        }
+        return {dataset_id: config.get("description", "No description") for dataset_id, config in configs.items()}
 
     @classmethod
     def create_custom_config(
@@ -368,8 +355,6 @@ class DatasetConfigurationRepository:
         base_config = cls.get_predefined_dataset(base_template).copy()
 
         # Update with custom values
-        base_config.update(
-            {"dataset_id": dataset_id, "dataset_name": dataset_name, **customizations}
-        )
+        base_config.update({"dataset_id": dataset_id, "dataset_name": dataset_name, **customizations})
 
         return base_config

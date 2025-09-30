@@ -9,8 +9,8 @@ from __future__ import annotations
 
 import logging
 import os
-from dataclasses import dataclass
-from datetime import date, datetime
+from dataclasses import dataclass, field
+from datetime import date, datetime, timedelta
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
 
@@ -23,11 +23,7 @@ class FilePathTemplate:
     path_template: str
     description: str
     supports_partitioning: bool = False
-    partition_columns: List[str] = None
-
-    def __post_init__(self):
-        if self.partition_columns is None:
-            self.partition_columns = []
+    partition_columns: List[str] = field(default_factory=list)
 
 
 class DateBasedFilePathGenerator:
@@ -159,6 +155,7 @@ class DateBasedFilePathGenerator:
         Returns:
             Generated file path
         """
+        template: Optional[FilePathTemplate]
         if pattern == "custom" and custom_pattern:
             template = FilePathTemplate(
                 pattern_name="custom",
@@ -175,9 +172,7 @@ class DateBasedFilePathGenerator:
         date_components = self._generate_date_components(generation_date)
 
         # Replace placeholders in template
-        path = template.path_template.format(
-            base_path=base_path.rstrip("/"), table_name=table_name, **date_components
-        )
+        path = template.path_template.format(base_path=base_path.rstrip("/"), table_name=table_name, **date_components)
 
         # Add file extension if requested
         if include_extension and file_extension:
@@ -209,13 +204,11 @@ class DateBasedFilePathGenerator:
                 file_extension=file_extension,
             )
             paths.append(path)
-            current_date += datetime.timedelta(days=1)
+            current_date += timedelta(days=1)
 
         return paths
 
-    def generate_partition_info(
-        self, pattern: str, generation_date: date
-    ) -> Dict[str, Any]:
+    def generate_partition_info(self, pattern: str, generation_date: date) -> Dict[str, Any]:
         """Generate partition information for a given pattern and date."""
         template = self._get_pattern_template(pattern)
 
@@ -261,17 +254,13 @@ class DateBasedFilePathGenerator:
             "day={dd}",
         ]
 
-        has_date_component = any(
-            placeholder in pattern_template for placeholder in valid_date_placeholders
-        )
+        has_date_component = any(placeholder in pattern_template for placeholder in valid_date_placeholders)
         if not has_date_component:
             issues.append("Pattern should include at least one date component")
 
         return len(issues) == 0, issues
 
-    def extract_date_from_path(
-        self, file_path: str, pattern: str, table_name: str
-    ) -> Optional[date]:
+    def extract_date_from_path(self, file_path: str, pattern: str, table_name: str) -> Optional[date]:
         """Extract generation date from a file path using the specified pattern."""
         template = self._get_pattern_template(pattern)
         if not template:
@@ -300,11 +289,9 @@ class DateBasedFilePathGenerator:
 
         return None
 
-    def organize_paths_by_date(
-        self, file_paths: List[str], pattern: str, table_name: str
-    ) -> Dict[str, List[str]]:
+    def organize_paths_by_date(self, file_paths: List[str], pattern: str, table_name: str) -> Dict[str, List[str]]:
         """Organize file paths by their generation dates."""
-        organized = {}
+        organized: Dict[str, List[str]] = {}
 
         for path in file_paths:
             generation_date = self.extract_date_from_path(path, pattern, table_name)
@@ -321,9 +308,7 @@ class DateBasedFilePathGenerator:
 
         return organized
 
-    def generate_directory_structure(
-        self, pattern: str, base_path: str, generation_date: date
-    ) -> str:
+    def generate_directory_structure(self, pattern: str, base_path: str, generation_date: date) -> str:
         """Generate just the directory structure (without filename)."""
         template = self._get_pattern_template(pattern)
         if not template:
@@ -334,9 +319,7 @@ class DateBasedFilePathGenerator:
         # Remove the table_name placeholder to get just directory structure
         dir_template = template.path_template.rsplit("/{table_name}", 1)[0]
 
-        directory = dir_template.format(
-            base_path=base_path.rstrip("/"), **date_components
-        )
+        directory = dir_template.format(base_path=base_path.rstrip("/"), **date_components)
 
         return directory
 
@@ -359,9 +342,7 @@ class DateBasedFilePathGenerator:
             "yyyy_mm_dd": generation_date.strftime("%Y-%m-%d"),
             "q": str((generation_date.month - 1) // 3 + 1),  # Quarter
             "ww": generation_date.strftime("%U"),  # Week number (Sunday as first day)
-            "iso_ww": generation_date.strftime(
-                "%W"
-            ),  # ISO week number (Monday as first day)
+            "iso_ww": generation_date.strftime("%W"),  # ISO week number (Monday as first day)
         }
 
 
@@ -411,7 +392,7 @@ class FilePathManager:
 
         return normalized
 
-    def get_path_components(self, file_path: str) -> Dict[str, str]:
+    def get_path_components(self, file_path: str) -> Dict[str, Any]:
         """Extract components from a file path."""
         path_obj = Path(file_path)
 
@@ -457,9 +438,7 @@ class FilePathManager:
             for file_path in all_files:
                 if table_name in file_path:
                     if start_date and end_date:
-                        file_date = self.path_generator.extract_date_from_path(
-                            file_path, pattern, table_name
-                        )
+                        file_date = self.path_generator.extract_date_from_path(file_path, pattern, table_name)
                         if file_date and start_date <= file_date <= end_date:
                             filtered_files.append(file_path)
                     else:

@@ -18,6 +18,6 @@ CREATE TABLE config_synthetic_data_generation_jobs (
     started_date DATETIME2,
     completed_date DATETIME2,
     error_message NVARCHAR(MAX),
-    
+
     FOREIGN KEY (dataset_id) REFERENCES config_synthetic_data_datasets(dataset_id)
 );

@@ -52,9 +52,7 @@ class ListType(str, Enum):
 class UnifiedSyntheticDataGenerator:
     """Unified synthetic data generator that consolidates all generation modes."""
 
-    def __init__(
-        self, fabric_workspace_repo_dir: str = None, fabric_environment: str = None
-    ):
+    def __init__(self, fabric_workspace_repo_dir: str = None, fabric_environment: str = None):
         """Initialize the unified generator."""
         self.base_compiler = SyntheticDataGenerationCompiler(
             fabric_workspace_repo_dir=fabric_workspace_repo_dir,
@@ -117,17 +115,11 @@ class UnifiedSyntheticDataGenerator:
         # Route to appropriate generation method
         try:
             if mode == GenerationMode.SINGLE:
-                notebook_path = self._generate_single(
-                    config, params, target_environment, output_path
-                )
+                notebook_path = self._generate_single(config, params, target_environment, output_path)
             elif mode == GenerationMode.INCREMENTAL:
-                notebook_path = self._generate_incremental(
-                    config, params, target_environment, output_path
-                )
+                notebook_path = self._generate_incremental(config, params, target_environment, output_path)
             elif mode == GenerationMode.SERIES:
-                notebook_path = self._generate_series(
-                    config, params, target_environment, output_path
-                )
+                notebook_path = self._generate_series(config, params, target_environment, output_path)
             else:
                 raise ValueError(f"Unknown generation mode: {mode}")
 
@@ -172,12 +164,9 @@ class UnifiedSyntheticDataGenerator:
             result["datasets"] = datasets
 
             # Get incremental datasets
-            incremental_configs = (
-                self.incremental_compiler._get_incremental_dataset_configs()
-            )
+            incremental_configs = self.incremental_compiler._get_incremental_dataset_configs()
             result["incremental_datasets"] = {
-                k: v.get("description", "No description")
-                for k, v in incremental_configs.items()
+                k: v.get("description", "No description") for k, v in incremental_configs.items()
             }
 
         if list_type in [ListType.TEMPLATES, ListType.ALL]:
@@ -222,18 +211,14 @@ class UnifiedSyntheticDataGenerator:
             if output_format in ["notebook", "all"]:
                 if template.startswith("generic_"):
                     # Compile generic template
-                    notebook_path = self._compile_generic_template(
-                        template, runtime_config, target_environment
-                    )
+                    notebook_path = self._compile_generic_template(template, runtime_config, target_environment)
                     results["compiled_items"]["notebook"] = str(notebook_path)
                 else:
                     # Use standard compilation
                     config = runtime_config or {}
                     config["dataset_id"] = template
-                    notebook_path = (
-                        self.base_compiler.compile_synthetic_data_generation_notebook(
-                            dataset_config=config, target_environment=target_environment
-                        )
+                    notebook_path = self.base_compiler.compile_synthetic_data_generation_notebook(
+                        dataset_config=config, target_environment=target_environment
                     )
                     results["compiled_items"]["notebook"] = str(notebook_path)
 
@@ -296,9 +281,7 @@ class UnifiedSyntheticDataGenerator:
             }
         return {}
 
-    def _validate_parameters(
-        self, mode: GenerationMode, params: Dict[str, Any]
-    ) -> Dict[str, Any]:
+    def _validate_parameters(self, mode: GenerationMode, params: Dict[str, Any]) -> Dict[str, Any]:
         """Validate parameters based on generation mode."""
         errors = []
 
@@ -462,9 +445,7 @@ class UnifiedSyntheticDataGenerator:
         if not notebook_content_path.exists():
             return {
                 "execution_success": False,
-                "execution_errors": [
-                    f"Notebook content file not found: {notebook_content_path}"
-                ],
+                "execution_errors": [f"Notebook content file not found: {notebook_content_path}"],
             }
 
         try:
@@ -486,9 +467,7 @@ class UnifiedSyntheticDataGenerator:
             else:
                 return {
                     "execution_success": False,
-                    "execution_errors": [
-                        f"Execution failed with return code {result.returncode}"
-                    ],
+                    "execution_errors": [f"Execution failed with return code {result.returncode}"],
                     "execution_output": result.stdout,
                     "execution_stderr": result.stderr,
                 }

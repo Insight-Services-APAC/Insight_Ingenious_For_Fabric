@@ -7,20 +7,20 @@ CREATE TABLE [config].[config_extract_details] (
     is_active BIT NOT NULL,
     extract_name VARCHAR(100) NOT NULL,
     file_generation_group VARCHAR(100),
-    
+
     -- Azure Data Lake settings
     kv_azure_data_lake_url VARCHAR(1000),
     kv_azure_data_lake_secret_name VARCHAR(100),
     extract_container VARCHAR(100),
     extract_directory VARCHAR(100),
-    
+
     -- File naming configuration
     extract_file_name VARCHAR(100),
     extract_file_name_timestamp_format VARCHAR(100),
     extract_file_name_period_end_day INT,
     extract_file_name_extension VARCHAR(100),
     extract_file_name_ordering INT,
-    
+
     -- File properties
     file_properties_column_delimiter VARCHAR(5),
     file_properties_row_delimiter VARCHAR(5),
@@ -30,11 +30,11 @@ CREATE TABLE [config].[config_extract_details] (
     file_properties_header BIT NOT NULL,
     file_properties_null_value VARCHAR(5),
     file_properties_max_rows_per_file INT,
-    
+
     -- Trigger file settings
     is_trigger_file BIT NOT NULL,
     trigger_file_extension VARCHAR(100),
-    
+
     -- Compression settings
     is_compressed BIT NOT NULL,
     compressed_type VARCHAR(50),
@@ -50,7 +50,7 @@ CREATE TABLE [config].[config_extract_details] (
     compressed_trigger_file_extension VARCHAR(100),
     compressed_extract_container VARCHAR(100),
     compressed_extract_directory VARCHAR(100),
-    
+
     -- Encryption API settings
     is_encrypt_api BIT NOT NULL,
     encrypt_api_is_encrypt BIT NOT NULL,
@@ -59,34 +59,34 @@ CREATE TABLE [config].[config_extract_details] (
     encrypt_api_kv_token_authorisation VARCHAR(100),
     encrypt_api_kv_azure_data_lake_connection_string VARCHAR(1000),
     encrypt_api_kv_azure_data_lake_account_name VARCHAR(100),
-    
+
     -- Validation settings
     is_validation_table BIT NOT NULL,
     is_validation_table_external_data_source VARCHAR(100),
     is_validation_table_external_file_format VARCHAR(100),
-    
+
     -- Additional Fabric-specific columns
     output_format VARCHAR(50), -- 'csv', 'tsv', 'dat', 'parquet'
-    
+
     -- Source location fields (for reading data)
     source_workspace_id VARCHAR(100),
-    source_datastore_id VARCHAR(100), 
+    source_datastore_id VARCHAR(100),
     source_datastore_type VARCHAR(20), -- 'lakehouse' or 'warehouse'
     source_schema_name VARCHAR(100),
-    
+
     -- Target location fields (for writing extract files)
     target_workspace_id VARCHAR(100),
     target_datastore_id VARCHAR(100),
-    target_datastore_type VARCHAR(20), -- 'lakehouse' or 'warehouse' 
+    target_datastore_type VARCHAR(20), -- 'lakehouse' or 'warehouse'
     target_file_root_path VARCHAR(100), -- e.g., 'Files', 'Tables'
-    
+
     -- Legacy field for backward compatibility
     fabric_lakehouse_path VARCHAR(500),
-    
+
     -- Metadata columns
     created_by VARCHAR(100),
     created_timestamp DATETIME2(6),
     modified_by VARCHAR(100),
     modified_timestamp DATETIME2(6),
-    
+
 );

@@ -38,4 +38,3 @@ Tips:
 - Keep DDL scripts numbered and idempotent; compile before deployment.
 - Maintain separate value sets for each environment under `valueSets/*.json`.
 - Store artifacts (e.g., metadata extracts) under `./artifacts/` to keep the repo tidy.
-

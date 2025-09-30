@@ -14,6 +14,6 @@ CREATE TABLE log_synthetic_data_generation (
     message NVARCHAR(500),
     error_details NVARCHAR(MAX),
     execution_timestamp DATETIME2 DEFAULT GETDATE(),
-    
+
     FOREIGN KEY (job_id) REFERENCES config_synthetic_data_generation_jobs(job_id)
 );

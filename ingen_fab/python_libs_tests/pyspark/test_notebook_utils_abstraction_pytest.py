@@ -94,9 +94,7 @@ class TestFabricNotebookUtils:
         utils = FabricNotebookUtils(mock_notebookutils, mock_mssparkutils)
         result = utils.get_secret("test-secret", "test-vault")
 
-        mock_mssparkutils.credentials.getSecret.assert_called_once_with(
-            "test-vault", "test-secret"
-        )
+        mock_mssparkutils.credentials.getSecret.assert_called_once_with("test-vault", "test-secret")
         assert result == "test_secret_value"
 
     def test_get_secret_unavailable(self):
@@ -195,9 +193,7 @@ class TestLocalNotebookUtils:
         utils = LocalNotebookUtils()
         with patch("builtins.print") as mock_print:
             utils.exit_notebook("test value")
-            mock_print.assert_called_once_with(
-                "Notebook would exit with value: test value"
-            )
+            mock_print.assert_called_once_with("Notebook would exit with value: test value")
 
     def test_exit_notebook_no_value(self):
         """Test exit notebook without value."""

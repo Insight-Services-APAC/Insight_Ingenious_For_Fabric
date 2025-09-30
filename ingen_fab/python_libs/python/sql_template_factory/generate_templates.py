@@ -61,9 +61,7 @@ if __name__ == "__main__":
 
     with open(output_file, "w", encoding="utf-8") as f:
         # render the final templates using jinja2
-        final_content = Template(template_content).render(
-            Templates=repr(templates_list) + "\n"
-        )
+        final_content = Template(template_content).render(Templates=repr(templates_list) + "\n")
         f.write(final_content)
 
     print(f"\nSuccessfully generated {output_file}")

@@ -4,9 +4,7 @@ from jinja2 import Environment, exceptions
 def required_filter(value, var_name=""):
     """Jinja2 filter: raises an error if value is not provided or is falsy."""
     if value is None or (hasattr(value, "__len__") and len(value) == 0):
-        raise exceptions.TemplateRuntimeError(
-            f"Required parameter '{var_name or 'unknown'}' was not provided!"
-        )
+        raise exceptions.TemplateRuntimeError(f"Required parameter '{var_name or 'unknown'}' was not provided!")
     return value
 
 
@@ -159,9 +157,7 @@ class SQLTemplates:
         # Use a Jinja2 Environment to add custom filters
         self.env = Environment()
         # Register the 'required' filter
-        self.env.filters["required"] = lambda value, var_name="": required_filter(
-            value, var_name
-        )
+        self.env.filters["required"] = lambda value, var_name="": required_filter(value, var_name)
 
     def get_template(self, template_name: str, dialect: str) -> str:
         """Get the SQL template for the specified dialect."""
@@ -170,15 +166,12 @@ class SQLTemplates:
             (
                 t["file_contents"]
                 for t in self.TEMPLATES
-                if t["file_name"] == f"{template_name}.sql.jinja"
-                and t["dialect"] == "fabric"
+                if t["file_name"] == f"{template_name}.sql.jinja" and t["dialect"] == "fabric"
             ),
             None,
         )
         if not template:
-            raise FileNotFoundError(
-                f"Template {template_name} for dialect fabric not found."
-            )
+            raise FileNotFoundError(f"Template {template_name} for dialect fabric not found.")
         return template
 
     def render(self, template_name: str, **kwargs) -> str:

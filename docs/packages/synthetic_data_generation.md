@@ -39,7 +39,7 @@ Options:
   --parameters        JSON string with generation parameters
   --output-path       Custom output path for generated files
   --dry-run          Preview without generating files
-  --target-environment Target: 'lakehouse' or 'warehouse' [default: lakehouse]  
+  --target-environment Target: 'lakehouse' or 'warehouse' [default: lakehouse]
   --no-execute       Don't execute the notebook after generation
 ```
 
@@ -68,7 +68,7 @@ Options:
 - `retail_oltp_small` / `retail_oltp_large` - Transactional system
 - `retail_star_small` / `retail_star_large` - Analytics star schema
 
-### Financial Domain  
+### Financial Domain
 - `finance_oltp_small` / `finance_oltp_large` - Banking system
 - `finance_star_small` / `finance_star_large` - Financial analytics
 
@@ -135,7 +135,7 @@ The package includes generic notebook templates that can be parameterized at run
 
 ### Available Templates
 - `generic_single_dataset_lakehouse` - Single dataset for lakehouse
-- `generic_single_dataset_warehouse` - Single dataset for warehouse  
+- `generic_single_dataset_warehouse` - Single dataset for warehouse
 - `generic_incremental_series_lakehouse` - Time series for lakehouse
 - `generic_incremental_series_warehouse` - Time series for warehouse
 
@@ -148,7 +148,7 @@ ingen_fab package synthetic-data compile
 # Compile specific template
 ingen_fab package synthetic-data compile generic_single_dataset_lakehouse
 
-# Generate using generic template  
+# Generate using generic template
 ingen_fab package synthetic-data generate generic_single_dataset_lakehouse \
   --parameters '{"dataset_id": "retail_oltp_small", "target_rows": 50000}'
 ```
@@ -160,7 +160,7 @@ Creates Delta/Parquet tables in the lakehouse:
 ```
 Tables/
 ├── customers
-├── products  
+├── products
 ├── orders
 └── order_items
 ```
@@ -198,7 +198,7 @@ The generated data maintains referential integrity:
 
 ### Data Distributions
 - **Customer ages**: Normal distribution (18-95 years)
-- **Order amounts**: Log-normal distribution  
+- **Order amounts**: Log-normal distribution
 - **Dates**: Evenly distributed or seasonal patterns
 - **Categories**: Realistic category distributions
 
@@ -217,7 +217,7 @@ The generated data maintains referential integrity:
 
 ### Generation Speed
 - Small datasets (<100K rows): 1-5 seconds
-- Medium datasets (1M rows): 10-30 seconds  
+- Medium datasets (1M rows): 10-30 seconds
 - Large datasets (100M rows): 5-15 minutes
 - Very large (1B+ rows): 1-2 hours
 
@@ -230,7 +230,7 @@ The generated data maintains referential integrity:
 ## Common Issues and Solutions
 
 ### Issue: Out of Memory
-**Solution**: 
+**Solution**:
 - Reduce `target_rows`
 - Scale up cluster
 - Generate tables individually
@@ -256,7 +256,7 @@ ingen_fab package synthetic-data generate retail_oltp_small \
   --parameters '{"target_rows": 1000, "seed_value": 42}'
 ```
 
-### Example 2: Large Analytics Dataset  
+### Example 2: Large Analytics Dataset
 ```bash
 # Generate large star schema
 ingen_fab package synthetic-data generate retail_star_large \
@@ -276,7 +276,7 @@ The following features are mentioned in configurations but not functional:
 
 ### CLI Commands
 - `generate-incremental` - Use `generate` with mode='series' instead
-- `generate-series` - Use `generate` with mode='series' instead  
+- `generate-series` - Use `generate` with mode='series' instead
 - `execute-with-parameters` - Not implemented
 - `--resume` flag - No resume capability
 
@@ -291,7 +291,7 @@ The following features are mentioned in configurations but not functional:
 - Data quality patterns (nulls, duplicates)
 - Temporal patterns beyond day-of-week
 
-### Performance Features  
+### Performance Features
 - Chunking for very large datasets
 - Disk spilling for memory management
 - Parallel processing

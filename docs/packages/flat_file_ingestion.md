@@ -47,7 +47,7 @@ To compile the package, run the following command in your terminal:
     ingen_fab package ingest compile --include-samples --target-datastore both
     ```
 
-This generates the notebooks and ddl scripts shown below in the nominated project directory. 
+This generates the notebooks and ddl scripts shown below in the nominated project directory.
 
 ```text
 fabric_workspace_items/
@@ -83,7 +83,7 @@ Packages copy their DDL scripts to the project directory but they dont inject th
     ```powershell
     ingen_fab ddl compile
     ```
-This updates DDL notebooks to include config and log tables for the package. 
+This updates DDL notebooks to include config and log tables for the package.
 
 The fabric_workspace_items subdirectory within your project directory should now look like the directory structure below. Note, you may have addition directories for the DDL scripts generated as part of the core build and other packages.
 
@@ -92,25 +92,25 @@ fabric_workspace_items/
 └── ddl_scripts/
     ├── Lakehouses/
         ├── 00_all_lakehouses_orchestrator.Notebook/
-            |── .platform 
+            |── .platform
             └── notebook-content.py
         └── Config/
             └── 001_Initial_Creation_Ingestion_Config_Lakehouses.Notebook
-                |── .platform 
+                |── .platform
                 └── notebook-content.py
             └── 002_Sample_Data_Ingestion_Config_Lakehouses.Notebook
-                |── .platform 
+                |── .platform
                 └── notebook-content.py
     └── Warehouses/
         ├── 00_all_warehouses_orchestrator.Notebook/
-            |── .platform 
+            |── .platform
             └── notebook-content.py
         └── Config/
             └── 001_Initial_Creation_Ingestion_Config_Warehouses.Notebook
-                |── .platform 
+                |── .platform
                 └── notebook-content.py
             └── 002_Sample_Data_Ingestion_Config_Warehouses.Notebook
-                |── .platform 
+                |── .platform
                 └── notebook-content.py
 └── flat_file_ingestion/
     ├── flat_file_ingestion_processor_lakehouse.Notebook
@@ -126,7 +126,7 @@ fabric_workspace_items/
         ├── .platform
         └── notebook-content.py
 
-### Step 3: Deploy the solution 
+### Step 3: Deploy the solution
 Now that we have generated the DDL scripts and notebooks, we need to deploy the solution to our Fabric workspace. To do this, run the following command in your terminal. Note, this assumes that you have already configured your project with the necessary Fabric workspace and lakehouse/warehouse IDs in the `varlib` directory (TBD add link to project initialization guide).
 
 === "macOS/Linux"
@@ -159,7 +159,7 @@ The Flat File Ingestion package requires specific Python libraries to function c
 ### Step 4: Run the DDL Maintenance Notebooks
 After compiling the project DDL, you need to run the DDL maintenance notebooks to create the necessary metadata (config and log tables) in your target lakehouse or warehouse.
 
-To do this you need to log in to your Fabric workspace and run the ``00_all_lakehouses_orchestrator.Notebook` notebook. This orchestrates the creation of config and log tables for all lakehouses which should now include the objects required by the Flat File Ingestion package. After running this notebook, you should see the following tables created in your config lakehouse: 
+To do this you need to log in to your Fabric workspace and run the ``00_all_lakehouses_orchestrator.Notebook` notebook. This orchestrates the creation of config and log tables for all lakehouses which should now include the objects required by the Flat File Ingestion package. After running this notebook, you should see the following tables created in your config lakehouse:
 - `config_flat_file_ingestion`
 - `log_flat_file_ingestion`
 
@@ -209,7 +209,7 @@ config = Row(
     created_date="2024-01-15",
     created_by="admin",
     schema_inference=True,
-    
+
     # Optional fields (showing commonly used ones)
     file_delimiter=",",
     has_header=True,
@@ -265,7 +265,7 @@ notebookutils.notebook.run(
 
 You can schedule the notebook to run automatically:
 1. In Fabric workspace, select the notebook
-2. Click on "Schedule" 
+2. Click on "Schedule"
 3. Set up your desired schedule (hourly, daily, etc.)
 4. Configure parameters for the scheduled run
 
@@ -277,23 +277,23 @@ You can schedule the notebook to run automatically:
 graph TD
     A[Configuration Table] --> B[Location Resolver]
     B --> C[Flat File Ingestion Orchestrator]
-    
+
     C --> D[PySparkFlatFileDiscovery]
     C --> E[PySparkFlatFileProcessor]
     C --> F[PySparkFlatFileLogging]
-    
+
     D --> G[File Discovery]
     E --> H[File Reading]
     E --> I[Data Validation]
     E --> J[Data Writing]
     F --> K[Execution Logging]
-    
+
     B --> L[Source Location Config]
     B --> M[Target Location Config]
-    
+
     L --> N[Source Workspace/Lakehouse]
     M --> O[Target Workspace/Lakehouse]
-    
+
     style A fill:#e1f5fe
     style C fill:#fff3e0
     style O fill:#e8f5e8
@@ -591,22 +591,22 @@ config = Row(
 ```mermaid
 graph TD
     A[Choose Write Mode] --> B{Data Characteristics}
-    
+
     B --> C[Full Replacement?]
     C -->|Yes| D[overwrite]
-    
+
     B --> E[Incremental Only?]
     E -->|Yes| F[append]
-    
+
     B --> G[Updates + Inserts?]
     G -->|Yes| H[merge]
-    
+
     D --> I[Use Cases:<br/>- Reference data<br/>- Complete refresh<br/>- Schema changes]
-    
+
     F --> J[Use Cases:<br/>- Time series<br/>- Event logs<br/>- Fact tables]
-    
+
     H --> K[Use Cases:<br/>- Dimensions<br/>- Master data<br/>- Deduplication]
-    
+
     style D fill:#ffe0b2
     style F fill:#e1f5fe
     style H fill:#f3e5f5
@@ -852,20 +852,20 @@ config = Row(
     config_name="Cross-Workspace Customer Import",
     source_file_path="exports/customers.parquet",
     source_file_format="parquet",
-    
+
     # Source location (different workspace)
     source_workspace_id="source-workspace-id",
     source_datastore_id="source-lakehouse-id",
     source_datastore_type="lakehouse",
     source_file_root_path="Files",
-    
+
     # Target location
     target_workspace_id="target-workspace-id",
     target_datastore_id="target-lakehouse-id",
     target_datastore_type="lakehouse",
     target_schema_name="silver",
     target_table_name="customers",
-    
+
     write_mode="merge",
     merge_keys="customer_id",
     schema_inference=True,
@@ -887,7 +887,7 @@ config = Row(
     config_name="Complex CSV with Special Characters",
     source_file_path="Files/complex_data.csv",
     source_file_format="csv",
-    
+
     # Advanced CSV options
     file_delimiter="|",
     has_header=True,
@@ -902,7 +902,7 @@ config = Row(
     comment_character="#",
     max_columns=30000,
     max_chars_per_column=100000,
-    
+
     # Rest of configuration...
 )
 ```
@@ -917,7 +917,7 @@ config = Row(
     config_name="Daily Orders Import",
     source_file_path="orders/",  # Base path
     source_file_format="csv",
-    
+
     # Date partitioning configuration
     import_pattern="wildcard_pattern",
     file_discovery_pattern="orders_*.csv",
@@ -926,12 +926,12 @@ config = Row(
     date_range_start="2024-01-01",
     date_range_end="2024-01-31",
     skip_existing_dates=True,
-    
+
     # Target configuration
     write_mode="append",
     partition_columns="order_date",
     sort_columns="order_id,order_date",
-    
+
     # Rest of configuration...
 )
 ```
@@ -1021,7 +1021,7 @@ Monitor executions through the log table:
 
 ```sql
 -- Recent executions summary
-SELECT 
+SELECT
     config_id,
     config_name,
     execution_id,
@@ -1037,7 +1037,7 @@ WHERE job_start_time >= DATEADD(day, -7, CURRENT_TIMESTAMP())
 ORDER BY job_start_time DESC;
 
 -- Performance metrics by configuration
-SELECT 
+SELECT
     config_id,
     COUNT(*) as execution_count,
     AVG(records_processed) as avg_records,
@@ -1053,14 +1053,14 @@ GROUP BY config_id;
 **Issue: Missing source location fields**
 ```
 Error: Could not resolve source location
-Solution: Ensure source_workspace_id and source_datastore_id are provided 
+Solution: Ensure source_workspace_id and source_datastore_id are provided
          or defaults are properly configured
 ```
 
 **Issue: Schema mismatch**
 ```
 Error: Cannot cast string to integer for column 'quantity'
-Solution: 
+Solution:
 1. Enable schema_inference=true for automatic detection
 2. Or provide custom_schema_json with correct types
 3. Or preprocess data to ensure type consistency
@@ -1224,7 +1224,7 @@ config = Row(
     config_name="Incremental Sales Data Import",
     source_file_path="sales/daily/",
     source_file_format="csv",
-    
+
     # Import pattern configuration
     import_pattern="wildcard_pattern",
     file_discovery_pattern="sales_*.csv",
@@ -1233,25 +1233,25 @@ config = Row(
     date_range_start="2024-01-01",
     date_range_end="2024-01-31",
     skip_existing_dates=True,
-    
+
     # Target configuration
     target_workspace_id="{{varlib:workspace_id}}",
     target_datastore_id="{{varlib:lakehouse_id}}",
     target_datastore_type="lakehouse",
     target_schema_name="bronze",
     target_table_name="sales_daily",
-    
+
     # Processing options
     write_mode="append",
     partition_columns="sale_date",
     sort_columns="sale_id,sale_timestamp",
-    
+
     # CSV options
     file_delimiter=",",
     has_header=True,
     date_format="yyyy-MM-dd",
     timestamp_format="yyyy-MM-dd HH:mm:ss.SSS",
-    
+
     # Control fields
     schema_inference=True,
     error_handling_strategy="log",
@@ -1327,7 +1327,7 @@ For importing synthetic data generated by the synthetic data generation package,
 - [DDL Scripts](../developer_guide/ddl_scripts.md) - Template system details
 - [Python Libraries](../developer_guide/python_libraries.md) - Core library documentation
 - [Workflow Utilities](../developer_guide/python_libraries.md#workflow_utilspy) - Cross-workspace data movement
-- [CLI Reference](../user_guide/cli_reference.md) - Complete CLI documentation
+- [CLI Reference](../guides/cli-reference.md) - Complete CLI documentation
 
 ## Support
 

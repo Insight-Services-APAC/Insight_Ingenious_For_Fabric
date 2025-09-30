@@ -102,7 +102,7 @@ The project template includes sample DDL scripts to get you started. Take a look
 # View the sample Lakehouse DDL script
 cat ddl_scripts/Lakehouses/Config/001_Initial_Creation/001_sample_customer_table_create.py
 
-# View the sample Warehouse DDL script  
+# View the sample Warehouse DDL script
 cat ddl_scripts/Warehouses/Sample_WH/001_Initial_Creation/001_sample_customer_table_create.sql
 ```
 

@@ -3,6 +3,7 @@ OneLake utilities for interacting with Microsoft Fabric OneLake storage using Az
 """
 
 import logging
+import os
 from pathlib import Path
 from typing import Optional
 
@@ -18,8 +19,6 @@ from ingen_fab.config_utils.variable_lib_factory import (
 )
 from ingen_fab.fabric_api.utils import FabricApiUtils
 
-import os
-
 try:
     from rich.console import Console
 
@@ -28,9 +27,7 @@ except ImportError:
     RICH_AVAILABLE = False
 
 # Suppress verbose Azure SDK logging
-logging.getLogger("azure.core.pipeline.policies.http_logging_policy").setLevel(
-    logging.WARNING
-)
+logging.getLogger("azure.core.pipeline.policies.http_logging_policy").setLevel(logging.WARNING)
 logging.getLogger("azure.identity").setLevel(logging.WARNING)
 logging.getLogger("azure.storage").setLevel(logging.WARNING)
 
@@ -63,21 +60,13 @@ class OneLakeUtils:
         self.onelake_base_url = "https://onelake.dfs.fabric.microsoft.com"
 
         # Initialize console utilities
-        self.console = (
-            console
-            if console and RICH_AVAILABLE
-            else (Console() if RICH_AVAILABLE else None)
-        )
+        self.console = console if console and RICH_AVAILABLE else (Console() if RICH_AVAILABLE else None)
         self.msg_helper = MessageHelpers(self.console)
         self.progress_tracker = ProgressTracker(self.console)
 
         # Get workspace ID from variable library
-        self.vlu = VariableLibraryFactory.from_environment_and_path(
-            self.environment, self.project_path
-        )
-        self.workspace_id = get_workspace_id_from_environment(
-            self.environment, self.project_path
-        )
+        self.vlu = VariableLibraryFactory.from_environment_and_path(self.environment, self.project_path)
+        self.workspace_id = get_workspace_id_from_environment(self.environment, self.project_path)
 
         # Initialize Fabric API utils for name resolution
         self.fabric_api = FabricApiUtils(
@@ -96,9 +85,7 @@ class OneLakeUtils:
         Returns:
             The config lakehouse ID
         """
-        return get_variable_from_environment(
-            self.environment, self.project_path, "config_lakehouse_id"
-        )
+        return get_variable_from_environment(self.environment, self.project_path, "config_lakehouse_id")
 
     def _get_datalake_service_client(self) -> DataLakeServiceClient:
         """
@@ -107,9 +94,7 @@ class OneLakeUtils:
         Returns:
             DataLakeServiceClient instance
         """
-        return DataLakeServiceClient(
-            account_url=self.onelake_base_url, credential=self.credential
-        )
+        return DataLakeServiceClient(account_url=self.onelake_base_url, credential=self.credential)
 
     def _get_workspace_name(self) -> str:
         """
@@ -120,9 +105,7 @@ class OneLakeUtils:
         """
         workspace_name = self.fabric_api.get_workspace_name_from_id(self.workspace_id)
         if workspace_name is None:
-            raise ValueError(
-                f"Could not find workspace name for ID: {self.workspace_id}"
-            )
+            raise ValueError(f"Could not find workspace name for ID: {self.workspace_id}")
         return workspace_name
 
     def _get_lakehouse_name(self, lakehouse_id: str) -> str:
@@ -142,9 +125,7 @@ class OneLakeUtils:
 
         if lakehouse_name is None:
             # If not found in cache, fetch from Fabric API
-            lakehouse_name = self.fabric_api.get_lakehouse_name_from_id(
-                self.workspace_id, lakehouse_id
-            )
+            lakehouse_name = self.fabric_api.get_lakehouse_name_from_id(self.workspace_id, lakehouse_id)
 
             if lakehouse_name is not None:
                 self.lakehouses[lakehouse_name] = lakehouse_id
@@ -152,9 +133,7 @@ class OneLakeUtils:
 
         # If still not found, raise an error
         if lakehouse_name is None:
-            raise ValueError(
-                f"Could not find lakehouse name for ID: {lakehouse_id} in workspace: {self.workspace_id}"
-            )
+            raise ValueError(f"Could not find lakehouse name for ID: {lakehouse_id} in workspace: {self.workspace_id}")
         return lakehouse_name
 
     def download_file_from_lakehouse(
@@ -181,7 +160,7 @@ class OneLakeUtils:
         """
         file_path_obj = Path(file_path)
 
-        #if not file_path_obj.exists():
+        # if not file_path_obj.exists():
         #    raise FileNotFoundError(f"File not found: {file_path}")
 
         if source_path is None:
@@ -194,27 +173,21 @@ class OneLakeUtils:
 
             if file_system_client is None:
                 workspace_name = self.workspace_name
-                file_system_client = service_client.get_file_system_client(
-                    workspace_name
-                )
+                file_system_client = service_client.get_file_system_client(workspace_name)
 
             # Get lakehouse name and construct the full path: {lakehouse_name}.Lakehouse/Files/{target_path}
             lakehouse_name = self._get_lakehouse_name(lakehouse_id)
-            full_source_path = (
-                f"{lakehouse_name}.Lakehouse/Files/{source_path}".replace("\\", "/")
-            )
+            full_source_path = f"{lakehouse_name}.Lakehouse/Files/{source_path}".replace("\\", "/")
 
             file_client = file_system_client.get_file_client(full_source_path)
 
             if verbose and self.console:
-                self.console.print(
-                    f"[cyan]Uploading:[/cyan] {Path(file_path).name} → OneLake"
-                )
+                self.console.print(f"[cyan]Uploading:[/cyan] {Path(file_path).name} → OneLake")
 
             download = file_client.download_file()
-            
+
             with open(file_path_obj, "wb") as my_file:
-                downloaded_bytes = download.readinto(my_file)
+                download.readinto(my_file)
 
             if verbose:
                 self.msg_helper.print_success(f"Downloaded {full_source_path}")
@@ -273,23 +246,17 @@ class OneLakeUtils:
 
             if file_system_client is None:
                 workspace_name = self.workspace_name
-                file_system_client = service_client.get_file_system_client(
-                    workspace_name
-                )
+                file_system_client = service_client.get_file_system_client(workspace_name)
 
             # Get lakehouse name and construct the full path: {lakehouse_name}.Lakehouse/Files/{target_path}
             lakehouse_name = self._get_lakehouse_name(lakehouse_id)
-            full_target_path = (
-                f"{lakehouse_name}.Lakehouse/Files/{target_path}".replace("\\", "/")
-            )
+            full_target_path = f"{lakehouse_name}.Lakehouse/Files/{target_path}".replace("\\", "/")
 
             # Get the file client
             file_client = file_system_client.get_file_client(full_target_path)
 
             if verbose and self.console:
-                self.console.print(
-                    f"[cyan]Uploading:[/cyan] {Path(file_path).name} → OneLake"
-                )
+                self.console.print(f"[cyan]Uploading:[/cyan] {Path(file_path).name} → OneLake")
 
             # Upload the file
             file_data_raw = ""
@@ -307,9 +274,7 @@ class OneLakeUtils:
             # Convert to bytes and get correct byte length
             file_data_bytes = file_data.encode("utf-8")
 
-            file_client.upload_data(
-                data=file_data_bytes, overwrite=True, length=len(file_data_bytes)
-            )
+            file_client.upload_data(data=file_data_bytes, overwrite=True, length=len(file_data_bytes))
 
             if verbose:
                 self.msg_helper.print_success(f"Uploaded {Path(file_path).name}")
@@ -372,10 +337,7 @@ class OneLakeUtils:
                 if any(part.startswith("__") for part in path_parts):
                     continue
                 if include_extensions is not None:
-                    if not any(
-                        str(file_path).lower().endswith(ext.lower())
-                        for ext in include_extensions
-                    ):
+                    if not any(str(file_path).lower().endswith(ext.lower()) for ext in include_extensions):
                         continue
                 all_files.append(file_path)
 
@@ -385,9 +347,7 @@ class OneLakeUtils:
             self.msg_helper.print_warning("No files found to upload")
             return upload_results
 
-        self.msg_helper.print_info(
-            f"Found {len(all_files)} files to upload from {Path(directory_path).name}"
-        )
+        self.msg_helper.print_info(f"Found {len(all_files)} files to upload from {Path(directory_path).name}")
 
         # Create clients once for efficiency if not provided
         if service_client is None:
@@ -433,18 +393,11 @@ class OneLakeUtils:
             }
 
         # Use rich progress bar for tracking uploads
-        with self.progress_tracker.create_progress_bar(
-            len(all_files), description="Uploading files..."
-        ) as progress:
-            task_id = self.progress_tracker.add_task(
-                "Uploading files...", len(all_files)
-            )
+        with self.progress_tracker.create_progress_bar(len(all_files), description="Uploading files...") as progress:
+            task_id = self.progress_tracker.add_task("Uploading files...", len(all_files))
 
             with ThreadPoolExecutor(max_workers=max_workers) as executor:
-                future_to_file = {
-                    executor.submit(upload_one, file_path): file_path
-                    for file_path in all_files
-                }
+                future_to_file = {executor.submit(upload_one, file_path): file_path for file_path in all_files}
 
                 for future in as_completed(future_to_file):
                     result = future.result()
@@ -453,15 +406,11 @@ class OneLakeUtils:
                     if result["success"]:
                         upload_results["successful"].append(result)
                         if progress:
-                            self.progress_tracker.update_task(
-                                task_id, description=f"[green]✓[/green] {file_name}"
-                            )
+                            self.progress_tracker.update_task(task_id, description=f"[green]✓[/green] {file_name}")
                     else:
                         upload_results["failed"].append(result)
                         if progress:
-                            self.progress_tracker.update_task(
-                                task_id, description=f"[red]✗[/red] {file_name}"
-                            )
+                            self.progress_tracker.update_task(task_id, description=f"[red]✗[/red] {file_name}")
 
                     if progress:
                         self.progress_tracker.advance_task(task_id)
@@ -471,13 +420,9 @@ class OneLakeUtils:
         failed_count = len(upload_results["failed"])
 
         if failed_count == 0:
-            self.msg_helper.print_success(
-                f"Upload completed: {successful_count} files uploaded successfully"
-            )
+            self.msg_helper.print_success(f"Upload completed: {successful_count} files uploaded successfully")
         else:
-            self.msg_helper.print_warning(
-                f"Upload completed: {successful_count} successful, {failed_count} failed"
-            )
+            self.msg_helper.print_warning(f"Upload completed: {successful_count} successful, {failed_count} failed")
 
         # Show summary panel
         if self.console:
@@ -495,9 +440,7 @@ class OneLakeUtils:
             self.console.print(panel)
         return upload_results
 
-    def upload_manifest_file_to_config_lakehouse(
-        self, manifest_file_path: str = None
-    ) -> dict:
+    def upload_manifest_file_to_config_lakehouse(self, manifest_file_path: str = None) -> dict:
         path_and_file = os.path.split(manifest_file_path)
 
         directory_path = path_and_file[0]
@@ -506,10 +449,10 @@ class OneLakeUtils:
         root_path = str(Path.cwd())
 
         manifest_file_path_full = root_path + "\\" + directory_path + "\\" + file_name
-        
-        target_path = "ingen_fab/manifest/"+file_name
-        
-        service_client=self._get_datalake_service_client()
+
+        target_path = "ingen_fab/manifest/" + file_name
+
+        service_client = self._get_datalake_service_client()
         file_system_client = service_client.get_file_system_client(self.workspace_name)
         lakehouse_id = self.get_config_lakehouse_id()
 
@@ -519,12 +462,10 @@ class OneLakeUtils:
             target_path,
             service_client=service_client,
             file_system_client=file_system_client,
-            verbose=False, 
+            verbose=False,
         )
 
-    def download_manifest_file_from_config_lakehouse(
-        self, manifest_file_path: str = None
-    ) -> dict:
+    def download_manifest_file_from_config_lakehouse(self, manifest_file_path: str = None) -> dict:
         path_and_file = os.path.split(manifest_file_path)
 
         directory_path = path_and_file[0]
@@ -533,10 +474,10 @@ class OneLakeUtils:
         root_path = str(Path.cwd())
 
         manifest_file_path_full = root_path + "\\" + directory_path + "\\" + file_name
-        
-        target_path = "ingen_fab/manifest/"+file_name
-        
-        service_client=self._get_datalake_service_client()
+
+        target_path = "ingen_fab/manifest/" + file_name
+
+        service_client = self._get_datalake_service_client()
         file_system_client = service_client.get_file_system_client(self.workspace_name)
         lakehouse_id = self.get_config_lakehouse_id()
 
@@ -546,12 +487,10 @@ class OneLakeUtils:
             target_path,
             service_client=service_client,
             file_system_client=file_system_client,
-            verbose=False, 
+            verbose=False,
         )
 
-    def upload_python_libs_to_config_lakehouse(
-        self, python_libs_path: str = None
-    ) -> dict:
+    def upload_python_libs_to_config_lakehouse(self, python_libs_path: str = None) -> dict:
         """
         Upload the python_libs directory to the config lakehouse's Files section.
 
@@ -575,9 +514,7 @@ class OneLakeUtils:
         config_lakehouse_id = self.get_config_lakehouse_id()
 
         # Show upload info with rich formatting
-        self.msg_helper.print_info(
-            f"Uploading python_libs from: {python_libs_path.name}"
-        )
+        self.msg_helper.print_info(f"Uploading python_libs from: {python_libs_path.name}")
 
         if self.console:
             from rich.panel import Panel
@@ -602,10 +539,8 @@ class OneLakeUtils:
             service_client=self._get_datalake_service_client(),
             include_extensions=[".py"],
         )
-    
-    def upload_dbt_project_to_config_lakehouse(
-        self, dbt_project_name: str, dbt_project_path: str = None
-    ) -> dict:
+
+    def upload_dbt_project_to_config_lakehouse(self, dbt_project_name: str, dbt_project_path: str = None) -> dict:
         """
         Upload the dbt project directory to the config lakehouse's Files section.
 
@@ -629,9 +564,7 @@ class OneLakeUtils:
         config_lakehouse_id = self.get_config_lakehouse_id()
 
         # Show upload info with rich formatting
-        self.msg_helper.print_info(
-            f"Uploading dbt project from: {dbt_project_path.name}"
-        )
+        self.msg_helper.print_info(f"Uploading dbt project from: {dbt_project_path.name}")
 
         if self.console:
             from rich.panel import Panel
@@ -682,9 +615,7 @@ class OneLakeUtils:
 
             if file_system_client is None:
                 workspace_name = self.workspace_name
-                file_system_client = service_client.get_file_system_client(
-                    workspace_name
-                )
+                file_system_client = service_client.get_file_system_client(workspace_name)
 
             # Get lakehouse name and construct the base path: {lakehouse_name}.Lakehouse/Files/{path}
             lakehouse_name = self.lakehouse_name
@@ -732,15 +663,11 @@ class OneLakeUtils:
 
             if file_system_client is None:
                 workspace_name = self.workspace_name
-                file_system_client = service_client.get_file_system_client(
-                    workspace_name
-                )
+                file_system_client = service_client.get_file_system_client(workspace_name)
 
             # Get lakehouse name and construct the full path: {lakehouse_name}.Lakehouse/Files/{file_path}
             lakehouse_name = self._get_lakehouse_name(lakehouse_id)
-            full_file_path = f"{lakehouse_name}.Lakehouse/Files/{file_path}".replace(
-                "\\", "/"
-            )
+            full_file_path = f"{lakehouse_name}.Lakehouse/Files/{file_path}".replace("\\", "/")
 
             # Get the file client and delete
             file_client = file_system_client.get_file_client(full_file_path)
@@ -778,9 +705,7 @@ class OneLakeUtils:
                 service_client = self._get_datalake_service_client()
             if file_system_client is None:
                 workspace_name = self.workspace_name
-                file_system_client = service_client.get_file_system_client(
-                    workspace_name
-                )
+                file_system_client = service_client.get_file_system_client(workspace_name)
 
             # List files in python_libs directory
             file_paths = self.list_lakehouse_files(
@@ -802,17 +727,13 @@ class OneLakeUtils:
                     "total_found": 0,
                 }
 
-            self.msg_helper.print_info(
-                f"Found {len(file_paths)} files in python_libs directory to delete"
-            )
+            self.msg_helper.print_info(f"Found {len(file_paths)} files in python_libs directory to delete")
 
             # Delete each file with progress tracking
             with self.progress_tracker.create_progress_bar(
                 len(file_paths), description="Deleting files..."
             ) as progress:
-                task_id = self.progress_tracker.add_task(
-                    "Deleting files...", len(file_paths)
-                )
+                task_id = self.progress_tracker.add_task("Deleting files...", len(file_paths))
 
                 for file_path in file_paths:
                     # Extract the relative path from the full OneLake path
@@ -838,18 +759,14 @@ class OneLakeUtils:
                     else:
                         errors.append(f"Failed to delete {relative_path}")
                         if progress:
-                            self.progress_tracker.update_task(
-                                task_id, description=f"[red]✗[/red] Failed {file_name}"
-                            )
+                            self.progress_tracker.update_task(task_id, description=f"[red]✗[/red] Failed {file_name}")
 
                     if progress:
                         self.progress_tracker.advance_task(task_id)
 
             # Show final results
             if deleted_count > 0:
-                self.msg_helper.print_success(
-                    f"Deleted {deleted_count} python_libs files from lakehouse"
-                )
+                self.msg_helper.print_success(f"Deleted {deleted_count} python_libs files from lakehouse")
             if errors:
                 self.msg_helper.print_warning(f"{len(errors)} files failed to delete")
 

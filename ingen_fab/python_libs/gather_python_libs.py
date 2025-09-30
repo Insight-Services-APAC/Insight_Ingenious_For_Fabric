@@ -32,7 +32,8 @@ class GatherPythonLibs:
                 for alias in node.names:
                     imports.add(alias.name)
             elif isinstance(node, ast.ImportFrom):
-                imports.add(node.module)
+                if node.module:
+                    imports.add(node.module)
 
         # Filter out built-in libraries and keep only external libraries
         external_imports = [lib for lib in imports if not self.is_builtin_library(lib)]
@@ -168,10 +169,7 @@ class GatherPythonLibs:
         def visit(filename: str):
             if filename in temp_visited:
                 # Circular dependency - handle gracefully
-                self.console.print(
-                    f"[yellow]Warning: Circular dependency detected involving "
-                    f"{filename}[/yellow]"
-                )
+                self.console.print(f"[yellow]Warning: Circular dependency detected involving {filename}[/yellow]")
                 return
             if filename in visited:
                 return
@@ -195,9 +193,7 @@ class GatherPythonLibs:
 
         return sorted_files
 
-    def _discover_additional_dependencies(
-        self, target_files: List[Path], base_python_libs_path: Path
-    ) -> List[Path]:
+    def _discover_additional_dependencies(self, target_files: List[Path], base_python_libs_path: Path) -> List[Path]:
         """
         Discover additional files from common and interfaces directories that are referenced
         by the target files or their dependencies.
@@ -214,20 +210,12 @@ class GatherPythonLibs:
 
         if common_dir.exists():
             for file_path in common_dir.iterdir():
-                if (
-                    file_path.is_file()
-                    and file_path.suffix == ".py"
-                    and not file_path.name.startswith("__")
-                ):
+                if file_path.is_file() and file_path.suffix == ".py" and not file_path.name.startswith("__"):
                     available_files[file_path.stem] = file_path
 
         if interfaces_dir.exists():
             for file_path in interfaces_dir.iterdir():
-                if (
-                    file_path.is_file()
-                    and file_path.suffix == ".py"
-                    and not file_path.name.startswith("__")
-                ):
+                if file_path.is_file() and file_path.suffix == ".py" and not file_path.name.startswith("__"):
                     available_files[file_path.stem] = file_path
 
         # Recursively discover dependencies
@@ -250,13 +238,11 @@ class GatherPythonLibs:
                     discovered_dependencies.add(dep)
                     dep_file = available_files[dep]
                     additional_files.append(dep_file)
-                    files_to_check.append(
-                        dep_file
-                    )  # Check dependencies of this file too
+                    files_to_check.append(dep_file)  # Check dependencies of this file too
 
         return additional_files
 
-    def gather_files(self, python_libs_path: Path, libs_to_include: List[str]) -> []:
+    def gather_files(self, python_libs_path: Path, libs_to_include: List[str]) -> List[str]:
         """
         Analyze python_libs files, sort by dependencies, and inject into lib.py.jinja.
         Includes files from common and interfaces directories when referenced.
@@ -267,16 +253,12 @@ class GatherPythonLibs:
             target_python_libs_path = base_python_libs_path / python_libs_path
 
             if not target_python_libs_path.exists():
-                self.console.print(
-                    f"[yellow]Warning: Python libs path not found: {target_python_libs_path}[/yellow]"
-                )
-                return
+                self.console.print(f"[yellow]Warning: Python libs path not found: {target_python_libs_path}[/yellow]")
+                return []
 
         except FileNotFoundError:
-            self.console.print(
-                "[yellow]Warning: Could not locate python_libs package resources[/yellow]"
-            )
-            return
+            self.console.print("[yellow]Warning: Could not locate python_libs package resources[/yellow]")
+            return []
 
         # Get all Python files from the target directory
         target_python_files = []
@@ -285,10 +267,7 @@ class GatherPythonLibs:
             target_python_files = [
                 f
                 for f in target_python_libs_path.iterdir()
-                if f.is_file()
-                and f.suffix == ".py"
-                and not f.name.startswith("__")
-                and f.stem in libs_to_include
+                if f.is_file() and f.suffix == ".py" and not f.name.startswith("__") and f.stem in libs_to_include
             ]
         else:
             # Include all files if libs_to_include is empty
@@ -299,22 +278,16 @@ class GatherPythonLibs:
             ]
 
         if not target_python_files:
-            self.console.print(
-                f"[yellow]Warning: No Python files found in {target_python_libs_path}[/yellow]"
-            )
-            return
+            self.console.print(f"[yellow]Warning: No Python files found in {target_python_libs_path}[/yellow]")
+            return []
 
         # Discover additional files from common and interfaces directories
-        additional_files = self._discover_additional_dependencies(
-            target_python_files, base_python_libs_path
-        )
+        additional_files = self._discover_additional_dependencies(target_python_files, base_python_libs_path)
 
         # Combine all files
         all_python_files = target_python_files + additional_files
 
-        self.console.print(
-            f"[blue]Found {len(target_python_files)} Python library files in target directory[/blue]"
-        )
+        self.console.print(f"[blue]Found {len(target_python_files)} Python library files in target directory[/blue]")
         if additional_files:
             self.console.print(
                 f"[blue]Found {len(additional_files)} additional dependency files from common/interfaces[/blue]"
@@ -327,9 +300,7 @@ class GatherPythonLibs:
         self.console.print("\n[bold]Dependency-sorted file order:[/bold]")
         for i, file_path in enumerate(sorted_files, 1):
             deps = self.analyze_file_dependencies(file_path)
-            valid_deps = {
-                dep for dep in deps if any(f.stem == dep for f in all_python_files)
-            }
+            valid_deps = {dep for dep in deps if any(f.stem == dep for f in all_python_files)}
             dep_str = f" (depends on: {', '.join(valid_deps)})" if valid_deps else ""
             # Show which directory the file is from
             relative_path = file_path.relative_to(base_python_libs_path)

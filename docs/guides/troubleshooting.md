@@ -64,7 +64,7 @@ Common issues and solutions when working with the Ingenious Fabric Accelerator.
 2. Or set service principal variables:
    ```bash
    export AZURE_TENANT_ID="your-tenant-id"
-   export AZURE_CLIENT_ID="your-client-id" 
+   export AZURE_CLIENT_ID="your-client-id"
    export AZURE_CLIENT_SECRET="your-client-secret"
    ```
 

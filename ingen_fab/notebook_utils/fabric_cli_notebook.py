@@ -14,20 +14,15 @@ class FabricCLINotebook:
 
     def __init__(self, workspace_name: str) -> None:
         self.workspace_name = workspace_name
-        self.jinja_env = jinja2.Environment(
-            loader=jinja2.FileSystemLoader(Path(__file__).resolve().parent)
-        )
-        self.platform_file_template = self.jinja_env.get_template(
-            "platform_file_template.json.jinja"
-        )
-        self.notebook_content_template = self.jinja_env.get_template(
-            "notebook-content_template.py.jinja"
-        )
+        template_dir = Path(__file__).resolve().parent / "templates" / "platform_testing"
+        self.jinja_env = jinja2.Environment(loader=jinja2.FileSystemLoader(template_dir))
+        self.platform_file_template = self.jinja_env.get_template("platform_file_template.json.jinja")
+        self.notebook_content_template = self.jinja_env.get_template("notebook-content_template-python.py.jinja")
 
-    def generate_functional_test_notebook(self):
+    def generate_functional_test_notebook(self, notebook_name: str = "test_notebook"):
         """Generate a functional test notebook using the Fabric CLI."""
         # Render the jinja templates
-        platform_file_content = self.platform_file_template.render(guid=uuid.uuid4())
+        platform_file_content = self.platform_file_template.render(guid=str(uuid.uuid4()), notebook_name=notebook_name)
         notebook_content = self.notebook_content_template.render(
             content="print('Hello, Fabric!')",
         )
@@ -43,19 +38,14 @@ class FabricCLINotebook:
         with open(platform_file_path, "w", encoding="utf-8") as f:
             f.write(platform_file_content)
 
-    def upload(
-        self, notebook_path: Path, notebook_name: str, format: str = ".py"
-    ) -> None:
+    def upload(self, notebook_path: Path, notebook_name: str, format: str = ".py") -> None:
         """Upload a notebook to the workspace."""
         cmd = [
             "fab",
             "import",
-            f"{self.workspace_name}.Workspace/{notebook_name}.Notebook",
+            f"{self.workspace_name}/{notebook_name}.Notebook",
             "-i",
             str(notebook_path),
-            "--format",
-            format,
-            "-f",
         ]
         subprocess.run(cmd, check=True, capture_output=True, text=True)
 
@@ -64,11 +54,17 @@ class FabricCLINotebook:
         cmd = [
             "fab",
             "job",
-            "start",
-            f"{self.workspace_name}.Workspace/{notebook_name}.Notebook",
+            "run",
+            f"{self.workspace_name}/{notebook_name}.Notebook",
         ]
         result = subprocess.run(cmd, check=True, capture_output=True, text=True)
-        return result.stdout.strip() if result.stdout else None
+        if result.stdout:
+            output = result.stdout.strip()
+            # Extract job ID from output like "Started job 0bfcc2a7-468d-473f-92e4-9a2a799f2522"
+            if output.startswith("Started job "):
+                return output.replace("Started job ", "")
+            return output
+        return None
 
     def status(self, notebook_name: str, job_id: str) -> str:
         """Return the CLI status output for a job."""
@@ -76,7 +72,7 @@ class FabricCLINotebook:
             "fab",
             "job",
             "run-status",
-            f"{self.workspace_name}.Workspace/{notebook_name}.Notebook",
+            f"{self.workspace_name}/{notebook_name}.Notebook",
             "--id",
             job_id,
         ]
@@ -89,7 +85,7 @@ class FabricCLINotebook:
         cmd = [
             "fab",
             "delete",
-            f"{self.workspace_name}.Workspace/{item_name}.{item_type}",
+            f"{self.workspace_name}/{item_name}.{item_type}",
             "-f",
         ]
         try:
@@ -100,7 +96,7 @@ class FabricCLINotebook:
 
     def list_items(self) -> list[dict[str, Any]]:
         """List all items in the workspace."""
-        cmd = ["fab", "list", f"{self.workspace_name}.Workspace", "--output", "json"]
+        cmd = ["fab", "list", f"{self.workspace_name}", "--output", "json"]
         result = subprocess.run(cmd, check=True, capture_output=True, text=True)
 
         if result.stdout:
@@ -120,13 +116,9 @@ class FabricLivyNotebook:
         self.workspace_id = workspace_id
         self.lakehouse_id = lakehouse_id
         self.credential = DefaultAzureCredential()
-        self.base_url = (
-            f"https://api.fabric.microsoft.com/v1/workspaces/{workspace_id}/lakehouses"
-        )
+        self.base_url = f"https://api.fabric.microsoft.com/v1/workspaces/{workspace_id}/lakehouses"
         if lakehouse_id:
-            self.livy_url = (
-                f"{self.base_url}/{lakehouse_id}/livyapi/versions/2023-12-01/sessions"
-            )
+            self.livy_url = f"{self.base_url}/{lakehouse_id}/livyapi/versions/2023-12-01/sessions"
 
     def _get_token(self) -> str:
         """Get authentication token for Fabric API."""
@@ -155,9 +147,7 @@ class FabricLivyNotebook:
             },
         }
 
-        response = requests.post(
-            self.livy_url, headers=self._get_headers(), json=payload
-        )
+        response = requests.post(self.livy_url, headers=self._get_headers(), json=payload)
         response.raise_for_status()
 
         session_data = response.json()
@@ -165,9 +155,7 @@ class FabricLivyNotebook:
 
     def get_session_status(self, session_id: str) -> Dict[str, Any]:
         """Get the status of a Spark session."""
-        response = requests.get(
-            f"{self.livy_url}/{session_id}", headers=self._get_headers()
-        )
+        response = requests.get(f"{self.livy_url}/{session_id}", headers=self._get_headers())
         response.raise_for_status()
         return response.json()
 
@@ -201,9 +189,7 @@ class FabricLivyNotebook:
 
         return response.json()
 
-    def get_statement_status(
-        self, session_id: str, statement_id: int
-    ) -> Dict[str, Any]:
+    def get_statement_status(self, session_id: str, statement_id: int) -> Dict[str, Any]:
         """Get the status and result of a statement."""
         response = requests.get(
             f"{self.livy_url}/{session_id}/statements/{statement_id}",
@@ -212,9 +198,7 @@ class FabricLivyNotebook:
         response.raise_for_status()
         return response.json()
 
-    def wait_for_statement_completion(
-        self, session_id: str, statement_id: int, timeout: int = 300
-    ) -> Dict[str, Any]:
+    def wait_for_statement_completion(self, session_id: str, statement_id: int, timeout: int = 300) -> Dict[str, Any]:
         """Wait for statement to complete and return the result."""
         start_time = time.time()
 
@@ -229,9 +213,7 @@ class FabricLivyNotebook:
 
             time.sleep(2)
 
-        raise TimeoutError(
-            f"Statement {statement_id} did not complete within {timeout} seconds"
-        )
+        raise TimeoutError(f"Statement {statement_id} did not complete within {timeout} seconds")
 
     def run_notebook_code(self, code: str, timeout: int = 600) -> Dict[str, Any]:
         """
@@ -254,9 +236,7 @@ class FabricLivyNotebook:
             statement_id = statement["id"]
 
             # Wait for completion
-            result = self.wait_for_statement_completion(
-                session_id, statement_id, timeout
-            )
+            result = self.wait_for_statement_completion(session_id, statement_id, timeout)
 
             return {
                 "session_id": session_id,
@@ -279,9 +259,7 @@ class FabricLivyNotebook:
     def delete_session(self, session_id: str) -> None:
         """Delete a Spark session."""
         try:
-            response = requests.delete(
-                f"{self.livy_url}/{session_id}", headers=self._get_headers()
-            )
+            response = requests.delete(f"{self.livy_url}/{session_id}", headers=self._get_headers())
             response.raise_for_status()
             print(f"Deleted session: {session_id}")
         except Exception as e:

@@ -44,9 +44,7 @@ class TestWorkflowUtils:
     @pytest.mark.asyncio
     async def test_random_delay_uses_numpy_random(self):
         """Test that random_delay uses numpy random."""
-        with patch(
-            "ingen_fab.python_libs.common.workflow_utils.np.random.random"
-        ) as mock_random:
+        with patch("ingen_fab.python_libs.common.workflow_utils.np.random.random") as mock_random:
             mock_random.return_value = 0.5  # Fixed random value
 
             with patch("asyncio.sleep") as mock_sleep:
@@ -60,9 +58,7 @@ class TestWorkflowUtils:
     @pytest.mark.asyncio
     async def test_random_delay_minimum_value(self):
         """Test random_delay with minimum random value."""
-        with patch(
-            "ingen_fab.python_libs.common.workflow_utils.np.random.random"
-        ) as mock_random:
+        with patch("ingen_fab.python_libs.common.workflow_utils.np.random.random") as mock_random:
             mock_random.return_value = 0.0  # Minimum random value
 
             with patch("asyncio.sleep") as mock_sleep:
@@ -75,9 +71,7 @@ class TestWorkflowUtils:
     @pytest.mark.asyncio
     async def test_random_delay_maximum_value(self):
         """Test random_delay with maximum random value."""
-        with patch(
-            "ingen_fab.python_libs.common.workflow_utils.np.random.random"
-        ) as mock_random:
+        with patch("ingen_fab.python_libs.common.workflow_utils.np.random.random") as mock_random:
             mock_random.return_value = 1.0  # Maximum random value
 
             with patch("asyncio.sleep") as mock_sleep:
@@ -124,9 +118,7 @@ class TestWorkflowUtils:
         """Test the exact delay calculation formula."""
         test_random_value = 0.75
 
-        with patch(
-            "ingen_fab.python_libs.common.workflow_utils.np.random.random"
-        ) as mock_random:
+        with patch("ingen_fab.python_libs.common.workflow_utils.np.random.random") as mock_random:
             mock_random.return_value = test_random_value
 
             with patch("asyncio.sleep") as mock_sleep:

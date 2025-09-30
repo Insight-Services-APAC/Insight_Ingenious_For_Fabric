@@ -16,9 +16,7 @@ extract_log_schema = StructType(
         StructField("execution_group", StringType(), nullable=True),
         StructField("run_id", StringType(), nullable=False),
         StructField("run_timestamp", TimestampType(), nullable=False),
-        StructField(
-            "run_status", StringType(), nullable=False
-        ),  # IN_PROGRESS, SUCCESS, FAILED
+        StructField("run_status", StringType(), nullable=False),  # IN_PROGRESS, SUCCESS, FAILED
         StructField("run_type", StringType(), nullable=False),  # FULL, INCREMENTAL
         StructField("start_time", TimestampType(), nullable=False),
         StructField("end_time", TimestampType(), nullable=True),

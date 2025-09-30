@@ -66,9 +66,7 @@ def compile_ddl_notebooks(
     generation_mode: NotebookGenerator.GenerationMode = None,
     verbose: bool = False,
 ):
-    fabric_workspace_repo_dir = (
-        ctx.obj.get("fabric_workspace_repo_dir", None) if ctx.obj else None
-    )
+    fabric_workspace_repo_dir = ctx.obj.get("fabric_workspace_repo_dir", None) if ctx.obj else None
 
     if output_mode is None:
         output_mode = NotebookGenerator.OutputMode.fabric_workspace_repo
@@ -92,15 +90,11 @@ def compile_ddl_notebooks(
     # Note: Variable injection should only happen during deployment, not compilation
     # The {{varlib:...}} placeholders should be preserved in compiled notebooks
     # and only replaced during deployment via fabric_cicd/promotion_utils.py
-    console.print(
-        "[dim]Notebooks compiled with variable placeholders preserved for deployment-time substitution[/dim]"
-    )
+    console.print("[dim]Notebooks compiled with variable placeholders preserved for deployment-time substitution[/dim]")
 
 
 def test_python_block():
-    with open(
-        Path(__file__).parent.parent / "python_libs" / "python" / "config_utils.py", "r"
-    ) as f:
+    with open(Path(__file__).parent.parent / "python_libs" / "python" / "config_utils.py", "r") as f:
         code = f.read()
     fct = FabricCodeTester()
     fct.test_code(code=code)
@@ -118,21 +112,15 @@ def run_simple_notebook(ctx: typer.Context):
         job_id = None
         if r:
             decoded_response = html.unescape(r)
-            job_id_match = re.search(
-                r"Job instance '([a-f0-9-]{36})'", decoded_response
-            )
+            job_id_match = re.search(r"Job instance '([a-f0-9-]{36})'", decoded_response)
             if job_id_match:
                 job_id = job_id_match.group(1)
                 console.print(f"[info]Notebook started with job ID: {job_id}[/info]")
             else:
-                console.print(
-                    "[warning]Could not extract job ID from response.[/warning]"
-                )
+                console.print("[warning]Could not extract job ID from response.[/warning]")
                 console.print(f"[debug]Response: {r}[/debug]")
         else:
-            console.print(
-                "[warning]No response returned from notebook execution.[/warning]"
-            )
+            console.print("[warning]No response returned from notebook execution.[/warning]")
         if job_id:
             console.print("[info]Waiting for notebook execution to complete...[/info]")
             max_wait_time = 300
@@ -141,39 +129,25 @@ def run_simple_notebook(ctx: typer.Context):
             while elapsed_time < max_wait_time:
                 time.sleep(poll_interval)
                 elapsed_time += poll_interval
-                status_response = fclin.status(
-                    notebook_name="codex_test_notebook", job_id=job_id
-                )
+                status_response = fclin.status(notebook_name="codex_test_notebook", job_id=job_id)
                 parsed_status = parse_status_response(status_response)
                 if parsed_status:
                     status = parsed_status["status"]
-                    console.print(
-                        f"[info]Job status: {status} (elapsed: {elapsed_time}s)[/info]"
-                    )
+                    console.print(f"[info]Job status: {status} (elapsed: {elapsed_time}s)[/info]")
                     if status in ["Succeeded", "Failed", "Cancelled"]:
                         if status == "Succeeded":
-                            console.print(
-                                "[info]✅ Notebook execution completed successfully![/info]"
-                            )
+                            console.print("[info]✅ Notebook execution completed successfully![/info]")
                         elif status == "Failed":
-                            failure_reason = parsed_status.get(
-                                "failureReason", "Unknown"
-                            )
-                            console.print(
-                                f"[error]❌ Notebook execution failed: {failure_reason}[/error]"
-                            )
+                            failure_reason = parsed_status.get("failureReason", "Unknown")
+                            console.print(f"[error]❌ Notebook execution failed: {failure_reason}[/error]")
                         else:
-                            console.print(
-                                "[warning]⚠️ Notebook execution was cancelled[/warning]"
-                            )
+                            console.print("[warning]⚠️ Notebook execution was cancelled[/warning]")
                         break
                 else:
                     console.print("[warning]Could not parse status response[/warning]")
                     console.print(f"[debug]Raw response: {status_response}[/debug]")
             if elapsed_time >= max_wait_time:
-                console.print(
-                    f"[warning]⏱️ Timeout after {max_wait_time}s waiting for notebook completion[/warning]"
-                )
+                console.print(f"[warning]⏱️ Timeout after {max_wait_time}s waiting for notebook completion[/warning]")
         else:
             console.print("[error]Cannot check status without job ID.[/error]")
     except Exception as e:
@@ -191,9 +165,7 @@ def find_notebook_content_files(base_dir: Path):
     table.add_column("Relative Path")
     table.add_column("Lakehouse")
     for nb in notebooks:
-        table.add_row(
-            nb["notebook_name"], nb["relative_path"], nb.get("lakehouse") or ""
-        )
+        table.add_row(nb["notebook_name"], nb["relative_path"], nb.get("lakehouse") or "")
     console.print(table)
 
 
@@ -209,22 +181,14 @@ def scan_notebook_blocks(base_dir: Path, apply_replacements: bool):
         )
         finder.apply_replacements(all_blocks)
     elif apply_replacements and not all_blocks:
-        ConsoleStyles.print_error(
-            console, "No content blocks found to apply replacements to."
-        )
+        ConsoleStyles.print_error(console, "No content blocks found to apply replacements to.")
 
 
-def run_livy_notebook(
-    ctx: typer.Context, workspace_id: str, lakehouse_id: str, code: str, timeout: int
-):
+def run_livy_notebook(ctx: typer.Context, workspace_id: str, lakehouse_id: str, code: str, timeout: int):
     try:
         console.print("[info]Starting notebook execution via Livy API...[/info]")
-        livy_client = FabricLivyNotebook(
-            workspace_id=workspace_id, lakehouse_id=lakehouse_id
-        )
-        console.print(
-            f"[info]Executing code: {code[:50]}{'...' if len(code) > 50 else ''}[/info]"
-        )
+        livy_client = FabricLivyNotebook(workspace_id=workspace_id, lakehouse_id=lakehouse_id)
+        console.print(f"[info]Executing code: {code[:50]}{'...' if len(code) > 50 else ''}[/info]")
         result = livy_client.run_template_notebook(code, timeout=timeout)
         if result.get("error"):
             console.print(f"[error]❌ Execution failed: {result['error']}[/error]")
@@ -247,9 +211,7 @@ def run_livy_notebook(
                 for line in output["traceback"]:
                     console.print(f"[error]{line}[/error]")
         else:
-            console.print(
-                f"[warning]⚠️ Unexpected state: {result.get('state', 'unknown')}[/warning]"
-            )
+            console.print(f"[warning]⚠️ Unexpected state: {result.get('state', 'unknown')}[/warning]")
             console.print(f"[debug]Full result: {result}[/debug]")
     except Exception as e:
         console.print(f"[error]❌ Livy notebook execution failed: {e}[/error]")

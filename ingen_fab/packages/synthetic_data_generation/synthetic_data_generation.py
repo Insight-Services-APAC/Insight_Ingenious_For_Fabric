@@ -222,9 +222,7 @@ class SyntheticDataGenerationCompiler(BaseNotebookCompiler):
         from datetime import date
 
         template_vars = {
-            "target_lakehouse_config_prefix": "config_wh"
-            if target_environment == "warehouse"
-            else "config",
+            "target_lakehouse_config_prefix": "config_wh" if target_environment == "warehouse" else "config",
             "dataset_config": config.to_dict(),
             "generation_mode": generation_mode,
             "target_environment": target_environment,
@@ -239,14 +237,8 @@ class SyntheticDataGenerationCompiler(BaseNotebookCompiler):
         # Generate notebook name
         from datetime import date
 
-        scale = (
-            "large"
-            if config.calculate_total_rows_for_date(date.today()) > 1000000
-            else "small"
-        )
-        notebook_name = (
-            f"enhanced_synthetic_data_{config.dataset_id}_{scale}_{generation_mode}"
-        )
+        scale = "large" if config.calculate_total_rows_for_date(date.today()) > 1000000 else "small"
+        notebook_name = f"enhanced_synthetic_data_{config.dataset_id}_{scale}_{generation_mode}"
 
         # Set default output_subdir
         if output_subdir is None:
@@ -304,8 +296,7 @@ class SyntheticDataGenerationCompiler(BaseNotebookCompiler):
         return self.compile_enhanced_synthetic_data_notebook(
             dataset_config=config,
             target_environment=target_environment,
-            output_subdir=output_subdir
-            or f"synthetic_data_generation/configured/{dataset_id}",
+            output_subdir=output_subdir or f"synthetic_data_generation/configured/{dataset_id}",
         )
 
     def get_available_configuration_templates(self) -> Dict[str, str]:
@@ -359,17 +350,11 @@ class SyntheticDataGenerationCompiler(BaseNotebookCompiler):
             **base_config,
             "target_rows": target_rows,
             "seed_value": seed_value,
-            "chunk_size": min(target_rows, 1000000)
-            if target_rows > 1000000
-            else target_rows,
+            "chunk_size": min(target_rows, 1000000) if target_rows > 1000000 else target_rows,
         }
 
-        print(
-            "💡 [NOTICE] Consider using the new generic template system for better flexibility!"
-        )
-        print(
-            "   Use 'compile-generic-templates' and 'execute-with-parameters' commands."
-        )
+        print("💡 [NOTICE] Consider using the new generic template system for better flexibility!")
+        print("   Use 'compile-generic-templates' and 'execute-with-parameters' commands.")
         print(
             f"   Example: python -m ingen_fab.cli package synthetic-data compile-generic-templates --target-environment {target_environment}"
         )
@@ -386,9 +371,7 @@ class SyntheticDataGenerationCompiler(BaseNotebookCompiler):
             output_mode=output_mode,
         )
 
-    def compile_ddl_scripts(
-        self, target_environment: str = "warehouse"
-    ) -> Dict[str, List[Path]]:
+    def compile_ddl_scripts(self, target_environment: str = "warehouse") -> Dict[str, List[Path]]:
         """
         Compile DDL scripts for synthetic data generation configuration tables.
 
@@ -446,9 +429,7 @@ class SyntheticDataGenerationCompiler(BaseNotebookCompiler):
                 ]
             }
 
-        return super().compile_ddl_scripts(
-            ddl_source_dir, ddl_output_base, script_mappings
-        )
+        return super().compile_ddl_scripts(ddl_source_dir, ddl_output_base, script_mappings)
 
     def compile_all_synthetic_data_notebooks(
         self,
@@ -482,13 +463,10 @@ class SyntheticDataGenerationCompiler(BaseNotebookCompiler):
             datasets = [
                 {
                     **config,
-                    "target_rows": 10000
-                    if "small" in config["dataset_id"]
-                    else 1000000,
+                    "target_rows": 10000 if "small" in config["dataset_id"] else 1000000,
                 }
                 for config in predefined.values()
-                if "small"
-                in config["dataset_id"]  # Only compile small samples by default
+                if "small" in config["dataset_id"]  # Only compile small samples by default
             ]
 
         compile_functions = []
@@ -562,15 +540,11 @@ class SyntheticDataGenerationCompiler(BaseNotebookCompiler):
             # Get base configuration
             config = self.config_manager.get_predefined_config(template_id)
             if not config:
-                print(
-                    f"⚠️ Warning: Configuration template '{template_id}' not found, skipping..."
-                )
+                print(f"⚠️ Warning: Configuration template '{template_id}' not found, skipping...")
                 continue
 
             # Apply customizations
-            template_customizations = (
-                customizations.get(template_id, {}) if customizations else {}
-            )
+            template_customizations = customizations.get(template_id, {}) if customizations else {}
             if template_customizations:
                 config.apply_runtime_overrides(template_customizations)
 
@@ -581,9 +555,7 @@ class SyntheticDataGenerationCompiler(BaseNotebookCompiler):
                 (
                     self.compile_enhanced_synthetic_data_notebook,
                     [config, target_environment],
-                    {
-                        "output_subdir": f"synthetic_data_generation/enhanced/{config.dataset_id}"
-                    },
+                    {"output_subdir": f"synthetic_data_generation/enhanced/{config.dataset_id}"},
                 )
             )
 

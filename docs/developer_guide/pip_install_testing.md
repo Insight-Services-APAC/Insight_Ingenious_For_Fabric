@@ -195,19 +195,19 @@ Test that all critical modules can be imported:
 try:
     import ingen_fab
     print("✓ Base package import")
-    
+
     from ingen_fab.cli import app
     print("✓ CLI import")
-    
+
     from ingen_fab.notebook_utils import SimpleNotebook
     print("✓ Notebook utils import")
-    
+
     from ingen_fab.python_libs.python import lakehouse_utils
     print("✓ Python libs import")
-    
+
     from ingen_fab.fabric_api import utils
     print("✓ Fabric API import")
-    
+
 except ImportError as e:
     print(f"✗ Import failed: {e}")
 ```

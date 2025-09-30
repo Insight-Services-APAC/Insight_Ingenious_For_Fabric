@@ -135,7 +135,9 @@ def test_lakehouse_tables_uri(utils: lakehouse_utils):
 
     try:
         uri = utils.lakehouse_tables_uri()
-        expected_pattern = f"abfss://{utils.target_workspace_id}@onelake.dfs.fabric.microsoft.com/{utils.target_lakehouse_id}/Tables/"
+        expected_pattern = (
+            f"abfss://{utils.target_workspace_id}@onelake.dfs.fabric.microsoft.com/{utils.target_lakehouse_id}/Tables/"
+        )
 
         assert uri == expected_pattern
         print(f"✅ URI generated correctly: {uri}")
@@ -164,9 +166,7 @@ def test_table_existence_check(utils: lakehouse_utils, temp_dir: Path):
         raise
 
 
-def test_write_to_lakehouse_table(
-    utils: lakehouse_utils, dataframes: dict, temp_dir: Path
-):
+def test_write_to_lakehouse_table(utils: lakehouse_utils, dataframes: dict, temp_dir: Path):
     """Test writing DataFrames to lakehouse tables (simulated locally)."""
     print("\n🧪 Testing write_to_lakehouse_table method...")
 

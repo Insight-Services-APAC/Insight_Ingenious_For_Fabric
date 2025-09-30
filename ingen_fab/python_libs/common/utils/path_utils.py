@@ -11,10 +11,10 @@ from pathlib import Path
 from typing import List, Optional
 
 try:
-    import importlib.resources as pkg_resources
+    import importlib.resources as pkg_resources  # type: ignore[no-redef]
 except ImportError:
     # Fallback for Python < 3.9
-    import importlib_resources as pkg_resources
+    import importlib_resources as pkg_resources  # type: ignore[no-redef]
 
 
 @dataclass
@@ -25,9 +25,7 @@ class WorkspaceContext:
     environment: str
 
     @classmethod
-    def from_cli_or_env(
-        cls, cli_repo_dir: Optional[str] = None, cli_env: Optional[str] = None
-    ) -> "WorkspaceContext":
+    def from_cli_or_env(cls, cli_repo_dir: Optional[str] = None, cli_env: Optional[str] = None) -> "WorkspaceContext":
         """Create workspace context from CLI arguments or environment variables.
 
         Args:
@@ -101,10 +99,7 @@ class PathUtils:
                 searched_paths.append(f"Package resource: {pip_path}")
 
                 # Check if the resource exists
-                if (
-                    hasattr(resource_full_path, "exists")
-                    and resource_full_path.exists()
-                ):
+                if hasattr(resource_full_path, "exists") and resource_full_path.exists():
                     return pip_path
                 elif hasattr(resource_full_path, "is_file") and (
                     resource_full_path.is_file() or resource_full_path.is_dir()
@@ -176,15 +171,10 @@ class PathUtils:
         }
 
         if template_type not in template_mappings:
-            raise ValueError(
-                f"Unknown template type: {template_type}. "
-                f"Valid types: {list(template_mappings.keys())}"
-            )
+            raise ValueError(f"Unknown template type: {template_type}. Valid types: {list(template_mappings.keys())}")
 
         try:
-            base_path = PathUtils.get_package_resource_path(
-                template_mappings[template_type]
-            )
+            base_path = PathUtils.get_package_resource_path(template_mappings[template_type])
         except FileNotFoundError as e:
             # Re-raise with template type context
             raise FileNotFoundError(
@@ -206,9 +196,7 @@ class PathUtils:
                     available_msg = "Could not list available templates"
 
                 raise FileNotFoundError(
-                    f"Template file not found: {template_name}\n"
-                    f"Searched in: {base_path}\n"
-                    f"{available_msg}"
+                    f"Template file not found: {template_name}\nSearched in: {base_path}\n{available_msg}"
                 )
             return template_file
 

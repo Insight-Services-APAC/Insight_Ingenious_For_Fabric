@@ -1,4 +1,3 @@
-import asyncio
 import json
 import logging
 import time
@@ -8,7 +7,6 @@ from typing import Any, Dict, List, Optional
 
 import numpy as np
 import pandas as pd
-import pyarrow as pa
 
 from ingen_fab.python_libs.python.error_categorization import (
     error_categorizer,
@@ -31,42 +29,8 @@ def timestamp_now() -> int:
     return int(datetime.now().timestamp() * 1000)
 
 
-async def random_delay_before_logging():
-    """Add random delay to reduce write contention."""
-    delay = np.random.random() * 0.5  # 0-0.5 seconds
-    await asyncio.sleep(delay)
-
-
 class SynapseExtractUtils:
     """Utility class for Synapse data extraction operations."""
-
-    # Schema definition that matches the original file
-    LOG_SCHEMA = pa.schema(
-        [
-            ("master_execution_id", pa.string()),
-            ("execution_id", pa.string()),
-            ("pipeline_job_id", pa.string()),
-            ("execution_group", pa.int32()),
-            ("master_execution_parameters", pa.string()),
-            ("trigger_type", pa.string()),
-            ("config_synapse_connection_name", pa.string()),
-            ("source_schema_name", pa.string()),
-            ("source_table_name", pa.string()),
-            ("extract_mode", pa.string()),
-            ("extract_start_dt", pa.date32()),
-            ("extract_end_dt", pa.date32()),
-            ("partition_clause", pa.string()),
-            ("output_path", pa.string()),
-            ("extract_file_name", pa.string()),
-            ("external_table", pa.string()),
-            ("start_timestamp", pa.timestamp("ms")),
-            ("end_timestamp", pa.timestamp("ms")),
-            ("duration_sec", pa.float64()),
-            ("status", pa.string()),
-            ("error_messages", pa.string()),
-            ("end_timestamp_int", pa.int64()),
-        ]
-    )
 
     def __init__(
         self,
@@ -95,7 +59,6 @@ class SynapseExtractUtils:
 
         # Table names for metadata and logging
         self.log_table_name = "synapse_extract_run_log"
-        self.config_table_name = "synapse_extract_objects"
         self.schema_name = "dbo"
 
     def get_extract_sql_template(self) -> str:
@@ -105,7 +68,7 @@ class SynapseExtractUtils:
         SELECT
             *
         FROM
-            sys.external_file_formats 
+            sys.external_file_formats
         WHERE
             name = 'parquet'
     )
@@ -131,9 +94,9 @@ class SynapseExtractUtils:
     DROP EXTERNAL TABLE exports.@ExternalTableName;
 
     CREATE EXTERNAL TABLE exports.@ExternalTableName WITH (
-        LOCATION = '@LocationPath', 
+        LOCATION = '@LocationPath',
         DATA_SOURCE = [{self.datasource_name.strip()}],
-        FILE_FORMAT = parquet 
+        FILE_FORMAT = parquet
     ) AS
     SELECT
         *
@@ -214,9 +177,7 @@ class SynapseExtractUtils:
         pipeline_utils = self.get_pipeline_utils()
 
         # Construct job URL for polling
-        job_url = (
-            f"v1/workspaces/{workspace_id}/items/{pipeline_id}/jobs/instances/{job_id}"
-        )
+        job_url = f"v1/workspaces/{workspace_id}/items/{pipeline_id}/jobs/instances/{job_id}"
 
         # Use the advanced polling logic from PipelineUtils
         return await pipeline_utils.poll_job(job_url, table_name)
@@ -241,9 +202,7 @@ class SynapseExtractUtils:
                 return fn()
             except Exception as exc:
                 # Categorize the error
-                category, severity, is_retryable = (
-                    error_categorizer.categorize_exception(exc)
-                )
+                category, severity, is_retryable = error_categorizer.categorize_exception(exc)
 
                 # Log error with appropriate context
                 error_categorizer.log_error(
@@ -258,9 +217,7 @@ class SynapseExtractUtils:
                     raise
 
                 # Calculate delay based on error category
-                delay = error_categorizer.get_retry_delay(
-                    category, attempt, initial_delay
-                )
+                delay = error_categorizer.get_retry_delay(category, attempt, initial_delay)
 
                 # Add jitter to prevent thundering herd
                 jitter = 0.8 + (0.4 * np.random.random())
@@ -275,7 +232,7 @@ class SynapseExtractUtils:
         self,
         extraction_payloads: List[Dict],
         master_execution_id: str,
-        master_execution_parameters: Dict = None,
+        master_execution_parameters: Optional[Dict] = None,
         trigger_type: str = "Manual",
     ) -> Dict[str, str]:
         """
@@ -294,9 +251,7 @@ class SynapseExtractUtils:
         Raises:
             Exception: If bulk insert fails after retries
         """
-        logger.info(
-            f"Pre-logging {len(extraction_payloads)} extractions as 'Queued'..."
-        )
+        logger.info(f"Pre-logging {len(extraction_payloads)} extractions as 'Queued'...")
 
         records = []
         # Create timestamp with millisecond precision, no timezone
@@ -358,9 +313,7 @@ class SynapseExtractUtils:
                 schema_name=self.schema_name,
                 mode="append",
             )
-            logger.info(
-                f"Successfully queued {len(extraction_payloads)} extractions in log table"
-            )
+            logger.info(f"Successfully queued {len(extraction_payloads)} extractions in log table")
             # Return mapping using external table name as key (guaranteed unique)
             return {r["external_table"]: r["execution_id"] for r in records}
         except Exception as exc:
@@ -400,7 +353,7 @@ class SynapseExtractUtils:
         # Create timestamp with millisecond precision, no timezone
         current_time = datetime.utcnow().replace(microsecond=0)
 
-        updates = {
+        updates: Dict[str, Any] = {
             "master_execution_id": master_execution_id,
             "execution_id": execution_id,
             "status": status,
@@ -411,9 +364,7 @@ class SynapseExtractUtils:
 
         if status in {"Completed", "Failed", "Cancelled", "Deduped"}:
             updates["end_timestamp"] = current_time
-            updates["end_timestamp_int"] = int(
-                current_time.strftime("%Y%m%d%H%M%S%f")[:-3]
-            )
+            updates["end_timestamp_int"] = int(current_time.strftime("%Y%m%d%H%M%S%f")[:-3])
 
         if duration_sec is not None:
             updates["duration_sec"] = duration_sec
@@ -474,9 +425,7 @@ class SynapseExtractUtils:
 
         try:
             self.warehouse_utils.execute_query(query=sql, params=params)
-            logger.debug(
-                f"Updated log record: execution_id={execution_id}, status={status}"
-            )
+            logger.debug(f"Updated log record: execution_id={execution_id}, status={status}")
         except Exception as exc:
             logger.error(f"Failed to update log record: {exc}")
             raise
@@ -561,8 +510,12 @@ def build_path_components(item: Dict[str, Any]) -> Dict[str, str]:
 
     # Extract date components if incremental load
     if load_tier == "incremental":
-        extract_start = datetime.strptime(item.get("extract_start"), "%Y-%m-%d")  # noqa: F841
-        extract_end = datetime.strptime(item.get("extract_end"), "%Y-%m-%d")
+        extract_start_str = item.get("extract_start")
+        extract_end_str = item.get("extract_end")
+        if extract_start_str is None or extract_end_str is None:
+            raise ValueError("extract_start and extract_end are required for incremental loads")
+        extract_start = datetime.strptime(extract_start_str, "%Y-%m-%d")  # noqa: F841
+        extract_end = datetime.strptime(extract_end_str, "%Y-%m-%d")
         run_year = extract_end.year
         run_month = extract_end.month
         run_day = extract_end.day
@@ -580,9 +533,7 @@ def build_path_components(item: Dict[str, Any]) -> Dict[str, str]:
 
         # External table gets a tier + date suffix so names stay unique
         date_suffix = f"{run_year:04d}_{run_month:02d}_{run_day:02d}"
-        external_table_name = (
-            f"{item['source_schema']}_{item['source_table']}_{load_tier}_{date_suffix}"
-        )
+        external_table_name = f"{item['source_schema']}_{item['source_table']}_{load_tier}_{date_suffix}"
     else:
         # For snapshot loads, use base path and set table name (without suffix)
         full_path = base_path
@@ -630,8 +581,12 @@ def build_partition_clause(item: Dict[str, Any]) -> str:
         return ""
 
     # Parse dates for incremental loads
-    extract_start = datetime.strptime(item.get("extract_start"), "%Y-%m-%d")
-    extract_end = datetime.strptime(item.get("extract_end"), "%Y-%m-%d")
+    extract_start_str = item.get("extract_start")
+    extract_end_str = item.get("extract_end")
+    if extract_start_str is None or extract_end_str is None:
+        raise ValueError("extract_start and extract_end are required for incremental loads")
+    extract_start = datetime.strptime(extract_start_str, "%Y-%m-%d")
+    extract_end = datetime.strptime(extract_end_str, "%Y-%m-%d")
     start_date_sql = extract_start.strftime("%Y%m%d")
     end_date_sql = extract_end.strftime("%Y%m%d")
 
@@ -648,11 +603,7 @@ def build_partition_clause(item: Dict[str, Any]) -> str:
     else:
         # Date range - use date range filter
         if item.get("date_range_filter"):
-            return (
-                item["date_range_filter"]
-                .replace("@start_date", start_date_sql)
-                .replace("@end_date", end_date_sql)
-            )
+            return item["date_range_filter"].replace("@start_date", start_date_sql).replace("@end_date", end_date_sql)
         else:
             # Default date range filter if not provided
             return f"WHERE DATE_SK between {start_date_sql} and {end_date_sql}"
@@ -731,9 +682,7 @@ def enrich_work_item(
     return enriched_item
 
 
-def prepare_extract_payloads(
-    work_items: List[Dict[str, Any]], sql_template: str
-) -> List[Dict[str, Any]]:
+def prepare_extract_payloads(work_items: List[Dict[str, Any]], sql_template: str) -> List[Dict[str, Any]]:
     """
     Prepare the CETAS SQL statements and pipeline payloads for each extraction work item.
 

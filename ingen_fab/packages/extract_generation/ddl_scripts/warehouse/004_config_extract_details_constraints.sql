@@ -7,6 +7,6 @@
 ALTER TABLE [config].[config_extract_details] DROP CONSTRAINT IF EXISTS PK_config_extract_details;
 
 -- Add the primary key constraint
-ALTER TABLE [config].[config_extract_details] 
-ADD CONSTRAINT PK_config_extract_details 
+ALTER TABLE [config].[config_extract_details]
+ADD CONSTRAINT PK_config_extract_details
 PRIMARY KEY NONCLUSTERED (extract_name) NOT ENFORCED;

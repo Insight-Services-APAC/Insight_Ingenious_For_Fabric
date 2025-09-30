@@ -53,7 +53,7 @@ The package creates the following configuration tables:
 
 **Warehouse Mode:**
 - `config.config_extract_generation` - Extract job definitions
-- `config.config_extract_generation_details` - File format specifications  
+- `config.config_extract_generation_details` - File format specifications
 - `config.log_extract_generation` - Execution history and metrics
 
 ### 3. Configure Extracts
@@ -109,7 +109,7 @@ The new architecture supports flexible source and target configuration:
 - `source_schema_name` - Schema name for data access
 
 #### Target Configuration (where files are written)
-- `target_workspace_id` - Target workspace (optional, uses default if null)  
+- `target_workspace_id` - Target workspace (optional, uses default if null)
 - `target_datastore_id` - Target lakehouse/warehouse ID (optional, uses default if null)
 - `target_datastore_type` - 'lakehouse' or 'warehouse'
 - `target_file_root_path` - Root path like 'Files' or 'Tables'
@@ -127,7 +127,7 @@ Row(
     trigger_name=None,
     extract_pipeline_name=None,
     extract_table_name="customers",
-    extract_table_schema="default", 
+    extract_table_schema="default",
     extract_view_name=None,
     extract_view_schema=None,
     is_full_load=True,
@@ -141,7 +141,7 @@ Row(
 ```sql
 INSERT INTO config.config_extract_generation (
     extract_name,
-    extract_description, 
+    extract_description,
     active_yn,
     extract_type,
     fabric_workspace_id,
@@ -159,7 +159,7 @@ INSERT INTO config.config_extract_generation (
     'CUSTOMER_DAILY_EXPORT',
     'Daily customer data export',
     'Y',
-    'TABLE', 
+    'TABLE',
     'workspace-guid',
     NULL,
     'warehouse-guid',
@@ -197,7 +197,7 @@ Row(
     target_file_root_path="Files"
 )
 
-# DAT (Pipe-Delimited) configuration  
+# DAT (Pipe-Delimited) configuration
 Row(
     extract_name="SAMPLE_PRODUCTS_DAT",
     output_format="dat",                    # Maps to CSV format in Spark
@@ -255,7 +255,7 @@ file_properties_quote_character='"'
 file_properties_header=True
 ```
 
-#### DAT Format  
+#### DAT Format
 ```python
 output_format="dat"                          # Mapped to CSV in Spark
 file_properties_column_delimiter="|"         # Pipe separator
@@ -290,7 +290,7 @@ force_single_file=True                       # Single file optimization
 ingen_fab package extract run --extract-name SAMPLE_CUSTOMERS_EXPORT
 
 # Run all active extracts (serial)
-ingen_fab package extract run 
+ingen_fab package extract run
 
 # Run with parallel processing (if supported by implementation)
 ingen_fab package extract run --parallel --max-workers 5
@@ -314,7 +314,7 @@ source_datastore_type="lakehouse"
 #### 2. View Extract (Lakehouse)
 Export from a lakehouse view:
 ```python
-extract_view_name="customer_summary"  
+extract_view_name="customer_summary"
 extract_view_schema="reporting"
 source_datastore_type="lakehouse"
 ```
@@ -357,10 +357,10 @@ Built-in performance tracking:
 ```python
 def get_memory_usage_mb():
     """Get current JVM memory usage in MB"""
-    
+
 def calculate_performance_metrics(start_time, end_time, row_count, memory_before, memory_after):
     """Calculate comprehensive performance metrics"""
-    
+
 def print_performance_summary(metrics_dict):
     """Print formatted performance summary"""
 ```
@@ -375,7 +375,7 @@ def print_performance_summary(metrics_dict):
 ║ Rows: 1,000,000                      ║
 ║ Throughput: 1,219,512 rows/second    ║
 ║ Memory: 2048 MB → 2156 MB (+108 MB)  ║
-║ Status: ✅ SUCCESS                    ║  
+║ Status: ✅ SUCCESS                    ║
 ╚══════════════════════════════════════╝
 ```
 
@@ -390,10 +390,10 @@ performance_df = target_lakehouse.read_table("log_extract_generation")
 
 # Filter recent high-performance runs
 high_perf_df = performance_df.filter(
-    (F.col("run_status") == "SUCCESS") & 
+    (F.col("run_status") == "SUCCESS") &
     (F.col("throughput_rows_per_second") > 1000000)
 ).select(
-    "extract_name", "duration_seconds", "rows_extracted", 
+    "extract_name", "duration_seconds", "rows_extracted",
     "throughput_rows_per_second", "memory_usage_mb_after"
 ).orderBy(F.desc("throughput_rows_per_second"))
 ```
@@ -401,7 +401,7 @@ high_perf_df = performance_df.filter(
 **Warehouse:**
 ```sql
 -- Performance trending
-SELECT 
+SELECT
     extract_name,
     AVG(throughput_rows_per_second) as avg_throughput,
     AVG(duration_seconds) as avg_duration,
@@ -426,16 +426,16 @@ Row(
     extract_name="CROSS_WORKSPACE_EXPORT",
     # Source from Workspace A, Lakehouse X
     source_workspace_id="workspace-a-guid",
-    source_datastore_id="lakehouse-x-guid", 
+    source_datastore_id="lakehouse-x-guid",
     source_datastore_type="lakehouse",
     source_schema_name="sales",
-    
+
     # Target to Workspace B, Lakehouse Y
     target_workspace_id="workspace-b-guid",
     target_datastore_id="lakehouse-y-guid",
-    target_datastore_type="lakehouse", 
+    target_datastore_type="lakehouse",
     target_file_root_path="Files",
-    
+
     # Table configuration
     extract_table_name="transactions",
     extract_table_schema="finance"
@@ -467,7 +467,7 @@ max_parallel_extracts = 5  # Run up to 5 extracts concurrently
 
 # Thread-safe logging shows concurrent execution:
 # [Thread-1] Starting extract: CUSTOMERS_SNAPSHOT
-# [Thread-2] Starting extract: PRODUCTS_SNAPSHOT  
+# [Thread-2] Starting extract: PRODUCTS_SNAPSHOT
 # [Thread-3] Starting extract: ORDERS_INCREMENTAL
 ```
 
@@ -497,7 +497,7 @@ file_properties_max_rows_per_file=500000  # Split at 500K rows
 
 # Output files will be named:
 # customers_20240725_142530_part0001.csv
-# customers_20240725_142530_part0002.csv  
+# customers_20240725_142530_part0002.csv
 # customers_20240725_142530_part0003.csv
 ```
 
@@ -519,7 +519,7 @@ Use placeholders in path and filename patterns:
 
 ### Path Placeholders
 - `{year}` - Current year (YYYY)
-- `{month}` - Current month (MM) 
+- `{month}` - Current month (MM)
 - `{day}` - Current day (DD)
 - `{hour}` - Current hour (HH)
 - `{execution_group}` - Execution group name
@@ -551,7 +551,7 @@ extract_file_name_extension="csv"
 
 2. **Choose Appropriate File Formats**
    - **Parquet**: Analytics workloads, best compression
-   - **CSV**: Human-readable, universal compatibility  
+   - **CSV**: Human-readable, universal compatibility
    - **TSV**: Text processing, comma-free data
    - **DAT**: Legacy system integration
 
@@ -577,7 +577,7 @@ extract_file_name_extension="csv"
 1. **Location Resolution**
    ```python
    # Explicit configuration prevents runtime failures
-   source_datastore_type="lakehouse"  
+   source_datastore_type="lakehouse"
    target_datastore_type="lakehouse"
    target_file_root_path="Files"
    ```
@@ -663,7 +663,7 @@ log_level="DEBUG"
 # Outputs detailed performance metrics:
 # [Thread-1] Memory before: 2048 MB
 # [Thread-1] Processing 1M rows...
-# [Thread-1] Memory after: 2156 MB  
+# [Thread-1] Memory after: 2156 MB
 # [Thread-1] Throughput: 1,219,512 rows/second
 ```
 
@@ -678,7 +678,7 @@ Optimized daily customer export with performance monitoring:
 customer_config = Row(
     extract_name="CUSTOMERS_DAILY_OPTIMIZED",
     is_active=True,
-    extract_table_name="customers", 
+    extract_table_name="customers",
     extract_table_schema="default",
     is_full_load=True,
     execution_group="DAILY_EXPORTS"
@@ -696,7 +696,7 @@ customer_details = Row(
     extract_file_name_extension="parquet",
     # Performance defaults
     source_datastore_type="lakehouse",
-    target_datastore_type="lakehouse", 
+    target_datastore_type="lakehouse",
     target_file_root_path="Files"
 )
 
@@ -717,9 +717,9 @@ csv_config = Row(
     force_single_file=True
 )
 
-# TSV Format  
+# TSV Format
 tsv_config = Row(
-    extract_name="PRODUCTS_TSV", 
+    extract_name="PRODUCTS_TSV",
     extract_table_name="products",
     output_format="tsv",                     # Maps to CSV with tab delimiter
     file_properties_column_delimiter="\t",
@@ -729,7 +729,7 @@ tsv_config = Row(
 # DAT Format
 dat_config = Row(
     extract_name="PRODUCTS_DAT",
-    extract_table_name="products", 
+    extract_table_name="products",
     output_format="dat",                     # Maps to CSV with pipe delimiter
     file_properties_column_delimiter="|",
     force_single_file=True
@@ -751,13 +751,13 @@ cross_workspace_config = Row(
     source_datastore_type="lakehouse",
     source_schema_name="fact_tables",
     extract_table_name="sales_transactions",
-    
-    # Target: Analytics workspace, reporting lakehouse  
+
+    # Target: Analytics workspace, reporting lakehouse
     target_workspace_id="analytics-workspace-guid",
     target_datastore_id="reporting-lakehouse-guid",
     target_datastore_type="lakehouse",
     target_file_root_path="Files",
-    
+
     # Configuration
     is_full_load=True,
     execution_group="CROSS_WORKSPACE_EXPORTS"
@@ -767,7 +767,7 @@ cross_workspace_details = Row(
     extract_name="CROSS_WORKSPACE_SALES",
     output_format="parquet",
     is_compressed=True,
-    compressed_type="SNAPPY", 
+    compressed_type="SNAPPY",
     force_single_file=False,                 # Allow partitioning for large dataset
     extract_container="Files/imports",
     extract_directory="sales/{year}/{month}",
@@ -806,13 +806,13 @@ ingen_fab package extract run
 # Test specific format
 ingen_fab package extract run --extract-name SAMPLE_INVENTORY_TSV
 
-# Test parallel processing  
+# Test parallel processing
 ingen_fab package extract run --extract-name "SAMPLE_*" --parallel --max-workers 3
 ```
 
 Expected performance benchmarks:
 - Small datasets (< 1K rows): < 1 second
-- Medium datasets (< 100K rows): < 5 seconds  
+- Medium datasets (< 100K rows): < 5 seconds
 - Large datasets (1M+ rows): < 10 seconds
 - Throughput: 1M+ rows/second for optimized configurations
 
@@ -829,7 +829,7 @@ For using extract generation with synthetic data generated by the synthetic data
 
 - Review the sample configurations in `sample_project/ddl_scripts/Lakehouses/Config/` for complete examples
 - Explore [performance optimization techniques](../developer_guide/python_libraries.md#performance-considerations)
-- Learn about [integration with orchestration tools](../user_guide/workflows.md#advanced-workflows)
+- Learn about [integration with orchestration tools](../guides/workflows.md#advanced-workflows)
 - Test parallel processing with your cluster configuration
 - Monitor performance metrics and optimize based on your data patterns
 

@@ -1,109 +1,87 @@
 {%- import 'shared/notebook/macros/notebook_macros.py.jinja' as macros -%}
 {% if language_group == "synapse_pyspark" %}
-{%- include "shared/notebook/headers/pyspark.py.jinja" %}
+    {%- include "shared/notebook/headers/pyspark.py.jinja" %}
 {% else %}
-{%- include "shared/notebook/headers/python.py.jinja" %}
+    {%- include "shared/notebook/headers/python.py.jinja" %}
 {% endif %}
-
 {% include "shared/notebook/environment/library_loader.py.jinja" %}
-
-
-{{macros.python_cell_with_heading("## 🗂️ Now Load the Custom Python Libraries")}}
-
+{{ macros.python_cell_with_heading("## 🗂️ Now Load the Custom Python Libraries") }}
 if run_mode == "local":
-    from ingen_fab.python_libs.common.config_utils import *
-    from ingen_fab.python_libs.pyspark.lakehouse_utils import lakehouse_utils
-    from ingen_fab.python_libs.pyspark.ddl_utils import ddl_utils
-    from ingen_fab.python_libs.pyspark.notebook_utils_abstraction import NotebookUtilsFactory
-    notebookutils = NotebookUtilsFactory.create_instance() 
+from ingen_fab.python_libs.common.config_utils import *
+from ingen_fab.python_libs.pyspark.lakehouse_utils import lakehouse_utils
+from ingen_fab.python_libs.pyspark.ddl_utils import ddl_utils
+from ingen_fab.python_libs.pyspark.notebook_utils_abstraction import NotebookUtilsFactory
+notebookutils = NotebookUtilsFactory.create_instance()
 else:
-    files_to_load = [
-        "ingen_fab/python_libs/common/config_utils.py",
-        "ingen_fab/python_libs/pyspark/lakehouse_utils.py",
-        "ingen_fab/python_libs/pyspark/ddl_utils.py",
-        "ingen_fab/python_libs/pyspark/notebook_utils_abstraction.py"
-    ]
-
-    load_python_modules_from_path(mount_path, files_to_load)
-
-{{ macros.python_cell_with_heading("## 🆕 Instantiate Required Classes ")}}
-
+files_to_load = [
+"ingen_fab/python_libs/common/config_utils.py",
+"ingen_fab/python_libs/pyspark/lakehouse_utils.py",
+"ingen_fab/python_libs/pyspark/ddl_utils.py",
+"ingen_fab/python_libs/pyspark/notebook_utils_abstraction.py"
+]
+load_python_modules_from_path(mount_path, files_to_load)
+{{ macros.python_cell_with_heading("## 🆕 Instantiate Required Classes ") }}
 configs: ConfigsObject = get_configs_as_object()
-
-
-
-{{macros.python_cell_with_heading("## 🏃‍♂️‍➡️ Run the lakehouse DDL Notebooks")}}
-
+{{ macros.python_cell_with_heading("## 🏃‍♂️‍➡️ Run the lakehouse DDL Notebooks") }}
 # Import required libraries
 import sys
 from datetime import datetime
-
 # Initialize variables
 success_count = 0
 failed_notebooks = []
 start_time = datetime.now()
-
 # Define execution function
 def execute_notebook(notebook_name, index, total, timeout_seconds=3600):
-    """Execute a single notebook and handle success/failure."""
-    global success_count, failed_notebooks
-    
-    try:
-        
-        print(f"{'='*60}")
-        print(f"Executing notebook {index}/{total}:{notebook_name}")
-        print(f"{'='*60}")
-        
-        params = {}
-        
-        # Use notebook utils abstraction for cross-environment compatibility
-        result = notebookutils.mssparkutils.notebook.run(
-            notebook_name,
-            timeout_seconds,
-            params
-        )
-        print(f"Exit value$$: {result}")
-        if (result == 'success'):
-            success_count += 1
-            print(f"✓ Successfully executed: {notebook_name}")
-            print(f"Exit value: {result}")
-            return True
-        else: 
-            # Record the failure but continue execution to get full picture
-            failed_notebooks.append({
-                'name': notebook_name,
-                'error': f"Notebook returned: {result}",
-                'index': index
-            })
-            print(f"✗ Failed to execute: {notebook_name}")
-            print(f"Result: {result}")
-            return False
-
-    except Exception as e:
-        # Record the failure but continue execution to get full picture
-        failed_notebooks.append({
-            'name': notebook_name,
-            'error': str(e),
-            'index': index
-        })
-        print(f"✗ Failed to execute: {notebook_name}")
-        print(f"Error: {str(e)}")
-        return False
-
+"""Execute a single notebook and handle success/failure."""
+global success_count, failed_notebooks
+try:
+print(f"{'='*60}")
+print(f"Executing notebook {index}/{total}:{notebook_name}")
+print(f"{'='*60}")
+params = {}
+# Use notebook utils abstraction for cross-environment compatibility
+result = notebookutils.mssparkutils.notebook.run(
+notebook_name,
+timeout_seconds,
+params
+)
+print(f"Exit value$$: {result}")
+if (result == 'success'):
+success_count += 1
+print(f"✓ Successfully executed: {notebook_name}")
+print(f"Exit value: {result}")
+return True
+else:
+# Record the failure but continue execution to get full picture
+failed_notebooks.append({
+'name': notebook_name,
+'error': f"Notebook returned: {result}",
+'index': index
+})
+print(f"✗ Failed to execute: {notebook_name}")
+print(f"Result: {result}")
+return False
+except Exception as e:
+# Record the failure but continue execution to get full picture
+failed_notebooks.append({
+'name': notebook_name,
+'error': str(e),
+'index': index
+})
+print(f"✗ Failed to execute: {notebook_name}")
+print(f"Error: {str(e)}")
+return False
 print(f"Starting orchestration for {{ lakehouse_name }} lakehouse")
 print(f"Start time: {start_time}")
 print(f"Total notebooks to execute: {{ total_notebooks }}")
 print("="*60)
-
 {%- for notebook in notebooks %}
-execute_notebook("{{ notebook.name }}", {{ notebook.index }}, {{ notebook.total }})
+    execute_notebook("{{ notebook.name }}", {{ notebook.index }}, {{ notebook.total }})
 {%- endfor %}
-
 # Final Summary
 end_time = datetime.now()
 duration = end_time - start_time
 failed_count = {{ total_notebooks }} - success_count
-
 print(f"{'='*60}")
 print(f"Orchestration Complete!")
 print(f"{'='*60}")
@@ -112,24 +90,21 @@ print(f"Duration: {duration}")
 print(f"Total notebooks: {{ total_notebooks }}")
 print(f"Successfully executed: {success_count}")
 print(f"Failed: {failed_count}")
-
 # Show details of failed notebooks if any
 if failed_notebooks:
-    print(f"\n{'='*60}")
-    print("FAILED NOTEBOOKS DETAILS:")
-    print(f"{'='*60}")
-    for i, failure in enumerate(failed_notebooks, 1):
-        print(f"{i}. {failure['name']}")
-        print(f"   Error: {failure['error']}")
-        print()
-
+print(f"\n{'='*60}")
+print("FAILED NOTEBOOKS DETAILS:")
+print(f"{'='*60}")
+for i, failure in enumerate(failed_notebooks, 1):
+print(f"{i}. {failure['name']}")
+print(f"   Error: {failure['error']}")
+print()
 if success_count == {{ total_notebooks }}:
-    print("✓ All notebooks executed successfully!")
-    notebookutils.mssparkutils.notebook.exit("success")
+print("✓ All notebooks executed successfully!")
+notebookutils.mssparkutils.notebook.exit("success")
 else:
-    print(f"\n✗ Orchestration completed with {failed_count} failure(s)")
-    # Exit with failure status - this will be caught by parent orchestrator as non-"success"
-    error_summary = f"failed: {failed_count} of {{ total_notebooks }} notebooks failed"
-    notebookutils.mssparkutils.notebook.exit(error_summary)
-
-{%include "shared/notebook/cells/footer.py.jinja" %}
+print(f"\n✗ Orchestration completed with {failed_count} failure(s)")
+# Exit with failure status - this will be caught by parent orchestrator as non-"success"
+error_summary = f"failed: {failed_count} of {{ total_notebooks }} notebooks failed"
+notebookutils.mssparkutils.notebook.exit(error_summary)
+{% include "shared/notebook/cells/footer.py.jinja" %}

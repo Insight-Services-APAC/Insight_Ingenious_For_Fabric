@@ -185,7 +185,7 @@ You can extend the package by:
 
 See the generated notebooks in your workspace for complete examples of:
 - Small-scale development datasets
-- Production-scale test datasets  
+- Production-scale test datasets
 - Multi-table relational schemas
 - Star schema analytics datasets
 - Custom domain-specific patterns

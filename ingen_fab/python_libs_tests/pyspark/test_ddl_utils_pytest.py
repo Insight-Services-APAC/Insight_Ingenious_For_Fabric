@@ -32,9 +32,7 @@ def test_run_once_auto_guid(ddl_utility: DDLUtilsInterface) -> None:
     def create_example_table() -> None:
         called["ran"] = True
 
-    ddl_utility.run_once(
-        work_fn=create_example_table, object_name="example_table", guid=None
-    )
+    ddl_utility.run_once(work_fn=create_example_table, object_name="example_table", guid=None)
     assert called["ran"] is True
     # Should now be marked as run
     assert (
@@ -71,6 +69,4 @@ def test_cleanup_remove_execution_log_and_all_tables(
     # Remove all other tables
     ddl_utility.lakehouse_utils.drop_all_tables()
     # Confirm the execution log table is gone
-    assert not ddl_utility.lakehouse_utils.check_if_table_exists(
-        ddl_utility.execution_log_table_name
-    )
+    assert not ddl_utility.lakehouse_utils.check_if_table_exists(ddl_utility.execution_log_table_name)

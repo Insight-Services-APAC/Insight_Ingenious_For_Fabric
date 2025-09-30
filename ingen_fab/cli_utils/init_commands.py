@@ -51,17 +51,13 @@ def init_solution(project_name: str | None, path: Path):
         return
 
     if not templates_dir.exists():
-        ConsoleStyles.print_error(
-            console, f"❌ Templates directory does not exist: {templates_dir}"
-        )
+        ConsoleStyles.print_error(console, f"❌ Templates directory does not exist: {templates_dir}")
         return
 
     # Create the project directory
     project_path.mkdir(parents=True, exist_ok=True)
 
-    ConsoleStyles.print_info(
-        console, f"Creating new Fabric project '{project_name}' at {project_path}"
-    )
+    ConsoleStyles.print_info(console, f"Creating new Fabric project '{project_name}' at {project_path}")
 
     # Copy all template files and directories
     for item in templates_dir.iterdir():
@@ -76,17 +72,13 @@ def init_solution(project_name: str | None, path: Path):
     # Process template files that need variable substitution
     _process_template_files(project_path, project_name, console)
 
-    ConsoleStyles.print_success(
-        console, f"✓ Initialized Fabric solution '{project_name}' at {project_path}"
-    )
+    ConsoleStyles.print_success(console, f"✓ Initialized Fabric solution '{project_name}' at {project_path}")
     # Get the absolute path for the instructions
     absolute_project_path = project_path.resolve()
 
     ConsoleStyles.print_info(console, "\nNext steps:")
     ConsoleStyles.print_info(console, "1. Set environment variables:")
-    ConsoleStyles.print_info(
-        console, f"   export FABRIC_WORKSPACE_REPO_DIR='{absolute_project_path}'"
-    )
+    ConsoleStyles.print_info(console, f"   export FABRIC_WORKSPACE_REPO_DIR='{absolute_project_path}'")
     ConsoleStyles.print_info(console, "   export FABRIC_ENVIRONMENT='development'")
     ConsoleStyles.print_info(
         console,
@@ -96,18 +88,14 @@ def init_solution(project_name: str | None, path: Path):
         console,
         "   - Replace placeholder GUIDs with your actual workspace and lakehouse IDs",
     )
-    ConsoleStyles.print_info(
-        console, "3. Create additional DDL scripts in ddl_scripts/ as needed"
-    )
+    ConsoleStyles.print_info(console, "3. Create additional DDL scripts in ddl_scripts/ as needed")
     ConsoleStyles.print_info(console, "4. Generate DDL notebooks:")
     ConsoleStyles.print_info(
         console,
         "   ingen_fab ddl compile --output-mode fabric_workspace_repo --generation-mode Lakehouse",
     )
     ConsoleStyles.print_info(console, "5. Deploy to Fabric:")
-    ConsoleStyles.print_info(
-        console, "   ingen_fab deploy deploy --environment development"
-    )
+    ConsoleStyles.print_info(console, "   ingen_fab deploy deploy --environment development")
 
 
 def _process_template_files(project_path: Path, project_name: str, console: Console):
@@ -125,9 +113,7 @@ def _process_template_files(project_path: Path, project_name: str, console: Cons
     platform_files = list(project_path.rglob("*.platform"))
 
     if platform_files:
-        ConsoleStyles.print_info(
-            console, f"  Found {len(platform_files)} .platform files to process"
-        )
+        ConsoleStyles.print_info(console, f"  Found {len(platform_files)} .platform files to process")
 
         for platform_file in platform_files:
             try:
@@ -149,10 +135,7 @@ def _process_template_files(project_path: Path, project_name: str, console: Cons
                         # If logicalId exists and is not already "REPLACE_WITH_UNIQUE_GUID",
                         # it might be a hardcoded GUID that should be replaced
                         existing_logical_id = json_data["config"]["logicalId"]
-                        if (
-                            existing_logical_id != "REPLACE_WITH_UNIQUE_GUID"
-                            and len(existing_logical_id) > 30
-                        ):
+                        if existing_logical_id != "REPLACE_WITH_UNIQUE_GUID" and len(existing_logical_id) > 30:
                             # This looks like a GUID, replace it with a new one
                             json_data["config"]["logicalId"] = unique_guid
                             content = json.dumps(json_data, indent=2)
@@ -179,9 +162,7 @@ def _process_template_files(project_path: Path, project_name: str, console: Cons
         ConsoleStyles.print_info(console, "  No .platform files found to process")
 
 
-def init_workspace(
-    ctx: typer.Context, workspace_name: str, create_if_not_exists: bool = False
-):
+def init_workspace(ctx: typer.Context, workspace_name: str, create_if_not_exists: bool = False):
     """Initialize workspace configuration by looking up workspace ID from name."""
     console = Console()
 
@@ -189,9 +170,7 @@ def init_workspace(
     project_path = Path(ctx.obj["fabric_workspace_repo_dir"])
     environment = str(ctx.obj["fabric_environment"])
 
-    ConsoleStyles.print_info(
-        console, f"Looking up workspace '{workspace_name}' in Fabric..."
-    )
+    ConsoleStyles.print_info(console, f"Looking up workspace '{workspace_name}' in Fabric...")
 
     try:
         # Create FabricApiUtils without workspace_id to avoid circular dependency
@@ -224,9 +203,7 @@ def init_workspace(
                             console,
                             "💡 This might be a permissions issue or the workspace might be in a different capacity",
                         )
-                    ConsoleStyles.print_error(
-                        console, f"❌ Failed to create workspace: {str(e)}"
-                    )
+                    ConsoleStyles.print_error(console, f"❌ Failed to create workspace: {str(e)}")
                     raise typer.Exit(code=1)
             else:
                 ConsoleStyles.print_error(
@@ -249,9 +226,7 @@ def init_workspace(
                 f"✓ Created workspace '{workspace_name}' with ID: {workspace_id}",
             )
         else:
-            ConsoleStyles.print_success(
-                console, f"✓ Found workspace '{workspace_name}' with ID: {workspace_id}"
-            )
+            ConsoleStyles.print_success(console, f"✓ Found workspace '{workspace_name}' with ID: {workspace_id}")
 
         # Q&A workflow for workspace configuration
         console.print("\n[cyan]Workspace Configuration[/cyan]")
@@ -264,28 +239,18 @@ def init_workspace(
         )
 
         if is_single_workspace:
-            ConsoleStyles.print_info(
-                console, "\n✓ Single workspace deployment selected"
-            )
-            ConsoleStyles.print_info(
-                console, f"  All workspace IDs will be set to: {workspace_id}"
-            )
+            ConsoleStyles.print_info(console, "\n✓ Single workspace deployment selected")
+            ConsoleStyles.print_info(console, f"  All workspace IDs will be set to: {workspace_id}")
 
             # Update all workspace IDs in the valueSet
             _update_all_workspace_ids(project_path, environment, workspace_id, console)
 
             # Check for existing lakehouses and warehouses
-            ConsoleStyles.print_info(
-                console, "\nChecking for existing artifacts in workspace..."
-            )
-            _check_and_update_artifacts(
-                fabric_api, project_path, environment, workspace_id, console
-            )
+            ConsoleStyles.print_info(console, "\nChecking for existing artifacts in workspace...")
+            _check_and_update_artifacts(fabric_api, project_path, environment, workspace_id, console)
         else:
             ConsoleStyles.print_info(console, "\n✓ Multi-workspace deployment selected")
-            ConsoleStyles.print_warning(
-                console, "⚠️  This is a complex deployment scenario."
-            )
+            ConsoleStyles.print_warning(console, "⚠️  This is a complex deployment scenario.")
             ConsoleStyles.print_info(
                 console,
                 "You will need to manually configure the following workspace IDs in:",
@@ -330,9 +295,7 @@ def init_workspace(
                     ConsoleStyles.print_info(console, f"  - {var}")
 
             # Still update just the deployment workspace ID
-            _update_valueset_workspace_id(
-                project_path, environment, workspace_id, console
-            )
+            _update_valueset_workspace_id(project_path, environment, workspace_id, console)
 
         ConsoleStyles.print_success(
             console,
@@ -342,15 +305,11 @@ def init_workspace(
     except typer.Exit:
         raise
     except Exception as e:
-        ConsoleStyles.print_error(
-            console, f"❌ Failed to initialize workspace: {str(e)}"
-        )
+        ConsoleStyles.print_error(console, f"❌ Failed to initialize workspace: {str(e)}")
         raise typer.Exit(code=1)
 
 
-def _update_valueset_workspace_id(
-    project_path: Path, environment: str, workspace_id: str, console: Console
-):
+def _update_valueset_workspace_id(project_path: Path, environment: str, workspace_id: str, console: Console):
     """Update the fabric_deployment_workspace_id in the valueSet configuration."""
     valueset_path = (
         project_path
@@ -362,9 +321,7 @@ def _update_valueset_workspace_id(
     )
 
     if not valueset_path.exists():
-        ConsoleStyles.print_error(
-            console, f"❌ ValueSet file not found: {valueset_path}"
-        )
+        ConsoleStyles.print_error(console, f"❌ ValueSet file not found: {valueset_path}")
         ConsoleStyles.print_info(
             console,
             "💡 Make sure you're running this command from a valid Fabric project directory.",
@@ -409,26 +366,18 @@ def _update_valueset_workspace_id(
                 )
                 raise typer.Exit(code=1)
         else:
-            ConsoleStyles.print_error(
-                console, "❌ variableOverrides not found in valueSet configuration"
-            )
+            ConsoleStyles.print_error(console, "❌ variableOverrides not found in valueSet configuration")
             raise typer.Exit(code=1)
 
     except json.JSONDecodeError as e:
-        ConsoleStyles.print_error(
-            console, f"❌ Invalid JSON in valueSet file: {str(e)}"
-        )
+        ConsoleStyles.print_error(console, f"❌ Invalid JSON in valueSet file: {str(e)}")
         raise typer.Exit(code=1)
     except Exception as e:
-        ConsoleStyles.print_error(
-            console, f"❌ Failed to update valueSet configuration: {str(e)}"
-        )
+        ConsoleStyles.print_error(console, f"❌ Failed to update valueSet configuration: {str(e)}")
         raise typer.Exit(code=1)
 
 
-def _update_all_workspace_ids(
-    project_path: Path, environment: str, workspace_id: str, console: Console
-):
+def _update_all_workspace_ids(project_path: Path, environment: str, workspace_id: str, console: Console):
     """Update all workspace IDs in the valueSet configuration for single workspace deployment."""
     valueset_path = (
         project_path
@@ -440,9 +389,7 @@ def _update_all_workspace_ids(
     )
 
     if not valueset_path.exists():
-        ConsoleStyles.print_error(
-            console, f"❌ ValueSet file not found: {valueset_path}"
-        )
+        ConsoleStyles.print_error(console, f"❌ ValueSet file not found: {valueset_path}")
         ConsoleStyles.print_info(
             console,
             "💡 Make sure you're running this command from a valid Fabric project directory.",
@@ -473,9 +420,7 @@ def _update_all_workspace_ids(
                             f"  ✓ Updated {var_name}: {old_value} → {workspace_id}",
                         )
                     else:
-                        ConsoleStyles.print_info(
-                            console, f"  ✓ {var_name} already set to: {workspace_id}"
-                        )
+                        ConsoleStyles.print_info(console, f"  ✓ {var_name} already set to: {workspace_id}")
 
             # Report how many workspace ID variables were updated
             if updated_vars:
@@ -495,24 +440,16 @@ def _update_all_workspace_ids(
             with open(valueset_path, "w", encoding="utf-8") as f:
                 json.dump(valueset_data, f, indent=2, ensure_ascii=False)
 
-            ConsoleStyles.print_success(
-                console, f"\n✓ Updated all workspace IDs in {environment}.json"
-            )
+            ConsoleStyles.print_success(console, f"\n✓ Updated all workspace IDs in {environment}.json")
         else:
-            ConsoleStyles.print_error(
-                console, "❌ variableOverrides not found in valueSet configuration"
-            )
+            ConsoleStyles.print_error(console, "❌ variableOverrides not found in valueSet configuration")
             raise typer.Exit(code=1)
 
     except json.JSONDecodeError as e:
-        ConsoleStyles.print_error(
-            console, f"❌ Invalid JSON in valueSet file: {str(e)}"
-        )
+        ConsoleStyles.print_error(console, f"❌ Invalid JSON in valueSet file: {str(e)}")
         raise typer.Exit(code=1)
     except Exception as e:
-        ConsoleStyles.print_error(
-            console, f"❌ Failed to update valueSet configuration: {str(e)}"
-        )
+        ConsoleStyles.print_error(console, f"❌ Failed to update valueSet configuration: {str(e)}")
         raise typer.Exit(code=1)
 
 
@@ -542,9 +479,7 @@ def _check_and_update_artifacts(
         try:
             workspace_name = fabric_api.get_workspace_name_from_id(workspace_id)
         except Exception as e:
-            ConsoleStyles.print_warning(
-                console, f"  ⚠️  Could not get workspace name: {str(e)}"
-            )
+            ConsoleStyles.print_warning(console, f"  ⚠️  Could not get workspace name: {str(e)}")
             workspace_name = None
 
         # Get existing lakehouses and warehouses in the workspace
@@ -552,9 +487,7 @@ def _check_and_update_artifacts(
             lakehouses = fabric_api.list_lakehouses(workspace_id)
             warehouses = fabric_api.list_warehouses(workspace_id)
         except Exception as e:
-            ConsoleStyles.print_warning(
-                console, f"  ⚠️  Could not list workspace artifacts: {str(e)}"
-            )
+            ConsoleStyles.print_warning(console, f"  ⚠️  Could not list workspace artifacts: {str(e)}")
             return
 
         # Create lookup dictionaries by name
@@ -590,11 +523,7 @@ def _check_and_update_artifacts(
 
             # Dynamically discover and update lakehouse IDs
             # Find all variables ending with _lakehouse_id and their corresponding _lakehouse_name
-            lakehouse_id_vars = [
-                var_name
-                for var_name in var_map.keys()
-                if var_name.endswith("_lakehouse_id")
-            ]
+            lakehouse_id_vars = [var_name for var_name in var_map.keys() if var_name.endswith("_lakehouse_id")]
 
             if lakehouse_id_vars:
                 ConsoleStyles.print_info(
@@ -618,27 +547,17 @@ def _check_and_update_artifacts(
                         old_id = var_map[id_var]["value"]
                         new_id = lakehouse_by_name[lakehouse_name]
                         var_map[id_var]["value"] = new_id
-                        updated_artifacts.append(
-                            f"Lakehouse '{lakehouse_name}' ({id_var})"
-                        )
+                        updated_artifacts.append(f"Lakehouse '{lakehouse_name}' ({id_var})")
                         if old_id != new_id:
-                            ConsoleStyles.print_info(
-                                console, f"  ✓ Updated {id_var}: {old_id} → {new_id}"
-                            )
+                            ConsoleStyles.print_info(console, f"  ✓ Updated {id_var}: {old_id} → {new_id}")
                     else:
                         missing_artifacts.append(f"Lakehouse '{lakehouse_name}'")
                 else:
-                    ConsoleStyles.print_warning(
-                        console, f"  ⚠️  Found {id_var} but no corresponding {name_var}"
-                    )
+                    ConsoleStyles.print_warning(console, f"  ⚠️  Found {id_var} but no corresponding {name_var}")
 
             # Dynamically discover and update warehouse IDs
             # Find all variables ending with _warehouse_id and their corresponding _warehouse_name
-            warehouse_id_vars = [
-                var_name
-                for var_name in var_map.keys()
-                if var_name.endswith("_warehouse_id")
-            ]
+            warehouse_id_vars = [var_name for var_name in var_map.keys() if var_name.endswith("_warehouse_id")]
 
             if warehouse_id_vars:
                 ConsoleStyles.print_info(
@@ -662,27 +581,19 @@ def _check_and_update_artifacts(
                         old_id = var_map[id_var]["value"]
                         new_id = warehouse_by_name[warehouse_name]
                         var_map[id_var]["value"] = new_id
-                        updated_artifacts.append(
-                            f"Warehouse '{warehouse_name}' ({id_var})"
-                        )
+                        updated_artifacts.append(f"Warehouse '{warehouse_name}' ({id_var})")
                         if old_id != new_id:
-                            ConsoleStyles.print_info(
-                                console, f"  ✓ Updated {id_var}: {old_id} → {new_id}"
-                            )
+                            ConsoleStyles.print_info(console, f"  ✓ Updated {id_var}: {old_id} → {new_id}")
                     else:
                         missing_artifacts.append(f"Warehouse '{warehouse_name}'")
                 else:
-                    ConsoleStyles.print_warning(
-                        console, f"  ⚠️  Found {id_var} but no corresponding {name_var}"
-                    )
+                    ConsoleStyles.print_warning(console, f"  ⚠️  Found {id_var} but no corresponding {name_var}")
 
             # Write updated configuration back if any changes were made
             if updated_artifacts:
                 with open(valueset_path, "w", encoding="utf-8") as f:
                     json.dump(valueset_data, f, indent=2, ensure_ascii=False)
-                ConsoleStyles.print_success(
-                    console, f"\n✓ Updated {len(updated_artifacts)} artifact IDs"
-                )
+                ConsoleStyles.print_success(console, f"\n✓ Updated {len(updated_artifacts)} artifact IDs")
 
             # Report missing artifacts
             if missing_artifacts:
@@ -692,16 +603,10 @@ def _check_and_update_artifacts(
                 )
                 for artifact in missing_artifacts:
                     ConsoleStyles.print_warning(console, f"  - {artifact}")
-                ConsoleStyles.print_info(
-                    console, "\n💡 To create these artifacts, run:"
-                )
-                ConsoleStyles.print_info(
-                    console, f"   ingen_fab deploy deploy --environment {environment}"
-                )
+                ConsoleStyles.print_info(console, "\n💡 To create these artifacts, run:")
+                ConsoleStyles.print_info(console, f"   ingen_fab deploy deploy --environment {environment}")
             else:
-                ConsoleStyles.print_success(
-                    console, "\n✓ All expected artifacts found and configured!"
-                )
+                ConsoleStyles.print_success(console, "\n✓ All expected artifacts found and configured!")
 
     except Exception as e:
         ConsoleStyles.print_error(console, f"❌ Failed to check artifacts: {str(e)}")

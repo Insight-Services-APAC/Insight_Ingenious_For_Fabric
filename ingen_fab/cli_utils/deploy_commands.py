@@ -66,16 +66,12 @@ def perform_code_replacements(ctx, output_dir=None, preserve_structure=True):
     )
 
 
-def upload_python_libs_to_config_lakehouse(
-    environment: str, project_path: str, console: Console = Console()
-):
+def upload_python_libs_to_config_lakehouse(environment: str, project_path: str, console: Console = Console()):
     """Uploads Python libraries to the config lakehouse in OneLake with variable injection during upload."""
     try:
         # Variable injection will be performed automatically during OneLake upload
         # This eliminates redundant processing and improves performance
-        onelake_utils = OneLakeUtils(
-            environment=environment, project_path=Path(project_path), console=console
-        )
+        onelake_utils = OneLakeUtils(environment=environment, project_path=Path(project_path), console=console)
 
         # OneLakeUtils now handles all the UI messaging and progress tracking
         results = onelake_utils.upload_python_libs_to_config_lakehouse()
@@ -84,9 +80,7 @@ def upload_python_libs_to_config_lakehouse(
         if results["failed"]:
             console.print("\n[red]Failed uploads (details):[/red]")
             for result in results["failed"]:
-                console.print(
-                    f"  [red]✗[/red] [dim]{result['local_path']}:[/dim] {result['error']}"
-                )
+                console.print(f"  [red]✗[/red] [dim]{result['local_path']}:[/dim] {result['error']}")
 
     except Exception as e:
         ConsoleStyles.print_error(console, f"Error: {str(e)}")
@@ -97,27 +91,29 @@ def upload_python_libs_to_config_lakehouse(
             "Make sure you're authenticated with Azure and have the correct permissions.",
         )
 
+
 def upload_dbt_project_to_config_lakehouse(
-    environment: str, dbt_project_name: str, project_path: str, console: Console = Console()
+    environment: str,
+    dbt_project_name: str,
+    project_path: str,
+    console: Console = Console(),
 ):
     """Uploads a dbt project to the config lakehouse in OneLake with variable injection during upload."""
     try:
         # Variable injection will be performed automatically during OneLake upload
         # This eliminates redundant processing and improves performance
-        onelake_utils = OneLakeUtils(
-            environment=environment, project_path=Path(project_path), console=console
-        )
+        onelake_utils = OneLakeUtils(environment=environment, project_path=Path(project_path), console=console)
 
         # OneLakeUtils now handles all the UI messaging and progress tracking
-        results = onelake_utils.upload_dbt_project_to_config_lakehouse(dbt_project_name=dbt_project_name, dbt_project_path=project_path)
+        results = onelake_utils.upload_dbt_project_to_config_lakehouse(
+            dbt_project_name=dbt_project_name, dbt_project_path=project_path
+        )
 
         # Show any failed uploads in detail if needed
         if results["failed"]:
             console.print("\n[red]Failed uploads (details):[/red]")
             for result in results["failed"]:
-                console.print(
-                    f"  [red]✗[/red] [dim]{result['local_path']}:[/dim] {result['error']}"
-                )
+                console.print(f"  [red]✗[/red] [dim]{result['local_path']}:[/dim] {result['error']}")
 
     except Exception as e:
         ConsoleStyles.print_error(console, f"Error: {str(e)}")

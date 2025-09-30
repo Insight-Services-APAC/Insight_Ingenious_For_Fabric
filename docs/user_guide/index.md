@@ -8,25 +8,25 @@ Welcome to the Ingenious Fabric Accelerator User Guide! This section provides co
 
 This guide covers everything you need to know to get started and become proficient with the Ingenious Fabric Accelerator:
 
-### [Installation](installation.md)
+### [Installation](../getting-started/installation.md)
 - System requirements
 - Installation methods
 - Environment setup
 - Verification steps
 
-### [Quick Start](quick_start.md)
+### [Quick Start](../getting-started/quick-start.md)
 - Your first project
 - Basic commands
 - Common workflows
 - Tips for success
 
-### [CLI Reference](cli_reference.md)
+### [CLI Reference](../guides/cli-reference.md)
 - Complete command reference
 - Options and parameters
 - Usage examples
 - Best practices
 
-### [Workflows](workflows.md)
+### [Workflows](../guides/workflows.md)
 - Development workflow
 - Deployment strategies
 - Testing approaches
@@ -66,7 +66,7 @@ If you need assistance:
 
     Get up and running quickly
 
-    [:octicons-arrow-right-24: Install Now](installation.md)
+    [:octicons-arrow-right-24: Install Now](../getting-started/installation.md)
 
 -   :material-flash:{ .lg .middle } **Quick Start**
 
@@ -74,7 +74,7 @@ If you need assistance:
 
     Your first project in minutes
 
-    [:octicons-arrow-right-24: Start Here](quick_start.md)
+    [:octicons-arrow-right-24: Start Here](../getting-started/quick-start.md)
 
 -   :material-console:{ .lg .middle } **CLI Reference**
 
@@ -82,7 +82,7 @@ If you need assistance:
 
     Complete command documentation
 
-    [:octicons-arrow-right-24: Commands](cli_reference.md)
+    [:octicons-arrow-right-24: Commands](../guides/cli-reference.md)
 
 -   :material-workflow:{ .lg .middle } **Workflows**
 
@@ -90,6 +90,6 @@ If you need assistance:
 
     Best practices and patterns
 
-    [:octicons-arrow-right-24: Workflows](workflows.md)
+    [:octicons-arrow-right-24: Workflows](../guides/workflows.md)
 
 </div>

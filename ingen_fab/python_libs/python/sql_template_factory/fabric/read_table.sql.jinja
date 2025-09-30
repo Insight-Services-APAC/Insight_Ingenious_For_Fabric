@@ -1,12 +1,16 @@
-SELECT {% if columns %}{{ columns | join(', ') }}{% else %}*{% endif %}
+SELECT
+{% if columns %}
+    {{ columns | join(", ") }}
+{% else %}
+    *
+{% endif %}
 FROM {{ schema_name | required }}.{{ table_name | required }}
 {% if filters %}
-WHERE
+    WHERE
     {%- for col, val in filters.items() %}
-        {{ col }} = '{{ val }}'{% if not loop.last %} AND {% endif %}
+        {{ col }} = '{{ val }}'
+        {% if not loop.last %}AND{% endif %}
     {%- endfor %}
 {% endif %}
-{% if limit %}
-LIMIT {{ limit }}
-{% endif %}
+{% if limit %}LIMIT {{ limit }}{% endif %}
 ;

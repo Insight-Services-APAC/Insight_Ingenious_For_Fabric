@@ -11,35 +11,35 @@ from typing import Any, Dict
 
 # All variables as a dictionary
 configs_dict = {
-    "fabric_environment": "local",
-    "fabric_deployment_workspace_id": "544530ea-a8c9-4464-8878-f666d2a8f418",
-    "config_workspace_name": "metcash_demo",
-    "config_workspace_id": "544530ea-a8c9-4464-8878-f666d2a8f418",
-    "config_wh_workspace_id": "544530ea-a8c9-4464-8878-f666d2a8f418",
+    "fabric_environment": "development",
+    "fabric_deployment_workspace_id": "REPLACE_WITH_YOUR_WORKSPACE_GUID",
+    "config_workspace_name": "REPLACE_WITH_CONFIG_WORKSPACE_NAME",
+    "config_workspace_id": "REPLACE_WITH_CONFIG_WORKSPACE_GUID",
+    "config_wh_workspace_id": "REPLACE_WITH_CONFIG_WH_WORKSPACE_GUID",
     "config_lakehouse_name": "config",
-    "config_lakehouse_id": "514ebe8f-2bf9-4a31-88f7-13d84706431c",
+    "config_lakehouse_id": "REPLACE_WITH_CONFIG_LAKEHOUSE_GUID",
     "config_wh_warehouse_name": "config_wh",
-    "config_wh_warehouse_id": "51226772-4e8f-4034-9cd2-1afd020d2773",
-    "sample_lakehouse_name": "sample",
-    "sample_lakehouse_id": "REPLACE_WITH_SAMPLE_LAKEHOUSE_GUID",
-    "sample_lh_workspace_id": "544530ea-a8c9-4464-8878-f666d2a8f418",
+    "config_wh_warehouse_id": "REPLACE_WITH_CONFIG_WAREHOUSE_GUID",
+    "sample_lh_workspace_id": "REPLACE_WITH_SAMPLE_LAKEHOUSE_WORKSPACE_GUID",
     "sample_lh_lakehouse_name": "sample_lh",
-    "sample_lh_lakehouse_id": "f6f98b54-458f-4d9c-9f7d-d682394340cc",
+    "sample_lh_lakehouse_id": "REPLACE_WITH_SAMPLE_LAKEHOUSE_GUID",
+    "sample_wh_workspace_id": "REPLACE_WITH_SAMPLE_WH_WORKSPACE_GUID",
+    "sample_wh_warehouse_name": "sample_wh",
     "sample_wh_warehouse_id": "REPLACE_WITH_SAMPLE_WAREHOUSE_GUID",
-    "raw_lh_workspace_id": "544530ea-a8c9-4464-8878-f666d2a8f418",
+    "raw_lh_workspace_id": "REPLACE_WITH_RAW_WORKSPACE_GUID",
     "raw_lh_lakehouse_name": "REPLACE_WITH_RAW_LAKEHOUSE_NAME",
     "raw_lh_lakehouse_id": "REPLACE_WITH_RAW_LAKEHOUSE_GUID",
-    "raw_wh_workspace_id": "544530ea-a8c9-4464-8878-f666d2a8f418",
+    "raw_wh_workspace_id": "REPLACE_WITH_RAW_WORKSPACE_GUID",
     "raw_wh_warehouse_id": "REPLACE_WITH_RAW_WAREHOUSE_GUID",
-    "edw_workspace_id": "544530ea-a8c9-4464-8878-f666d2a8f418",
+    "edw_workspace_id": "REPLACE_WITH_EDW_WORKSPACE_GUID",
     "edw_lakehouse_name": "edw",
     "edw_lakehouse_id": "REPLACE_WITH_EDW_LAKEHOUSE_GUID",
     "edw_warehouse_name": "edw",
     "edw_warehouse_id": "REPLACE_WITH_EDW_WAREHOUSE_GUID",
 }
+
+
 # All variables as an object
-
-
 @dataclass
 class ConfigsObject:
     fabric_environment: str
@@ -51,11 +51,11 @@ class ConfigsObject:
     config_lakehouse_id: str
     config_wh_warehouse_name: str
     config_wh_warehouse_id: str
-    sample_lakehouse_name: str
-    sample_lakehouse_id: str
     sample_lh_workspace_id: str
     sample_lh_lakehouse_name: str
     sample_lh_lakehouse_id: str
+    sample_wh_workspace_id: str
+    sample_wh_warehouse_name: str
     sample_wh_warehouse_id: str
     raw_lh_workspace_id: str
     raw_lh_lakehouse_name: str
@@ -75,9 +75,7 @@ configs_object: ConfigsObject = ConfigsObject(**configs_dict)
 # Module-level configuration constants
 fabric_environments_table_name = "fabric_environments"
 fabric_environments_table_schema = "config"
-fabric_environments_table = (
-    f"{fabric_environments_table_schema}.{fabric_environments_table_name}"
-)
+fabric_environments_table = f"{fabric_environments_table_schema}.{fabric_environments_table_name}"
 
 
 def get_configs_as_dict() -> Dict[str, Any]:

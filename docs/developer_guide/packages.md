@@ -21,23 +21,23 @@ graph TD
     A[Package Definition] --> B[Templates]
     A --> C[DDL Scripts]
     A --> D[Configuration]
-    
+
     B --> E[Notebook Templates]
     B --> F[Platform Files]
-    
+
     C --> G[Lakehouse DDL]
     C --> H[Warehouse DDL]
-    
+
     D --> I[Metadata Tables]
     D --> J[Default Settings]
-    
+
     E --> K[Compiled Notebooks]
     G --> L[Generated DDL]
     H --> L
-    
+
     K --> M[Fabric Workspace]
     L --> M
-    
+
     style A fill:#e1f5fe
     style M fill:#e8f5e8
 ```
@@ -74,20 +74,20 @@ The main package module (`package_name.py`) contains:
 ```python
 class PackageCompiler:
     """Base compiler for package templates"""
-    
+
     def __init__(self, fabric_workspace_repo_dir: str = None):
         self.package_dir = Path(__file__).parent
         self.templates_dir = self.package_dir / "templates"
         self.ddl_scripts_dir = self.package_dir / "ddl_scripts"
-        
+
     def compile_notebook(self, template_vars: Dict[str, Any] = None) -> Path:
         """Compile notebook template"""
         # Implementation here
-        
+
     def compile_ddl_scripts(self) -> List[Path]:
         """Compile DDL scripts"""
         # Implementation here
-        
+
     def compile_all(self) -> Dict[str, Any]:
         """Compile all package components"""
         # Implementation here
@@ -230,7 +230,7 @@ class MyPackageCompiler:
     def __init__(self, fabric_workspace_repo_dir: str = None):
         self.package_dir = Path(__file__).parent
         # Initialize compiler...
-    
+
     def compile_all(self) -> Dict[str, Any]:
         # Implementation here
         pass
@@ -489,7 +489,7 @@ config_files = {
 
 - [DDL Scripts](ddl_scripts.md) - Template system details
 - [Python Libraries](python_libraries.md) - Core library architecture
-- [CLI Reference](../user_guide/cli_reference.md) - Command documentation
+- [CLI Reference](../guides/cli-reference.md) - Command documentation
 
 ## Getting Help
 

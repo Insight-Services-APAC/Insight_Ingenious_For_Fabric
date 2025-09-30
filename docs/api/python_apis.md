@@ -38,15 +38,15 @@ class NotebookUtils:
     def execute_query(self, query: str) -> Any:
         """Execute SQL query"""
         pass
-    
+
     def read_table(self, table_name: str) -> pd.DataFrame:
         """Read table data"""
         pass
-    
+
     def write_table(self, table_name: str, data: pd.DataFrame) -> None:
         """Write table data"""
         pass
-    
+
     def get_connection(self) -> Any:
         """Get database connection"""
         pass
@@ -405,13 +405,13 @@ from ingen_fab.fabric_api import AsyncFabricClient
 
 async def main():
     client = AsyncFabricClient()
-    
+
     # Async operations
     workspaces = await client.list_workspaces()
-    
+
     # Concurrent operations
     tasks = [
-        client.get_workspace(ws_id) 
+        client.get_workspace(ws_id)
         for ws_id in workspace_ids
     ]
     results = await asyncio.gather(*tasks)
@@ -450,17 +450,17 @@ from ingen_fab.python_libs import get_notebook_utils
 class TestNotebookUtils(unittest.TestCase):
     def setUp(self):
         self.utils = get_notebook_utils()
-    
+
     @patch('ingen_fab.python_libs.get_connection')
     def test_execute_query(self, mock_connection):
         mock_connection.return_value = Mock()
         result = self.utils.execute_query("SELECT 1")
         self.assertIsNotNone(result)
-    
+
     def test_table_operations(self):
         # Test table creation
         self.utils.create_table("test_schema", "test_table", columns)
-        
+
         # Test table existence
         exists = self.utils.table_exists("test_schema", "test_table")
         self.assertTrue(exists)
@@ -477,7 +477,7 @@ async def test_fabric_integration():
     client = FabricClient()
     workspaces = await client.list_workspaces()
     assert len(workspaces) > 0
-    
+
     # Test workspace operations
     workspace = await client.get_workspace(workspaces[0].id)
     assert workspace is not None
@@ -493,7 +493,7 @@ import pandas as pd
 with patch('ingen_fab.python_libs.get_connection') as mock_conn:
     mock_conn.return_value = Mock()
     mock_conn.return_value.execute.return_value = pd.DataFrame({'col1': [1, 2, 3]})
-    
+
     # Test code with mocked dependencies
     result = utils.execute_query("SELECT * FROM table")
     assert isinstance(result, pd.DataFrame)
@@ -558,11 +558,11 @@ from ingen_fab.python_libs import NotebookUtils
 class CustomNotebookUtils(NotebookUtils):
     def __init__(self, custom_config):
         self.config = custom_config
-    
+
     def execute_query(self, query: str) -> Any:
         # Custom implementation
         return self.custom_execute(query)
-    
+
     def custom_operation(self, data):
         """Custom business logic"""
         return self.process_custom_data(data)
@@ -577,7 +577,7 @@ from ingen_fab.plugins import register_plugin
 class MyPlugin:
     def initialize(self):
         pass
-    
+
     def process(self, data):
         return transformed_data
 ```
@@ -659,7 +659,7 @@ source_data = lakehouse.read_parquet("input/raw_data.parquet")
 
 # Process data
 processed_data = utils.execute_query("""
-    SELECT 
+    SELECT
         id,
         CURRENT_TIMESTAMP() as processed_date,
         value * 1.1 as value
@@ -686,38 +686,38 @@ from typing import Dict, Any, List
 class DataAnalyzer:
     def __init__(self):
         self.utils = get_notebook_utils()
-    
+
     def analyze_table(self, table_name: str) -> Dict[str, Any]:
         """Comprehensive table analysis"""
-        
+
         # Get basic stats
         stats = self.utils.execute_query(f"""
-            SELECT 
+            SELECT
                 COUNT(*) as row_count,
                 COUNT(DISTINCT *) as distinct_count
             FROM {table_name}
         """)
-        
+
         # Get column info
         columns = self.utils.execute_query(f"""
             DESCRIBE {table_name}
         """)
-        
+
         # Get data quality metrics
         quality_metrics = self._calculate_quality_metrics(table_name)
-        
+
         return {
             'table_name': table_name,
             'statistics': stats,
             'columns': columns,
             'quality_metrics': quality_metrics
         }
-    
+
     def _calculate_quality_metrics(self, table_name: str) -> Dict[str, float]:
         """Calculate data quality metrics"""
         # Custom data quality logic
         pass
-    
+
     def generate_report(self, tables: List[str]) -> str:
         """Generate analysis report for multiple tables"""
         analyses = [self.analyze_table(table) for table in tables]

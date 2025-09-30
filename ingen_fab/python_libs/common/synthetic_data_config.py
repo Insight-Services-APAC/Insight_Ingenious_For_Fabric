@@ -35,25 +35,21 @@ class TableGenerationConfig:
     holiday_multiplier: float = 1.0
     custom_multipliers: Dict[str, float] = field(default_factory=dict)
     date_columns: List[str] = field(default_factory=list)
-    primary_date_column: str = None
+    primary_date_column: Optional[str] = None
 
     def calculate_target_rows(
         self,
         generation_date: date,
-        current_size: int = None,
-        seasonal_multipliers: Dict[str, float] = None,
+        current_size: Optional[int] = None,
+        seasonal_multipliers: Optional[Dict[str, float]] = None,
     ) -> int:
         """Calculate target rows for a specific generation date."""
         if self.table_type == "snapshot":
             return self._calculate_snapshot_rows(generation_date, current_size)
         else:
-            return self._calculate_incremental_rows(
-                generation_date, seasonal_multipliers
-            )
+            return self._calculate_incremental_rows(generation_date, seasonal_multipliers)
 
-    def _calculate_snapshot_rows(
-        self, generation_date: date, current_size: int = None
-    ) -> int:
+    def _calculate_snapshot_rows(self, generation_date: date, current_size: Optional[int] = None) -> int:
         """Calculate snapshot table rows with growth/churn."""
         if current_size is None:
             current_size = self.base_rows
@@ -73,7 +69,7 @@ class TableGenerationConfig:
         return max(current_size, 100)
 
     def _calculate_incremental_rows(
-        self, generation_date: date, seasonal_multipliers: Dict[str, float] = None
+        self, generation_date: date, seasonal_multipliers: Optional[Dict[str, float]] = None
     ) -> int:
         """Calculate incremental table rows with seasonal adjustments."""
         base_rows = self.base_rows_per_day
@@ -148,9 +144,7 @@ class DatasetConfiguration:
         # Load table configurations
         table_configs_dict = config_dict.get("table_configs", {})
         for table_name, table_config in table_configs_dict.items():
-            config.table_configs[table_name] = TableGenerationConfig(
-                table_name=table_name, **table_config
-            )
+            config.table_configs[table_name] = TableGenerationConfig(table_name=table_name, **table_config)
 
         config.incremental_config = config_dict.get("incremental_config", {})
         config.output_settings = config_dict.get("output_settings", {})
@@ -221,9 +215,7 @@ class DatasetConfiguration:
         seasonal_multipliers = self.incremental_config.get("seasonal_multipliers", {})
 
         for table_config in self.table_configs.values():
-            rows = table_config.calculate_target_rows(
-                generation_date, seasonal_multipliers=seasonal_multipliers
-            )
+            rows = table_config.calculate_target_rows(generation_date, seasonal_multipliers=seasonal_multipliers)
             total_rows += rows
 
         return total_rows
@@ -468,17 +460,10 @@ class ConfigurationManager:
 
         for table_name, table_config in config.table_configs.items():
             if table_config.table_type == "snapshot" and table_config.base_rows <= 0:
-                issues.append(
-                    f"Table '{table_name}': base_rows must be positive for snapshot tables"
-                )
+                issues.append(f"Table '{table_name}': base_rows must be positive for snapshot tables")
 
-            if (
-                table_config.table_type == "incremental"
-                and table_config.base_rows_per_day <= 0
-            ):
-                issues.append(
-                    f"Table '{table_name}': base_rows_per_day must be positive for incremental tables"
-                )
+            if table_config.table_type == "incremental" and table_config.base_rows_per_day <= 0:
+                issues.append(f"Table '{table_name}': base_rows_per_day must be positive for incremental tables")
 
         return issues
 

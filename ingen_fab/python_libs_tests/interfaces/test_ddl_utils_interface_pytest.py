@@ -34,17 +34,14 @@ class MockDDLUtils:
     def check_if_script_has_run(self, script_id: str) -> bool:
         """Mock check if script has run."""
         return any(
-            entry["object_guid"] == script_id and entry["script_status"] == "success"
-            for entry in self.execution_log
+            entry["object_guid"] == script_id and entry["script_status"] == "success" for entry in self.execution_log
         )
 
     def print_skipped_script_execution(self, guid: str, object_name: str) -> None:
         """Mock print skipped execution."""
         print(f"Script {guid} for {object_name} was skipped")
 
-    def write_to_execution_log(
-        self, object_guid: str, object_name: str, script_status: str
-    ) -> None:
+    def write_to_execution_log(self, object_guid: str, object_name: str, script_status: str) -> None:
         """Mock write to execution log."""
         self.execution_log.append(
             {
@@ -55,9 +52,7 @@ class MockDDLUtils:
             }
         )
 
-    def run_once(
-        self, work_fn: Callable[[], None], object_name: str, guid: str | None = None
-    ) -> None:
+    def run_once(self, work_fn: Callable[[], None], object_name: str, guid: str | None = None) -> None:
         """Mock run once implementation."""
         if guid is None:
             guid = f"auto_generated_{object_name}"
@@ -89,9 +84,7 @@ class TestDDLUtilsInterface:
         """Test that DDLUtilsInterface is a Protocol."""
 
         # Check if it's a Protocol (this is a basic check)
-        assert hasattr(DDLUtilsInterface, "__protocol__") or "Protocol" in str(
-            DDLUtilsInterface
-        )
+        assert hasattr(DDLUtilsInterface, "__protocol__") or "Protocol" in str(DDLUtilsInterface)
 
     def test_interface_has_required_methods(self):
         """Test that the interface defines all required methods."""
@@ -108,9 +101,7 @@ class TestDDLUtilsInterface:
         ]
 
         for method in required_methods:
-            assert hasattr(DDLUtilsInterface, method), (
-                f"Method {method} not found in interface"
-            )
+            assert hasattr(DDLUtilsInterface, method), f"Method {method} not found in interface"
 
     def test_mock_implementation_follows_interface(self):
         """Test that our mock implementation follows the interface."""
@@ -150,11 +141,7 @@ class TestMockDDLUtils:
     def test_print_log_empty(self):
         """Test print log with empty log."""
         mock_ddl = MockDDLUtils("test-workspace", "test-datastore")
-        with (
-            pytest.raises(SystemExit)
-            if hasattr(pytest, "CaptureResult")
-            else pytest.warns(None)
-        ):
+        with pytest.raises(SystemExit) if hasattr(pytest, "CaptureResult") else pytest.warns(None):
             pass
         # Just test that it doesn't throw an exception
         mock_ddl.print_log()

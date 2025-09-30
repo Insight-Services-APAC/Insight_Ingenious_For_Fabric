@@ -17,9 +17,7 @@ from .unified_commands import GenerationMode, UnifiedSyntheticDataGenerator
 class LegacyCompilerAdapter:
     """Adapter that provides backward compatibility for the old compiler interface."""
 
-    def __init__(
-        self, fabric_workspace_repo_dir: str = None, fabric_environment: str = None
-    ):
+    def __init__(self, fabric_workspace_repo_dir: str = None, fabric_environment: str = None):
         """Initialize the adapter with the same interface as the old compiler."""
         self.fabric_workspace_repo_dir = fabric_workspace_repo_dir
         self.fabric_environment = fabric_environment
@@ -111,9 +109,7 @@ class LegacyCompilerAdapter:
         if datasets is None:
             # Get default datasets
             available = self._generator.list_items()
-            datasets = list(available.get("datasets", {}).keys())[
-                :3
-            ]  # Limit to first 3
+            datasets = list(available.get("datasets", {}).keys())[:3]  # Limit to first 3
 
         results = {"success": True, "compiled_items": {}, "errors": []}
 
@@ -127,9 +123,7 @@ class LegacyCompilerAdapter:
                 )
 
                 if result["success"]:
-                    results["compiled_items"][
-                        f"compile_predefined_dataset_notebook_{dataset_id}"
-                    ] = result["result"]
+                    results["compiled_items"][f"compile_predefined_dataset_notebook_{dataset_id}"] = result["result"]
                 else:
                     results["errors"].extend(result["errors"])
                     results["success"] = False
@@ -140,9 +134,7 @@ class LegacyCompilerAdapter:
 
         return results
 
-    def compile_ddl_scripts(
-        self, target_environment: str = "warehouse"
-    ) -> Dict[str, Any]:
+    def compile_ddl_scripts(self, target_environment: str = "warehouse") -> Dict[str, Any]:
         """Legacy method to compile DDL scripts."""
         result = self._generator.compile(
             template="ddl_scripts",
@@ -159,9 +151,7 @@ class LegacyCompilerAdapter:
 class LegacyIncrementalCompilerAdapter:
     """Adapter for the old incremental compiler interface."""
 
-    def __init__(
-        self, fabric_workspace_repo_dir: str = None, fabric_environment: str = None
-    ):
+    def __init__(self, fabric_workspace_repo_dir: str = None, fabric_environment: str = None):
         """Initialize the incremental adapter."""
         self.fabric_workspace_repo_dir = fabric_workspace_repo_dir
         self.fabric_environment = fabric_environment
@@ -254,9 +244,7 @@ class LegacyIncrementalCompilerAdapter:
             raise RuntimeError(f"Generation failed: {result['errors']}")
 
 
-def create_legacy_compiler(
-    fabric_workspace_repo_dir: str = None, fabric_environment: str = None
-):
+def create_legacy_compiler(fabric_workspace_repo_dir: str = None, fabric_environment: str = None):
     """Factory function to create a legacy compiler adapter."""
     return LegacyCompilerAdapter(
         fabric_workspace_repo_dir=fabric_workspace_repo_dir,
@@ -264,9 +252,7 @@ def create_legacy_compiler(
     )
 
 
-def create_legacy_incremental_compiler(
-    fabric_workspace_repo_dir: str = None, fabric_environment: str = None
-):
+def create_legacy_incremental_compiler(fabric_workspace_repo_dir: str = None, fabric_environment: str = None):
     """Factory function to create a legacy incremental compiler adapter."""
     return LegacyIncrementalCompilerAdapter(
         fabric_workspace_repo_dir=fabric_workspace_repo_dir,

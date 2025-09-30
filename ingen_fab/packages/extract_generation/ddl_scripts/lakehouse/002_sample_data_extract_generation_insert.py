@@ -440,22 +440,10 @@ target_lakehouse.write_to_table(  # noqa: F821
     df=details_df, table_name="config_extract_generation_details", mode="append"
 )
 
-print(
-    "✓ Inserted " + str(len(sample_extract_configs)) + " extract configuration records"
-)
-print(
-    "✓ Inserted "
-    + str(len(sample_extract_details))
-    + " extract details configuration records"
-)
+print("✓ Inserted " + str(len(sample_extract_configs)) + " extract configuration records")
+print("✓ Inserted " + str(len(sample_extract_details)) + " extract details configuration records")
 print("✓ Extract configurations based on synthetic retail OLTP data include:")
 print("  - SAMPLE_CUSTOMERS_SNAPSHOT: Full load, Parquet format, weekly snapshots")
-print(
-    "  - SAMPLE_PRODUCTS_SNAPSHOT: Full load, Parquet format, weekly snapshots, with trigger file"
-)
-print(
-    "  - SAMPLE_ORDERS_INCREMENTAL: Incremental load, Parquet format, daily updates, Snappy compressed"
-)
-print(
-    "  - SAMPLE_ORDER_ITEMS_INCREMENTAL: Incremental load, Parquet format, daily updates, Snappy compressed"
-)
+print("  - SAMPLE_PRODUCTS_SNAPSHOT: Full load, Parquet format, weekly snapshots, with trigger file")
+print("  - SAMPLE_ORDERS_INCREMENTAL: Incremental load, Parquet format, daily updates, Snappy compressed")
+print("  - SAMPLE_ORDER_ITEMS_INCREMENTAL: Incremental load, Parquet format, daily updates, Snappy compressed")

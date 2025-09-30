@@ -64,9 +64,7 @@ def read_log_status_entries(file_path: str) -> list[StatusEntry]:
                             continue
 
                         # Parse timestamp
-                        timestamp = datetime.strptime(
-                            timestamp_str, "%Y-%m-%d %H:%M:%S,%f"
-                        )
+                        timestamp = datetime.strptime(timestamp_str, "%Y-%m-%d %H:%M:%S,%f")
 
                         # Extract item type and name from message
                         item_type = None
@@ -125,6 +123,4 @@ def print_status_summary(status_entries: list[StatusEntry]) -> None:
 
     for entry in status_entries:
         item_name = entry.item_name or "N/A"
-        print(
-            f"{entry.module:<50} {entry.item_type:<20} {item_name:<40} {entry.status:<15}"
-        )
+        print(f"{entry.module:<50} {entry.item_type:<20} {item_name:<40} {entry.status:<15}")

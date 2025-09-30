@@ -23,9 +23,7 @@ logger = logging.getLogger(__name__)
 class FabricNotebookUtils(NotebookUtilsInterface):
     """Fabric notebook utilities implementation."""
 
-    def __init__(
-        self, notebookutils: Optional[Any] = None, mssparkutils: Optional[Any] = None
-    ):
+    def __init__(self, notebookutils: Optional[Any] = None, mssparkutils: Optional[Any] = None):
         self._notebookutils = notebookutils
         self._mssparkutils = mssparkutils
         self._available = self._check_availability()
@@ -48,17 +46,13 @@ class FabricNotebookUtils(NotebookUtilsInterface):
 
             return True
         except ImportError:
-            logger.debug(
-                "notebookutils not available - not running in Fabric environment"
-            )
+            logger.debug("notebookutils not available - not running in Fabric environment")
             return False
 
     def connect_to_artifact(self, artifact_id: str, workspace_id: str) -> Any:
         """Connect to a Fabric artifact."""
         if not self._available:
-            raise RuntimeError(
-                "notebookutils not available - cannot connect to artifact"
-            )
+            raise RuntimeError("notebookutils not available - cannot connect to artifact")
 
         return self._notebookutils.lakehouse.get(artifact_id)
 
@@ -91,9 +85,7 @@ class FabricNotebookUtils(NotebookUtilsInterface):
         """Check if Fabric notebook utils are available."""
         return self._available
 
-    def run_notebook(
-        self, notebook_name: str, timeout: int = 60, params: dict = None
-    ) -> str:
+    def run_notebook(self, notebook_name: str, timeout: int = 60, params: dict = None) -> str:
         """Run a notebook using notebookutils.mssparkutils.notebook.run."""
         if not self._available:
             raise RuntimeError("mssparkutils not available - cannot run notebook")
@@ -104,9 +96,7 @@ class FabricNotebookUtils(NotebookUtilsInterface):
 class LocalNotebookUtils(LocalNotebookUtilsBase):
     """Local development notebook utilities implementation for PySpark."""
 
-    def __init__(
-        self, connection_string: Optional[str] = None, spark_session_name: str = "spark"
-    ):
+    def __init__(self, connection_string: Optional[str] = None, spark_session_name: str = "spark"):
         super().__init__(connection_string)
         self.spark_session_name = spark_session_name
         self.spark_session = None
@@ -131,9 +121,7 @@ class LocalNotebookUtils(LocalNotebookUtilsBase):
         spark_session = self._get_spark_session()
         if spark_session is None:
             raise RuntimeError("Spark session not available")
-        logger.info(
-            f"Connecting to spark session (artifact_id: {artifact_id}, workspace_id: {workspace_id})"
-        )
+        logger.info(f"Connecting to spark session (artifact_id: {artifact_id}, workspace_id: {workspace_id})")
         return spark_session
 
     def display(self, obj: Any) -> None:
@@ -185,13 +173,8 @@ class NotebookUtilsFactory(NotebookUtilsFactoryBase):
             from ingen_fab.python_libs.common.config_utils import get_configs_as_object
 
             config = get_configs_as_object()
-            if (
-                hasattr(config, "fabric_environment")
-                and config.fabric_environment == "local"
-            ):
-                logger.info(
-                    "Creating local notebook utils instance (fabric_environment is local)"
-                )
+            if hasattr(config, "fabric_environment") and config.fabric_environment == "local":
+                logger.info("Creating local notebook utils instance (fabric_environment is local)")
                 return LocalNotebookUtils()
         except ImportError:
             pass  # Continue with normal logic if config not available

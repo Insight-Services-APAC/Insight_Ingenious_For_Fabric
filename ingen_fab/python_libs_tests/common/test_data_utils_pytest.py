@@ -86,9 +86,7 @@ class TestDataUtils:
     def test_timestamp_now_microseconds_handling(self):
         """Test that microseconds are properly truncated to milliseconds."""
         # Test with microseconds that should be truncated
-        fixed_datetime = datetime(
-            2024, 1, 1, 0, 0, 0, 123456
-        )  # 123456 microseconds = 123 milliseconds
+        fixed_datetime = datetime(2024, 1, 1, 0, 0, 0, 123456)  # 123456 microseconds = 123 milliseconds
 
         with patch("ingen_fab.python_libs.common.data_utils.datetime") as mock_datetime:
             mock_datetime.utcnow.return_value = fixed_datetime

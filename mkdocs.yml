@@ -1,10 +1,8 @@
 site_name: Ingenious Fabric Accelerator
 site_url: https://localhost:8000/
-site_url: https://localhost:8000/
 repo_url: https://github.com/Insight-Services-APAC/Insight_Ingenious_For_Fabric
 repo_name: ingen_fab
 edit_uri: edit/main/docs/
-
 theme:
   name: material
   custom_dir: docs/overrides
@@ -24,7 +22,6 @@ theme:
     - navigation.sections
     - navigation.indexes
     - navigation.instant
- 
     - search.suggest
     - search.highlight
     - search.share
@@ -33,7 +30,6 @@ theme:
     - content.code.copy
     - content.code.select
     - content.code.annotate
-
 markdown_extensions:
   - attr_list
   - md_in_html
@@ -52,11 +48,10 @@ markdown_extensions:
   - pymdownx.tabbed:
       alternate_style: true
   - pymdownx.tasklist:
-      custom_checkbox: true  
+      custom_checkbox: true
   - pymdownx.emoji:
       emoji_index: !!python/name:material.extensions.emoji.twemoji
       emoji_generator: !!python/name:material.extensions.emoji.to_svg
-
   - admonition
   - pymdownx.details
   - pymdownx.keys
@@ -69,7 +64,6 @@ markdown_extensions:
   - pymdownx.critic
   - toc:
       permalink: true
-
 plugins:
   - search:
       separator: '[\s\-,:!=\[\]()"`/]+|\.(?!\d)|&[lg]t;|(?!\b)(?=[A-Z][a-z])'
@@ -77,62 +71,64 @@ plugins:
   - table-reader
   - redirects:
       redirect_maps:
-        #'user_guide/index.md': 'user_guide/installation.md'
-        #'developer_guide/index.md': 'developer_guide/python_libraries.md'
-        #'examples/index.md': 'examples/sample_project.md'
+      #'user_guide/index.md': 'user_guide/installation.md'
+      #'developer_guide/index.md': 'developer_guide/python_libraries.md'
+      #'examples/index.md': 'examples/sample_project.md'
   - git-revision-date-localized:
       enable_creation_date: true
       type: datetime
       enable_git_follow: false
   - minify:
       minify_html: true
-
 nav:
   - Home: index.md
+  - Getting Started:
+      - Installation: getting-started/installation.md
+      - Quick Start: getting-started/quick-start.md
+      - First Project: getting-started/first-project.md
+  - Guides:
+      - Common Tasks: guides/common-tasks.md
+      - CLI Reference: guides/cli-reference.md
+      - Workflows: guides/workflows.md
+      - Deployment: guides/deployment.md
+      - Packages: guides/packages.md
+      - Troubleshooting: guides/troubleshooting.md
   - User Guide:
-    - user_guide/index.md
-    - Installation: user_guide/installation.md
-    - Quick Start: user_guide/quick_start.md
-    - Common Tasks: user_guide/common_tasks.md
-    - Environment Variables: user_guide/environment_variables.md
-    - Workspace Layout: user_guide/workspace_layout.md
-    - Deploy Guide: user_guide/deploy_guide.md
-    - CLI Reference: user_guide/cli_reference.md
-    - Workflows: user_guide/workflows.md
-    - DBT Integration: user_guide/dbt_integration.md
+      - user_guide/index.md
+      - Deploy Guide: user_guide/deploy_guide.md
+      - DBT Integration: user_guide/dbt_integration.md
+  - Reference:
+      - Environment Variables: reference/environment-variables.md
+      - Workspace Layout: reference/workspace-layout.md
   - Developer Guide:
-    - developer_guide/index.md
-    - Python Libraries: developer_guide/python_libraries.md
-    - DDL Scripts: developer_guide/ddl_scripts.md
-    - Notebook Utils: developer_guide/notebook_utils.md
-    - SQL Templates: developer_guide/sql_templates.md
-    - Variable Replacement: developer_guide/variable_replacement.md
-    - DBT Profile Manager: developer_guide/dbt_profile_manager.md
-    - Packages: developer_guide/packages.md
+      - developer_guide/index.md
+      - Python Libraries: developer_guide/python_libraries.md
+      - DDL Scripts: developer_guide/ddl_scripts.md
+      - Notebook Utils: developer_guide/notebook_utils.md
+      - SQL Templates: developer_guide/sql_templates.md
+      - Variable Replacement: developer_guide/variable_replacement.md
+      - DBT Profile Manager: developer_guide/dbt_profile_manager.md
+      - Packages: developer_guide/packages.md
   - Examples:
-    - examples/index.md
-    - Sample Project: examples/sample_project.md
-    - Project Templates: examples/templates.md
+      - examples/index.md
+      - Sample Project: examples/sample_project.md
+      - Project Templates: examples/templates.md
   - Packages:
-    - packages/index.md
-    - Flat File Ingestion: packages/flat_file_ingestion.md
-    - Extract Generation: packages/extract_generation.md
-    - Synthetic Data Generation: packages/synthetic_data_generation.md
-    - Synapse Sync: packages/synapse_sync.md
+      - packages/index.md
+      - Flat File Ingestion: packages/flat_file_ingestion.md
+      - Extract Generation: packages/extract_generation.md
+      - Synthetic Data Generation: packages/synthetic_data_generation.md
+      - Synapse Sync: packages/synapse_sync.md
   - API Reference:
-    - api/index.md
-    - Python APIs: api/python_apis.md
-
+      - api/index.md
+      - Python APIs: api/python_apis.md
 exclude_docs: |
   data/*
-
 extra_javascript:
   - https://unpkg.com/tablesort@5.3.0/dist/tablesort.min.js
   - javascripts/tablesort.js
-
 extra_css:
   - assets/stylesheets/extra.css
-
 extra:
   version:
     provider: mike

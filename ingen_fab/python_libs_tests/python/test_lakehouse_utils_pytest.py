@@ -43,9 +43,7 @@ def lakehouse_util(temp_dir):
 @pytest.fixture
 def sample_df():
     """Create a sample DataFrame for testing."""
-    return pd.DataFrame(
-        {"id": [1, 2, 3], "name": ["Alice", "Bob", "Charlie"], "value": [100, 200, 300]}
-    )
+    return pd.DataFrame({"id": [1, 2, 3], "name": ["Alice", "Bob", "Charlie"], "value": [100, 200, 300]})
 
 
 def test_target_workspace_id(lakehouse_util):
@@ -148,9 +146,7 @@ def test_write_modes(lakehouse_util, sample_df):
     assert len(result_df) == 3
 
     # Append more data
-    additional_df = pd.DataFrame(
-        {"id": [4, 5], "name": ["Dave", "Eve"], "value": [400, 500]}
-    )
+    additional_df = pd.DataFrame({"id": [4, 5], "name": ["Dave", "Eve"], "value": [400, 500]})
 
     lakehouse_util.write_to_table(additional_df, table_name, mode="append")
 

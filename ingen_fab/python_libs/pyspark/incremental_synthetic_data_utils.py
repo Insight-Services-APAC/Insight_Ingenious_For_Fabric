@@ -106,9 +106,7 @@ class IncrementalSyntheticDataGenerator:
                 logger_name=f"{__name__}.{self.__class__.__name__}",
                 enable_console_output=True,
             )
-            self.logger = (
-                self.enhanced_logger.logger
-            )  # Use the internal logger for standard logging
+            self.logger = self.enhanced_logger.logger  # Use the internal logger for standard logging
             self.enhanced_logging = True
         else:
             self.enhanced_logger = None
@@ -119,11 +117,7 @@ class IncrementalSyntheticDataGenerator:
         self.file_path_generator = file_path_generator or (
             DateBasedFilePathGenerator() if ENHANCED_UTILS_AVAILABLE else None
         )
-        self.file_path_manager = (
-            FilePathManager(self.file_path_generator)
-            if ENHANCED_UTILS_AVAILABLE
-            else None
-        )
+        self.file_path_manager = FilePathManager(self.file_path_generator) if ENHANCED_UTILS_AVAILABLE else None
 
         # Initialize state management
         self._state_cache = {}
@@ -140,9 +134,7 @@ class IncrementalSyntheticDataGenerator:
 
         if seed:
             if PYSPARK_AVAILABLE and lakehouse_utils_instance:
-                self.lakehouse_utils.set_spark_config(
-                    "spark.sql.shuffle.partitions", "200"
-                )
+                self.lakehouse_utils.set_spark_config("spark.sql.shuffle.partitions", "200")
 
     def generate_dataset_from_config(
         self,
@@ -164,9 +156,7 @@ class IncrementalSyntheticDataGenerator:
         if not ENHANCED_UTILS_AVAILABLE:
             # Fall back to legacy method
             return self.generate_incremental_dataset(
-                dataset_config
-                if isinstance(dataset_config, dict)
-                else dataset_config.to_dict(),
+                dataset_config if isinstance(dataset_config, dict) else dataset_config.to_dict(),
                 generation_date,
             )
 
@@ -218,12 +208,8 @@ class IncrementalSyntheticDataGenerator:
             if self.enhanced_logging:
                 target_rows = table_config.calculate_target_rows(
                     generation_date,
-                    current_size=state.get("tables", {})
-                    .get(table_name, {})
-                    .get("current_size"),
-                    seasonal_multipliers=config.incremental_config.get(
-                        "seasonal_multipliers", {}
-                    ),
+                    current_size=state.get("tables", {}).get(table_name, {}).get("current_size"),
+                    seasonal_multipliers=config.incremental_config.get("seasonal_multipliers", {}),
                 )
 
                 self.enhanced_logger.log_table_generation_start(
@@ -241,13 +227,9 @@ class IncrementalSyntheticDataGenerator:
                 )
 
             # Check if we need to generate this table
-            if not self._should_generate_table(
-                table_name, table_config.__dict__, generation_date, state
-            ):
+            if not self._should_generate_table(table_name, table_config.__dict__, generation_date, state):
                 if self.enhanced_logging:
-                    self.logger.info(
-                        f"⏩ Skipping {table_name} - not due for generation on {generation_date}"
-                    )
+                    self.logger.info(f"⏩ Skipping {table_name} - not due for generation on {generation_date}")
                 continue
 
             # Generate the table
@@ -280,15 +262,11 @@ class IncrementalSyntheticDataGenerator:
                 )
 
                 # Save the data
-                self._save_table_data_enhanced(
-                    df_result, table_name, file_path, output_mode
-                )
+                self._save_table_data_enhanced(df_result, table_name, file_path, output_mode)
 
                 # Calculate metrics
                 duration = time.time() - start_time
-                row_count = (
-                    df_result.count() if hasattr(df_result, "count") else len(df_result)
-                )
+                row_count = df_result.count() if hasattr(df_result, "count") else len(df_result)
 
                 # Create enhanced metrics
                 if self.enhanced_logging:
@@ -309,9 +287,7 @@ class IncrementalSyntheticDataGenerator:
 
                     # Log completion with enhanced details
                     correlation_info = (  # noqa: F841
-                        self.enhanced_logger.log_table_generation_complete(
-                            table_metrics
-                        )
+                        self.enhanced_logger.log_table_generation_complete(table_metrics)
                     )
                     results["table_metrics"].append(table_metrics)
 
@@ -326,9 +302,7 @@ class IncrementalSyntheticDataGenerator:
                 results["total_rows"] += row_count
 
                 # Update state
-                self._update_table_state(
-                    table_name, table_config.__dict__, generation_date, state, row_count
-                )
+                self._update_table_state(table_name, table_config.__dict__, generation_date, state, row_count)
 
         # Save updated state
         self._save_dataset_state(config.dataset_id, generation_date, state)
@@ -336,9 +310,7 @@ class IncrementalSyntheticDataGenerator:
         # Create dataset summary
         if self.enhanced_logging and results["table_metrics"]:
             overall_duration = time.time() - overall_start_time
-            total_size_mb = sum(
-                getattr(tm, "total_size_mb", 0.0) for tm in results["table_metrics"]
-            )
+            total_size_mb = sum(getattr(tm, "total_size_mb", 0.0) for tm in results["table_metrics"])
 
             dataset_summary = DatasetGenerationSummary(
                 dataset_id=config.dataset_id,
@@ -408,12 +380,8 @@ class IncrementalSyntheticDataGenerator:
             frequency = table_config.get("frequency", "daily")  # noqa: F841
 
             # Check if we need to generate this table for this date
-            if not self._should_generate_table(
-                table_name, table_config, generation_date, state
-            ):
-                self.logger.info(
-                    f"Skipping {table_name} - not due for generation on {generation_date}"
-                )
+            if not self._should_generate_table(table_name, table_config, generation_date, state):
+                self.logger.info(f"Skipping {table_name} - not due for generation on {generation_date}")
                 continue
 
             if table_type == "snapshot":
@@ -447,9 +415,7 @@ class IncrementalSyntheticDataGenerator:
 
                 # Update state
                 actual_size = results["generated_tables"][table_name]["rows"]
-                self._update_table_state(
-                    table_name, table_config, generation_date, state, actual_size
-                )
+                self._update_table_state(table_name, table_config, generation_date, state, actual_size)
 
         # Save updated state
         self._save_dataset_state(dataset_id, generation_date, state)
@@ -513,21 +479,15 @@ class IncrementalSyntheticDataGenerator:
                 total_results["total_rows"] += daily_result["total_rows"]
 
                 # Aggregate table statistics
-                for table_name, table_result in daily_result[
-                    "generated_tables"
-                ].items():
+                for table_name, table_result in daily_result["generated_tables"].items():
                     if table_name not in total_results["generated_tables"]:
                         total_results["generated_tables"][table_name] = {
                             "total_rows": 0,
                             "generation_count": 0,
                         }
 
-                    total_results["generated_tables"][table_name]["total_rows"] += (
-                        table_result["rows"]
-                    )
-                    total_results["generated_tables"][table_name][
-                        "generation_count"
-                    ] += 1
+                    total_results["generated_tables"][table_name]["total_rows"] += table_result["rows"]
+                    total_results["generated_tables"][table_name]["generation_count"] += 1
 
                 batch_date += timedelta(days=1)
 
@@ -551,9 +511,7 @@ class IncrementalSyntheticDataGenerator:
             return True
 
         # Check snapshot frequency
-        last_generated = (
-            state.get("tables", {}).get(table_name, {}).get("last_generated")
-        )
+        last_generated = state.get("tables", {}).get(table_name, {}).get("last_generated")
         if last_generated is None:
             return True  # First time generation
 
@@ -601,9 +559,7 @@ class IncrementalSyntheticDataGenerator:
         elif table_name == "dim_date":
             return self._generate_date_dimension(generation_date)
         else:
-            return self._generate_generic_snapshot(
-                table_name, current_size, generation_date
-            )
+            return self._generate_generic_snapshot(table_name, current_size, generation_date)
 
     def _generate_incremental_table(
         self,
@@ -624,25 +580,15 @@ class IncrementalSyntheticDataGenerator:
 
         # Generate the data
         if table_name in ["orders"]:
-            return self._generate_orders_incremental(
-                actual_rows, generation_date, state
-            )
+            return self._generate_orders_incremental(actual_rows, generation_date, state)
         elif table_name in ["order_items"]:
-            return self._generate_order_items_incremental(
-                actual_rows, generation_date, state
-            )
+            return self._generate_order_items_incremental(actual_rows, generation_date, state)
         elif table_name in ["fact_sales"]:
-            return self._generate_sales_fact_incremental(
-                actual_rows, generation_date, state
-            )
+            return self._generate_sales_fact_incremental(actual_rows, generation_date, state)
         elif table_name in ["fact_inventory"]:
-            return self._generate_inventory_fact_incremental(
-                actual_rows, generation_date, state
-            )
+            return self._generate_inventory_fact_incremental(actual_rows, generation_date, state)
         else:
-            return self._generate_generic_incremental(
-                table_name, actual_rows, generation_date
-            )
+            return self._generate_generic_incremental(table_name, actual_rows, generation_date)
 
     def _calculate_current_snapshot_size(
         self,
@@ -712,9 +658,7 @@ class IncrementalSyntheticDataGenerator:
         """Generate file path using enhanced path generator."""
         if not self.file_path_generator:
             # Fall back to legacy method
-            return self._generate_file_path(
-                table_name, dataset_id, generation_date, path_format, output_mode
-            )
+            return self._generate_file_path(table_name, dataset_id, generation_date, path_format, output_mode)
 
         base_path = f"synthetic_data/{dataset_id}"
         file_extension = output_settings.get("file_extension", "parquet")
@@ -739,9 +683,7 @@ class IncrementalSyntheticDataGenerator:
                 file_extension=file_extension,
             )
 
-    def _save_table_data_enhanced(
-        self, data, table_name: str, file_path: str, output_mode: str
-    ):
+    def _save_table_data_enhanced(self, data, table_name: str, file_path: str, output_mode: str):
         """Save table data using enhanced file management."""
         if self.file_path_manager:
             # Ensure directory exists
@@ -765,34 +707,24 @@ class IncrementalSyntheticDataGenerator:
         if output_mode == "parquet":
             if PYSPARK_AVAILABLE and hasattr(data, "write"):
                 # PySpark DataFrame
-                self.lakehouse_utils.write_file(
-                    data, file_path, "parquet", {"mode": "overwrite"}
-                )
+                self.lakehouse_utils.write_file(data, file_path, "parquet", {"mode": "overwrite"})
             elif PANDAS_AVAILABLE and hasattr(data, "to_parquet"):
                 # Pandas DataFrame - need full path
-                full_path = (
-                    f"{self.lakehouse_utils.lakehouse_files_uri()}{file_path}.parquet"
-                )
+                full_path = f"{self.lakehouse_utils.lakehouse_files_uri()}{file_path}.parquet"
                 data.to_parquet(full_path, index=False)
         elif output_mode == "csv":
             if PYSPARK_AVAILABLE and hasattr(data, "write"):
                 # PySpark DataFrame - save as CSV
-                self.lakehouse_utils.write_file(
-                    data, file_path, "csv", {"mode": "overwrite", "header": "true"}
-                )
+                self.lakehouse_utils.write_file(data, file_path, "csv", {"mode": "overwrite", "header": "true"})
             elif PANDAS_AVAILABLE and hasattr(data, "to_csv"):
                 # Pandas DataFrame - need full path
-                full_path = (
-                    f"{self.lakehouse_utils.lakehouse_files_uri()}{file_path}.csv"
-                )
+                full_path = f"{self.lakehouse_utils.lakehouse_files_uri()}{file_path}.csv"
                 data.to_csv(full_path, index=False)
         else:
             # Table mode - extract table name from file path
             table_name_from_path = filename.replace(".parquet", "").replace(".csv", "")
             if PYSPARK_AVAILABLE and hasattr(data, "write"):
-                self.lakehouse_utils.write_to_table(
-                    data, table_name_from_path, mode="overwrite"
-                )
+                self.lakehouse_utils.write_to_table(data, table_name_from_path, mode="overwrite")
 
         return file_path
 
@@ -807,9 +739,7 @@ class IncrementalSyntheticDataGenerator:
         """Generate snapshot table using enhanced configuration."""
         current_size = table_config.calculate_target_rows(  # noqa: F841
             generation_date,
-            current_size=state.get("tables", {})
-            .get(table_name, {})
-            .get("current_size"),
+            current_size=state.get("tables", {}).get(table_name, {}).get("current_size"),
             seasonal_multipliers=incremental_config.get("seasonal_multipliers", {}),
         )
 
@@ -840,9 +770,7 @@ class IncrementalSyntheticDataGenerator:
         temp_config = table_config.__dict__.copy()
         temp_config["base_rows_per_day"] = target_rows
 
-        return self._generate_incremental_table(
-            table_name, temp_config, generation_date, state, incremental_config
-        )
+        return self._generate_incremental_table(table_name, temp_config, generation_date, state, incremental_config)
 
     def _apply_seasonal_multipliers(
         self,
@@ -900,54 +828,36 @@ class IncrementalSyntheticDataGenerator:
         output_mode: str,
     ) -> str:
         """Save table data to the appropriate location."""
-        file_path = self._generate_file_path(
-            table_name, dataset_id, generation_date, path_format, output_mode
-        )
+        file_path = self._generate_file_path(table_name, dataset_id, generation_date, path_format, output_mode)
 
         if output_mode == "parquet":
             if PYSPARK_AVAILABLE and hasattr(data, "write"):
                 # PySpark DataFrame
-                self.lakehouse_utils.write_file(
-                    data, file_path, "parquet", {"mode": "overwrite"}
-                )
+                self.lakehouse_utils.write_file(data, file_path, "parquet", {"mode": "overwrite"})
             elif PANDAS_AVAILABLE and hasattr(data, "to_parquet"):
                 # Pandas DataFrame
-                full_path = (
-                    f"{self.lakehouse_utils.lakehouse_files_uri()}{file_path}.parquet"
-                )
+                full_path = f"{self.lakehouse_utils.lakehouse_files_uri()}{file_path}.parquet"
                 data.to_parquet(full_path, index=False)
         elif output_mode == "csv":
             if PYSPARK_AVAILABLE and hasattr(data, "write"):
                 # PySpark DataFrame - save as CSV
-                self.lakehouse_utils.write_file(
-                    data, file_path, "csv", {"mode": "overwrite", "header": "true"}
-                )
+                self.lakehouse_utils.write_file(data, file_path, "csv", {"mode": "overwrite", "header": "true"})
             elif PANDAS_AVAILABLE and hasattr(data, "to_csv"):
                 # Pandas DataFrame
-                full_path = (
-                    f"{self.lakehouse_utils.lakehouse_files_uri()}{file_path}.csv"
-                )
+                full_path = f"{self.lakehouse_utils.lakehouse_files_uri()}{file_path}.csv"
                 data.to_csv(full_path, index=False)
         else:
             # Table mode
-            table_name_clean = (
-                f"{dataset_id}_{table_name}_{generation_date.strftime('%Y%m%d')}"
-            )
+            table_name_clean = f"{dataset_id}_{table_name}_{generation_date.strftime('%Y%m%d')}"
             if PYSPARK_AVAILABLE and hasattr(data, "write"):
-                self.lakehouse_utils.write_to_table(
-                    data, table_name_clean, mode="overwrite"
-                )
+                self.lakehouse_utils.write_to_table(data, table_name_clean, mode="overwrite")
             else:
                 # For pandas, we'd need to convert to PySpark or use other methods
-                raise NotImplementedError(
-                    "Table mode not implemented for pandas DataFrames"
-                )
+                raise NotImplementedError("Table mode not implemented for pandas DataFrames")
 
         return file_path
 
-    def _load_dataset_state(
-        self, dataset_id: str, generation_date: date
-    ) -> Dict[str, Any]:
+    def _load_dataset_state(self, dataset_id: str, generation_date: date) -> Dict[str, Any]:
         """Load or initialize dataset state."""
         if dataset_id in self._state_cache:
             return self._state_cache[dataset_id].copy()
@@ -969,9 +879,7 @@ class IncrementalSyntheticDataGenerator:
         self._state_cache[dataset_id] = new_state
         return new_state.copy()
 
-    def _save_dataset_state(
-        self, dataset_id: str, generation_date: date, state: Dict[str, Any]
-    ):
+    def _save_dataset_state(self, dataset_id: str, generation_date: date, state: Dict[str, Any]):
         """Save dataset state to persistent storage."""
         state["last_updated"] = generation_date.isoformat()
         self._state_cache[dataset_id] = state
@@ -1060,9 +968,7 @@ class IncrementalSyntheticDataGenerator:
         # Add generation metadata
         if PYSPARK_AVAILABLE:
             df = df.withColumn("snapshot_date", lit(generation_date.isoformat()))
-            df = df.withColumn(
-                "is_active", when((col("product_id") % 100) < 90, True).otherwise(False)
-            )
+            df = df.withColumn("is_active", when((col("product_id") % 100) < 90, True).otherwise(False))
 
         # Restore original seed
         if original_seed:
@@ -1073,14 +979,12 @@ class IncrementalSyntheticDataGenerator:
     def _generate_stores_snapshot(self, num_rows: int, generation_date: date):
         """Generate stores snapshot data."""
         if not PYSPARK_AVAILABLE or not self.lakehouse_utils:
-            raise RuntimeError(
-                "PySpark not available or lakehouse utils not initialized"
-            )
+            raise RuntimeError("PySpark not available or lakehouse utils not initialized")
 
         # Generate stores using similar pattern to customers/products
-        base_df = self.lakehouse_utils.create_range_dataframe(
-            1, num_rows + 1, max(1, num_rows // 10000)
-        ).toDF("store_id")
+        base_df = self.lakehouse_utils.create_range_dataframe(1, num_rows + 1, max(1, num_rows // 10000)).toDF(
+            "store_id"
+        )
 
         stores_df = base_df.select(
             col("store_id"),
@@ -1111,19 +1015,13 @@ class IncrementalSyntheticDataGenerator:
         # Generate a comprehensive date dimension
         return self.base_generator.generate_date_dimension(generation_date)
 
-    def _generate_generic_snapshot(
-        self, table_name: str, num_rows: int, generation_date: date
-    ):
+    def _generate_generic_snapshot(self, table_name: str, num_rows: int, generation_date: date):
         """Generate generic snapshot table."""
         if not PYSPARK_AVAILABLE or not self.lakehouse_utils:
-            raise RuntimeError(
-                "PySpark not available or lakehouse utils not initialized"
-            )
+            raise RuntimeError("PySpark not available or lakehouse utils not initialized")
 
         # Generate generic table with basic structure
-        base_df = self.lakehouse_utils.create_range_dataframe(
-            1, num_rows + 1, max(1, num_rows // 10000)
-        ).toDF("id")
+        base_df = self.lakehouse_utils.create_range_dataframe(1, num_rows + 1, max(1, num_rows // 10000)).toDF("id")
 
         generic_df = base_df.select(
             col("id"),
@@ -1135,26 +1033,18 @@ class IncrementalSyntheticDataGenerator:
 
         return generic_df
 
-    def _generate_orders_incremental(
-        self, num_rows: int, generation_date: date, state: Dict[str, Any]
-    ):
+    def _generate_orders_incremental(self, num_rows: int, generation_date: date, state: Dict[str, Any]):
         """Generate incremental orders data."""
         if not PYSPARK_AVAILABLE or not self.lakehouse_utils:
-            raise RuntimeError(
-                "PySpark not available or lakehouse utils not initialized"
-            )
+            raise RuntimeError("PySpark not available or lakehouse utils not initialized")
 
         # Get customer count from state or use default
-        customer_count = (
-            state.get("tables", {})
-            .get("customers", {})
-            .get("current_size", num_rows // 10)
-        )
+        customer_count = state.get("tables", {}).get("customers", {}).get("current_size", num_rows // 10)
 
         # Generate orders directly with the correct date
-        base_df = self.lakehouse_utils.create_range_dataframe(
-            1, num_rows + 1, max(1, num_rows // 50000)
-        ).toDF("order_id")
+        base_df = self.lakehouse_utils.create_range_dataframe(1, num_rows + 1, max(1, num_rows // 50000)).toDF(
+            "order_id"
+        )
 
         from pyspark.sql.functions import (
             date_add,
@@ -1192,9 +1082,7 @@ class IncrementalSyntheticDataGenerator:
             # Financial amounts
             ((col("order_id") % 9900 + 100) / 10.0).alias("order_total"),
             ((col("order_id") % 250) / 10.0).alias("shipping_cost"),
-            when(col("order_id") % 10 < 3, (col("order_id") % 500) / 10.0)
-            .otherwise(0.0)
-            .alias("discount_amount"),
+            when(col("order_id") % 10 < 3, (col("order_id") % 500) / 10.0).otherwise(0.0).alias("discount_amount"),
         )
 
         # Add calculated shipping dates based on generation_date
@@ -1221,24 +1109,18 @@ class IncrementalSyntheticDataGenerator:
 
         return orders_df
 
-    def _generate_order_items_incremental(
-        self, num_rows: int, generation_date: date, state: Dict[str, Any]
-    ):
+    def _generate_order_items_incremental(self, num_rows: int, generation_date: date, state: Dict[str, Any]):
         """Generate incremental order items data."""
         if not PYSPARK_AVAILABLE or not self.lakehouse_utils:
-            raise RuntimeError(
-                "PySpark not available or lakehouse utils not initialized"
-            )
+            raise RuntimeError("PySpark not available or lakehouse utils not initialized")
 
         # Generate order items based on estimated order count
         estimated_orders = num_rows // 2  # Assume ~2 items per order on average
-        product_count = (
-            state.get("tables", {}).get("products", {}).get("current_size", 1000)
-        )
+        product_count = state.get("tables", {}).get("products", {}).get("current_size", 1000)
 
-        base_df = self.lakehouse_utils.create_range_dataframe(
-            1, num_rows + 1, max(1, num_rows // 10000)
-        ).toDF("item_id")
+        base_df = self.lakehouse_utils.create_range_dataframe(1, num_rows + 1, max(1, num_rows // 10000)).toDF(
+            "item_id"
+        )
 
         order_items_df = base_df.select(
             col("item_id"),
@@ -1250,34 +1132,22 @@ class IncrementalSyntheticDataGenerator:
         )
 
         # Add calculated total price
-        order_items_df = order_items_df.withColumn(
-            "total_price", spark_round(col("quantity") * col("unit_price"), 2)
-        )
+        order_items_df = order_items_df.withColumn("total_price", spark_round(col("quantity") * col("unit_price"), 2))
 
         return order_items_df
 
-    def _generate_sales_fact_incremental(
-        self, num_rows: int, generation_date: date, state: Dict[str, Any]
-    ):
+    def _generate_sales_fact_incremental(self, num_rows: int, generation_date: date, state: Dict[str, Any]):
         """Generate incremental sales fact data."""
         if not PYSPARK_AVAILABLE or not self.lakehouse_utils:
-            raise RuntimeError(
-                "PySpark not available or lakehouse utils not initialized"
-            )
+            raise RuntimeError("PySpark not available or lakehouse utils not initialized")
 
-        customer_count = (
-            state.get("tables", {}).get("dim_customer", {}).get("current_size", 100000)
-        )
-        product_count = (
-            state.get("tables", {}).get("dim_product", {}).get("current_size", 10000)
-        )
-        store_count = (
-            state.get("tables", {}).get("dim_store", {}).get("current_size", 100)
-        )
+        customer_count = state.get("tables", {}).get("dim_customer", {}).get("current_size", 100000)
+        product_count = state.get("tables", {}).get("dim_product", {}).get("current_size", 10000)
+        store_count = state.get("tables", {}).get("dim_store", {}).get("current_size", 100)
 
-        base_df = self.lakehouse_utils.create_range_dataframe(
-            1, num_rows + 1, max(1, num_rows // 50000)
-        ).toDF("sale_id")
+        base_df = self.lakehouse_utils.create_range_dataframe(1, num_rows + 1, max(1, num_rows // 50000)).toDF(
+            "sale_id"
+        )
 
         sales_df = base_df.select(
             col("sale_id"),
@@ -1291,33 +1161,23 @@ class IncrementalSyntheticDataGenerator:
         )
 
         # Add calculated columns
-        sales_df = sales_df.withColumn(
-            "gross_amount", spark_round(col("quantity") * col("unit_price"), 2)
-        ).withColumn(
+        sales_df = sales_df.withColumn("gross_amount", spark_round(col("quantity") * col("unit_price"), 2)).withColumn(
             "net_amount", spark_round(col("gross_amount") - col("discount_amount"), 2)
         )
 
         return sales_df
 
-    def _generate_inventory_fact_incremental(
-        self, num_rows: int, generation_date: date, state: Dict[str, Any]
-    ):
+    def _generate_inventory_fact_incremental(self, num_rows: int, generation_date: date, state: Dict[str, Any]):
         """Generate incremental inventory fact data."""
         if not PYSPARK_AVAILABLE or not self.lakehouse_utils:
-            raise RuntimeError(
-                "PySpark not available or lakehouse utils not initialized"
-            )
+            raise RuntimeError("PySpark not available or lakehouse utils not initialized")
 
-        product_count = (
-            state.get("tables", {}).get("dim_product", {}).get("current_size", 10000)
-        )
-        store_count = (
-            state.get("tables", {}).get("dim_store", {}).get("current_size", 100)
-        )
+        product_count = state.get("tables", {}).get("dim_product", {}).get("current_size", 10000)
+        store_count = state.get("tables", {}).get("dim_store", {}).get("current_size", 100)
 
-        base_df = self.lakehouse_utils.create_range_dataframe(
-            1, num_rows + 1, max(1, num_rows // 50000)
-        ).toDF("record_id")
+        base_df = self.lakehouse_utils.create_range_dataframe(1, num_rows + 1, max(1, num_rows // 50000)).toDF(
+            "record_id"
+        )
 
         inventory_df = base_df.select(
             col("record_id"),
@@ -1331,30 +1191,22 @@ class IncrementalSyntheticDataGenerator:
 
         return inventory_df
 
-    def _generate_generic_incremental(
-        self, table_name: str, num_rows: int, generation_date: date
-    ):
+    def _generate_generic_incremental(self, table_name: str, num_rows: int, generation_date: date):
         """Generate generic incremental table data."""
         if not PYSPARK_AVAILABLE or not self.lakehouse_utils:
-            raise RuntimeError(
-                "PySpark not available or lakehouse utils not initialized"
-            )
+            raise RuntimeError("PySpark not available or lakehouse utils not initialized")
 
-        base_df = self.lakehouse_utils.create_range_dataframe(
-            1, num_rows + 1, max(1, num_rows // 10000)
-        ).toDF("id")
+        base_df = self.lakehouse_utils.create_range_dataframe(1, num_rows + 1, max(1, num_rows // 10000)).toDF("id")
 
         generic_df = base_df.select(
             col("id"),
             concat(lit(table_name), lit("_"), col("id").cast("string")).alias("name"),
-            expr(
-                "CASE WHEN id % 3 = 0 THEN 'Active' WHEN id % 3 = 1 THEN 'Pending' ELSE 'Inactive' END"
-            ).alias("status"),
+            expr("CASE WHEN id % 3 = 0 THEN 'Active' WHEN id % 3 = 1 THEN 'Pending' ELSE 'Inactive' END").alias(
+                "status"
+            ),
             lit(generation_date.isoformat()).alias("created_date"),
             (rand() * 100).alias("value"),
-            expr("CASE WHEN id % 2 = 0 THEN 'Category A' ELSE 'Category B' END").alias(
-                "category"
-            ),
+            expr("CASE WHEN id % 2 = 0 THEN 'Category A' ELSE 'Category B' END").alias("category"),
         )
 
         return generic_df
@@ -1395,9 +1247,7 @@ class IncrementalSyntheticDataGenerator:
         empty_df = self.lakehouse_utils.spark.createDataFrame([], state_schema)
 
         # Write as table to create it
-        self.lakehouse_utils.write_to_table(
-            empty_df, self.state_table_name, mode="overwrite"
-        )
+        self.lakehouse_utils.write_to_table(empty_df, self.state_table_name, mode="overwrite")
 
         self.logger.info(f"Created state table: {self.state_table_name}")
 
@@ -1437,9 +1287,7 @@ class IncrementalSyntheticDataGenerator:
         from pyspark.sql.functions import current_timestamp
 
         new_record_data = [(dataset_id, state_json)]
-        new_record = self.lakehouse_utils.spark.createDataFrame(
-            new_record_data, ["dataset_id", "state_json"]
-        ).select(
+        new_record = self.lakehouse_utils.spark.createDataFrame(new_record_data, ["dataset_id", "state_json"]).select(
             col("dataset_id"),
             col("state_json"),
             created_ts.alias("created_date"),
@@ -1457,18 +1305,12 @@ class IncrementalSyntheticDataGenerator:
             updated_df = filtered_df.union(new_record)
 
             # Write back to table
-            self.lakehouse_utils.write_to_table(
-                updated_df, self.state_table_name, mode="overwrite"
-            )
+            self.lakehouse_utils.write_to_table(updated_df, self.state_table_name, mode="overwrite")
 
         except Exception as e:
             # If table read fails, just write the new record
-            self.logger.warning(
-                f"Could not read existing state table, creating new: {e}"
-            )
-            self.lakehouse_utils.write_to_table(
-                new_record, self.state_table_name, mode="overwrite"
-            )
+            self.logger.warning(f"Could not read existing state table, creating new: {e}")
+            self.lakehouse_utils.write_to_table(new_record, self.state_table_name, mode="overwrite")
 
     def _load_state_from_table(self, dataset_id: str) -> Optional[Dict[str, Any]]:
         """Load state from persistent table."""

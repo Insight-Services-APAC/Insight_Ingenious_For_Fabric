@@ -114,7 +114,7 @@ For a consistent development environment with Apache Spark and SQL Server, use t
     bash ./scripts/dev_container_scripts/spark_minimal/sql_install_4_linux.sh
     bash /opt/mssql/bin/mssql-conf setup
     ```
-    
+
     Note: You'll need to provide an SA password and select "Enterprise (2)" and "English" when prompted.
 
     Once the setup is complete, you can start SQL Server with. (Press Enter after the command completes and sql server will be started in the background. Note you will need to run this command every time you start the container):
@@ -137,7 +137,7 @@ For a consistent development environment with Apache Spark and SQL Server, use t
     ```powershell
     # Download and install SQL Server Express
     # https://www.microsoft.com/en-us/sql-server/sql-server-downloads
-    
+
     # Or use Docker Desktop:
     docker run -e "ACCEPT_EULA=Y" -e "SA_PASSWORD=YourStrong@Passw0rd" `
         -p 1433:1433 --name sql_server `
@@ -150,9 +150,9 @@ For a consistent development environment with Apache Spark and SQL Server, use t
    export SQL_SERVER_PASSWORD="YourStrong@Passw0rd"
    ```
 
-   or 
+   or
 
-   ``` pwsh 
+   ``` pwsh
    $env:SQL_SERVER_PASSWORD = "YourStrong@Passw0rd"
    ```
 
@@ -251,7 +251,7 @@ mkdocs gh-deploy
    # cli_utils/my_new_commands.py
    import typer
    from typing_extensions import Annotated
-   
+
    def my_new_command(
        param: Annotated[str, typer.Option(help="Description")]
    ):
@@ -263,7 +263,7 @@ mkdocs gh-deploy
    ```python
    # cli.py
    from cli_utils import my_new_commands
-   
+
    # Add command to app
    app.add_typer(
        my_new_commands.app,
@@ -277,7 +277,7 @@ mkdocs gh-deploy
    # tests/test_my_new_commands.py
    from typer.testing import CliRunner
    from ingen_fab.cli import app
-   
+
    def test_my_new_command():
        runner = CliRunner()
        result = runner.invoke(app, ["mynew", "command", "--param", "value"])
@@ -291,11 +291,11 @@ mkdocs gh-deploy
    # python_libs/python/my_new_utils.py
    from typing import Any
    from .notebook_utils_abstraction import get_notebook_utils
-   
+
    class MyNewUtils:
        def __init__(self):
            self.notebook_utils = get_notebook_utils()
-       
+
        def my_function(self) -> Any:
            """New utility function."""
            return "result"
@@ -306,7 +306,7 @@ mkdocs gh-deploy
    # python_libs_tests/python/test_my_new_utils_pytest.py
    import pytest
    from ingen_fab.python_libs.python.my_new_utils import MyNewUtils
-   
+
    def test_my_function():
        utils = MyNewUtils()
        result = utils.my_function()
@@ -326,7 +326,7 @@ mkdocs gh-deploy
    <!-- ddl_scripts/_templates/common/my_new_template.py.jinja -->
    # Generated DDL script for {{ entity_name }}
    from my_new_utils import MyNewUtils
-   
+
    utils = MyNewUtils()
    result = utils.my_function()
    print(f"Result: {result}")

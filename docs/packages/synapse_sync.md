@@ -222,7 +222,7 @@ Apply filters during sync:
 
 ```python
 filter_condition = """
-    active_flag = 1 
+    active_flag = 1
     AND created_date >= DATEADD(day, -30, GETDATE())
     AND region IN ('US', 'CA', 'MX')
 """
@@ -293,7 +293,7 @@ Query sync history:
 
 ```sql
 -- View recent sync runs
-SELECT 
+SELECT
     object_id,
     run_id,
     start_time,
@@ -316,7 +316,7 @@ Monitor sync performance:
 
 ```sql
 -- Average sync duration by object
-SELECT 
+SELECT
     object_id,
     AVG(DATEDIFF(SECOND, start_time, end_time)) as avg_duration_seconds,
     AVG(records_read + records_inserted + records_updated) as avg_records_processed,
@@ -338,7 +338,7 @@ WITH fabric_counts AS (
 synapse_counts AS (
     SELECT COUNT(*) as synapse_count FROM SYNAPSE_SERVER.database.staging.stg_customers
 )
-SELECT 
+SELECT
     f.fabric_count,
     s.synapse_count,
     ABS(f.fabric_count - s.synapse_count) as difference
@@ -524,7 +524,7 @@ sync_config = {
     "object_id": "PRODUCT_DIM_SYNC",
     "sync_type": "MERGE",
     "source_query": """
-        SELECT 
+        SELECT
             p.product_id,
             p.product_name,
             c.category_name,

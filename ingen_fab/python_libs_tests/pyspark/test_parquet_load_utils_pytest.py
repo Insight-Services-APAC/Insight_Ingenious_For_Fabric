@@ -19,10 +19,7 @@ class TestParquetLoadUtils:
     def test_testing_code_replacement_docstring(self):
         """Test that testing_code_replacement has a docstring."""
         assert testing_code_replacement.__doc__ is not None
-        assert (
-            "placeholder for testing code replacement"
-            in testing_code_replacement.__doc__
-        )
+        assert "placeholder for testing code replacement" in testing_code_replacement.__doc__
 
     def test_testing_code_replacement_no_parameters(self):
         """Test that testing_code_replacement accepts no parameters."""

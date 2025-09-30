@@ -5,7 +5,7 @@ import inspect
 import logging
 import traceback
 from datetime import datetime
-from typing import Any, Optional
+from typing import Any, Callable, Optional
 
 from ingen_fab.python_libs.python.sql_templates import SQLTemplates
 from ingen_fab.python_libs.python.warehouse_utils import warehouse_utils
@@ -20,10 +20,6 @@ class ddl_utils:
         target_warehouse_id: str,
         notebookutils: Optional[Any] = None,
     ) -> None:
-        super().__init__(
-            target_datastore_id=target_warehouse_id,
-            target_workspace_id=target_workspace_id,
-        )
         self.target_workspace_id = target_workspace_id
         self.target_warehouse_id = target_warehouse_id
         self.execution_log_table_schema = "log"
@@ -39,7 +35,7 @@ class ddl_utils:
         self.sql = SQLTemplates(dialect="fabric")
         self.initialise_ddl_script_executions_table()
 
-    def execution_log_schema():
+    def execution_log_schema(self) -> None:
         pass
 
     def print_log(self):
@@ -89,7 +85,7 @@ class ddl_utils:
         )
         self.warehouse_utils.execute_query(conn=conn, query=insert_query)
 
-    def run_once(self, work_fn: callable, object_name: str, guid: str):
+    def run_once(self, work_fn: Callable[[], None], object_name: str, guid: Optional[str] = None) -> None:
         """
         Runs `work_fn()` exactly once, keyed by `guid`. If `guid` is None,
         it's computed by hashing the source code of `work_fn`.
@@ -101,9 +97,7 @@ class ddl_utils:
             try:
                 src = inspect.getsource(work_fn)
             except (OSError, TypeError):
-                raise ValueError(
-                    "work_fn must be a named function defined at top-level"
-                )
+                raise ValueError("work_fn must be a named function defined at top-level")
             # compute SHA256 and take first 12 hex chars
             digest = hashlib.sha256(src.encode("utf-8")).hexdigest()
             guid = digest
@@ -113,19 +107,13 @@ class ddl_utils:
         if not self.check_if_script_has_run(script_id=guid):
             try:
                 work_fn()
-                self.write_to_execution_log(
-                    object_guid=guid, object_name=object_name, script_status="Success"
-                )
+                self.write_to_execution_log(object_guid=guid, object_name=object_name, script_status="Success")
                 logger.info(f"Successfully executed work_fn for guid={guid}")
             except Exception as e:
-                error_message = (
-                    f"Error in work_fn for {guid}: {e}\n{traceback.format_exc()}"
-                )
+                error_message = f"Error in work_fn for {guid}: {e}\n{traceback.format_exc()}"
                 logger.error(error_message)
 
-                self.write_to_execution_log(
-                    object_guid=guid, object_name=object_name, script_status="Failure"
-                )
+                self.write_to_execution_log(object_guid=guid, object_name=object_name, script_status="Failure")
                 # Print the error message to stderr and raise a RuntimeError
                 import sys
 
@@ -148,9 +136,7 @@ class ddl_utils:
 
         if not table_exists:
             try:
-                self.warehouse_utils.create_schema_if_not_exists(
-                    schema_name=self.execution_log_table_schema
-                )
+                self.warehouse_utils.create_schema_if_not_exists(schema_name=self.execution_log_table_schema)
                 # Create the table using SQL template
                 create_table_query = self.sql.render(
                     "create_ddl_log_table",
@@ -158,9 +144,7 @@ class ddl_utils:
                     table_name=self.execution_log_table_name,
                 )
                 self.warehouse_utils.execute_query(conn=conn, query=create_table_query)
-                self.write_to_execution_log(
-                    object_guid=guid, object_name=object_name, script_status="Success"
-                )
+                self.write_to_execution_log(object_guid=guid, object_name=object_name, script_status="Success")
             except Exception as e:
                 # Check again if table exists - it might have been created by another process
                 table_exists_now = self.warehouse_utils.check_if_table_exists(

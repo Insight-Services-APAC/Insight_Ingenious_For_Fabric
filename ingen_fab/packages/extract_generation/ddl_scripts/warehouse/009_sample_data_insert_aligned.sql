@@ -8,10 +8,10 @@ DELETE FROM [config].[config_extract_generation] WHERE extract_name LIKE 'SAMPLE
 
 -- Sample 1: Customers snapshot extract to Parquet
 INSERT INTO [config].[config_extract_generation] (
-    creation_time, extract_name, is_active, extract_table_name, extract_table_schema, 
+    creation_time, extract_name, is_active, extract_table_name, extract_table_schema,
     is_full_load, execution_group, created_by, created_timestamp
 ) VALUES (
-    GETDATE(), 'SAMPLE_CUSTOMERS_SNAPSHOT', 1, 'customers', 'dbo', 
+    GETDATE(), 'SAMPLE_CUSTOMERS_SNAPSHOT', 1, 'customers', 'dbo',
     1, 'SNAPSHOT_EXTRACTS', SYSTEM_USER, GETDATE()
 );
 
@@ -43,10 +43,10 @@ INSERT INTO [config].[config_extract_details] (
 
 -- Sample 2: Products snapshot extract to Parquet with trigger file
 INSERT INTO [config].[config_extract_generation] (
-    creation_time, extract_name, is_active, extract_table_name, extract_table_schema, 
+    creation_time, extract_name, is_active, extract_table_name, extract_table_schema,
     is_full_load, execution_group, created_by, created_timestamp
 ) VALUES (
-    GETDATE(), 'SAMPLE_PRODUCTS_SNAPSHOT', 1, 'products', 'dbo', 
+    GETDATE(), 'SAMPLE_PRODUCTS_SNAPSHOT', 1, 'products', 'dbo',
     1, 'SNAPSHOT_EXTRACTS', SYSTEM_USER, GETDATE()
 );
 
@@ -76,10 +76,10 @@ INSERT INTO [config].[config_extract_details] (
 
 -- Sample 3: Orders incremental extract with Snappy compression
 INSERT INTO [config].[config_extract_generation] (
-    creation_time, extract_name, is_active, extract_table_name, extract_table_schema, 
+    creation_time, extract_name, is_active, extract_table_name, extract_table_schema,
     is_full_load, execution_group, created_by, created_timestamp
 ) VALUES (
-    GETDATE(), 'SAMPLE_ORDERS_INCREMENTAL', 1, 'orders', 'dbo', 
+    GETDATE(), 'SAMPLE_ORDERS_INCREMENTAL', 1, 'orders', 'dbo',
     0, 'INCREMENTAL_EXTRACTS', SYSTEM_USER, GETDATE()
 );
 

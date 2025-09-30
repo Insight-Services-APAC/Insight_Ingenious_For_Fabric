@@ -6,46 +6,6 @@ sys.path.insert(0, str(pathlib.Path(__file__).resolve().parents[1]))
 from ingen_fab.python_libs.python.warehouse_utils import warehouse_utils
 
 
-class DummyCursor:
-    def __init__(self):
-        self.executed = None
-        self.description = [("col",)]
-
-    def execute(self, query):
-        self.executed = query
-
-    def fetchall(self):
-        return [(1,)]
-
-
-class DummyConn:
-    def __init__(self):
-        self.cursor_obj = DummyCursor()
-        self.committed = False
-
-    def cursor(self):
-        return self.cursor_obj
-
-    def commit(self):
-        self.committed = True
-
-
-class DummyPD:
-    class DataFrame:
-        @classmethod
-        def from_records(cls, rows, columns):
-            return {"rows": rows, "columns": columns}
-
-
-class DummyFabricConn:
-    def __init__(self):
-        self.last_query = None
-
-    def query(self, q):
-        self.last_query = q
-        return [1]
-
-
 def test_get_connection_fabric():
     wu = warehouse_utils("ws", "wh")
     mock_conn = object()
@@ -57,7 +17,7 @@ def test_get_connection_fabric():
 
 
 def test_get_connection_sqlserver():
-    wu = warehouse_utils(None, None, dialect="sqlserver", connection_string="dsn")
+    wu = warehouse_utils(None, None, dialect="sql_server", connection_string="dsn")
     mock_conn = object()
     with mock.patch(
         "ingen_fab.python_libs.python.warehouse_utils.pyodbc.connect",
@@ -75,9 +35,7 @@ def test_execute_query_fabric():
             mock.patch.object(wu, "get_connection", return_value="conn"),
             mock.patch.object(wu, "execute_query", return_value=[(1,)]),
         ):
-            wu.create_schema_if_not_exists(
-                "myschema"
-            )  # Should not attempt to create schema if exists
+            wu.create_schema_if_not_exists("myschema")  # Should not attempt to create schema if exists
 
     def test_create_schema_if_not_exists_schema_missing():
         wu = warehouse_utils("ws", "wh")
@@ -224,9 +182,7 @@ def test_execute_query_fabric():
         wu = warehouse_utils("ws", "wh")
         with (
             mock.patch.object(wu, "get_connection", return_value="conn"),
-            mock.patch.object(
-                wu, "execute_query", side_effect=[[{"name": "t1"}], None]
-            ),
+            mock.patch.object(wu, "execute_query", side_effect=[[{"name": "t1"}], None]),
             mock.patch.object(wu.sql, "render", side_effect=["LIST", "DROP"]),
         ):
             wu.drop_all_tables()

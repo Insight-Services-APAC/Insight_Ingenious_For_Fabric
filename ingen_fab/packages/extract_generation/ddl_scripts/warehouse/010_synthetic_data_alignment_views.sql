@@ -8,7 +8,7 @@ BEGIN
 END;
 GO
 
--- Create finance schema if not exists  
+-- Create finance schema if not exists
 IF NOT EXISTS (SELECT * FROM sys.schemas WHERE name = 'finance')
 BEGIN
     EXEC('CREATE SCHEMA finance')
@@ -22,7 +22,7 @@ IF EXISTS (SELECT * FROM sys.views WHERE object_id = OBJECT_ID(N'[dbo].[v_custom
 GO
 
 CREATE VIEW [dbo].[v_customers_mapped] AS
-SELECT 
+SELECT
     customer_id,
     CONCAT(first_name, ' ', last_name) as customer_name,
     email,
@@ -41,7 +41,7 @@ IF EXISTS (SELECT * FROM sys.views WHERE object_id = OBJECT_ID(N'[dbo].[v_transa
 GO
 
 CREATE VIEW [dbo].[v_transactions] AS
-SELECT 
+SELECT
     oi.order_item_id as transaction_id,
     o.customer_id,
     oi.product_id,
@@ -53,14 +53,14 @@ FROM [dbo].[orders] o
 INNER JOIN [dbo].[order_items] oi ON o.order_id = oi.order_id;
 GO
 
--- View: v_sales_summary 
+-- View: v_sales_summary
 -- Sales summary for reporting based on synthetic data
 IF EXISTS (SELECT * FROM sys.views WHERE object_id = OBJECT_ID(N'[reporting].[v_sales_summary]'))
     DROP VIEW [reporting].[v_sales_summary];
 GO
 
 CREATE VIEW [reporting].[v_sales_summary] AS
-SELECT 
+SELECT
     YEAR(o.order_date) as year,
     MONTH(o.order_date) as month,
     c.country,
@@ -81,7 +81,7 @@ IF EXISTS (SELECT * FROM sys.views WHERE object_id = OBJECT_ID(N'[reporting].[v_
 GO
 
 CREATE VIEW [reporting].[v_product_sales_summary] AS
-SELECT 
+SELECT
     p.category as product_category,
     p.brand,
     COUNT(DISTINCT oi.order_id) as order_count,
@@ -104,8 +104,8 @@ GO
 CREATE PROCEDURE [finance].[sp_generate_financial_report]
 AS
 BEGIN
-    SELECT 
-        'Q' + CAST(DATEPART(QUARTER, o.order_date) AS VARCHAR(1)) + ' ' + 
+    SELECT
+        'Q' + CAST(DATEPART(QUARTER, o.order_date) AS VARCHAR(1)) + ' ' +
         CAST(YEAR(o.order_date) AS VARCHAR(4)) as reporting_period,
         c.country as region,
         COUNT(DISTINCT o.customer_id) as active_customers,
@@ -117,11 +117,11 @@ BEGIN
     FROM [dbo].[orders] o
     INNER JOIN [dbo].[customers] c ON o.customer_id = c.customer_id
     WHERE o.order_date >= DATEADD(MONTH, -12, GETDATE())
-    GROUP BY 
+    GROUP BY
         DATEPART(QUARTER, o.order_date),
         YEAR(o.order_date),
         c.country
-    ORDER BY 
+    ORDER BY
         YEAR(o.order_date) DESC,
         DATEPART(QUARTER, o.order_date) DESC,
         c.country;
@@ -139,21 +139,21 @@ AS
 BEGIN
     -- Validate we have recent orders
     DECLARE @recent_count INT;
-    SELECT @recent_count = COUNT(*) 
-    FROM [dbo].[orders] 
+    SELECT @recent_count = COUNT(*)
+    FROM [dbo].[orders]
     WHERE order_date >= DATEADD(DAY, -7, GETDATE());
-    
+
     IF @recent_count = 0
     BEGIN
         RAISERROR('No recent orders found for extraction', 16, 1);
     END;
-    
+
     -- Additional validation: check for orphaned order items
     DECLARE @orphaned_items INT;
     SELECT @orphaned_items = COUNT(*)
     FROM [dbo].[order_items] oi
     WHERE NOT EXISTS (SELECT 1 FROM [dbo].[orders] o WHERE o.order_id = oi.order_id);
-    
+
     IF @orphaned_items > 0
     BEGIN
         RAISERROR('Found orphaned order items without corresponding orders', 16, 1);
@@ -170,7 +170,7 @@ GO
 CREATE PROCEDURE [reporting].[sp_generate_customer_segment_report]
 AS
 BEGIN
-    SELECT 
+    SELECT
         c.customer_segment,
         c.country,
         COUNT(DISTINCT c.customer_id) as customer_count,

@@ -9,7 +9,7 @@
 ### Files Changed
 **New Files Created (4)**:
 - `scripts/dev_container_scripts/spark_minimal/postgres_metastore_setup.sh` - Main PostgreSQL setup script
-- `scripts/dev_container_scripts/spark_minimal/postgres_metastore_init.sh` - Metastore reinitialization script  
+- `scripts/dev_container_scripts/spark_minimal/postgres_metastore_init.sh` - Metastore reinitialization script
 - `scripts/dev_container_scripts/spark_minimal/README_postgres_setup.md` - Documentation for PostgreSQL setup
 - `/tmp/test_postgres_metastore.scala` - Spark test script
 - `/tmp/spark_test.scala` - Simple Spark shell test
@@ -22,7 +22,7 @@ No commits were made during this session - all changes remain uncommitted.
 
 ### Final Git Status
 - 1 modified file (settings)
-- 3 new untracked script files  
+- 3 new untracked script files
 - 1 new documentation file
 - Test files created in /tmp
 
@@ -146,7 +146,7 @@ spark.hadoop.datanucleus.schema.autoCreateAll=false
 
 ## What Was Completed
 - ✅ Cross-platform PostgreSQL metastore setup script
-- ✅ PostgreSQL installation and configuration 
+- ✅ PostgreSQL installation and configuration
 - ✅ Hive schema application (83 tables)
 - ✅ Spark integration and configuration
 - ✅ Comprehensive testing of metastore functionality
@@ -170,7 +170,7 @@ spark.hadoop.datanucleus.schema.autoCreateAll=false
 spark-sql -e "SHOW DATABASES"
 spark-sql -e "CREATE DATABASE test; USE test; SHOW TABLES"
 
-# Verify in PostgreSQL directly  
+# Verify in PostgreSQL directly
 PGPASSWORD=hivepassword psql -h localhost -U hive -d metastore -c '\dt'
 
 # Check Spark configuration

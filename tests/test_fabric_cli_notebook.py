@@ -13,9 +13,7 @@ def test_cli_notebook_workflow():
     with mock.patch("subprocess.run") as run:
         run.side_effect = [
             mock.Mock(stdout="", returncode=0),
-            mock.Mock(
-                stdout="Started job 0bfcc2a7-468d-473f-92e4-9a2a799f2522", returncode=0
-            ),
+            mock.Mock(stdout="Started job 0bfcc2a7-468d-473f-92e4-9a2a799f2522", returncode=0),
             mock.Mock(stdout="Completed", returncode=0),
         ]
 

@@ -55,7 +55,7 @@ PARTITIONED BY ({{ partition_by | join(', ') }})
 ```sql
 {%- raw -%}
 -- fabric/read_table.sql.jinja
-SELECT 
+SELECT
     {% for column in columns %}
     {{ column }}{% if not loop.last %},{% endif %}
     {% endfor %}
@@ -87,7 +87,7 @@ LIKE '{{ like_pattern }}'
 {%- raw -%}
 -- fabric/check_schema_exists.sql.jinja
 SELECT COUNT(*) as schema_count
-FROM information_schema.schemata 
+FROM information_schema.schemata
 WHERE schema_name = '{{ schema_name }}'
 {%- endraw -%}
 ```
@@ -145,7 +145,7 @@ sql = template.render(
 class SqlTemplateFactory:
     def __init__(self, dialect='fabric'):
         self.dialect = dialect
-    
+
     def create_table(self, schema_name, table_name, columns):
         """Generate CREATE TABLE statement"""
         template = self.get_template('create_table')
@@ -154,7 +154,7 @@ class SqlTemplateFactory:
             table_name=table_name,
             columns=columns
         )
-    
+
     def read_table(self, schema_name, table_name, columns=None, where_clause=None):
         """Generate SELECT statement"""
         template = self.get_template('read_table')
@@ -252,7 +252,7 @@ factory.add_filter('quote', quote_identifier)
 ```jinja2
 {%- raw -%}
 <!-- base_query.sql.jinja -->
-SELECT 
+SELECT
     {% block columns %}*{% endblock %}
 FROM {{ schema_name }}.{{ table_name }}
 {% block where_clause %}{% endblock %}
@@ -293,7 +293,7 @@ from sql_template_factory import SqlTemplateFactory
 class FabricDDLGenerator(DDLScriptGenerator):
     def __init__(self):
         self.sql_factory = SqlTemplateFactory('fabric')
-    
+
     def generate_create_table(self, schema, table, columns):
         return self.sql_factory.create_table(schema, table, columns)
 ```

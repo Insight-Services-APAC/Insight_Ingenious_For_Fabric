@@ -2,14 +2,59 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
-## Important: Environment Activation
+## Communication Style
 
-**ALWAYS activate the Python virtual environment and set required environment variables before running any commands:**
+**CRITICAL**: When working with this codebase:
+- **NEVER use emojis** in any communication, code, comments, or documentation
+- **Always maintain a concise, professional tone** in all interactions
+- Provide direct, clear technical communication without unnecessary elaboration
+- Focus on facts and technical accuracy over conversational language
+
+## Python Package Management
+
+**CRITICAL**: This project uses `uv` exclusively for all Python operations:
+
+- **ALWAYS use `uv` for package management** - Never use `pip`, `poetry`, or other tools
+- **ALWAYS use `uv run` to execute Python commands** - This ensures correct environment and dependencies
+- **NEVER manually activate virtual environments** - `uv run` handles this automatically
+
+### Key uv Commands
+
+```bash
+# Sync dependencies from pyproject.toml
+uv sync
+
+# Add a new dependency
+uv add <package>
+
+# Add a development dependency
+uv add <package> --dev
+
+# Remove a dependency
+uv remove <package>
+
+# Run Python commands (always use this pattern)
+uv run pytest
+uv run python script.py
+uv run ingen_fab --help
+
+# Run tests
+uv run pytest tests/
+uv run pytest tests/test_specific.py
+
+# Code quality
+uv run ruff check .
+uv run ruff format .
+uv run pre-commit run --all-files
+```
+
+## Important: Environment Variables
+
+**ALWAYS set required environment variables before running commands:**
 
 === "macOS/Linux"
 
     ```bash
-    source .venv/bin/activate
     export FABRIC_ENVIRONMENT="local"
     export FABRIC_WORKSPACE_REPO_DIR="sample_project"
     ```
@@ -17,12 +62,9 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 === "Windows"
 
     ```powershell
-    .venv\Scripts\activate
     $env:FABRIC_ENVIRONMENT = "local"
     $env:FABRIC_WORKSPACE_REPO_DIR = "sample_project"
     ```
-
-This must be done at the start of every session to ensure proper dependency access and correct CLI operation.
 
 ## Project Overview
 
@@ -39,98 +81,88 @@ Ingenious Fabric Accelerator (`ingen_fab`) is a CLI tool for creating and managi
 
 ## Environment Setup
 
-=== "macOS/Linux"
+**CRITICAL**: Only use `uv` for environment setup:
 
-    ```bash
-    # Using uv (preferred)
-    uv sync
+```bash
+# Sync all dependencies from pyproject.toml
+uv sync
 
-    # Or using pip
-    python -m venv .venv
-    source .venv/bin/activate
-    pip install -e .[dev]
-    ```
+# Sync with all optional dependency groups
+uv sync --all-extras
+```
 
-=== "Windows"
-
-    ```powershell
-    # Using uv (preferred)
-    uv sync
-
-    # Or using pip
-    python -m venv .venv
-    .venv\Scripts\activate
-    pip install -e .[dev]
-    ```
+**NEVER** use pip or manual venv creation. `uv` handles all environment management automatically.
 
 ## Development Commands
+
+**CRITICAL**: Always use `uv run` prefix for all Python commands:
 
 ### Testing
 ```bash
 # Run all tests
-pytest
+uv run pytest
 
 # Run with coverage
-pytest --cov=ingen_fab
+uv run pytest --cov=ingen_fab
 
 # Run specific test file
-pytest tests/test_specific_file.py
+uv run pytest tests/test_specific_file.py
 ```
 
 ### Code Quality
 ```bash
 # Lint with ruff
-ruff check .
+uv run ruff check .
 
 # Format with ruff
-ruff format .
+uv run ruff format .
 
 # Pre-commit hooks
-pre-commit run --all-files
+uv run pre-commit run --all-files
 ```
 
 ### Documentation
 ```bash
 # Serve docs locally
-./serve-docs.sh
-# or
-mkdocs serve --dev-addr=0.0.0.0:8000
+uv run mkdocs serve --dev-addr=0.0.0.0:8000
 ```
 
 ### CLI Testing
 
+**CRITICAL**: Always use `uv run` for CLI commands:
+
 === "macOS/Linux"
 
     ```bash
-    # Test CLI commands (use sample_project for testing)
+    # Set environment variables
     export FABRIC_WORKSPACE_REPO_DIR="./sample_project"
     export FABRIC_ENVIRONMENT="development"
 
     # Generate DDL notebooks
-    ingen_fab ddl compile --output-mode fabric_workspace_repo --generation-mode Warehouse
-    ingen_fab ddl compile --output-mode fabric_workspace_repo --generation-mode Lakehouse
+    uv run ingen_fab ddl compile --output-mode fabric_workspace_repo --generation-mode Warehouse
+    uv run ingen_fab ddl compile --output-mode fabric_workspace_repo --generation-mode Lakehouse
 
     # Test Python libraries locally (requires FABRIC_ENVIRONMENT=local)
     export FABRIC_ENVIRONMENT=local
-    ingen_fab test local python
-    ingen_fab test local pyspark
+    uv run ingen_fab test local python
+    uv run ingen_fab test local pyspark
     ```
 
 === "Windows"
 
     ```powershell
-    # Test CLI commands (use sample_project for testing)
+    # Set environment variables
     $env:FABRIC_WORKSPACE_REPO_DIR = "./sample_project"
     $env:FABRIC_ENVIRONMENT = "development"
 
     # Generate DDL notebooks
-    ingen_fab ddl compile --output-mode fabric_workspace_repo --generation-mode Warehouse
-    ingen_fab ddl compile --output-mode fabric_workspace_repo --generation-mode Lakehouse
+    uv run ingen_fab ddl compile --output-mode fabric_workspace_repo --generation-mode Warehouse
+    uv run ingen_fab ddl compile --output-mode fabric_workspace_repo --generation-mode Lakehouse
 
     # Test Python libraries locally (requires FABRIC_ENVIRONMENT=local)
     $env:FABRIC_ENVIRONMENT = "local"
-    ingen_fab test local python
-    ingen_fab test local pyspark
+    uv run ingen_fab test local python
+    uv run ingen_fab test local pyspark
     ```
 
 ## Key Configuration Files
@@ -169,13 +201,10 @@ Python libraries follow interface-based design:
 
 ## Testing Strategy
 
-- Unit tests in `tests/` and `python_libs_tests/` 
+- Unit tests in `tests/` and `python_libs_tests/`
 - Integration tests marked with `@pytest.mark.e2e`
 - Platform tests can run against live Fabric environments
 - Tests are designed to run offline by default
 
 ## Linting and Formatting
 - Uses `ruff` for linting and formatting
-
-
-

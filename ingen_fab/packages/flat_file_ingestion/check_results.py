@@ -24,9 +24,9 @@ try:
     csv_df.printSchema()
 
     print("\nIngestion metadata:")
-    csv_df.select(
-        "_ingestion_timestamp", "_ingestion_execution_id", "_source_file_path"
-    ).distinct().show(truncate=False)
+    csv_df.select("_ingestion_timestamp", "_ingestion_execution_id", "_source_file_path").distinct().show(
+        truncate=False
+    )
 
     print("\n📊 Data Analysis:")
     print("Sales by region:")

@@ -17,9 +17,7 @@ console = Console()
 console_styles = ConsoleStyles()
 
 
-def compile_specific_file(
-    ctx: typer.Context, target_file: str, project_path: Path, environment: str
-) -> None:
+def compile_specific_file(ctx: typer.Context, target_file: str, project_path: Path, environment: str) -> None:
     """Compile a specific file using the variable library."""
     from ingen_fab.config_utils.variable_lib_factory import (
         process_file_content_from_cli,
@@ -61,15 +59,11 @@ def compile_default_config_utils(ctx: typer.Context, environment: str) -> None:
 
     # Compile config_utils.py as default - use absolute path since we're in the ingen_fab directory
     current_dir = Path.cwd()
-    config_utils_path = (
-        current_dir / "ingen_fab" / "python_libs" / "common" / "config_utils.py"
-    )
+    config_utils_path = current_dir / "ingen_fab" / "python_libs" / "common" / "config_utils.py"
     console.print(f"Target file: {config_utils_path}")
 
     if not config_utils_path.exists():
-        console.print(
-            f"[red]Error: config_utils.py not found at: {config_utils_path}[/red]"
-        )
+        console.print(f"[red]Error: config_utils.py not found at: {config_utils_path}[/red]")
         raise typer.Exit(code=1)
 
     try:

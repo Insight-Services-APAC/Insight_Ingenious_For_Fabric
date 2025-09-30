@@ -128,9 +128,7 @@ class BaseNotebookCompiler(NotebookUtils):
 
         return results
 
-    def compile_all_with_results(
-        self, compile_functions: List[tuple], header_title: str = None
-    ) -> Dict[str, Any]:
+    def compile_all_with_results(self, compile_functions: List[tuple], header_title: str = None) -> Dict[str, Any]:
         """
         Execute multiple compilation functions and return consolidated results.
 
@@ -148,15 +146,14 @@ class BaseNotebookCompiler(NotebookUtils):
 
         try:
             for func_info in compile_functions:
+                kwargs: dict[str, Any] = {}
                 if len(func_info) == 2:
                     func, args = func_info
-                    kwargs = {}
                 elif len(func_info) == 3:
                     func, args, kwargs = func_info
                 else:
                     func = func_info[0]
                     args = []
-                    kwargs = {}
 
                 # Execute function
                 if isinstance(args, dict):
@@ -194,18 +191,14 @@ class BaseNotebookCompiler(NotebookUtils):
                     # Check if name matches pattern: number_name
                     parts = path.name.split("_", 1)
                     if len(parts) < 2:
-                        errors.append(
-                            f"Directory '{path.name}' doesn't match expected pattern 'number_name'"
-                        )
+                        errors.append(f"Directory '{path.name}' doesn't match expected pattern 'number_name'")
                         continue
 
                     # Try to parse the numeric prefix
                     numeric_prefix = int(parts[0])
                     directories.append((numeric_prefix, path))
                 except ValueError:
-                    errors.append(
-                        f"Directory '{path.name}' doesn't have a valid numeric prefix"
-                    )
+                    errors.append(f"Directory '{path.name}' doesn't have a valid numeric prefix")
                 except Exception as e:
                     errors.append(f"Error processing directory '{path.name}': {str(e)}")
 
@@ -222,9 +215,7 @@ class BaseNotebookCompiler(NotebookUtils):
         sorted_dirs = sorted(directories, key=lambda x: x[0])
         return [path for _, path in sorted_dirs]
 
-    def get_sorted_files(
-        self, parent_dir: Path, extensions: List[str] = None
-    ) -> List[Path]:
+    def get_sorted_files(self, parent_dir: Path, extensions: List[str] = None) -> List[Path]:
         """
         Get sorted files based on numeric prefix convention (e.g., '1_name.py', '2_name.sql').
         Alerts if any file names don't match the expected convention.
@@ -247,18 +238,14 @@ class BaseNotebookCompiler(NotebookUtils):
                     name_without_ext = path.stem
                     parts = name_without_ext.split("_", 1)
                     if len(parts) < 2:
-                        errors.append(
-                            f"File '{path.name}' doesn't match expected pattern 'number_name.extension'"
-                        )
+                        errors.append(f"File '{path.name}' doesn't match expected pattern 'number_name.extension'")
                         continue
 
                     # Try to parse the numeric prefix
                     numeric_prefix = int(parts[0])
                     files.append((numeric_prefix, path))
                 except ValueError:
-                    errors.append(
-                        f"File '{path.name}' doesn't have a valid numeric prefix"
-                    )
+                    errors.append(f"File '{path.name}' doesn't have a valid numeric prefix")
                 except Exception as e:
                     errors.append(f"Error processing file '{path.name}': {str(e)}")
 

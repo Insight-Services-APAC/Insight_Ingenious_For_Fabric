@@ -3,12 +3,12 @@ Falling back to FABRIC_WORKSPACE_REPO_DIR environment variable.
 Falling back to FABRIC_ENVIRONMENT environment variable.
 Using Fabric workspace repo directory: sample_project
 Using Fabric environment: local
-                                                                                
- Usage: python -m ingen_fab.cli test [OPTIONS] COMMAND [ARGS]...                
-                                                                                
- Commands for testing notebooks and Python blocks.                              
-                                                                                
-                                                                                
+
+ Usage: python -m ingen_fab.cli test [OPTIONS] COMMAND [ARGS]...
+
+ Commands for testing notebooks and Python blocks.
+
+
 ╭─ Options ────────────────────────────────────────────────────────────────────╮
 │ --help          Show this message and exit.                                  │
 ╰──────────────────────────────────────────────────────────────────────────────╯

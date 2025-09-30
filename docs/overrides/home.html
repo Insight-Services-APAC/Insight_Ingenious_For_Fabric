@@ -19,16 +19,12 @@
   FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS
   IN THE SOFTWARE.
 -->
-
 {% extends "main.html" %}
-
 <!-- Render hero under tabs -->
 {% block tabs %}
-  {{ super() }}
-
-  <!-- Additional styles for landing page -->
-  <style>
-
+    {{ super() }}
+    <!-- Additional styles for landing page -->
+    <style>
     /* Application header should be static for the landing page */
     .md-header {
       position: initial;
@@ -57,50 +53,35 @@
         display: none;
       }
     }
-  </style>
-
-  <!-- Hero for landing page -->
-  <section class="mdx-container">
-    <div class="md-grid md-typeset">
-      <div class="mdx-hero">
-
-        <!-- Hero image -->
-        <div class="mdx-hero__image">
-          <img
-            src="assets/images/hero.png"
-            alt=""
-            width="1659"
-            height="1200"
-            draggable="false"
-          >
+    </style>
+    <!-- Hero for landing page -->
+    <section class="mdx-container">
+        <div class="md-grid md-typeset">
+            <div class="mdx-hero">
+                <!-- Hero image -->
+                <div class="mdx-hero__image">
+                    <img src="assets/images/hero.png"
+                         alt=""
+                         width="1659"
+                         height="1200"
+                         draggable="false">
+                </div>
+                <!-- Hero content -->
+                <div class="mdx-hero__content">
+                    <h1>Technical documentation that just works</h1>
+                    <p>{{ config.site_description }}. Set up in 5 minutes.</p>
+                    <a href="{{ page.next_page.url | url }}"
+                       title="{{ page.next_page.title | e }}"
+                       class="md-button md-button--primary">Quick start</a>
+                    <a href="{{ 'insiders/' | url }}"
+                       title="Material for MkDocs Insiders"
+                       class="md-button">Get Insiders</a>
+                </div>
+            </div>
         </div>
-
-        <!-- Hero content -->
-        <div class="mdx-hero__content">
-          <h1>Technical documentation that just works</h1>
-          <p>{{ config.site_description }}. Set up in 5 minutes.</p>
-          <a
-            href="{{ page.next_page.url | url }}"
-            title="{{ page.next_page.title | e }}"
-            class="md-button md-button--primary"
-          >
-            Quick start
-          </a>
-          <a
-            href="{{ 'insiders/' | url }}"
-            title="Material for MkDocs Insiders"
-            class="md-button"
-          >
-            Get Insiders
-          </a>
-        </div>
-      </div>
-    </div>
-  </section>
+    </section>
 {% endblock %}
-
 <!-- Content -->
 {% block content %}{% endblock %}
-
 <!-- Application footer -->
 {% block footer %}{% endblock %}

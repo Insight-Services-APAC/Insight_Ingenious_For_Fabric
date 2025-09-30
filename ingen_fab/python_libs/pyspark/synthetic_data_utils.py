@@ -41,17 +41,13 @@ class PySparkSyntheticDataGenerator:
 
         self.logger = logging.getLogger(__name__)
 
-    def generate_customers_table(
-        self, num_rows: int, num_partitions: int = None
-    ) -> DataFrame:
+    def generate_customers_table(self, num_rows: int, num_partitions: int = None) -> DataFrame:
         """Generate a customers table with realistic customer data using PySpark."""
         if num_partitions is None:
             num_partitions = max(1, num_rows // 100000)  # 100k rows per partition
 
         # Create base sequence
-        base_df = self.lakehouse_utils.create_range_dataframe(
-            1, num_rows + 1, num_partitions
-        ).toDF("customer_id")
+        base_df = self.lakehouse_utils.create_range_dataframe(1, num_rows + 1, num_partitions).toDF("customer_id")
 
         # Define customer generation logic
         customers_df = base_df.select(
@@ -105,17 +101,15 @@ class PySparkSyntheticDataGenerator:
                 lpad((col("customer_id") % 10000).cast("string"), 4, "0"),
             ).alias("phone"),
             # Generate dates (cast BIGINT expressions to INT for date_add compatibility)
-            date_add(
-                lit("1970-01-01"), (col("customer_id") % 18250 + 6570).cast("int")
-            ).alias("date_of_birth"),  # Ages 18-80
+            date_add(lit("1970-01-01"), (col("customer_id") % 18250 + 6570).cast("int")).alias(
+                "date_of_birth"
+            ),  # Ages 18-80
             date_add(lit("2019-01-01"), (col("customer_id") % 1826).cast("int")).alias(
                 "registration_date"
             ),  # Last 5 years
             # Generate categorical data
             expr(
-                "CASE WHEN customer_id % 3 = 0 THEN 'M' "
-                + "WHEN customer_id % 3 = 1 THEN 'F' "
-                + "ELSE 'Other' END"
+                "CASE WHEN customer_id % 3 = 0 THEN 'M' " + "WHEN customer_id % 3 = 1 THEN 'F' " + "ELSE 'Other' END"
             ).alias("gender"),
             expr(
                 "CASE WHEN customer_id % 10 < 2 THEN 'Premium' "
@@ -155,9 +149,7 @@ class PySparkSyntheticDataGenerator:
                 + "WHEN customer_id % 50 < 45 THEN 'FL' "
                 + "ELSE 'OH' END"
             ).alias("state"),
-            lpad((col("customer_id") % 90000 + 10000).cast("string"), 5, "0").alias(
-                "postal_code"
-            ),
+            lpad((col("customer_id") % 90000 + 10000).cast("string"), 5, "0").alias("postal_code"),
             lit("US").alias("country"),
             # Boolean flags
             (col("customer_id") % 10 != 0).alias("is_active"),  # 90% active
@@ -165,16 +157,12 @@ class PySparkSyntheticDataGenerator:
 
         return customers_df
 
-    def generate_products_table(
-        self, num_rows: int, num_partitions: int = None
-    ) -> DataFrame:
+    def generate_products_table(self, num_rows: int, num_partitions: int = None) -> DataFrame:
         """Generate a products table with realistic product data using PySpark."""
         if num_partitions is None:
             num_partitions = max(1, num_rows // 10000)  # 10k rows per partition
 
-        base_df = self.lakehouse_utils.create_range_dataframe(
-            1, num_rows + 1, num_partitions
-        ).toDF("product_id")
+        base_df = self.lakehouse_utils.create_range_dataframe(1, num_rows + 1, num_partitions).toDF("product_id")
 
         products_df = base_df.select(
             col("product_id"),
@@ -196,9 +184,7 @@ class PySparkSyntheticDataGenerator:
                     + "ELSE 'Item' END"
                 ),
             ).alias("product_name"),
-            concat(lit("SKU"), lpad(col("product_id").cast("string"), 6, "0")).alias(
-                "product_code"
-            ),
+            concat(lit("SKU"), lpad(col("product_id").cast("string"), 6, "0")).alias("product_code"),
             # Categories
             expr(
                 "CASE WHEN product_id % 10 = 0 THEN 'Electronics' "
@@ -221,21 +207,15 @@ class PySparkSyntheticDataGenerator:
                 + "ELSE 'BrandE Systems' END"
             ).alias("brand"),
             # Pricing
-            ((col("product_id") % 4950 + 50) / 10.0).alias(
-                "unit_price"
-            ),  # $5.00 to $500.00
-            ((col("product_id") % 3960 + 40) / 10.0).alias(
-                "cost_price"
-            ),  # $4.00 to $400.00
+            ((col("product_id") % 4950 + 50) / 10.0).alias("unit_price"),  # $5.00 to $500.00
+            ((col("product_id") % 3960 + 40) / 10.0).alias("cost_price"),  # $4.00 to $400.00
             # Physical properties
             ((col("product_id") % 499 + 1) / 10.0).alias("weight_kg"),  # 0.1 to 50.0 kg
             (col("product_id") % 1000 + 1).alias("stock_quantity"),
             (col("product_id") % 100 + 10).alias("reorder_level"),
             (col("product_id") % 50 + 1).alias("supplier_id"),
             # Dates and flags (cast BIGINT expression to INT for date_add compatibility)
-            date_add(lit("2021-01-01"), (col("product_id") % 1095).cast("int")).alias(
-                "created_date"
-            ),  # Last 3 years
+            date_add(lit("2021-01-01"), (col("product_id") % 1095).cast("int")).alias("created_date"),  # Last 3 years
             (col("product_id") % 20 != 0).alias("is_active"),  # 95% active
         )
 
@@ -256,9 +236,7 @@ class PySparkSyntheticDataGenerator:
         if num_partitions is None:
             num_partitions = max(1, num_rows // 50000)  # 50k rows per partition
 
-        base_df = self.lakehouse_utils.create_range_dataframe(
-            1, num_rows + 1, num_partitions
-        ).toDF("order_id")
+        base_df = self.lakehouse_utils.create_range_dataframe(1, num_rows + 1, num_partitions).toDF("order_id")
 
         orders_df = base_df.select(
             col("order_id"),
@@ -289,9 +267,7 @@ class PySparkSyntheticDataGenerator:
                 + "ELSE 'Cash' END"
             ).alias("payment_method"),
             # Financial amounts
-            ((col("order_id") % 9900 + 100) / 10.0).alias(
-                "order_total"
-            ),  # $10.00 to $1000.00
+            ((col("order_id") % 9900 + 100) / 10.0).alias("order_total"),  # $10.00 to $1000.00
             ((col("order_id") % 250) / 10.0).alias("shipping_cost"),  # $0.00 to $25.00
             when(col("order_id") % 10 < 3, (col("order_id") % 500) / 10.0)
             .otherwise(0.0)
@@ -309,9 +285,7 @@ class PySparkSyntheticDataGenerator:
 
         return orders_df
 
-    def generate_order_items_table(
-        self, orders_df: DataFrame, products_df: DataFrame = None, **kwargs
-    ) -> DataFrame:
+    def generate_order_items_table(self, orders_df: DataFrame, products_df: DataFrame = None, **kwargs) -> DataFrame:
         """Generate an order items table linking orders to products using PySpark."""
         # Get product count from the DataFrame
         if products_df is not None:
@@ -325,30 +299,18 @@ class PySparkSyntheticDataGenerator:
             orders_df.select(
                 col("order_id"),
                 # Generate multiple items per order using array_repeat and explode
-                expr("explode(sequence(1, cast((order_id % 5) + 1 as int)))").alias(
-                    "item_sequence"
-                ),
+                expr("explode(sequence(1, cast((order_id % 5) + 1 as int)))").alias("item_sequence"),
             )
             .select(
                 # Create unique order item IDs
-                expr("row_number() OVER (ORDER BY order_id, item_sequence)").alias(
-                    "order_item_id"
-                ),
+                expr("row_number() OVER (ORDER BY order_id, item_sequence)").alias("order_item_id"),
                 col("order_id"),
                 # Random product selection
-                (
-                    (col("order_id") * 13 + col("item_sequence") * 17) % product_count
-                    + 1
-                ).alias("product_id"),
+                ((col("order_id") * 13 + col("item_sequence") * 17) % product_count + 1).alias("product_id"),
                 # Random quantities between 1-5
-                ((col("order_id") * 7 + col("item_sequence") * 11) % 5 + 1).alias(
-                    "quantity"
-                ),
+                ((col("order_id") * 7 + col("item_sequence") * 11) % 5 + 1).alias("quantity"),
                 # Random unit prices between $5-$200
-                (
-                    ((col("order_id") * 23 + col("item_sequence") * 29) % 19500 + 500)
-                    / 100.0
-                ).alias("unit_price"),
+                (((col("order_id") * 23 + col("item_sequence") * 29) % 19500 + 500) / 100.0).alias("unit_price"),
             )
             .withColumn(
                 # Calculate line total
@@ -370,21 +332,15 @@ class PySparkSyntheticDataGenerator:
     ) -> DataFrame:
         """Generate a large fact table for analytics using PySpark optimizations."""
         if num_partitions is None:
-            num_partitions = max(
-                200, num_rows // 1000000
-            )  # 1M rows per partition for large datasets
+            num_partitions = max(200, num_rows // 1000000)  # 1M rows per partition for large datasets
 
-        base_df = self.lakehouse_utils.create_range_dataframe(
-            1, num_rows + 1, num_partitions
-        ).toDF("sales_fact_key")
+        base_df = self.lakehouse_utils.create_range_dataframe(1, num_rows + 1, num_partitions).toDF("sales_fact_key")
 
         fact_df = (
             base_df.select(
                 col("sales_fact_key"),
                 # Generate date keys (YYYYMMDD format)
-                expr(f"20200101 + (sales_fact_key % {date_range_days})").alias(
-                    "date_key"
-                ),
+                expr(f"20200101 + (sales_fact_key % {date_range_days})").alias("date_key"),
                 # Generate dimension keys
                 (col("sales_fact_key") % customer_count + 1).alias("customer_key"),
                 (col("sales_fact_key") % product_count + 1).alias("product_key"),
@@ -397,24 +353,16 @@ class PySparkSyntheticDataGenerator:
             )
             .select(
                 "*",
-                (
-                    col("sales_amount") * (0.6 + (col("sales_fact_key") % 30) / 100.0)
-                ).alias("cost_amount"),
-                (col("sales_amount") * ((col("sales_fact_key") % 15) / 100.0)).alias(
-                    "discount_amount"
-                ),
+                (col("sales_amount") * (0.6 + (col("sales_fact_key") % 30) / 100.0)).alias("cost_amount"),
+                (col("sales_amount") * ((col("sales_fact_key") % 15) / 100.0)).alias("discount_amount"),
                 (col("sales_amount") * 0.08).alias("tax_amount"),
             )
-            .select(
-                "*", (col("sales_amount") - col("cost_amount")).alias("profit_amount")
-            )
+            .select("*", (col("sales_amount") - col("cost_amount")).alias("profit_amount"))
         )
 
         return fact_df
 
-    def generate_date_dimension(
-        self, start_year: int = 2020, end_year: int = 2025
-    ) -> DataFrame:
+    def generate_date_dimension(self, start_year: int = 2020, end_year: int = 2025) -> DataFrame:
         """Generate a comprehensive date dimension using PySpark."""
         # Calculate total days
         start_date = datetime(start_year, 1, 1)
@@ -422,15 +370,11 @@ class PySparkSyntheticDataGenerator:
         total_days = (end_date - start_date).days + 1
 
         # Create base range
-        base_df = self.lakehouse_utils.create_range_dataframe(0, total_days).toDF(
-            "day_offset"
-        )
+        base_df = self.lakehouse_utils.create_range_dataframe(0, total_days).toDF("day_offset")
 
         date_df = base_df.select(
             # Calculate actual date (cast BIGINT to INT for date_add compatibility)
-            date_add(lit(f"{start_year}-01-01"), col("day_offset").cast("int")).alias(
-                "full_date"
-            )
+            date_add(lit(f"{start_year}-01-01"), col("day_offset").cast("int")).alias("full_date")
         ).select(
             # Generate date key (YYYYMMDD)
             expr("CAST(date_format(full_date, 'yyyyMMdd') AS INT)").alias("date_key"),
@@ -447,16 +391,12 @@ class PySparkSyntheticDataGenerator:
             expr("year(full_date)").alias("year"),
             # Calculated fields
             expr("dayofweek(full_date) IN (1, 7)").alias("is_weekend"),
-            expr("month(full_date) = 12 AND dayofmonth(full_date) = 25").alias(
-                "is_holiday"
-            ),  # Simple holiday logic
+            expr("month(full_date) = 12 AND dayofmonth(full_date) = 25").alias("is_holiday"),  # Simple holiday logic
         )
 
         return date_df
 
-    def generate_fact_sales(
-        self, num_rows: int, dimensions: Dict[str, DataFrame], **kwargs
-    ) -> DataFrame:
+    def generate_fact_sales(self, num_rows: int, dimensions: Dict[str, DataFrame], **kwargs) -> DataFrame:
         """Generate a fact sales table using provided dimensions.
 
         Args:
@@ -472,16 +412,8 @@ class PySparkSyntheticDataGenerator:
             num_partitions = max(1, num_rows // 50000)  # 50k rows per partition
 
         # Get dimension counts
-        customer_count = (
-            dimensions.get("dim_customer", {}).count()
-            if "dim_customer" in dimensions
-            else 50000
-        )
-        product_count = (
-            dimensions.get("dim_product", {}).count()
-            if "dim_product" in dimensions
-            else 5000
-        )
+        customer_count = dimensions.get("dim_customer", {}).count() if "dim_customer" in dimensions else 50000
+        product_count = dimensions.get("dim_product", {}).count() if "dim_product" in dimensions else 5000
         store_count = 100  # Default store count
 
         # Generate fact table using existing method
@@ -501,35 +433,25 @@ class PySparkSyntheticDataGenerator:
         mode: str = "overwrite",
     ):
         """Write DataFrame to Delta table with optional partitioning."""
-        self.lakehouse_utils.write_to_table(
-            df, table_name, mode=mode, partition_by=partition_cols
-        )
+        self.lakehouse_utils.write_to_table(df, table_name, mode=mode, partition_by=partition_cols)
         self.logger.info(f"Written to Delta table {table_name}")
 
-    def optimize_for_large_datasets(
-        self, df: DataFrame, partition_col: str = None
-    ) -> DataFrame:
+    def optimize_for_large_datasets(self, df: DataFrame, partition_col: str = None) -> DataFrame:
         """Apply optimizations for large dataset processing."""
         # Cache if dataset will be reused
         df = self.lakehouse_utils.cache_dataframe(df)
 
         # Repartition if specified
         if partition_col:
-            df = self.lakehouse_utils.repartition_dataframe(
-                df, partition_cols=[partition_col]
-            )
+            df = self.lakehouse_utils.repartition_dataframe(df, partition_cols=[partition_col])
 
         # Enable adaptive query execution
         self.lakehouse_utils.set_spark_config("spark.sql.adaptive.enabled", "true")
-        self.lakehouse_utils.set_spark_config(
-            "spark.sql.adaptive.coalescePartitions.enabled", "true"
-        )
+        self.lakehouse_utils.set_spark_config("spark.sql.adaptive.coalescePartitions.enabled", "true")
 
         return df
 
-    def generate_chunked_dataset(
-        self, total_rows: int, chunk_size: int, generator_func, **kwargs
-    ) -> List[DataFrame]:
+    def generate_chunked_dataset(self, total_rows: int, chunk_size: int, generator_func, **kwargs) -> List[DataFrame]:
         """Generate large datasets in chunks to manage memory."""
         chunks = []
         for start_id in range(1, total_rows + 1, chunk_size):
@@ -551,18 +473,14 @@ class PySparkSyntheticDataGenerator:
         """Export generated tables to CSV files."""
         for table_name, df in tables.items():
             file_path = f"{output_path}/{table_name}.csv"
-            self.lakehouse_utils.write_file(
-                df, file_path, "csv", options={"header": "true", "mode": "overwrite"}
-            )
+            self.lakehouse_utils.write_file(df, file_path, "csv", options={"header": "true", "mode": "overwrite"})
             self.logger.info(f"Exported {table_name} to CSV: {file_path}")
 
     def export_to_parquet(self, tables: Dict[str, DataFrame], output_path: str) -> None:
         """Export generated tables to Parquet files."""
         for table_name, df in tables.items():
             file_path = f"{output_path}/{table_name}.parquet"
-            self.lakehouse_utils.write_file(
-                df, file_path, "parquet", options={"mode": "overwrite"}
-            )
+            self.lakehouse_utils.write_file(df, file_path, "parquet", options={"mode": "overwrite"})
             self.logger.info(f"Exported {table_name} to Parquet: {file_path}")
 
 
@@ -573,9 +491,7 @@ class PySparkDatasetBuilder:
         self.generator = generator
         self.lakehouse_utils = generator.lakehouse_utils
 
-    def build_billion_row_fact_table(
-        self, target_rows: int = 1000000000, chunk_size: int = 10000000
-    ) -> DataFrame:
+    def build_billion_row_fact_table(self, target_rows: int = 1000000000, chunk_size: int = 10000000) -> DataFrame:
         """Build a billion-row fact table using chunked generation."""
         if target_rows <= chunk_size:
             return self.generator.generate_large_fact_table(target_rows)
@@ -616,9 +532,7 @@ class PySparkDatasetBuilder:
             .toDF("store_key")
             .select(
                 col("store_key"),
-                concat(lit("Store "), col("store_key").cast("string")).alias(
-                    "store_name"
-                ),
+                concat(lit("Store "), col("store_key").cast("string")).alias("store_name"),
                 expr(
                     "CASE WHEN store_key % 4 = 0 THEN 'Flagship' "
                     + "WHEN store_key % 4 = 1 THEN 'Standard' "

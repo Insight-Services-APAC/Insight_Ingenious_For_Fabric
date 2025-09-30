@@ -86,15 +86,11 @@ class lakehouse_utils(DataStoreInterface):
 
             # Create new Spark session if none exists
             self.spark_version = "local"
-            print(
-                "No active Spark session found, creating a new one with Delta support."
-            )
+            print("No active Spark session found, creating a new one with Delta support.")
 
             builder = (
                 SparkSession.builder.appName("MyApp")
-                .config(
-                    "spark.sql.extensions", "io.delta.sql.DeltaSparkSessionExtension"
-                )
+                .config("spark.sql.extensions", "io.delta.sql.DeltaSparkSessionExtension")
                 .config(
                     "spark.sql.catalog.spark_catalog",
                     "org.apache.spark.sql.delta.catalog.DeltaCatalog",
@@ -107,9 +103,7 @@ class lakehouse_utils(DataStoreInterface):
             print("Using existing spark .. Fabric environment   .")
             return self.spark  # type: ignore  # noqa: F821
 
-    def check_if_table_exists(
-        self, table_name: str, schema_name: str | None = None
-    ) -> bool:
+    def check_if_table_exists(self, table_name: str, schema_name: str | None = None) -> bool:
         """Check if a Delta table exists at the given table name."""
         # For lakehouse, schema_name is not used as tables are in the Tables directory
         table_path = f"{self.lakehouse_tables_uri()}{table_name}"
@@ -117,9 +111,7 @@ class lakehouse_utils(DataStoreInterface):
         try:
             if DeltaTable.isDeltaTable(self.spark, table_path):
                 table_exists = True
-                print(
-                    f"Delta table already exists at path: {table_path}, skipping creation."
-                )
+                print(f"Delta table already exists at path: {table_path}, skipping creation.")
             else:
                 print(f"Path {table_path} is not a Delta table.")
         except Exception as e:
@@ -171,25 +163,17 @@ class lakehouse_utils(DataStoreInterface):
 
         # Register the table in the Hive catalog - Only needed if local
         if self.spark_version == "local":
-            print(
-                f"⚠ Alert: Registering table '{table_full_name}' in the Hive catalog for local Spark."
-            )
+            print(f"⚠ Alert: Registering table '{table_full_name}' in the Hive catalog for local Spark.")
             full_table_path = f"{self.lakehouse_tables_uri()}{table_full_name}"
-            self.spark.sql(
-                f"CREATE TABLE IF NOT EXISTS {table_full_name} USING DELTA LOCATION '{full_table_path}'"
-            )
+            self.spark.sql(f"CREATE TABLE IF NOT EXISTS {table_full_name} USING DELTA LOCATION '{full_table_path}'")
         else:
-            print(
-                f"No need to register table '{table_full_name}' in Hive catalog for Fabric Spark."
-            )
+            print(f"No need to register table '{table_full_name}' in Hive catalog for Fabric Spark.")
 
     def list_tables(self) -> list[str]:
         """List all tables in the lakehouse."""
         return [row.tableName for row in self.spark.sql("SHOW TABLES").collect()]
 
-    def drop_all_tables(
-        self, schema_name: str | None = None, table_prefix: str | None = None
-    ) -> None:
+    def drop_all_tables(self, schema_name: str | None = None, table_prefix: str | None = None) -> None:
         """Drop all Delta tables in the lakehouse."""
 
         # ──────────────────────────────────────────────────────────────────────────────
@@ -218,9 +202,7 @@ class lakehouse_utils(DataStoreInterface):
             # Apply table_prefix filter if provided
             table_name_from_path = table_path.split("/")[-1]
             if table_prefix and not table_name_from_path.startswith(table_prefix):
-                print(
-                    f"— Skipping table {table_name_from_path} (doesn't match prefix '{table_prefix}')"
-                )
+                print(f"— Skipping table {table_name_from_path} (doesn't match prefix '{table_prefix}')")
                 continue
 
             try:
@@ -253,15 +235,11 @@ class lakehouse_utils(DataStoreInterface):
         spark = self.spark
         return spark.sql(query)
 
-    def get_table_schema(
-        self, table_name: str, schema_name: str | None = None
-    ) -> dict[str, Any]:
+    def get_table_schema(self, table_name: str, schema_name: str | None = None) -> dict[str, Any]:
         """
         Get the schema/column definitions for a table.
         """
-        df = self.spark.read.format("delta").load(
-            f"{self.lakehouse_tables_uri()}{table_name}"
-        )
+        df = self.spark.read.format("delta").load(f"{self.lakehouse_tables_uri()}{table_name}")
         return {field.name: field.dataType.simpleString() for field in df.schema.fields}
 
     def read_table(
@@ -275,9 +253,7 @@ class lakehouse_utils(DataStoreInterface):
         """
         Read data from a table, optionally filtering columns, rows, or limiting results.
         """
-        df = self.spark.read.format("delta").load(
-            f"{self.lakehouse_tables_uri()}{table_name}"
-        )
+        df = self.spark.read.format("delta").load(f"{self.lakehouse_tables_uri()}{table_name}")
         if columns:
             df = df.select(*columns)
         if filters:
@@ -299,9 +275,7 @@ class lakehouse_utils(DataStoreInterface):
         table_path = f"{self.lakehouse_tables_uri()}{table_name}"
         delta_table = DeltaTable.forPath(self.spark, table_path)
         if filters:
-            condition = " AND ".join(
-                [f"{col} = '{val}'" for col, val in filters.items()]
-            )
+            condition = " AND ".join([f"{col} = '{val}'" for col, val in filters.items()])
         else:
             condition = "true"
         before_count = delta_table.toDF().count()
@@ -356,9 +330,7 @@ class lakehouse_utils(DataStoreInterface):
         # Register the table in the Hive catalog - Only needed if local
         if self.spark_version == "local":
             full_table_path = f"{self.lakehouse_tables_uri()}{table_name}"
-            self.spark.sql(
-                f"CREATE TABLE IF NOT EXISTS {table_name} USING DELTA LOCATION '{full_table_path}'"
-            )
+            self.spark.sql(f"CREATE TABLE IF NOT EXISTS {table_name} USING DELTA LOCATION '{full_table_path}'")
 
     def drop_table(
         self,
@@ -392,9 +364,7 @@ class lakehouse_utils(DataStoreInterface):
         """
         Get the number of rows in a table.
         """
-        df = self.spark.read.format("delta").load(
-            f"{self.lakehouse_tables_uri()}{table_name}"
-        )
+        df = self.spark.read.format("delta").load(f"{self.lakehouse_tables_uri()}{table_name}")
         return df.count()
 
     def get_table_metadata(
@@ -449,9 +419,7 @@ class lakehouse_utils(DataStoreInterface):
             if "encoding" in options:
                 reader = reader.option("encoding", options["encoding"])
             if "inferSchema" in options:
-                reader = reader.option(
-                    "inferSchema", str(options["inferSchema"]).lower()
-                )
+                reader = reader.option("inferSchema", str(options["inferSchema"]).lower())
             if "dateFormat" in options:
                 reader = reader.option("dateFormat", options["dateFormat"])
             if "timestampFormat" in options:
@@ -483,21 +451,13 @@ class lakehouse_utils(DataStoreInterface):
             if "maxColumns" in options:
                 reader = reader.option("maxColumns", int(options["maxColumns"]))
             if "maxCharsPerColumn" in options:
-                reader = reader.option(
-                    "maxCharsPerColumn", int(options["maxCharsPerColumn"])
-                )
+                reader = reader.option("maxCharsPerColumn", int(options["maxCharsPerColumn"]))
             if "unescapedQuoteHandling" in options:
-                reader = reader.option(
-                    "unescapedQuoteHandling", options["unescapedQuoteHandling"]
-                )
+                reader = reader.option("unescapedQuoteHandling", options["unescapedQuoteHandling"])
             if "enforceSchema" in options:
-                reader = reader.option(
-                    "enforceSchema", str(options["enforceSchema"]).lower()
-                )
+                reader = reader.option("enforceSchema", str(options["enforceSchema"]).lower())
             if "columnNameOfCorruptRecord" in options:
-                reader = reader.option(
-                    "columnNameOfCorruptRecord", options["columnNameOfCorruptRecord"]
-                )
+                reader = reader.option("columnNameOfCorruptRecord", options["columnNameOfCorruptRecord"])
 
         elif file_format.lower() == "json":
             # Apply JSON-specific options
@@ -638,9 +598,7 @@ class lakehouse_utils(DataStoreInterface):
                         # print to stdout for debugging
                         import sys
 
-                        sys.stdout.write(
-                            f"Checking file existence at: {full_file_path}\n"
-                        )
+                        sys.stdout.write(f"Checking file existence at: {full_file_path}\n")
                         return Path(full_file_path).exists()
                     except Exception:
                         return False
@@ -820,9 +778,7 @@ class lakehouse_utils(DataStoreInterface):
         """
         self.spark.conf.set(key, value)
 
-    def create_range_dataframe(
-        self, start: int, end: int, num_partitions: int = None
-    ) -> Any:
+    def create_range_dataframe(self, start: int, end: int, num_partitions: int = None) -> Any:
         """
         Create a DataFrame with a single column containing a range of values.
 
@@ -851,9 +807,7 @@ class lakehouse_utils(DataStoreInterface):
         """
         return df.cache()
 
-    def repartition_dataframe(
-        self, df: Any, num_partitions: int = None, partition_cols: list[str] = None
-    ) -> Any:
+    def repartition_dataframe(self, df: Any, num_partitions: int = None, partition_cols: list[str] = None) -> Any:
         """
         Repartition a DataFrame.
 
@@ -945,9 +899,7 @@ class lakehouse_utils(DataStoreInterface):
             if directory_path.startswith("Files/"):
                 # Remove the Files/ prefix since lakehouse_files_uri already includes it
                 clean_directory_path = directory_path[6:]  # Remove "Files/"
-                full_directory_path = (
-                    f"{self.lakehouse_files_uri()}{clean_directory_path}"
-                )
+                full_directory_path = f"{self.lakehouse_files_uri()}{clean_directory_path}"
             else:
                 full_directory_path = f"{self.lakehouse_files_uri()}{directory_path}"
         else:
@@ -957,9 +909,7 @@ class lakehouse_utils(DataStoreInterface):
             # Use standard Python file operations for local
             if full_directory_path.startswith("file://"):
                 # Handle URI path conversion - fix multiple slashes
-                clean_path = full_directory_path.replace("file://", "").replace(
-                    "//", "/"
-                )
+                clean_path = full_directory_path.replace("file://", "").replace("//", "/")
                 # Ensure we don't have triple slashes
                 while "///" in clean_path:
                     clean_path = clean_path.replace("///", "/")
@@ -993,9 +943,7 @@ class lakehouse_utils(DataStoreInterface):
 
                         # If recursive and this is a directory, recursively list its contents
                         if recursive and file_info.isDir:
-                            subdirectory_items = self.list_all(
-                                file_info.path, pattern, recursive
-                            )
+                            subdirectory_items = self.list_all(file_info.path, pattern, recursive)
                             result.extend(subdirectory_items)
                     return result
                 except Exception:
@@ -1004,12 +952,8 @@ class lakehouse_utils(DataStoreInterface):
                 # Fallback to Spark file system operations
                 try:
                     hadoop_conf = self.spark._jsc.hadoopConfiguration()
-                    fs = self.spark._jvm.org.apache.hadoop.fs.FileSystem.get(
-                        hadoop_conf
-                    )
-                    path_obj = self.spark._jvm.org.apache.hadoop.fs.Path(
-                        full_directory_path
-                    )
+                    fs = self.spark._jvm.org.apache.hadoop.fs.FileSystem.get(hadoop_conf)
+                    path_obj = self.spark._jvm.org.apache.hadoop.fs.Path(full_directory_path)
 
                     result = []
                     if fs.exists(path_obj):
@@ -1023,12 +967,8 @@ class lakehouse_utils(DataStoreInterface):
 
                             # If recursive and this is a directory, recursively list its contents
                             if recursive and status.isDirectory():
-                                relative_path = file_path.replace(
-                                    f"{self.lakehouse_files_uri()}", ""
-                                )
-                                subdirectory_items = self.list_all(
-                                    relative_path, pattern, recursive
-                                )
+                                relative_path = file_path.replace(f"{self.lakehouse_files_uri()}", "")
+                                subdirectory_items = self.list_all(relative_path, pattern, recursive)
                                 result.extend(subdirectory_items)
                     return result
                 except Exception:

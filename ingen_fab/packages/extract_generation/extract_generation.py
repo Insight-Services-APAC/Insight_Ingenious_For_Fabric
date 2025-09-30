@@ -18,9 +18,7 @@ class ExtractGenerationCompiler(BaseNotebookCompiler):
     def __init__(self, fabric_workspace_repo_dir: str = None):
         try:
             # Use path utilities for package resource discovery
-            package_base = PathUtils.get_package_resource_path(
-                "packages/extract_generation"
-            )
+            package_base = PathUtils.get_package_resource_path("packages/extract_generation")
             self.package_dir = package_base
             self.templates_dir = package_base / "templates"
             self.ddl_scripts_dir = package_base / "ddl_scripts"
@@ -42,19 +40,11 @@ class ExtractGenerationCompiler(BaseNotebookCompiler):
         )
 
         if self.console:
-            self.console.print(
-                f"[bold blue]Package Directory:[/bold blue] {self.package_dir}"
-            )
-            self.console.print(
-                f"[bold blue]Templates Directory:[/bold blue] {self.templates_dir}"
-            )
-            self.console.print(
-                f"[bold blue]DDL Scripts Directory:[/bold blue] {self.ddl_scripts_dir}"
-            )
+            self.console.print(f"[bold blue]Package Directory:[/bold blue] {self.package_dir}")
+            self.console.print(f"[bold blue]Templates Directory:[/bold blue] {self.templates_dir}")
+            self.console.print(f"[bold blue]DDL Scripts Directory:[/bold blue] {self.ddl_scripts_dir}")
 
-    def compile_notebook(
-        self, template_vars: Dict[str, Any] = None, target_datastore: str = "warehouse"
-    ) -> Path:
+    def compile_notebook(self, template_vars: Dict[str, Any] = None, target_datastore: str = "warehouse") -> Path:
         """Compile the extract generation notebook template"""
 
         # Select template based on target datastore
@@ -94,9 +84,7 @@ class ExtractGenerationCompiler(BaseNotebookCompiler):
         mode_dir = self.ddl_scripts_dir / generation_mode.lower()
 
         if not mode_dir.exists():
-            raise ValueError(
-                f"DDL scripts directory not found for mode: {generation_mode}"
-            )
+            raise ValueError(f"DDL scripts directory not found for mode: {generation_mode}")
 
         # For lakehouse, look for Python files; for warehouse, look for SQL files
         if generation_mode.lower() == "lakehouse":
@@ -181,9 +169,7 @@ class ExtractGenerationCompiler(BaseNotebookCompiler):
                 target_path.write_text(script.read_text())
                 compiled_scripts.append(target_path)
                 if self.console:
-                    self.console.print(
-                        f"[green]✓ DDL script copied:[/green] {target_path}"
-                    )
+                    self.console.print(f"[green]✓ DDL script copied:[/green] {target_path}")
 
         return compiled_scripts
 
@@ -266,7 +252,7 @@ class ExtractGenerationCompiler(BaseNotebookCompiler):
     ) -> Dict[str, Any]:
         """Compile all templates and DDL scripts"""
 
-        results = {
+        results: Dict[str, Any] = {
             "notebook_file": None,
             "ddl_files": [],
             "sample_files": [],
@@ -281,18 +267,17 @@ class ExtractGenerationCompiler(BaseNotebookCompiler):
 
             # Compile DDL scripts (use target_datastore as generation_mode)
             ddl_scripts = self.compile_ddl_scripts(template_vars, target_datastore)
-            results["ddl_files"] = ddl_scripts
+            if isinstance(ddl_scripts, list):
+                results["ddl_files"] = ddl_scripts
 
             # Create sample source tables DDL if requested
             if include_samples:
                 sample_ddl_path = self._create_sample_source_tables_ddl()
-                if sample_ddl_path:
+                if sample_ddl_path and isinstance(results["ddl_files"], list):
                     results["ddl_files"].append(sample_ddl_path)
 
             if self.console:
-                self.console.print(
-                    "[green]✓ Successfully compiled extract generation package[/green]"
-                )
+                self.console.print("[green]✓ Successfully compiled extract generation package[/green]")
                 self.console.print(f"  Notebook: {notebook_path}")
                 self.console.print(f"  DDL Scripts: {len(results['ddl_files'])} files")
 
@@ -322,7 +307,7 @@ BEGIN
         country NVARCHAR(50),
         created_date DATETIME2(7) DEFAULT GETUTCDATE()
     );
-    
+
     -- Insert sample data
     INSERT INTO [dbo].[customers] (customer_name, email, phone, address, city, country) VALUES
     ('Acme Corp', 'contact@acme.com', '555-0100', '123 Main St', 'New York', 'USA'),
@@ -344,7 +329,7 @@ BEGIN
         transaction_date DATETIME2(7),
         status VARCHAR(20)
     );
-    
+
     -- Generate sample transactions (this would be larger in production)
     DECLARE @i INT = 1;
     WHILE @i <= 100
@@ -388,7 +373,7 @@ END;
 GO
 
 CREATE VIEW [reporting].[v_sales_summary] AS
-SELECT 
+SELECT
     YEAR(t.transaction_date) as year,
     MONTH(t.transaction_date) as month,
     c.country,
@@ -417,8 +402,8 @@ GO
 CREATE PROCEDURE [finance].[sp_generate_financial_report]
 AS
 BEGIN
-    SELECT 
-        'Q' + CAST(DATEPART(QUARTER, t.transaction_date) AS VARCHAR(1)) + ' ' + 
+    SELECT
+        'Q' + CAST(DATEPART(QUARTER, t.transaction_date) AS VARCHAR(1)) + ' ' +
         CAST(YEAR(t.transaction_date) AS VARCHAR(4)) as reporting_period,
         c.country as region,
         COUNT(DISTINCT t.customer_id) as active_customers,
@@ -430,11 +415,11 @@ BEGIN
     FROM [dbo].[transactions] t
     INNER JOIN [dbo].[customers] c ON t.customer_id = c.customer_id
     WHERE t.transaction_date >= DATEADD(MONTH, -12, GETDATE())
-    GROUP BY 
+    GROUP BY
         DATEPART(QUARTER, t.transaction_date),
         YEAR(t.transaction_date),
         c.country
-    ORDER BY 
+    ORDER BY
         YEAR(t.transaction_date) DESC,
         DATEPART(QUARTER, t.transaction_date) DESC,
         c.country;
@@ -451,10 +436,10 @@ AS
 BEGIN
     -- Simple validation: ensure we have recent orders
     DECLARE @recent_count INT;
-    SELECT @recent_count = COUNT(*) 
-    FROM [dbo].[orders] 
+    SELECT @recent_count = COUNT(*)
+    FROM [dbo].[orders]
     WHERE order_date >= DATEADD(DAY, -7, GETDATE());
-    
+
     IF @recent_count = 0
     BEGIN
         RAISERROR('No recent orders found for extraction', 16, 1);
@@ -469,9 +454,7 @@ GO
         output_path.write_text(sample_ddl)
 
         if self.console:
-            self.console.print(
-                f"[green]✓ Created sample source tables DDL:[/green] {output_path}"
-            )
+            self.console.print(f"[green]✓ Created sample source tables DDL:[/green] {output_path}")
 
         return output_path
 

@@ -16,9 +16,7 @@ class DatePartitionUtils:
     """Utilities for working with date partitions in file paths and names"""
 
     @staticmethod
-    def extract_date_from_folder_name(
-        folder_name: str, date_format: str
-    ) -> Optional[str]:
+    def extract_date_from_folder_name(folder_name: str, date_format: str) -> Optional[str]:
         """Extract date from folder name based on date_partition_format"""
         try:
             # Handle different date formats in folder names
@@ -54,17 +52,13 @@ class DatePartitionUtils:
         return None
 
     @staticmethod
-    def extract_date_from_path(
-        file_path: str, base_path: str, date_format: str
-    ) -> Optional[str]:
+    def extract_date_from_path(file_path: str, base_path: str, date_format: str) -> Optional[str]:
         """Extract date partition from file path based on format"""
         try:
             # First try to match YYYY/MM/DD pattern
             date_match = re.search(r"(\d{4})[/-](\d{2})[/-](\d{2})", file_path)
             if date_match:
-                return (
-                    f"{date_match.group(1)}-{date_match.group(2)}-{date_match.group(3)}"
-                )
+                return f"{date_match.group(1)}-{date_match.group(2)}-{date_match.group(3)}"
 
             # If that fails, try to extract from path parts considering the base path
             # Handle both absolute and relative paths
@@ -133,7 +127,7 @@ class DatePartitionUtils:
         Returns:
             List of tuples: (full_path, date_partition, table_name)
         """
-        results = []
+        results: list[tuple[str, str, str]] = []
 
         try:
             import os
@@ -146,37 +140,23 @@ class DatePartitionUtils:
             if date_format == "YYYY/MM/DD":
                 for year_item in os.listdir(base_path):
                     year_path = os.path.join(base_path, year_item)
-                    if (
-                        not os.path.isdir(year_path)
-                        or not year_item.isdigit()
-                        or len(year_item) != 4
-                    ):
+                    if not os.path.isdir(year_path) or not year_item.isdigit() or len(year_item) != 4:
                         continue
 
                     # Look for month folders
                     for month_item in os.listdir(year_path):
                         month_path = os.path.join(year_path, month_item)
-                        if (
-                            not os.path.isdir(month_path)
-                            or not month_item.isdigit()
-                            or len(month_item) > 2
-                        ):
+                        if not os.path.isdir(month_path) or not month_item.isdigit() or len(month_item) > 2:
                             continue
 
                         # Look for day folders
                         for day_item in os.listdir(month_path):
                             day_path = os.path.join(month_path, day_item)
-                            if (
-                                not os.path.isdir(day_path)
-                                or not day_item.isdigit()
-                                or len(day_item) > 2
-                            ):
+                            if not os.path.isdir(day_path) or not day_item.isdigit() or len(day_item) > 2:
                                 continue
 
                             # Construct date partition
-                            date_partition = (
-                                f"{year_item}-{month_item.zfill(2)}-{day_item.zfill(2)}"
-                            )
+                            date_partition = f"{year_item}-{month_item.zfill(2)}-{day_item.zfill(2)}"
 
                             # Look for table folders within the date folder
                             for table_item in os.listdir(day_path):
@@ -221,9 +201,7 @@ class FilePatternUtils:
             regex_pattern = FilePatternUtils.glob_to_regex(pattern)
             return bool(re.match(regex_pattern, filename))
         except Exception as e:
-            print(
-                f"⚠️ Pattern matching failed for {filename} with pattern {pattern}: {e}"
-            )
+            print(f"⚠️ Pattern matching failed for {filename} with pattern {pattern}: {e}")
             return False
 
     @staticmethod
@@ -327,27 +305,19 @@ class ProcessingMetricsUtils:
     """Utilities for working with processing metrics"""
 
     @staticmethod
-    def calculate_performance_metrics(
-        metrics: ProcessingMetrics, write_mode: str = "append"
-    ) -> ProcessingMetrics:
+    def calculate_performance_metrics(metrics: ProcessingMetrics, write_mode: str = "append") -> ProcessingMetrics:
         """Calculate derived performance metrics"""
         # Calculate total duration if not set
         if metrics.total_duration_ms == 0:
-            metrics.total_duration_ms = (
-                metrics.read_duration_ms + metrics.write_duration_ms
-            )
+            metrics.total_duration_ms = metrics.read_duration_ms + metrics.write_duration_ms
 
         # Calculate rows per second
         if metrics.total_duration_ms > 0 and metrics.records_processed > 0:
-            metrics.avg_rows_per_second = (
-                metrics.records_processed * 1000
-            ) / metrics.total_duration_ms
+            metrics.avg_rows_per_second = (metrics.records_processed * 1000) / metrics.total_duration_ms
 
         # Calculate throughput if data size is available
         if metrics.total_duration_ms > 0 and metrics.data_size_mb > 0:
-            metrics.throughput_mb_per_second = (
-                metrics.data_size_mb * 1000
-            ) / metrics.total_duration_ms
+            metrics.throughput_mb_per_second = (metrics.data_size_mb * 1000) / metrics.total_duration_ms
 
         # Set row count reconciliation status based on write mode
         if metrics.source_row_count > 0 and metrics.target_row_count_after >= 0:
@@ -359,9 +329,7 @@ class ProcessingMetricsUtils:
                     metrics.row_count_reconciliation_status = "mismatched"
             elif write_mode.lower() == "append":
                 # For append mode, source rows should equal the difference
-                if metrics.source_row_count == (
-                    metrics.target_row_count_after - metrics.target_row_count_before
-                ):
+                if metrics.source_row_count == (metrics.target_row_count_after - metrics.target_row_count_before):
                     metrics.row_count_reconciliation_status = "matched"
                 else:
                     metrics.row_count_reconciliation_status = "mismatched"
@@ -381,9 +349,7 @@ class ProcessingMetricsUtils:
         return metrics
 
     @staticmethod
-    def merge_metrics(
-        metrics_list: List[ProcessingMetrics], write_mode: str = "append"
-    ) -> ProcessingMetrics:
+    def merge_metrics(metrics_list: List[ProcessingMetrics], write_mode: str = "append") -> ProcessingMetrics:
         """Merge multiple metrics into a single aggregated metric"""
         if not metrics_list:
             return ProcessingMetrics()
@@ -400,12 +366,8 @@ class ProcessingMetricsUtils:
         merged.records_deleted = sum(m.records_deleted for m in metrics_list)
         merged.records_failed = sum(m.records_failed for m in metrics_list)
         merged.source_row_count = sum(m.source_row_count for m in metrics_list)
-        merged.target_row_count_before = sum(
-            m.target_row_count_before for m in metrics_list
-        )
-        merged.target_row_count_after = sum(
-            m.target_row_count_after for m in metrics_list
-        )
+        merged.target_row_count_before = sum(m.target_row_count_before for m in metrics_list)
+        merged.target_row_count_after = sum(m.target_row_count_after for m in metrics_list)
         merged.data_size_mb = sum(m.data_size_mb for m in metrics_list)
 
         # Calculate performance metrics
@@ -437,9 +399,7 @@ class ErrorHandlingUtils:
             return "unknown_error"
 
     @staticmethod
-    def should_retry_error(
-        error: Exception, retry_count: int, max_retries: int = 3
-    ) -> bool:
+    def should_retry_error(error: Exception, retry_count: int, max_retries: int = 3) -> bool:
         """Determine if an error should be retried"""
         if retry_count >= max_retries:
             return False
@@ -451,9 +411,7 @@ class ErrorHandlingUtils:
         return error_category in retryable_categories
 
     @staticmethod
-    def format_error_details(
-        error: Exception, context: Dict[str, Any] = None
-    ) -> Dict[str, str]:
+    def format_error_details(error: Exception, context: Dict[str, Any] = None) -> Dict[str, str]:
         """Format error details for logging"""
         details = {
             "error_type": type(error).__name__,

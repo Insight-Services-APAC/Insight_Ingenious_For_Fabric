@@ -1,5 +1,11 @@
 # Ingenious Fabric Accelerator
 
+[![Version](https://img.shields.io/badge/version-alpha-blue.svg)](https://github.com/Insight-Services-APAC/Insight_Ingenious_For_Fabric/)
+[![Python](https://img.shields.io/badge/python-3.13+-green.svg)](https://www.python.org/downloads/)
+[![Ask DeepWiki](https://deepwiki.com/badge.svg)](https://deepwiki.com/Insight-Services-APAC/Insight_Ingenious_For_Fabric)
+[![Ruff](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/astral-sh/ruff/main/assets/badge/v2.json)](https://github.com/astral-sh/ruff)
+[![License](https://img.shields.io/badge/license-MIT-purple.svg)](LICENSE)
+
 Ingenious Fabric Accelerator is a comprehensive command line tool built with [Typer](https://typer.tiangolo.com/) that helps create and manage Microsoft Fabric workspace projects. It provides a complete development workflow for Fabric workspaces, including project initialization, DDL notebook generation, environment management, deployment automation, and data integration through packages for flat file ingestion, Synapse synchronization, and extract generation.
 
 ## Features
@@ -11,7 +17,7 @@ Ingenious Fabric Accelerator is a comprehensive command line tool built with [Ty
 - **Notebook Utilities**: Scan, analyze, and transform existing notebook code and content
 - **Testing Framework**: Test notebooks both locally and on the Fabric platform
 - **Python Libraries**: Reusable Python and PySpark libraries with variable injection for common Fabric operations
-- **Extension Packages**: 
+- **Extension Packages**:
   - Flat file ingestion for lakehouses and warehouses
   - Synapse synchronization with incremental and snapshot support
   - Extract generation for automated data extraction workflows
@@ -28,57 +34,32 @@ Ingenious Fabric Accelerator is a comprehensive command line tool built with [Ty
 
 ### For Users
 
-Install the Ingenious Fabric Accelerator using pip:
+Install using pip from PyPI or GitHub:
 
-=== "macOS/Linux"
+```bash
+# Install from PyPI (when available)
+pip install insight-ingenious-for-fabric
 
-    ```bash
-    # Install from PyPI (when available)
-    pip install insight-ingenious-for-fabric
+# Or install from GitHub
+pip install git+https://github.com/Insight-Services-APAC/Insight_Ingenious_For_Fabric.git
+```
 
-    # Or install from GitHub
-    pip install git+https://github.com/Insight-Services-APAC/Insight_Ingenious_For_Fabric.git
-    ```
-
-=== "Windows"
-
-    ```powershell
-    # Install from PyPI (when available)
-    pip install insight-ingenious-for-fabric
-
-    # Or install from GitHub
-    pip install git+https://github.com/Insight-Services-APAC/Insight_Ingenious_For_Fabric.git
-    ```
-
-For complete installation instructions, see our [Installation Guide](docs/user_guide/installation.md).
+For complete installation instructions, see the [Installation Guide](docs/getting-started/installation.md).
 
 ### For Developers
 
-To contribute or modify the source code:
+Clone the repository and set up the development environment using uv:
 
-=== "macOS/Linux"
+```bash
+# Clone the repository
+git clone https://github.com/Insight-Services-APAC/Insight_Ingenious_For_Fabric.git
+cd Insight_Ingenious_For_Fabric
 
-    ```bash
-    # Clone the repository
-    git clone https://github.com/Insight-Services-APAC/Insight_Ingenious_For_Fabric.git
-    cd ingen_fab
+# Set up development environment with all dependencies
+uv sync --all-extras
+```
 
-    # Set up development environment
-    uv sync --all-extras  # or: pip install -e .[dev,docs,dbt]
-    ```
-
-=== "Windows"
-
-    ```powershell
-    # Clone the repository
-    git clone https://github.com/Insight-Services-APAC/Insight_Ingenious_For_Fabric.git
-    cd ingen_fab
-
-    # Set up development environment
-    uv sync --all-extras  # or: pip install -e .[dev,docs,dbt]
-    ```
-
-See the [Developer Guide](docs/developer_guide/index.md) for complete development setup.
+See the [Developer Guide](docs/developer_guide/index.md) for complete development setup and contribution guidelines.
 
 ## Quick Start
 
@@ -97,7 +78,7 @@ ingen_fab ddl compile \
     --output-mode fabric_workspace_repo \
     --generation-mode Warehouse
 
-# Generate DDL notebooks for lakehouses  
+# Generate DDL notebooks for lakehouses
 ingen_fab ddl compile \
     --output-mode fabric_workspace_repo \
     --generation-mode Lakehouse
@@ -170,7 +151,7 @@ ingen_fab deploy get-metadata --target both --format table
 # Compile flat file ingestion package for lakehouse
 ingen_fab package ingest compile --target-datastore lakehouse --include-samples
 
-# Compile flat file ingestion package for warehouse 
+# Compile flat file ingestion package for warehouse
 ingen_fab package ingest compile --target-datastore warehouse --include-samples
 
 # Run flat file ingestion
@@ -195,20 +176,6 @@ ingen_fab libs compile --target-file path/to/file.py
 ingen_fab dbt create-notebooks --dbt-project-name my_dbt_project
 ingen_fab dbt convert-metadata --dbt-project-dir ./dbt_project
 ```
-
-## Running the tests
-
-Execute the unit tests using `pytest`:
-
-```bash
-pytest
-```
-
-The tests run entirely offline. A few end-to-end tests are skipped unless the required environment variables are present.
-
-## Sample project
-
-See [sample_project/README.md](sample_project/README.md) for a tour of the example Fabric workspace used by the CLI.
 
 ## Project Structure
 
@@ -235,14 +202,14 @@ docs/                    # Documentation source files
 
 ## Environment Variables
 
-Set up environment variables to avoid specifying them on each command:
+Configure environment variables to streamline command execution:
 
 ```bash
 export FABRIC_WORKSPACE_REPO_DIR="./sample_project"
 export FABRIC_ENVIRONMENT="development"
 ```
 
-See [Environment Variables](docs/user_guide/environment_variables.md) for the complete list including authentication variables.
+For a complete list of environment variables including authentication settings, see [Environment Variables](docs/reference/environment-variables.md).
 
 ## Workflow Example
 
@@ -267,29 +234,34 @@ ingen_fab deploy deploy --fabric-workspace-repo-dir . --fabric-environment devel
 ingen_fab test platform generate
 ```
 
+## Testing
 
-## Documentation
-
-Additional documentation is available in the subdirectories and the complete documentation site:
-
-- **[docs/](docs/)** - Complete documentation source files (build with `mkdocs serve`)
-- **[sample_project/README.md](sample_project/README.md)** - Complete example workspace with step-by-step workflow
-- **[ingen_fab/python_libs/README.md](ingen_fab/python_libs/README.md)** - Reusable Python and PySpark libraries
-- **[ingen_fab/ddl_scripts/README.md](ingen_fab/ddl_scripts/README.md)** - DDL notebook generation templates
-- **[ingen_fab/python_libs/python/README_notebook_utils.md](ingen_fab/python_libs/python/README_notebook_utils.md)** - Notebook utilities abstraction
-- **[ingen_fab/python_libs/python/sql_template_factory/README.md](ingen_fab/python_libs/python/sql_template_factory/README.md)** - SQL template system
-
-## Documentation
-
-Complete documentation is available in the `docs/` directory. To serve locally:
+Execute the unit tests using pytest:
 
 ```bash
-uv sync --group docs  # Install docs dependencies
+uv run pytest
+```
+
+Tests run entirely offline by default. End-to-end tests are skipped unless required environment variables are present.
+
+## Documentation
+
+Complete documentation is available in the `docs/` directory. To serve documentation locally:
+
+```bash
+uv sync --group docs
 mkdocs serve --dev-addr=0.0.0.0:8000
 ```
 
+### Additional Resources
+
+- [Sample Project](sample_project/README.md) - Complete example workspace with step-by-step workflow
+- [Python Libraries](ingen_fab/python_libs/README.md) - Reusable Python and PySpark libraries
+- [DDL Scripts](ingen_fab/ddl_scripts/README.md) - DDL notebook generation templates
+- [Notebook Utils](ingen_fab/python_libs/python/README_notebook_utils.md) - Notebook utilities abstraction
+- [SQL Template Factory](ingen_fab/python_libs/python/sql_template_factory/README.md) - SQL template system
+- [Developer Guide](docs/developer_guide/index.md) - Complete development setup and contribution guidelines
+
 ## License
 
-This project is provided for demonstration purposes and has no specific license.
-# Extract metadata for lakehouse/warehouse
-ingen_fab deploy get-metadata --lakehouse-name MyLakehouse --format table --target lakehouse
+This project is licensed under the terms specified in the [LICENSE](https://github.com/Insight-Services-APAC/Insight_Ingenious_For_Fabric/blob/main/LICENSE) file.

@@ -41,7 +41,7 @@ Available Lakehouse Configurations:
 │ 4 │ sample_lh │ Sample Lakehouse     │ Development       │ jkl012...  │
 └───┴───────────┴──────────────────────┴───────────────────┴────────────┘
 
-Select a lakehouse configuration by number [1]: 
+Select a lakehouse configuration by number [1]:
 ```
 
 Your selection is saved and will be used automatically for subsequent commands in the same environment.
@@ -222,7 +222,7 @@ The `_lakehouse_prefix` field stores your selection preference.
 ### Multiple DBT Projects
 
 Each dbt project can use different lakehouses. The selection is based on:
-1. Current `FABRIC_ENVIRONMENT` 
+1. Current `FABRIC_ENVIRONMENT`
 2. Available lakehouses in that environment
 3. Your saved preference (if any)
 
@@ -259,6 +259,6 @@ If your selection isn't remembered:
 
 ## Next Steps
 
-- [CLI Reference](cli_reference.md#dbt) - Complete dbt command reference
+- [CLI Reference](../guides/cli-reference.md#dbt) - Complete dbt command reference
 - [Deploy Guide](deploy_guide.md) - Deploying dbt models to Fabric
-- [Workflows](workflows.md) - Integrating dbt into your development workflow
+- [Workflows](../guides/workflows.md) - Integrating dbt into your development workflow
