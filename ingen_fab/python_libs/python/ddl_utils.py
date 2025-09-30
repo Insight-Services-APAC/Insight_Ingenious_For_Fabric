@@ -5,7 +5,7 @@ import inspect
 import logging
 import traceback
 from datetime import datetime
-from typing import Any, Optional
+from typing import Any, Callable, Optional
 
 from ingen_fab.python_libs.python.sql_templates import SQLTemplates
 from ingen_fab.python_libs.python.warehouse_utils import warehouse_utils
@@ -20,10 +20,6 @@ class ddl_utils:
         target_warehouse_id: str,
         notebookutils: Optional[Any] = None,
     ) -> None:
-        super().__init__(
-            target_datastore_id=target_warehouse_id,
-            target_workspace_id=target_workspace_id,
-        )
         self.target_workspace_id = target_workspace_id
         self.target_warehouse_id = target_warehouse_id
         self.execution_log_table_schema = "log"
@@ -39,7 +35,7 @@ class ddl_utils:
         self.sql = SQLTemplates(dialect="fabric")
         self.initialise_ddl_script_executions_table()
 
-    def execution_log_schema():
+    def execution_log_schema(self) -> None:
         pass
 
     def print_log(self):
@@ -89,7 +85,7 @@ class ddl_utils:
         )
         self.warehouse_utils.execute_query(conn=conn, query=insert_query)
 
-    def run_once(self, work_fn: callable, object_name: str, guid: str):
+    def run_once(self, work_fn: Callable[[], None], object_name: str, guid: Optional[str] = None) -> None:
         """
         Runs `work_fn()` exactly once, keyed by `guid`. If `guid` is None,
         it's computed by hashing the source code of `work_fn`.

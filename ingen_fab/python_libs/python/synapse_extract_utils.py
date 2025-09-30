@@ -232,7 +232,7 @@ class SynapseExtractUtils:
         self,
         extraction_payloads: List[Dict],
         master_execution_id: str,
-        master_execution_parameters: Dict = None,
+        master_execution_parameters: Optional[Dict] = None,
         trigger_type: str = "Manual",
     ) -> Dict[str, str]:
         """
@@ -353,7 +353,7 @@ class SynapseExtractUtils:
         # Create timestamp with millisecond precision, no timezone
         current_time = datetime.utcnow().replace(microsecond=0)
 
-        updates = {
+        updates: Dict[str, Any] = {
             "master_execution_id": master_execution_id,
             "execution_id": execution_id,
             "status": status,
@@ -510,8 +510,12 @@ def build_path_components(item: Dict[str, Any]) -> Dict[str, str]:
 
     # Extract date components if incremental load
     if load_tier == "incremental":
-        extract_start = datetime.strptime(item.get("extract_start"), "%Y-%m-%d")  # noqa: F841
-        extract_end = datetime.strptime(item.get("extract_end"), "%Y-%m-%d")
+        extract_start_str = item.get("extract_start")
+        extract_end_str = item.get("extract_end")
+        if extract_start_str is None or extract_end_str is None:
+            raise ValueError("extract_start and extract_end are required for incremental loads")
+        extract_start = datetime.strptime(extract_start_str, "%Y-%m-%d")  # noqa: F841
+        extract_end = datetime.strptime(extract_end_str, "%Y-%m-%d")
         run_year = extract_end.year
         run_month = extract_end.month
         run_day = extract_end.day
@@ -577,8 +581,12 @@ def build_partition_clause(item: Dict[str, Any]) -> str:
         return ""
 
     # Parse dates for incremental loads
-    extract_start = datetime.strptime(item.get("extract_start"), "%Y-%m-%d")
-    extract_end = datetime.strptime(item.get("extract_end"), "%Y-%m-%d")
+    extract_start_str = item.get("extract_start")
+    extract_end_str = item.get("extract_end")
+    if extract_start_str is None or extract_end_str is None:
+        raise ValueError("extract_start and extract_end are required for incremental loads")
+    extract_start = datetime.strptime(extract_start_str, "%Y-%m-%d")
+    extract_end = datetime.strptime(extract_end_str, "%Y-%m-%d")
     start_date_sql = extract_start.strftime("%Y%m%d")
     end_date_sql = extract_end.strftime("%Y%m%d")
 
