@@ -19,10 +19,10 @@ class FabricCLINotebook:
         self.platform_file_template = self.jinja_env.get_template("platform_file_template.json.jinja")
         self.notebook_content_template = self.jinja_env.get_template("notebook-content_template-python.py.jinja")
 
-    def generate_functional_test_notebook(self):
+    def generate_functional_test_notebook(self, notebook_name: str = "test_notebook"):
         """Generate a functional test notebook using the Fabric CLI."""
         # Render the jinja templates
-        platform_file_content = self.platform_file_template.render(guid=uuid.uuid4())
+        platform_file_content = self.platform_file_template.render(guid=str(uuid.uuid4()), notebook_name=notebook_name)
         notebook_content = self.notebook_content_template.render(
             content="print('Hello, Fabric!')",
         )
