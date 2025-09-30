@@ -19,7 +19,7 @@
 - Test: `pytest -q` or `pytest -q --cov=ingen_fab` (if `pytest-cov` synced).
 - Lint/format: `ruff check .` and `ruff format` (auto-fix: `ruff check --fix .`).
 - Hooks (if configured): `pre-commit run --all-files`.
-- Docs: `uv sync --group docs && mkdocs serve` (or `./serve-docs.sh`).
+- Docs: `uv sync --group docs && mkdocs serve` (or `./scripts/documentation/serve-docs.sh`).
 
 ## Coding Style & Naming Conventions
 - Python 3.12+. Max line length 120 (`.flake8`).

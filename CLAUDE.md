@@ -92,7 +92,7 @@ pre-commit run --all-files
 ### Documentation
 ```bash
 # Serve docs locally
-./serve-docs.sh
+./scripts/documentation/serve-docs.sh
 # or
 mkdocs serve --dev-addr=0.0.0.0:8000
 ```
