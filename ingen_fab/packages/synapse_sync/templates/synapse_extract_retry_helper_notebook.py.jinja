@@ -85,9 +85,7 @@ SYNAPSE_DATASOURCE_LOCATION = "{% raw %}{{varlib:synapse_datasource_location}}{%
 FABRIC_WORKSPACE_ID = "{% raw %}{{varlib:fabric_deployment_workspace_id}}{% endraw %}"
 FABRIC_LAKEHOUSE_ID = "{% raw %}{{varlib:config_lakehouse_id}}{% endraw %}"
 FABRIC_ENVIRONMENT = "{% raw %}{{varlib:fabric_environment}}{% endraw %}"
-
-# Pipeline name for the Synapse extract pipeline
-PIPELINE_NAME = "extract_from_synapse"
+PIPELINE_NAME = "{% raw %}{{varlib:synapse_sync_fabric_pipeline_name}}{% endraw %}"
 
 # Resolve pipeline ID by name
 try:
