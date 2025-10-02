@@ -1,0 +1,337 @@
+{%- import 'shared/notebook/macros/notebook_macros.py.jinja' as macros -%}
+# Fabric notebook source
+
+# METADATA ********************
+
+# META {
+# META   "kernel_info": {
+# META     "name": "synapse_pyspark",
+# META     "display_name": "Synapse PySpark"
+# META   },
+# META   "language_info": {
+# META     "name": "python"
+# META   }
+# META }
+
+{{ macros.parameters_cell() }}
+
+# Default parameters for retry processing
+MASTER_EXECUTION_ID = None     # Required: master_execution_id of the original run
+MAX_RETRIES = 3                # Maximum retry attempts per failed extraction
+MAX_CONCURRENCY = 5            # Concurrency for retry operations
+STATUS_FILTER = ["Failed", "Cancelled"]  # Statuses to consider for retry
+
+{{ macros.python_cell_with_heading("## Synapse Extract Retry Helper") }}
+
+# **Synapse Extract Retry Helper**
+# 
+# ## Overview
+# 
+# The Retry Helper provides retry functionality for failed Synapse extractions. This notebook:
+# 
+# 1. **Intelligent Retry** - Identifies and retries failed extractions with exponential backoff
+# 2. **Selective Processing** - Can target specific execution IDs or time windows
+# 3. **Enhanced Error Analysis** - Provides detailed failure analysis and retry recommendations
+# 4. **Configurable Attempts** - Supports multiple retry attempts with incremental delay
+# 
+# The process uses enhanced retry mechanisms with jitter and concurrent write detection.
+
+{% set runtime_type = "pyspark" %}
+{% set language_group = "synapse_pyspark" %}
+{% set include_ddl_utils = false %}
+
+{% include 'shared/notebook/environment/library_loader.py.jinja' %}
+
+{{ macros.python_cell_with_heading("## Load configuration") }}
+{% include 'shared/notebook/environment/config_loader.py.jinja' %}
+
+{{ macros.python_cell_with_heading("## Import libraries") }}
+
+from ingen_fab.python_libs.pyspark.synapse_orchestrator import SynapseOrchestrator
+from ingen_fab.python_libs.pyspark.synapse_extract_utils import SynapseExtractUtils
+
+import asyncio
+import json
+import logging
+import uuid
+import time
+import random
+from datetime import datetime, timedelta, timezone
+from typing import Dict, List, Optional, Any
+from types import SimpleNamespace
+
+import nest_asyncio
+import numpy as np
+from delta.tables import DeltaTable
+import sempy.fabric as fabric
+from sempy.fabric.exceptions import FabricHTTPException, WorkspaceNotFoundException
+import pyspark.sql.functions as F
+from pyspark.sql.types import *
+
+{{ macros.python_cell_with_heading("## Configure logging") }}
+
+# Configure logging for retry processing tracking
+logging.basicConfig(level=logging.INFO, format='%(asctime)s %(levelname)s %(message)s')
+logger = logging.getLogger(__name__)
+
+# Apply nest_asyncio for Jupyter compatibility
+nest_asyncio.apply()
+
+{{ macros.python_cell_with_heading("## Define constants") }}
+
+# Inject Fabric variables from Variable Library value set
+SYNAPSE_DATASOURCE_NAME = "{% raw %}{{varlib:synapse_datasource_name}}{% endraw %}"
+SYNAPSE_DATASOURCE_LOCATION = "{% raw %}{{varlib:synapse_datasource_location}}{% endraw %}"
+FABRIC_WORKSPACE_ID = "{% raw %}{{varlib:fabric_deployment_workspace_id}}{% endraw %}"
+FABRIC_LAKEHOUSE_ID = "{% raw %}{{varlib:config_lakehouse_id}}{% endraw %}"
+FABRIC_ENVIRONMENT = "{% raw %}{{varlib:fabric_environment}}{% endraw %}"
+PIPELINE_NAME = "{% raw %}{{varlib:synapse_sync_fabric_pipeline_name}}{% endraw %}"
+
+# Resolve pipeline ID by name
+try:
+    FABRIC_PIPELINE_ID = SynapseOrchestrator.resolve_pipeline_id_by_name(
+        FABRIC_WORKSPACE_ID,
+        PIPELINE_NAME,
+    )
+except Exception as e:
+    raise RuntimeError(f"Cannot proceed without valid pipeline ID: {e}") from e
+
+# Generate retry master execution ID
+retry_master_execution_id = str(uuid.uuid4())
+
+TRIGGER_TYPE = "Manual-Retry"
+
+{{ macros.python_cell_with_heading("## Initialise utilities") }}
+
+lakehouse = lakehouse_utils(
+    target_workspace_id=FABRIC_WORKSPACE_ID, 
+    target_lakehouse_id=FABRIC_LAKEHOUSE_ID,
+    spark=spark
+)
+
+# Initialise orchestrator and extract utils
+orchestrator = SynapseOrchestrator(lakehouse=lakehouse)
+extract_utils = SynapseExtractUtils(lakehouse=lakehouse)
+
+logger.info(f"Loaded configuration for environment: {FABRIC_ENVIRONMENT}")
+logger.info(f"Using datasource: {SYNAPSE_DATASOURCE_NAME}")
+
+{{ macros.python_cell_with_heading("## Identify incomplete extractions") }}
+
+logger.info(f"RETRY HELPER MODE - Retry Master Execution ID: {retry_master_execution_id}")
+logger.info(f"Target Master Execution ID: {MASTER_EXECUTION_ID or 'Not provided'}")
+logger.info(f"Max Retry Attempts: {MAX_RETRIES}")
+logger.info(f"Max Concurrency: {MAX_CONCURRENCY}")
+
+# Validate required parameter
+if not MASTER_EXECUTION_ID:
+    raise ValueError("MASTER_EXECUTION_ID is required for retry processing")
+
+# Get original master parameters so retry logs match the original
+ORIGINAL_MASTER_EXECUTION_PARAMETERS = extract_utils.get_master_execution_parameters(MASTER_EXECUTION_ID)
+
+# Get candidate extractions using enhanced utils
+incomplete_extractions = extract_utils.get_incomplete_extracts(
+    master_execution_id=MASTER_EXECUTION_ID,
+    status_filter=STATUS_FILTER
+)
+
+if not incomplete_extractions:
+    logger.info("No failed extractions found matching the criteria")
+    print("ℹ️  No failed extractions found")
+    if MASTER_EXECUTION_ID:
+        print(f"   - No failures found for Master Execution ID: {MASTER_EXECUTION_ID}")
+    else:
+        print(f"   - No failures found for execution ID: {MASTER_EXECUTION_ID}")
+    print("\n✅ Nothing to retry!")
+else:
+    logger.info(f"Found {len(incomplete_extractions)} incomplete extractions for retry")
+    logger.info(f"Found {len(incomplete_extractions)} candidate extractions for retry")
+
+{{ macros.python_cell_with_heading("## Construct retry work items") }}
+
+if incomplete_extractions:
+    # Convert failed extractions to work item dicts for retry
+    retry_work_items = []
+    for failure in incomplete_extractions:
+        # Honour a true override only: keep custom_select_sql if it existed originally.
+        # Otherwise, omit it and rely on partition_clause to mirror default behaviour.
+        # Keep the custom SELECT only when it was explicitly set in the original run
+        custom_select_sql = (failure.get("custom_select_sql") or "").strip()
+        # Derive export_base_dir from original output_path to preserve paths
+        export_base_dir = None
+        try:
+            original_output_path = (failure.get("output_path") or "").strip()
+            if original_output_path:
+                subdir_marker = "/incremental/" if "/incremental/" in original_output_path else (
+                    "/snapshot/" if "/snapshot/" in original_output_path else None
+                )
+                if subdir_marker:
+                    export_base_dir = original_output_path.split(subdir_marker, 1)[0]
+        except Exception:
+            export_base_dir = None
+        # Attempt to preserve export path exactness by validating expected output_path
+        # Normalise date fields to strings (align with daily driver behavior)
+        _start_dt = failure.get("extract_start_dt")
+        _end_dt = failure.get("extract_end_dt")
+        retry_item = {
+            "source_schema_name": failure.get("source_schema_name"),
+            "source_table_name": failure.get("source_table_name"),
+            "extract_mode": failure.get("extract_mode", "snapshot"),
+            "execution_group": failure.get("execution_group", 1),
+            "extract_start_dt": str(_start_dt) if _start_dt is not None else None,
+            "extract_end_dt": str(_end_dt) if _end_dt is not None else None,
+            # Preserve the original partition clause so default SELECTs match prior run
+            "partition_clause": (failure.get("partition_clause") or ""),
+            # Preserve export base dir when recoverable from output_path
+            "export_base_dir": export_base_dir,
+            "synapse_connection_name": None,
+            "single_date_filter": None,
+            "date_range_filter": None,
+            # Provide pipeline id on the work item (varlib-derived)
+            "synapse_sync_fabric_pipeline_id": failure.get("synapse_sync_fabric_pipeline_id") or FABRIC_PIPELINE_ID,
+            # Prefer var-lib injected values
+            "synapse_datasource_name": failure.get("synapse_datasource_name") or SYNAPSE_DATASOURCE_NAME,
+            "synapse_datasource_location": failure.get("synapse_datasource_location") or SYNAPSE_DATASOURCE_LOCATION,
+            # Run-scoped metadata for logging
+            "trigger_type": TRIGGER_TYPE,
+            "master_execution_parameters": ORIGINAL_MASTER_EXECUTION_PARAMETERS,
+        }
+        if custom_select_sql:
+            retry_item["custom_select_sql"] = custom_select_sql
+        # Validate that the path we would generate matches the failure's path (best-effort)
+        try:
+            path_components = extract_utils.build_path_components(
+                source_schema_name=retry_item["source_schema_name"],
+                source_table_name=retry_item["source_table_name"],
+                extract_mode=retry_item.get("extract_mode", "snapshot"),
+                export_base_dir=retry_item.get("export_base_dir"),
+                extract_start_dt=retry_item.get("extract_start_dt"),
+                extract_end_dt=retry_item.get("extract_end_dt"),
+            )
+            expected_output_path = path_components.get("output_path")
+            original_output_path = failure.get("output_path")
+            if expected_output_path and original_output_path and expected_output_path != original_output_path:
+                logger.warning(
+                    f"Retry path differs from original: expected '{expected_output_path}', original '{original_output_path}'. "
+                    "Proceeding with preserved export_base_dir."
+                )
+        except Exception:
+            # Non-fatal; continue with retry_item as constructed
+            pass
+        retry_work_items.append(retry_item)
+    logger.info(f"Prepared {len(retry_work_items)} work items for retry processing")
+    
+    # Display retry summary
+    print(f"\n🔄 RETRY PROCESSING SUMMARY")
+    print(f"   Total Candidate Extractions: {len(incomplete_extractions)}")
+    print(f"   Work Items Prepared for Retry: {len(retry_work_items)}")
+    print(f"   Max Retry Attempts per Item: {MAX_RETRIES}")
+    print(f"   Retry Concurrency: {MAX_CONCURRENCY}")
+
+{{ macros.python_cell_with_heading("## Orchestrate retry processing") }}
+
+if incomplete_extractions:
+    # Pre-log retry payloads and map execution IDs (WorkItem carries all metadata)
+    extraction_payloads = extract_utils.prepare_extract_payloads(
+        work_items=retry_work_items,
+        master_execution_id=retry_master_execution_id,
+    )
+    execution_id_map = extract_utils.bulk_insert_queued_extracts(extraction_payloads) if extraction_payloads else {}
+    external_table_map = {}
+    for r in (extraction_payloads or []):
+        key = f"{r['source_schema_name']}.{r['source_table_name']}|{r.get('extract_start_dt') or ''}|{r.get('extract_end_dt') or ''}|{r.get('extract_mode') or ''}"
+        external_table_map[key] = r.get('external_table')
+
+   
+    CONCURRENCY_LIMITER = asyncio.Semaphore(MAX_CONCURRENCY)
+
+    async def process_extract_with_retry(work_item: dict, max_retries: int = MAX_RETRIES):
+        wi = SimpleNamespace(
+            source_schema_name=work_item["source_schema_name"],
+            source_table_name=work_item["source_table_name"],
+            extract_mode=work_item.get("extract_mode", "snapshot"),
+            execution_group=work_item.get("execution_group", 1),
+            extract_start_dt=work_item.get("extract_start_dt"),
+            extract_end_dt=work_item.get("extract_end_dt"),
+            partition_clause=work_item.get("partition_clause"),
+            export_base_dir=work_item.get("export_base_dir"),
+            # Pass through SQL and datasource details so CETAS matches original
+            custom_select_sql=work_item.get("custom_select_sql"),
+            synapse_datasource_name=work_item.get("synapse_datasource_name"),
+            synapse_datasource_location=work_item.get("synapse_datasource_location"),
+            synapse_sync_fabric_pipeline_id=work_item.get("synapse_sync_fabric_pipeline_id"),
+        )
+        attempt = 0
+        last_error = None
+        base_delay = 1.0
+        max_backoff = 60.0
+        while attempt < max_retries:
+            attempt += 1
+            # Look up execution_id by external_table derived from payload key
+            key = f"{work_item['source_schema_name']}.{work_item['source_table_name']}|{work_item.get('extract_start_dt') or ''}|{work_item.get('extract_end_dt') or ''}|{work_item.get('extract_mode', 'snapshot')}"
+            ext_tbl = external_table_map.get(key)
+            execution_id = execution_id_map.get(ext_tbl) if ext_tbl else None
+            success, error = await orchestrator.process_extract(
+                wi,
+                None,
+                retry_master_execution_id,
+                CONCURRENCY_LIMITER,
+                synapse_sync_fabric_pipeline_id=FABRIC_PIPELINE_ID,
+                workspace_id=FABRIC_WORKSPACE_ID,
+                extract_utils=extract_utils,
+                execution_id=execution_id,
+            )
+            if success:
+                return True, None
+            last_error = error
+            # Exponential backoff with jitter
+            delay = min(base_delay * (2 ** (attempt - 1)), max_backoff)
+            # Jitter in [0, delay)
+            delay = delay + random.uniform(0, delay)
+            await asyncio.sleep(delay)
+        return False, last_error
+
+    async def run_retries():
+        # Group by execution group
+        groups = {}
+        for item in retry_work_items:
+            groups.setdefault(item.get("execution_group", 1), []).append(item)
+        all_results = []
+        for group in sorted(groups.keys()):
+            items = groups[group]
+            tasks = []
+            for item in items:
+                key = f"{item['source_schema_name']}.{item['source_table_name']}"
+                # Execution id is looked up inside the retry function based on the external table mapping
+                tasks.append(process_extract_with_retry(item, MAX_RETRIES))
+            if tasks:
+                results = await asyncio.gather(*tasks, return_exceptions=False)
+                all_results.extend(results)
+        total = len(all_results)
+        successes = sum(1 for r in all_results if r[0])
+        failed = total - successes
+        rate = f"{(successes/total*100):.1f}%" if total else "N/A"
+        return {
+            "retry_master_execution_id": retry_master_execution_id,
+            "total_tables": total,
+            "successful_retries": successes,
+            "failed_retries": failed,
+            "success_rate": rate,
+        }
+
+    if extraction_payloads:
+        logger.info("Starting retry processing")
+        retry_summary = await run_retries()
+        logger.info(f"RETRY SUMMARY - Master Execution ID: {retry_summary['retry_master_execution_id']}")
+        logger.info(f"Total: {retry_summary['total_tables']}, Succeeded: {retry_summary['successful_retries']}, Failed: {retry_summary['failed_retries']}")
+        logger.info(f"Success Rate: {retry_summary['success_rate']}")
+    else:
+        print("No retry payloads prepared.")
+else:
+    logger.info("No failed extractions to retry - nothing to do")
+    print("\n✅ No retry processing needed!")
+
+{{ macros.exit_notebook("success") }}
+
+{% include 'shared/notebook/cells/footer.py.jinja' %}
