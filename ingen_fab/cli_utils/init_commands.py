@@ -257,11 +257,18 @@ def init_workspace(
         console.print("\n[cyan]Workspace Configuration[/cyan]")
         console.print("────────────────────────")
 
-        is_single_workspace = typer.confirm(
-            "\nIs this a single workspace deployment?\n"
-            "(All components - config, raw, edw - will be in the same workspace)",
-            default=True,
-        )
+        is_single_workspace = os.environ.get("IS_SINGLE_WORKSPACE",'')
+
+        if is_single_workspace == '':
+            ConsoleStyles.print_info(
+                console,
+                "💡 Environment variable IS_SINGLE_WORKSPACE not set, prompting user.",
+            )
+            is_single_workspace = typer.confirm(
+                "\nIs this a single workspace deployment?\n"
+                "(All components - config, raw, edw - will be in the same workspace)",
+                default=True,
+            )
 
         if is_single_workspace:
             ConsoleStyles.print_info(

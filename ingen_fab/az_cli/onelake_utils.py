@@ -505,7 +505,7 @@ class OneLakeUtils:
 
         root_path = str(Path.cwd())
 
-        manifest_file_path_full = root_path + "\\" + directory_path + "\\" + file_name
+        manifest_file_path_full = os.path.join(root_path, directory_path, file_name)
         
         target_path = "ingen_fab/manifest/"+file_name
         

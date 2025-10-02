@@ -173,6 +173,30 @@ def create_additional_notebooks(
                     # Fallback: keep alongside models bucket
                     dest_root = target_dir / "models"
                     category = "other"
+            elif stem.startswith("snapshot."):
+                # Place snapshots in a proper folder structure like models
+                dest_root = target_dir / "snapshots"
+                category = "snapshot"
+                node = nodes.get(stem, {})
+                rel_path = node.get("path") if isinstance(node, dict) else None
+                if rel_path:
+                    p = Path(rel_path)
+                    parts = list(p.parts)
+                    if "snapshots" in parts:
+                        try:
+                            idx = parts.index("snapshots")
+                            sub = Path(*parts[idx + 1:-1]) if len(parts) > idx + 1 else Path()
+                        except ValueError:
+                            sub = p.parent
+                    else:
+                        sub = p.parent
+                    # Append snapshot name folder under the subpath
+                    snapshot_name = stem.split(".")[-1]
+                    dest_root = dest_root / sub / snapshot_name
+                else:
+                    # No manifest path; still place under snapshots/<snapshot_name>
+                    snapshot_name = stem.split(".")[-1]
+                    dest_root = dest_root / snapshot_name
             elif stem.startswith("master"):
                 dest_root = target_dir / "masters"
                 category = "master"
@@ -205,6 +229,16 @@ def create_additional_notebooks(
                             : -len(model_name_for_group) - 1
                         ]
                     # Collapse any double underscores
+                    normalized_base = re.sub(r"__+", "_", normalized_base)
+            elif category == "snapshot":
+                parts = stem.split(".")
+                normalized_base = ".".join(parts[2:]) if len(parts) > 2 else stem
+                # Similar cleanup as models for snapshot names
+                if "snapshot_name" in locals():
+                    if normalized_base.startswith(f"{snapshot_name}_"):
+                        normalized_base = normalized_base[len(snapshot_name) + 1:]
+                    if normalized_base.endswith(f"_{snapshot_name}"):
+                        normalized_base = normalized_base[:-len(snapshot_name) - 1]
                     normalized_base = re.sub(r"__+", "_", normalized_base)
             elif category == "seed":
                 parts = stem.split(".")
@@ -292,6 +326,124 @@ def convert_tsql_to_spark_type(tsql_type: str) -> str:
 
     # Return mapped type or original if not found
     return type_mapping.get(base_type, base_type)
+
+
+def create_schema_yml_from_metadata(
+    ctx: typer.Context, dbt_project: str, lakehouse: str, layer: str, dbt_type: str, skip_profile_confirmation: bool = False
+) -> None:
+    """Convert cached lakehouse metadata CSV to dbt schema.yml format.
+
+    Reads from {workspace}/metadata/lakehouse_metadata_all.csv and creates schema.yml:
+    Only includes tables from the specified lakehouse.
+    dbt_type determines the format: 'source', 'model', or 'snapshot'.
+    """
+    console.print(f"Creating [bold]{dbt_type}[/bold] schema.yml for layer [bold]{layer}[/bold] and lakehouse [bold]{lakehouse}[/bold] ")
+
+    # Check and update dbt profile if needed
+    if not ensure_dbt_profile(ctx, ask_confirmation=not skip_profile_confirmation):
+        raise typer.Exit(code=1)
+
+    workspace_dir = ctx.obj.get("fabric_workspace_repo_dir") if ctx.obj else None
+    if not workspace_dir:
+        console.print("[red]Fabric workspace repo dir not provided.[/red]")
+        raise typer.Exit(code=1)
+
+    workspace_dir = Path(workspace_dir)
+
+    # Source CSV file
+    metadata_csv = workspace_dir / "metadata" / "lakehouse_metadata_all.csv"
+    if not metadata_csv.exists():
+        console.print(f"[red]Metadata CSV not found:[/red] {metadata_csv}")
+        console.print(
+            "[yellow]Run 'ingen_fab deploy get-metadata --target lakehouse' first to generate metadata.[/yellow]"
+        )
+        raise typer.Exit(code=1)
+
+    # Target directory for dbt schema yml (always under schema_yml folder)
+    target_dir = workspace_dir / dbt_project / "schema_yml" / layer
+    target_dir.mkdir(parents=True, exist_ok=True)
+    schema_yml_path = target_dir / "schema.yml"
+
+    # Collect metadata for dbt sources/models/snapshots
+    tables = {}
+    try:
+        with metadata_csv.open("r", encoding="utf-8") as f:
+            reader = csv.DictReader(f)
+            for row in reader:
+                lakehouse_name = row.get("lakehouse_name", "").strip()
+                table_name = row.get("table_name", "").strip()
+                column_name = row.get("column_name", "").strip()
+                tsql_type = row.get("data_type", "").strip()
+
+                # Filter by lakehouse parameter
+                if lakehouse_name != lakehouse:
+                    continue
+
+                if not lakehouse_name or not table_name or not column_name:
+                    continue
+
+                spark_type = convert_tsql_to_spark_type(tsql_type)
+
+                if table_name not in tables:
+                    tables[table_name] = []
+
+                tables[table_name].append({
+                    "name": column_name,
+                    "data_type": spark_type,
+                    "description": "",
+                })
+
+        # Build dbt schema.yml structure based on dbt_type
+        schema_yml = {"version": 2}
+        if dbt_type == "source":
+            dbt_sources = [{
+                "name": layer,
+                "description": "",
+                "schema": lakehouse,
+                "tables": [
+                    {
+                        "name": table_name,
+                        "description": "",
+                        "columns": columns,
+                    }
+                    for table_name, columns in tables.items()
+                ],
+            }]
+            schema_yml["sources"] = dbt_sources
+        elif dbt_type == "model":
+            dbt_models = [
+                {
+                    "name": table_name,
+                    "description": "",
+                    "columns": columns,
+                }
+                for table_name, columns in tables.items()
+            ]
+            schema_yml["models"] = dbt_models
+        elif dbt_type == "snapshot":
+            dbt_snapshots = [
+                {
+                    "name": table_name,
+                    "description": "",
+                    "columns": columns,
+                }
+                for table_name, columns in tables.items()
+            ]
+            schema_yml["snapshots"] = dbt_snapshots
+        else:
+            console.print(f"[red]Unknown dbt_type: {dbt_type}. Must be 'source', 'model', or 'snapshot'.[/red]")
+            raise typer.Exit(code=1)
+
+        # Write schema.yml as YAML
+        import yaml
+        with schema_yml_path.open("w", encoding="utf-8") as f:
+            yaml.dump(schema_yml, f, sort_keys=False, default_flow_style=False, allow_unicode=True)
+
+        console.print(f"[green]✓[/green] Created {schema_yml_path}")
+
+    except Exception as e:
+        console.print(f"[red]Error creating schema.yml: {e}[/red]")
+        raise typer.Exit(code=1)
 
 
 def convert_metadata_to_dbt_format(

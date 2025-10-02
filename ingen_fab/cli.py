@@ -23,6 +23,7 @@ package_commands = lazy_import.lazy_module("ingen_fab.cli_utils.package_commands
 test_commands = lazy_import.lazy_module("ingen_fab.cli_utils.test_commands")
 libs_commands = lazy_import.lazy_module("ingen_fab.cli_utils.libs_commands")
 dbt_commands = lazy_import.lazy_module("ingen_fab.cli_utils.dbt_commands")
+ddl_commands = lazy_import.lazy_module("ingen_fab.cli_utils.ddl_commands")
 
 from ingen_fab.cli_utils.console_styles import ConsoleStyles
 
@@ -219,8 +220,7 @@ def main(
 
 # ddl commands
 
-
-@ddl_app.command()
+@ddl_app.command("compile")
 def compile(
     ctx: typer.Context,
     output_mode: Annotated[
@@ -275,6 +275,25 @@ def compile(
 
     notebook_commands.compile_ddl_notebooks(ctx, output_mode, generation_mode, verbose)
 
+@ddl_app.command("ddls-from-metadata")
+def ddls_from_metadata(
+    ctx: typer.Context,
+
+    lakehouse: Annotated[
+        Optional[str],
+        typer.Option(
+            "--lakehouse", "-l", help="Name of lakehhouse to generate DDLs for"
+        ),
+    ] = None,
+    verbose: Annotated[bool, typer.Option("--verbose", "-v")] = False,
+):
+    """Create DDL scripts from metadata."""
+
+    # Convert string parameters to enums with proper error handling
+    # notebook_generator module is already lazy imported at the top of the file
+
+
+    ddl_commands.generate_ddl_scripts(ctx, lakehouse)
 
 # Initialize commands
 
@@ -995,6 +1014,60 @@ def dbt_convert_metadata(
         ctx, dbt_project, skip_profile_confirmation
     )
 
+@dbt_app.command("generate-schema-yml")
+def dbt_generate_schema_yml(
+    ctx: typer.Context,
+    dbt_project: Annotated[
+        str,
+        typer.Option(
+            "--dbt-project",
+            "-p",
+            help="Name of the dbt project directory under the workspace repo",
+        ),
+    ],
+
+    lakehouse: Annotated[
+        str,
+        typer.Option(
+            "--lakehouse",
+            help="Name of the lakehouse to use as a filter for the csv",
+        ),
+    ],
+
+    layer: Annotated[
+        str,
+        typer.Option(
+            "--layer",
+            help="Name of the dbt layer",
+        ),
+    ],
+
+    dbt_type: Annotated[
+        str,
+        typer.Option(
+            "--dbt-type",
+            help="Is this for a model or a snapshot?",
+        ),
+    ],
+
+    skip_profile_confirmation: Annotated[
+        bool,
+        typer.Option(
+            "--skip-profile-confirmation",
+            help="Skip confirmation prompt when updating dbt profile",
+        ),
+    ] = False,
+):
+    """Convert cached lakehouse metadata to dbt schema.yml format for a lakehouse and layer.
+
+    Reads from {workspace}/metadata/lakehouse_metadata_all.csv and creates schema.yml file.
+
+    The metadata must first be extracted using:
+    ingen_fab deploy get-metadata --target lakehouse
+    """
+    dbt_commands.create_schema_yml_from_metadata(
+        ctx, dbt_project, lakehouse, layer, dbt_type, skip_profile_confirmation
+    )
 
 # Package commands
 package_app.add_typer(
