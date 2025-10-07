@@ -470,7 +470,7 @@ class SyncToFabricEnvironment:
 
                 if _item_type_in_scope == '':
                     item_type_in_scope=[
-                                "VariableLibrary","DataPipeline","Environment","Notebook","Report","SemanticModel","Lakehouse","MirroredDatabase","CopyJob","Eventhouse","Reflex","Eventstream","Warehouse","SQLDatabase",
+                                "VariableLibrary","DataPipeline","Environment","Notebook","Report","SemanticModel","Lakehouse","MirroredDatabase","CopyJob","Eventhouse","Reflex","Eventstream","Warehouse","SQLDatabase","GraphQLApi",
                             ]
                     ConsoleStyles.print_info(self.console, "Items to be published filter: None")
                 else:
@@ -488,7 +488,7 @@ class SyncToFabricEnvironment:
                             output_dir
                         ),  # Changed: publish from output directory
                         item_type_in_scope=item_type_in_scope,
-                        environment=os.getenv('FABRIC_ENVIRONMENT'),
+                        environment="development",
                     )
 
                     status_entries = publish_all_items(
@@ -567,6 +567,7 @@ class SyncToFabricEnvironment:
                 "Reflex",
                 "Eventstream",
                 "SQLDatabase",
+                "GraphQLApi",
             ],
             environment=self.environment,
         )
