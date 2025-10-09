@@ -525,16 +525,12 @@ class OneLakeUtils:
     def download_manifest_file_from_config_lakehouse(
         self, manifest_file_path: str = None
     ) -> dict:
-        path_and_file = os.path.split(manifest_file_path)
+        manifest_path_obj = Path(manifest_file_path)
+        file_name = manifest_path_obj.name
 
-        directory_path = path_and_file[0]
-        file_name = path_and_file[1]
+        manifest_file_path_full = str(manifest_path_obj)
 
-        root_path = str(Path.cwd())
-
-        manifest_file_path_full = root_path + "\\" + directory_path + "\\" + file_name
-        
-        target_path = "ingen_fab/manifest/"+file_name
+        target_path = f"ingen_fab/manifest/{file_name}"
         
         service_client=self._get_datalake_service_client()
         file_system_client = service_client.get_file_system_client(self.workspace_name)
