@@ -466,6 +466,17 @@ class SyncToFabricEnvironment:
                     self.console, f"Items to publish: {items_to_publish}"
                 )
 
+                _item_type_in_scope = os.getenv("ITEM_TYPES_TO_DEPLOY",'')
+
+                if _item_type_in_scope == '':
+                    item_type_in_scope=[
+                                "VariableLibrary","DataPipeline","Environment","Notebook","Report","SemanticModel","Lakehouse","MirroredDatabase","CopyJob","Eventhouse","Reflex","Eventstream","Warehouse","SQLDatabase","GraphQLApi",
+                            ]
+                    ConsoleStyles.print_info(self.console, "Items to be published filter: None")
+                else:
+                    ConsoleStyles.print_info(self.console, "Items to be published filter: " + _item_type_in_scope)
+                    item_type_in_scope = [item.strip() for item in _item_type_in_scope.split(',')]
+
                 status_entries: list[PublishLogEntry]
                 status_entries = None
                 # After copying all folders, attempt to publish
@@ -476,22 +487,7 @@ class SyncToFabricEnvironment:
                         repository_directory=str(
                             output_dir
                         ),  # Changed: publish from output directory
-                        item_type_in_scope=[
-                            "VariableLibrary",
-                            "DataPipeline",
-                            "Environment",
-                            "Notebook",
-                            "Report",
-                            "SemanticModel",
-                            "Lakehouse",
-                            "MirroredDatabase",
-                            "CopyJob",
-                            "Eventhouse",
-                            "Reflex",
-                            "Eventstream",
-                            "Warehouse",
-                            "SQLDatabase",
-                        ],
+                        item_type_in_scope=item_type_in_scope,
                         environment="development",
                     )
 
@@ -571,6 +567,7 @@ class SyncToFabricEnvironment:
                 "Reflex",
                 "Eventstream",
                 "SQLDatabase",
+                "GraphQLApi",
             ],
             environment=self.environment,
         )
