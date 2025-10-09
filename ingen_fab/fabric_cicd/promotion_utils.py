@@ -10,11 +10,12 @@ from typing import Optional
 import yaml
 from fabric_cicd import (
     FabricWorkspace,
+    append_feature_flag,
     constants,
     publish_all_items,
     unpublish_all_orphan_items,
 )
-from fabric_cicd.publish_log_entry import PublishLogEntry
+from fabric_cicd._common._publish_log_entry import PublishLogEntry
 from rich.console import Console
 
 from ingen_fab.cli_utils.console_styles import ConsoleStyles
@@ -23,14 +24,6 @@ from ingen_fab.cli_utils.console_styles import ConsoleStyles
 from ingen_fab.config_utils.variable_lib import VariableLibraryUtils
 
 from ingen_fab.az_cli.onelake_utils import OneLakeUtils
-
-from fabric_cicd import (
-    FabricWorkspace,
-    constants,
-    publish_all_items,
-    unpublish_all_orphan_items,
-    append_feature_flag
-)
 
 import os
 
@@ -44,6 +37,7 @@ class promotion_utils:
         self.workspace_id = FabricWorkspace.workspace_id
         self.repository_directory = FabricWorkspace.repository_directory
         self.environment = FabricWorkspace.environment
+
         if FabricWorkspace.item_type_in_scope is None:
             self.item_type_in_scope = list(constants.ACCEPTED_ITEM_TYPES_UPN)
         else:
@@ -59,10 +53,12 @@ class promotion_utils:
             environment=self.environment,
         )
 
-    def publish_all(self) -> None:
+    def publish_all(self, items_to_include: list[str]= []) -> list[PublishLogEntry]:
         """Publish all items from the repository to the workspace."""
         ws = self._workspace()
-        publish_all_items(fabric_workspace_obj=ws)
+        append_feature_flag("enable_experimental_features")
+        append_feature_flag("enable_items_to_include")
+        return publish_all_items(fabric_workspace_obj=ws, items_to_include=items_to_include)
 
     def unpublish_orphans(self) -> None:
         """Remove items from the workspace that are not present in the repository."""
@@ -326,6 +322,91 @@ class SyncToFabricEnvironment:
             )
             results = onelake_utils.upload_manifest_file_to_config_lakehouse(output_path)
 
+    def _update_manifest_with_results(
+        self,
+        manifest_items: list[manifest_item],
+        status_entries: list[PublishLogEntry],
+        manifest_path: Path,
+    ) -> dict:
+        """
+        Update manifest with deployment results.
+
+        Returns:
+            Dict with 'deployed' and 'failed' item lists
+        """
+        deployed_items = []
+        failed_items = []
+
+        if not status_entries:
+            ConsoleStyles.print_warning(
+                self.console, "Warning: no status entries found."
+            )
+        else:
+            # Create lookup dict for O(n) instead of O(n*m)
+            status_lookup = {
+                f"{entry.name}.{entry.item_type}".lower(): entry
+                for entry in status_entries
+            }
+
+            # Update manifest items silently
+            for item in manifest_items:
+                entry = status_lookup.get(item.name.lower())
+                if entry:
+                    if entry.success:
+                        item.status = "deployed"
+                        deployed_items.append({'name': item.name})
+                    else:
+                        item.status = "failed"
+                        error_msg = (
+                            getattr(entry, 'error', None)
+                            or getattr(entry, 'message', None)
+                            or getattr(entry, 'error_message', None)
+                            or "Unknown error"
+                        )
+                        failed_items.append({
+                            'name': item.name,
+                            'error': error_msg
+                        })
+
+        # Save updated manifest
+        self.save_platform_manifest(
+            manifest_items, manifest_path, perform_hash_check=False
+        )
+
+        return {
+            'deployed': deployed_items,
+            'failed': failed_items
+        }
+
+    def _print_deployment_summary(self, results: dict, unchanged: int) -> None:
+        """Print deployment summary."""
+        deployed = results['deployed']
+        failed = results['failed']
+
+        if deployed:
+            self.console.print()
+            for item in deployed:
+                ConsoleStyles.print_success(self.console, f"{item['name']}: Deployed")
+
+        if failed:
+            self.console.print()
+            for item in failed:
+                ConsoleStyles.print_error(self.console, f"{item['name']}: Failed")
+                ConsoleStyles.print_dim(self.console, f"  {item['error']}")
+
+        self.console.print()
+        if failed:
+            ConsoleStyles.print_error(
+                self.console,
+                f"Deploy failed! Items: {len(deployed)} deployed, {len(failed)} failed, {unchanged} unchanged."
+            )
+        else:
+            ConsoleStyles.print_success(
+                self.console,
+                f"Deploy complete! Items: {len(deployed)} deployed, {len(failed)} failed, {unchanged} unchanged."
+            )
+        self.console.print()
+
     def sync_environment(self):
         """Synchronize environment variables and platform folders. Upload to Fabric."""
         # 1) Inject variables into template
@@ -448,8 +529,11 @@ class SyncToFabricEnvironment:
             )
 
             manifest_items_new_updated: list[SyncToFabricEnvironment.manifest_item] = [
-                f for f in manifest_items if f.status in ["new", "updated"]
+                f for f in manifest_items if f.status in ["new", "updated", "failed"]
             ]
+
+            # Initialize deployment results
+            results = {'deployed': [], 'failed': []}
 
             if manifest_items_new_updated:
                 ConsoleStyles.print_success(
@@ -457,93 +541,56 @@ class SyncToFabricEnvironment:
                     f"Found {len(manifest_items_new_updated)} folders to publish",
                 )
 
-                # add the name of items to publish to list[str]
-                items_to_publish = [
-                    f"{item.name}" for item in manifest_items_new_updated
-                ]
-
-                ConsoleStyles.print_info(
-                    self.console, f"Items to publish: {items_to_publish}"
-                )
+                items_to_publish = [f"{item.name}" for item in manifest_items_new_updated]
+                ConsoleStyles.print_info(self.console, f"Items to publish: {items_to_publish}")
 
                 _item_type_in_scope = os.getenv("ITEM_TYPES_TO_DEPLOY",'')
-
                 if _item_type_in_scope == '':
                     item_type_in_scope=[
-                                "VariableLibrary","DataPipeline","Environment","Notebook","Report","SemanticModel","Lakehouse","MirroredDatabase","CopyJob","Eventhouse","Reflex","Eventstream","Warehouse","SQLDatabase","GraphQLApi",
-                            ]
+                        "VariableLibrary","DataPipeline","Environment","Notebook","Report","SemanticModel","Lakehouse","MirroredDatabase","CopyJob","Eventhouse","Reflex","Eventstream","Warehouse","SQLDatabase","GraphQLApi",
+                    ]
                     ConsoleStyles.print_info(self.console, "Items to be published filter: None")
                 else:
                     ConsoleStyles.print_info(self.console, "Items to be published filter: " + _item_type_in_scope)
                     item_type_in_scope = [item.strip() for item in _item_type_in_scope.split(',')]
 
-                status_entries: list[PublishLogEntry]
-                status_entries = None
-                # After copying all folders, attempt to publish
                 ConsoleStyles.print_info(self.console, "\nPublishing items...")
+                status_entries: list[PublishLogEntry] = []
+
                 try:
                     fw = FabricWorkspace(
                         workspace_id=self.target_workspace_id,
-                        repository_directory=str(
-                            output_dir
-                        ),  # Changed: publish from output directory
+                        repository_directory=str(output_dir),
                         item_type_in_scope=item_type_in_scope,
                         environment="development",
                     )
-
+                    append_feature_flag("enable_experimental_features")
+                    append_feature_flag("enable_items_to_include")
                     status_entries = publish_all_items(
                         fabric_workspace_obj=fw, items_to_include=items_to_publish
                     )
-
-                    ConsoleStyles.print_success(
-                        self.console, "\nPublishing succeeded. Updating manifest..."
-                    )
-
                 except Exception as e:
-                    # If failed, update status to "failed"
                     ConsoleStyles.print_error(
                         self.console, f"\nPublishing failed with error: {e}"
                     )
-                finally:
-                    # Update status in manifest
-                    for item in manifest_items:
-                        if status_entries is None:
-                            ConsoleStyles.print_warning(
-                                self.console, "Warning: no status entries found."
-                            )
-                            break
-                        else:
-                            for entry in status_entries:
-                                # ConsoleStyles.print_info(self.console, f"Checking status for {entry.name}...")
-                                if (
-                                    f"{entry.name}.{entry.item_type}".lower()
-                                    == item.name.lower()
-                                ):
-                                    if entry.success:
-                                        item.status = "deployed"
-                                        ConsoleStyles.print_success(
-                                            self.console,
-                                            f"Item {item.name} deployed successfully",
-                                        )
-                                    break
-                    # Save updated manifest
-                    self.save_platform_manifest(
-                        manifest_items, manifest_path, perform_hash_check=False
-                    )
-                    ConsoleStyles.print_success(
-                        self.console, "Manifest updated with deployed status"
-                    )
 
-            else:
-                ConsoleStyles.print_info(
-                    self.console, "No folders with new/updated status to publish"
+                results = self._update_manifest_with_results(
+                    manifest_items, status_entries, manifest_path
                 )
+
+            # Calculate unchanged count
+            attempted_item_names = {item.name for item in manifest_items_new_updated}
+            unchanged_count = sum(
+                1 for item in manifest_items
+                if item.name not in attempted_item_names and item.status != "deleted"
+            )
+
+            self._print_deployment_summary(results, unchanged_count)
+
+            if results['failed']:
+                raise SystemExit(1)
         else:
             ConsoleStyles.print_warning(self.console, "Platform manifest not found")
-
-        ConsoleStyles.print_success(
-            self.console, "Promotion utilities initialized successfully."
-        )
 
     def clear_environment(self):
         # make an empty temp dir
@@ -567,7 +614,6 @@ class SyncToFabricEnvironment:
                 "Reflex",
                 "Eventstream",
                 "SQLDatabase",
-                "GraphQLApi",
             ],
             environment=self.environment,
         )
