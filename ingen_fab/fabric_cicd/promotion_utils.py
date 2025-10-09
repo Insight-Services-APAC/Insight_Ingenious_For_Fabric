@@ -179,10 +179,48 @@ class SyncToFabricEnvironment:
 
         return platform_folders
 
+    def _read_local_manifest_file(
+        self, manifest_path: Path
+    ) -> Optional[SyncToFabricEnvironment.manifest]:
+        """Read manifest from local file only, without remote download."""
+        if not manifest_path.exists():
+            return SyncToFabricEnvironment.manifest(
+                platform_folders=[],
+                generated_at=str(Path.cwd()),
+                version="1.0",
+            )
+
+        with open(manifest_path, "r", encoding="utf-8") as f:
+            try:
+                data = f.read()
+                if data.strip() == "":
+                    return SyncToFabricEnvironment.manifest(
+                        platform_folders=[],
+                        generated_at=str(Path.cwd()),
+                        version="1.0",
+                    )
+                else:
+                    manifest_data = yaml.safe_load(data)
+                    return SyncToFabricEnvironment.manifest(
+                        platform_folders=[
+                            SyncToFabricEnvironment.manifest_item(**item)
+                            for item in manifest_data.get("platform_folders", [])
+                        ],
+                        generated_at=manifest_data.get("generated_at"),
+                        version=manifest_data.get("version"),
+                    )
+            except yaml.YAMLError as e:
+                ConsoleStyles.print_error(
+                    self.console, f"Error reading manifest: {e}"
+                )
+                return None
+
     def read_platform_manifest(
         self, manifest_path: Path
     ) -> Optional[SyncToFabricEnvironment.manifest]:
-        
+        """Read the platform folders manifest, downloading from config lakehouse if configured."""
+
+        # If using config lakehouse, always attempt to download from lakehouse first
         if self.workspace_manifest_location == "config_lakehouse":
             ConsoleStyles.print_info(
                 self.console, f"Downloading manifest file from config lakehouse"
@@ -194,49 +232,42 @@ class SyncToFabricEnvironment:
                 config_lakehouse_id = onelake_utils.get_config_lakehouse_id()
                 onelake_utils._get_lakehouse_name(config_lakehouse_id)
                 results = onelake_utils.download_manifest_file_from_config_lakehouse(manifest_path)
+                if not results.get('success'):
+                    ConsoleStyles.print_info(
+                        self.console, f"Manifest not found in config lakehouse - will create new one."
+                    )
             except Exception as e:
+                print(e)
                 ConsoleStyles.print_info(
-                    self.console, f"Config lakehouse does not yet exist."
+                    self.console, f"Config lakehouse does not yet exist - will create new manifest."
                 )
 
-        """Read the platform folders manifest from a YAML file."""
+        # Now read the manifest file (either downloaded or local)
         ConsoleStyles.print_info(self.console, str(Path.cwd()))
         ConsoleStyles.print_info(
             self.console, f"Reading manifest from: {manifest_path}"
         )
+
         if manifest_path.exists():
-            with open(manifest_path, "r", encoding="utf-8") as f:
-                try:
-                    data = f.read()
-                    if data.strip() == "":
-                        ConsoleStyles.print_warning(
-                            self.console, "Manifest file is empty."
-                        )
-                        return SyncToFabricEnvironment.manifest(
-                            platform_folders=[],
-                            generated_at=str(Path.cwd()),
-                            version="1.0",
-                        )
-                    else:
-                        manifest_data = yaml.safe_load(data)
-                        return SyncToFabricEnvironment.manifest(
-                            platform_folders=[
-                                SyncToFabricEnvironment.manifest_item(**item)
-                                for item in manifest_data.get("platform_folders", [])
-                            ],
-                            generated_at=manifest_data.get("generated_at"),
-                            version=manifest_data.get("version"),
-                        )
-                except yaml.YAMLError as e:
-                    ConsoleStyles.print_error(
-                        self.console, f"Error reading manifest: {e}"
-                    )
-                    return None
+            return self._read_local_manifest_file(manifest_path)
         else:
-            ConsoleStyles.print_error(
-                self.console, f"Manifest file not found: {manifest_path}"
-            )
-            return None
+            # File doesn't exist locally
+            if self.workspace_manifest_location == "config_lakehouse":
+                # In config_lakehouse mode, return empty manifest for first deployment
+                ConsoleStyles.print_info(
+                    self.console, f"Creating new empty manifest for first deployment."
+                )
+                return SyncToFabricEnvironment.manifest(
+                    platform_folders=[],
+                    generated_at=str(Path.cwd()),
+                    version="1.0",
+                )
+            else:
+                # In local mode, file must exist
+                ConsoleStyles.print_error(
+                    self.console, f"Manifest file not found: {manifest_path}"
+                )
+                return None
 
     def save_platform_manifest(
         self,
@@ -244,10 +275,10 @@ class SyncToFabricEnvironment:
         output_path: Path,
         perform_hash_check: bool = True,
     ) -> None:
-        """Save the platform folders manifest to a YAML file."""
-        # Load existing manifest if it exists
+        """Save the platform folders manifest to a YAML file and upload to remote if configured."""
+        # Load existing manifest from local file only (don't download from remote)
         on_disk_manifest_items: list[SyncToFabricEnvironment.manifest_item] = []
-        existing_manifest = self.read_platform_manifest(manifest_path=output_path)
+        existing_manifest = self._read_local_manifest_file(manifest_path=output_path)
         if existing_manifest and existing_manifest.platform_folders:
             on_disk_manifest_items = existing_manifest.platform_folders
 
@@ -312,7 +343,9 @@ class SyncToFabricEnvironment:
             yaml.safe_dump(
                 manifest.__dict__, f, default_flow_style=False, sort_keys=False
             )
-        
+
+    def _upload_manifest_to_remote(self, manifest_path: Path) -> None:
+        """Upload manifest file to config lakehouse if configured."""
         if self.workspace_manifest_location == "config_lakehouse":
             ConsoleStyles.print_info(
                 self.console, f"Uploading manifest file to config lakehouse"
@@ -320,7 +353,7 @@ class SyncToFabricEnvironment:
             onelake_utils = OneLakeUtils(
                 environment=self.environment, project_path=Path(self.project_path), console=self.console
             )
-            results = onelake_utils.upload_manifest_file_to_config_lakehouse(output_path)
+            onelake_utils.upload_manifest_file_to_config_lakehouse(manifest_path)
 
     def _update_manifest_with_results(
         self,
@@ -475,7 +508,14 @@ class SyncToFabricEnvironment:
                 self.console, "No notebook files needed variable substitution"
             )
 
-        # 2) Find folders with platform files and generate hashes - SCAN THE OUTPUT DIRECTORY
+        # 2) Download manifest from remote if configured (PULL remote state)
+        manifest_path = Path(
+            f"{self.project_path}/platform_manifest_{self.environment}.yml"
+        )
+        ConsoleStyles.print_info(self.console, "\nLoading platform manifest...")
+        manifest = self.read_platform_manifest(manifest_path)
+
+        # 3) Find folders with platform files and generate hashes - SCAN THE OUTPUT DIRECTORY
         fabric_items_path = (
             output_dir  # Changed: scan the output directory, not the original
         )
@@ -493,9 +533,7 @@ class SyncToFabricEnvironment:
         platform_folders = self.find_platform_folders(
             fabric_items_path, adjust_paths=True
         )
-        manifest_path = Path(
-            f"{self.project_path}/platform_manifest_{self.environment}.yml"
-        )
+
         if platform_folders:
             ConsoleStyles.print_success(
                 self.console,
@@ -506,27 +544,25 @@ class SyncToFabricEnvironment:
                     self.console, f"  - {folder.name}: {folder.hash[:16]}..."
                 )
 
-            # Save manifest
+            # Save manifest locally (merge with downloaded manifest)
             self.save_platform_manifest(
                 platform_folders, manifest_path, perform_hash_check=True
             )
             ConsoleStyles.print_success(
                 self.console, f"\nSaved platform manifest to: {manifest_path}"
             )
+
+            # Re-read manifest after saving to get updated status
+            manifest = self._read_local_manifest_file(manifest_path)
         else:
             ConsoleStyles.print_warning(
                 self.console, "No folders with platform files found."
             )
 
         manifest_items: list[SyncToFabricEnvironment.manifest_item] = []
-        if manifest_path.exists():
-            ConsoleStyles.print_info(self.console, "\nLoading platform manifest...")
-            manifest: SyncToFabricEnvironment.manifest = self.read_platform_manifest(
-                manifest_path
-            )
-            manifest_items: list[SyncToFabricEnvironment.manifest_item] = (
-                manifest.platform_folders
-            )
+
+        if manifest:
+            manifest_items = manifest.platform_folders
 
             manifest_items_new_updated: list[SyncToFabricEnvironment.manifest_item] = [
                 f for f in manifest_items if f.status in ["new", "updated", "failed"]
@@ -586,6 +622,9 @@ class SyncToFabricEnvironment:
             )
 
             self._print_deployment_summary(results, unchanged_count)
+
+            # Upload manifest to remote at the very end (PUSH remote state)
+            self._upload_manifest_to_remote(manifest_path)
 
             if results['failed']:
                 raise SystemExit(1)
