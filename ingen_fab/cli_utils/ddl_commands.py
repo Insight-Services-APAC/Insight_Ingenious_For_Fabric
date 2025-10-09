@@ -32,6 +32,7 @@ def generate_ddl_scripts(ctx, lakehouse):
         "bit": "BooleanType()",
         "nvarchar": "StringType()",
         "varchar": "StringType()",
+        "date": "DateType()",
         "datetime": "TimestampType()",
         "datetime2": "TimestampType()",
         "timestamp": "TimestampType()",
@@ -83,6 +84,7 @@ def generate_ddl_scripts(ctx, lakehouse):
     StringType,
     StructField,
     StructType,
+    DateType,
     TimestampType,
     DecimalType,
     IntegerType    
