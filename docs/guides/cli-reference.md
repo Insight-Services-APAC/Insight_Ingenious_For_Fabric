@@ -104,8 +104,7 @@ ingen_fab init workspace --workspace-name "New Workspace" --create-if-not-exists
 ```
 
 ## ddl {#ddl}
-
-Compile DDL notebooks from templates.
+Compile and generate DDL notebooks and scripts.
 
 #### `ddl compile`
 
@@ -131,6 +130,16 @@ ingen_fab ddl compile --output-mode fabric_workspace_repo --generation-mode Lake
 # Generate with verbose output
 ingen_fab ddl compile -o fabric_workspace_repo -g Warehouse -v
 ```
+
+#### `ddl ddls-from-metadata`
+Generate DDL scripts from lakehouse metadata.
+
+```bash
+ingen_fab ddl ddls-from-metadata --lakehouse lh_bronze
+```
+**Options:**
+- `--lakehouse` / `-l`: Name of lakehouse to generate DDLs for
+- `--verbose` / `-v`: Enable verbose output
 
 ## deploy {#deploy}
 
@@ -626,7 +635,7 @@ ingen_fab libs compile --target-file path/to/mylib.py
 
 ## dbt {#dbt}
 
-Generate notebooks from dbt outputs and proxy commands to dbt_wrapper.
+Generate notebooks from dbt outputs, create schema files fronm metadata, and proxy commands to dbt_wrapper.
 
 #### `dbt create-notebooks`
 
@@ -668,6 +677,22 @@ ingen_fab dbt convert-metadata --dbt-project-dir ./dbt_project
 # Convert metadata for dbt project
 ingen_fab dbt convert-metadata --dbt-project-dir ./analytics/dbt_project
 ```
+
+#### `dbt generate-schema-yml`
+
+Convert cached lakehouse metadata to dbt schema.yml format for a lakehouse and layer.
+
+**Examples:**
+```bash
+
+ingen_fab dbt generate-schema-yml --dbt-project my_dbt_project --lakehouse BronzeLayer --layer staging --dbt-type model
+```
+**Options:**
+- `--dbt-project` / `-p`: Name of the dbt project directory
+- `--lakehouse`: Name of the lakehouse to filter
+- `--layer`: Name of the dbt layer
+- `--dbt-type`: Specify if for source, model or snapshot
+- `--skip-profile-confirmation`: Skip confirmation prompt
 
 #### `dbt` (proxy command)
 
