@@ -7,7 +7,7 @@ stages:
   - group: Sample-Development
   jobs:
   - deployment: DEV_Deployment
-    displayName: DEV to Deployment
+    displayName: DEV Deployment
     pool:
       vmImage: ubuntu-latest
     environment:
@@ -18,55 +18,152 @@ stages:
           steps:
           - checkout: self
             persistCredentials: true
-          - task: AzureKeyVault@2
-            displayName: 'Fetch secrets from Key Vault'
-            inputs:
-              azureSubscription: 'SC_Fabric_Sample_Test'
-              KeyVaultName: 'fabricdevopskv'
-              SecretsFilter: 'DevOpsSCId,DevOpsSCSecret'
-              RunAsPreJob: true
           - task: UsePythonVersion@0
             inputs:
               versionSpec: '3.12'
           - task: AzureCLI@2
-            displayName: 'Setup Python Environment, Install Dependencies and deploy'
+            displayName: 'Install Ingenious'
             inputs:
               azureSubscription: "SC_Fabric_Sample_Test"
               scriptType: "bash"
               scriptLocation: "inlineScript"
               inlineScript: |
-                echo "--------------- Creating virtual Environment--------------- "
-                python3 -m venv .env
-                echo "--------------- Activating virtual Environment--------------- "
-                source ./.env/bin/activate
-                if [ -n "$VIRTUAL_ENV" ]; then
-                  echo "Running in a Python virtual environment: $VIRTUAL_ENV"
-                else
-                  echo "Not running in a Python virtual environment."
-                fi
-                echo "--------------- Installing UV --------------- "
-                pip install UV
                 echo "--------------- Installing Ingenious --------------- "
-                uv pip install git+https://github.com/Insight-Services-APAC/Insight_Ingenious_For_Fabric.git --prerelease=allow
-                echo "--------------- Manual login --------------- "
-                az login --service-principal -u $(DevOpsSCId)" -p $(DevOpsSCSecret)" --tenant xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx
-                echo "--------------- Running ingen_fab deploy deploy --------------- "
+                pip install git+https://github.com/Insight-Services-APAC/Insight_Ingenious_For_Fabric.git@feature/fabric-cicd-updates
+            env:
+              FABRIC_ENVIRONMENT: $(FABRIC_ENVIRONMENT)
+              FABRIC_WORKSPACE_REPO_DIR: SAMPLE
+              WORKSPACE_MANIFEST_LOCATION: config_lakehouse
+              IS_SINGLE_WORKSPACE: $(IS_SINGLE_WORKSPACE)
+          - task: AzureCLI@2
+            displayName: 'Deploy Fabric artefacts'
+            inputs:
+              azureSubscription: "SC_Fabric_Sample_Test"
+              scriptType: "bash"
+              scriptLocation: "inlineScript"
+              inlineScript: |
+                echo "--------------- Deploy Fabric artefacts --------------- "
                 ingen_fab deploy deploy
-                echo "--------------- Running ingen_fab init workspace --workspace-name sample_dev --------------- "
-                ingen_fab init workspace --workspace-name sample_dev
-                echo "--------------- ingen_fab deploy upload-python-libs --------------- "
+            env:
+              FABRIC_ENVIRONMENT: $(FABRIC_ENVIRONMENT)
+              FABRIC_WORKSPACE_REPO_DIR: SAMPLE
+              WORKSPACE_MANIFEST_LOCATION: config_lakehouse
+              IS_SINGLE_WORKSPACE: $(IS_SINGLE_WORKSPACE)
+          - task: AzureCLI@2
+            displayName: 'Update Workspace variables'
+            inputs:
+              azureSubscription: "SC_Fabric_Sample_Test"
+              scriptType: "bash"
+              scriptLocation: "inlineScript"
+              inlineScript: |
+                echo "--------------- Update Workspace variables --------------- "
+                ingen_fab init workspace --workspace-name SAMPLE_dev
+            env:
+              FABRIC_ENVIRONMENT: $(FABRIC_ENVIRONMENT)
+              FABRIC_WORKSPACE_REPO_DIR: SAMPLE
+              WORKSPACE_MANIFEST_LOCATION: config_lakehouse
+              IS_SINGLE_WORKSPACE: $(IS_SINGLE_WORKSPACE)
+          - task: AzureCLI@2
+            displayName: 'Upload Python Libs'
+            inputs:
+              azureSubscription: "SC_Fabric_Sample_Test"
+              scriptType: "bash"
+              scriptLocation: "inlineScript"
+              inlineScript: |
+                echo "--------------- Upload Python Libs --------------- "
                 ingen_fab deploy upload-python-libs
-                echo "--------------- Done  --------------- "
-
             env:
               FABRIC_ENVIRONMENT: $(FABRIC_ENVIRONMENT)
               FABRIC_WORKSPACE_REPO_DIR: SAMPLE
               WORKSPACE_MANIFEST_LOCATION: config_lakehouse
               IS_SINGLE_WORKSPACE: $(IS_SINGLE_WORKSPACE)
           - script: |
-              git config --global user.email "jp.vanheerden@insight.com"
-              git config --global user.name "JP"
+              git config --global user.email "user@domain.com"
+              git config --global user.name "user"
               git add .
               git commit -m "Automated file update from pipeline"
-              git push origin HEAD:main
+              git push origin HEAD:$(Build.SourceBranchName)
+            displayName: 'Commit and push changes to repository'
+- stage: 'TST'
+  displayName: 'TST'
+  variables:
+  - group: Sample-Test
+  jobs:
+  - deployment: TST_Deployment
+    displayName: TST Deployment
+    pool:
+      vmImage: ubuntu-latest
+    environment:
+      name: 'Sample-TST'
+    strategy:
+      runOnce:
+        deploy:
+          steps:
+          - checkout: self
+            persistCredentials: true
+          - task: UsePythonVersion@0
+            inputs:
+              versionSpec: '3.12'
+          - task: AzureCLI@2
+            displayName: 'Install Ingenious'
+            inputs:
+              azureSubscription: "SC_Fabric_Sample_Test"
+              scriptType: "bash"
+              scriptLocation: "inlineScript"
+              inlineScript: |
+                echo "--------------- Installing Ingenious --------------- "
+                pip install git+https://github.com/Insight-Services-APAC/Insight_Ingenious_For_Fabric.git@feature/fabric-cicd-updates
+            env:
+              FABRIC_ENVIRONMENT: $(FABRIC_ENVIRONMENT)
+              FABRIC_WORKSPACE_REPO_DIR: SAMPLE
+              WORKSPACE_MANIFEST_LOCATION: config_lakehouse
+              IS_SINGLE_WORKSPACE: $(IS_SINGLE_WORKSPACE)
+          - task: AzureCLI@2
+            displayName: 'Deploy Fabric artefacts'
+            inputs:
+              azureSubscription: "SC_Fabric_Sample_Test"
+              scriptType: "bash"
+              scriptLocation: "inlineScript"
+              inlineScript: |
+                echo "--------------- Deploy Fabric artefacts --------------- "
+                ingen_fab deploy deploy
+            env:
+              FABRIC_ENVIRONMENT: $(FABRIC_ENVIRONMENT)
+              FABRIC_WORKSPACE_REPO_DIR: SAMPLE
+              WORKSPACE_MANIFEST_LOCATION: config_lakehouse
+              IS_SINGLE_WORKSPACE: $(IS_SINGLE_WORKSPACE)
+          - task: AzureCLI@2
+            displayName: 'Update Workspace variables'
+            inputs:
+              azureSubscription: "SC_Fabric_Sample_Test"
+              scriptType: "bash"
+              scriptLocation: "inlineScript"
+              inlineScript: |
+                echo "--------------- Update Workspace variables --------------- "
+                ingen_fab init workspace --workspace-name SAMPLE_tst
+            env:
+              FABRIC_ENVIRONMENT: $(FABRIC_ENVIRONMENT)
+              FABRIC_WORKSPACE_REPO_DIR: SAMPLE
+              WORKSPACE_MANIFEST_LOCATION: config_lakehouse
+              IS_SINGLE_WORKSPACE: $(IS_SINGLE_WORKSPACE)
+          - task: AzureCLI@2
+            displayName: 'Upload Python Libs'
+            inputs:
+              azureSubscription: "SC_Fabric_Sample_Test"
+              scriptType: "bash"
+              scriptLocation: "inlineScript"
+              inlineScript: |
+                echo "--------------- Upload Python Libs --------------- "
+                ingen_fab deploy upload-python-libs
+            env:
+              FABRIC_ENVIRONMENT: $(FABRIC_ENVIRONMENT)
+              FABRIC_WORKSPACE_REPO_DIR: SAMPLE
+              WORKSPACE_MANIFEST_LOCATION: config_lakehouse
+              IS_SINGLE_WORKSPACE: $(IS_SINGLE_WORKSPACE)
+          - script: |
+              git config --global user.email "user@domain.com"
+              git config --global user.name "user"
+              git add .
+              git commit -m "Automated file update from pipeline"
+              git push origin HEAD:$(Build.SourceBranchName)
             displayName: 'Commit and push changes to repository'
