@@ -8,42 +8,79 @@ sample_data = [
         "synapse_connection_name": "SynapseConnection",
         "source_schema_name": "dbo",
         "source_table_name": "DimCustomer",
+        "export_base_dir": "exports",
         "extract_mode": "snapshot",
         "single_date_filter": None,
         "date_range_filter": None,
+        "custom_select_sql": None,
         "execution_group": 1,
         "active_yn": "Y",
-        "pipeline_id": "00000000-0000-0000-0000-000000000000",
-        "synapse_datasource_name": "SynapseDatasource",
-        "synapse_datasource_location": "https://onelake.dfs.fabric.microsoft.com/workspace/lakehouse/Files"
+        "synapse_sync_fabric_pipeline_id": None,
+        "synapse_datasource_name": None,
+        "synapse_datasource_location": None
     },
     {
         "synapse_connection_name": "SynapseConnection",
         "source_schema_name": "dbo",
         "source_table_name": "FactSales",
+        "export_base_dir": "exports",
         "extract_mode": "incremental",
-        "single_date_filter": "WHERE DATE_SK = @date",
-        "date_range_filter": "WHERE DATE_SK BETWEEN @start_date AND @end_date",
+        "single_date_filter": "WHERE SALE_DATE >= '@date' AND SALE_DATE < DATEADD(DAY, 1, '@date')",
+        "date_range_filter": "WHERE SALE_DATE >= '@start_date' AND SALE_DATE < DATEADD(DAY, 1, '@end_date')",
+        "custom_select_sql": None,
         "execution_group": 2,
         "active_yn": "Y",
-        "pipeline_id": "00000000-0000-0000-0000-000000000000",
-        "synapse_datasource_name": "SynapseDatasource",
-        "synapse_datasource_location": "https://onelake.dfs.fabric.microsoft.com/workspace/lakehouse/Files"
+        "synapse_sync_fabric_pipeline_id": None,
+        "synapse_datasource_name": None,
+        "synapse_datasource_location": None
+    },
+    {
+        "synapse_connection_name": "SynapseConnection",
+        "source_schema_name": "staging",
+        "source_table_name": "OrderLines",
+        "export_base_dir": "exports",
+        "extract_mode": "incremental",
+        "single_date_filter": "WHERE MODIFIED_DATE >= '@date' AND MODIFIED_DATE < DATEADD(DAY, 1, '@date')",
+        "date_range_filter": "WHERE MODIFIED_DATE >= '@start_date' AND MODIFIED_DATE < DATEADD(DAY, 1, '@end_date')",
+        "custom_select_sql": None,
+        "execution_group": 2,
+        "active_yn": "Y",
+        "synapse_sync_fabric_pipeline_id": None,
+        "synapse_datasource_name": None,
+        "synapse_datasource_location": None
+    },
+    {
+        "synapse_connection_name": "SynapseConnection",
+        "source_schema_name": "reporting",
+        "source_table_name": "SalesMetrics",
+        "export_base_dir": "exports",
+        "extract_mode": "snapshot",
+        "single_date_filter": None,
+        "date_range_filter": None,
+        "custom_select_sql": "SELECT * FROM reporting.SalesMetrics WHERE region IN ('US', 'EU')",
+        "execution_group": 3,
+        "active_yn": "Y",
+        "synapse_sync_fabric_pipeline_id": None,
+        "synapse_datasource_name": None,
+        "synapse_datasource_location": None
     }
 ]
 
+# Updated schema to match enhanced configuration table structure
 schema = StructType([
     StructField("synapse_connection_name", StringType(), False),
     StructField("source_schema_name", StringType(), False),
     StructField("source_table_name", StringType(), False),
+    StructField("export_base_dir", StringType(), True),
     StructField("extract_mode", StringType(), False),
     StructField("single_date_filter", StringType(), True),
     StructField("date_range_filter", StringType(), True),
+    StructField("custom_select_sql", StringType(), True),
     StructField("execution_group", IntegerType(), False),
     StructField("active_yn", StringType(), False),
-    StructField("pipeline_id", StringType(), False),
-    StructField("synapse_datasource_name", StringType(), False),
-    StructField("synapse_datasource_location", StringType(), False)
+    StructField("synapse_sync_fabric_pipeline_id", StringType(), True),
+    StructField("synapse_datasource_name", StringType(), True),
+    StructField("synapse_datasource_location", StringType(), True)
 ])
 
 # Convert list to DataFrame using target_lakehouse

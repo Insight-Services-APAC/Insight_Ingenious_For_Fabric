@@ -1,7 +1,7 @@
 """
 Synapse Sync Package
 
-This module provides functionality to compile and generate synapse sync
+This module provides functionality to compile and generate Synapse Sync
 notebooks and DDL scripts based on templates.
 """
 
@@ -12,7 +12,7 @@ from ingen_fab.notebook_utils.base_notebook_compiler import BaseNotebookCompiler
 
 
 class SynapseSyncCompiler(BaseNotebookCompiler):
-    """Compiler for synapse sync templates"""
+    """Compiler for Synapse Sync templates"""
 
     def __init__(self, fabric_workspace_repo_dir: str = None):
         self.package_dir = Path(__file__).parent
@@ -41,17 +41,54 @@ class SynapseSyncCompiler(BaseNotebookCompiler):
                 f"[bold blue]DDL Scripts Directory:[/bold blue] {self.ddl_scripts_dir}"
             )
 
-    def compile_notebook(self, template_vars: Dict[str, Any] = None) -> Path:
-        """Compile the synapse sync notebook template"""
-
+    def compile_notebook(self, template_vars: Dict[str, Any] = None, notebook_type: str = "daily") -> Path:
+        """Compile Synapse Sync notebook templates (daily, retry)."""
+        
+        # Define template mappings for supported notebook types
+        notebook_templates = {
+            "daily": {
+                "template_name": "synapse_extract_daily_driver_notebook.py.jinja",
+                "output_name": "synapse_extract_daily_driver",
+                "display_name": "Synapse Extract Daily Driver",
+                "description": "Main orchestration notebook for automated daily and historical Synapse data extractions."
+            },
+            "retry": {
+                "template_name": "synapse_extract_retry_helper_notebook.py.jinja",
+                "output_name": "synapse_extract_retry_helper",
+                "display_name": "Synapse Extract Retry Helper",
+                "description": "Retry helper for failed Synapse extractions, intended for cases where transient error handling is not sufficient."
+            }
+        }
+        
+        # Get template configuration
+        template_config = notebook_templates.get(notebook_type, notebook_templates["daily"])
+        
         return self.compile_notebook_from_template(
-            template_name="synapse_sync_notebook.py.jinja",
-            output_notebook_name="synapse_sync_processor",
+            template_name=template_config["template_name"],
+            output_notebook_name=template_config["output_name"],
             template_vars=template_vars,
-            display_name="Synapse Sync Processor",
-            description="Orchestrates extraction of data from Azure Synapse Analytics to Parquet files stored in ADLS",
+            display_name=template_config["display_name"],
+            description=template_config["description"],
             output_subdir="synapse_sync",
         )
+
+    def compile_all_notebooks(self, template_vars: Dict[str, Any] = None) -> Dict[str, Path]:
+        """Compile all Synapse Sync notebook templates"""
+        notebooks = {}
+        
+        for notebook_type in ["daily", "retry"]:
+            try:
+                notebook_path = self.compile_notebook(template_vars, notebook_type)
+                notebooks[notebook_type] = notebook_path
+                
+                if self.console:
+                    self.console.print(f"[green]✓ Compiled {notebook_type} notebook:[/green] {notebook_path}")
+            except Exception as e:
+                if self.console:
+                    self.console.print(f"[red]✗ Failed to compile {notebook_type} notebook:[/red] {e}")
+                notebooks[notebook_type] = None
+        
+        return notebooks
 
     def compile_ddl_scripts(self, include_sample_data: bool = False) -> List[Path]:
         """Compile DDL scripts to the target directory"""
@@ -194,43 +231,81 @@ class SynapseSyncCompiler(BaseNotebookCompiler):
         return results
 
     def compile_all(
-        self, template_vars: Dict[str, Any] = None, include_samples: bool = False
+        self, template_vars: Dict[str, Any] = None, include_samples: bool = False, compile_all_notebooks: bool = True
     ) -> Dict[str, Any]:
         """Compile all templates and DDL scripts"""
 
-        compile_functions = [
-            (self.compile_notebook, [template_vars], {}),
-            (self.compile_ddl_scripts, [], {"include_sample_data": include_samples}),
-        ]
+        if compile_all_notebooks:
+            # Compile all supported notebooks
+            compile_functions = [
+                (self.compile_all_notebooks, [template_vars], {}),
+                (self.compile_ddl_scripts, [], {"include_sample_data": include_samples}),
+            ]
+        else:
+            # Maintain backward compatibility - compile only daily notebook (TODO: remove)
+            compile_functions = [
+                (self.compile_notebook, [template_vars], {}),
+                (self.compile_ddl_scripts, [], {"include_sample_data": include_samples}),
+            ]
 
         results = self.compile_all_with_results(
             compile_functions, "Synapse Sync Package Compiler"
         )
 
-        # Transform results for backward compatibility
         if results["success"]:
-            notebook_file = results["compiled_items"].get("compile_notebook")
-            ddl_files = results["compiled_items"].get("compile_ddl_scripts", [])
+            if compile_all_notebooks:
+                notebook_files = results["compiled_items"].get("compile_all_notebooks", {})
+                ddl_files = results["compiled_items"].get("compile_ddl_scripts", [])
+                
+                # Count successful notebook compilations
+                successful_notebooks = sum(1 for path in notebook_files.values() if path is not None)
+                
+                success_message = (
+                    f"✓ Successfully compiled Synapse Sync package\n"
+                    f"Notebooks: {successful_notebooks} compiled ({', '.join(notebook_files.keys())})\n"
+                    f"DDL Scripts: {len(ddl_files)} files\n"
+                    f"📈 New Features:\n"
+                    f"  - Enhanced orchestration with concurrency control\n"
+                    f"  - Intelligent retry mechanisms with exponential backoff\n"
+                    f"  - Custom SQL support for complex extractions\n"
+                    f"  - Advanced error handling and logging\n"
+                    f"  - Fabric-specific variable injection"
+                )
 
-            success_message = (
-                f"✓ Successfully compiled synapse sync package\n"
-                f"Notebook: {notebook_file}\n"
-                f"DDL Scripts: {len(ddl_files)} files\n"
-                f"📈 Improvements: Uses Pipeline_Utils for better error handling and modularity"
-            )
+                self.print_success_panel("Enhanced Compilation Complete", success_message)
 
-            self.print_success_panel("Compilation Complete", success_message)
+                # Return enhanced format
+                return {
+                    "notebook_files": notebook_files,
+                    "ddl_files": ddl_files,
+                    "success": True,
+                    "errors": [],
+                    "notebook_file": notebook_files.get("daily"),  # Backward compatibility (TODO: remove)
+                }
+            else:
+                # Backward compatibility path (TODO: remove)
+                notebook_file = results["compiled_items"].get("compile_notebook")
+                ddl_files = results["compiled_items"].get("compile_ddl_scripts", [])
 
-            # Return in expected format
-            return {
-                "notebook_file": notebook_file,
-                "ddl_files": ddl_files,
-                "success": True,
-                "errors": [],
-            }
+                success_message = (
+                    f"✓ Successfully compiled Synapse Sync package\n"
+                    f"Notebook: {notebook_file}\n"
+                    f"DDL Scripts: {len(ddl_files)} files\n"
+                    f"📈 Improvements: Enhanced with new orchestration capabilities"
+                )
+
+                self.print_success_panel("Compilation Complete", success_message)
+
+                return {
+                    "notebook_file": notebook_file,
+                    "ddl_files": ddl_files,
+                    "success": True,
+                    "errors": [],
+                }
         else:
             return {
                 "notebook_file": None,
+                "notebook_files": {},
                 "ddl_files": [],
                 "success": False,
                 "errors": results["errors"],
@@ -241,8 +316,19 @@ def compile_synapse_sync_package(
     fabric_workspace_repo_dir: str = None,
     template_vars: Dict[str, Any] = None,
     include_samples: bool = False,
+    compile_all_notebooks: bool = True,
 ) -> Dict[str, Any]:
-    """Main function to compile the synapse sync package"""
+    """Main function to compile the Synapse Sync package
+    
+    Args:
+        fabric_workspace_repo_dir: Target directory for compilation
+        template_vars: Variables to inject into templates (includes new Fabric-specific variables)
+        include_samples: Whether to include sample data scripts
+        compile_all_notebooks: Whether to compile all notebooks (True) or just daily (False)
+        
+    Returns:
+        Dict containing compilation results with enhanced notebook support
+    """
 
     compiler = SynapseSyncCompiler(fabric_workspace_repo_dir)
-    return compiler.compile_all(template_vars, include_samples=include_samples)
+    return compiler.compile_all(template_vars, include_samples=include_samples, compile_all_notebooks=compile_all_notebooks)
