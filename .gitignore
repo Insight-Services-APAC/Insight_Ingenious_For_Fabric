@@ -30,3 +30,6 @@ derby.log
 /artefacts/**/*/
 # pip install testing
 pip_install_test/
+
+/_tmp/
+/test_synapse_sync/

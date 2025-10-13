@@ -1,0 +1,317 @@
+{%- import 'shared/notebook/macros/notebook_macros.py.jinja' as macros -%}
+# Fabric notebook source
+
+# METADATA ********************
+
+# META {
+# META   "kernel_info": {
+# META     "name": "synapse_pyspark",
+# META     "display_name": "Synapse PySpark"
+# META   },
+# META   "language_info": {
+# META     "name": "python"
+# META   }
+# META }
+
+{{ macros.parameters_cell() }}
+MASTER_EXECUTION_ID = None  # auto-UUID if None
+MAX_CONCURRENCY = 10
+INCLUDE_SNAPSHOTS = True  # include snapshot tables in the extraction
+EXTRACTION_START_DATE = None  # string YYYY-MM-DD; defaults to current date - 4 days
+EXTRACTION_END_DATE = None    # string YYYY-MM-DD; defaults to current date
+
+{{ macros.python_cell_with_heading("## Synapse Extract Daily Driver") }}
+
+# **Synapse Extract Daily Driver**
+# 
+# ## Overview
+# 
+# The Synapse extraction process automates the extraction of data from Azure Synapse Analytics to Parquet files stored in ADLS. It supports two primary modes:
+# 
+# 1. **Daily Extraction** – Date-windowed incremental extracts, with snapshots for other objects
+# 2. **Historical Extraction** – Processes specific tables/dates via JSON input
+# 
+# The process leverages Microsoft Fabric's REST API to trigger pipelines that execute CETAS (CREATE EXTERNAL TABLE AS SELECT) operations in Synapse.
+# 
+# ## Architecture
+# 
+# ### Key Components
+# - Driver Notebook (this notebook): Main orchestration
+# - Configuration table: `synapse_extract_objects`
+# - Fabric Pipeline: Executes CETAS operations
+# - Retry Helper: `synapse_extract_retry_helper`
+# 
+# ## Extraction Process
+# 1. Initialisation: load env, initialise utilities and parameters
+# 2. Work Item Construction: from config (daily) or JSON (historical)
+# 3. Payload Preparation: script content, paths, pipeline parameters
+# 4. Orchestration: pre-log queued, process groups with bounded concurrency
+# 5. Monitoring & Logging: update states, poll pipelines, record metrics
+# 6. Summary: success/failure counts and details
+# 
+# ## Extraction Modes
+# 
+# ### Incremental Mode
+# Uses date filters and writes to: `exports/incremental/{SCHEMA}_{OBJECT}/YYYY/MM/DD/`
+# 
+# ### Snapshot Mode
+# Full extract, writes to: `exports/snapshot/{SCHEMA}_{OBJECT}/`
+# 
+# ## Execution Groups
+# Control extraction order; groups run sequentially, items within a group can run in parallel.
+# 
+# ## Error Handling
+# Retries with jitter, detailed logging, and a retry helper notebook for incomplete runs.
+# 
+# ## Monitoring and Troubleshooting
+# 
+# ### Log Table Queries
+# Example:
+#   select * from synapse_extract_run_log where master_execution_id = '<id>'
+# 
+# ### Retry Process
+# Use `synapse_extract_retry_helper` with a prior master_execution_id to reprocess incomplete items.
+# 
+# ## Performance Considerations
+# Tune `MAX_CONCURRENCY`, group related tables, and optionally exclude snapshots during historical runs.
+
+{% set runtime_type = "pyspark" %}
+{% set language_group = "synapse_pyspark" %}
+{% set include_ddl_utils = false %}
+
+{% include 'shared/notebook/environment/library_loader.py.jinja' %}
+
+{{ macros.python_cell_with_heading("## Load configuration") }}
+{% include 'shared/notebook/environment/config_loader.py.jinja' %}
+
+{{ macros.python_cell_with_heading("## Import libraries") }}
+
+import asyncio
+import nest_asyncio
+import json
+import logging
+import uuid
+import time
+from dataclasses import dataclass
+from datetime import date, datetime, timedelta, timezone
+from typing import Dict, List, Tuple, Optional, Any
+
+import numpy as np
+import pyarrow as pa
+from delta.tables import DeltaTable
+
+import pyspark.sql.functions as F
+from pyspark.sql.types import *
+
+from ingen_fab.python_libs.pyspark.synapse_orchestrator import SynapseOrchestrator
+from ingen_fab.python_libs.pyspark.synapse_extract_utils import SynapseExtractUtils
+
+import sempy.fabric as fabric
+from sempy.fabric.exceptions import FabricHTTPException, WorkspaceNotFoundException
+
+{{ macros.python_cell_with_heading("## Configure logging") }}
+logging.basicConfig(level=logging.INFO, format='%(asctime)s %(levelname)s %(message)s')
+logger = logging.getLogger(__name__)
+
+nest_asyncio.apply()
+
+{{ macros.python_cell_with_heading("## Define constants") }}
+
+# Parse global date params (strings) or apply defaults
+if EXTRACTION_START_DATE is None:
+    EXTRACTION_START_DATE = (datetime.now(timezone.utc) - timedelta(days=4)).date()
+else:
+    EXTRACTION_START_DATE = datetime.strptime(EXTRACTION_START_DATE, "%Y-%m-%d").date()
+
+if EXTRACTION_END_DATE is None:
+    EXTRACTION_END_DATE = datetime.now(timezone.utc).date()
+else:
+    EXTRACTION_END_DATE = datetime.strptime(EXTRACTION_END_DATE, "%Y-%m-%d").date()
+
+# Inject Fabric variables from Variable Library value set
+SYNAPSE_DATASOURCE_NAME = "{% raw %}{{varlib:synapse_datasource_name}}{% endraw %}"
+SYNAPSE_DATASOURCE_LOCATION = "{% raw %}{{varlib:synapse_datasource_location}}{% endraw %}"
+FABRIC_WORKSPACE_ID = "{% raw %}{{varlib:fabric_deployment_workspace_id}}{% endraw %}"
+FABRIC_LAKEHOUSE_ID = "{% raw %}{{varlib:config_lakehouse_id}}{% endraw %}"
+FABRIC_ENVIRONMENT = "{% raw %}{{varlib:fabric_environment}}{% endraw %}"
+PIPELINE_NAME = "{% raw %}{{varlib:synapse_sync_fabric_pipeline_name}}{% endraw %}"
+
+# Resolve pipeline ID by name
+try:
+    FABRIC_PIPELINE_ID = SynapseOrchestrator.resolve_pipeline_id_by_name(
+        FABRIC_WORKSPACE_ID,
+        PIPELINE_NAME,
+    )
+except Exception as e:
+    raise RuntimeError(f"Cannot proceed without valid pipeline ID: {e}") from e
+
+MASTER_EXECUTION_PARAMETERS = {
+    "start_date": {
+        "year": EXTRACTION_START_DATE.year,
+        "month": EXTRACTION_START_DATE.month,
+        "day": EXTRACTION_START_DATE.day
+    },
+    "end_date": {
+        "year": EXTRACTION_END_DATE.year,
+        "month": EXTRACTION_END_DATE.month,
+        "day": EXTRACTION_END_DATE.day
+    }
+}
+
+TRIGGER_TYPE = "Manual"
+
+{{ macros.python_cell_with_heading("## Initialise utilities") }}
+
+# Initialise lakehouse utilities
+lakehouse = lakehouse_utils(
+    target_workspace_id=FABRIC_WORKSPACE_ID,
+    target_lakehouse_id=FABRIC_LAKEHOUSE_ID,
+    spark=spark
+)
+
+extract_utils = SynapseExtractUtils(lakehouse=lakehouse)
+orchestrator = SynapseOrchestrator(lakehouse=lakehouse)
+
+logger.info(f"Loaded configuration for environment: {FABRIC_ENVIRONMENT}")
+
+{{ macros.python_cell_with_heading("## Construct extract work items") }}
+
+# Generate master execution ID
+if MASTER_EXECUTION_ID is None:
+    master_execution_id = str(uuid.uuid4())
+else:
+    master_execution_id = MASTER_EXECUTION_ID
+
+logger.info(f"DAILY EXTRACTION MODE - Master Execution ID: {master_execution_id}")
+logger.info(f"Date Range: {EXTRACTION_START_DATE} to {EXTRACTION_END_DATE}")
+logger.info(f"Include Snapshots: {INCLUDE_SNAPSHOTS}")
+logger.info(f"Max Concurrency: {MAX_CONCURRENCY}")
+logger.info(f"Using datasource: {SYNAPSE_DATASOURCE_NAME}")
+
+# Prepare work items
+work_items = orchestrator.prepare_work_items(
+    synapse_sync_fabric_pipeline_id = FABRIC_PIPELINE_ID,
+    synapse_datasource_name = SYNAPSE_DATASOURCE_NAME,
+    synapse_datasource_location = SYNAPSE_DATASOURCE_LOCATION,
+    trigger_type=TRIGGER_TYPE,
+    master_execution_parameters=MASTER_EXECUTION_PARAMETERS,
+    work_items_json=None,  # None for daily mode
+    include_snapshots=INCLUDE_SNAPSHOTS,
+    extraction_start_date=str(EXTRACTION_START_DATE),
+    extraction_end_date=str(EXTRACTION_END_DATE)
+)
+
+if not work_items:
+    logger.warning("No work items found for processing")
+    print("No tables configured for extraction.")
+else:
+    logger.info(f"Prepared {len(work_items)} work items for processing")
+    
+    # Build extraction payloads and pre-log as 'Queued' to the run log
+    work_item_dicts = [
+        {
+            "source_schema_name": wi.source_schema_name,
+            "source_table_name": wi.source_table_name,
+            "extract_mode": wi.extract_mode,
+            "execution_group": wi.execution_group,
+            "export_base_dir": wi.export_base_dir,
+            "extract_start_dt": wi.extract_start_dt,
+            "extract_end_dt": wi.extract_end_dt,
+            "synapse_connection_name": wi.synapse_connection_name,
+            "single_date_filter": wi.single_date_filter,
+            "date_range_filter": wi.date_range_filter,
+            "custom_select_sql": wi.custom_select_sql,
+            "synapse_sync_fabric_pipeline_id": wi.synapse_sync_fabric_pipeline_id,
+            "synapse_datasource_name": wi.synapse_datasource_name,
+            "synapse_datasource_location": wi.synapse_datasource_location,
+        }
+        for wi in work_items
+    ]
+    # Attach run-scoped metadata to each work item dict (single source of truth)
+    for wi in work_item_dicts:
+        wi["trigger_type"] = TRIGGER_TYPE
+        wi["master_execution_parameters"] = MASTER_EXECUTION_PARAMETERS
+
+    extraction_payloads = extract_utils.prepare_extract_payloads(
+        work_items=work_item_dicts,
+        master_execution_id=master_execution_id,
+    )
+    if not extraction_payloads:
+        logger.warning("No extraction payloads prepared; skipping execution")
+        print("ℹ️  No extraction payloads prepared.")
+    else:
+        execution_id_map = extract_utils.bulk_insert_queued_extracts(
+            extraction_payloads
+        )
+        # Build external_table map keyed by schema.table|start|end|mode
+        external_table_map = {}
+        for r in extraction_payloads:
+            key = f"{r['source_schema_name']}.{r['source_table_name']}|{r.get('extract_start_dt') or ''}|{r.get('extract_end_dt') or ''}|{r.get('extract_mode') or ''}"
+            external_table_map[key] = r.get('external_table')
+    
+    # Group by execution group for summary
+    execution_groups = {}
+    for item in work_items:
+        group = item.execution_group
+        if group not in execution_groups:
+            execution_groups[group] = 0
+        execution_groups[group] += 1
+    
+    logger.info(f"Execution groups: {dict(sorted(execution_groups.items()))}")
+
+{{ macros.python_cell_with_heading("## Orchestrate extraction") }}
+
+if work_items and extraction_payloads:
+    logger.info("Starting extraction process")
+    
+    extraction_summary = await orchestrator.run_async_orchestration(
+        work_items=work_items,
+        master_execution_id=master_execution_id,
+        max_concurrency=MAX_CONCURRENCY,
+        synapse_sync_fabric_pipeline_id=FABRIC_PIPELINE_ID,
+        workspace_id=FABRIC_WORKSPACE_ID,
+        extract_utils=extract_utils,
+        execution_id_map=execution_id_map,
+        external_table_map=external_table_map
+    )
+
+    logger.info("Extraction orchestration process completed")
+
+    # Display comprehensive summary
+    logger.info("=" * 60)
+    logger.info("EXTRACTION SUMMARY")
+    logger.info("=" * 60)
+    logger.info(f"Master Execution ID: {extraction_summary['master_execution_id']}")
+    logger.info(f"Mode: Daily • Completed: {extraction_summary['completion_time']}")
+    logger.info(f"Total Tables: {extraction_summary['total_tables']}")
+    logger.info(f"Successful: {extraction_summary['successful_extractions']}")
+    logger.info(f"Failed: {extraction_summary['failed_extractions']}")
+    logger.info(f"Success Rate: {extraction_summary['success_rate']}")
+    logger.info(f"Execution Groups Processed: {extraction_summary['execution_groups']}")
+    
+    if extraction_summary['failed_extractions'] > 0:
+        logger.warning("FAILED EXTRACTIONS DETAILS:")
+        for i, failed_item in enumerate(extraction_summary['failed_details'], 1):
+            logger.error(f"  {i}. {failed_item['table']} - Error: {failed_item.get('error', 'Unknown error')}")
+        
+        # Calculate failure rate and provide guidance
+        failure_rate = extraction_summary['failed_extractions'] / extraction_summary['total_tables']
+        if failure_rate > 0.25:
+            logger.warning(f"HIGH FAILURE RATE DETECTED! ({failure_rate:.1%})")
+            logger.warning("Consider using the retry helper notebook to reprocess failed extractions")
+        
+        print(f"\n⚠️  {extraction_summary['failed_extractions']} extractions failed - Check logs above for details")
+        print(f"✅ {extraction_summary['successful_extractions']} extractions completed successfully")
+    else:
+        logger.info("🎉 All extractions completed successfully!")
+        print("✅ All daily extractions completed successfully!")
+    
+    print(f"\n📊 Daily extraction completed at: {datetime.now(timezone.utc)}")
+    print(f"📋 Master Execution ID: {master_execution_id}")
+else:
+    logger.info("No work items to process - Daily extraction completed with no operations")
+    print("ℹ️  No tables configured for daily extraction")
+
+{{ macros.exit_notebook("success") }}
+
+{% include 'shared/notebook/cells/footer.py.jinja' %}
