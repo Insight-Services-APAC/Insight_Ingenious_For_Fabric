@@ -22,15 +22,17 @@ console = Console()
 class DBTProfileManager:
     """Manages dbt profile configuration for Fabric Spark notebooks."""
 
-    def __init__(self, workspace_dir: Path, environment: str):
+    def __init__(self, workspace_dir: Path, environment: str, dbt_project_dir: str | None = None):
         """Initialize the DBT Profile Manager.
 
         Args:
             workspace_dir: Path to the fabric workspace repository
             environment: Current FABRIC_ENVIRONMENT value
+            dbt_project_dir: Optional name of the dbt project directory under workspace_dir
         """
         self.workspace_dir = workspace_dir
         self.environment = environment
+        self.dbt_project_dir = dbt_project_dir
         self.profile_path = Path.home() / ".dbt" / "profiles.yml"
         self.var_lib_path = (
             workspace_dir
@@ -39,6 +41,58 @@ class DBTProfileManager:
             / "var_lib.VariableLibrary"
             / "valueSets"
         )
+
+    def get_dbt_profile_name(self) -> str:
+        """Get the dbt profile name from dbt_project.yml file.
+        
+        Returns:
+            The profile name from dbt_project.yml, or 'fabric-spark-testnb' as fallback
+        """
+        # Default fallback profile name
+        default_profile_name = "fabric-spark-testnb"
+        
+        # If no dbt project directory specified, use default
+        if not self.dbt_project_dir:
+            return default_profile_name
+        
+        # Look for dbt_project.yml in the specified directory
+        dbt_project_path = self.workspace_dir / self.dbt_project_dir / "dbt_project.yml"
+        
+        if not dbt_project_path.exists():
+            console.print(
+                f"[yellow]Warning: dbt_project.yml not found at {dbt_project_path}. "
+                f"Using default profile name: {default_profile_name}[/yellow]"
+            )
+            return default_profile_name
+        
+        try:
+            with dbt_project_path.open("r", encoding="utf-8") as f:
+                dbt_config = yaml.safe_load(f)
+            
+            if not dbt_config or not isinstance(dbt_config, dict):
+                console.print(
+                    f"[yellow]Warning: Invalid dbt_project.yml format at {dbt_project_path}. "
+                    f"Using default profile name: {default_profile_name}[/yellow]"
+                )
+                return default_profile_name
+            
+            profile_name = dbt_config.get("profile")
+            if not profile_name:
+                console.print(
+                    f"[yellow]Warning: No 'profile' field found in {dbt_project_path}. "
+                    f"Using default profile name: {default_profile_name}[/yellow]"
+                )
+                return default_profile_name
+            
+            console.print(f"[green]Using profile name from dbt_project.yml: {profile_name}[/green]")
+            return profile_name
+            
+        except (yaml.YAMLError, OSError) as e:
+            console.print(
+                f"[yellow]Warning: Error reading {dbt_project_path}: {e}. "
+                f"Using default profile name: {default_profile_name}[/yellow]"
+            )
+            return default_profile_name
 
     def get_workspace_config(self) -> Dict[str, Any]:
         """Read workspace configuration from variable library.
@@ -195,10 +249,11 @@ class DBTProfileManager:
         Returns:
             The lakehouse prefix if saved, None otherwise
         """
-        if not existing_config or "fabric-spark-testnb" not in existing_config:
+        profile_name = self.get_dbt_profile_name()
+        if not existing_config or profile_name not in existing_config:
             return None
 
-        fabric_config = existing_config["fabric-spark-testnb"]
+        fabric_config = existing_config[profile_name]
         outputs = fabric_config.get("outputs", {})
         target_config = outputs.get("my_project_target", {})
 
@@ -265,8 +320,9 @@ class DBTProfileManager:
                 console.print("Please update the following file with actual values:")
                 console.print(f"  {self.var_lib_path / f'{self.environment}.json'}")
 
+        profile_name = self.get_dbt_profile_name()
         profile_config = {
-            "fabric-spark-testnb": {
+            profile_name: {
                 "outputs": {
                     "my_project_target": {
                         "authentication": "CLI",
@@ -292,7 +348,7 @@ class DBTProfileManager:
 
         # Save the selection preference if we have one
         if selected_prefix:
-            profile_config["fabric-spark-testnb"]["outputs"]["my_project_target"][
+            profile_config[profile_name]["outputs"]["my_project_target"][
                 "_lakehouse_prefix"
             ] = selected_prefix
 
@@ -337,6 +393,7 @@ class DBTProfileManager:
         Returns:
             True if profile was updated or already correct, False if user declined
         """
+        profile_name = self.get_dbt_profile_name()
         existing_config = self.read_existing_profile()
         new_config = self.generate_profile_config(
             ask_for_selection=ask_confirmation, existing_config=existing_config
@@ -367,10 +424,10 @@ class DBTProfileManager:
             )
             return True
 
-        # Check if fabric-spark-testnb exists and matches
-        if "fabric-spark-testnb" in existing_config:
-            existing_fabric = existing_config["fabric-spark-testnb"]
-            new_fabric = new_config["fabric-spark-testnb"]
+        # Check if profile exists and matches
+        if profile_name in existing_config:
+            existing_fabric = existing_config[profile_name]
+            new_fabric = new_config[profile_name]
 
             # Check if configuration matches
             if existing_fabric == new_fabric:
@@ -390,29 +447,29 @@ class DBTProfileManager:
 
             if ask_confirmation:
                 console.print(
-                    "\n[bold]Current fabric-spark-testnb configuration:[/bold]"
+                    f"\n[bold]Current {profile_name} configuration:[/bold]"
                 )
                 console.print(
                     yaml.dump(
-                        {"fabric-spark-testnb": existing_fabric},
+                        {profile_name: existing_fabric},
                         default_flow_style=False,
                     )
                 )
                 console.print("\n[bold]New configuration:[/bold]")
                 console.print(
                     yaml.dump(
-                        {"fabric-spark-testnb": new_fabric}, default_flow_style=False
+                        {profile_name: new_fabric}, default_flow_style=False
                     )
                 )
 
                 if not Confirm.ask(
-                    "Update the fabric-spark-testnb configuration?", default=True
+                    f"Update the {profile_name} configuration?", default=True
                 ):
                     console.print("[red]Profile update cancelled.[/red]")
                     return False
 
             # Update the configuration
-            existing_config["fabric-spark-testnb"] = new_fabric
+            existing_config[profile_name] = new_fabric
             self.write_profile(existing_config)
             console.print(
                 f"[green]✓ Updated dbt profile at {self.profile_path}[/green]"
@@ -420,10 +477,10 @@ class DBTProfileManager:
             return True
 
         else:
-            # fabric-spark-testnb doesn't exist, add it
+            # Profile doesn't exist, add it
             console.print(
                 Panel.fit(
-                    f"[yellow]Adding fabric-spark-testnb configuration to existing dbt profile[/yellow]\n"
+                    f"[yellow]Adding {profile_name} configuration to existing dbt profile[/yellow]\n"
                     f"Environment: [bold]{self.environment}[/bold]",
                     title="DBT Profile Update",
                     border_style="yellow",
@@ -444,12 +501,12 @@ class DBTProfileManager:
             existing_config.update(new_config)
             self.write_profile(existing_config)
             console.print(
-                f"[green]✓ Added fabric-spark-testnb to dbt profile at {self.profile_path}[/green]"
+                f"[green]✓ Added {profile_name} to dbt profile at {self.profile_path}[/green]"
             )
             return True
 
 
-def ensure_dbt_profile(ctx: typer.Context, ask_confirmation: bool = True) -> bool:
+def ensure_dbt_profile(ctx: typer.Context, ask_confirmation: bool = True, dbt_project_dir: str | None = None) -> bool:
     """Ensure dbt profile exists and is configured correctly.
 
     This function should be called before any dbt command execution.
@@ -457,6 +514,7 @@ def ensure_dbt_profile(ctx: typer.Context, ask_confirmation: bool = True) -> boo
     Args:
         ctx: Typer context containing workspace configuration
         ask_confirmation: Whether to ask for user confirmation
+        dbt_project_dir: Optional name of the dbt project directory
 
     Returns:
         True if profile is ready, False if user declined or error occurred
@@ -470,7 +528,7 @@ def ensure_dbt_profile(ctx: typer.Context, ask_confirmation: bool = True) -> boo
     environment = os.getenv("FABRIC_ENVIRONMENT", "local")
 
     try:
-        manager = DBTProfileManager(workspace_dir, environment)
+        manager = DBTProfileManager(workspace_dir, environment, dbt_project_dir)
         return manager.check_and_update_profile(ask_confirmation)
     except FileNotFoundError as e:
         console.print(f"[red]Configuration error: {e}[/red]")
@@ -480,7 +538,7 @@ def ensure_dbt_profile(ctx: typer.Context, ask_confirmation: bool = True) -> boo
         return False
 
 
-def ensure_dbt_profile_for_exec(ctx: typer.Context) -> bool:
+def ensure_dbt_profile_for_exec(ctx: typer.Context, dbt_project_dir: str | None = None) -> bool:
     """Ensure dbt profile exists for exec command with special behavior.
 
     This function is specifically for the 'dbt exec' command and:
@@ -490,6 +548,7 @@ def ensure_dbt_profile_for_exec(ctx: typer.Context) -> bool:
 
     Args:
         ctx: Typer context containing workspace configuration
+        dbt_project_dir: Optional name of the dbt project directory
 
     Returns:
         True if profile is ready, False if error occurred
@@ -503,7 +562,8 @@ def ensure_dbt_profile_for_exec(ctx: typer.Context) -> bool:
     environment = os.getenv("FABRIC_ENVIRONMENT", "local")
 
     try:
-        manager = DBTProfileManager(workspace_dir, environment)
+        manager = DBTProfileManager(workspace_dir, environment, dbt_project_dir)
+        profile_name = manager.get_dbt_profile_name()
 
         # Check if we have valid saved configuration
         existing_config = manager.read_existing_profile()
@@ -516,7 +576,7 @@ def ensure_dbt_profile_for_exec(ctx: typer.Context) -> bool:
             saved_prefix
             and saved_prefix in available_lakehouses
             and existing_config
-            and "fabric-spark-testnb" in existing_config
+            and profile_name in existing_config
         )
 
         if has_valid_saved_preference and saved_prefix:
