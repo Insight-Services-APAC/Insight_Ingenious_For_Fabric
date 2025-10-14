@@ -22,7 +22,7 @@ console = Console()
 class DBTProfileManager:
     """Manages dbt profile configuration for Fabric Spark notebooks."""
 
-    def __init__(self, workspace_dir: Path, environment: str, profile_path: Path = Path.home() / ".dbt" / "profiles.yml"):
+    def __init__(self, workspace_dir: Path, environment: str, profile_path: Path):
         """Initialize the DBT Profile Manager.
 
         Args:
