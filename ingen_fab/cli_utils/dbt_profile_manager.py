@@ -473,7 +473,7 @@ def ensure_dbt_profile(ctx: typer.Context, ask_confirmation: bool = True) -> boo
 
     try:
         manager = DBTProfileManager(workspace_dir, environment, Path(profile_path) / "profiles.yml")
-        return manager.check_and_update_profile(ask_confirmation)
+        return manager.check_and_update_profile(ask_confirmation=False)
     except FileNotFoundError as e:
         console.print(f"[red]Configuration error: {e}[/red]")
         return False
