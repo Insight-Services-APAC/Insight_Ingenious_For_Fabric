@@ -21,7 +21,7 @@ Below are two sample yml files that can be used for DevOps pipelines and have be
 
 The yml scripts are provided as samples and should be changed as required.
 
-Scripts contain only a single 'DEV' stage, and should be extended to include other stages (UAT, Prod etc)
+Scripts contain 'DEV' and 'TST' stages, and should be extended to include other stages (UAT, Prod etc)
 
 ## Fabric configuration
 
@@ -33,12 +33,6 @@ Developer Settings \ Service principals can call Fabric public APIs
 ## Fabric workspace
 
 This example require a fabric workspace called sample_dev to be created
-
-## Keyvault configuration
-
-This example requires a keyvault (fabricdevopskv), that contains two keys (DevOpsSCId,DevOpsSCSecret). These keys are used to store the devops service connection service principal values.
-
-The service account needs to have rights to read the keyvault.
 
 ## DevOps Configuration
 
