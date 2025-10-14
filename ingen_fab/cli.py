@@ -1182,13 +1182,19 @@ def synthetic_data_unified_generate(
 
 
 # ===== DBT WRAPPER COMMANDS =====
-
-
 @dbt_app.command(
-    "exec", context_settings={"allow_extra_args": True, "ignore_unknown_options": True}
+    "exec",
+    context_settings={"allow_extra_args": True, "ignore_unknown_options": True}
 )
 def dbt_exec(
     ctx: typer.Context,
+    skip_profile_confirmation: Annotated[
+        bool,
+        typer.Option(
+            "--skip-profile-confirmation",
+            help="Skip confirmation prompt when updating dbt profile",
+        ),
+    ] = False,
 ):
     """Run dbt_wrapper from within the Fabric workspace repo, then return to the original directory."""
     from ingen_fab.cli_utils.dbt_profile_manager import ensure_dbt_profile_for_exec
@@ -1202,7 +1208,7 @@ def dbt_exec(
 
     # Check and update dbt profile with exec-specific behavior
     # Always prompts if saved info is missing/invalid, notifies if using saved preference
-    if not ensure_dbt_profile_for_exec(ctx):
+    if not skip_profile_confirmation and not ensure_dbt_profile_for_exec(ctx):
         raise typer.Exit(code=1)
 
     # Locate the wrapper executable
