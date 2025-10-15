@@ -22,16 +22,17 @@ console = Console()
 class DBTProfileManager:
     """Manages dbt profile configuration for Fabric Spark notebooks."""
 
-    def __init__(self, workspace_dir: Path, environment: str):
+    def __init__(self, workspace_dir: Path, environment: str, profile_path: Path):
         """Initialize the DBT Profile Manager.
 
         Args:
             workspace_dir: Path to the fabric workspace repository
             environment: Current FABRIC_ENVIRONMENT value
+            profile_path: Path to the dbt profiles.yml file
         """
         self.workspace_dir = workspace_dir
         self.environment = environment
-        self.profile_path = Path.home() / ".dbt" / "profiles.yml"
+        self.profile_path = profile_path
         self.var_lib_path = (
             workspace_dir
             / "fabric_workspace_items"
@@ -468,10 +469,11 @@ def ensure_dbt_profile(ctx: typer.Context, ask_confirmation: bool = True) -> boo
 
     workspace_dir = Path(workspace_dir)
     environment = os.getenv("FABRIC_ENVIRONMENT", "local")
+    profile_path = os.getenv("DBT_PROFILES_DIR", Path.home() / ".dbt")
 
     try:
-        manager = DBTProfileManager(workspace_dir, environment)
-        return manager.check_and_update_profile(ask_confirmation)
+        manager = DBTProfileManager(workspace_dir, environment, Path(profile_path) / "profiles.yml")
+        return manager.check_and_update_profile(ask_confirmation=False)
     except FileNotFoundError as e:
         console.print(f"[red]Configuration error: {e}[/red]")
         return False
@@ -501,10 +503,12 @@ def ensure_dbt_profile_for_exec(ctx: typer.Context) -> bool:
 
     workspace_dir = Path(workspace_dir)
     environment = os.getenv("FABRIC_ENVIRONMENT", "local")
+    profile_path = os.getenv("DBT_PROFILES_DIR", Path.home() / ".dbt")
 
     try:
-        manager = DBTProfileManager(workspace_dir, environment)
-
+        
+        manager = DBTProfileManager(workspace_dir, environment, Path(profile_path) / "profiles.yml")
+        # console.print(f"Profile path:")
         # Check if we have valid saved configuration
         existing_config = manager.read_existing_profile()
         values = manager.get_workspace_config()
