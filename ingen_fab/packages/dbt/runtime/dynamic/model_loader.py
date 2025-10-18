@@ -4,11 +4,13 @@ Dynamic Model Loader for dbt projects.
 This module provides runtime loading of dbt manifest and SQL files
 without requiring code generation.
 """
-
+import sys
 import json
 import logging
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Union
+
+from ingen_fab.python_libs.pyspark.lakehouse_utils import lakehouse_utils
 
 logger = logging.getLogger(__name__)
 
@@ -22,18 +24,27 @@ class DynamicModelLoader:
     and reducing the need for regeneration.
     """
 
-    def __init__(self, dbt_project_path: Path, cache_sql: bool = True):
+    def __init__(self, config_lakehouse: lakehouse_utils, dbt_project_path: Path, cache_sql: bool = True) -> None:
         """
         Initialize the dynamic model loader.
 
         Args:
+            target_lakehouse: Lakehouse utils for the target environment
+            config_lakehouse: Lakehouse utils for the config environment
             dbt_project_path: Path to the dbt project root directory
             cache_sql: Whether to cache loaded SQL statements in memory
         """
-        self.project_path = Path(dbt_project_path)
-        self.target_dir = self.project_path / "target"
-        self.sql_dir = self.target_dir / "sql"
+        self.project_path = f"{config_lakehouse.lakehouse_files_uri()}{dbt_project_path}"
+        target_path = dbt_project_path / "target"
+        self.target_dir = f"{config_lakehouse.lakehouse_files_uri()}{target_path}"
+        sql_dir = target_path / "sql"
+        self.sql_dir = f"{config_lakehouse.lakehouse_files_uri()}{sql_dir}"
         self.cache_sql = cache_sql
+        self.config_lakehouse = config_lakehouse
+        manifest_path = target_path / "manifest.json"
+        self.manifest_path = f"{config_lakehouse.lakehouse_files_uri()}{manifest_path}"
+        models_python_dir = dbt_project_path / "models_python"
+        self.models_python_dir = f"{config_lakehouse.lakehouse_files_uri()}{models_python_dir}"
 
         # Caches
         self._manifest: Optional[Dict[str, Any]] = None
@@ -41,12 +52,105 @@ class DynamicModelLoader:
         self._metadata_cache: Dict[str, Dict[str, Any]] = {}
 
         # Validate paths
-        if not self.project_path.exists():
+        if not self._path_exists(str(self.project_path)):
             raise FileNotFoundError(f"DBT project path not found: {self.project_path}")
-        if not self.target_dir.exists():
+        if not self._path_exists(str(self.target_dir)):
             raise FileNotFoundError(f"DBT target directory not found: {self.target_dir}")
-        if not self.sql_dir.exists():
+        if not self._path_exists(str(self.sql_dir)):
             raise FileNotFoundError(f"DBT SQL directory not found: {self.sql_dir}")
+
+    def _path_exists(self, path: str) -> bool:
+        exists: bool = False
+        """Check if a path exists using notebookutils.fs.head() in Fabric or fallback methods."""
+        if "notebookutils" in sys.modules and self.config_lakehouse.spark_version == "fabric":
+            import notebookutils  # type: ignore
+            print(path)
+            return notebookutils.fs.exists(path)  # type: ignore
+        return exists 
+
+    def _read_text_file(self, file_path: str) -> str:
+        """Read a text file using notebookutils.fs.head() in Fabric or fallback methods."""
+        try:
+            # Check if we're in a Fabric environment with notebookutils
+            if "notebookutils" in sys.modules and self.config_lakehouse.spark_version == "fabric":
+                import notebookutils  # type: ignore
+
+                # Build proper ABFSS path for Fabric
+                if file_path.startswith("/"):
+                    # Absolute path - convert to lakehouse files URI
+                    full_file_path = f"{self.config_lakehouse.lakehouse_files_uri()}{file_path}"
+                elif not file_path.startswith(("file://", "abfss://")):
+                    # Relative path
+                    full_file_path = f"{self.config_lakehouse.lakehouse_files_uri()}{file_path}"
+                else:
+                    full_file_path = file_path
+
+                # Read entire file as bytes, then decode to string
+                file_bytes = self.config_lakehouse.spark.read.text(full_file_path).collect()
+                lines = [row.value for row in file_bytes]
+                return "".join(lines)
+            else:
+                # Local environment - use Spark text file reading
+                clean_path = file_path.replace("//", "/")
+                if not file_path.startswith("file://"):
+                    clean_path = f"file://{clean_path}"
+                df = self.config_lakehouse.spark.read.text(clean_path)
+                lines = [row.value for row in df.collect()]
+                return "\\n".join(lines)
+        except Exception as e:
+            raise RuntimeError(f"Failed to read file {file_path}: {e}")
+
+    def _read_json_file(self, file_path: str) -> Dict[str, Any]:
+        """Read a JSON file using lakehouse_utils or fallback to pathlib."""
+        text_content = self._read_text_file(file_path)
+        return json.loads(text_content)
+
+    def _list_files(self, directory: str, pattern: str = "*.json") -> List[str]:
+        """List files in a directory using notebookutils.fs.ls() in Fabric or fallback methods."""
+        if self.config_lakehouse:
+            try:
+                # Check if we're in a Fabric environment with notebookutils
+                import sys
+                if "notebookutils" in sys.modules and self.config_lakehouse.spark_version == "fabric":
+                    import notebookutils  # type: ignore
+
+                    # Build proper ABFSS path for Fabric
+                    if directory.startswith("/"):
+                        # Absolute path - convert to lakehouse files URI
+                        full_directory_path = f"{self.config_lakehouse.lakehouse_files_uri()}{directory}"
+                    elif not directory.startswith(("file://", "abfss://")):
+                        # Relative path
+                        full_directory_path = f"{self.config_lakehouse.lakehouse_files_uri()}{directory}"
+                    else:
+                        full_directory_path = directory
+
+                    # List files using notebookutils
+                    files = notebookutils.fs.ls(full_directory_path)  # type: ignore
+                    file_list = []
+                    for file_info in files:
+                        if file_info.isFile:
+                            # Apply pattern filtering
+                            if pattern.startswith("*."):
+                                extension = pattern[2:]
+                                if file_info.name.endswith(f".{extension}"):
+                                    file_list.append(file_info.path)
+                            elif pattern in file_info.name:
+                                file_list.append(file_info.path)
+                    return file_list
+                else:
+                    # Local environment - use lakehouse_utils list_files
+                    if pattern.startswith("*."):
+                        extension = pattern[2:]
+                        files = self.config_lakehouse.list_files(directory)
+                        return [f for f in files if f.endswith(f".{extension}")]
+                    else:
+                        return self.config_lakehouse.list_files(directory, pattern=pattern)
+            except Exception as e:
+                logger.warning(f"Failed to list files with lakehouse_utils: {e}")
+                # Fallback to pathlib if lakehouse list fails
+                return [str(p) for p in Path(directory).glob(pattern)]
+        else:
+            return [str(p) for p in Path(directory).glob(pattern)]
 
     @property
     def manifest(self) -> Dict[str, Any]:
@@ -62,15 +166,15 @@ class DynamicModelLoader:
 
     def _load_manifest(self) -> None:
         """Load the manifest.json file."""
-        manifest_path = self.target_dir / "manifest.json"
+        self.manifest_path
 
-        if not manifest_path.exists():
-            raise FileNotFoundError(f"Manifest file not found: {manifest_path}")
+        if not self._path_exists(self.manifest_path):
+            raise FileNotFoundError(f"Manifest file not found: {self.manifest_path}")
 
         try:
-            with manifest_path.open("r", encoding="utf-8") as f:
-                self._manifest = json.load(f)
-            logger.info(f"Loaded manifest with {len(self._manifest.get('nodes', {}))} nodes")
+            self._manifest = self._read_json_file(self.manifest_path)
+            nodes_count = len(self._manifest.get('nodes', {})) if self._manifest else 0
+            logger.info(f"Loaded manifest with {nodes_count} nodes")
         except Exception as e:
             raise RuntimeError(f"Failed to load manifest: {e}")
 
@@ -117,12 +221,11 @@ class DynamicModelLoader:
             return self._sql_cache[node_id]
 
         # Find corresponding JSON file
-        json_files = list(self.sql_dir.glob("*.json"))
+        json_files = self._list_files(str(self.sql_dir), "*.json")
 
         for json_path in json_files:
             try:
-                with json_path.open("r", encoding="utf-8") as f:
-                    data = json.load(f)
+                data = self._read_json_file(json_path)
 
                 if data.get("node_id") == node_id:
                     sql_statements = data.get("sql", [])
@@ -152,18 +255,18 @@ class DynamicModelLoader:
             return self._metadata_cache[node_id]
 
         # Find corresponding JSON file
-        for json_path in self.sql_dir.glob("*.json"):
+        json_files = self._list_files(str(self.sql_dir), "*.json")
+        for json_path in json_files:
             try:
-                with json_path.open("r", encoding="utf-8") as f:
-                    data = json.load(f)
+                data = self._read_json_file(json_path)
 
                 if data.get("node_id") == node_id:
                     metadata = {
                         "node_id": node_id,
                         "session_id": data.get("session_id", ""),
                         "sql_count": len(data.get("sql", [])),
-                        "json_file": json_path.name,
-                        "json_path": str(json_path),
+                        "json_file": Path(json_path).name,
+                        "json_path": json_path,
                     }
 
                     # Add manifest data if available
@@ -352,22 +455,21 @@ class DynamicModelLoader:
         Returns:
             Python code string if found, None otherwise
         """
-        models_python_dir = self.project_path / "models_python"
+        models_python_dir = self.models_python_dir
 
-        if not models_python_dir.exists():
+        if not self._path_exists(models_python_dir):
             return None
 
         # Look for matching Python file
         potential_files = [
-            models_python_dir / f"{node_id}.py",
-            models_python_dir / f"{node_id.replace('.', '_')}.py",
+            f"{models_python_dir}/{node_id}.py",
+            f"{models_python_dir}/{node_id.replace('.', '_')}.py",
         ]
 
         for py_file in potential_files:
-            if py_file.exists():
+            if self._path_exists(py_file):
                 try:
-                    with py_file.open("r", encoding="utf-8") as f:
-                        return f.read()
+                    return self._read_text_file(py_file)
                 except Exception as e:
                     logger.warning(f"Failed to read Python model {py_file}: {e}")
 

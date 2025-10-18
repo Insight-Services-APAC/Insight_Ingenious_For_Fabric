@@ -14,6 +14,8 @@ from typing import Any, Dict, List, Optional, Set, Tuple
 
 from pyspark.sql import SparkSession
 
+from ingen_fab.python_libs.pyspark.lakehouse_utils import lakehouse_utils
+
 from .model_loader import DynamicModelLoader
 from .sql_executor import DynamicSQLExecutor
 
@@ -43,7 +45,8 @@ class DynamicDAGExecutor:
 
     def __init__(
         self,
-        spark: SparkSession,
+        target_lakehouse: lakehouse_utils,
+        config_lakehouse: lakehouse_utils,
         dbt_project_path: Path,
         max_workers: int = 4,
         cache_manifest: bool = True,
@@ -61,15 +64,20 @@ class DynamicDAGExecutor:
             verbose: Whether to show detailed output
             show_preview: Whether to show data previews in notebooks
         """
-        self.spark = spark
+        self.target_lakehouse = target_lakehouse
+        self.config_lakehouse = config_lakehouse
         self.project_path = Path(dbt_project_path)
         self.max_workers = max_workers
         self.verbose = verbose
         self.show_preview = show_preview
 
         # Initialize loader and executor
-        self.loader = DynamicModelLoader(self.project_path, cache_sql=cache_manifest)
-        self.executor = DynamicSQLExecutor(spark, self.loader)
+        self.loader = DynamicModelLoader(
+            config_lakehouse=self.config_lakehouse,
+            dbt_project_path=self.project_path,
+            cache_sql=cache_manifest
+        )
+        self.executor = DynamicSQLExecutor(target_lakehouse.spark, self.loader)
 
         # Initialize output formatter
         self.output_formatter = NotebookOutputFormatter(verbose=verbose)
