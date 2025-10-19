@@ -598,7 +598,7 @@ class SyncToFabricEnvironment:
                         workspace_id=self.target_workspace_id,
                         repository_directory=str(output_dir),
                         item_type_in_scope=item_type_in_scope,
-                        environment=os.getenv('FABRIC_ENVIRONMENT'),
+                        environment=os.getenv('FABRIC_ENVIRONMENT', "development"),
                     )
                     append_feature_flag("enable_experimental_features")
                     append_feature_flag("enable_items_to_include")

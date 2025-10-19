@@ -5,9 +5,10 @@ import shutil
 from pathlib import Path
 
 import yaml
-
+import os
 from ingen_fab.config_utils.variable_lib import VariableLibraryUtils
 from ingen_fab.fabric_cicd.promotion_utils import promotion_utils
+
 
 project_path = "./sample_project"
 environment = "development"
@@ -158,7 +159,7 @@ def main():
             "Warehouse",
             "SQLDatabase",
         ],
-        environment="development",
+        environment=os.getenv("FABRIC_ENVIRONMENT", "development"),
     )
 
     # 3) Load platform manifest and copy updated/new folders
