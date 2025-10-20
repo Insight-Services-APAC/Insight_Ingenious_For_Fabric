@@ -507,6 +507,81 @@ def deploy_get_metadata(
         )
 
 
+@deploy_app.command("download-artefact")
+def deploy_download_artefact(
+    ctx: typer.Context,
+    artefact_name: Annotated[
+        str,
+        typer.Option(
+            "--artefact-name",
+            "-n",
+            help="Name of the Fabric artefact to download"
+        ),
+    ],
+    artefact_type: Annotated[
+        str,
+        typer.Option(
+            "--artefact-type",
+            "-t",
+            help="Type of Fabric artefact (e.g., Notebook, Report, SemanticModel, Lakehouse, DataPipeline, etc.)"
+        ),
+    ],
+    workspace_id: Annotated[
+        Optional[str],
+        typer.Option(
+            "--workspace-id",
+            "-w",
+            help="Target workspace ID (overrides environment workspace)"
+        ),
+    ] = None,
+    output_path: Annotated[
+        Optional[Path],
+        typer.Option(
+            "--output-path",
+            "-o",
+            help="Directory to save the downloaded artefact (defaults to fabric_workspace_items)"
+        ),
+    ] = None,
+    force: Annotated[
+        bool,
+        typer.Option(
+            "--force",
+            "-f",
+            help="Overwrite existing files without confirmation"
+        ),
+    ] = False,
+):
+    """Download a specific Fabric artefact from workspace using Fabric API.
+    
+    Downloads the complete artefact definition including metadata and content files
+    to the local repository structure for version control and deployment. This includes
+    the full source code for notebooks, report definitions, data pipeline configurations,
+    and other artefact-specific content.
+    
+    The downloaded artefact will be saved in the fabric_workspace_items/downloaded/{type}/
+    folder structure, making it ready for version control and redeployment.
+    
+    Examples:
+      # Download a specific notebook with full source code
+      ingen_fab deploy download-artefact --artefact-name "My Notebook" --artefact-type Notebook
+      
+      # Download a Power BI report definition
+      ingen_fab deploy download-artefact -n "Sales Report" -t Report -o ./downloads
+      
+      # Download from specific workspace
+      ingen_fab deploy download-artefact -n "ETL Pipeline" -t DataPipeline -w abc123-def456
+    """
+    deploy_commands.download_artefact(
+        ctx=ctx,
+        artefact_name=artefact_name,
+        artefact_type=artefact_type,
+        workspace_id=workspace_id,
+        output_path=output_path,
+        force=force,
+        console=console,
+    )
+
+
 # Test commands
 @test_app.command()
 def test_python_block():
