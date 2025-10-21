@@ -49,9 +49,14 @@ def generate_ddl_scripts(ctx, lakehouse):
                 table_name = row.get("table_name", "").strip()
                 column_name = row.get("column_name", "").strip()
                 tsql_type = row.get("data_type", "").strip().lower()
+                schema_name = row.get("schema_name", "").strip().lower()
 
                 # Filter by lakehouse parameter
                 if lakehouse_name != lakehouse:
+                    continue
+
+                # Exclude tables with schema_name of 'sys' or 'queryinsights'
+                if schema_name in ['sys', 'queryinsights']:
                     continue
 
                 if not lakehouse_name or not table_name or not column_name:
