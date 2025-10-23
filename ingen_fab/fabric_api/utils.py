@@ -619,6 +619,31 @@ class FabricApiUtils:
                 f"Failed to list warehouses: {response.status_code} - {response.text}"
             )
 
+    def list_notebooks(self, workspace_id: str) -> list[dict]:
+        """
+        List all notebooks in a workspace.
+
+        Args:
+            workspace_id: The ID of the workspace
+
+        Returns:
+            List of notebook dictionaries with 'id', 'displayName', and other properties
+        """
+        headers = {
+            "Authorization": f"Bearer {self._get_token()}",
+            "Content-Type": "application/json",
+        }
+
+        url = f"{self.base_url}/{workspace_id}/items?type=Notebook"
+        response = requests.get(url, headers=headers)
+
+        if response.status_code == 200:
+            return response.json().get("value", [])
+        else:
+            raise Exception(
+                f"Failed to list notebooks: {response.status_code} - {response.text}"
+            )
+
     def list_lakehouses_api(self, workspace_id: str) -> list[dict]:
         """List all lakehouses via the Lakehouse-specific API.
 
