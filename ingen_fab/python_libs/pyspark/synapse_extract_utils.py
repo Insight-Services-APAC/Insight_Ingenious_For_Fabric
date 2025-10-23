@@ -62,15 +62,17 @@ class SynapseExtractUtils(SynapseExtractUtilsInterface):
         TYPE = HADOOP
     );
 
-    IF OBJECT_ID('exports.@ExternalTableName', 'U') IS NOT NULL
-    DROP EXTERNAL TABLE exports.@ExternalTableName;
+    IF OBJECT_ID('@ExternalTableSchemaName.@ExternalTableName', 'U') IS NOT NULL
+    DROP EXTERNAL TABLE @ExternalTableSchemaName.@ExternalTableName;
 
-    CREATE EXTERNAL TABLE exports.@ExternalTableName WITH (
+    CREATE EXTERNAL TABLE @ExternalTableSchemaName.@ExternalTableName WITH (
         LOCATION = '@LocationPath',
         DATA_SOURCE = [@DataSourceName],
         FILE_FORMAT = parquet
     ) AS
     @SelectStatement;
+
+    DROP EXTERNAL TABLE @ExternalTableSchemaName.@ExternalTableName;
         """
     )
 
@@ -84,6 +86,7 @@ class SynapseExtractUtils(SynapseExtractUtilsInterface):
         StructField("synapse_sync_fabric_pipeline_id", StringType(), True),
         StructField("synapse_datasource_name", StringType(), True),
         StructField("synapse_datasource_location", StringType(), True),
+        StructField("synapse_external_table_schema", StringType(), True),
         StructField("source_schema_name", StringType(), True),
         StructField("source_table_name", StringType(), True),
         StructField("extract_mode", StringType(), True),
@@ -447,6 +450,7 @@ class SynapseExtractUtils(SynapseExtractUtilsInterface):
             "output_path": path_components["output_path"],
             "extract_file_name": path_components["file_name"],
             "external_table": path_components.get("external_table"),
+            "synapse_external_table_schema": work_item.get("synapse_external_table_schema"),
             "start_timestamp": datetime.now(timezone.utc),
             "end_timestamp": None,
             "duration_sec": None,
@@ -655,6 +659,7 @@ class SynapseExtractUtils(SynapseExtractUtilsInterface):
         location_path: str,
         datasource_name: str,
         datasource_location: str,
+        external_table_schema: str,
         custom_select_sql: Optional[str] = None,
         partition_clause: str = "",
     ) -> str:
@@ -686,6 +691,7 @@ class SynapseExtractUtils(SynapseExtractUtilsInterface):
                 "ExternalTableName": external_table_name,
                 "LocationPath": location_path,
                 "SelectStatement": select_statement,
+                "ExternalTableSchemaName": external_table_schema,
             },
         )
 
@@ -701,6 +707,7 @@ class SynapseExtractUtils(SynapseExtractUtilsInterface):
             location_path=record["output_path"],
             datasource_name=ds_name,
             datasource_location=ds_location,
+            external_table_schema=record["synapse_external_table_schema"],
             custom_select_sql=record.get("custom_select_sql"),
             partition_clause=record.get("partition_clause") or "",
         )
