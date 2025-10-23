@@ -285,6 +285,26 @@ def ddls_from_metadata(
             "--lakehouse", "-l", help="Name of lakehhouse to generate DDLs for"
         ),
     ] = None,
+    table: Annotated[
+        Optional[str],
+        typer.Option(
+            "--table", "-t", help="Name of specific table to generate DDL for (optional)"
+        ),
+    ] = None,
+    subdirectory: Annotated[
+        str,
+        typer.Option(
+            "--subdirectory", "-d", help="Subdirectory name for output files (default: generated)"
+        ),
+    ] = "generated",
+    sequence_numbers: Annotated[
+        bool,
+        typer.Option(
+            "--sequence-numbers/--no-sequence-numbers",
+            "-s/-ns",
+            help="Include sequence numbers in filenames (default: True)"
+        ),
+    ] = True,
     verbose: Annotated[bool, typer.Option("--verbose", "-v")] = False,
 ):
     """Create DDL scripts from metadata."""
@@ -293,7 +313,7 @@ def ddls_from_metadata(
     # notebook_generator module is already lazy imported at the top of the file
 
 
-    ddl_commands.generate_ddl_scripts(ctx, lakehouse)
+    ddl_commands.generate_ddl_scripts(ctx, lakehouse, sequence_numbers, table, subdirectory)
 
 # Initialize commands
 
