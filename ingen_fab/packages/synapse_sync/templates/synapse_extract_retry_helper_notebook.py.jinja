@@ -82,6 +82,7 @@ nest_asyncio.apply()
 # Inject Fabric variables from Variable Library value set
 SYNAPSE_DATASOURCE_NAME = "{% raw %}{{varlib:synapse_datasource_name}}{% endraw %}"
 SYNAPSE_DATASOURCE_LOCATION = "{% raw %}{{varlib:synapse_datasource_location}}{% endraw %}"
+SYNAPSE_EXTERNAL_TABLE_SCHEMA = "{% raw %}{{varlib:synapse_external_table_schema}}{% endraw %}"
 FABRIC_WORKSPACE_ID = "{% raw %}{{varlib:fabric_deployment_workspace_id}}{% endraw %}"
 FABRIC_LAKEHOUSE_ID = "{% raw %}{{varlib:config_lakehouse_id}}{% endraw %}"
 FABRIC_ENVIRONMENT = "{% raw %}{{varlib:fabric_environment}}{% endraw %}"
@@ -193,6 +194,7 @@ if incomplete_extractions:
             # Prefer var-lib injected values
             "synapse_datasource_name": failure.get("synapse_datasource_name") or SYNAPSE_DATASOURCE_NAME,
             "synapse_datasource_location": failure.get("synapse_datasource_location") or SYNAPSE_DATASOURCE_LOCATION,
+            "synapse_external_table_schema": failure.get("synapse_external_table_schema") or SYNAPSE_EXTERNAL_TABLE_SCHEMA,
             # Run-scoped metadata for logging
             "trigger_type": TRIGGER_TYPE,
             "master_execution_parameters": ORIGINAL_MASTER_EXECUTION_PARAMETERS,
