@@ -554,10 +554,11 @@ def _check_and_update_artifacts(
             )
             workspace_name = None
 
-        # Get existing lakehouses and warehouses in the workspace
+        # Get existing lakehouses, warehouses, and notebooks in the workspace
         try:
             lakehouses = fabric_api.list_lakehouses(workspace_id)
             warehouses = fabric_api.list_warehouses(workspace_id)
+            notebooks = fabric_api.list_notebooks(workspace_id)
         except Exception as e:
             ConsoleStyles.print_warning(
                 console, f"  ⚠️  Could not list workspace artifacts: {str(e)}"
@@ -567,10 +568,11 @@ def _check_and_update_artifacts(
         # Create lookup dictionaries by name
         lakehouse_by_name = {lh["displayName"]: lh["id"] for lh in lakehouses}
         warehouse_by_name = {wh["displayName"]: wh["id"] for wh in warehouses}
+        notebook_by_name = {nb["displayName"]: nb["id"] for nb in notebooks}
 
         ConsoleStyles.print_info(
             console,
-            f"  Found {len(lakehouses)} lakehouses and {len(warehouses)} warehouses",
+            f"  Found {len(lakehouses)} lakehouses, {len(warehouses)} warehouses, and {len(notebooks)} notebooks",
         )
 
         # Track what needs to be deployed
@@ -683,6 +685,50 @@ def _check_and_update_artifacts(
                         console, f"  ⚠️  Found {id_var} but no corresponding {name_var}"
                     )
 
+            # Dynamically discover and update notebook IDs
+            # Find all variables ending with _notebook_id and their corresponding _notebook_name
+            notebook_id_vars = [
+                var_name
+                for var_name in var_map.keys()
+                if var_name.endswith("_notebook_id")
+            ]
+
+            if notebook_id_vars:
+                ConsoleStyles.print_info(
+                    console,
+                    f"\n  Checking {len(notebook_id_vars)} notebook variables dynamically:",
+                )
+                for var in sorted(notebook_id_vars):
+                    ConsoleStyles.print_info(console, f"    - {var}")
+
+            for id_var in notebook_id_vars:
+                # Derive the corresponding name variable
+                name_var = id_var.replace("_notebook_id", "_notebook_name")
+
+                if name_var in var_map:
+                    notebook_name = var_map[name_var]["value"]
+                    # Skip empty notebook names (optional notebooks)
+                    if not notebook_name:
+                        continue
+                    if notebook_name in notebook_by_name:
+                        # Update the ID
+                        old_id = var_map[id_var]["value"]
+                        new_id = notebook_by_name[notebook_name]
+                        var_map[id_var]["value"] = new_id
+                        updated_artifacts.append(
+                            f"Notebook '{notebook_name}' ({id_var})"
+                        )
+                        if old_id != new_id:
+                            ConsoleStyles.print_info(
+                                console, f"  ✓ Updated {id_var}: {old_id} → {new_id}"
+                            )
+                    else:
+                        missing_artifacts.append(f"Notebook '{notebook_name}'")
+                else:
+                    ConsoleStyles.print_warning(
+                        console, f"  ⚠️  Found {id_var} but no corresponding {name_var}"
+                    )
+
             # Write updated configuration back if any changes were made
             if updated_artifacts:
                 with open(valueset_path, "w", encoding="utf-8") as f:
@@ -700,14 +746,17 @@ def _check_and_update_artifacts(
                 for artifact in missing_artifacts:
                     ConsoleStyles.print_warning(console, f"  - {artifact}")
                 ConsoleStyles.print_info(
-                    console, "\n💡 To create these artifacts, run:"
+                    console, "\n💡 To create missing lakehouses and warehouses, run:"
                 )
                 ConsoleStyles.print_info(
                     console, f"   ingen_fab deploy deploy --environment {environment}"
                 )
+                ConsoleStyles.print_info(
+                    console, "💡 Notebooks need to be created manually in Fabric or via DDL compilation"
+                )
             else:
                 ConsoleStyles.print_success(
-                    console, "\n✓ All expected artifacts found and configured!"
+                    console, "\n✓ All expected artifacts (lakehouses, warehouses, notebooks) found and configured!"
                 )
 
     except Exception as e:

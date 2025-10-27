@@ -4,10 +4,12 @@ from rich.console import Console
 
 console = Console()
 
-def generate_ddl_scripts(ctx, lakehouse):
+def generate_ddl_scripts(ctx, lakehouse, include_sequence_numbers=True, table_filter=None, subdirectory="generated"):
     """
     Generate one DDL Python script per table from the metadata CSV for the specified lakehouse.
-    Each script is named like '001_<lakehouse>_<table>.py' and follows the pyspark StructType pattern.
+    Each script is named like '<lakehouse>_<table>.py' or optionally '001_<lakehouse>_<table>.py' with sequence numbers.
+    Optionally filter for a specific table name.
+    Output files are placed in a configurable subdirectory (default: 'generated').
     """
     workspace_dir = ctx.obj.get("fabric_workspace_repo_dir") if ctx.obj else None
     if not workspace_dir:
@@ -21,7 +23,7 @@ def generate_ddl_scripts(ctx, lakehouse):
         return
 
     # Output directory for DDL scripts
-    ddl_dir = workspace_dir / "ddl_scripts" / "Lakehouses" / lakehouse / "generated"
+    ddl_dir = workspace_dir / "ddl_scripts" / "Lakehouses" / lakehouse / subdirectory
     ddl_dir.mkdir(parents=True, exist_ok=True)
 
     # Map TSQL types to PySpark types
@@ -49,9 +51,18 @@ def generate_ddl_scripts(ctx, lakehouse):
                 table_name = row.get("table_name", "").strip()
                 column_name = row.get("column_name", "").strip()
                 tsql_type = row.get("data_type", "").strip().lower()
+                schema_name = row.get("schema_name", "").strip().lower()
 
                 # Filter by lakehouse parameter
                 if lakehouse_name != lakehouse:
+                    continue
+
+                # Filter by table parameter if specified
+                if table_filter and table_name != table_filter:
+                    continue
+
+                # Exclude tables with schema_name of 'sys' or 'queryinsights'
+                if schema_name in ['sys', 'queryinsights']:
                     continue
 
                 if not lakehouse_name or not table_name or not column_name:
@@ -70,7 +81,10 @@ def generate_ddl_scripts(ctx, lakehouse):
 
         # Generate one Python file per table
         for idx, (table_name, columns) in enumerate(sorted(tables.items()), start=1):
-            filename = f"{idx:03d}_{lakehouse}_{table_name}.py"
+            if include_sequence_numbers:
+                filename = f"{idx:03d}_{lakehouse}_{table_name}.py"
+            else:
+                filename = f"{lakehouse}_{table_name}.py"
             file_path = ddl_dir / filename
 
             # Build StructField lines
