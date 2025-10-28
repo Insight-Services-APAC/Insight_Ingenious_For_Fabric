@@ -5,7 +5,7 @@
 This comprehensive walkthrough demonstrates the complete workflow for managing a Microsoft Fabric workspace using the Ingenious Fabric Accelerator. Follow along with the sample project to understand the tool's capabilities and best practices.
 
 !!! tip "Learning Path"
-    **New User Journey**: [Installation](installation.md) → [Quick Start](quick-start.md) → First Project (you are here) → [CLI Reference](../guides/cli-reference.md)
+    **New User Journey**: [Installation](installation.md) → [Quick Start](quick-start.md) → First Project (you are here) → [CLI Reference](../user_guide/cli_reference.md)
 
 !!! info "Prerequisites"
     Complete the [Quick Start](quick-start.md) guide before starting this walkthrough.
@@ -517,7 +517,7 @@ jobs:
 - **Documentation**: Review the [User Guide](../user_guide/index.md) for detailed command usage
 - **CLI Help**: Use `ingen_fab --help` for command-specific help
 - **Examples**: Check other examples in this section
-- **Issues**: Report problems on [GitHub Issues](https://github.com/your-org/ingen_fab/issues)
+- **Support**: Reach out to your platform team for assistance
 
 ## Next Steps
 

@@ -100,7 +100,7 @@ Ingenious for Fabric is a comprehensive command line tool built with [Typer](htt
 
     Task-oriented guides for common workflows and operations.
 
-    [:octicons-arrow-right-24: CLI Reference](guides/cli-reference.md) · [:octicons-arrow-right-24: Deployment](guides/deployment.md) · [:octicons-arrow-right-24: Packages](guides/packages.md)
+    [:octicons-arrow-right-24: CLI Reference](user_guide/cli_reference.md) · [:octicons-arrow-right-24: Deployment](user_guide/deploy_guide.md) · [:octicons-arrow-right-24: Packages](packages/index.md)
 
 -   :material-book:{ .lg .middle } **Reference**
 
@@ -148,7 +148,6 @@ ingen_fab package ingest compile --target-datastore lakehouse --include-samples
 # Compile extract generation
 ingen_fab package extract compile --include-samples --target-datastore warehouse
 ```
-
 
 ## Architecture
 
@@ -241,5 +240,6 @@ Comprehensive testing framework supporting both local development and Fabric pla
 ## Support
 
 - **Documentation**: Browse the complete documentation on this site
+- **Sitemap**: See the [complete documentation map](SITEMAP.md) for all available pages
 - **Help**: Use `ingen_fab --help` for CLI assistance
 - **Local Development**: Use the sample project for testing and learning

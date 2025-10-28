@@ -1,3 +1,5 @@
+[← Back to Python Libraries](../../README.md) | [← Developer Guide](../../../../docs/developer_guide/python_libraries.md)
+
 # SQL Templates
 
 This directory contains SQL templates organized by database dialect. Templates use Jinja2 syntax for parameter substitution.

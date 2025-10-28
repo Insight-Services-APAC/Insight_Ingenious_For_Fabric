@@ -7,9 +7,6 @@ resolution-markers = [
     "sys_platform != 'darwin' and sys_platform != 'win32'",
 ]
 
-[options]
-prerelease-mode = "allow"
-
 [[package]]
 name = "agate"
 version = "1.9.1"
@@ -2105,8 +2102,8 @@ wheels = [
 
 [[package]]
 name = "fabric-cicd"
-version = "0.1.22"
-source = { url = "https://github.com/jrampono/fabric-cicd/archive/refs/tags/v0.0.1.tar.gz" }
+version = "0.1.25"
+source = { git = "https://github.com/aitil-insight/fabric-cicd.git?rev=fix-skipped-publish-errors#e4ae48783c358cd64ca1419f689eabae3926a9ce" }
 dependencies = [
     { name = "azure-identity" },
     { name = "dpath" },
@@ -2115,18 +2112,6 @@ dependencies = [
     { name = "packaging" },
     { name = "pyyaml" },
     { name = "requests" },
-]
-sdist = { hash = "sha256:7378776c30760241f56a7b8a41ce08629210f9db25088a4ad06531f863aa3ac5" }
-
-[package.metadata]
-requires-dist = [
-    { name = "azure-identity", specifier = ">=1.19.0" },
-    { name = "dpath", specifier = ">=2.2.0" },
-    { name = "filetype", specifier = ">=1.2.0" },
-    { name = "jsonpath-ng", specifier = ">=1.7.0" },
-    { name = "packaging", specifier = ">=24.2" },
-    { name = "pyyaml", specifier = ">=6.0.2" },
-    { name = "requests", specifier = ">=2.32.3" },
 ]
 
 [[package]]
@@ -2364,7 +2349,7 @@ requires-dist = [
     { name = "azure-storage-file-datalake", specifier = "==12.21.0" },
     { name = "backoff", marker = "extra == 'dataprep'", specifier = "==2.2" },
     { name = "deltalake", specifier = "==1.0.2" },
-    { name = "fabric-cicd", url = "https://github.com/jrampono/fabric-cicd/archive/refs/tags/v0.0.1.tar.gz" },
+    { name = "fabric-cicd", git = "https://github.com/aitil-insight/fabric-cicd.git?rev=fix-skipped-publish-errors" },
     { name = "faker", specifier = ">=37.4.2" },
     { name = "jinja2" },
     { name = "lazy-import", specifier = ">=0.2.2" },

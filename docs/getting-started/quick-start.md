@@ -5,7 +5,7 @@
 Get up and running with the Ingenious Fabric Accelerator in just a few minutes! This guide will walk you through creating your first project and deploying it to Microsoft Fabric.
 
 !!! tip "Learning Path"
-    **New User Journey**: [Installation](installation.md) → Quick Start (you are here) → [First Project](first-project.md) → [CLI Reference](../guides/cli-reference.md)
+    **New User Journey**: [Installation](installation.md) → Quick Start (you are here) → [First Project](first-project.md) → [CLI Reference](../user_guide/cli_reference.md)
 
 ## Prerequisites
 
@@ -230,7 +230,7 @@ ingen_fab notebook scan-notebook-blocks --base-dir ./fabric_workspace_items
 
 Now that you have a working project, you can:
 
-1. **[Learn more commands](../guides/cli-reference.md)** - Explore all available CLI commands
+1. **[Learn more commands](../user_guide/cli_reference.md)** - Explore all available CLI commands
 2. **[Study the sample project](../examples/sample_project.md)** - See a complete real-world example
 3. **[Understand workflows](../guides/workflows.md)** - Learn best practices for development and deployment
 4. **[Explore Python libraries](../developer_guide/python_libraries.md)** - Understand the available utilities
