@@ -1,5 +1,7 @@
 # DDL script templates
 
+[← Back to Main Documentation](../../docs/developer_guide/ddl_scripts.md) | [← Project README](../../README.md)
+
 This folder contains Jinja templates and helpers for building DDL notebooks for Fabric.
 The main entry point is `notebook_generator.py` which compiles notebooks from a set of configuration folders.
 

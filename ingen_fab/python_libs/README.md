@@ -1,5 +1,7 @@
 # Python Libraries
 
+[← Back to Main Documentation](../../docs/developer_guide/python_libraries.md) | [← Project README](../../README.md)
+
 The `python_libs` folder contains reusable Python and PySpark libraries that are injected into Fabric notebooks to provide helper utilities and common functionality. These libraries enable consistent, testable code across both local development and Fabric runtime environments.
 
 ## Architecture

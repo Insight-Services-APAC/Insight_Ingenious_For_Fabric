@@ -1,3 +1,5 @@
+[← Back to Main Documentation](../../docs/index.md) | [← Project README](../../README.md)
+
 # {project_name}
 
 Microsoft Fabric workspace project created with InGen Fab.

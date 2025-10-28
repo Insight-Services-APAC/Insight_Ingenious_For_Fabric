@@ -94,7 +94,7 @@ nav:
     - Installation: user_guide/installation.md
     - Quick Start: user_guide/quick_start.md
     - Common Tasks: user_guide/common_tasks.md
-    - Environment Variables: user_guide/environment_variables.md
+    - Environment Variables: reference/environment-variables.md
     - Workspace Layout: user_guide/workspace_layout.md
     - Deploy Guide: user_guide/deploy_guide.md
     - CLI Reference: user_guide/cli_reference.md

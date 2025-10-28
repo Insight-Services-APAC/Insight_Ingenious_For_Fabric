@@ -1,3 +1,5 @@
+[← Back to Packages](../../../../docs/packages/index.md) | [← Project README](../../../../README.md)
+
 # Synthetic Data Generation Sample Project
 
 This directory contains sample configurations and examples for using the Synthetic Data Generation package.

@@ -69,16 +69,6 @@ Systematically audit ALL documentation in docs/ AND README.md against the actual
 - **STANDARDIZE formatting** to ensure consistent documentation style
 - **SYNCHRONIZE redundant information** between README.md and docs/
 
-**SPECIFIC FILES TO UPDATE:**
-
-- README.md (complete revision if needed)
-- docs/configuration/
-- docs/workflows/
-- docs/CLI_REFERENCE/
-- docs/architecture/
-- docs/troubleshooting/
-- Any other documentation files that contain inaccuracies
-
 **CREATE AND UPDATE FILES:**
 
 1. **UPDATE** existing documentation files to fix all identified discrepancies

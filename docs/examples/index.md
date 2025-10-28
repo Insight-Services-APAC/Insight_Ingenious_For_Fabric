@@ -21,6 +21,13 @@ Guide to using and customizing project templates:
 - Template variables and substitution
 - Best practices for template development
 
+### [Flat File Ingestion Example](flat_file_ingestion.md)
+Detailed example of flat file ingestion package usage:
+- Configuration setup
+- File format handling
+- Data validation
+- Error handling and monitoring
+
 ## Quick Examples
 
 ### Basic Project Setup

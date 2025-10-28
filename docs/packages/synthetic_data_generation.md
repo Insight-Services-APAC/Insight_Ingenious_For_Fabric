@@ -124,6 +124,16 @@ These parameters may appear in configurations but have no effect:
 
 For time-based data generation, see [Incremental Synthetic Data Generation](incremental_synthetic_data_generation.md).
 
+## Related Documentation
+
+- [Synthetic Data Generation Enhancements](synthetic_data_generation_enhancements.md) - Latest features and improvements
+- [Incremental Synthetic Data Generation](incremental_synthetic_data_generation.md) - Time-series data generation
+- [Extract Generation - Synthetic Data Alignment](extract_generation_synthetic_data_alignment.md) - Integration with extract generation
+- [Incremental Synthetic Data Import Integration](incremental_synthetic_data_import_integration.md) - Integration with flat file ingestion
+- [Package Migration Guide](../../ingen_fab/packages/synthetic_data_generation/MIGRATION_GUIDE.md) - Upgrading from older versions
+
+## Overview
+
 Key points:
 - Generates data day-by-day for date ranges
 - `batch_size` groups days for memory management

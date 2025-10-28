@@ -1,3 +1,5 @@
+[← Back to Packages](../../../../docs/packages/index.md) | [← Project README](../../../../README.md)
+
 # Extract Generation Sample Project
 
 This sample project demonstrates the Extract Generation package capabilities for creating automated file extracts from Fabric warehouse and lakehouse tables.

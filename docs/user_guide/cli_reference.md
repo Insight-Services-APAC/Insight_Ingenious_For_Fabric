@@ -81,23 +81,55 @@ ingen_fab init new --project-name "ML Pipeline" --path ./projects
 
 #### `init workspace`
 
-Initialize workspace configuration by looking up workspace ID from name.
+Initialize workspace configuration and automatically update artifact GUIDs (lakehouses, warehouses, notebooks).
 
 ```bash
-ingen_fab init workspace --workspace-name "My Workspace"
+ingen_fab init workspace
 ```
 
+**Features:**
+- Sets workspace ID in variable library for the specified environment
+- Automatically discovers and updates lakehouse, warehouse, and notebook GUIDs
+- Matches variables ending in `_lakehouse_id`, `_warehouse_id`, `_notebook_id` with their corresponding `_name` variables
+
+**Variable Pattern Matching:**
+
+The command automatically updates GUIDs for variables following these naming patterns:
+
+- `*_lakehouse_id` ↔ `*_lakehouse_name`
+- `*_warehouse_id` ↔ `*_warehouse_name`
+- `*_notebook_id` ↔ `*_notebook_name`
+
+For example, if your `development.json` contains:
+```json
+{
+  "variableOverrides": [
+    {"name": "config_lakehouse_id", "value": "old-guid"},
+    {"name": "config_lakehouse_name", "value": "config"},
+    {"name": "analysis_notebook_id", "value": "old-guid"},
+    {"name": "analysis_notebook_name", "value": "Data Analysis"}
+  ]
+}
+```
+
+Running `ingen_fab init workspace` will automatically find the "config" lakehouse and "Data Analysis" notebook in your workspace and update their GUIDs.
+
 **Options:**
-- `--workspace-name` / `-w`: Name of the Fabric workspace to lookup and configure (required)
-- `--create-if-not-exists` / `-c`: Create the workspace if it doesn't exist
+- `--workspace-id`: Fabric workspace ID (auto-detected if not provided)
+- `--workspace-name`: Fabric workspace name (auto-detected if not provided)
+- `--environment`: Environment to configure (defaults to `$FABRIC_ENVIRONMENT`)
 
 **Examples:**
 ```bash
-# Look up existing workspace
+# Configure workspace for development environment
+export FABRIC_ENVIRONMENT=development
+ingen_fab init workspace
+
+# Specify workspace explicitly
 ingen_fab init workspace --workspace-name "Analytics Workspace"
 
-# Create workspace if it doesn't exist
-ingen_fab init workspace --workspace-name "New Workspace" --create-if-not-exists
+# Configure for specific environment
+ingen_fab init workspace --environment production
 ```
 
 ## ddl {#ddl}
@@ -127,6 +159,65 @@ ingen_fab ddl compile --output-mode fabric_workspace_repo --generation-mode Lake
 
 # Generate with verbose output
 ingen_fab ddl compile -o fabric_workspace_repo -g Warehouse -v
+```
+
+#### `ddl ddls-from-metadata`
+
+Generate DDL Python scripts from a metadata CSV file (typically `metadata/lakehouse_metadata_all.csv`).
+
+```bash
+ingen_fab ddl ddls-from-metadata --lakehouse lh_silver2
+```
+
+**Options:**
+- `--lakehouse` / `-l`: Lakehouse name to generate DDLs for (required)
+- `--table` / `-t`: Specific table name to generate (optional, generates all tables if not specified)
+- `--subdirectory` / `-d`: Subdirectory for output files (default: `generated`)
+- `--sequence-numbers` / `--no-sequence-numbers` / `-s` / `-ns`: Include sequence number prefixes in filenames (default: True)
+- `--verbose` / `-v`: Enable verbose output
+
+**Output:**
+- With sequence numbers: `001_lh_silver2_customer.py`, `002_lh_silver2_orders.py`
+- Without sequence numbers: `lh_silver2_customer.py`, `lh_silver2_orders.py`
+- Output path: `{workspace}/ddl_scripts/Lakehouses/{lakehouse}/{subdirectory}/`
+
+**System Table Exclusion:**
+
+The command automatically excludes these system/monitoring tables:
+- `exec_sessions_history`
+- `exec_requests_history`
+- `long_running_queries`
+- `managed_delta_table_forks`
+
+Tables with schemas `sys` or `queryinsights` are also excluded.
+
+**Examples:**
+```bash
+# Generate DDL for all tables in lakehouse
+ingen_fab ddl ddls-from-metadata --lakehouse lh_silver2
+
+# Generate DDL for specific table only
+ingen_fab ddl ddls-from-metadata --lakehouse lh_silver2 --table customer_data
+
+# Generate without sequence numbers in filenames
+ingen_fab ddl ddls-from-metadata --lakehouse lh_silver2 --no-sequence-numbers
+
+# Custom output subdirectory
+ingen_fab ddl ddls-from-metadata --lakehouse lh_silver2 --subdirectory staging_ddls
+
+# Combine options with short flags
+ingen_fab ddl ddls-from-metadata -l lh_silver2 -t orders -d production -ns
+```
+
+**Typical Workflow:**
+```bash
+# 1. Extract metadata from lakehouse
+ingen_fab deploy get-metadata --lakehouse-name lh_silver2 --format csv
+
+# 2. Generate DDL scripts from the metadata
+ingen_fab ddl ddls-from-metadata --lakehouse lh_silver2
+
+# 3. Review and customize the generated scripts in ddl_scripts/Lakehouses/lh_silver2/generated/
 ```
 
 ## deploy {#deploy}
