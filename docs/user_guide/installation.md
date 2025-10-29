@@ -8,10 +8,13 @@ This guide will help you install the Ingenious Fabric Accelerator using pip.
 
 Before installing, ensure your system meets these requirements:
 
+- **Visual Studio Code**: Latest version 
 - **Python 3.12 or higher**
 - **pip** (comes with Python)
 - **Microsoft Fabric workspace** (for deployment)
 - **Azure CLI** (optional, for authentication)
+- **ODBC Driver for SQL Server 18**: For Fabric lakehouse connectivity
+- **Git**: For version control and repository management
 
 ## Installation
 
@@ -19,7 +22,25 @@ Before installing, ensure your system meets these requirements:
 
 Install the Ingenious Fabric Accelerator directly from pip:
 
---8<-- "_includes/pip_install.md"
+=== "macOS/Linux"
+
+    ```bash
+    # Install the package
+    pip install insight-ingenious-for-fabric
+
+    # Or install from GitHub
+    pip install git+https://github.com/Insight-Services-APAC/Insight_Ingenious_For_Fabric.git 
+    ```
+
+=== "Windows"
+
+    ```powershell
+    # Install the package
+    pip install insight-ingenious-for-fabric
+
+    # Or install from GitHub
+    pip install git+https://github.com/Insight-Services-APAC/Insight_Ingenious_For_Fabric.git
+    ```
 
 ### Virtual Environment (Recommended)
 
@@ -57,7 +78,7 @@ It's recommended to use a virtual environment to avoid conflicts with other pack
 
 ```bash
 # Install with dbt support
-pip install "insight-ingenious-for-fabric[dbt]"
+pip install git+https://github.com/Insight-Services-APAC/APAC-Capability-DAI-DbtFabricSparkNB.git
 
 # Install with all optional dependencies
 pip install "insight-ingenious-for-fabric[dbt,dataprep]"
@@ -68,8 +89,13 @@ pip install "insight-ingenious-for-fabric[dbt,dataprep]"
 ### Environment Variables
 
 After installation, configure your environment variables for the CLI:
+```bash
+# Set environment (development, UAT, production)
+$env:FABRIC_ENVIRONMENT = "development"
 
---8<-- "_includes/environment_setup.md"
+# Set workspace directory 
+$env:FABRIC_WORKSPACE_REPO_DIR = "My Fabric Project"
+```
 
 ### Shell Configuration (Optional)
 
@@ -231,7 +257,7 @@ pip install insight-ingenious-for-fabric
 
 #### Python Version Issues
 
-Ensure you have Python 3.12 or higher:
+Ensure you have Python 3.12 (Recommended) or higher:
 
 ```bash
 python --version
@@ -246,6 +272,29 @@ brew install python@3.12
 
 # On Windows:
 # Download from https://www.python.org/downloads/
+```
+
+Ensure you have Python 3.12 (Recommended) or higher:
+
+#### SSL Certificate Issues
+
+If you revieved a SSL certificate error during installation, try installing using --native-tls flag :
+
+```powershell
+
+    # OInstall from GitHub
+    pip install git+https://github.com/Insight-Services-APAC/Insight_Ingenious_For_Fabric.git --native-tls
+    
+```
+#### Pre Release Error
+
+If you revieved a an error indicating a package with pre-release marker, error during installation, try installing using --prerelease=allow flag :
+
+```powershell
+
+    # OInstall from GitHub
+    pip install git+https://github.com/Insight-Services-APAC/Insight_Ingenious_For_Fabric.git --prerelease=allow
+    
 ```
 
 ### Platform-Specific Notes
