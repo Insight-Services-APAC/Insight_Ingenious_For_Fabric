@@ -316,15 +316,35 @@ class lakehouse_utils(DataStoreInterface):
         schema_name: str | None = None,
     ) -> None:
         """
-        Rename a table by moving its directory and updating the metastore if local.
+        Rename a table by reading the data and writing to a new location, then dropping the old table.
         """
-        import shutil
-
-        src = f"{self.lakehouse_tables_uri()}{old_table_name}"
-        dst = f"{self.lakehouse_tables_uri()}{new_table_name}"
-        shutil.move(src.replace("file://", ""), dst.replace("file://", ""))
+        # First check if the old table exists
+        if not self.check_if_table_exists(old_table_name, schema_name):
+            raise FileNotFoundError(f"Table '{old_table_name}' does not exist and cannot be renamed.")
+        
+        # Check if the new table already exists
+        if self.check_if_table_exists(new_table_name, schema_name):
+            raise ValueError(f"Table '{new_table_name}' already exists. Cannot rename to existing table.")
+        
         if self.spark_version == "local":
+            # For local, use file system operations
+            import shutil
+            src = f"{self.lakehouse_tables_uri()}{old_table_name}"
+            dst = f"{self.lakehouse_tables_uri()}{new_table_name}"
+            shutil.move(src.replace("file://", ""), dst.replace("file://", ""))
             self.spark.sql(f"ALTER TABLE {old_table_name} RENAME TO {new_table_name}")
+        else:
+            # For Fabric/ABFSS, read the table data and write to new location
+            print(f"Reading data from table '{old_table_name}'...")
+            df = self.read_table(old_table_name, schema_name)
+            
+            print(f"Writing data to new table '{new_table_name}'...")
+            self.write_to_table(df, new_table_name, schema_name, mode="overwrite")
+            
+            print(f"Dropping old table '{old_table_name}'...")
+            self.drop_table(old_table_name, schema_name)
+            
+            print(f"Table successfully renamed from '{old_table_name}' to '{new_table_name}'")
 
     def create_table(
         self,
@@ -366,17 +386,51 @@ class lakehouse_utils(DataStoreInterface):
         schema_name: str | None = None,
     ) -> None:
         """
-        Drop a single table.
+        Drop a single table by removing its directory and metadata.
         """
+        # First check if the table exists
+        if not self.check_if_table_exists(table_name, schema_name):
+            print(f"Table '{table_name}' does not exist, skipping drop operation.")
+            return
+        
         table_path = f"{self.lakehouse_tables_uri()}{table_name}"
-        delta_table = DeltaTable.forPath(self.spark, table_path)
-        delta_table.delete()
-        # Optionally, remove the directory
-        import shutil
-
-        shutil.rmtree(table_path.replace("file://", ""), ignore_errors=True)
+        
         if self.spark_version == "local":
-            self.spark.sql(f"DROP TABLE IF EXISTS {table_name}")
+            # For local environment, use file system operations
+            import shutil
+            try:
+                # Drop from Spark catalog first
+                self.spark.sql(f"DROP TABLE IF EXISTS {table_name}")
+                # Remove the directory
+                shutil.rmtree(table_path.replace("file://", ""), ignore_errors=True)
+                print(f"Successfully dropped table '{table_name}' (local)")
+            except Exception as e:
+                print(f"Warning: Error dropping table '{table_name}': {e}")
+        else:
+            # For Fabric environment, use Spark/Hadoop filesystem operations
+            try:
+                # Access Hadoop's FileSystem via the JVM gateway
+                hadoop_conf = self.spark._jsc.hadoopConfiguration()
+                fs = self.spark._jvm.org.apache.hadoop.fs.FileSystem.get(hadoop_conf)
+                
+                # Path object for the table directory
+                table_path_obj = self.spark._jvm.org.apache.hadoop.fs.Path(table_path)
+                
+                # Delete the directory (recursive=True)
+                deleted = fs.delete(table_path_obj, True)
+                if deleted:
+                    print(f"Successfully dropped table '{table_name}' (Fabric)")
+                else:
+                    print(f"Failed to delete table directory: {table_path}")
+            except Exception as e:
+                print(f"Error dropping table '{table_name}': {e}")
+                # Fallback: try to delete all data from the table
+                try:
+                    delta_table = DeltaTable.forPath(self.spark, table_path)
+                    delta_table.delete()
+                    print(f"Fallback: Deleted all data from table '{table_name}' but directory may remain")
+                except Exception as fallback_e:
+                    print(f"Fallback also failed: {fallback_e}")
 
     def list_schemas(self) -> list[str]:
         """
