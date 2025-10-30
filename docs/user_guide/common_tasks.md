@@ -55,7 +55,4 @@ The first time you run any dbt command, you'll be prompted to select a target la
 
 Your selection is saved and reused automatically for future commands in the same environment.
 
-Tip: set environment variables once to simplify commands.
-
---8<-- "_includes/environment_setup.md"
 

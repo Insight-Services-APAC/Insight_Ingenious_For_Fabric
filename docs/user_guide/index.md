@@ -60,7 +60,7 @@ This guide covers everything you need to know to get started and become proficie
 
 Before using the Ingenious Fabric Accelerator, ensure you have:
 
-- Python 3.12 or higher
+- Python 3.12 (Recommended) or higher
 - Access to a Microsoft Fabric workspace
 - Basic understanding of SQL and Python
 - Familiarity with command-line tools

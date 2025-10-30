@@ -15,8 +15,11 @@ ingen_fab init new --project-name "Data Analytics Platform"
 # Navigate to the project directory
 cd "Data Analytics Platform"
 
-# Configure your environment variables  
---8<-- "_includes/environment_setup.md"
+# Set environment (development, UAT, production)
+$env:FABRIC_ENVIRONMENT = "development"
+
+# Set workspace directory 
+$env:FABRIC_WORKSPACE_REPO_DIR = "My Fabric Project"
 ```
 
 ### 2. Development Cycle

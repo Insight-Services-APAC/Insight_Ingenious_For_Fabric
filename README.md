@@ -38,6 +38,9 @@ Install the Ingenious Fabric Accelerator using pip:
 
     # Or install from GitHub
     pip install git+https://github.com/Insight-Services-APAC/Insight_Ingenious_For_Fabric.git
+
+    # Install DBT Fabric Spark wrapper (If using DBT in Fabric)
+    pip install git+https://github.com/Insight-Services-APAC/APAC-Capability-DAI-DbtFabricSparkNB.git
     ```
 
 === "Windows"
@@ -48,6 +51,9 @@ Install the Ingenious Fabric Accelerator using pip:
 
     # Or install from GitHub
     pip install git+https://github.com/Insight-Services-APAC/Insight_Ingenious_For_Fabric.git
+
+    # Install DBT Fabric Spark wrapper (If using DBT in Fabric)
+    pip install git+https://github.com/Insight-Services-APAC/APAC-Capability-DAI-DbtFabricSparkNB.git
     ```
 
 For complete installation instructions, see our [Installation Guide](docs/user_guide/installation.md).
@@ -89,6 +95,17 @@ See the [Developer Guide](docs/developer_guide/index.md) for complete developmen
 ingen_fab init new --project-name "My Fabric Project"
 ```
 
+### Set Environment Variables
+Replace the values below with your specific workspace details:
+
+```bash
+# Set environment (development, UAT, production)
+$env:FABRIC_ENVIRONMENT = "development"
+
+# Set workspace directory 
+$env:FABRIC_WORKSPACE_REPO_DIR = "My Fabric Project"
+```
+
 ### Generate DDL Notebooks
 
 ```bash
@@ -107,9 +124,7 @@ ingen_fab ddl compile \
 
 ```bash
 # Deploy to development environment
-ingen_fab deploy deploy \
-    --fabric-workspace-repo-dir . \
-    --fabric-environment development
+ingen_fab deploy deploy
 ```
 
 ## Command Reference
@@ -141,7 +156,7 @@ ingen_fab init new --project-name "Project Name"
 ingen_fab ddl compile --output-mode fabric_workspace_repo --generation-mode Warehouse
 
 # Deploy to environment
-ingen_fab deploy deploy --fabric-workspace-repo-dir . --fabric-environment development
+ingen_fab deploy deploy 
 
 # Find notebook content files
 ingen_fab notebook find-notebook-content-files --base-dir path/to/workspace
