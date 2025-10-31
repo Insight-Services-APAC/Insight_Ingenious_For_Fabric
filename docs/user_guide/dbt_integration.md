@@ -132,20 +132,23 @@ The system will automatically discover these configurations and present them as 
 All standard dbt commands are available through the `ingen_fab dbt` proxy:
 
 ```bash
-# Run all models
-ingen_fab dbt run
+# Build and execute DBT models
+ingen_fab dbt exec -- run build --project-dir dbt_project
+
+# Execute post-processing scripts
+ingen_fab dbt exec -- run post-scripts --project-dir dbt_project
 
 # Run specific models
-ingen_fab dbt run --models staging.customers
+ingen_fab dbt exec -- run post-scripts --project-dir dbt_project --models staging.customers
 
 # Test models
-ingen_fab dbt test
+ingen_fab dbt exec -- test
 
 # Generate documentation
-ingen_fab dbt docs generate
+ingen_fab dbt exec -- docs generate
 
 # Run seeds
-ingen_fab dbt seed
+ingen_fab dbt exec -- seed
 ```
 
 ## Creating Fabric Notebooks from DBT

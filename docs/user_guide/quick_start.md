@@ -45,12 +45,12 @@ My First Fabric Project/
 Set up environment variables and configure your workspace details:
 
 ```bash
-# Set up environment variables
-export FABRIC_WORKSPACE_REPO_DIR="./My First Fabric Project"
-export FABRIC_ENVIRONMENT="development"
-```
+# Set environment (development, UAT, production)
+$env:FABRIC_ENVIRONMENT = "development"
 
---8<-- "_includes/environment_setup.md"
+# Set workspace directory 
+$env:FABRIC_WORKSPACE_REPO_DIR = "My Fabric Project"
+```
 
 Now edit the development environment variables:
 
@@ -59,6 +59,8 @@ vim fabric_workspace_items/config/var_lib.VariableLibrary/valueSets/development.
 ```
 
 Replace the placeholder values with your actual workspace IDs:
+Note: You can modify lakehouse and wearhouse names as needed. To do that, variable names must match the names under variables.json file. ** Do not modify config lakehouse/wearhouse names **
+
 
 ```json
 {
@@ -78,11 +80,11 @@ Replace the placeholder values with your actual workspace IDs:
     },
     {
       "name": "config_lakehouse_id",
-      "value": "your-config-lakehouse-guid"  // ← Replace this
+      "value": "your-config-lakehouse-guid"  // ← Replace this once created
     },
     {
       "name": "sample_lakehouse_id",
-      "value": "your-sample-lakehouse-guid"  // ← Replace this
+      "value": "your-sample-lakehouse-guid"  // ← Replace this once created
     }
   ]
 }
@@ -141,9 +143,7 @@ Deploy your project to your Fabric workspace:
 
 ```bash
 # Deploy to development environment
-ingen_fab deploy deploy \
-    --fabric-workspace-repo-dir . \
-    --fabric-environment development
+ingen_fab deploy deploy
 ```
 
 !!! note "Authentication Required"
@@ -208,7 +208,7 @@ EOF
 ingen_fab ddl compile --output-mode fabric_workspace_repo --generation-mode Lakehouse
 
 # Redeploy
-ingen_fab deploy deploy --fabric-workspace-repo-dir . --fabric-environment development
+ingen_fab deploy deploy 
 ```
 
 ### Testing Changes Locally
