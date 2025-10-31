@@ -12,6 +12,7 @@ Quick, task-oriented commands with links to deeper docs.
 | Deploy to an environment | `ingen_fab deploy deploy` | Requires `FABRIC_WORKSPACE_REPO_DIR`, `FABRIC_ENVIRONMENT` | Deploy Guide, CLI Reference → deploy |
 | Upload python_libs to OneLake | `ingen_fab deploy upload-python-libs` | Performs variable injection during upload | Deploy Guide, CLI Reference → deploy |
 | Extract lakehouse/warehouse metadata | `ingen_fab deploy get-metadata --target both -f csv -o ./artifacts/meta.csv` | Flexible filters via `--schema`, `--table` | Deploy Guide, CLI Reference → deploy |
+| Compare metadata files | `ingen_fab deploy compare-metadata -f1 before.csv -f2 after.csv -o diff.json --format json` | Detects missing tables/columns, data type changes | Deploy Guide, CLI Reference → deploy |
 | Run local tests (python) | `export FABRIC_ENVIRONMENT=local && ingen_fab test local python` | Set environment to `local` | CLI Reference → test |
 | Run local tests (pyspark) | `export FABRIC_ENVIRONMENT=local && ingen_fab test local pyspark` | Requires local Spark | CLI Reference → test |
 | Configure workspace by name | `ingen_fab init workspace --workspace-name "My Workspace"` | Optionally create if missing with `-c` | CLI Reference → init |

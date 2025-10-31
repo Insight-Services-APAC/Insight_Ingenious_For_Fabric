@@ -26,7 +26,7 @@ Ingenious for Fabric is a comprehensive command line tool built with [Typer](htt
 
     ---
 
-    Manage variables per environment and deploy workspace items consistently across dev, test, and prod.
+    Manage variables per environment, deploy workspace items, extract metadata, and track schema changes across dev, test, and prod.
 
     [:octicons-arrow-right-24: Learn more](user_guide/deploy_guide.md)
 

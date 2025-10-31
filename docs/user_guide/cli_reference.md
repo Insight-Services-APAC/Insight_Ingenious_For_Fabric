@@ -19,7 +19,7 @@ Complete reference for all Ingenious Fabric Accelerator commands, options, and u
 |-------|---------|----------------|
 | `init` | Create projects / configure workspace | `ingen_fab init new --project-name MyProj` |
 | `ddl` | Compile notebooks from DDL scripts | `ingen_fab ddl compile -o fabric_workspace_repo -g Warehouse` |
-| `deploy` | Deploy, upload libs, extract metadata | `ingen_fab deploy get-metadata --target both -f csv -o artifacts/meta.csv` |
+| `deploy` | Deploy, upload libs, extract/compare metadata | `ingen_fab deploy get-metadata --target both -f csv -o meta.csv` |
 | `notebook` | Scan and transform notebooks | `ingen_fab notebook scan-notebook-blocks -a` |
 | `test` | Local and platform tests | `FABRIC_ENVIRONMENT=local ingen_fab test local python` |
 | `package` | Run solution packages | `ingen_fab package ingest compile -d warehouse` |
@@ -324,6 +324,78 @@ ingen_fab deploy get-metadata \
 ingen_fab deploy get-metadata \
   --workspace-name "Analytics Workspace" \
   --schema sales --target both
+```
+
+#### `deploy compare-metadata` {#deploy-compare-metadata}
+
+Compare two metadata CSV files and report differences between them.
+
+```bash
+ingen_fab deploy compare-metadata [OPTIONS]
+```
+
+**Required options:**
+- `--file1` / `-f1`: First CSV metadata file for comparison
+- `--file2` / `-f2`: Second CSV metadata file for comparison
+
+**Output control:**
+- `--format` / `-fmt`: `table` (default), `json`, or `csv`
+- `--output` / `-o`: Write comparison report to file (optional)
+
+**Detection capabilities:**
+
+The command identifies and reports:
+
+- **Missing tables**: Tables present in one file but not the other
+- **Missing columns**: Columns present in one file but not the other  
+- **Data type differences**: Same column with different data types
+- **Nullable differences**: Same column with different nullable settings
+
+**Output ordering:**
+
+Results are automatically sorted by:
+1. Asset name (lakehouse/warehouse name)
+2. Schema name  
+3. Table name
+4. Column name
+5. Difference type
+
+**Examples:**
+```bash
+# Compare two lakehouse metadata files with table output
+ingen_fab deploy compare-metadata \
+  --file1 metadata_before.csv \
+  --file2 metadata_after.csv
+
+# Save detailed JSON comparison report
+ingen_fab deploy compare-metadata \
+  -f1 prod_metadata.csv \
+  -f2 dev_metadata.csv \
+  -o schema_diff_report.json --format json
+
+# Generate CSV output for further analysis
+ingen_fab deploy compare-metadata \
+  --file1 old_schema.csv \
+  --file2 new_schema.csv \
+  --format csv --output differences.csv
+```
+
+**Sample output:**
+```
+Found 4 differences between metadata_before.csv and metadata_after.csv:
+  - Missing Table: 1
+  - Missing Column: 1
+  - Data Type Diff: 1
+  - Nullable Diff: 1
+
+┏━━━━━━━━━━━━━━━━┳━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┳━━━━━━━━━━━━━━━━━━┳━━━━━━━━━━━━━━━━━━┓
+┃ Type           ┃ Identifier                                       ┃ metadata_before  ┃ metadata_after   ┃
+┡━━━━━━━━━━━━━━━━╇━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━╇━━━━━━━━━━━━━━━━━━╇━━━━━━━━━━━━━━━━━━┩
+│ Missing Table  │ Analytics.dbo.new_products                       │ missing          │ present          │
+│ Missing Column │ Analytics.dbo.customers.phone                    │ missing          │ present          │
+│ Data Type Diff │ Analytics.dbo.orders.total_amount                │ decimal(10,2)    │ decimal(12,2)    │
+│ Nullable Diff  │ Analytics.dbo.customers.email                    │ true             │ false            │
+└────────────────┴──────────────────────────────────────────────────┴──────────────────┴──────────────────┘
 ```
 
 ## notebook {#notebook}
