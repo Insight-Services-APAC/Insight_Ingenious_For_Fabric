@@ -7,6 +7,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Iterable, Optional
 
+import typer
 from rich.console import Console
 from rich.table import Table
 
@@ -1002,3 +1003,373 @@ def _execute_sql_via_odbc(
         except Exception:
             pass
         conn.close()
+
+
+@dataclass
+class MetadataDifference:
+    """Represents a difference found between two metadata files."""
+    type: str  # 'missing_table', 'missing_column', 'data_type_diff', 'nullable_diff'
+    identifier: str  # Unique identifier for the table/column
+    file1_value: str | None = None
+    file2_value: str | None = None
+    description: str = ""
+    asset_name: str = ""  # For sorting
+    schema_name: str = ""  # For sorting
+    table_name: str = ""   # For sorting
+    column_name: str = ""  # For sorting
+
+
+def compare_metadata(
+    ctx: typer.Context,
+    file1: Path,
+    file2: Path,
+    output_path: Optional[Path] = None,
+    output_format: str = "table",
+) -> None:
+    """Compare two metadata CSV files and report differences.
+    
+    Args:
+        ctx: Typer context object
+        file1: Path to first CSV metadata file
+        file2: Path to second CSV metadata file  
+        output_path: Optional path to write comparison report
+        output_format: Output format ('table', 'json', 'csv')
+    """
+    import csv
+    import json
+    from collections import defaultdict
+    from rich.console import Console
+    from rich.table import Table
+    from ingen_fab.cli_utils.console_styles import ConsoleStyles
+    
+    console = Console()
+    
+    # Validate input files exist
+    if not file1.exists():
+        ConsoleStyles.print_error(console, f"File not found: {file1}")
+        raise typer.Exit(code=1)
+    
+    if not file2.exists():
+        ConsoleStyles.print_error(console, f"File not found: {file2}")
+        raise typer.Exit(code=1)
+    
+    # Read and parse CSV files
+    def read_metadata_csv(file_path: Path) -> tuple[dict, dict]:
+        """Read CSV and return tables dict and columns dict."""
+        tables = set()  # {asset_name}.{schema_name}.{table_name}
+        columns = {}    # {asset_name}.{schema_name}.{table_name}.{column_name}: {data_type, is_nullable}
+        
+        with open(file_path, 'r', encoding='utf-8', newline='') as f:
+            reader = csv.DictReader(f)
+            for row in reader:
+                # Determine asset name (lakehouse or warehouse)
+                asset_name = row.get('lakehouse_name') or row.get('warehouse_name', '')
+                if not asset_name:
+                    continue
+                    
+                schema_name = row.get('schema_name', '')
+                table_name = row.get('table_name', '')
+                column_name = row.get('column_name', '')
+                
+                if not table_name:
+                    continue
+                
+                # Create table identifier
+                table_id = f"{asset_name}.{schema_name}.{table_name}"
+                tables.add(table_id)
+                
+                # Create column identifier if column data exists
+                if column_name:
+                    column_id = f"{table_id}.{column_name}"
+                    columns[column_id] = {
+                        'data_type': row.get('data_type', ''),
+                        'is_nullable': str(row.get('is_nullable', '')).lower(),
+                        'table_id': table_id,
+                        'asset_name': asset_name,
+                        'schema_name': schema_name,
+                        'table_name': table_name,
+                        'column_name': column_name
+                    }
+        
+        return tables, columns
+    
+    try:
+        ConsoleStyles.print_info(console, f"Reading metadata from {file1.name}...")
+        tables1, columns1 = read_metadata_csv(file1)
+        
+        ConsoleStyles.print_info(console, f"Reading metadata from {file2.name}...")
+        tables2, columns2 = read_metadata_csv(file2)
+        
+    except Exception as e:
+        ConsoleStyles.print_error(console, f"Error reading CSV files: {e}")
+        raise typer.Exit(code=1)
+    
+    # Find differences
+    differences = []
+    
+    # Missing tables
+    missing_in_file2 = tables1 - tables2
+    missing_in_file1 = tables2 - tables1
+    
+    for table_id in missing_in_file2:
+        # Parse table_id: {asset_name}.{schema_name}.{table_name}
+        parts = table_id.split('.')
+        asset_name = parts[0] if len(parts) > 0 else ""
+        schema_name = parts[1] if len(parts) > 1 else ""
+        table_name = parts[2] if len(parts) > 2 else ""
+        
+        differences.append(MetadataDifference(
+            type="missing_table",
+            identifier=table_id,
+            file1_value="present",
+            file2_value="missing",
+            description=f"Table '{table_id}' exists in {file1.name} but not in {file2.name}",
+            asset_name=asset_name,
+            schema_name=schema_name,
+            table_name=table_name,
+            column_name=""
+        ))
+    
+    for table_id in missing_in_file1:
+        # Parse table_id: {asset_name}.{schema_name}.{table_name}
+        parts = table_id.split('.')
+        asset_name = parts[0] if len(parts) > 0 else ""
+        schema_name = parts[1] if len(parts) > 1 else ""
+        table_name = parts[2] if len(parts) > 2 else ""
+        
+        differences.append(MetadataDifference(
+            type="missing_table", 
+            identifier=table_id,
+            file1_value="missing",
+            file2_value="present",
+            description=f"Table '{table_id}' exists in {file2.name} but not in {file1.name}",
+            asset_name=asset_name,
+            schema_name=schema_name,
+            table_name=table_name,
+            column_name=""
+        ))
+    
+    # Missing columns
+    all_columns1 = set(columns1.keys())
+    all_columns2 = set(columns2.keys())
+    
+    missing_columns_in_file2 = all_columns1 - all_columns2
+    missing_columns_in_file1 = all_columns2 - all_columns1
+    
+    for column_id in missing_columns_in_file2:
+        col_info = columns1[column_id]
+        differences.append(MetadataDifference(
+            type="missing_column",
+            identifier=column_id,
+            file1_value="present",
+            file2_value="missing", 
+            description=f"Column '{col_info['column_name']}' in table '{col_info['table_id']}' exists in {file1.name} but not in {file2.name}",
+            asset_name=col_info['asset_name'],
+            schema_name=col_info['schema_name'],
+            table_name=col_info['table_name'],
+            column_name=col_info['column_name']
+        ))
+    
+    for column_id in missing_columns_in_file1:
+        col_info = columns2[column_id]
+        differences.append(MetadataDifference(
+            type="missing_column",
+            identifier=column_id,
+            file1_value="missing",
+            file2_value="present",
+            description=f"Column '{col_info['column_name']}' in table '{col_info['table_id']}' exists in {file2.name} but not in {file1.name}",
+            asset_name=col_info['asset_name'],
+            schema_name=col_info['schema_name'],
+            table_name=col_info['table_name'],
+            column_name=col_info['column_name']
+        ))
+    
+    # Data type and nullable differences for common columns
+    common_columns = all_columns1 & all_columns2
+    
+    for column_id in common_columns:
+        col1 = columns1[column_id]
+        col2 = columns2[column_id]
+        
+        # Compare data types
+        if col1['data_type'] != col2['data_type']:
+            differences.append(MetadataDifference(
+                type="data_type_diff",
+                identifier=column_id,
+                file1_value=col1['data_type'],
+                file2_value=col2['data_type'],
+                description=f"Column '{col1['column_name']}' in table '{col1['table_id']}' has different data types: {col1['data_type']} vs {col2['data_type']}",
+                asset_name=col1['asset_name'],
+                schema_name=col1['schema_name'],
+                table_name=col1['table_name'],
+                column_name=col1['column_name']
+            ))
+        
+        # Compare nullable settings
+        if col1['is_nullable'] != col2['is_nullable']:
+            differences.append(MetadataDifference(
+                type="nullable_diff", 
+                identifier=column_id,
+                file1_value=col1['is_nullable'],
+                file2_value=col2['is_nullable'],
+                description=f"Column '{col1['column_name']}' in table '{col1['table_id']}' has different nullable settings: {col1['is_nullable']} vs {col2['is_nullable']}",
+                asset_name=col1['asset_name'],
+                schema_name=col1['schema_name'],
+                table_name=col1['table_name'],
+                column_name=col1['column_name']
+            ))
+    
+    # Sort differences by asset_name, schema_name, table_name, column_name, type
+    differences.sort(key=lambda x: (
+        x.asset_name.lower(),
+        x.schema_name.lower(), 
+        x.table_name.lower(),
+        x.column_name.lower(),
+        x.type
+    ))
+    
+    # Generate output
+    _render_comparison_output(
+        differences=differences,
+        file1_name=file1.name,
+        file2_name=file2.name,
+        output_format=output_format,
+        output_path=output_path,
+        console=console
+    )
+
+
+def _render_comparison_output(
+    differences: list[MetadataDifference],
+    file1_name: str,
+    file2_name: str,
+    output_format: str,
+    output_path: Optional[Path],
+    console: Console,
+) -> None:
+    """Render the comparison output in the specified format."""
+    import json
+    import csv
+    from collections import defaultdict
+    
+    if not differences:
+        ConsoleStyles.print_success(console, f"No differences found between {file1_name} and {file2_name}")
+        return
+    
+    # Group differences by type for summary
+    by_type = defaultdict(int)
+    for diff in differences:
+        by_type[diff.type] += 1
+    
+    summary_msg = f"Found {len(differences)} differences between {file1_name} and {file2_name}:\n"
+    for diff_type, count in by_type.items():
+        summary_msg += f"  - {diff_type.replace('_', ' ').title()}: {count}\n"
+    
+    if output_format == "table":
+        console.print(summary_msg)
+        
+        # Create rich table
+        table = Table(title="Metadata Comparison Results")
+        table.add_column("Type", style="cyan")
+        table.add_column("Identifier", style="yellow") 
+        table.add_column(f"{file1_name}", style="green")
+        table.add_column(f"{file2_name}", style="red")
+        table.add_column("Description", style="white")
+        
+        for diff in differences:
+            table.add_row(
+                diff.type.replace('_', ' ').title(),
+                diff.identifier,
+                str(diff.file1_value or ""),
+                str(diff.file2_value or ""),
+                diff.description
+            )
+        
+        if output_path:
+            # For file output with table format, convert to plain text
+            with open(output_path, 'w', encoding='utf-8') as f:
+                f.write(summary_msg + "\n")
+                f.write("Type\tIdentifier\tFile1 Value\tFile2 Value\tDescription\tAsset Name\tSchema Name\tTable Name\tColumn Name\n")
+                for diff in differences:
+                    f.write(f"{diff.type}\t{diff.identifier}\t{diff.file1_value}\t{diff.file2_value}\t{diff.description}\t{diff.asset_name}\t{diff.schema_name}\t{diff.table_name}\t{diff.column_name}\n")
+            ConsoleStyles.print_success(console, f"Comparison report written to {output_path}")
+        
+        console.print(table)
+        
+    elif output_format == "json":
+        # Convert to JSON format
+        output_data = {
+            "summary": {
+                "file1": file1_name,
+                "file2": file2_name,
+                "total_differences": len(differences),
+                "by_type": dict(by_type)
+            },
+            "differences": [
+                {
+                    "type": diff.type,
+                    "identifier": diff.identifier,
+                    "file1_value": diff.file1_value,
+                    "file2_value": diff.file2_value,
+                    "description": diff.description,
+                    "asset_name": diff.asset_name,
+                    "schema_name": diff.schema_name,
+                    "table_name": diff.table_name,
+                    "column_name": diff.column_name
+                }
+                for diff in differences
+            ]
+        }
+        
+        json_output = json.dumps(output_data, indent=2)
+        
+        if output_path:
+            output_path.write_text(json_output, encoding='utf-8')
+            ConsoleStyles.print_success(console, f"JSON comparison report written to {output_path}")
+        else:
+            console.print(json_output)
+            
+    elif output_format == "csv":
+        # Create CSV output
+        fieldnames = ["type", "identifier", "file1_value", "file2_value", "description", "asset_name", "schema_name", "table_name", "column_name"]
+        
+        if output_path:
+            with open(output_path, 'w', encoding='utf-8', newline='') as f:
+                writer = csv.DictWriter(f, fieldnames=fieldnames)
+                writer.writeheader()
+                for diff in differences:
+                    writer.writerow({
+                        "type": diff.type,
+                        "identifier": diff.identifier,
+                        "file1_value": diff.file1_value,
+                        "file2_value": diff.file2_value,
+                        "description": diff.description,
+                        "asset_name": diff.asset_name,
+                        "schema_name": diff.schema_name,
+                        "table_name": diff.table_name,
+                        "column_name": diff.column_name
+                    })
+            ConsoleStyles.print_success(console, f"CSV comparison report written to {output_path}")
+        else:
+            # Print CSV to console
+            import io
+            output = io.StringIO()
+            writer = csv.DictWriter(output, fieldnames=fieldnames)
+            writer.writeheader()
+            for diff in differences:
+                writer.writerow({
+                    "type": diff.type,
+                    "identifier": diff.identifier, 
+                    "file1_value": diff.file1_value,
+                    "file2_value": diff.file2_value,
+                    "description": diff.description,
+                    "asset_name": diff.asset_name,
+                    "schema_name": diff.schema_name,
+                    "table_name": diff.table_name,
+                    "column_name": diff.column_name
+                })
+            console.print(output.getvalue())
+    
+    # Always print summary to console
+    if output_format != "table":
+        console.print(summary_msg)
