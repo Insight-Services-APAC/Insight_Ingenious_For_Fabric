@@ -10,8 +10,13 @@ Complete reference for all Ingenious Fabric Accelerator commands, options, and u
     ```bash
     source .venv/bin/activate
     ```
+    ```bash
+    # Set environment (development, UAT, production)
+    $env:FABRIC_ENVIRONMENT = "development"
 
-    --8<-- "_includes/environment_setup.md"
+    # Set workspace directory 
+    $env:FABRIC_WORKSPACE_REPO_DIR = "My Fabric Project"
+    ```
 
 ## Command Groups at a Glance
 
