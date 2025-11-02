@@ -599,5 +599,5 @@ Orchestrate sync workflows:
 
 ## Next Steps
 
-- Review [sample configurations](https://github.com/your-repo/tree/main/packages/synapse_sync/sample_project)
+- Review sample configurations in the `sample_project` directory
 - Explore [examples and templates](../examples/index.md) for common patterns

@@ -1,3 +1,5 @@
+[← Back to Python Libraries](../README.md) | [← Developer Guide](../../../docs/developer_guide/python_libraries.md)
+
 # Notebook Utils Abstraction
 
 This module provides an abstraction layer for `notebookutils` that allows code to work seamlessly in both local development environments and Fabric notebook execution environments.

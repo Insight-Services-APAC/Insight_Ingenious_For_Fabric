@@ -38,4 +38,4 @@ Set up environment variables to avoid specifying them on each command:
     $env:AZURE_CLIENT_SECRET = "your-client-secret"
     ```
 
-See [Environment Variables](../user_guide/environment_variables.md) for a complete list.
+See [Environment Variables](../reference/environment-variables.md) for a complete list.

@@ -5,7 +5,7 @@
 This guide will help you install and set up the Ingenious Fabric Accelerator using pip.
 
 !!! tip "Learning Path"  
-    **New User Journey**: Installation (you are here) → [Quick Start](quick-start.md) → [First Project](first-project.md) → [CLI Reference](../guides/cli-reference.md)
+    **New User Journey**: Installation (you are here) → [Quick Start](quick-start.md) → [First Project](first-project.md) → [CLI Reference](../user_guide/cli_reference.md)
 
 ## Requirements
 
@@ -222,7 +222,7 @@ Once installed, proceed to:
 
 1. **[Quick Start](quick-start.md)** - Create your first project
 2. **[First Project](first-project.md)** - Detailed walkthrough
-3. **[CLI Reference](../guides/cli-reference.md)** - Learn all commands
+3. **[CLI Reference](../user_guide/cli_reference.md)** - Learn all commands
 
 ## Developer Installation
 

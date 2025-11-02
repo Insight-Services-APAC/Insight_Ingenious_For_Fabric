@@ -10,8 +10,13 @@ Complete reference for all Ingenious Fabric Accelerator commands, options, and u
     ```bash
     source .venv/bin/activate
     ```
+    ```bash
+    # Set environment (development, UAT, production)
+    $env:FABRIC_ENVIRONMENT = "development"
 
-    --8<-- "_includes/environment_setup.md"
+    # Set workspace directory 
+    $env:FABRIC_WORKSPACE_REPO_DIR = "My Fabric Project"
+    ```
 
 ## Command Groups at a Glance
 
@@ -19,7 +24,7 @@ Complete reference for all Ingenious Fabric Accelerator commands, options, and u
 |-------|---------|----------------|
 | `init` | Create projects / configure workspace | `ingen_fab init new --project-name MyProj` |
 | `ddl` | Compile notebooks from DDL scripts | `ingen_fab ddl compile -o fabric_workspace_repo -g Warehouse` |
-| `deploy` | Deploy, upload libs, extract metadata | `ingen_fab deploy get-metadata --target both -f csv -o artifacts/meta.csv` |
+| `deploy` | Deploy, upload libs, extract/compare metadata | `ingen_fab deploy get-metadata --target both -f csv -o meta.csv` |
 | `notebook` | Scan and transform notebooks | `ingen_fab notebook scan-notebook-blocks -a` |
 | `test` | Local and platform tests | `FABRIC_ENVIRONMENT=local ingen_fab test local python` |
 | `package` | Run solution packages | `ingen_fab package ingest compile -d warehouse` |
@@ -81,23 +86,55 @@ ingen_fab init new --project-name "ML Pipeline" --path ./projects
 
 #### `init workspace`
 
-Initialize workspace configuration by looking up workspace ID from name.
+Initialize workspace configuration and automatically update artifact GUIDs (lakehouses, warehouses, notebooks).
 
 ```bash
-ingen_fab init workspace --workspace-name "My Workspace"
+ingen_fab init workspace
 ```
 
+**Features:**
+- Sets workspace ID in variable library for the specified environment
+- Automatically discovers and updates lakehouse, warehouse, and notebook GUIDs
+- Matches variables ending in `_lakehouse_id`, `_warehouse_id`, `_notebook_id` with their corresponding `_name` variables
+
+**Variable Pattern Matching:**
+
+The command automatically updates GUIDs for variables following these naming patterns:
+
+- `*_lakehouse_id` ↔ `*_lakehouse_name`
+- `*_warehouse_id` ↔ `*_warehouse_name`
+- `*_notebook_id` ↔ `*_notebook_name`
+
+For example, if your `development.json` contains:
+```json
+{
+  "variableOverrides": [
+    {"name": "config_lakehouse_id", "value": "old-guid"},
+    {"name": "config_lakehouse_name", "value": "config"},
+    {"name": "analysis_notebook_id", "value": "old-guid"},
+    {"name": "analysis_notebook_name", "value": "Data Analysis"}
+  ]
+}
+```
+
+Running `ingen_fab init workspace` will automatically find the "config" lakehouse and "Data Analysis" notebook in your workspace and update their GUIDs.
+
 **Options:**
-- `--workspace-name` / `-w`: Name of the Fabric workspace to lookup and configure (required)
-- `--create-if-not-exists` / `-c`: Create the workspace if it doesn't exist
+- `--workspace-id`: Fabric workspace ID (auto-detected if not provided)
+- `--workspace-name`: Fabric workspace name (auto-detected if not provided)
+- `--environment`: Environment to configure (defaults to `$FABRIC_ENVIRONMENT`)
 
 **Examples:**
 ```bash
-# Look up existing workspace
+# Configure workspace for development environment
+export FABRIC_ENVIRONMENT=development
+ingen_fab init workspace
+
+# Specify workspace explicitly
 ingen_fab init workspace --workspace-name "Analytics Workspace"
 
-# Create workspace if it doesn't exist
-ingen_fab init workspace --workspace-name "New Workspace" --create-if-not-exists
+# Configure for specific environment
+ingen_fab init workspace --environment production
 ```
 
 ## ddl {#ddl}
@@ -127,6 +164,65 @@ ingen_fab ddl compile --output-mode fabric_workspace_repo --generation-mode Lake
 
 # Generate with verbose output
 ingen_fab ddl compile -o fabric_workspace_repo -g Warehouse -v
+```
+
+#### `ddl ddls-from-metadata`
+
+Generate DDL Python scripts from a metadata CSV file (typically `metadata/lakehouse_metadata_all.csv`).
+
+```bash
+ingen_fab ddl ddls-from-metadata --lakehouse lh_silver2
+```
+
+**Options:**
+- `--lakehouse` / `-l`: Lakehouse name to generate DDLs for (required)
+- `--table` / `-t`: Specific table name to generate (optional, generates all tables if not specified)
+- `--subdirectory` / `-d`: Subdirectory for output files (default: `generated`)
+- `--sequence-numbers` / `--no-sequence-numbers` / `-s` / `-ns`: Include sequence number prefixes in filenames (default: True)
+- `--verbose` / `-v`: Enable verbose output
+
+**Output:**
+- With sequence numbers: `001_lh_silver2_customer.py`, `002_lh_silver2_orders.py`
+- Without sequence numbers: `lh_silver2_customer.py`, `lh_silver2_orders.py`
+- Output path: `{workspace}/ddl_scripts/Lakehouses/{lakehouse}/{subdirectory}/`
+
+**System Table Exclusion:**
+
+The command automatically excludes these system/monitoring tables:
+- `exec_sessions_history`
+- `exec_requests_history`
+- `long_running_queries`
+- `managed_delta_table_forks`
+
+Tables with schemas `sys` or `queryinsights` are also excluded.
+
+**Examples:**
+```bash
+# Generate DDL for all tables in lakehouse
+ingen_fab ddl ddls-from-metadata --lakehouse lh_silver2
+
+# Generate DDL for specific table only
+ingen_fab ddl ddls-from-metadata --lakehouse lh_silver2 --table customer_data
+
+# Generate without sequence numbers in filenames
+ingen_fab ddl ddls-from-metadata --lakehouse lh_silver2 --no-sequence-numbers
+
+# Custom output subdirectory
+ingen_fab ddl ddls-from-metadata --lakehouse lh_silver2 --subdirectory staging_ddls
+
+# Combine options with short flags
+ingen_fab ddl ddls-from-metadata -l lh_silver2 -t orders -d production -ns
+```
+
+**Typical Workflow:**
+```bash
+# 1. Extract metadata from lakehouse
+ingen_fab deploy get-metadata --lakehouse-name lh_silver2 --format csv
+
+# 2. Generate DDL scripts from the metadata
+ingen_fab ddl ddls-from-metadata --lakehouse lh_silver2
+
+# 3. Review and customize the generated scripts in ddl_scripts/Lakehouses/lh_silver2/generated/
 ```
 
 ## deploy {#deploy}
@@ -233,6 +329,78 @@ ingen_fab deploy get-metadata \
 ingen_fab deploy get-metadata \
   --workspace-name "Analytics Workspace" \
   --schema sales --target both
+```
+
+#### `deploy compare-metadata` {#deploy-compare-metadata}
+
+Compare two metadata CSV files and report differences between them.
+
+```bash
+ingen_fab deploy compare-metadata [OPTIONS]
+```
+
+**Required options:**
+- `--file1` / `-f1`: First CSV metadata file for comparison
+- `--file2` / `-f2`: Second CSV metadata file for comparison
+
+**Output control:**
+- `--format` / `-fmt`: `table` (default), `json`, or `csv`
+- `--output` / `-o`: Write comparison report to file (optional)
+
+**Detection capabilities:**
+
+The command identifies and reports:
+
+- **Missing tables**: Tables present in one file but not the other
+- **Missing columns**: Columns present in one file but not the other  
+- **Data type differences**: Same column with different data types
+- **Nullable differences**: Same column with different nullable settings
+
+**Output ordering:**
+
+Results are automatically sorted by:
+1. Asset name (lakehouse/warehouse name)
+2. Schema name  
+3. Table name
+4. Column name
+5. Difference type
+
+**Examples:**
+```bash
+# Compare two lakehouse metadata files with table output
+ingen_fab deploy compare-metadata \
+  --file1 metadata_before.csv \
+  --file2 metadata_after.csv
+
+# Save detailed JSON comparison report
+ingen_fab deploy compare-metadata \
+  -f1 prod_metadata.csv \
+  -f2 dev_metadata.csv \
+  -o schema_diff_report.json --format json
+
+# Generate CSV output for further analysis
+ingen_fab deploy compare-metadata \
+  --file1 old_schema.csv \
+  --file2 new_schema.csv \
+  --format csv --output differences.csv
+```
+
+**Sample output:**
+```
+Found 4 differences between metadata_before.csv and metadata_after.csv:
+  - Missing Table: 1
+  - Missing Column: 1
+  - Data Type Diff: 1
+  - Nullable Diff: 1
+
+┏━━━━━━━━━━━━━━━━┳━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┳━━━━━━━━━━━━━━━━━━┳━━━━━━━━━━━━━━━━━━┓
+┃ Type           ┃ Identifier                                       ┃ metadata_before  ┃ metadata_after   ┃
+┡━━━━━━━━━━━━━━━━╇━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━╇━━━━━━━━━━━━━━━━━━╇━━━━━━━━━━━━━━━━━━┩
+│ Missing Table  │ Analytics.dbo.new_products                       │ missing          │ present          │
+│ Missing Column │ Analytics.dbo.customers.phone                    │ missing          │ present          │
+│ Data Type Diff │ Analytics.dbo.orders.total_amount                │ decimal(10,2)    │ decimal(12,2)    │
+│ Nullable Diff  │ Analytics.dbo.customers.email                    │ true             │ false            │
+└────────────────┴──────────────────────────────────────────────────┴──────────────────┴──────────────────┘
 ```
 
 ## notebook {#notebook}

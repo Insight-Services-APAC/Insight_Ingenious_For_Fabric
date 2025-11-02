@@ -2,6 +2,8 @@
 
 [Home](../index.md) > [Packages](index.md) > Extract Generation - Synthetic Data Alignment
 
+**Related**: [Extract Generation](extract_generation.md) | [Synthetic Data Generation](synthetic_data_generation.md)
+
 This document describes how the Extract Generation package has been aligned to work with the Ingenious Fabric synthetic data tables.
 
 ## Overview
