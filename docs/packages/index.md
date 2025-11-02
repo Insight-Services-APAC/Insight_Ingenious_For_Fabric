@@ -159,7 +159,7 @@ All packages follow these standards:
 
 ## Support and Resources
 
-- **[CLI Reference](../guides/cli-reference.md#package)** - Complete command documentation
+- **[CLI Reference](../user_guide/cli_reference.md#package)** - Complete command documentation
 - **[Examples](../examples/index.md)** - Real-world usage scenarios
 - **[Troubleshooting](../guides/troubleshooting.md#package-issues)** - Common issues and solutions
 - **[Developer Guide](../developer_guide/packages.md)** - Package development guide

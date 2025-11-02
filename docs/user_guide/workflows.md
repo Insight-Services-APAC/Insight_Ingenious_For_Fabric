@@ -15,8 +15,11 @@ ingen_fab init new --project-name "Data Analytics Platform"
 # Navigate to the project directory
 cd "Data Analytics Platform"
 
-# Configure your environment variables  
---8<-- "_includes/environment_setup.md"
+# Set environment (development, UAT, production)
+$env:FABRIC_ENVIRONMENT = "development"
+
+# Set workspace directory 
+$env:FABRIC_WORKSPACE_REPO_DIR = "My Fabric Project"
 ```
 
 ### 2. Development Cycle
@@ -408,6 +411,73 @@ ingen_fab package ingest run --config-id "customers_import" --execution-group 1
 - **Lakehouse**: Use for Delta table operations, schema evolution, and PySpark-based transformations
 - **Warehouse**: Use for high-performance bulk loading with COPY INTO and SQL-based operations
 - **Both**: Generate separate notebooks for maximum flexibility
+
+```
+
+### Schema Change Management
+
+Track and validate schema changes across environments using metadata extraction and comparison:
+
+```bash
+# 1. Extract baseline metadata before changes
+ingen_fab deploy get-metadata --target both --format csv -o baseline_schema.csv
+
+# 2. Make schema changes via DDL scripts
+# ... edit your DDL scripts ...
+
+# 3. Generate and deploy updated notebooks
+ingen_fab ddl compile --output-mode fabric_workspace_repo --generation-mode Warehouse
+ingen_fab deploy deploy
+
+# 4. Extract updated metadata
+ingen_fab deploy get-metadata --target both --format csv -o updated_schema.csv
+
+# 5. Compare and analyze changes
+ingen_fab deploy compare-metadata \
+  -f1 baseline_schema.csv \
+  -f2 updated_schema.csv \
+  -o schema_changes.json --format json
+```
+
+**Environment comparison workflow:**
+```bash
+# Compare production vs staging schemas
+ingen_fab deploy get-metadata --target both -o prod_schema.csv --fabric-environment production
+ingen_fab deploy get-metadata --target both -o staging_schema.csv --fabric-environment staging
+
+# Generate comparison report
+ingen_fab deploy compare-metadata \
+  -f1 prod_schema.csv \
+  -f2 staging_schema.csv \
+  --format table
+```
+
+**Migration validation workflow:**
+```bash
+# Before migration
+ingen_fab deploy get-metadata --target lakehouse -o pre_migration.csv
+
+# Run migration scripts
+# ... execute your migration ...
+
+# After migration  
+ingen_fab deploy get-metadata --target lakehouse -o post_migration.csv
+
+# Validate changes match expectations
+ingen_fab deploy compare-metadata \
+  -f1 pre_migration.csv \
+  -f2 post_migration.csv \
+  -o migration_validation.json --format json
+
+# Review differences for unexpected changes
+cat migration_validation.json | jq '.differences[] | select(.type == "missing_table")'
+```
+
+**What the comparison detects:**
+- Missing tables (added/removed)
+- Missing columns (added/removed)  
+- Data type changes (e.g., `varchar(50)` → `varchar(100)`)
+- Nullable constraint changes (`NULL` → `NOT NULL`)
 
 ### Managing Python Libraries
 

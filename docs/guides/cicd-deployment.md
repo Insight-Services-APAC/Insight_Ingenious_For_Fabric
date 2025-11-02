@@ -1,6 +1,6 @@
 # Deploy Guide (using DevOps CI\CD)
 
-[Home](../index.md) > [Guides](cli-reference.md) > Deployment (using DevOps CI\CD)
+[Home](../index.md) > [Guides](../user_guide/index.md) > Deployment (using DevOps CI\CD)
 
 Practical guide to deploy changes using DevOps yml scripts.
 

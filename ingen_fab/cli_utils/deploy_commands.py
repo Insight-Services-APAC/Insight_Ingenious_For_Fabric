@@ -189,7 +189,7 @@ def _save_item_definition_content(
                             f"⚠️  Failed to decode content for {part_name}: {e}"
                         )
                         
-        elif artefact_type in ["Report", "SemanticModel", "DataPipeline"]:
+        elif artefact_type in ["Report", "SemanticModel", "DataPipeline", "GraphQLApi"]:
             # For other artefact types, save parts as individual files
             parts = definition_content.get("parts", [])
             for part in parts:
