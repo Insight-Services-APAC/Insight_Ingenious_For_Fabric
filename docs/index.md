@@ -92,7 +92,7 @@ Ingenious for Fabric is a comprehensive command line tool built with [Typer](htt
 
     New to Ingenious? Start here for installation and your first project.
 
-    [:octicons-arrow-right-24: Quick Start Guide](getting-started/quick-start.md)
+    [:octicons-arrow-right-24: Quick Start Guide](user_guide/quick_start.md)
 
 -   :material-console:{ .lg .middle } **User Guides**
 
@@ -240,6 +240,5 @@ Comprehensive testing framework supporting both local development and Fabric pla
 ## Support
 
 - **Documentation**: Browse the complete documentation on this site
-- **Sitemap**: See the [complete documentation map](SITEMAP.md) for all available pages
 - **Help**: Use `ingen_fab --help` for CLI assistance
 - **Local Development**: Use the sample project for testing and learning

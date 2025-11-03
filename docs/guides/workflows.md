@@ -1,6 +1,6 @@
 # Workflows
 
-[Home](../index.md) > [Guides](../user_guide/index.md) > Workflows
+[Home](../index.md) > [Guides](index.md) > Workflows
 
 This guide covers best practices and common workflows for using the Ingenious Fabric Accelerator effectively in your projects.
 

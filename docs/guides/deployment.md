@@ -1,6 +1,6 @@
 # Deploy Guide
 
-[Home](../index.md) > [Guides](../user_guide/index.md) > Deployment
+[Home](../index.md) > [Guides](index.md) > Deployment
 
 Practical guide to deploy changes, upload Python libraries with variable injection, and extract metadata from Fabric assets.
 
