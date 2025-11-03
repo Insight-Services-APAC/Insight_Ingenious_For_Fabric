@@ -1,6 +1,6 @@
 # Packages
 
-[Home](../index.md) > [Guides](../user_guide/index.md) > Packages
+[Home](../index.md) > [Guides](index.md) > Packages
 
 Welcome to the Packages documentation! This section provides detailed information about available packages and how to use them in your Microsoft Fabric projects.
 

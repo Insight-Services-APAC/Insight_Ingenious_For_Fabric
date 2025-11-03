@@ -1,6 +1,6 @@
 # Environment Variables
 
-[Home](../index.md) > [Reference](../index.md) > Environment Variables
+[Home](../index.md) > [Reference](index.md) > Environment Variables
 
 Reference for environment variables used by the CLI and deploy workflows.
 
