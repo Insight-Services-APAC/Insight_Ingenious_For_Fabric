@@ -234,7 +234,7 @@ The tests run entirely offline. A few end-to-end tests are skipped unless the re
 
 ## Sample project
 
-See [sample_project/README.md](sample_project/README.md) for a tour of the example Fabric workspace used by the CLI.
+See [Sample Project](docs/examples/sample_project.md) for a tour of the example Fabric workspace used by the CLI.
 
 ## Project Structure
 
@@ -310,7 +310,7 @@ mkdocs serve --dev-addr=0.0.0.0:8000
 
 Additional documentation:
 
-- **[sample_project/README.md](sample_project/README.md)** - Complete example workspace with step-by-step workflow
+- **[Sample Project](docs/examples/sample_project.md)** - Complete example workspace with step-by-step workflow
 - **[ingen_fab/python_libs/README.md](ingen_fab/python_libs/README.md)** - Reusable Python and PySpark libraries
 - **[ingen_fab/ddl_scripts/README.md](ingen_fab/ddl_scripts/README.md)** - DDL notebook generation templates
 

@@ -1,6 +1,6 @@
 # Workspace Layout
 
-[Home](../index.md) > [Reference](environment-variables.md) > Workspace Layout
+[Home](../index.md) > [Reference](index.md) > Workspace Layout
 
 Overview of the sample Fabric workspace repository and how commands interact with it.
 
