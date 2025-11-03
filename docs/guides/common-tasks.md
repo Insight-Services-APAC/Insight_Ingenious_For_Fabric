@@ -1,6 +1,6 @@
 # Common Tasks
 
-[Home](../index.md) > [Guides](../user_guide/index.md) > Common Tasks
+[Home](../index.md) > [Guides](index.md) > Common Tasks
 
 Quick, task-oriented commands with links to deeper docs.
 
