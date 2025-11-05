@@ -157,6 +157,31 @@ class OneLakeUtils:
             )
         return lakehouse_name
 
+    def _clean_remote_directory(
+        self,
+        lakehouse_id: str,
+        target_prefix: str,
+        service_client: DataLakeServiceClient,
+        file_system_client: FileSystemClient,
+    ) -> None:
+        """
+        Delete remote directory to ensure clean sync state (rsync-like behavior).
+
+        Args:
+            lakehouse_id: ID of the lakehouse
+            target_prefix: Directory path to clean (e.g., 'config_files')
+            service_client: DataLake service client
+            file_system_client: File system client
+        """
+        lakehouse_name = self._get_lakehouse_name(lakehouse_id)
+        directory_path = f"{lakehouse_name}.Lakehouse/Files/{target_prefix}"
+
+        directory_client = file_system_client.get_directory_client(directory_path)
+
+        if directory_client.exists():
+            directory_client.delete_directory()
+            self.msg_helper.print_info(f"Syncing: cleared remote directory '{target_prefix}/'")
+
     def download_file_from_lakehouse(
         self,
         lakehouse_id: str,
@@ -395,6 +420,12 @@ class OneLakeUtils:
         if file_system_client is None:
             workspace_name = self.workspace_name
             file_system_client = service_client.get_file_system_client(workspace_name)
+
+        # Clean remote directory first for rsync-like behavior
+        if target_prefix:
+            self._clean_remote_directory(
+                lakehouse_id, target_prefix, service_client, file_system_client
+            )
 
         import time
 
@@ -651,6 +682,59 @@ class OneLakeUtils:
             target_prefix=f"{dbt_project_name}",
             service_client=self._get_datalake_service_client(),
             include_extensions=[".sql", ".yml", ".yaml", ".md", ".csv"],
+        )
+
+    def upload_config_files_to_config_lakehouse(
+        self, config_files_path: str = None
+    ) -> dict:
+        """
+        Upload the config_files directory to the config lakehouse's Files section.
+
+        Args:
+            config_files_path: Path to the config_files directory (defaults to workspace_repo/config_files)
+
+        Returns:
+            Dictionary with upload results
+        """
+        if config_files_path is None:
+            # Default to config_files directory in workspace repo
+            config_files_path = self.project_path / "config_files"
+
+        config_files_path = Path(config_files_path)
+
+        if not config_files_path.exists():
+            raise ValueError(f"Config files directory not found: {config_files_path}")
+
+        # Get config lakehouse ID
+        config_lakehouse_id = self.get_config_lakehouse_id()
+
+        # Show upload info with rich formatting
+        self.msg_helper.print_info(
+            f"Uploading config files from: {config_files_path.name}"
+        )
+
+        if self.console:
+            from rich.panel import Panel
+
+            info_content = (
+                f"[cyan]Source:[/cyan] {config_files_path}\n"
+                f"[cyan]Target lakehouse ID:[/cyan] {config_lakehouse_id}\n"
+                f"[cyan]Target path:[/cyan] config_files/"
+            )
+            panel = Panel(
+                info_content,
+                title="[bold]Upload Configuration[/bold]",
+                border_style="cyan",
+            )
+            self.console.print(panel)
+
+        # Upload all config files (JSONC and JSON)
+        return self.upload_directory_to_lakehouse(
+            lakehouse_id=config_lakehouse_id,
+            directory_path=str(config_files_path),
+            target_prefix="config_files",
+            service_client=self._get_datalake_service_client(),
+            include_extensions=[".jsonc", ".json"],
         )
 
     def list_lakehouse_files(

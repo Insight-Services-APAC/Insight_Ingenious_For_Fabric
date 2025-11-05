@@ -3,7 +3,6 @@
 
 INSERT INTO config.config_flat_file_ingestion (
     config_id,
-    config_name,
     source_file_path,
     source_file_format,
     target_workspace_id,
@@ -34,28 +33,25 @@ INSERT INTO config.config_flat_file_ingestion (
     sort_columns,
     write_mode,
     merge_keys,
-    data_validation_rules,
-    error_handling_strategy,
+    enable_schema_evolution,
     execution_group,
     active_yn,
     created_date,
     modified_date,
     created_by,
     modified_by,
-    -- New fields for incremental synthetic data import support
+    -- Discovery and Import Configuration (Simplified Schema)
     import_pattern,
-    date_partition_format,
-    table_relationship_group,
-    batch_import_enabled,
-    file_discovery_pattern,
-    import_sequence_order,
+    discovery_pattern,
+    date_pattern,
     date_range_start,
     date_range_end,
-    skip_existing_dates
-) VALUES 
+    duplicate_handling,
+    require_files,
+    data_validation_rules
+) VALUES
 (
     'synthetic_customers_001',
-    'Synthetic Data - Customers (Retail OLTP Small)',
     'Files/synthetic_data/parquet/single/retail_oltp_small/customers.parquet',
     'parquet',
     '{% raw %}{{varlib:config_workspace_id}}{% endraw %}',
@@ -76,27 +72,25 @@ INSERT INTO config.config_flat_file_ingestion (
     'overwrite',
     '',
     NULL,
-    'fail',
+    1,
     1,
     'Y',
     '2024-01-15',
     NULL,
     'system',
     NULL,
-    -- New fields for incremental synthetic data import support
+    -- Discovery and Import Configuration (Simplified Schema)
+    'single_file',
     NULL,
     NULL,
     NULL,
     NULL,
-    NULL,
-    NULL,
-    NULL,
-    NULL,
+    'skip',
+    0,
     NULL
 ),
 (
     'synthetic_products_002',
-    'Synthetic Data - Products (Retail OLTP Small)',
     'Files/synthetic_data/parquet/single/retail_oltp_small/products.parquet',
     'parquet',
     '{% raw %}{{varlib:config_workspace_id}}{% endraw %}',
@@ -117,27 +111,25 @@ INSERT INTO config.config_flat_file_ingestion (
     'overwrite',
     '',
     NULL,
-    'log',
+    1,
     1,
     'Y',
     '2024-01-15',
     NULL,
     'system',
     NULL,
-    -- New fields for incremental synthetic data import support
+    -- Discovery and Import Configuration (Simplified Schema)
+    'single_file',
     NULL,
     NULL,
     NULL,
     NULL,
-    NULL,
-    NULL,
-    NULL,
-    NULL,
+    'skip',
+    0,
     NULL
 ),
 (
     'synthetic_orders_003',
-    'Synthetic Data - Orders (Retail OLTP Small)',
     'Files/synthetic_data/parquet/single/retail_oltp_small/orders.parquet',
     'parquet',
     '{% raw %}{{varlib:config_workspace_id}}{% endraw %}',
@@ -158,27 +150,25 @@ INSERT INTO config.config_flat_file_ingestion (
     'overwrite',
     '',
     NULL,
-    'fail',
+    1,
     1,
     'Y',
     '2024-01-15',
     NULL,
     'system',
     NULL,
-    -- New fields for incremental synthetic data import support
+    -- Discovery and Import Configuration (Simplified Schema)
+    'single_file',
     NULL,
     NULL,
     NULL,
     NULL,
-    NULL,
-    NULL,
-    NULL,
-    NULL,
+    'skip',
+    0,
     NULL
 ),
 (
     'synthetic_order_items_004',
-    'Synthetic Data - Order Items (Retail OLTP Small)',
     'Files/synthetic_data/parquet/single/retail_oltp_small/order_items.parquet',
     'parquet',
     '{% raw %}{{varlib:config_workspace_id}}{% endraw %}',
@@ -199,27 +189,25 @@ INSERT INTO config.config_flat_file_ingestion (
     'overwrite',
     '',
     NULL,
-    'log',
+    1,
     1,
     'Y',
     '2024-01-15',
     NULL,
     'system',
     NULL,
-    -- New fields for incremental synthetic data import support
+    -- Discovery and Import Configuration (Simplified Schema)
+    'single_file',
     NULL,
     NULL,
     NULL,
     NULL,
-    NULL,
-    NULL,
-    NULL,
-    NULL,
+    'skip',
+    0,
     NULL
 ),
 (
     'synthetic_customers_warehouse_001',
-    'Synthetic Data - Customers (Warehouse)',
     'Files/synthetic_data/parquet/single/retail_oltp_small/customers.parquet',
     'parquet',
     '{% raw %}{{varlib:config_workspace_id}}{% endraw %}',
@@ -240,27 +228,25 @@ INSERT INTO config.config_flat_file_ingestion (
     'overwrite',
     '',
     NULL,
-    'fail',
+    1,
     2,
     'Y',
     '2024-01-15',
     NULL,
     'system',
     NULL,
-    -- New fields for incremental synthetic data import support
+    -- Discovery and Import Configuration (Simplified Schema)
+    'single_file',
     NULL,
     NULL,
     NULL,
     NULL,
-    NULL,
-    NULL,
-    NULL,
-    NULL,
+    'skip',
+    0,
     NULL
 ),
 (
     'synthetic_products_warehouse_002',
-    'Synthetic Data - Products (Warehouse)',
     'Files/synthetic_data/parquet/single/retail_oltp_small/products.parquet',
     'parquet',
     '{% raw %}{{varlib:config_workspace_id}}{% endraw %}',
@@ -281,27 +267,25 @@ INSERT INTO config.config_flat_file_ingestion (
     'overwrite',
     '',
     NULL,
-    'log',
+    1,
     2,
     'Y',
     '2024-01-15',
     NULL,
     'system',
     NULL,
-    -- New fields for incremental synthetic data import support
+    -- Discovery and Import Configuration (Simplified Schema)
+    'single_file',
     NULL,
     NULL,
     NULL,
     NULL,
-    NULL,
-    NULL,
-    NULL,
-    NULL,
+    'skip',
+    0,
     NULL
 ),
 (
     'synthetic_orders_warehouse_003',
-    'Synthetic Data - Orders (Warehouse)',
     'Files/synthetic_data/parquet/single/retail_oltp_small/orders.parquet',
     'parquet',
     '{% raw %}{{varlib:config_workspace_id}}{% endraw %}',
@@ -322,18 +306,27 @@ INSERT INTO config.config_flat_file_ingestion (
     'overwrite',
     '',
     NULL,
-    'fail',
+    1,
     2,
     'Y',
     '2024-01-15',
     NULL,
     'system',
+    NULL,
+    -- Discovery and Import Configuration (Simplified Schema)
+    'single_file',
+    NULL,
+    NULL,
+    NULL,
+    NULL,
+    'skip',
+    0,
     NULL
 );
 
 -- Insert additional complex CSV configuration examples
 INSERT INTO config.config_flat_file_ingestion (
-    config_id, config_name, source_file_path, source_file_format,
+    config_id, source_file_path, source_file_format,
     target_workspace_id, target_datastore_id, target_datastore_type,
     target_schema_name, target_table_name, staging_table_name,
     file_delimiter, has_header, encoding, date_format, timestamp_format, schema_inference,
@@ -341,16 +334,14 @@ INSERT INTO config.config_flat_file_ingestion (
     quote_character, escape_character, multiline_values, ignore_leading_whitespace, ignore_trailing_whitespace,
     null_value, empty_value, comment_character, max_columns, max_chars_per_column,
     custom_schema_json, partition_columns, sort_columns, write_mode, merge_keys,
-    data_validation_rules, error_handling_strategy, execution_group, active_yn,
+    enable_schema_evolution, execution_group, active_yn,
     created_date, modified_date, created_by, modified_by,
-    -- New fields for incremental synthetic data import support
-    import_pattern, date_partition_format, table_relationship_group,
-    batch_import_enabled, file_discovery_pattern, import_sequence_order,
-    date_range_start, date_range_end, skip_existing_dates
-) VALUES 
+    -- Discovery and Import Configuration (Simplified Schema)
+    import_pattern, discovery_pattern, date_pattern,
+    date_range_start, date_range_end, duplicate_handling, require_files, data_validation_rules
+) VALUES
 (
     'complex_csv_warehouse_001',
-    'Complex CSV - Customer Comments with Newlines (Warehouse)',
     'Files/sample_data/complex_customer_feedback.csv',
     'csv',
     '{% raw %}{{varlib:config_workspace_id}}{% endraw %}',
@@ -369,14 +360,13 @@ INSERT INTO config.config_flat_file_ingestion (
     '"', '\', 1, 1, 1,
     'NULL', '', '#', 50, 10000,
     NULL, '', 'feedback_id', 'overwrite', '',
-    NULL, 'fail', 5, 'N',
+    NULL, 5, 'N',
     '2024-01-15', NULL, 'system', NULL,
-    -- New fields for incremental synthetic data import support
-    NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL
+    -- Discovery and Import Configuration (Simplified Schema)
+    'single_file', NULL, NULL, NULL, NULL, 'skip', 0, NULL
 ),
 (
     'complex_csv_warehouse_002',
-    'Complex CSV - Product Descriptions with Quotes (Warehouse)',
     'Files/sample_data/products_with_complex_descriptions.csv',
     'csv',
     '{% raw %}{{varlib:config_workspace_id}}{% endraw %}',
@@ -395,32 +385,31 @@ INSERT INTO config.config_flat_file_ingestion (
     '"', '"', 1, 0, 0,
     '', '', NULL, 100, 50000,
     NULL, 'category', 'product_id', 'merge', 'product_id',
-    NULL, 'log', 5, 'N',
+    NULL, 5, 'N',
     '2024-01-15', NULL, 'system', NULL,
-    -- New fields for incremental synthetic data import support
-    NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL
+    -- Discovery and Import Configuration (Simplified Schema)
+    'single_file', NULL, NULL, NULL, NULL, 'skip', 0, NULL
 );
 
 -- Insert incremental synthetic data import configurations
--- These demonstrate the new date-partitioned import capabilities
+-- These demonstrate the new incremental import capabilities
 INSERT INTO config.config_flat_file_ingestion (
-    config_id, config_name, source_file_path, source_file_format,
+    config_id, source_file_path, source_file_format,
     target_workspace_id, target_datastore_id, target_datastore_type,
     target_schema_name, target_table_name, staging_table_name,
     file_delimiter, has_header, encoding, date_format, timestamp_format,
     schema_inference, custom_schema_json, partition_columns, sort_columns,
-    write_mode, merge_keys, data_validation_rules, error_handling_strategy,
+    write_mode, merge_keys, enable_schema_evolution,
     execution_group, active_yn, created_date, created_by,
     quote_character, escape_character, multiline_values, ignore_leading_whitespace,
     ignore_trailing_whitespace, null_value, empty_value, comment_character,
     max_columns, max_chars_per_column,
-    import_pattern, date_partition_format, table_relationship_group,
-    batch_import_enabled, file_discovery_pattern, import_sequence_order,
-    date_range_start, date_range_end, skip_existing_dates
-) VALUES 
+    -- Discovery and Import Configuration (Simplified Schema)
+    import_pattern, discovery_pattern, date_pattern,
+    date_range_start, date_range_end, duplicate_handling, require_files, data_validation_rules
+) VALUES
 (
     'retail_customers_incremental_wh',
-    'Retail Customers Incremental Import (Warehouse)',
     'Files/synthetic_data/csv/series/retail_oltp_small/nested/snapshot_customers',
     'csv',
     '{% raw %}{{varlib:config_workspace_id}}{% endraw %}',
@@ -440,8 +429,6 @@ INSERT INTO config.config_flat_file_ingestion (
     'customer_id',
     'merge',
     'customer_id',
-    '{"required_columns": ["customer_id", "first_name", "last_name"]}',
-    'log',
     10,
     'Y',
     GETDATE(),
@@ -468,7 +455,6 @@ INSERT INTO config.config_flat_file_ingestion (
 ),
 (
     'retail_products_incremental_wh',
-    'Retail Products Incremental Import (Warehouse)',
     'Files/synthetic_data/csv/series/retail_oltp_small/nested/snapshot_products',
     'csv',
     '{% raw %}{{varlib:config_workspace_id}}{% endraw %}',
@@ -488,8 +474,6 @@ INSERT INTO config.config_flat_file_ingestion (
     'product_id',
     'merge',
     'product_id',
-    '{"required_columns": ["product_id", "product_name", "category"]}',
-    'log',
     10,
     'Y',
     GETDATE(),
@@ -516,7 +500,6 @@ INSERT INTO config.config_flat_file_ingestion (
 ),
 (
     'retail_orders_incremental_wh',
-    'Retail Orders Incremental Import (Warehouse)',
     'Files/synthetic_data/csv/series/retail_oltp_small/nested/orders',
     'csv',
     '{% raw %}{{varlib:config_workspace_id}}{% endraw %}',
@@ -536,8 +519,6 @@ INSERT INTO config.config_flat_file_ingestion (
     'order_id',
     'append',
     NULL,
-    '{"required_columns": ["order_id", "customer_id", "order_date"]}',
-    'log',
     11,
     'Y',
     GETDATE(),
@@ -564,7 +545,6 @@ INSERT INTO config.config_flat_file_ingestion (
 ),
 (
     'retail_order_items_incremental_wh',
-    'Retail Order Items Incremental Import (Warehouse)',
     'Files/synthetic_data/csv/series/retail_oltp_small/nested/order_items',
     'csv',
     '{% raw %}{{varlib:config_workspace_id}}{% endraw %}',
@@ -584,8 +564,6 @@ INSERT INTO config.config_flat_file_ingestion (
     'order_item_id',
     'append',
     NULL,
-    '{"required_columns": ["order_item_id", "order_id", "product_id"]}',
-    'log',
     11,
     'Y',
     GETDATE(),

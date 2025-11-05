@@ -1,0 +1,83 @@
+# Shared Result Classes for Data Integration
+# Used by both Extraction and File Loading frameworks
+
+from dataclasses import dataclass, field
+from datetime import datetime
+from typing import Any, Dict, List, Optional
+
+
+@dataclass
+class BatchInfo:
+    """Information about a batch that was processed"""
+
+    batch_id: str                           # Unique identifier
+
+    # Source info (flexible for different batch types)
+    file_paths: List[str] = field(default_factory=list)  # For file loading: list of file paths
+
+    # Metadata
+    size_bytes: int = 0
+    modified_time: Optional[datetime] = None
+    date_partition: Optional[str] = None    # Extracted date (for date-based loading)
+    folder_name: Optional[str] = None       # For folder-based loading
+
+    # Flexible metadata
+    source_metadata: Optional[Dict[str, Any]] = None
+    control_file_path: Optional[str] = None
+
+
+@dataclass
+class ProcessingMetrics:
+    """Metrics for processing performance"""
+
+    # Timing
+    read_duration_ms: int = 0               # File loading: time to read files
+    extract_duration_ms: int = 0            # Extraction: time to extract from source
+    write_duration_ms: int = 0
+    total_duration_ms: int = 0
+
+    # Row counts
+    source_row_count: int = 0
+    records_processed: int = 0
+
+    # Write metrics
+    records_inserted: int = 0
+    records_updated: int = 0
+    records_deleted: int = 0
+
+    # Target metrics
+    target_row_count_before: int = 0
+    target_row_count_after: int = 0
+
+    # Validation
+    row_count_reconciliation_status: str = "not_verified"
+    corrupt_records_count: int = 0
+    validation_errors: List[str] = field(default_factory=list)
+
+    # Operational metadata
+    completed_at: Optional[datetime] = None
+
+
+@dataclass
+class ResourceExecutionResult:
+    """Result of processing a resource"""
+
+    resource_name: str
+    status: str                             # 'pending', 'running', 'completed', 'failed', 'no_data'
+
+    # Batch tracking
+    batches_processed: int = 0
+    batches_failed: int = 0
+    batches_discovered: int = 0
+    batches_skipped: int = 0
+
+    # Metrics (optional, populated after processing)
+    metrics: Optional[ProcessingMetrics] = None
+
+    # Errors
+    error_message: Optional[str] = None
+    errors: List[str] = field(default_factory=list)
+
+    # Timing
+    started_at: Optional[datetime] = None
+    completed_at: Optional[datetime] = None

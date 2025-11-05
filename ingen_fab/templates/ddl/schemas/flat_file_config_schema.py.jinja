@@ -8,7 +8,6 @@ from pyspark.sql.types import (
 
 schema = StructType([
     StructField("config_id", StringType(), nullable=False),
-    StructField("config_name", StringType(), nullable=False),
     StructField("source_file_path", StringType(), nullable=False),
     StructField("source_file_format", StringType(), nullable=False),  # csv, json, parquet, avro, xml
     StructField("target_lakehouse_workspace_id", StringType(), nullable=False),
@@ -26,8 +25,6 @@ schema = StructType([
     StructField("sort_columns", StringType(), nullable=True),  # comma-separated list
     StructField("write_mode", StringType(), nullable=False),  # overwrite, append, merge
     StructField("merge_keys", StringType(), nullable=True),  # for merge operations
-    StructField("data_validation_rules", StringType(), nullable=True),  # JSON validation rules
-    StructField("error_handling_strategy", StringType(), nullable=False),  # fail, skip, log
     StructField("execution_group", IntegerType(), nullable=False),
     StructField("active_yn", StringType(), nullable=False),
     StructField("created_date", StringType(), nullable=False),

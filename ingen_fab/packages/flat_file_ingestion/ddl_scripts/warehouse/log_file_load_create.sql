@@ -1,45 +1,44 @@
--- Log table for flat file ingestion execution tracking - Warehouse version
--- Partitioned by config_id for better query performance
-CREATE TABLE log.log_flat_file_ingestion (
-    log_id NVARCHAR(50) NOT NULL,
+-- Log table for file load tracking - Warehouse version
+-- Uses Airflow-style single-row-per-execution pattern with status updates via MERGE
+-- Primary Key: load_id
+CREATE TABLE log.log_file_load (
+    -- Primary key and identifiers
     load_id NVARCHAR(50) NOT NULL,
-    config_id NVARCHAR(50) NOT NULL,
     execution_id NVARCHAR(50) NOT NULL,
-    status NVARCHAR(50) NOT NULL, -- running, completed, failed, cancelled, duplicate
+    config_id NVARCHAR(50) NOT NULL,
+    status NVARCHAR(50) NOT NULL, -- running, completed, failed, duplicate, skipped
+    -- Source file information
     source_file_path NVARCHAR(500) NOT NULL,
     source_file_size_bytes BIGINT NULL,
     source_file_modified_time DATETIME2 NULL,
     target_table_name NVARCHAR(128) NOT NULL,
+    -- Processing metrics
     records_processed BIGINT NULL,
     records_inserted BIGINT NULL,
     records_updated BIGINT NULL,
     records_deleted BIGINT NULL,
-    -- records_failed BIGINT NULL, -- Reserved for future use
     -- Performance metrics
     source_row_count BIGINT NULL,
-    -- staging_row_count BIGINT NULL, -- Reserved for future use
     target_row_count_before BIGINT NULL,
     target_row_count_after BIGINT NULL,
     row_count_reconciliation_status NVARCHAR(50) NULL, -- matched, mismatched, not_verified
-    -- row_count_difference BIGINT NULL, -- Reserved for future use
+    corrupt_records_count BIGINT NULL,
     data_read_duration_ms BIGINT NULL,
-    -- staging_write_duration_ms BIGINT NULL, -- Reserved for future use
-    -- merge_duration_ms BIGINT NULL, -- Reserved for future use
     total_duration_ms BIGINT NULL,
-    -- avg_rows_per_second FLOAT NULL, -- Reserved for future use
-    -- data_size_mb FLOAT NULL, -- Reserved for future use
-    -- throughput_mb_per_second FLOAT NULL, -- Reserved for future use
     -- Error tracking
     error_message NVARCHAR(MAX) NULL,
     error_details NVARCHAR(MAX) NULL,
     execution_duration_seconds INT NULL,
-    -- spark_application_id NVARCHAR(255) NULL, -- Reserved for future use
     -- Partition tracking for incremental loads
     source_file_partition_cols NVARCHAR(MAX) NULL, -- JSON array of partition column names
     source_file_partition_values NVARCHAR(MAX) NULL, -- JSON array of partition values
     date_partition NVARCHAR(50) NULL, -- Extracted date partition (YYYY-MM-DD format)
     filename_attributes_json NVARCHAR(MAX) NULL, -- Extracted filename attributes as JSON
-    created_date DATETIME2 NOT NULL,
-    created_by NVARCHAR(100) NOT NULL,
-    CONSTRAINT PK_log_flat_file_ingestion PRIMARY KEY (log_id)
+    control_file_path NVARCHAR(500) NULL, -- Path to associated control file if required
+    -- Timestamp tracking (Airflow-style)
+    started_at DATETIME2 NOT NULL, -- Immutable - set on first insert
+    updated_at DATETIME2 NOT NULL, -- Always updated on merge
+    completed_at DATETIME2 NULL, -- Set when status becomes completed/failed
+    attempt_count INT NOT NULL, -- Incremented on retries
+    CONSTRAINT PK_log_file_load PRIMARY KEY (load_id)
 );

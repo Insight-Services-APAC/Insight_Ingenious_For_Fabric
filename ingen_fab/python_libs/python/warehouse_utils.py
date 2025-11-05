@@ -33,13 +33,16 @@ class warehouse_utils(DataStoreInterface):
         self,
         target_workspace_id: Optional[str] = None,
         target_warehouse_id: Optional[str] = None,
+        target_workspace_name: Optional[str] = None,
+        target_warehouse_name: Optional[str] = None,
         *,
         dialect: str = "fabric",
         connection_string: Optional[str] = None,
         notebookutils: Optional[Any] = None,
     ):
-        self._target_workspace_id = target_workspace_id
-        self._target_warehouse_id = target_warehouse_id
+        # Prefer names over IDs, but accept both for backward compatibility
+        self._target_workspace = target_workspace_name or target_workspace_id
+        self._target_warehouse = target_warehouse_name or target_warehouse_id
         self.dialect = dialect
 
         if dialect not in ["fabric", "sql_server", "mysql", "postgres"]:
@@ -110,17 +113,31 @@ class warehouse_utils(DataStoreInterface):
 
     @property
     def target_workspace_id(self) -> str:
-        """Get the target workspace ID."""
-        if self._target_workspace_id is None:
-            raise ValueError("target_workspace_id is not set")
-        return self._target_workspace_id
+        """Get the target workspace (ID or name, for backward compatibility)."""
+        if self._target_workspace is None:
+            raise ValueError("target_workspace_id/name is not set")
+        return self._target_workspace
 
     @property
     def target_store_id(self) -> str:
-        """Get the target warehouse ID."""
-        if self._target_warehouse_id is None:
-            raise ValueError("target_warehouse_id is not set")
-        return self._target_warehouse_id
+        """Get the target warehouse (ID or name, for backward compatibility)."""
+        if self._target_warehouse is None:
+            raise ValueError("target_warehouse_id/name is not set")
+        return self._target_warehouse
+
+    @property
+    def target_workspace_name(self) -> str:
+        """Get the target workspace name (or ID if using ID-based config)."""
+        if self._target_workspace is None:
+            raise ValueError("target_workspace_name/id is not set")
+        return self._target_workspace
+
+    @property
+    def target_store_name(self) -> str:
+        """Get the target warehouse name (or ID if using ID-based config)."""
+        if self._target_warehouse is None:
+            raise ValueError("target_warehouse_name/id is not set")
+        return self._target_warehouse
 
     def get_connection(self):
         """Return a connection object depending on the configured dialect."""
@@ -129,7 +146,7 @@ class warehouse_utils(DataStoreInterface):
             conn = self._connect_to_local_postgresql()
         else:
             conn = self.notebook_utils.connect_to_artifact(
-                self._target_warehouse_id, self._target_workspace_id
+                self._target_warehouse, self._target_workspace
             )
         return conn
 

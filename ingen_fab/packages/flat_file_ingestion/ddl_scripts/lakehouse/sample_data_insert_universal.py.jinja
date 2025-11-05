@@ -8,7 +8,6 @@ from pyspark.sql import Row
 sample_configs = [
     Row(
         config_id="synthetic_customers_folder_001",
-        config_name="Synthetic Data - Customers Folder (Retail OLTP Small)",
         source_file_path="synthetic_data/csv/series/retail_oltp_small/test_data_feb_small/flat/snapshot_customers/snapshot_customers_20240201.csv",
         source_file_format="csv",
         source_workspace_id="{% raw %}{{varlib:sample_lh_workspace_id}}{% endraw %}",
@@ -32,8 +31,6 @@ sample_configs = [
         sort_columns="customer_id",
         write_mode="overwrite",
         merge_keys="",
-        data_validation_rules=None,
-        error_handling_strategy="log",
         execution_group=1,  # Folder-based snapshot processing (Group 1)
         active_yn="Y",
         created_date="2024-01-15",
@@ -63,8 +60,7 @@ sample_configs = [
         source_is_folder=True  # Read all part files from the folder
     ),
     Row(
-        config_id="synthetic_customers_file_001", 
-        config_name="Synthetic Data - Customers Single File (Retail OLTP Small)",
+        config_id="synthetic_customers_file_001",
         source_file_path="Files/synthetic_data/csv/series/retail_oltp_small/test_data_feb_small/flat/snapshot_customers/snapshot_customers_20240201.csv/part-00000-542fdb30-a52e-447b-ab32-df49d909d873-c000.csv",
         source_file_format="csv",
         source_workspace_id="{% raw %}{{varlib:sample_lh_workspace_id}}{% endraw %}",
@@ -88,8 +84,6 @@ sample_configs = [
         sort_columns="customer_id",
         write_mode="overwrite",
         merge_keys="",
-        data_validation_rules=None,
-        error_handling_strategy="log",
         execution_group=2,  # Single file processing (Group 2)
         active_yn="Y",  
         created_date="2024-01-15",
@@ -121,7 +115,6 @@ sample_configs = [
     # Incremental data configurations - Orders (transactional/incremental)
     Row(
         config_id="synthetic_orders_incremental_001",
-        config_name="Synthetic Data - Orders Incremental (Retail OLTP Small)",
         source_file_path="synthetic_data/csv/series/retail_oltp_small/test_data_feb_small/flat/orders/",
         source_file_format="csv",
         source_workspace_id="{% raw %}{{varlib:sample_lh_workspace_id}}{% endraw %}",
@@ -145,8 +138,6 @@ sample_configs = [
         sort_columns="order_id",
         write_mode="append",
         merge_keys="order_id",
-        data_validation_rules=None,
-        error_handling_strategy="log",
         execution_group=3,  # Incremental processing (Group 3)
         active_yn="Y",
         created_date="2024-01-15",
@@ -178,7 +169,6 @@ sample_configs = [
     # Additional configurations for retail_oltp_large dataset
     Row(
         config_id="synthetic_customers_large_001",
-        config_name="Synthetic Data - Customers Large (Retail OLTP Large)",
         source_file_path="synthetic_data/csv/single/retail_oltp_large/customers.csv",
         source_file_format="csv",
         source_workspace_id="{% raw %}{{varlib:sample_lh_workspace_id}}{% endraw %}",
@@ -202,8 +192,6 @@ sample_configs = [
         sort_columns="customer_id",
         write_mode="overwrite",
         merge_keys="",
-        data_validation_rules=None,
-        error_handling_strategy="log",
         execution_group=4,  # Large dataset processing (Group 4)
         active_yn="N",  # Disabled by default - enable when data is available
         created_date="2024-01-15",
@@ -235,7 +223,6 @@ sample_configs = [
     # Parquet format example - using available parquet files
     Row(
         config_id="synthetic_customers_parquet_001",
-        config_name="Synthetic Data - Customers Parquet (Retail OLTP Small)",
         source_file_path="synthetic_data/parquet/single/retail_oltp_small/customers.parquet",
         source_file_format="parquet",
         source_workspace_id="{% raw %}{{varlib:sample_lh_workspace_id}}{% endraw %}",
@@ -259,8 +246,6 @@ sample_configs = [
         sort_columns="customer_id",
         write_mode="overwrite",
         merge_keys="",
-        data_validation_rules=None,
-        error_handling_strategy="log",
         execution_group=5,  # Parquet processing (Group 5)
         active_yn="N",  # Disabled by default - enable when data is available
         created_date="2024-01-15",
@@ -292,7 +277,6 @@ sample_configs = [
     # Cross-workspace example - reading from external workspace
     Row(
         config_id="cross_workspace_example_001",
-        config_name="Cross-Workspace Data Import Example",
         source_file_path="external_data/customers/export.csv",
         source_file_format="csv",
         # Source location (different workspace)
@@ -318,8 +302,6 @@ sample_configs = [
         sort_columns="customer_id",
         write_mode="overwrite",
         merge_keys="",
-        data_validation_rules=None,
-        error_handling_strategy="log",
         execution_group=6,  # Cross-workspace processing (Group 6)
         active_yn="N",  # Disabled by default
         created_date="2024-01-15",
@@ -351,7 +333,6 @@ sample_configs = [
     # Example using Tables root path instead of Files
     Row(
         config_id="tables_path_example_001",
-        config_name="Table Path Example - Delta Table Import",
         source_file_path="delta_exports/customer_export",
         source_file_format="delta",
         # Source location with Tables root path
@@ -377,8 +358,6 @@ sample_configs = [
         sort_columns="customer_id",
         write_mode="overwrite",
         merge_keys="",
-        data_validation_rules=None,
-        error_handling_strategy="log",
         execution_group=7,  # Delta table processing (Group 7)
         active_yn="N",  # Disabled by default
         created_date="2024-01-15",

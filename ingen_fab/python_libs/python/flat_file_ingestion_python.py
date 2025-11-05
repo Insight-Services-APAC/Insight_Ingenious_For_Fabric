@@ -43,7 +43,7 @@ class PythonFlatFileDiscovery(FlatFileDiscoveryInterface):
         base_path = config.source_file_path.rstrip("/")
 
         try:
-            print(f"🔍 Detected date-partitioned import for {config.config_name}")
+            print(f"🔍 Detected date-partitioned import for {config.config_id}")
             print(f"🔍 Discovering files with pattern: {config.file_discovery_pattern}")
             print(f"🔍 Base path: {base_path}")
 
@@ -91,8 +91,8 @@ class PythonFlatFileDiscovery(FlatFileDiscoveryInterface):
             # Query the log table to see if this date has been successfully processed
             query = f"""
                 SELECT COUNT(*) as count_records
-                FROM log_flat_file_ingestion 
-                WHERE config_id = '{config.config_id}' 
+                FROM log_file_load
+                WHERE config_id = '{config.config_id}'
                 AND source_file_path LIKE '%{date_partition.replace("-", "")}%'
                 AND status = 'completed'
             """
@@ -272,9 +272,6 @@ class PythonFlatFileProcessor(FlatFileProcessorInterface):
                 )
                 # Don't mark as invalid for null values unless specifically configured
 
-            # Additional validation rules can be implemented here
-            # based on config.data_validation_rules
-
         except Exception as e:
             validation_results["errors"].append(f"Validation failed: {e}")
             validation_results["is_valid"] = False
@@ -292,15 +289,15 @@ class PythonFlatFileLogging(FlatFileLoggingInterface):
         self,
         config: FlatFileIngestionConfig,
         execution_id: str,
-        partition_info: Optional[Dict[str, str]] = None,
+        file_result: Optional[FileDiscoveryResult] = None,
     ) -> None:
         """Log the start of a file processing execution"""
         try:
-            # For warehouse implementation, we can store partition info as JSON in a future enhancement
+            # For warehouse implementation, we can store file metadata as JSON in a future enhancement
             # Currently just log the basic execution start
             log_query = f"""
-                INSERT INTO log_flat_file_ingestion 
-                (log_id, config_id, execution_id, job_start_time, status, source_file_path, target_table_name)
+                INSERT INTO log_file_load
+                (log_id, config_id, execution_id, created_date, status, source_file_path, target_table_name, created_by)
                 VALUES (
                     '{str(uuid.uuid4())}',
                     '{config.config_id}',
@@ -308,7 +305,8 @@ class PythonFlatFileLogging(FlatFileLoggingInterface):
                     GETDATE(),
                     'running',
                     '{config.source_file_path}',
-                    '{config.target_table_name}'
+                    '{config.target_table_name}',
+                    'system'
                 )
             """
 
@@ -323,22 +321,21 @@ class PythonFlatFileLogging(FlatFileLoggingInterface):
         execution_id: str,
         metrics: ProcessingMetrics,
         status: str,
-        partition_info: Optional[Dict[str, str]] = None,
+        file_result: Optional[FileDiscoveryResult] = None,
     ) -> None:
         """Log the completion of a file processing execution"""
         try:
-            # For warehouse implementation, we can store partition info as JSON in a future enhancement
+            # For warehouse implementation, we can store file metadata as JSON in a future enhancement
             # Currently just log the basic execution completion
             log_query = f"""
-                INSERT INTO log_flat_file_ingestion 
-                (log_id, config_id, execution_id, job_start_time, job_end_time, status, 
-                 source_file_path, target_table_name, records_processed, records_inserted, 
-                 records_updated, records_deleted, records_failed)
+                INSERT INTO log_file_load
+                (log_id, config_id, execution_id, created_date, status,
+                 source_file_path, target_table_name, records_processed, records_inserted,
+                 records_updated, records_deleted, created_by)
                 VALUES (
                     '{str(uuid.uuid4())}',
                     '{config.config_id}',
                     '{execution_id}',
-                    GETDATE(),
                     GETDATE(),
                     '{status}',
                     '{config.source_file_path}',
@@ -347,7 +344,7 @@ class PythonFlatFileLogging(FlatFileLoggingInterface):
                     {metrics.records_inserted},
                     {metrics.records_updated},
                     {metrics.records_deleted},
-                    {metrics.records_failed}
+                    'system'
                 )
             """
 
@@ -362,7 +359,7 @@ class PythonFlatFileLogging(FlatFileLoggingInterface):
         execution_id: str,
         error_message: str,
         error_details: str,
-        partition_info: Optional[Dict[str, str]] = None,
+        file_result: Optional[FileDiscoveryResult] = None,
     ) -> None:
         """Log an execution error"""
         try:
@@ -370,25 +367,24 @@ class PythonFlatFileLogging(FlatFileLoggingInterface):
             escaped_error_message = error_message.replace("'", "''")
             escaped_error_details = error_details.replace("'", "''")
 
-            # For warehouse implementation, we can store partition info as JSON in a future enhancement
+            # For warehouse implementation, we can store file metadata as JSON in a future enhancement
             # Currently just log the basic execution error
             log_query = f"""
-                INSERT INTO log_flat_file_ingestion 
-                (log_id, config_id, execution_id, job_start_time, job_end_time, status, 
+                INSERT INTO log_file_load
+                (log_id, config_id, execution_id, created_date, status,
                  source_file_path, target_table_name, error_message, error_details,
-                 records_processed, records_inserted, records_updated, records_deleted, records_failed)
+                 records_processed, records_inserted, records_updated, records_deleted, created_by)
                 VALUES (
                     '{str(uuid.uuid4())}',
                     '{config.config_id}',
                     '{execution_id}',
-                    GETDATE(),
                     GETDATE(),
                     'failed',
                     '{config.source_file_path}',
                     '{config.target_table_name}',
                     '{escaped_error_message}',
                     '{escaped_error_details}',
-                    0, 0, 0, 0, 0
+                    0, 0, 0, 0, 'system'
                 )
             """
 
@@ -408,14 +404,14 @@ class PythonFlatFileIngestionOrchestrator(FlatFileIngestionOrchestrator):
         start_time = time.time()
         result = {
             "config_id": config.config_id,
-            "config_name": config.config_name,
+            "config_name": config.config_id,
             "status": "pending",
             "metrics": ProcessingMetrics(),
             "errors": [],
         }
 
         try:
-            print(f"\n=== Processing {config.config_name} ===")
+            print(f"\n=== Processing {config.config_id} ===")
             print(f"Source: {config.source_file_path}")
             print(f"Target: {config.target_schema_name}.{config.target_table_name}")
             print(f"Format: {config.source_file_format}")
@@ -437,7 +433,7 @@ class PythonFlatFileIngestionOrchestrator(FlatFileIngestionOrchestrator):
             if not discovered_files:
                 result["status"] = "no_data_found"
                 print(
-                    f"⚠️ No source data found for {config.config_name}. Skipping write and reconciliation operations."
+                    f"⚠️ No source data found for {config.config_id}. Skipping write and reconciliation operations."
                 )
                 return result
 
@@ -535,12 +531,12 @@ class PythonFlatFileIngestionOrchestrator(FlatFileIngestionOrchestrator):
             result["status"] = "failed"
             result["errors"].append(str(e))
             error_details = ErrorHandlingUtils.format_error_details(
-                e, {"config_id": config.config_id, "config_name": config.config_name}
+                e, {"config_id": config.config_id, "config_name": config.config_id}
             )
             self.logging_service.log_execution_error(
                 config, execution_id, str(e), str(error_details)
             )
-            print(f"Error processing {config.config_name}: {e}")
+            print(f"Error processing {config.config_id}: {e}")
 
         return result
 
@@ -638,17 +634,17 @@ class PythonFlatFileIngestionOrchestrator(FlatFileIngestionOrchestrator):
                 try:
                     result = future.result()
                     results.append(result)
-                    print(f"  ✓ Completed: {config.config_name} ({result['status']})")
+                    print(f"  ✓ Completed: {config.config_id} ({result['status']})")
                 except Exception as e:
                     error_result = {
                         "config_id": config.config_id,
-                        "config_name": config.config_name,
+                        "config_name": config.config_id,
                         "status": "failed",
                         "metrics": ProcessingMetrics(),
                         "errors": [f"Thread execution error: {str(e)}"],
                     }
                     results.append(error_result)
-                    print(f"  ❌ Failed: {config.config_name} - {str(e)}")
+                    print(f"  ❌ Failed: {config.config_id} - {str(e)}")
 
         return results
 
@@ -659,14 +655,14 @@ class PythonFlatFileIngestionOrchestrator(FlatFileIngestionOrchestrator):
         import threading
 
         thread_name = threading.current_thread().name
-        print(f"  🧵 [{thread_name}] Starting: {config.config_name}")
+        print(f"  🧵 [{thread_name}] Starting: {config.config_id}")
 
         try:
             result = self.process_configuration(config, execution_id)
             print(
-                f"  🧵 [{thread_name}] Finished: {config.config_name} ({result['status']})"
+                f"  🧵 [{thread_name}] Finished: {config.config_id} ({result['status']})"
             )
             return result
         except Exception as e:
-            print(f"  🧵 [{thread_name}] Error: {config.config_name} - {str(e)}")
+            print(f"  🧵 [{thread_name}] Error: {config.config_id} - {str(e)}")
             raise

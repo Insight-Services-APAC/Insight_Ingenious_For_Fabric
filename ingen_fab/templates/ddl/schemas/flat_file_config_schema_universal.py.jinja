@@ -8,17 +8,21 @@ from pyspark.sql.types import (
 
 schema = StructType([
     StructField("config_id", StringType(), nullable=False),
-    StructField("config_name", StringType(), nullable=False),
+    StructField("config_group_id", StringType(), nullable=True),  # Logical grouping (e.g., "customer_master")
     StructField("source_file_path", StringType(), nullable=False),
     StructField("source_file_format", StringType(), nullable=False),  # csv, json, parquet, avro, xml
     # Source location fields (optional - defaults to target or raw workspace)
-    StructField("source_workspace_id", StringType(), nullable=True),  # Source workspace (defaults to target if null)
-    StructField("source_datastore_id", StringType(), nullable=True),  # Source lakehouse/warehouse (defaults to raw if null)
+    StructField("source_workspace_id", StringType(), nullable=True),  # Source workspace ID (legacy)
+    StructField("source_datastore_id", StringType(), nullable=True),  # Source lakehouse/warehouse ID (legacy)
+    StructField("source_workspace_name", StringType(), nullable=True),  # Source workspace name (preferred)
+    StructField("source_datastore_name", StringType(), nullable=True),  # Source lakehouse/warehouse name (preferred)
     StructField("source_datastore_type", StringType(), nullable=True),  # 'lakehouse' or 'warehouse' (defaults to lakehouse)
     StructField("source_file_root_path", StringType(), nullable=True),  # Root path override (e.g., "Files", "Tables")
     # Target location fields
-    StructField("target_workspace_id", StringType(), nullable=False),  # Universal field for workspace
-    StructField("target_datastore_id", StringType(), nullable=False),  # Universal field for lakehouse/warehouse
+    StructField("target_workspace_id", StringType(), nullable=True),  # Target workspace ID (legacy)
+    StructField("target_datastore_id", StringType(), nullable=True),  # Target lakehouse/warehouse ID (legacy)
+    StructField("target_workspace_name", StringType(), nullable=True),  # Target workspace name (preferred)
+    StructField("target_datastore_name", StringType(), nullable=True),  # Target lakehouse/warehouse name (preferred)
     StructField("target_datastore_type", StringType(), nullable=False),  # 'lakehouse' or 'warehouse'
     StructField("target_schema_name", StringType(), nullable=False),
     StructField("target_table_name", StringType(), nullable=False),
@@ -30,13 +34,13 @@ schema = StructType([
     StructField("timestamp_format", StringType(), nullable=True),  # for timestamp columns
     StructField("schema_inference", BooleanType(), nullable=False),  # whether to infer schema
     StructField("custom_schema_json", StringType(), nullable=True),  # custom schema definition
+    StructField("data_validation_rules", StringType(), nullable=True),  # JSON validation rules (e.g., {"column_mismatch": {"max_rows": 10, "max_percentage": 5.0}})
     StructField("partition_columns", StringType(), nullable=True),  # comma-separated list
     StructField("sort_columns", StringType(), nullable=True),  # comma-separated list
     StructField("write_mode", StringType(), nullable=False),  # overwrite, append, merge
     StructField("merge_keys", StringType(), nullable=True),  # for merge operations
-    StructField("data_validation_rules", StringType(), nullable=True),  # JSON validation rules
-    StructField("error_handling_strategy", StringType(), nullable=False),  # fail, skip, log
-    StructField("execution_group", IntegerType(), nullable=False),
+    StructField("enable_schema_evolution", BooleanType(), nullable=True),  # Enable Delta Lake schema evolution (mergeSchema)
+    StructField("execution_group", IntegerType(), nullable=False),  # Execution order (same = parallel, different = sequential)
     StructField("active_yn", StringType(), nullable=False),
     StructField("created_date", StringType(), nullable=False),
     StructField("modified_date", StringType(), nullable=True),
@@ -53,15 +57,18 @@ schema = StructType([
     StructField("comment_character", StringType(), nullable=True),  # Default: None
     StructField("max_columns", IntegerType(), nullable=True),  # Default: 100
     StructField("max_chars_per_column", IntegerType(), nullable=True),  # Default: 50000
-    # New fields for incremental synthetic data import support
-    StructField("import_pattern", StringType(), nullable=True),  # 'single_file', 'date_partitioned', 'wildcard_pattern'
-    StructField("date_partition_format", StringType(), nullable=True),  # Date partition format (e.g., 'YYYY/MM/DD')
-    StructField("table_relationship_group", StringType(), nullable=True),  # Group for related table imports
-    StructField("batch_import_enabled", BooleanType(), nullable=True),  # Enable batch processing
-    StructField("file_discovery_pattern", StringType(), nullable=True),  # Pattern for automatic file discovery
-    StructField("import_sequence_order", IntegerType(), nullable=True),  # Order for related table imports
-    StructField("date_range_start", StringType(), nullable=True),  # Start date for batch import
-    StructField("date_range_end", StringType(), nullable=True),  # End date for batch import
-    StructField("skip_existing_dates", BooleanType(), nullable=True),  # Skip already imported dates
-    StructField("source_is_folder", BooleanType(), nullable=True)  # True for folder with part files, False for single file
+    # Discovery and Import Configuration (Simplified Schema)
+    StructField("import_pattern", StringType(), nullable=True),  # 'single_file', 'incremental_files', 'incremental_folders'
+    StructField("discovery_pattern", StringType(), nullable=True),  # Glob pattern: "*.csv", "batch_*", "*/*/*"
+    # Date extraction and filtering
+    StructField("date_pattern", StringType(), nullable=True),  # 'YYYYMMDD', 'YYYY-MM-DD', 'YYYY/MM/DD', 'DD-MM-YYYY'
+    StructField("date_range_start", StringType(), nullable=True),  # Start date for filtering
+    StructField("date_range_end", StringType(), nullable=True),  # End date for filtering
+    # Duplicate handling
+    StructField("duplicate_handling", StringType(), nullable=True),  # 'skip', 'allow', 'fail' (default: 'skip')
+    # Validation
+    StructField("require_files", BooleanType(), nullable=True),  # If True, fail config when no files are found (default: False)
+    # Control file settings
+    StructField("require_control_file", BooleanType(), nullable=True),  # If True, only process files with control files (default: False)
+    StructField("control_file_pattern", StringType(), nullable=True),  # Pattern: "{basename}.CTL" (per-file) or "_SUCCESS" (per-folder, auto-detected)
 ])

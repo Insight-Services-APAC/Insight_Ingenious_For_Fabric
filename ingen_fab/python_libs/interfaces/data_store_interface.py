@@ -17,13 +17,25 @@ class DataStoreInterface(ABC):
     @property
     @abstractmethod
     def target_workspace_id(self) -> str:
-        """Get the target workspace ID."""
+        """Get the target workspace ID (or name if using name-based config)."""
         pass
 
     @property
     @abstractmethod
     def target_store_id(self) -> str:
-        """Get the target store ID (lakehouse_id or warehouse_id)."""
+        """Get the target store ID (lakehouse_id/warehouse_id, or name if using name-based config)."""
+        pass
+
+    @property
+    @abstractmethod
+    def target_workspace_name(self) -> str:
+        """Get the target workspace name (or ID if using ID-based config)."""
+        pass
+
+    @property
+    @abstractmethod
+    def target_store_name(self) -> str:
+        """Get the target store name (lakehouse_name/warehouse_name, or ID if using ID-based config)."""
         pass
 
     @abstractmethod
