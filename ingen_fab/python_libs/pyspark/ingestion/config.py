@@ -168,9 +168,10 @@ class FileSystemLoadingParams:
     """Parameters for loading files into Delta tables"""
 
     # File discovery
-    import_pattern: str = "single_file"     # 'single_file', 'incremental_files', 'incremental_folders'
+    import_pattern: str = "full"            # 'incremental', 'full'
+    batch_by: str = "all"                    # 'file', 'folder', 'all'
     discovery_pattern: Optional[str] = None  # Glob pattern: "*.csv", "batch_*"
-    recursive: bool = True                   # Search subdirectories recursively (for incremental_files)
+    recursive: bool = True                   # Search subdirectories recursively
 
     # CSV options
     file_delimiter: str = ","

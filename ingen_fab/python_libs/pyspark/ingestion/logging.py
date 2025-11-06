@@ -155,6 +155,22 @@ class FileLoadingLogger:
             batch_info=batch_info,
         )
 
+    def log_batch_no_data(
+        self,
+        config: ResourceConfig,
+        execution_id: str,
+        load_id: str,
+        batch_info: BatchInfo,
+    ) -> None:
+        """Log a batch with no data"""
+        self._log_batch_event(
+            config=config,
+            execution_id=execution_id,
+            load_id=load_id,
+            status="no_data",
+            batch_info=batch_info,
+        )
+
     def _log_batch_event(
         self,
         config: ResourceConfig,

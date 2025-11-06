@@ -13,7 +13,6 @@ from ingen_fab.python_libs.pyspark.ingestion.config import (
     FileSystemLoadingParams,
     ResourceConfig,
 )
-from ingen_fab.python_libs.pyspark.ingestion.constants import ImportPattern
 from ingen_fab.python_libs.pyspark.ingestion.exceptions import (
     ErrorContext,
     FileReadError,
@@ -124,16 +123,9 @@ class BatchReader:
             # Get file reading options
             options = self._get_file_read_options()
 
-            # Read based on import_pattern
-            if self.params.import_pattern == ImportPattern.INCREMENTAL_FOLDERS:
-                # Read all files in folder
-                df = self.lakehouse.read_file(
-                    file_path=batch_info.file_paths[0],
-                    file_format=file_format,
-                    options=options,
-                )
-            elif len(batch_info.file_paths) == 1:
-                # Single file
+            # Read batch - always just read from file_paths
+            if len(batch_info.file_paths) == 1:
+                # Single file or folder
                 df = self.lakehouse.read_file(
                     file_path=batch_info.file_paths[0],
                     file_format=file_format,
@@ -160,8 +152,11 @@ class BatchReader:
             metrics.source_row_count = df.count()
             metrics.records_processed = metrics.source_row_count
 
+            # Build readable source identifier for logging
+            source_identifier = self._get_source_identifier(batch_info)
+
             self.logger.info(
-                f"Read {metrics.source_row_count} records in {metrics.read_duration_ms}ms"
+                f"Read {metrics.source_row_count} records in {metrics.read_duration_ms}ms from {source_identifier}"
             )
 
             return df, metrics
@@ -188,6 +183,29 @@ class BatchReader:
                     },
                 ),
             ) from e
+
+    def _get_source_identifier(self, batch_info: BatchInfo) -> str:
+        """
+        Extract the full relative path from Files/ for logging.
+
+        Args:
+            batch_info: BatchInfo with source information
+
+        Returns:
+            Full relative path (e.g., "exports/incremental/EDL_HANA/2025/01/29")
+        """
+        if not batch_info.file_paths:
+            return "unknown"
+
+        import os
+        file_path = batch_info.file_paths[0]
+
+        # Extract path after "Files/"
+        if "/Files/" in file_path:
+            return file_path.split("/Files/", 1)[1]
+
+        # If no Files/ in path, return basename as fallback
+        return os.path.basename(file_path)
 
     def _get_file_read_options(self) -> dict:
         """Build file reading options from configuration"""

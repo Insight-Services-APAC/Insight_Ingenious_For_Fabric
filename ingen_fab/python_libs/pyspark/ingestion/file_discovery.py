@@ -20,6 +20,7 @@ from ingen_fab.python_libs.pyspark.ingestion.config import (
     ResourceConfig,
 )
 from ingen_fab.python_libs.pyspark.ingestion.constants import (
+    BatchBy,
     DuplicateHandling,
     ExecutionStatus,
     ImportPattern,
@@ -98,13 +99,6 @@ class FileDiscovery:
                 spark=spark,
             )
 
-        # Map import patterns to discovery methods
-        self.discovery_methods = {
-            ImportPattern.SINGLE_FILE: self._discover_single_file,
-            ImportPattern.INCREMENTAL_FILES: self._discover_incremental_files,
-            ImportPattern.INCREMENTAL_FOLDERS: self._discover_incremental_folders,
-        }
-
         self._last_duplicate_items: List[FileInfo] = []
 
         # Configure logging if not already configured
@@ -133,120 +127,35 @@ class FileDiscovery:
         Returns:
             List of BatchInfo objects representing discovered batches
         """
-        # Convert string to enum for dictionary lookup
-        import_pattern = ImportPattern(self.params.import_pattern)
-        discovery_method = self.discovery_methods.get(import_pattern)
-
-        if not discovery_method:
-            raise ValueError(f"Unknown import_pattern: {self.params.import_pattern}")
-
-        return discovery_method()
-
-    def _discover_single_file(self) -> List[BatchInfo]:
-        """Discover a single file"""
-        file_path = self.config.source_file_path
-
-        if not file_path:
-            raise ValueError("source_file_path required for single_file import_pattern")
-
-        try:
-            file_info = self.lakehouse.get_file_info(file_path)
-        except Exception as e:
-            self.logger.exception(f"Failed to get file info for {file_path}: {e}")
-            raise FileDiscoveryError(
-                message=f"Failed to discover file: {file_path}",
-                context=ErrorContext(
-                    resource_name=self.config.resource_name,
-                    source_name=self.config.source_name,
-                    file_path=file_path,
-                    operation="discover_single_file",
-                ),
-            ) from e
-
-        if not file_info or not file_info.get("size"):
-            raise IngestionFileNotFoundError(
-                message=f"File not found: {file_path}",
-                context=ErrorContext(
-                    resource_name=self.config.resource_name,
-                    source_name=self.config.source_name,
-                    file_path=file_path,
-                    operation="discover_single_file",
-                ),
-            )
-
-        # Build full ABFSS path
-        full_path = f"{self.lakehouse.lakehouse_files_uri()}{file_path.lstrip('/')}"
-
-        batch_info = BatchInfo(
-            batch_id=self._generate_batch_id(),
-            file_paths=[full_path],
-            size_bytes=file_info.get("size", 0),
-            modified_time=file_info.get("modified_time"),
-        )
-
-        self.logger.info(
-            f"Single file discovered: {file_path} "
-            f"({batch_info.size_bytes / (1024*1024):.2f} MB)"
-        )
-
-        return [batch_info]
-
-    def _discover_incremental_files(self) -> List[BatchInfo]:
-        """
-        Discover files incrementally with duplicate detection.
-
-        Uses template method pattern - delegates to _discover_incremental().
-        """
-        return self._discover_incremental(
-            item_type="files",
-            operation_name="discover_incremental_files"
-        )
-
-    def _discover_incremental(
-        self,
-        item_type: str,
-        operation_name: str
-    ) -> List[BatchInfo]:
-        """
-        Template method for incremental discovery (files or folders).
-
-        Common algorithm:
-        1. Validate base_path
-        2. List items (delegate to helper based on item_type)
-        3. Filter to unprocessed items
-        4. Build batches (delegate to helper based on item_type)
-        5. Sort batches
-        6. Apply filters (control files, date range)
-        7. Return batches
-
-        Args:
-            item_type: "files" or "folders"
-            operation_name: Operation name for error context
-
-        Returns:
-            List of BatchInfo objects
-        """
         base_path = self.config.source_file_path
 
         if not base_path:
-            raise ValueError(f"source_file_path required for incremental_{item_type} pattern")
+            raise ValueError("source_file_path is required")
 
         try:
-            # Step 1: List items (delegate to helper)
-            item_infos = self._list_items(item_type, base_path)
+            # Step 1: List items based on batch_by
+            batch_by = BatchBy(self.params.batch_by)
+            item_infos = self._list_items_by_batch_strategy(batch_by, base_path)
 
             if not item_infos:
-                self.logger.info(f"No {item_type} found matching pattern in {base_path}")
+                self.logger.info(f"No items found in {base_path}")
                 return []
 
-            # Step 2: Filter to unprocessed items
-            unprocessed_items, duplicate_items = self._get_unprocessed_items(item_infos)
+            # Step 2: Filter based on import_pattern (incremental vs full)
+            import_pattern = ImportPattern(self.params.import_pattern)
+            if import_pattern == ImportPattern.INCREMENTAL:
+                unprocessed_items, duplicate_items = self._get_unprocessed_items(item_infos)
+                self._last_duplicate_items = duplicate_items
+            else:  # FULL
+                unprocessed_items = item_infos
+                self._last_duplicate_items = []
 
-            # Store duplicates
-            self._last_duplicate_items = duplicate_items
+            if not unprocessed_items:
+                self.logger.info("No unprocessed items found")
+                return []
 
-            # Step 3: Build batches (delegate to helper)
-            batches = self._build_batches(item_type, unprocessed_items, base_path)
+            # Step 3: Build batches based on batch_by strategy
+            batches = self._build_batches_by_strategy(batch_by, unprocessed_items, base_path)
 
             # Step 4: Sort batches
             batches = self._sort_batches(batches)
@@ -254,7 +163,7 @@ class FileDiscovery:
             # Step 5: Apply filters
             batches = self._apply_filters(batches)
 
-            self.logger.info(f"Discovered {len(batches)} {item_type} to process")
+            self.logger.info(f"Discovered {len(batches)} batch(es) to process")
 
             return batches
 
@@ -263,38 +172,62 @@ class FileDiscovery:
             if isinstance(e, IngestionError):
                 raise
 
-            self.logger.exception(f"{item_type.capitalize()} discovery failed: {e}")
+            self.logger.exception(f"Discovery failed: {e}")
             raise FileDiscoveryError(
-                message=f"Failed to discover incremental {item_type} in: {base_path}",
+                message=f"Failed to discover items in: {base_path}",
                 context=ErrorContext(
                     resource_name=self.config.resource_name,
                     source_name=self.config.source_name,
                     file_path=base_path,
-                    operation=operation_name,
+                    operation="discover",
                 ),
             ) from e
 
-    def _list_items(self, item_type: str, base_path: str) -> List[FileInfo]:
+    def _list_items_by_batch_strategy(self, batch_by: BatchBy, base_path: str) -> List[FileInfo]:
         """
-        List items (files or folders) with metadata.
+        List items based on batching strategy.
 
         Args:
-            item_type: "files" or "folders"
+            batch_by: Batching strategy (FILE, FOLDER, or ALL)
             base_path: Base path to list from
 
         Returns:
             List of FileInfo objects
         """
-        if item_type == "files":
-            # List files with pattern matching
+        if batch_by == BatchBy.ALL:
+            # Read everything in path as one batch - list all files recursively
+            all_files = self.lakehouse.list_files_with_metadata(
+                directory_path=base_path,
+                pattern=self.params.discovery_pattern or "*",
+                recursive=True,
+            )
+
+            if not all_files:
+                return []
+
+            # Combine all files into a single "virtual" item representing the entire directory
+            total_size = sum(f.size for f in all_files)
+            latest_modified_ms = max(f.modified_ms for f in all_files)
+
+            # Create a single FileInfo representing the entire directory
+            return [FileInfo(
+                path=base_path,
+                name=os.path.basename(base_path.rstrip("/")),
+                size=total_size,
+                modified_ms=latest_modified_ms,
+            )]
+
+        elif batch_by == BatchBy.FILE:
+            # List individual files
             pattern = self.params.discovery_pattern or "*"
             return self.lakehouse.list_files_with_metadata(
                 directory_path=base_path,
                 pattern=pattern,
-                recursive=False,
+                recursive=self.params.recursive,
             )
-        else:  # folders
-            # Detect hierarchical patterns
+
+        else:  # BatchBy.FOLDER
+            # List subfolders and treat each as a batch
             is_hierarchical = (
                 self.params.discovery_pattern and "/" in self.params.discovery_pattern
             )
@@ -376,17 +309,17 @@ class FileDiscovery:
 
             return folder_infos
 
-    def _build_batches(
+    def _build_batches_by_strategy(
         self,
-        item_type: str,
+        batch_by: BatchBy,
         item_infos: List[FileInfo],
         base_path: str
     ) -> List[BatchInfo]:
         """
-        Build BatchInfo objects from FileInfo objects.
+        Build BatchInfo objects based on batching strategy.
 
         Args:
-            item_type: "files" or "folders"
+            batch_by: Batching strategy (FILE, FOLDER, or ALL)
             item_infos: List of FileInfo objects
             base_path: Base path for relative path calculation
 
@@ -395,7 +328,24 @@ class FileDiscovery:
         """
         batches = []
 
-        if item_type == "files":
+        if batch_by == BatchBy.ALL:
+            # Single batch with all files in the directory
+            if not item_infos:
+                return []
+
+            item_info = item_infos[0]  # Should only be one "virtual" item
+            full_path = f"{self.lakehouse.lakehouse_files_uri()}{item_info.path.lstrip('/')}"
+
+            batch_info = BatchInfo(
+                batch_id=self._generate_batch_id(),
+                file_paths=[full_path],
+                size_bytes=item_info.size,
+                modified_time=datetime.fromtimestamp(item_info.modified_ms / 1000),
+            )
+
+            batches.append(batch_info)
+
+        elif batch_by == BatchBy.FILE:
             # Build file batches
             for file_info in item_infos:
                 # Build full ABFSS path
@@ -417,7 +367,8 @@ class FileDiscovery:
                 )
 
                 batches.append(batch_info)
-        else:  # folders
+
+        else:  # BatchBy.FOLDER
             # Detect hierarchical patterns
             is_hierarchical = (
                 self.params.discovery_pattern and "/" in self.params.discovery_pattern
@@ -495,17 +446,6 @@ class FileDiscovery:
 
         return batches
 
-    def _discover_incremental_folders(self) -> List[BatchInfo]:
-        """
-        Discover folders incrementally with duplicate detection.
-
-        Uses template method pattern - delegates to _discover_incremental().
-        """
-        return self._discover_incremental(
-            item_type="folders",
-            operation_name="discover_incremental_folders"
-        )
-
     def _get_unprocessed_items(
         self, item_infos: List[FileInfo]
     ) -> Tuple[List[FileInfo], List[FileInfo]]:
@@ -580,7 +520,7 @@ class FileDiscovery:
                 .withColumn("item_name", element_at(split(col("source_file_path"), "/"), -1))
                 .withColumn("rn", row_number().over(window_spec))
                 .filter(col("rn") == 1)
-                .filter(col("status") == ExecutionStatus.COMPLETED)
+                .filter(col("status").isin([ExecutionStatus.COMPLETED, ExecutionStatus.NO_DATA]))
                 .select("item_name")
                 .distinct()
             )

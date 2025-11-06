@@ -324,18 +324,18 @@ class FileLoadingOrchestrator:
             # Create FileLoader instance
             file_loader = FileLoader(spark=self.spark, config=config)
 
-            # Discover and read files
-            batches = file_loader.discover_and_read_files()
+            # Discover files (don't read yet - we'll read one at a time)
+            discovered_batches = file_loader.discover_files()
 
-            if not batches:
+            if not discovered_batches:
                 config_logger.info("No files discovered")
                 result.status = ExecutionStatus.NO_DATA
                 self._log_config_execution_completion(config, execution_id, result)
                 return result
 
-            # Process batches
+            # Process batches one at a time (streaming)
             all_metrics, batches_processed, batches_failed = self._process_batches(
-                batches, config, execution_id, target_utils, file_loader, config_logger
+                discovered_batches, config, execution_id, target_utils, file_loader, config_logger
             )
 
             # Update result with batch counts
@@ -372,7 +372,7 @@ class FileLoadingOrchestrator:
 
     def _process_batches(
         self,
-        batches: List[Tuple[BatchInfo, DataFrame, ProcessingMetrics]],
+        batches: List[BatchInfo],
         config: ResourceConfig,
         execution_id: str,
         target_utils,
@@ -380,14 +380,14 @@ class FileLoadingOrchestrator:
         config_logger: logging.LoggerAdapter,
     ) -> Tuple[List[ProcessingMetrics], int, int]:
         """
-        Process all batches and return aggregated metrics.
+        Process all batches one at a time (streaming) and return aggregated metrics.
 
         Args:
-            batches: List of (BatchInfo, DataFrame, ProcessingMetrics) tuples
+            batches: List of BatchInfo objects to process
             config: ResourceConfig for this resource
             execution_id: Unique execution identifier
             target_utils: Lakehouse or warehouse utilities
-            file_loader: FileLoader instance for archiving
+            file_loader: FileLoader instance for reading and archiving
             config_logger: Configured logger adapter
 
         Returns:
@@ -397,9 +397,12 @@ class FileLoadingOrchestrator:
         batches_processed = 0
         batches_failed = 0
 
-        for batch_info, df, read_metrics in batches:
+        for batch_info in batches:
             try:
-                # Process single batch
+                # Read batch (one at a time - streaming)
+                df, read_metrics = file_loader.reader.read_batch(batch_info)
+
+                # Process single batch (write and archive)
                 combined_metrics = self._process_single_batch(
                     batch_info, df, read_metrics, config, execution_id,
                     target_utils, file_loader, config_logger
@@ -459,6 +462,8 @@ class FileLoadingOrchestrator:
         # Validate data
         if df.count() == 0:
             config_logger.warning(f"Batch {load_id}: no data")
+            # Log empty batch so it's not reprocessed on next run
+            self._log_batch_no_data(config, execution_id, load_id, batch_info)
             return ProcessingMetrics()
 
         # Write to target
@@ -1015,3 +1020,10 @@ class FileLoadingOrchestrator:
         """Log batch error"""
         if self.logger_instance:
             self.logger_instance.log_batch_error(config, execution_id, load_id, error_msg, batch_info)
+
+    def _log_batch_no_data(
+        self, config: ResourceConfig, execution_id: str, load_id: str, batch_info
+    ) -> None:
+        """Log batch with no data"""
+        if self.logger_instance:
+            self.logger_instance.log_batch_no_data(config, execution_id, load_id, batch_info)

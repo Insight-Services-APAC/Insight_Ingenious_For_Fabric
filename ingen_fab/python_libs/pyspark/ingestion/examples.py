@@ -41,7 +41,8 @@ def example_single_file_loading(spark: SparkSession):
 
     # Step 2: Create FileSystemLoadingParams (file-specific settings)
     loading_params = FileSystemLoadingParams(
-        import_pattern="single_file",
+        import_pattern="full",
+        batch_by="all",
         file_delimiter=",",
         has_header=True,
         encoding="utf-8",
@@ -94,7 +95,8 @@ def example_incremental_file_loading(spark: SparkSession):
 
     # File loading parameters with duplicate handling
     loading_params = FileSystemLoadingParams(
-        import_pattern="incremental_files",
+        import_pattern="incremental",
+        batch_by="file",                        # One batch per file
         discovery_pattern="*.csv",              # Match all CSV files
         file_delimiter=",",
         has_header=True,
@@ -150,7 +152,8 @@ def example_folder_based_loading(spark: SparkSession):
 
     # Folder-based loading parameters
     loading_params = FileSystemLoadingParams(
-        import_pattern="incremental_folders",
+        import_pattern="incremental",
+        batch_by="folder",                      # One batch per subfolder
         discovery_pattern="batch_*",            # Match folders like "batch_001", "batch_002"
         file_delimiter=",",
         has_header=True,
@@ -204,7 +207,8 @@ def example_orchestrated_loading(spark: SparkSession):
         source_file_path="raw/orders/orders.csv",
         source_file_format="csv",
         loading_params=FileSystemLoadingParams(
-            import_pattern="single_file",
+            import_pattern="full",
+            batch_by="all",
             has_header=True,
         ).to_dict(),
         target_workspace_name="MyWorkspace",
@@ -222,7 +226,8 @@ def example_orchestrated_loading(spark: SparkSession):
         source_file_path="raw/customers/customers.csv",
         source_file_format="csv",
         loading_params=FileSystemLoadingParams(
-            import_pattern="single_file",
+            import_pattern="full",
+            batch_by="all",
             has_header=True,
         ).to_dict(),
         target_workspace_name="MyWorkspace",
@@ -240,7 +245,8 @@ def example_orchestrated_loading(spark: SparkSession):
         source_file_path="raw/order_items",
         source_file_format="csv",
         loading_params=FileSystemLoadingParams(
-            import_pattern="incremental_files",
+            import_pattern="incremental",
+            batch_by="file",
             discovery_pattern="*.csv",
             has_header=True,
             duplicate_handling="skip",
@@ -314,7 +320,8 @@ def example_with_logging(spark: SparkSession):
         source_file_path="raw/transactions",
         source_file_format="csv",
         loading_params=FileSystemLoadingParams(
-            import_pattern="incremental_files",
+            import_pattern="incremental",
+            batch_by="file",
             discovery_pattern="*.csv",
             has_header=True,
             duplicate_handling="skip",
@@ -373,7 +380,8 @@ def example_merge_mode(spark: SparkSession):
         source_file_path="raw/products/products.csv",
         source_file_format="csv",
         loading_params=FileSystemLoadingParams(
-            import_pattern="single_file",
+            import_pattern="full",
+            batch_by="all",
             has_header=True,
         ).to_dict(),
         target_workspace_name="MyWorkspace",
@@ -418,7 +426,8 @@ def example_hierarchical_date_folders(spark: SparkSession):
     )
 
     loading_params = FileSystemLoadingParams(
-        import_pattern="incremental_folders",
+        import_pattern="incremental",
+        batch_by="folder",                      # One batch per date folder
         discovery_pattern="*/*/*",              # Match YYYY/MM/DD structure
         date_pattern="YYYY/MM/DD",              # Extract date from folder path
         date_range_start="2025-01-01",

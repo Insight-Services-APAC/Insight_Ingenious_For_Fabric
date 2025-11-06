@@ -16,11 +16,18 @@ class ExecutionStatus(StrEnum):
 
 
 class ImportPattern(StrEnum):
-    """File import patterns"""
+    """Import pattern - tracking strategy"""
 
-    SINGLE_FILE = "single_file"
-    INCREMENTAL_FILES = "incremental_files"
-    INCREMENTAL_FOLDERS = "incremental_folders"
+    INCREMENTAL = "incremental"  # Only process new items, check for duplicates
+    FULL = "full"  # Always process everything in the path
+
+
+class BatchBy(StrEnum):
+    """Batching strategy - how to group items"""
+
+    FILE = "file"  # One batch per file
+    FOLDER = "folder"  # One batch per subfolder (all files in folder together)
+    ALL = "all"  # One batch with everything in the path
 
 
 class DuplicateHandling(StrEnum):
