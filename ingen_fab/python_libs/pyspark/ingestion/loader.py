@@ -73,12 +73,12 @@ class FileLoader:
 
     def discover_and_read_files(self) -> List[Tuple[BatchInfo, DataFrame, ProcessingMetrics]]:
         """
-        Main entry point: discover files and read them into DataFrames.
+        Main entry point: discover files from raw layer and read them into DataFrames.
 
         Returns:
             List of (BatchInfo, DataFrame, ProcessingMetrics) tuples
         """
-        # Step 1: Discover files based on import_pattern
+        # Step 1: Discover files from raw layer
         discovered_batches = self.discovery.discover()
 
         if not discovered_batches:

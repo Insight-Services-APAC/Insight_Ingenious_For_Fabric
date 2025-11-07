@@ -1,0 +1,7 @@
+sale_id,sale_date,customer_id,customer_name,product_id,product_name,quantity,unit_price,total_amount,payment_method,store_location
+S009,2025-01-08,C12353,George Wilson,P106,Headphones,1,149.99,149.99,Credit Card,Miami
+S010,2025-01-08,C12354,Helen Davis,P100,Laptop,2,1299.99,2599.98,Debit Card,Dallas
+S011,2025-01-08,C12355,Ivan Martinez,P107,Phone Case,3,19.99,59.97,Cash,San Francisco
+S012,2025-01-08,C12356,Julia Garcia,P103,Keyboard,1,89.99,89.99,PayPal,Denver
+S013,2025-01-08,C12357,Kevin Lee,P108,External SSD 1TB,1,199.99,199.99,Credit Card,Atlanta
+S014,2025-01-08,C12358,Laura Rodriguez,P101,Wireless Mouse,5,29.99,149.95,Debit Card,Portland

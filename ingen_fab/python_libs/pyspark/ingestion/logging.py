@@ -57,13 +57,14 @@ class FileLoadingLogger:
                 self.spark.sql("DESCRIBE TABLE log_file_load")
                 logger.debug("Table 'log_file_load' already exists")
             except Exception:
-                logger.info("Creating table 'log_file_load'")
+                logger.info("Creating table 'log_file_load' with partitioning by config_id")
                 schema = get_file_load_log_schema()
                 empty_df = self.spark.createDataFrame([], schema)
                 self.lakehouse.write_to_table(
                     df=empty_df,
                     table_name="log_file_load",
                     mode="overwrite",
+                    partition_by=["config_id"],
                 )
 
             # Check and create log_config_execution table
@@ -71,13 +72,14 @@ class FileLoadingLogger:
                 self.spark.sql("DESCRIBE TABLE log_config_execution")
                 logger.debug("Table 'log_config_execution' already exists")
             except Exception:
-                logger.info("Creating table 'log_config_execution'")
+                logger.info("Creating table 'log_config_execution' with partitioning by config_id")
                 schema = get_config_execution_log_schema()
                 empty_df = self.spark.createDataFrame([], schema)
                 self.lakehouse.write_to_table(
                     df=empty_df,
                     table_name="log_config_execution",
                     mode="overwrite",
+                    partition_by=["config_id"],
                 )
 
         except Exception as e:
@@ -182,12 +184,12 @@ class FileLoadingLogger:
         error_message: Optional[str] = None,
     ) -> None:
         """
-        Unified method to log batch events using merge/upsert pattern.
+        Unified method to log batch events using append-only pattern.
 
-        Uses Airflow-style single-row-per-execution pattern where:
-        - First call creates row with status='running'
-        - Subsequent calls update same row with latest status/metrics
-        - Timestamps: started_at (immutable), updated_at (always updated), completed_at (set on completion)
+        Each status change creates a new immutable log entry (event sourcing).
+        - Each call appends a new row with current status
+        - No updates to existing rows
+        - Queries use window functions to get latest status per load_id
         """
         try:
             # Convert status to string if it's an enum (defensive programming)
@@ -218,24 +220,24 @@ class FileLoadingLogger:
                 else None
             )
 
-            # Timestamp logic
+            # Timestamp logic - each row is immutable
             now = datetime.now()
-            started_at = now  # For first insert only (protected by immutable_columns)
-            updated_at = now  # Always current time
-            completed_at = metrics.completed_at if metrics else None  # From caller
-            attempt_count = 1
+            started_at = now  # When this log entry was created
+            updated_at = now  # Same as started_at (row is immutable)
+            completed_at = metrics.completed_at if metrics else None
+            attempt_count = 1  # Always 1 for append-only
 
             # Build log row
             log_data = [
                 (
-                    load_id,                              # PK
+                    load_id,                              # PK (multiple rows per load_id allowed)
                     execution_id,
                     config.resource_name,                 # config_id (using resource_name)
                     status,
                     source_file_path,
                     source_file_size_bytes,
                     source_file_modified_time,
-                    config.target_table_name,
+                    config.target_table,
                     records_processed,
                     records_inserted,
                     records_updated,
@@ -265,22 +267,11 @@ class FileLoadingLogger:
             schema = get_file_load_log_schema()
             log_df = self.spark.createDataFrame(log_data, schema)
 
-            # Merge into log table
-            self.lakehouse.merge_to_table(
+            # Append to log table (no merge - no conflicts!)
+            self.lakehouse.write_to_table(
                 df=log_df,
                 table_name="log_file_load",
-                merge_keys=["load_id"],
-                immutable_columns=[
-                    "load_id",
-                    "execution_id",
-                    "config_id",
-                    "source_file_path",
-                    "started_at",
-                ],
-                custom_update_expressions={
-                    "attempt_count": "TARGET.attempt_count + 1",
-                    "updated_at": "SOURCE.updated_at",
-                },
+                mode="append",
             )
 
         except Exception as e:
@@ -361,11 +352,12 @@ class FileLoadingLogger:
         error_message: Optional[str] = None,
     ) -> None:
         """
-        Unified method to log config execution events using merge/upsert pattern.
+        Unified method to log config execution events using append-only pattern.
 
-        Uses Airflow-style single-row-per-execution pattern where:
-        - First call creates row with status='running'
-        - Subsequent calls update same row with latest status/metrics
+        Each status change creates a new immutable log entry (event sourcing).
+        - Each call appends a new row with current status
+        - No updates to existing rows
+        - Queries use window functions to get latest status per (execution_id, config_id)
         """
         try:
             # Convert status to string if it's an enum (defensive programming)
@@ -378,16 +370,16 @@ class FileLoadingLogger:
             records_deleted = metrics.records_deleted if metrics else (0 if status != "running" else None)
             total_duration_ms = metrics.total_duration_ms if metrics else None
 
-            # Timestamp logic
+            # Timestamp logic - each row is immutable
             now = datetime.now()
-            started_at = now  # For first insert only (protected by immutable_columns)
-            updated_at = now  # Always current time
-            completed_at = metrics.completed_at if metrics else None  # From caller
+            started_at = now  # When this log entry was created
+            updated_at = now  # Same as started_at (row is immutable)
+            completed_at = metrics.completed_at if metrics else None
 
             # Build log row
             log_data = [
                 (
-                    execution_id,                         # PK part 1
+                    execution_id,                         # PK part 1 (multiple rows allowed)
                     config.resource_name,                 # PK part 2 (config_id)
                     status,
                     files_discovered,
@@ -410,19 +402,11 @@ class FileLoadingLogger:
             schema = get_config_execution_log_schema()
             log_df = self.spark.createDataFrame(log_data, schema)
 
-            # Merge into log table
-            self.lakehouse.merge_to_table(
+            # Append to log table (no merge - no conflicts!)
+            self.lakehouse.write_to_table(
                 df=log_df,
                 table_name="log_config_execution",
-                merge_keys=["execution_id", "config_id"],
-                immutable_columns=[
-                    "execution_id",
-                    "config_id",
-                    "started_at",
-                ],
-                custom_update_expressions={
-                    "updated_at": "SOURCE.updated_at",
-                },
+                mode="append",
             )
 
         except Exception as e:

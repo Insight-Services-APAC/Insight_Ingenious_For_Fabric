@@ -9,10 +9,7 @@ from typing import Optional, Tuple
 from pyspark.sql import DataFrame, SparkSession
 from pyspark.sql.types import StructType
 
-from ingen_fab.python_libs.pyspark.ingestion.config import (
-    FileSystemLoadingParams,
-    ResourceConfig,
-)
+from ingen_fab.python_libs.pyspark.ingestion.config import ResourceConfig
 from ingen_fab.python_libs.pyspark.ingestion.exceptions import (
     ErrorContext,
     FileReadError,
@@ -58,14 +55,6 @@ class BatchReader:
         """
         self.spark = spark
         self.config = config
-
-        # Extract FileSystemLoadingParams from loading_params dict
-        if isinstance(config.loading_params, dict):
-            self.params = FileSystemLoadingParams.from_dict(config.loading_params)
-        elif isinstance(config.loading_params, FileSystemLoadingParams):
-            self.params = config.loading_params
-        else:
-            raise ValueError("loading_params must be dict or FileSystemLoadingParams")
 
         # Get or create lakehouse_utils for source lakehouse
         if lakehouse_utils_instance:
@@ -114,11 +103,11 @@ class BatchReader:
         metrics = ProcessingMetrics()
 
         try:
-            # Validate source_file_format
-            if not self.config.source_file_format:
-                raise ValueError("source_file_format is required")
+            # Validate file_format
+            if not self.config.file_format:
+                raise ValueError("file_format is required")
 
-            file_format = self.config.source_file_format
+            file_format = self.config.file_format
 
             # Get file reading options
             options = self._get_file_read_options()
@@ -152,12 +141,7 @@ class BatchReader:
             metrics.source_row_count = df.count()
             metrics.records_processed = metrics.source_row_count
 
-            # Build readable source identifier for logging
-            source_identifier = self._get_source_identifier(batch_info)
-
-            self.logger.info(
-                f"Read {metrics.source_row_count} records in {metrics.read_duration_ms}ms from {source_identifier}"
-            )
+            # Note: Read log removed - combined with batch completion log in orchestrator
 
             return df, metrics
 
@@ -178,8 +162,8 @@ class BatchReader:
                     file_path=file_path,
                     operation="read_batch",
                     additional_info={
-                        "file_format": self.config.source_file_format,
-                        "import_pattern": self.params.import_pattern,
+                        "file_format": self.config.file_format,
+                        "import_mode": self.config.import_mode,
                     },
                 ),
             ) from e
@@ -211,16 +195,23 @@ class BatchReader:
         """Build file reading options from configuration"""
         options = {}
 
-        if not self.config.source_file_format:
+        if not self.config.file_format:
             return options
 
-        if self.config.source_file_format.lower() == "csv":
-            options["header"] = str(self.params.has_header).lower()
-            options["sep"] = self.params.file_delimiter
-            options["encoding"] = self.params.encoding
-            options["quote"] = self.params.quote_character
-            options["escape"] = self.params.escape_character
-            options["multiLine"] = str(self.params.multiline_values).lower()
+        if self.config.file_format.lower() == "csv":
+            # For filesystem sources, get CSV params from extraction_params
+            # For other sources (already in raw), they may be in loading_params
+            if self.config.source_config.source_type == "filesystem":
+                params = self.config.extraction_params
+            else:
+                params = self.config.loading_params
+
+            options["header"] = str(params.get("has_header", True)).lower()
+            options["sep"] = params.get("file_delimiter", ",")
+            options["encoding"] = params.get("encoding", "utf-8")
+            options["quote"] = params.get("quote_character", '"')
+            options["escape"] = params.get("escape_character", "\\")
+            options["multiLine"] = str(params.get("multiline_values", True)).lower()
 
             # Schema handling
             if self.config.custom_schema_json:

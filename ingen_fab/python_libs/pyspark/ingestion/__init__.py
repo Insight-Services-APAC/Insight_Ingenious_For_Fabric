@@ -5,7 +5,7 @@
 from ingen_fab.python_libs.pyspark.ingestion.config import (
     APIExtractionParams,
     DatabaseExtractionParams,
-    FileSystemLoadingParams,
+    FileSystemExtractionParams,
     ResourceConfig,
     SourceConfig,
 )
@@ -26,6 +26,11 @@ from ingen_fab.python_libs.pyspark.ingestion.results import (
     ResourceExecutionResult,
 )
 
+# Extraction Framework
+from ingen_fab.python_libs.pyspark.ingestion.extractors.filesystem_extractor import (
+    FileSystemExtractor,
+)
+
 # File Loading Framework (builds on shared configs)
 from ingen_fab.python_libs.pyspark.ingestion.batch_reader import BatchReader
 from ingen_fab.python_libs.pyspark.ingestion.config_manager import ConfigManager
@@ -38,7 +43,7 @@ __all__ = [
     # Configuration
     "SourceConfig",
     "ResourceConfig",
-    "FileSystemLoadingParams",
+    "FileSystemExtractionParams",
     "APIExtractionParams",
     "DatabaseExtractionParams",
     # Constants
@@ -51,6 +56,8 @@ __all__ = [
     "BatchInfo",
     "ProcessingMetrics",
     "ResourceExecutionResult",
+    # Extraction
+    "FileSystemExtractor",
     # File Loading
     "ConfigManager",
     "FileLoader",

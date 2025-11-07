@@ -27,7 +27,7 @@ class BatchBy(StrEnum):
 
     FILE = "file"  # One batch per file
     FOLDER = "folder"  # One batch per subfolder (all files in folder together)
-    ALL = "all"  # One batch with everything in the path
+    ALL = "all"  # One batch with everything in the directory (recursive)
 
 
 class DuplicateHandling(StrEnum):

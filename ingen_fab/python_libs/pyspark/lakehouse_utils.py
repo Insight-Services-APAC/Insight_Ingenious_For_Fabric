@@ -203,17 +203,37 @@ class lakehouse_utils(DataStoreInterface):
         mode: str = "overwrite",
         options: dict[str, str] | None = None,
         partition_by: list[str] | None = None,
+        table_properties: dict[str, str] | None = None,
     ) -> None:
-        """Write a DataFrame to a lakehouse table with optional partitioning."""
+        """Write a DataFrame to a lakehouse table with optional partitioning.
+
+        Args:
+            df: DataFrame to write
+            table_name: Name of the table
+            schema_name: Optional schema name (prepended to table name with underscore)
+            mode: Write mode ('overwrite', 'append', etc.)
+            options: Additional write options
+            partition_by: Columns to partition by
+            table_properties: Delta table properties (e.g., {'delta.isolationLevel': 'WriteSerializable'})
+        """
 
         # For lakehouse, schema_name is not used as tables are in the Tables directory
         writer = df.write.format("delta").mode(mode)
         table_full_name = table_name
         if schema_name:
             table_full_name = f"{schema_name}_{table_name}"
+
+        # Apply options
         if options:
             for k, v in options.items():
                 writer = writer.option(k, v)
+
+        # Apply table properties
+        if table_properties:
+            for k, v in table_properties.items():
+                writer = writer.option(k, v)
+
+        # Apply partitioning
         if partition_by:
             writer = writer.partitionBy(*partition_by)
 
@@ -239,6 +259,7 @@ class lakehouse_utils(DataStoreInterface):
         custom_update_expressions: dict[str, str] | None = None,
         enable_schema_evolution: bool = False,
         partition_by: list[str] | None = None,
+        table_properties: dict[str, str] | None = None,
     ) -> dict[str, Any]:
         """Merge DataFrame into table using Delta Lake merge operation.
 
@@ -253,6 +274,7 @@ class lakehouse_utils(DataStoreInterface):
                                      (e.g., {"attempt_count": "TARGET.attempt_count + 1"})
             enable_schema_evolution: Enable schema auto-merge for new columns
             partition_by: Optional list of columns to partition by (used on initial create)
+            table_properties: Delta table properties (e.g., {'delta.isolationLevel': 'WriteSerializable'})
 
         Returns:
             Dictionary with merge metrics:
@@ -287,6 +309,7 @@ class lakehouse_utils(DataStoreInterface):
                 mode="overwrite",
                 options=write_options,
                 partition_by=partition_by,
+                table_properties=table_properties,
             )
 
             # Get row count after initial load
@@ -864,16 +887,23 @@ class lakehouse_utils(DataStoreInterface):
         Move file from source to destination.
 
         Args:
-            source_path: Source file path (relative to lakehouse Files/)
-            destination_path: Destination path (relative to lakehouse Files/)
+            source_path: Source file path (relative to lakehouse Files/ or absolute URI)
+            destination_path: Destination path (relative to lakehouse Files/ or absolute path)
 
         Returns:
             True if successful, False otherwise
         """
         try:
-            # Build full paths
-            source_full = f"{self.lakehouse_files_uri()}{source_path.lstrip('/')}"
-            dest_full = f"{self.lakehouse_files_uri()}{destination_path.lstrip('/')}"
+            # Build full paths - check if already absolute URIs
+            if source_path.startswith(("abfss://", "file://")):
+                source_full = source_path
+            else:
+                source_full = f"{self.lakehouse_files_uri()}{source_path.lstrip('/')}"
+
+            if destination_path.startswith(("abfss://", "file://")):
+                dest_full = destination_path
+            else:
+                dest_full = f"{self.lakehouse_files_uri()}{destination_path.lstrip('/')}"
 
             if self.spark_version == "local":
                 # Local environment - use Python shutil

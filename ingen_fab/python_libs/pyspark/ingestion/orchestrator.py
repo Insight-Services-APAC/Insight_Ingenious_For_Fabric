@@ -12,31 +12,24 @@ from pyspark.sql import DataFrame, SparkSession
 from pyspark.sql.functions import col, current_timestamp, lit
 
 from ingen_fab.python_libs.common.flat_file_ingestion_utils import (
-    ArchivePathResolver,
     ErrorHandlingUtils,
     ProcessingMetricsUtils,
 )
-from ingen_fab.python_libs.pyspark.ingestion.config import (
-    FileSystemLoadingParams,
-    ResourceConfig,
-)
+from ingen_fab.python_libs.pyspark.ingestion.config import ResourceConfig
 from ingen_fab.python_libs.pyspark.ingestion.constants import (
-    DatastoreType,
     ExecutionStatus,
     WriteMode,
 )
 from ingen_fab.python_libs.pyspark.ingestion.exceptions import (
-    ArchiveError,
-    ArchiveNetworkError,
-    ArchivePermissionError,
-    ArchiveResult,
-    ArchiveStorageError,
     DuplicateFilesError,
     ErrorContext,
+    ExtractionError,
     FileDiscoveryError,
     FileReadError,
-    PartialArchiveFailure,
     WriteError,
+)
+from ingen_fab.python_libs.pyspark.ingestion.extractors.filesystem_extractor import (
+    FileSystemExtractor,
 )
 from ingen_fab.python_libs.pyspark.ingestion.loader import FileLoader
 from ingen_fab.python_libs.pyspark.ingestion.logging import FileLoadingLogger
@@ -57,55 +50,17 @@ except ImportError:
 logger = logging.getLogger(__name__)
 
 
-def retry_on_transient_error(
-    operation_func,
-    max_attempts: int = 3,
-    backoff_factor: float = 2.0,
-    transient_exceptions=(ArchiveNetworkError,),
-):
-    """
-    Retry an operation on transient errors with exponential backoff.
-
-    Args:
-        operation_func: Function to execute
-        max_attempts: Maximum number of attempts
-        backoff_factor: Multiplier for backoff delay
-        transient_exceptions: Tuple of exception types to retry
-
-    Returns:
-        Result of operation_func()
-
-    Raises:
-        Last exception if all attempts fail
-    """
-    last_exception = None
-    delay = 1.0  # Initial delay in seconds
-
-    for attempt in range(1, max_attempts + 1):
-        try:
-            return operation_func()
-        except transient_exceptions as e:
-            last_exception = e
-            if attempt < max_attempts:
-                logger.debug(f"Attempt {attempt} failed, retrying in {delay}s: {e}")
-                time.sleep(delay)
-                delay *= backoff_factor
-            else:
-                logger.warning(f"All {max_attempts} attempts failed")
-        except Exception as e:
-            # Non-transient error - don't retry
-            raise
-
-    # Should never reach here, but just in case
-    if last_exception:
-        raise last_exception
-
-
 class FileLoadingOrchestrator:
     """
-    Orchestrates file loading across multiple resources.
+    Orchestrates data ingestion across multiple resources.
+
+    Unified ingestion pattern:
+    1. Extraction: External source (inbound files, API, database) → Raw layer
+    2. Loading: Raw layer → Bronze tables
 
     Handles:
+    - Extraction step (filesystem, API, database extractors)
+    - Loading step (raw → bronze)
     - Execution grouping and sequencing
     - Parallel processing within groups
     - Target table writes (lakehouse or warehouse)
@@ -316,26 +271,82 @@ class FileLoadingOrchestrator:
 
         try:
             config_logger.info(f"Processing: {config.resource_name}")
-            config_logger.info(f"Source: {config.source_file_path}")
-            config_logger.info(f"Target: {config.target_schema_name}.{config.target_table_name}")
-            config_logger.info(f"Format: {config.source_file_format}")
-            config_logger.info(f"Write mode: {config.write_mode}")
+            # Consolidate metadata into single line
+            target_full = f"{config.target_schema}.{config.target_table}" if config.target_schema else config.target_table
+            config_logger.info(
+                f"Source: {config.source_config.source_type} → Target: {target_full} "
+                f"({config.file_format}, {config.write_mode})"
+            )
+
+            extraction_result = None
+            batches_from_extraction = []
+
+            try:
+                extractor = self._get_extractor(config, config_logger)
+                extraction_result = extractor.extract()
+
+                # Check for validation failure (expected condition, not an exception)
+                if extraction_result.error_message:
+                    result.status = ExecutionStatus.FAILED
+                    result.error_message = extraction_result.error_message
+                    config_logger.error(f"Extraction validation failed: {extraction_result.error_message}")
+                    self._log_config_execution_error(config, execution_id, extraction_result.error_message, result)
+                    return result
+
+                # Simplified extraction summary
+                if extraction_result.promoted_count == 0 and extraction_result.failed_count == 0:
+                    config_logger.info(f"No files found in {config.raw_file_path}")
+                    result.status = ExecutionStatus.NO_DATA
+                    self._log_config_execution_completion(config, execution_id, result)
+                    return result
+
+                # If extraction had failures, warn but continue
+                if extraction_result.failed_count > 0:
+                    config_logger.warning(
+                        f"Extraction had {extraction_result.failed_count} failures, "
+                        f"continuing with {extraction_result.promoted_count} successful"
+                    )
+
+                # Convert extraction results to batches (dlt pattern)
+                if extraction_result.promoted_count > 0:
+                    batches_from_extraction = self._convert_extraction_results_to_batches(
+                        extraction_result, config
+                    )
+
+            except NotImplementedError as e:
+                # Extractor not implemented yet - log and will use discovery fallback
+                config_logger.warning(f"Extraction skipped: {e}")
+                config_logger.info("Will use file discovery from raw layer")
+
+            except ExtractionError as e:
+                # Extraction failed completely
+                result.status = ExecutionStatus.FAILED
+                result.error_message = str(e)
+                config_logger.exception(f"Extraction failed: {e}")
+                self._log_config_execution_error(config, execution_id, str(e), result)
+                return result
+
 
             # Create FileLoader instance
             file_loader = FileLoader(spark=self.spark, config=config)
 
-            # Discover files (don't read yet - we'll read one at a time)
-            discovered_batches = file_loader.discover_files()
+            # Use extraction results if available (dlt pattern), otherwise discover
+            if batches_from_extraction:
+                discovered_batches = batches_from_extraction
+            else:
+                # Fallback: discover files in raw layer (when extraction skipped/not implemented)
+                discovered_batches = file_loader.discover_files()
 
             if not discovered_batches:
-                config_logger.info("No files discovered")
+                config_logger.info("No files to process")
                 result.status = ExecutionStatus.NO_DATA
                 self._log_config_execution_completion(config, execution_id, result)
                 return result
 
             # Process batches one at a time (streaming)
+            total_batches = len(discovered_batches)
             all_metrics, batches_processed, batches_failed = self._process_batches(
-                discovered_batches, config, execution_id, target_utils, file_loader, config_logger
+                discovered_batches, config, execution_id, target_utils, file_loader, config_logger, total_batches
             )
 
             # Update result with batch counts
@@ -354,7 +365,7 @@ class FileLoadingOrchestrator:
             config_logger.exception(f"Duplicate files detected: {e}")
             self._log_config_execution_error(config, execution_id, str(e), result)
 
-        except (FileDiscoveryError, FileReadError, WriteError) as e:
+        except (ExtractionError, FileDiscoveryError, FileReadError, WriteError) as e:
             # Known ingestion errors - already have context
             result.status = ExecutionStatus.FAILED
             result.error_message = str(e)
@@ -378,6 +389,7 @@ class FileLoadingOrchestrator:
         target_utils,
         file_loader: FileLoader,
         config_logger: logging.LoggerAdapter,
+        total_batches: int,
     ) -> Tuple[List[ProcessingMetrics], int, int]:
         """
         Process all batches one at a time (streaming) and return aggregated metrics.
@@ -397,7 +409,7 @@ class FileLoadingOrchestrator:
         batches_processed = 0
         batches_failed = 0
 
-        for batch_info in batches:
+        for batch_index, batch_info in enumerate(batches, start=1):
             try:
                 # Read batch (one at a time - streaming)
                 df, read_metrics = file_loader.reader.read_batch(batch_info)
@@ -405,7 +417,7 @@ class FileLoadingOrchestrator:
                 # Process single batch (write and archive)
                 combined_metrics = self._process_single_batch(
                     batch_info, df, read_metrics, config, execution_id,
-                    target_utils, file_loader, config_logger
+                    target_utils, file_loader, config_logger, batch_index, total_batches
                 )
 
                 # Track successful batch
@@ -433,6 +445,8 @@ class FileLoadingOrchestrator:
         target_utils,
         file_loader: FileLoader,
         config_logger: logging.LoggerAdapter,
+        batch_index: int,
+        total_batches: int,
     ) -> ProcessingMetrics:
         """
         Process a single batch - cleaner and more testable.
@@ -461,7 +475,7 @@ class FileLoadingOrchestrator:
 
         # Validate data
         if df.count() == 0:
-            config_logger.warning(f"Batch {load_id}: no data")
+            config_logger.warning(f"Loading batch {batch_index}/{total_batches}: 0 records - EMPTY (skipped)")
             # Log empty batch so it's not reprocessed on next run
             self._log_batch_no_data(config, execution_id, load_id, batch_info)
             return ProcessingMetrics()
@@ -475,22 +489,11 @@ class FileLoadingOrchestrator:
         # Log batch completion
         self._log_batch_completion(config, execution_id, load_id, combined_metrics, batch_info)
 
-        # Archive files if configured
-        archive_result = self._archive_batch_files(
-            batch_info, config, combined_metrics, file_loader, config_logger
-        )
-
-        # Check for archive failures
-        if archive_result.has_failures:
-            config_logger.warning(
-                f"Archive completed with {archive_result.failed} failure(s): "
-                f"{archive_result.summary()}"
-            )
-
         batch_duration = time.time() - batch_start
+        # Format numbers with commas
+        records_formatted = f"{combined_metrics.records_processed:,}"
         config_logger.info(
-            f"Batch {load_id}: {combined_metrics.records_processed} records "
-            f"in {batch_duration:.2f}s"
+            f"Loading batch {batch_index}/{total_batches}: {records_formatted} records ({batch_duration:.2f}s)"
         )
 
         return combined_metrics
@@ -592,22 +595,114 @@ class FileLoadingOrchestrator:
 
     def _get_target_utils(self, config: ResourceConfig):
         """Get target utilities (lakehouse or warehouse)"""
-        if config.target_datastore_type.lower() == DatastoreType.LAKEHOUSE:
-            return lakehouse_utils(
-                target_workspace_name=config.target_workspace_name,
-                target_lakehouse_name=config.target_datastore_name,
+        # Infer target type from target_lakehouse field
+        # (could also add explicit target_type field if needed)
+        return lakehouse_utils(
+            target_workspace_name=config.target_workspace,
+            target_lakehouse_name=config.target_lakehouse,
+            spark=self.spark,
+        )
+
+    def _get_extractor(self, config: ResourceConfig, logger_instance=None):
+        """
+        Get appropriate extractor based on source type.
+
+        Args:
+            config: ResourceConfig with source_type
+            logger_instance: Optional context-aware logger (ConfigLoggerAdapter)
+
+        Returns:
+            Extractor instance (FileSystemExtractor, APIExtractor, DatabaseExtractor, etc.)
+
+        Raises:
+            NotImplementedError: If source_type extractor is not implemented yet
+        """
+        source_type = config.source_config.source_type
+
+        if source_type == "filesystem":
+            return FileSystemExtractor(
+                resource_config=config,
                 spark=self.spark,
+                logger_instance=logger_instance,
             )
-        elif config.target_datastore_type.lower() == DatastoreType.WAREHOUSE:
-            if warehouse_utils is None:
-                raise ImportError("warehouse_utils not available")
-            return warehouse_utils(
-                target_workspace_name=config.target_workspace_name,
-                target_warehouse_name=config.target_datastore_name,
-                spark=self.spark,
+        elif source_type == "api":
+            # TODO: Implement APIExtractor
+            raise NotImplementedError(
+                f"API extractor not yet implemented. "
+                f"Create APIExtractor in extractors/ directory."
+            )
+        elif source_type == "database":
+            # TODO: Implement DatabaseExtractor
+            raise NotImplementedError(
+                f"Database extractor not yet implemented. "
+                f"Create DatabaseExtractor in extractors/ directory."
             )
         else:
-            raise ValueError(f"Unknown target_datastore_type: {config.target_datastore_type}")
+            raise ValueError(
+                f"Unknown source_type: {source_type}. "
+                f"Supported types: filesystem, api, database"
+            )
+
+    def _convert_extraction_results_to_batches(
+        self,
+        extraction_result,
+        config: ResourceConfig,
+    ) -> List[BatchInfo]:
+        """
+        Convert extraction results (promoted file paths) into BatchInfo objects.
+
+        This implements the dlt pattern: extraction yields data that loading consumes directly,
+        without re-discovering what was just extracted.
+
+        Args:
+            extraction_result: PromotionResult from extractor
+            config: ResourceConfig for context
+
+        Returns:
+            List of BatchInfo objects ready for loading
+        """
+        import uuid
+        from datetime import datetime
+
+        batches = []
+
+        # Get lakehouse utils for the source lakehouse
+        source_workspace = config.source_config.connection_params.get("workspace_name")
+        source_lakehouse = config.source_config.connection_params.get("lakehouse_name")
+
+        lakehouse = lakehouse_utils(
+            target_workspace_name=source_workspace,
+            target_lakehouse_name=source_lakehouse,
+            spark=self.spark,
+        )
+
+        for promoted_path in extraction_result.promoted_files:
+            # promoted_path is already a full path (could be file or folder)
+            # Build ABFSS URI if needed
+            if not promoted_path.startswith("abfss://"):
+                # Relative path - build full URI
+                full_path = f"{lakehouse.lakehouse_files_uri()}{promoted_path.lstrip('/')}"
+            else:
+                # Already absolute
+                full_path = promoted_path
+
+            # Create BatchInfo
+            batch_info = BatchInfo(
+                batch_id=str(uuid.uuid4()),
+                file_paths=[full_path],
+                size_bytes=0,  # Size not critical for loading
+                modified_time=datetime.now(),  # Use current time
+            )
+
+            # Add folder name if this looks like a folder path
+            if promoted_path.endswith("/"):
+                import os
+                folder_name = os.path.basename(promoted_path.rstrip("/"))
+                batch_info.folder_name = folder_name
+
+            batches.append(batch_info)
+
+        return batches
 
     def _write_to_target(
         self,
@@ -627,9 +722,9 @@ class FileLoadingOrchestrator:
 
                 merge_result = target_utils.merge_to_table(
                     df=df,
-                    table_name=config.target_table_name,
+                    table_name=config.target_table,
                     merge_keys=config.merge_keys,
-                    schema_name=config.target_schema_name,
+                    schema_name=config.target_schema,
                     immutable_columns=["_raw_created_at"],
                     enable_schema_evolution=config.enable_schema_evolution,
                     partition_by=config.partition_columns,
@@ -645,7 +740,7 @@ class FileLoadingOrchestrator:
                 # Standard write modes (overwrite, append)
                 # Get before count
                 try:
-                    existing_df = target_utils.read_table(config.target_table_name, schema_name=config.target_schema_name)
+                    existing_df = target_utils.read_table(config.target_table, schema_name=config.target_schema)
                     metrics.target_row_count_before = existing_df.count()
                     config_logger.debug(f"Target table row count before write: {metrics.target_row_count_before}")
                 except Exception as e:
@@ -660,8 +755,8 @@ class FileLoadingOrchestrator:
                 # Write data
                 target_utils.write_to_table(
                     df=df,
-                    table_name=config.target_table_name,
-                    schema_name=config.target_schema_name,
+                    table_name=config.target_table,
+                    schema_name=config.target_schema,
                     mode=config.write_mode,
                     options=write_options,
                     partition_by=config.partition_columns,
@@ -669,7 +764,7 @@ class FileLoadingOrchestrator:
 
                 # Get after count
                 try:
-                    result_df = target_utils.read_table(config.target_table_name, schema_name=config.target_schema_name)
+                    result_df = target_utils.read_table(config.target_table, schema_name=config.target_schema)
                     metrics.target_row_count_after = result_df.count()
                     config_logger.debug(f"Target table row count after write: {metrics.target_row_count_after}")
                 except Exception as e:
@@ -697,12 +792,12 @@ class FileLoadingOrchestrator:
             metrics.write_duration_ms = int((write_end - write_start) * 1000)
             config_logger.exception(f"Write failed: {e}")
             raise WriteError(
-                message=f"Failed to write to target table {config.target_table_name}",
+                message=f"Failed to write to target table {config.target_table}",
                 context=ErrorContext(
                     resource_name=config.resource_name,
                     operation="write_to_target",
                     additional_info={
-                        "table": f"{config.target_schema_name}.{config.target_table_name}",
+                        "table": f"{config.target_schema}.{config.target_table}",
                         "write_mode": config.write_mode,
                     },
                 ),
@@ -731,251 +826,6 @@ class FileLoadingOrchestrator:
                              .withColumn("_raw_updated_at", current_timestamp())
 
         return result_df
-
-    def _archive_batch_files(
-        self,
-        batch_info,
-        config: ResourceConfig,
-        metrics: ProcessingMetrics,
-        file_loader: FileLoader,
-        config_logger: logging.LoggerAdapter,
-    ) -> ArchiveResult:
-        """
-        Archive files after successful processing.
-
-        Returns:
-            ArchiveResult with success/failure tracking
-        """
-        result = ArchiveResult()
-
-        # Check if archiving is enabled
-        loading_params = FileSystemLoadingParams.from_dict(config.loading_params)
-        if not loading_params.enable_archive or not loading_params.archive_path:
-            return result
-
-        # Ensure completed_at is set
-        if not metrics.completed_at:
-            config_logger.warning("Cannot archive: completed_at timestamp not set")
-            return result
-
-        # Get source lakehouse utils from file_loader
-        source_lakehouse = file_loader.lakehouse
-
-        # Determine if cross-lakehouse archiving is configured
-        is_cross_lakehouse = (
-            loading_params.archive_workspace_name is not None
-            or loading_params.archive_lakehouse_name is not None
-        )
-
-        # Create archive destination lakehouse utils if cross-lakehouse
-        archive_lakehouse = None
-        if is_cross_lakehouse:
-            archive_workspace = (
-                loading_params.archive_workspace_name
-                or config.target_workspace_name
-            )
-            archive_lakehouse_name = (
-                loading_params.archive_lakehouse_name
-                or config.target_datastore_name
-            )
-
-            archive_lakehouse = lakehouse_utils(
-                target_workspace_name=archive_workspace,
-                target_lakehouse_name=archive_lakehouse_name,
-                spark=self.spark,
-            )
-
-            config_logger.info(
-                f"Cross-lakehouse archive to: {archive_workspace}/{archive_lakehouse_name}"
-            )
-
-        # Archive each file in the batch
-        for file_path in batch_info.file_paths:
-            try:
-                # Resolve archive path using template
-                archive_path = ArchivePathResolver.resolve(
-                    template=loading_params.archive_path,
-                    batch_info=batch_info,
-                    config=config,
-                    process_timestamp=metrics.completed_at,
-                )
-
-                # Extract relative path (remove lakehouse URI prefix)
-                source_relative = file_path.replace(source_lakehouse.lakehouse_files_uri(), "")
-
-                if is_cross_lakehouse and archive_lakehouse:
-                    # Cross-lakehouse archiving
-                    success = self._archive_file_cross_lakehouse(
-                        source_lakehouse=source_lakehouse,
-                        archive_lakehouse=archive_lakehouse,
-                        source_relative=source_relative,
-                        archive_path=archive_path,
-                        config_logger=config_logger,
-                        result=result,
-                    )
-                else:
-                    # Same lakehouse archiving
-                    success = self._archive_file_same_lakehouse(
-                        source_lakehouse=source_lakehouse,
-                        source_relative=source_relative,
-                        archive_path=archive_path,
-                        loading_params=loading_params,
-                        config=config,
-                        config_logger=config_logger,
-                        result=result,
-                    )
-
-                if success:
-                    result.add_success()
-                    config_logger.debug(f"Archived: {source_relative} → {archive_path}")
-
-            except ArchiveError as e:
-                # Already tracked in result
-                config_logger.debug(f"Archive error already tracked: {e}")
-            except Exception as e:
-                # Unexpected error
-                result.add_failure(
-                    file_path=file_path,
-                    error_message=str(e),
-                    error_type=type(e).__name__,
-                )
-                config_logger.warning(f"Archive error for {file_path}: {e}")
-
-        # Log summary
-        config_logger.info(result.summary())
-
-        return result
-
-    def _archive_file_cross_lakehouse(
-        self,
-        source_lakehouse,
-        archive_lakehouse,
-        source_relative: str,
-        archive_path: str,
-        config_logger: logging.LoggerAdapter,
-        result: ArchiveResult,
-    ) -> bool:
-        """
-        Archive a file to a different lakehouse.
-
-        Returns:
-            True if successful, False otherwise
-        """
-        source_full_path = f"{source_lakehouse.lakehouse_files_uri()}{source_relative.lstrip('/')}"
-        dest_full_path = f"{archive_lakehouse.lakehouse_files_uri()}{archive_path.lstrip('/')}"
-
-        try:
-            from notebookutils import mssparkutils
-
-            # Retry on transient errors
-            def archive_operation():
-                mv_result = mssparkutils.fs.mv(source_full_path, dest_full_path, True)
-                success = mv_result is True or mv_result == "true"
-                if not success:
-                    raise ArchiveError(f"Move operation returned: {mv_result}")
-                return success
-
-            success = retry_on_transient_error(archive_operation, max_attempts=3)
-
-            if success:
-                config_logger.info(
-                    f"Archived (cross-lakehouse): {source_relative} → "
-                    f"{archive_lakehouse.target_store_name}/{archive_path}"
-                )
-                return True
-
-        except PermissionError as e:
-            result.add_failure(
-                file_path=source_relative,
-                error_message=str(e),
-                error_type="ArchivePermissionError",
-            )
-            config_logger.warning(f"Permission denied for cross-lakehouse archive: {source_relative}")
-        except (ConnectionError, TimeoutError) as e:
-            result.add_failure(
-                file_path=source_relative,
-                error_message=str(e),
-                error_type="ArchiveNetworkError",
-                is_transient=True,
-            )
-            config_logger.warning(f"Network error during cross-lakehouse archive: {source_relative}")
-        except Exception as e:
-            result.add_failure(
-                file_path=source_relative,
-                error_message=str(e),
-                error_type=type(e).__name__,
-            )
-            config_logger.warning(f"Cross-lakehouse archive error for {source_relative}: {e}")
-
-        return False
-
-    def _archive_file_same_lakehouse(
-        self,
-        source_lakehouse,
-        source_relative: str,
-        archive_path: str,
-        loading_params: FileSystemLoadingParams,
-        config: ResourceConfig,
-        config_logger: logging.LoggerAdapter,
-        result: ArchiveResult,
-    ) -> bool:
-        """
-        Archive a file within the same lakehouse.
-
-        Returns:
-            True if successful, False otherwise
-        """
-        try:
-            # Retry on transient errors
-            def archive_operation():
-                success = source_lakehouse.move_file(source_relative, archive_path)
-                if not success:
-                    raise ArchiveError("Move operation failed")
-                return success
-
-            success = retry_on_transient_error(archive_operation, max_attempts=3)
-
-            if success:
-                config_logger.info(f"Archived: {source_relative} → {archive_path}")
-
-                # Clean up empty directories if configured
-                if loading_params.cleanup_empty_dirs and config.source_file_path:
-                    try:
-                        base_path = config.source_file_path.rstrip('/')
-                        source_lakehouse.cleanup_empty_directories_recursive(
-                            file_path=source_relative,
-                            base_path=base_path
-                        )
-                    except Exception as cleanup_error:
-                        # Log but don't fail on cleanup errors
-                        config_logger.debug(f"Directory cleanup warning: {cleanup_error}")
-
-                return True
-
-        except PermissionError as e:
-            result.add_failure(
-                file_path=source_relative,
-                error_message=str(e),
-                error_type="ArchivePermissionError",
-            )
-            config_logger.warning(f"Permission denied for archive: {source_relative}")
-        except OSError as e:
-            # Disk full, etc.
-            result.add_failure(
-                file_path=source_relative,
-                error_message=str(e),
-                error_type="ArchiveStorageError",
-            )
-            config_logger.warning(f"Storage error during archive: {source_relative}")
-        except Exception as e:
-            result.add_failure(
-                file_path=source_relative,
-                error_message=str(e),
-                error_type=type(e).__name__,
-            )
-            config_logger.warning(f"Archive error for {source_relative}: {e}")
-
-        return False
 
     # ========================================================================
     # LOGGING METHODS (delegate to FileLoadingLogger if provided)

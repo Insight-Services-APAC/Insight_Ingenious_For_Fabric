@@ -90,7 +90,7 @@ class ConfigManager:
         Args:
             source_name: Filter by source name (e.g., "sales")
             resource_name: Filter by resource name (e.g., "load_daily_sales")
-            active_only: Only return configs where active_yn='Y' (default: True)
+            active_only: Only return configs where active=True (default: True)
 
         Returns:
             List of ResourceConfig objects matching filters, ordered by execution_group, resource_name
@@ -112,7 +112,7 @@ class ConfigManager:
         conditions = []
 
         if active_only:
-            conditions.append("active_yn = 'Y'")
+            conditions.append("active = TRUE")
 
         if source_name:
             conditions.append(f"source_name = '{source_name}'")
@@ -165,7 +165,7 @@ class ConfigManager:
                 source_type,
                 target_table_name,
                 execution_group,
-                active_yn,
+                active,
                 created_at,
                 updated_at
             FROM {self.config_table_name}
