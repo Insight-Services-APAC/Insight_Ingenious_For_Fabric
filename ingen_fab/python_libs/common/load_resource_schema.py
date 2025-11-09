@@ -1,4 +1,4 @@
-# Centralized schema definition for loading run logging
+# Centralized schema definition for loading resource logging
 # Resource-level loading tracking - summary of loading run per resource
 
 from pyspark.sql.types import (
@@ -11,19 +11,20 @@ from pyspark.sql.types import (
 )
 
 
-def get_loading_run_schema() -> StructType:
+def get_load_resource_schema() -> StructType:
     """
-    Returns the standardized schema for the log_load_run table.
+    Returns the standardized schema for the log_resource_load table.
     This schema tracks each resource execution run (one record per resource per execution).
     Uses UPDATE pattern for state tracking (Airflow-style).
 
-    Primary Key: (execution_id, source_name, resource_name)
+    Primary Key: load_run_id
     Partitioned By: source_name, resource_name (for isolation and performance)
     """
     return StructType(
         [
             # Primary key (composite)
-            StructField("execution_id", StringType(), nullable=False),
+            StructField("load_run_id", StringType(), nullable=False),  # PK - Resource run
+            StructField("master_execution_id", StringType(), nullable=False),  # Orchestrator execution
             StructField("source_name", StringType(), nullable=False),  # Source system (e.g., "edl", "sap")
             StructField("resource_name", StringType(), nullable=False),  # Resource/table name
             StructField(
@@ -57,13 +58,13 @@ def get_loading_run_schema() -> StructType:
     )
 
 
-def get_config_execution_log_schema() -> StructType:
+def get_loading_run_schema() -> StructType:
     """
-    Backwards compatibility alias for get_loading_run_schema().
+    Backwards compatibility alias for get_load_resource_schema().
 
-    DEPRECATED: Use get_loading_run_schema() instead.
+    DEPRECATED: Use get_load_resource_schema() instead.
     """
-    return get_loading_run_schema()
+    return get_load_resource_schema()
 
 
 def get_column_names() -> list[str]:
@@ -71,5 +72,5 @@ def get_column_names() -> list[str]:
     Returns the list of column names in the correct order for the log table.
     Useful for creating tuples of data in the correct order.
     """
-    schema = get_loading_run_schema()
+    schema = get_load_resource_schema()
     return [field.name for field in schema.fields]

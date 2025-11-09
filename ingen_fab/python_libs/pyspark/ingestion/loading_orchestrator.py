@@ -1,8 +1,10 @@
-# File Loading Framework - Orchestrator
-# Orchestrates file loading across multiple resources with parallel execution
+# File Loading Framework - Loading Orchestrator
+# Orchestrates file loading from raw layer to bronze tables
 
 import logging
+import os
 import time
+import uuid
 from collections import defaultdict
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import datetime
@@ -21,15 +23,9 @@ from ingen_fab.python_libs.pyspark.ingestion.constants import (
     WriteMode,
 )
 from ingen_fab.python_libs.pyspark.ingestion.exceptions import (
-    DuplicateFilesError,
     ErrorContext,
-    ExtractionError,
-    FileDiscoveryError,
     FileReadError,
     WriteError,
-)
-from ingen_fab.python_libs.pyspark.ingestion.extractors.filesystem_extractor import (
-    FileSystemExtractor,
 )
 from ingen_fab.python_libs.pyspark.ingestion.loader import FileLoader
 from ingen_fab.python_libs.pyspark.ingestion.logging import FileLoadingLogger
@@ -50,23 +46,41 @@ except ImportError:
 logger = logging.getLogger(__name__)
 
 
-class FileLoadingOrchestrator:
+class LoadingOrchestrator:
     """
-    Orchestrates data ingestion across multiple resources.
+    Orchestrates data loading from raw layer to bronze tables.
 
-    Unified ingestion pattern:
-    1. Extraction: External source (inbound files, API, database) → Raw layer
-    2. Loading: Raw layer → Bronze tables
+    Pattern (dlt-inspired): Raw layer → Bronze tables
+    Discovery: Queries extraction logs (log_resource_extract_batch table) for ready batches
 
     Handles:
-    - Extraction step (filesystem, API, database extractors)
+    - Discovery from extraction logs (work queue pattern)
     - Loading step (raw → bronze)
     - Execution grouping and sequencing
     - Parallel processing within groups
     - Target table writes (lakehouse or warehouse)
     - State tracking and logging
-    - Error handling and retry logic
+    - Error handling
     - Metrics aggregation
+
+    File Management (Quarantine-Only Pattern):
+    - Successful loads: Files STAY in raw_landing_path (no archiving!)
+    - Failed loads: Files move to raw_quarantined_path (corrupt/invalid files only)
+    - This enables easy replay by resetting load_state to 'pending'
+
+    Replay Workflow:
+        # 1. Find extraction to replay
+        SELECT * FROM log_resource_extract_batch
+        WHERE source_name = 'my_source'
+          AND resource_name = 'my_table'
+          AND load_state IN ('completed', 'failed');
+
+        # 2. Reset to pending (will be picked up on next load run)
+        UPDATE log_resource_extract_batch
+        SET load_state = 'pending'
+        WHERE extract_batch_id = '{extract_batch_id}'
+          AND source_name = '{source_name}'
+          AND resource_name = '{resource_name}';
     """
 
     def __init__(
@@ -266,87 +280,34 @@ class FileLoadingOrchestrator:
         # Get target utilities for writing
         target_utils = self._get_target_utils(config)
 
-        # Log config execution start
-        self._log_config_execution_start(config, execution_id)
+        # Log config execution start and capture load_run_id
+        load_run_id = self._log_config_execution_start(config, execution_id)
 
         try:
-            config_logger.info(f"Processing: {config.resource_name}")
+            config_logger.info(f"Loading: {config.resource_name}")
             # Consolidate metadata into single line
             target_full = f"{config.target_schema}.{config.target_table}" if config.target_schema else config.target_table
             config_logger.info(
-                f"Source: {config.source_config.source_type} → Target: {target_full} "
+                f"Raw: {config.raw_landing_path} → Target: {target_full} "
                 f"({config.file_format}, {config.write_mode})"
             )
-
-            extraction_result = None
-            batches_from_extraction = []
-
-            try:
-                extractor = self._get_extractor(config, config_logger)
-                extraction_result = extractor.extract()
-
-                # Check for validation failure (expected condition, not an exception)
-                if extraction_result.error_message:
-                    result.status = ExecutionStatus.FAILED
-                    result.error_message = extraction_result.error_message
-                    config_logger.error(f"Extraction validation failed: {extraction_result.error_message}")
-                    self._log_config_execution_error(config, execution_id, extraction_result.error_message, result)
-                    return result
-
-                # Simplified extraction summary
-                if extraction_result.promoted_count == 0 and extraction_result.failed_count == 0:
-                    config_logger.info(f"No files found in {config.raw_file_path}")
-                    result.status = ExecutionStatus.NO_DATA
-                    self._log_config_execution_completion(config, execution_id, result)
-                    return result
-
-                # If extraction had failures, warn but continue
-                if extraction_result.failed_count > 0:
-                    config_logger.warning(
-                        f"Extraction had {extraction_result.failed_count} failures, "
-                        f"continuing with {extraction_result.promoted_count} successful"
-                    )
-
-                # Convert extraction results to batches (dlt pattern)
-                if extraction_result.promoted_count > 0:
-                    batches_from_extraction = self._convert_extraction_results_to_batches(
-                        extraction_result, config
-                    )
-
-            except NotImplementedError as e:
-                # Extractor not implemented yet - log and will use discovery fallback
-                config_logger.warning(f"Extraction skipped: {e}")
-                config_logger.info("Will use file discovery from raw layer")
-
-            except ExtractionError as e:
-                # Extraction failed completely
-                result.status = ExecutionStatus.FAILED
-                result.error_message = str(e)
-                config_logger.exception(f"Extraction failed: {e}")
-                self._log_config_execution_error(config, execution_id, str(e), result)
-                return result
-
 
             # Create FileLoader instance
             file_loader = FileLoader(spark=self.spark, config=config)
 
-            # Use extraction results if available (dlt pattern), otherwise discover
-            if batches_from_extraction:
-                discovered_batches = batches_from_extraction
-            else:
-                # Fallback: discover files in raw layer (when extraction skipped/not implemented)
-                discovered_batches = file_loader.discover_files()
+            # Discover batches from extraction logs (dlt-style work queue)
+            discovered_batches = self._discover_from_extraction_logs(config)
 
             if not discovered_batches:
                 config_logger.info("No files to process")
                 result.status = ExecutionStatus.NO_DATA
-                self._log_config_execution_completion(config, execution_id, result)
+                self._log_config_execution_completion(config, execution_id, load_run_id, result)
                 return result
 
-            # Process batches one at a time (streaming)
+            # Process batches one at a time
             total_batches = len(discovered_batches)
             all_metrics, batches_processed, batches_failed = self._process_batches(
-                discovered_batches, config, execution_id, target_utils, file_loader, config_logger, total_batches
+                discovered_batches, config, execution_id, load_run_id, target_utils, file_loader, config_logger, total_batches
             )
 
             # Update result with batch counts
@@ -357,27 +318,21 @@ class FileLoadingOrchestrator:
             self._finalize_result(result, all_metrics, config, start_time, config_logger)
 
             # Log config execution completion
-            self._log_config_execution_completion(config, execution_id, result)
+            self._log_config_execution_completion(config, execution_id, load_run_id, result)
 
-        except DuplicateFilesError as e:
+        except (FileReadError, WriteError) as e:
+            # Known loading errors - already have context
             result.status = ExecutionStatus.FAILED
             result.error_message = str(e)
-            config_logger.exception(f"Duplicate files detected: {e}")
-            self._log_config_execution_error(config, execution_id, str(e), result)
-
-        except (ExtractionError, FileDiscoveryError, FileReadError, WriteError) as e:
-            # Known ingestion errors - already have context
-            result.status = ExecutionStatus.FAILED
-            result.error_message = str(e)
-            config_logger.exception(f"Resource processing failed: {e}")
-            self._log_config_execution_error(config, execution_id, str(e), result)
+            config_logger.exception(f"Loading failed: {e}")
+            self._log_config_execution_error(config, execution_id, load_run_id, str(e), result)
 
         except Exception as e:
             # Unexpected error
             result.status = ExecutionStatus.FAILED
             result.error_message = str(e)
-            config_logger.exception(f"Unexpected error in resource processing: {e}")
-            self._log_config_execution_error(config, execution_id, str(e), result)
+            config_logger.exception(f"Unexpected error in loading: {e}")
+            self._log_config_execution_error(config, execution_id, load_run_id, str(e), result)
 
         return result
 
@@ -386,6 +341,7 @@ class FileLoadingOrchestrator:
         batches: List[BatchInfo],
         config: ResourceConfig,
         execution_id: str,
+        load_run_id: str,
         target_utils,
         file_loader: FileLoader,
         config_logger: logging.LoggerAdapter,
@@ -398,8 +354,9 @@ class FileLoadingOrchestrator:
             batches: List of BatchInfo objects to process
             config: ResourceConfig for this resource
             execution_id: Unique execution identifier
+            load_run_id: Load run ID for this resource execution
             target_utils: Lakehouse or warehouse utilities
-            file_loader: FileLoader instance for reading and archiving
+            file_loader: FileLoader instance for reading files
             config_logger: Configured logger adapter
 
         Returns:
@@ -411,20 +368,34 @@ class FileLoadingOrchestrator:
 
         for batch_index, batch_info in enumerate(batches, start=1):
             try:
-                # Start batch lifecycle (mark as processing in log)
-                file_loader._start_batch(batch_info)
+                if batch_info.extract_batch_id:
+                    self._update_load_state(
+                        batch_info.extract_batch_id,
+                        config.source_name,
+                        config.resource_name,
+                        'loading'
+                    )
 
-                # Read batch (one at a time - streaming)
+                file_loader._start_batch(batch_info, execution_id, load_run_id)
+
                 df, read_metrics = file_loader.reader.read_batch(batch_info)
 
-                # Process single batch (write and archive)
                 combined_metrics = self._process_single_batch(
-                    batch_info, df, read_metrics, config, execution_id,
+                    batch_info, df, read_metrics, config, execution_id, load_run_id,
                     target_utils, file_loader, config_logger, batch_index, total_batches
                 )
 
-                # Complete batch lifecycle (mark as completed and move to archive)
+                # Complete batch lifecycle (mark as completed in logs, files stay in place)
                 file_loader._complete_batch(batch_info, combined_metrics)
+
+                # Update extraction log: mark as completed
+                if batch_info.extract_batch_id:
+                    self._update_load_state(
+                        batch_info.extract_batch_id,
+                        config.source_name,
+                        config.resource_name,
+                        'completed'
+                    )
 
                 # Track successful batch
                 if combined_metrics.records_processed > 0:
@@ -432,10 +403,19 @@ class FileLoadingOrchestrator:
                     batches_processed += 1
 
             except (WriteError, Exception) as error:
+                # Update extraction log: mark as failed
+                if batch_info.extract_batch_id:
+                    self._update_load_state(
+                        batch_info.extract_batch_id,
+                        config.source_name,
+                        config.resource_name,
+                        'failed'
+                    )
+
                 # Handle batch error - mark as failed and move to quarantine
                 batches_failed += 1
                 file_loader._fail_batch(batch_info, error)
-                self._handle_batch_error(error, batch_info, config, execution_id, config_logger)
+                self._handle_batch_error(error, batch_info, config, execution_id, load_run_id, config_logger)
 
                 # Stop processing if any batch fails
                 raise
@@ -449,6 +429,7 @@ class FileLoadingOrchestrator:
         read_metrics: ProcessingMetrics,
         config: ResourceConfig,
         execution_id: str,
+        load_run_id: str,
         target_utils,
         file_loader: FileLoader,
         config_logger: logging.LoggerAdapter,
@@ -464,8 +445,9 @@ class FileLoadingOrchestrator:
             read_metrics: Metrics from file reading
             config: Resource configuration
             execution_id: Unique execution identifier
+            load_run_id: Load run ID for this resource execution
             target_utils: Lakehouse or warehouse utilities
-            file_loader: FileLoader instance for archiving
+            file_loader: FileLoader instance
             config_logger: Configured logger adapter
 
         Returns:
@@ -474,8 +456,8 @@ class FileLoadingOrchestrator:
         batch_start = time.time()
         load_id = batch_info.batch_id
 
-        # Log batch start
-        self._log_batch_start(config, execution_id, load_id, batch_info)
+        # Log batch start (delegated to FileLoader now)
+        # self._log_batch_start(config, execution_id, load_run_id, load_id, batch_info)
 
         # Add ingestion metadata
         df = self._add_ingestion_metadata(df, load_id, batch_info)
@@ -484,7 +466,7 @@ class FileLoadingOrchestrator:
         if df.count() == 0:
             config_logger.warning(f"Loading batch {batch_index}/{total_batches}: 0 records - EMPTY (skipped)")
             # Log empty batch so it's not reprocessed on next run
-            self._log_batch_no_data(config, execution_id, load_id, batch_info)
+            self._log_batch_no_data(config, execution_id, load_run_id, load_id, batch_info)
             return ProcessingMetrics()
 
         # Write to target
@@ -493,8 +475,8 @@ class FileLoadingOrchestrator:
         # Combine metrics
         combined_metrics = self._combine_metrics(read_metrics, write_metrics)
 
-        # Log batch completion
-        self._log_batch_completion(config, execution_id, load_id, combined_metrics, batch_info)
+        # Log batch completion (delegated to FileLoader now)
+        # self._log_batch_completion(config, execution_id, load_run_id, load_id, combined_metrics, batch_info)
 
         batch_duration = time.time() - batch_start
         # Format numbers with commas
@@ -539,6 +521,7 @@ class FileLoadingOrchestrator:
         batch_info: BatchInfo,
         config: ResourceConfig,
         execution_id: str,
+        load_run_id: str,
         config_logger: logging.LoggerAdapter,
     ) -> None:
         """
@@ -549,6 +532,7 @@ class FileLoadingOrchestrator:
             batch_info: Information about the failed batch
             config: Resource configuration
             execution_id: Unique execution identifier
+            load_run_id: Load run ID for this resource execution
             config_logger: Configured logger adapter
         """
         load_id = batch_info.batch_id
@@ -560,8 +544,8 @@ class FileLoadingOrchestrator:
         else:
             config_logger.exception(f"Batch {load_id} failed: {error_msg}")
 
-        # Log batch error to state tracking
-        self._log_batch_error(config, execution_id, load_id, error_msg, batch_info)
+        # Log batch error to state tracking (delegated to FileLoader._fail_batch now)
+        # self._log_batch_error(config, execution_id, load_run_id, load_id, error_msg, batch_info)
 
     def _finalize_result(
         self,
@@ -610,106 +594,122 @@ class FileLoadingOrchestrator:
             spark=self.spark,
         )
 
-    def _get_extractor(self, config: ResourceConfig, logger_instance=None):
+    def _discover_from_extraction_logs(self, config: ResourceConfig) -> List[BatchInfo]:
         """
-        Get appropriate extractor based on source type.
+        Discover batches ready for loading from extraction logs (dlt-style work queue).
+
+        Queries log_resource_extract_batch table for completed extractions not yet loaded.
+        This replaces file discovery - extraction logs tell us what's ready.
 
         Args:
-            config: ResourceConfig with source_type
-            logger_instance: Optional context-aware logger (ConfigLoggerAdapter)
+            config: Resource configuration
 
         Returns:
-            Extractor instance (FileSystemExtractor, APIExtractor, DatabaseExtractor, etc.)
-
-        Raises:
-            NotImplementedError: If source_type extractor is not implemented yet
+            List of BatchInfo objects ready to load
         """
-        source_type = config.source_config.source_type
+        try:
+            # Check if log_resource_extract_batch table exists
+            try:
+                self.spark.sql("DESCRIBE TABLE log_resource_extract_batch")
+            except Exception:
+                logger.warning("Table 'log_resource_extract_batch' not found, no batches to load")
+                return []
 
-        if source_type == "filesystem":
-            return FileSystemExtractor(
-                resource_config=config,
+            # Query for completed extractions ready for loading (using load_state)
+            # This is the work queue pattern (like dlt's load_storage folders)
+            query = f"""
+                SELECT *
+                FROM log_resource_extract_batch
+                WHERE source_name = '{config.source_name}'
+                  AND resource_name = '{config.resource_name}'
+                  AND status = 'completed'
+                  AND load_state = 'pending'
+                ORDER BY completed_at ASC
+            """
+
+            extraction_df = self.spark.sql(query)
+            extraction_rows = extraction_df.collect()
+
+            if not extraction_rows:
+                return []
+
+            # Get lakehouse utils for building full paths
+            source_workspace = config.source_config.connection_params.get("workspace_name")
+            source_lakehouse = config.source_config.connection_params.get("lakehouse_name")
+
+            lakehouse = lakehouse_utils(
+                target_workspace_name=source_workspace,
+                target_lakehouse_name=source_lakehouse,
                 spark=self.spark,
-                logger_instance=logger_instance,
-            )
-        elif source_type == "api":
-            # TODO: Implement APIExtractor
-            raise NotImplementedError(
-                f"API extractor not yet implemented. "
-                f"Create APIExtractor in extractors/ directory."
-            )
-        elif source_type == "database":
-            # TODO: Implement DatabaseExtractor
-            raise NotImplementedError(
-                f"Database extractor not yet implemented. "
-                f"Create DatabaseExtractor in extractors/ directory."
-            )
-        else:
-            raise ValueError(
-                f"Unknown source_type: {source_type}. "
-                f"Supported types: filesystem, api, database"
             )
 
-    def _convert_extraction_results_to_batches(
+            # Convert extraction log rows to BatchInfo objects
+            batches = []
+            for row in extraction_rows:
+                # destination_path is always a full ABFSS URL from the extractor
+                destination_path = row.destination_path
+
+                # Validate it's a full path (fail fast if extractor has a bug)
+                if not destination_path.startswith("abfss://"):
+                    raise ValueError(
+                        f"Invalid destination_path in batch table: {destination_path}. "
+                        f"Expected full ABFSS URL (e.g., abfss://workspace@onelake.../Files/raw/...)"
+                    )
+
+                # Create BatchInfo
+                batch_info = BatchInfo(
+                    batch_id=str(uuid.uuid4()),
+                    extract_batch_id=row.extract_batch_id,  # FK to log_resource_extract_batch
+                    file_paths=[destination_path],
+                    size_bytes=row.file_size_bytes or 0,
+                    modified_time=row.completed_at,
+                )
+
+                # Add folder name if this is a folder path
+                if destination_path.endswith("/"):
+                    folder_name = os.path.basename(destination_path.rstrip("/"))
+                    batch_info.folder_name = folder_name
+
+                batches.append(batch_info)
+
+            logger.info(f"Discovered {len(batches)} batch(es) from extraction logs")
+            return batches
+
+        except Exception as e:
+            logger.warning(f"Could not query extraction logs: {e}, returning empty list")
+            return []
+
+    def _update_load_state(
         self,
-        extraction_result,
-        config: ResourceConfig,
-    ) -> List[BatchInfo]:
+        extract_batch_id: str,
+        source_name: str,
+        resource_name: str,
+        new_state: str
+    ) -> None:
         """
-        Convert extraction results (promoted file paths) into BatchInfo objects.
+        Update load_state for an extraction batch.
 
-        This implements the dlt pattern: extraction yields data that loading consumes directly,
-        without re-discovering what was just extracted.
+        IMPORTANT: Includes source_name and resource_name in WHERE clause for partition isolation.
+        This prevents concurrent update conflicts when processing multiple resources in parallel.
 
         Args:
-            extraction_result: PromotionResult from extractor
-            config: ResourceConfig for context
-
-        Returns:
-            List of BatchInfo objects ready for loading
+            extract_batch_id: The extract_batch_id to update
+            source_name: Source name (partition key)
+            resource_name: Resource name (partition key)
+            new_state: New load_state ('loading', 'completed', 'failed')
         """
-        import uuid
-        from datetime import datetime
-
-        batches = []
-
-        # Get lakehouse utils for the source lakehouse
-        source_workspace = config.source_config.connection_params.get("workspace_name")
-        source_lakehouse = config.source_config.connection_params.get("lakehouse_name")
-
-        lakehouse = lakehouse_utils(
-            target_workspace_name=source_workspace,
-            target_lakehouse_name=source_lakehouse,
-            spark=self.spark,
-        )
-
-        for promoted_path in extraction_result.promoted_files:
-            # promoted_path is already a full path (could be file or folder)
-            # Build ABFSS URI if needed
-            if not promoted_path.startswith("abfss://"):
-                # Relative path - build full URI
-                full_path = f"{lakehouse.lakehouse_files_uri()}{promoted_path.lstrip('/')}"
-            else:
-                # Already absolute
-                full_path = promoted_path
-
-            # Create BatchInfo
-            batch_info = BatchInfo(
-                batch_id=str(uuid.uuid4()),
-                file_paths=[full_path],
-                size_bytes=0,  # Size not critical for loading
-                modified_time=datetime.now(),  # Use current time
-            )
-
-            # Add folder name if this looks like a folder path
-            if promoted_path.endswith("/"):
-                import os
-                folder_name = os.path.basename(promoted_path.rstrip("/"))
-                batch_info.folder_name = folder_name
-
-            batches.append(batch_info)
-
-        return batches
+        try:
+            update_query = f"""
+                UPDATE log_resource_extract_batch
+                SET load_state = '{new_state}'
+                WHERE extract_batch_id = '{extract_batch_id}'
+                  AND source_name = '{source_name}'
+                  AND resource_name = '{resource_name}'
+            """
+            self.spark.sql(update_query)
+            logger.debug(f"Updated extraction {extract_batch_id} to load_state='{new_state}'")
+        except Exception as e:
+            logger.warning(f"Could not update load_state for {extract_batch_id}: {e}")
 
     def _write_to_target(
         self,
@@ -735,6 +735,8 @@ class FileLoadingOrchestrator:
                     immutable_columns=["_raw_created_at"],
                     enable_schema_evolution=config.enable_schema_evolution,
                     partition_by=config.partition_columns,
+                    soft_delete_enabled=config.soft_delete_enabled,
+                    cdc_config=config.cdc_config,
                 )
 
                 metrics.records_inserted = merge_result["records_inserted"]
@@ -838,49 +840,50 @@ class FileLoadingOrchestrator:
     # LOGGING METHODS (delegate to FileLoadingLogger if provided)
     # ========================================================================
 
-    def _log_config_execution_start(self, config: ResourceConfig, execution_id: str) -> None:
-        """Log config execution start"""
+    def _log_config_execution_start(self, config: ResourceConfig, execution_id: str) -> str:
+        """Log config execution start and return load_run_id"""
         if self.logger_instance:
-            self.logger_instance.log_config_execution_start(config, execution_id)
+            return self.logger_instance.log_config_execution_start(config, execution_id)
+        return str(uuid.uuid4())  # Generate ID even if no logger (for consistency)
 
     def _log_config_execution_completion(
-        self, config: ResourceConfig, execution_id: str, result: ResourceExecutionResult
+        self, config: ResourceConfig, execution_id: str, load_run_id: str, result: ResourceExecutionResult
     ) -> None:
         """Log config execution completion"""
         if self.logger_instance:
-            self.logger_instance.log_config_execution_completion(config, execution_id, result)
+            self.logger_instance.log_config_execution_completion(config, execution_id, load_run_id, result)
 
     def _log_config_execution_error(
-        self, config: ResourceConfig, execution_id: str, error_msg: str, result: ResourceExecutionResult
+        self, config: ResourceConfig, execution_id: str, load_run_id: str, error_msg: str, result: ResourceExecutionResult
     ) -> None:
         """Log config execution error"""
         if self.logger_instance:
-            self.logger_instance.log_config_execution_error(config, execution_id, error_msg, result)
+            self.logger_instance.log_config_execution_error(config, execution_id, load_run_id, error_msg, result)
 
     def _log_batch_start(
-        self, config: ResourceConfig, execution_id: str, load_id: str, batch_info
+        self, config: ResourceConfig, execution_id: str, load_run_id: str, load_id: str, batch_info
     ) -> None:
         """Log batch start"""
         if self.logger_instance:
-            self.logger_instance.log_batch_start(config, execution_id, load_id, batch_info)
+            self.logger_instance.log_batch_start(config, execution_id, load_run_id, load_id, batch_info)
 
     def _log_batch_completion(
-        self, config: ResourceConfig, execution_id: str, load_id: str, metrics: ProcessingMetrics, batch_info
+        self, config: ResourceConfig, execution_id: str, load_run_id: str, load_id: str, metrics: ProcessingMetrics, batch_info
     ) -> None:
         """Log batch completion"""
         if self.logger_instance:
-            self.logger_instance.log_batch_completion(config, execution_id, load_id, metrics, batch_info)
+            self.logger_instance.log_batch_completion(config, execution_id, load_run_id, load_id, metrics, batch_info)
 
     def _log_batch_error(
-        self, config: ResourceConfig, execution_id: str, load_id: str, error_msg: str, batch_info
+        self, config: ResourceConfig, execution_id: str, load_run_id: str, load_id: str, error_msg: str, batch_info
     ) -> None:
         """Log batch error"""
         if self.logger_instance:
-            self.logger_instance.log_batch_error(config, execution_id, load_id, error_msg, batch_info)
+            self.logger_instance.log_batch_error(config, execution_id, load_run_id, load_id, error_msg, batch_info)
 
     def _log_batch_no_data(
-        self, config: ResourceConfig, execution_id: str, load_id: str, batch_info
+        self, config: ResourceConfig, execution_id: str, load_run_id: str, load_id: str, batch_info
     ) -> None:
         """Log batch with no data"""
         if self.logger_instance:
-            self.logger_instance.log_batch_no_data(config, execution_id, load_id, batch_info)
+            self.logger_instance.log_batch_no_data(config, execution_id, load_run_id, load_id, batch_info)

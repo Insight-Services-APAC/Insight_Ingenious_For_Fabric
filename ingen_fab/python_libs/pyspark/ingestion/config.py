@@ -46,10 +46,12 @@ class ResourceConfig:
     Contains settings for BOTH extraction and file loading.
     Each framework uses only the fields relevant to it.
 
-    Architecture:
-    - Extraction writes TO raw_file_path (raw layer)
-    - Loading reads FROM raw_file_path (raw layer)
-    - Single source of truth for file location and format
+    Architecture (dlt-inspired quarantine-only pattern):
+    - Extraction writes TO raw_landing_path
+    - Loading reads FROM raw_landing_path
+    - On successful bronze write, files STAY in raw_landing_path (replay-friendly!)
+    - On failure, files move to raw_quarantined_path (corrupt/invalid files only)
+    - State tracked in log_resource_extract_batch.load_state for easy replay
     """
 
     # ========================================================================
@@ -64,8 +66,9 @@ class ResourceConfig:
     # RAW LAYER (Used by BOTH frameworks)
     # ========================================================================
 
-    # Raw layer location (extraction writes here, loading reads from here)
-    raw_file_path: str                      # e.g., "Files/raw/vendor_sales/"
+    # Raw layer locations (extraction writes to landing, loading only moves failed files to quarantine)
+    raw_landing_path: str                   # e.g., "Files/raw/edl/fct_sales/" - files stay here after successful loads!
+    raw_quarantined_path: str               # e.g., "Files/raw/quarantined/edl/fct_sales/" - only corrupt/invalid files
     file_format: str                        # 'csv', 'parquet', 'json'
 
     # ========================================================================
@@ -104,6 +107,12 @@ class ResourceConfig:
     partition_columns: List[str] = field(default_factory=list)
     enable_schema_evolution: bool = True
 
+    # Soft delete (applies to ALL merge operations - with or without CDC)
+    soft_delete_enabled: bool = False       # If True, DELETE becomes UPDATE SET _raw_is_deleted=True
+
+    # CDC configuration (optional, only for CDC sources)
+    cdc_config: Optional['CDCConfig'] = None  # None = standard merge (no CDC operations)
+
     # ========================================================================
     # DATA VALIDATION (Used by File Loading Framework ONLY)
     # ========================================================================
@@ -127,11 +136,17 @@ class ResourceConfig:
                 return []
             return [item.strip() for item in value.split(",") if item.strip()]
 
+        # Parse CDC config if present
+        cdc_config = None
+        if "cdc_config" in config_dict and config_dict["cdc_config"]:
+            cdc_config = CDCConfig.from_dict(config_dict["cdc_config"])
+
         return cls(
             resource_name=config_dict["resource_name"],
             source_name=config_dict["source_name"],
             source_config=source_config,
-            raw_file_path=config_dict["raw_file_path"],
+            raw_landing_path=config_dict["raw_landing_path"],
+            raw_quarantined_path=config_dict["raw_quarantined_path"],
             file_format=config_dict["file_format"],
             extraction_params=config_dict.get("extraction_params", {}),
             import_mode=config_dict.get("import_mode", "incremental"),
@@ -145,6 +160,8 @@ class ResourceConfig:
             merge_keys=split_csv(config_dict.get("merge_keys")),
             partition_columns=split_csv(config_dict.get("partition_columns")),
             enable_schema_evolution=config_dict.get("enable_schema_evolution", True),
+            soft_delete_enabled=config_dict.get("soft_delete_enabled", False),
+            cdc_config=cdc_config,
             custom_schema_json=config_dict.get("custom_schema_json"),
             data_validation_rules=config_dict.get("data_validation_rules"),
             execution_group=config_dict.get("execution_group", 1),
@@ -235,3 +252,50 @@ class DatabaseExtractionParams:
     @classmethod
     def from_dict(cls, params: Dict[str, Any]) -> "DatabaseExtractionParams":
         return cls(**{k: v for k, v in params.items() if k in cls.__annotations__})
+
+
+# ============================================================================
+# CDC CONFIGURATION (Used by File Loading Framework)
+# ============================================================================
+
+@dataclass
+class CDCConfig:
+    """
+    Configuration for CDC (Change Data Capture) data processing.
+
+    Maps operation type values in source data to INSERT/UPDATE/DELETE operations.
+    Supports various CDC formats (Debezium, SQL Server CDC, generic CDC, etc.)
+
+    Example - Debezium:
+        CDCConfig(
+            operation_column="op",
+            insert_values=["c", "r"],  # c=create, r=read (snapshot)
+            update_values=["u"],
+            delete_values=["d"]
+        )
+
+    Example - SQL Server CDC:
+        CDCConfig(
+            operation_column="__$operation",
+            insert_values=["2"],  # 2=insert
+            update_values=["4"],  # 4=update
+            delete_values=["1"]   # 1=delete
+        )
+    """
+
+    operation_column: str                    # Column containing operation type indicator
+    insert_values: List[str]                 # Values indicating INSERT operation
+    update_values: List[str]                 # Values indicating UPDATE operation
+    delete_values: List[str]                 # Values indicating DELETE operation
+
+    def to_dict(self) -> Dict[str, Any]:
+        return {k: v for k, v in self.__dict__.items()}
+
+    @classmethod
+    def from_dict(cls, params: Dict[str, Any]) -> "CDCConfig":
+        """Create from dict, converting single strings to lists for convenience"""
+        data = params.copy()
+        for key in ['insert_values', 'update_values', 'delete_values']:
+            if key in data and isinstance(data[key], str):
+                data[key] = [data[key]]  # Convert single string to list
+        return cls(**{k: v for k, v in data.items() if k in cls.__annotations__})

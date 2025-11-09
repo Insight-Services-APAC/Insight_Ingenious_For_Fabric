@@ -260,8 +260,12 @@ class lakehouse_utils(DataStoreInterface):
         enable_schema_evolution: bool = False,
         partition_by: list[str] | None = None,
         table_properties: dict[str, str] | None = None,
+        soft_delete_enabled: bool = False,
+        cdc_config: Any = None,
     ) -> dict[str, Any]:
         """Merge DataFrame into table using Delta Lake merge operation.
+
+        Supports both standard merges and CDC (Change Data Capture) merges with soft/hard deletes.
 
         Args:
             df: Source DataFrame to merge
@@ -275,16 +279,18 @@ class lakehouse_utils(DataStoreInterface):
             enable_schema_evolution: Enable schema auto-merge for new columns
             partition_by: Optional list of columns to partition by (used on initial create)
             table_properties: Delta table properties (e.g., {'delta.isolationLevel': 'WriteSerializable'})
+            soft_delete_enabled: If True, use logical deletes (SET _raw_is_deleted=True) instead of physical DELETE
+            cdc_config: Optional CDCConfig for handling CDC data with operation types (INSERT/UPDATE/DELETE)
 
         Returns:
             Dictionary with merge metrics:
                 - records_inserted: Number of new records inserted
                 - records_updated: Number of existing records updated
-                - records_deleted: Number of records deleted (always 0 for this operation)
+                - records_deleted: Number of records deleted (physical or soft)
                 - target_row_count_before: Row count before merge
                 - target_row_count_after: Row count after merge
         """
-        import time
+        from pyspark.sql.functions import col, lit
 
         table_full_name = table_name
         if schema_name:
@@ -302,8 +308,15 @@ class lakehouse_utils(DataStoreInterface):
             if enable_schema_evolution:
                 write_options["mergeSchema"] = "true"
 
+            # For CDC data, filter to insert/update only (no deletes on initial load)
+            df_to_write = df
+            if cdc_config:
+                # Get all insert and update values
+                valid_values = cdc_config.insert_values + cdc_config.update_values
+                df_to_write = df.filter(col(cdc_config.operation_column).isin(valid_values))
+
             self.write_to_table(
-                df=df,
+                df=df_to_write,
                 table_name=table_name,
                 schema_name=schema_name,
                 mode="overwrite",
@@ -341,27 +354,93 @@ class lakehouse_utils(DataStoreInterface):
                 "spark.databricks.delta.schema.autoMerge.enabled", "true"
             )
 
-        # Build merge operation
-        merge_builder = delta_table.alias("target").merge(
-            df.alias("source"), merge_condition
-        )
+        # ========================================================================
+        # CDC LOGIC: Split source data by operation type
+        # ========================================================================
+        if cdc_config:
+            # Split DataFrame into INSERT, UPDATE, DELETE operations
+            df_inserts = df.filter(col(cdc_config.operation_column).isin(cdc_config.insert_values))
+            df_updates = df.filter(col(cdc_config.operation_column).isin(cdc_config.update_values))
+            df_deletes = df.filter(col(cdc_config.operation_column).isin(cdc_config.delete_values))
 
-        # When matched: update all columns except immutable ones
-        update_columns = {
-            col: f"source.{col}" for col in df.columns if col not in immutable_cols
-        }
+            # Process DELETEs first
+            if df_deletes.count() > 0:
+                if soft_delete_enabled:
+                    # Soft delete: Mark as deleted with _raw_is_deleted=True
+                    merge_builder = delta_table.alias("target").merge(
+                        df_deletes.alias("source"), merge_condition
+                    )
+                    merge_builder = merge_builder.whenMatchedUpdate(
+                        set={
+                            "_raw_is_deleted": "true",
+                            "_raw_updated_at": "CURRENT_TIMESTAMP()"
+                        }
+                    )
+                    merge_builder.execute()
+                else:
+                    # Hard delete: Physical DELETE
+                    merge_builder = delta_table.alias("target").merge(
+                        df_deletes.alias("source"), merge_condition
+                    )
+                    merge_builder = merge_builder.whenMatchedDelete()
+                    merge_builder.execute()
 
-        # Apply custom update expressions if provided
-        if custom_update_expressions:
-            update_columns.update(custom_update_expressions)
+            # Process INSERTs and UPDATEs (combined DataFrame)
+            df_inserts_updates = df_inserts.union(df_updates) if df_updates.count() > 0 else df_inserts
 
-        merge_builder = merge_builder.whenMatchedUpdate(set=update_columns)
+            if df_inserts_updates.count() > 0:
+                merge_builder = delta_table.alias("target").merge(
+                    df_inserts_updates.alias("source"), merge_condition
+                )
 
-        # When not matched: insert all columns
-        merge_builder = merge_builder.whenNotMatchedInsertAll()
+                # When matched: UPDATE
+                update_columns = {
+                    col: f"source.{col}" for col in df_inserts_updates.columns
+                    if col not in immutable_cols and col != cdc_config.operation_column
+                }
+                # Apply custom update expressions if provided
+                if custom_update_expressions:
+                    update_columns.update(custom_update_expressions)
 
-        # Execute the merge
-        merge_builder.execute()
+                # Reactivate soft-deleted records if they are being re-inserted
+                if soft_delete_enabled and "_raw_is_deleted" not in update_columns:
+                    update_columns["_raw_is_deleted"] = "false"
+
+                merge_builder = merge_builder.whenMatchedUpdate(set=update_columns)
+
+                # When not matched: INSERT
+                merge_builder = merge_builder.whenNotMatchedInsertAll()
+
+                merge_builder.execute()
+
+        # ========================================================================
+        # STANDARD MERGE (Non-CDC)
+        # ========================================================================
+        else:
+            merge_builder = delta_table.alias("target").merge(
+                df.alias("source"), merge_condition
+            )
+
+            # When matched: update all columns except immutable ones
+            update_columns = {
+                col: f"source.{col}" for col in df.columns if col not in immutable_cols
+            }
+
+            # Apply custom update expressions if provided
+            if custom_update_expressions:
+                update_columns.update(custom_update_expressions)
+
+            # Reactivate soft-deleted records if soft delete is enabled
+            if soft_delete_enabled and "_raw_is_deleted" not in update_columns:
+                update_columns["_raw_is_deleted"] = "false"
+
+            merge_builder = merge_builder.whenMatchedUpdate(set=update_columns)
+
+            # When not matched: insert all columns
+            merge_builder = merge_builder.whenNotMatchedInsertAll()
+
+            # Execute the merge
+            merge_builder.execute()
 
         # Get metrics from Delta table history
         history = delta_table.history(1).select("operationMetrics").collect()[0]

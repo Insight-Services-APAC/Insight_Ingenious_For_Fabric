@@ -11,6 +11,7 @@ class BatchInfo:
     """Information about a batch that was processed"""
 
     batch_id: str                           # Unique identifier
+    extract_batch_id: Optional[str] = None  # FK to log_resource_extract_batch.extract_batch_id (for correlation)
 
     # Source info (flexible for different batch types)
     file_paths: List[str] = field(default_factory=list)  # For file loading: list of file paths

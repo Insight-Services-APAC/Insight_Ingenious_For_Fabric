@@ -11,23 +11,26 @@ from pyspark.sql.types import (
 )
 
 
-def get_loading_batch_schema() -> StructType:
+def get_load_resource_batch_schema() -> StructType:
     """
-    Returns the standardized schema for the log_load_batch table.
+    Returns the standardized schema for the log_resource_load_batch table.
     This schema tracks individual file loads (one record per batch).
     Uses UPDATE pattern for state tracking (Airflow-style).
 
-    Primary Key: load_id
+    Primary Key: load_batch_id
+    Foreign Key: load_run_id → log_resource_load
+    Foreign Key: extract_batch_id → log_resource_extract_batch
     Partitioned By: source_name, resource_name (for isolation and performance)
     """
     return StructType(
         [
             # Primary key and identifiers
-            StructField("load_id", StringType(), nullable=False),  # PK
-            StructField("extraction_id", StringType(), nullable=True),  # Links to log_extraction_batch
-            StructField("execution_id", StringType(), nullable=False),
-            StructField("source_name", StringType(), nullable=False),  # Source system (e.g., "edl", "sap")
-            StructField("resource_name", StringType(), nullable=False),  # Resource/table name
+            StructField("load_batch_id", StringType(), nullable=False),  # PK
+            StructField("load_run_id", StringType(), nullable=False),  # FK to log_resource_load
+            StructField("master_execution_id", StringType(), nullable=False),  # Orchestrator execution (denormalized)
+            StructField("extract_batch_id", StringType(), nullable=True),  # FK to log_resource_extract_batch
+            StructField("source_name", StringType(), nullable=False),  # Source system (denormalized for partitioning)
+            StructField("resource_name", StringType(), nullable=False),  # Resource/table name (denormalized for partitioning)
             StructField(
                 "status", StringType(), nullable=False
             ),  # running, completed, failed, duplicate, skipped
@@ -55,22 +58,10 @@ def get_loading_batch_schema() -> StructType:
             StructField("error_message", StringType(), nullable=True),
             StructField("error_details", StringType(), nullable=True),
             StructField("execution_duration_seconds", IntegerType(), nullable=True),
-            # Partition tracking for incremental loads
-            StructField(
-                "source_file_partition_cols", StringType(), nullable=True
-            ),  # JSON array of partition column names
-            StructField(
-                "source_file_partition_values", StringType(), nullable=True
-            ),  # JSON array of partition values
-            StructField(
-                "date_partition", StringType(), nullable=True
-            ),  # Extracted date partition (YYYY-MM-DD format)
+            # Metadata
             StructField(
                 "filename_attributes_json", StringType(), nullable=True
             ),  # Extracted filename attributes as JSON
-            StructField(
-                "control_file_path", StringType(), nullable=True
-            ),  # Path to associated control file if required
             # Timestamp tracking (Airflow-style)
             StructField(
                 "started_at", TimestampType(), nullable=False
@@ -88,13 +79,13 @@ def get_loading_batch_schema() -> StructType:
     )
 
 
-def get_file_load_log_schema() -> StructType:
+def get_loading_batch_schema() -> StructType:
     """
-    Backwards compatibility alias for get_loading_batch_schema().
+    Backwards compatibility alias for get_load_resource_batch_schema().
 
-    DEPRECATED: Use get_loading_batch_schema() instead.
+    DEPRECATED: Use get_load_resource_batch_schema() instead.
     """
-    return get_loading_batch_schema()
+    return get_load_resource_batch_schema()
 
 
 def get_column_names() -> list[str]:
@@ -102,5 +93,5 @@ def get_column_names() -> list[str]:
     Returns the list of column names in the correct order for the log table.
     Useful for creating tuples of data in the correct order.
     """
-    schema = get_loading_batch_schema()
+    schema = get_load_resource_batch_schema()
     return [field.name for field in schema.fields]

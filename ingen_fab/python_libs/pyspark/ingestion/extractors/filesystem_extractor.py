@@ -1,5 +1,5 @@
 # Filesystem Extractor
-# Validates and promotes external files from inbound → raw layer
+# Validates and extracts external files from inbound → raw layer
 
 import logging
 import os
@@ -23,7 +23,15 @@ from ingen_fab.python_libs.pyspark.ingestion.exceptions import (
     ErrorContext,
     ExtractionError,
 )
-from ingen_fab.python_libs.pyspark.lakehouse_utils import FileInfo, lakehouse_utils
+from ingen_fab.python_libs.common.fsspec_utils import (
+    get_filesystem_client,
+    move_file,
+    glob,
+    file_exists,
+    is_directory_empty,
+    cleanup_empty_directories,
+)
+from ingen_fab.python_libs.pyspark.lakehouse_utils import FileInfo
 
 logger = logging.getLogger(__name__)
 
@@ -79,26 +87,26 @@ class ValidationResult:
         return len(self.valid_files) + len(self.failed_files) + len(self.duplicate_files)
 
 
-class PromotionResult:
-    """Result of promoting files from inbound to raw"""
+class FileSystemExtractionResult:
+    """Result of FileSystem extraction from inbound to raw"""
 
     def __init__(self):
-        self.promoted_count: int = 0
+        self.extracted_count: int = 0
         self.failed_count: int = 0
         self.duplicate_count: int = 0
-        self.promoted_files: List[str] = []
+        self.extracted_files: List[tuple[str, str, int]] = []  # (source_path, destination_path, duration_ms) tuples
         self.failed_files: List[tuple[str, str]] = []  # (file_path, error)
-        self.total_files_count: int = 0  # Total number of files promoted
+        self.total_files_count: int = 0  # Total number of files extracted
         self.error_message: Optional[str] = None  # Validation failure message (not an exception)
 
     def summary(self) -> str:
         if self.total_files_count > 0:
             return (
-                f"Extraction: {self.promoted_count} folders ({self.total_files_count} files) → {self.promoted_count} batches"
+                f"Extraction: {self.extracted_count} folders ({self.total_files_count} files) → {self.extracted_count} batches"
             )
         else:
             return (
-                f"Promoted: {self.promoted_count}, "
+                f"Extracted: {self.extracted_count}, "
                 f"Failed: {self.failed_count}, "
                 f"Duplicates: {self.duplicate_count}"
             )
@@ -106,7 +114,7 @@ class PromotionResult:
 
 class FileSystemExtractor:
     """
-    Extracts (validates and promotes) files from inbound to raw layer.
+    Extracts (validates and moves) files from inbound to raw layer.
 
     This extractor:
     1. Discovers files in inbound folder
@@ -146,40 +154,56 @@ class FileSystemExtractor:
                 "extraction_params must be dict or FileSystemExtractionParams"
             )
 
-        # Get lakehouse utils
-        workspace = resource_config.source_config.connection_params.get("workspace_name")
-        lakehouse = resource_config.source_config.connection_params.get("lakehouse_name")
+        # Get SOURCE filesystem client
+        source_params = resource_config.source_config.connection_params
+        self.source_fs, self.source_base_url = get_filesystem_client(source_params)
 
-        if not workspace or not lakehouse:
-            raise ValueError(
-                "source_config.connection_params must have workspace_name and lakehouse_name"
-            )
+        # Get DESTINATION filesystem client (target lakehouse)
+        dest_params = {
+            "workspace_name": resource_config.target_workspace,
+            "lakehouse_name": resource_config.target_lakehouse,
+        }
+        self.dest_fs, self.dest_base_url = get_filesystem_client(dest_params)
 
-        self.lakehouse = lakehouse_utils(
-            target_workspace_name=workspace,
-            target_lakehouse_name=lakehouse,
-            spark=spark,
-        )
+        # Build inbound path (relative to source filesystem)
+        if "workspace_name" in source_params:
+            # OneLake: paths are relative to Files/
+            inbound_subpath = self.params.inbound_path.lstrip("/") if self.params.inbound_path else ""
+            # Avoid double slashes in path construction, but preserve abfss:// protocol
+            path_part = f"/Files/{inbound_subpath}".replace("//", "/")
+            self.inbound_full_path = f"{self.source_base_url}{path_part}".rstrip("/")
+        else:
+            # Full ABFSS URL: paths are relative to bucket root
+            inbound_subpath = self.params.inbound_path.lstrip("/") if self.params.inbound_path else ""
+            # Avoid double slashes in path construction, but preserve abfss:// protocol
+            path_part = f"/{inbound_subpath}".replace("//", "/") if inbound_subpath else ""
+            self.inbound_full_path = f"{self.source_base_url}{path_part}".rstrip("/")
+
+        # Build raw landing path (in destination lakehouse)
+        raw_subpath = resource_config.raw_landing_path.lstrip("/")
+        # Avoid double slashes in path construction, but preserve abfss:// protocol
+        path_part = f"/Files/{raw_subpath}".replace("//", "/")
+        self.raw_landing_full = f"{self.dest_base_url}{path_part}".rstrip("/")
 
         # Use provided logger or fallback to module logger
         self.logger = logger_instance if logger_instance is not None else logger
 
-    def extract(self) -> PromotionResult:
+    def extract(self) -> FileSystemExtractionResult:
         """
         Extract files/folders from inbound to raw layer.
 
         Routes to folder-batch or file-level extraction based on batch_by parameter.
 
         Returns:
-            PromotionResult with summary of promoted/failed items
+            FileSystemExtractionResult with summary of extracted/failed items
         """
-        result = PromotionResult()
+        result = FileSystemExtractionResult()
 
         try:
             self.logger.debug(f"Starting extraction: {self.config.resource_name}")
             self.logger.debug(f"Batch mode: {self.params.batch_by}")
-            self.logger.debug(f"Inbound path: {self.params.inbound_path}")
-            self.logger.debug(f"Raw path: {self.config.raw_file_path}")
+            self.logger.debug(f"Inbound path: {self.inbound_full_path}")
+            self.logger.debug(f"Raw landing path: {self.raw_landing_full}")
 
             # Route based on batch_by parameter
             if self.params.batch_by == "folder":
@@ -207,7 +231,7 @@ class FileSystemExtractor:
                 ),
             ) from e
 
-    def _extract_files(self, result: PromotionResult) -> PromotionResult:
+    def _extract_files(self, result: FileSystemExtractionResult) -> FileSystemExtractionResult:
         """Extract individual files (batch_by='file')"""
         # Step 1: Discover files in inbound
         files = self._discover_files_in_inbound()
@@ -239,7 +263,7 @@ class FileSystemExtractor:
             dup_names = [os.path.basename(f.path) for f in validation.duplicate_files]
             self.logger.warning(f"Skipping {result.duplicate_count} duplicate(s): {', '.join(dup_names)}")
 
-        # Check require_files BEFORE promotion
+        # Check require_files BEFORE extraction
         if self.params.require_files and len(validation.valid_files) == 0:
             result.error_message = (
                 f"No valid files in {self.params.inbound_path} (require_files=True): "
@@ -248,15 +272,15 @@ class FileSystemExtractor:
             )
             return result
 
-        # Step 4: Promote valid files to raw
+        # Step 4: Extract valid files to raw
         if validation.valid_files:
-            self._promote_files_to_raw(validation.valid_files, result)
-            result.total_files_count = result.promoted_count  # For file-level, count = promoted_count
+            self._extract_files_to_raw(validation.valid_files, result)
+            result.total_files_count = result.extracted_count  # For file-level, count = extracted_count
 
         self.logger.info(f"Extraction complete: {result.summary()}")
         return result
 
-    def _extract_folders(self, result: PromotionResult) -> PromotionResult:
+    def _extract_folders(self, result: FileSystemExtractionResult) -> FileSystemExtractionResult:
         """Extract folder batches (batch_by='folder')"""
         # Step 1: Discover folders in inbound
         folders = self._discover_folders_in_inbound()
@@ -293,7 +317,7 @@ class FileSystemExtractor:
                 "\n  ".join(dup_paths)
             )
 
-        # Check require_files BEFORE promotion
+        # Check require_files BEFORE extraction
         if self.params.require_files and len(validation.valid_folders) == 0:
             result.error_message = (
                 f"No valid folders in {self.params.inbound_path} (require_files=True): "
@@ -302,14 +326,14 @@ class FileSystemExtractor:
             )
             return result
 
-        # Step 4: Promote valid folders to raw
+        # Step 4: Extract valid folders to raw
         if validation.valid_folders:
-            self._promote_folders_to_raw(validation.valid_folders, result)
+            self._extract_folders_to_raw(validation.valid_folders, result)
 
         self.logger.info(f"Extraction complete: {result.summary()}")
         return result
 
-    def _extract_all(self, result: PromotionResult) -> PromotionResult:
+    def _extract_all(self, result: FileSystemExtractionResult) -> FileSystemExtractionResult:
         """Extract all files as one batch (batch_by='all')"""
         # Step 1: Discover all files in inbound directory
         files = self._discover_files_in_inbound()
@@ -331,7 +355,7 @@ class FileSystemExtractor:
 
             # Check if folder already exists and has files
             try:
-                if not self.lakehouse.is_directory_empty(raw_folder_path):
+                if not is_directory_empty(self.dest_fs, raw_folder_path):
                     # Folder exists and has files - this is a duplicate
                     self.logger.warning(f"Duplicate batch detected: {raw_folder_path} already exists")
                     result.duplicate_count = len(files)
@@ -346,7 +370,7 @@ class FileSystemExtractor:
                 # Folder doesn't exist - not a duplicate, proceed
                 pass
 
-        # Check require_files BEFORE promotion
+        # Check require_files BEFORE extraction
         if self.params.require_files and is_duplicate:
             result.error_message = (
                 f"No valid batches in {self.params.inbound_path} (require_files=True): "
@@ -359,7 +383,7 @@ class FileSystemExtractor:
             return result
 
         # Step 3: Move all files to raw as one batch
-        self._promote_all_to_raw(files, result)
+        self._extract_all_to_raw(files, result)
         result.total_files_count = len(files)  # For all-batch, total is all files
 
         self.logger.info(f"Extraction complete: {result.summary()}")
@@ -369,10 +393,13 @@ class FileSystemExtractor:
         """Discover files in inbound folder matching discovery pattern"""
         pattern = self.params.discovery_pattern or "*"
 
-        files = self.lakehouse.list_files_with_metadata(
-            directory_path=self.params.inbound_path,
+        files = glob(
+            fs=self.source_fs,
+            path=self.inbound_full_path,
             pattern=pattern,
             recursive=self.params.recursive,
+            files_only=True,
+            directories_only=False,
         )
 
         return files
@@ -404,10 +431,14 @@ class FileSystemExtractor:
             )
         else:
             # No depth specified - check all folders recursively (old behavior)
-            candidate_folders = self.lakehouse.list_directories(
-                directory_path=self.params.inbound_path,
-                recursive=True
+            folder_items = glob(
+                fs=self.source_fs,
+                path=self.inbound_full_path,
+                recursive=True,
+                files_only=False,
+                directories_only=True,
             )
+            candidate_folders = [item.path for item in folder_items]
             self.logger.info(
                 f"Checking {len(candidate_folders)} folders (recursive, no depth limit)"
             )
@@ -416,10 +447,13 @@ class FileSystemExtractor:
         for folder_path in candidate_folders:
             try:
                 # Check if folder has files
-                files_in_folder = self.lakehouse.list_files_with_metadata(
-                    directory_path=folder_path,
+                files_in_folder = glob(
+                    fs=self.source_fs,
+                    path=folder_path,
                     pattern=pattern,
-                    recursive=False  # Only files directly in this folder
+                    recursive=False,  # Only files directly in this folder
+                    files_only=True,
+                    directories_only=False,
                 )
 
                 if not files_in_folder:
@@ -460,10 +494,10 @@ class FileSystemExtractor:
             List of folder paths at the specified depth
         """
         if depth <= 0:
-            return [self.params.inbound_path]
+            return [self.inbound_full_path]
 
         # Start with inbound path
-        current_level_folders = [self.params.inbound_path]
+        current_level_folders = [self.inbound_full_path]
 
         # Traverse depth levels
         for level in range(depth):
@@ -471,10 +505,14 @@ class FileSystemExtractor:
             for folder in current_level_folders:
                 try:
                     # Get immediate subdirectories (non-recursive)
-                    subdirs = self.lakehouse.list_directories(
-                        directory_path=folder,
-                        recursive=False
+                    subdir_items = glob(
+                        fs=self.source_fs,
+                        path=folder,
+                        recursive=False,
+                        files_only=False,
+                        directories_only=True,
                     )
+                    subdirs = [item.path for item in subdir_items]
                     next_level_folders.extend(subdirs)
                 except Exception as e:
                     self.logger.debug(f"Could not list subdirectories in {folder}: {e}")
@@ -545,7 +583,7 @@ class FileSystemExtractor:
             raw_file_path = self._build_raw_path(file_info)
 
             # Check if file already exists in raw
-            if self.lakehouse.file_exists(raw_file_path):
+            if file_exists(self.dest_fs, raw_file_path):
                 duplicates.append(file_info)
                 self.logger.debug(
                     f"Duplicate: {os.path.basename(file_info.path)} already exists in raw"
@@ -556,7 +594,7 @@ class FileSystemExtractor:
     def _has_control_file(self, file_info: FileInfo) -> bool:
         """Check if control file exists for this file"""
         control_file_path = self._get_control_file_path(file_info)
-        return self.lakehouse.file_exists(control_file_path)
+        return file_exists(self.source_fs, control_file_path)
 
     def _get_control_file_path(self, file_info: FileInfo) -> str:
         """Build control file path"""
@@ -583,6 +621,8 @@ class FileSystemExtractor:
         Build the raw layer path for a file.
 
         Uses output_structure template with date extraction via regex or process date.
+
+        Returns the FULL ABFSS path for both fsspec operations and batch table storage.
         """
         filename = os.path.basename(file_info.path)
 
@@ -596,14 +636,14 @@ class FileSystemExtractor:
             # Extract date from full file path using regex
             date_str = self._extract_date_with_regex(file_info.path)
 
-        # Build output path using template
+        # Build output path using template (FULL ABFSS path)
         if date_str and self.params.output_structure:
             # Parse date and build folder structure
             folder_path = self._resolve_output_structure(date_str)
-            return f"{self.config.raw_file_path.rstrip('/')}/{folder_path}/{filename}"
+            return f"{self.raw_landing_full.rstrip('/')}/{folder_path}/{filename}"
         else:
             # No date - put directly in raw
-            return f"{self.config.raw_file_path.rstrip('/')}/{filename}"
+            return f"{self.raw_landing_full.rstrip('/')}/{filename}"
 
     def _extract_date_with_regex(self, path: str) -> Optional[str]:
         """
@@ -681,23 +721,42 @@ class FileSystemExtractor:
 
         return output.strip("/")
 
-    def _promote_files_to_raw(
-        self, files: List[FileInfo], result: PromotionResult
+    def _extract_files_to_raw(
+        self, files: List[FileInfo], result: FileSystemExtractionResult
     ) -> None:
         """Move validated files from inbound to raw"""
+        import time
+        first_file_path = None
+
         for file_info in files:
             try:
+                # Track first file for cleanup
+                if first_file_path is None:
+                    first_file_path = file_info.path
+
                 # Build destination path in raw
                 raw_path = self._build_raw_path(file_info)
 
+                # Track extraction timing
+                start_time = time.time()
+
                 # Move file
-                success = self.lakehouse.move_file(file_info.path, raw_path)
+                success = move_file(
+                    source_fs=self.source_fs,
+                    source_path=file_info.path,
+                    dest_fs=self.dest_fs,
+                    dest_path=raw_path,
+                )
+
+                end_time = time.time()
+                duration_ms = int((end_time - start_time) * 1000)
 
                 if success:
-                    result.promoted_count += 1
-                    result.promoted_files.append(raw_path)
+                    result.extracted_count += 1
+                    # Store source-destination-duration tuple for complete audit trail
+                    result.extracted_files.append((file_info.path, raw_path, duration_ms))
                     self.logger.info(
-                        f"Promoted: {os.path.basename(file_info.path)} → {raw_path}"
+                        f"Extracted: {os.path.basename(file_info.path)} → {raw_path}"
                     )
 
                     # Also move control file if it exists
@@ -713,7 +772,15 @@ class FileSystemExtractor:
                 error = str(e)
                 result.failed_count += 1
                 result.failed_files.append((file_info.path, error))
-                self.logger.error(f"Failed to promote {file_info.path}: {error}")
+                self.logger.error(f"Failed to extract {file_info.path}: {error}")
+
+        # Clean up empty directories in inbound ONCE after all files moved
+        if first_file_path and result.extracted_count > 0:
+            cleanup_empty_directories(
+                fs=self.source_fs,
+                start_path=first_file_path,
+                stop_path=self.inbound_full_path,
+            )
 
     def _move_control_file(self, file_info: FileInfo, raw_file_path: str) -> None:
         """Move control file along with data file"""
@@ -723,7 +790,12 @@ class FileSystemExtractor:
             control_filename = os.path.basename(control_file_path)
             raw_control_path = f"{raw_dir}/{control_filename}"
 
-            self.lakehouse.move_file(control_file_path, raw_control_path)
+            move_file(
+                source_fs=self.source_fs,
+                source_path=control_file_path,
+                dest_fs=self.dest_fs,
+                dest_path=raw_control_path,
+            )
             self.logger.debug(f"Moved control file: {raw_control_path}")
         except Exception as e:
             self.logger.warning(f"Failed to move control file: {e}")
@@ -805,7 +877,7 @@ Resource: {self.config.resource_name}
 
             # Check if folder already exists in raw (check if non-empty)
             try:
-                if not self.lakehouse.is_directory_empty(raw_folder_path):
+                if not is_directory_empty(self.dest_fs, raw_folder_path):
                     duplicates.append(folder_info)
                     self.logger.debug(
                         f"Duplicate: Folder {folder_info.name} already exists in raw"
@@ -821,6 +893,8 @@ Resource: {self.config.resource_name}
         Build the raw layer path for a folder batch.
 
         Uses output_structure template with date extraction via regex or process date.
+
+        Returns the FULL ABFSS path for both fsspec operations and batch table storage.
         """
         # Get date string: either process date or extracted from path via regex
         date_str = None
@@ -832,32 +906,36 @@ Resource: {self.config.resource_name}
             # Extract from folder path using regex
             date_str = self._extract_date_with_regex(folder_info.path)
 
-        # Build output path using template
+        # Build output path using template (FULL ABFSS path)
         if date_str and self.params.output_structure:
             # Parse date and build folder structure
             folder_path = self._resolve_output_structure(date_str)
-            return f"{self.config.raw_file_path.rstrip('/')}/{folder_path}/"
+            return f"{self.raw_landing_full.rstrip('/')}/{folder_path}/"
         else:
             # No date - use folder name
-            return f"{self.config.raw_file_path.rstrip('/')}/{folder_info.name}/"
+            return f"{self.raw_landing_full.rstrip('/')}/{folder_info.name}/"
 
-    def _promote_folders_to_raw(
-        self, folders: List[FolderInfo], result: PromotionResult
+    def _extract_folders_to_raw(
+        self, folders: List[FolderInfo], result: FileSystemExtractionResult
     ) -> None:
         """
         Move validated folder batches from inbound to raw.
 
         Args:
-            folders: List of FolderInfo objects to promote
-            result: PromotionResult to update with progress
+            folders: List of FolderInfo objects to extract
+            result: FileSystemExtractionResult to update with progress
         """
+        import time
         for folder_info in folders:
             try:
+                # Track extraction timing for this folder batch
+                folder_start_time = time.time()
+
                 # Build destination folder path in raw
                 raw_folder_path = self._build_raw_folder_path(folder_info)
 
                 self.logger.debug(
-                    f"Promoting folder: {folder_info.name} ({folder_info.file_count} files)"
+                    f"Extracting folder: {folder_info.name} ({folder_info.file_count} files)"
                 )
 
                 # Move all files in the folder
@@ -871,7 +949,12 @@ Resource: {self.config.resource_name}
                         dest_file_path = f"{raw_folder_path}{filename}"
 
                         # Move file
-                        success = self.lakehouse.move_file(file_info.path, dest_file_path)
+                        success = move_file(
+                            source_fs=self.source_fs,
+                            source_path=file_info.path,
+                            dest_fs=self.dest_fs,
+                            dest_path=dest_file_path,
+                        )
 
                         if success:
                             files_moved += 1
@@ -883,14 +966,27 @@ Resource: {self.config.resource_name}
                         files_failed += 1
                         self.logger.warning(f"Failed to move {file_info.path}: {e}")
 
+                # Calculate folder extraction duration
+                folder_end_time = time.time()
+                folder_duration_ms = int((folder_end_time - folder_start_time) * 1000)
+
                 # Update result
                 if files_failed == 0:
-                    result.promoted_count += 1
-                    result.promoted_files.append(raw_folder_path)
+                    result.extracted_count += 1
+                    # Store source-destination-duration tuple for complete audit trail
+                    result.extracted_files.append((folder_info.path, raw_folder_path, folder_duration_ms))
                     result.total_files_count += files_moved  # Track total files
                     self.logger.debug(
-                        f"✓ Promoted folder: {folder_info.name} → {raw_folder_path} ({files_moved} files)"
+                        f"✓ Extracted folder: {folder_info.name} → {raw_folder_path} ({files_moved} files)"
                     )
+
+                    # Clean up empty directories in inbound after successful folder extraction
+                    if folder_info.files:
+                        cleanup_empty_directories(
+                            fs=self.source_fs,
+                            start_path=folder_info.files[0].path,
+                            stop_path=self.inbound_full_path,
+                        )
                 else:
                     error = f"Partial failure: {files_moved} succeeded, {files_failed} failed"
                     result.failed_count += 1
@@ -903,7 +999,7 @@ Resource: {self.config.resource_name}
                 error = str(e)
                 result.failed_count += 1
                 result.failed_files.append((folder_info.path, error))
-                self.logger.error(f"Failed to promote folder {folder_info.name}: {error}")
+                self.logger.error(f"Failed to extract folder {folder_info.name}: {error}")
 
     # =========================================================================
     # ALL-BATCH METHODS (for batch_by="all")
@@ -914,6 +1010,8 @@ Resource: {self.config.resource_name}
         Build the raw layer path for an "all" batch.
 
         Uses process date or regex extraction from inbound path.
+
+        Returns the FULL ABFSS path for both fsspec operations and batch table storage.
         """
         # Get date string using process date or regex
         date_str = None
@@ -922,45 +1020,59 @@ Resource: {self.config.resource_name}
             self.logger.debug(f"Using process date for batch folder: {date_str}")
         elif self.params.date_regex:
             # Try to extract from inbound path itself using regex
-            date_str = self._extract_date_with_regex(self.params.inbound_path)
+            date_str = self._extract_date_with_regex(self.inbound_full_path)
 
-        # Build output path using template
+        # Build output path using template (FULL ABFSS path)
         if date_str and self.params.output_structure:
             folder_path = self._resolve_output_structure(date_str)
-            return f"{self.config.raw_file_path.rstrip('/')}/{folder_path}/"
+            return f"{self.raw_landing_full.rstrip('/')}/{folder_path}/"
         else:
             # No date - use a generic folder name
-            return f"{self.config.raw_file_path.rstrip('/')}/batch_{datetime.now().strftime('%Y%m%d_%H%M%S')}/"
+            return f"{self.raw_landing_full.rstrip('/')}/batch_{datetime.now().strftime('%Y%m%d_%H%M%S')}/"
 
-    def _promote_all_to_raw(
-        self, files: List[FileInfo], result: PromotionResult
+    def _extract_all_to_raw(
+        self, files: List[FileInfo], result: FileSystemExtractionResult
     ) -> None:
         """
         Move all files to raw as one batch.
 
         Args:
             files: List of FileInfo objects to move
-            result: PromotionResult to update with progress
+            result: FileSystemExtractionResult to update with progress
         """
+        import time
+        # Track extraction timing for this batch
+        batch_start_time = time.time()
+
         # Build destination folder path
         raw_folder_path = self._build_raw_folder_path_for_all_batch()
 
         self.logger.info(
-            f"Promoting all files as ONE batch: {len(files)} file(s) → {raw_folder_path}"
+            f"Extracting all files as ONE batch: {len(files)} file(s) → {raw_folder_path}"
         )
 
         # Move all files to the destination folder
         files_moved = 0
         files_failed = 0
+        first_file_path = None
 
         for file_info in files:
             try:
+                # Track first file for cleanup
+                if first_file_path is None:
+                    first_file_path = file_info.path
+
                 # Build destination file path
                 filename = os.path.basename(file_info.path)
                 dest_file_path = f"{raw_folder_path}{filename}"
 
                 # Move file
-                success = self.lakehouse.move_file(file_info.path, dest_file_path)
+                success = move_file(
+                    source_fs=self.source_fs,
+                    source_path=file_info.path,
+                    dest_fs=self.dest_fs,
+                    dest_path=dest_file_path,
+                )
 
                 if success:
                     files_moved += 1
@@ -973,15 +1085,28 @@ Resource: {self.config.resource_name}
                 files_failed += 1
                 self.logger.warning(f"Failed to move {file_info.path}: {e}")
 
+        # Calculate batch extraction duration
+        batch_end_time = time.time()
+        batch_duration_ms = int((batch_end_time - batch_start_time) * 1000)
+
         # Update result
         if files_failed == 0:
-            result.promoted_count = 1  # ONE batch
-            result.promoted_files.append(raw_folder_path)
+            result.extracted_count = 1  # ONE batch
+            # Store source-destination-duration tuple for complete audit trail
+            result.extracted_files.append((self.inbound_full_path, raw_folder_path, batch_duration_ms))
             self.logger.info(
-                f"✓ Promoted batch → {raw_folder_path} ({files_moved} files)"
+                f"✓ Extracted batch → {raw_folder_path} ({files_moved} files)"
             )
         else:
             error = f"Partial failure: {files_moved} succeeded, {files_failed} failed"
             result.failed_count = 1
-            result.failed_files.append((self.params.inbound_path, error))
-            self.logger.error(f"✗ Batch promotion failed: {error}")
+            result.failed_files.append((self.inbound_full_path, error))
+            self.logger.error(f"✗ Batch extraction failed: {error}")
+
+        # Clean up empty directories in inbound ONCE after all files moved
+        if first_file_path and files_moved > 0:
+            cleanup_empty_directories(
+                fs=self.source_fs,
+                start_path=first_file_path,
+                stop_path=self.inbound_full_path,
+            )

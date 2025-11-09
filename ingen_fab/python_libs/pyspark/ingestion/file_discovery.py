@@ -98,10 +98,10 @@ class FileDiscovery:
         Returns:
             List of BatchInfo objects representing discovered batches
         """
-        raw_path = self.config.raw_file_path
+        raw_path = self.config.raw_landing_path
 
         if not raw_path:
-            raise ValueError("raw_file_path is required")
+            raise ValueError("raw_landing_path is required")
 
         try:
             # Step 1: List items based on batch_by strategy
@@ -309,7 +309,7 @@ class FileDiscovery:
         self, item_infos: List[FileInfo]
     ) -> List[FileInfo]:
         """
-        Filter to unprocessed items based on log_file_load table.
+        Filter to unprocessed items based on log_load_batch table.
 
         Args:
             item_infos: List of FileInfo objects
@@ -322,17 +322,18 @@ class FileDiscovery:
 
         # Check if log table exists
         try:
-            self.spark.sql("DESCRIBE TABLE log_file_load")
+            self.spark.sql("DESCRIBE TABLE log_load_batch")
         except Exception:
             # Log table doesn't exist yet - treat all items as new
-            self.logger.info("Log table 'log_file_load' not found, treating all items as new")
+            self.logger.info("Log table 'log_load_batch' not found, treating all items as new")
             return item_infos
 
         # Filter by modified time (only consider items newer than last run)
         try:
             latest_time_result = (
-                self.spark.table("log_file_load")
-                .filter(col("config_id") == self.config.resource_name)
+                self.spark.table("log_load_batch")
+                .filter(col("source_name") == self.config.source_name)
+                .filter(col("resource_name") == self.config.resource_name)
                 .filter(col("status") == ExecutionStatus.COMPLETED)
                 .filter(col("source_file_modified_time").isNotNull())
                 .agg(spark_max("source_file_modified_time").alias("latest_time"))
@@ -363,17 +364,24 @@ class FileDiscovery:
             discovered_data, ["item_name", "item_path", "size", "modified_ms"]
         )
 
-        # Query log table for processed items
+        # Query log table for processed items (get latest status per file using window function)
         try:
-            window_spec = Window.partitionBy("source_file_path").orderBy(col("started_at").desc())
+            window_spec = Window.partitionBy("source_file_path", "source_name", "resource_name").orderBy(col("started_at").desc())
 
-            processed_df = (
-                self.spark.table("log_file_load")
-                .filter(col("config_id") == self.config.resource_name)
-                .withColumn("item_name", element_at(split(col("source_file_path"), "/"), -1))
+            # Get latest status for each file
+            latest_status_df = (
+                self.spark.table("log_load_batch")
+                .filter(col("source_name") == self.config.source_name)
+                .filter(col("resource_name") == self.config.resource_name)
                 .withColumn("rn", row_number().over(window_spec))
                 .filter(col("rn") == 1)
+            )
+
+            # Filter to completed/no_data statuses and extract item name
+            processed_df = (
+                latest_status_df
                 .filter(col("status").isin([ExecutionStatus.COMPLETED, ExecutionStatus.NO_DATA]))
+                .withColumn("item_name", element_at(split(col("source_file_path"), "/"), -1))
                 .select("item_name")
                 .distinct()
             )
