@@ -199,11 +199,29 @@ class FileSystemExtractionParams:
     duplicate_handling: str = "fail"  # 'fail', 'skip', 'allow'
     require_files: bool = False  # If True, fail extraction when no files found
 
-    # Date extraction and output structure
-    date_regex: Optional[str] = None  # Regex to extract date from file path (e.g., r"daily_sales_(\d{8})")
-    output_structure: str = "{YYYY}/{MM}/{DD}/"  # How to organize in raw layer
-    use_process_date: bool = False  # If True, use current execution date instead of extracting from path
-    partition_depth: Optional[int] = None  # Folder depth for batch_by="folder" (e.g., 3 for YYYY/MM/DD, 4 for YYYY/MM/DD/HH)
+    # Metadata extraction from filename/path (NEW)
+    filename_metadata: List[Dict[str, Any]] = field(default_factory=list)
+    # Example: [
+    #     {"name": "file_date", "regex": r"sales_(\d{8})", "type": "date", "format": "yyyyMMdd"},
+    #     {"name": "region", "regex": r"_([A-Z]{3})_", "type": "string"}
+    # ]
+    # Supported types: string, date, timestamp, int, long, double, boolean
+
+    # Sorting configuration (NEW)
+    sort_by: List[str] = field(default_factory=list)  # List of metadata field names to sort by
+    sort_order: str = "asc"  # 'asc' or 'desc'
+
+    # Raw layer Hive partitioning (REQUIRED)
+    # Raw layer is ALWAYS partitioned by process date (when file arrived)
+    # Business dates are extracted as columns for querying in bronze
+    raw_partition_columns: List[str] = field(default_factory=lambda: ["date"])
+    # Supported patterns (based on list length):
+    # - 1 column: ["date"] → date=2025-11-09/
+    # - 3 columns: ["year", "month", "day"] → year=2025/month=11/day=09/
+    # - 4 columns: ["year", "month", "day", "hour"] → year=2025/month=11/day=09/hour=14/
+    # Custom names supported: ["ds"], ["process_date"], ["yr", "mo", "dy"], etc.
+
+    partition_depth: Optional[int] = None  # Folder depth for batch_by="folder" (e.g., 3 for YYYY/MM/DD)
 
     def to_dict(self) -> Dict[str, Any]:
         """Convert to dict for storage in ResourceConfig.extraction_params"""

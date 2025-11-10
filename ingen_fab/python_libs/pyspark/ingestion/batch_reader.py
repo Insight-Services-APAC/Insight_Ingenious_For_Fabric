@@ -127,11 +127,22 @@ class BatchReader:
                 if "schema" in options:
                     reader = reader.schema(options["schema"])
 
-                # Apply CSV options
+                # Apply CSV options - translate human-readable names to Spark option names
                 if file_format.lower() == "csv":
-                    for key, value in options.items():
-                        if key != "schema":
-                            reader = reader.option(key, value)
+                    if "has_header" in options:
+                        reader = reader.option("header", str(options["has_header"]).lower())
+                    if "file_delimiter" in options:
+                        reader = reader.option("sep", options["file_delimiter"])
+                    if "encoding" in options:
+                        reader = reader.option("encoding", options["encoding"])
+                    if "quote_character" in options:
+                        reader = reader.option("quote", options["quote_character"])
+                    if "escape_character" in options:
+                        reader = reader.option("escape", options["escape_character"])
+                    if "multiline_values" in options:
+                        reader = reader.option("multiLine", str(options["multiline_values"]).lower())
+                    if "inferSchema" in options:
+                        reader = reader.option("inferSchema", str(options["inferSchema"]).lower())
 
                 df = reader.load(batch_info.file_paths)
 
@@ -206,12 +217,13 @@ class BatchReader:
             else:
                 params = self.config.loading_params
 
-            options["header"] = str(params.get("has_header", True)).lower()
-            options["sep"] = params.get("file_delimiter", ",")
+            # Pass through human-readable names (translation to Spark names happens in lakehouse_utils)
+            options["has_header"] = params.get("has_header", True)
+            options["file_delimiter"] = params.get("file_delimiter", ",")
             options["encoding"] = params.get("encoding", "utf-8")
-            options["quote"] = params.get("quote_character", '"')
-            options["escape"] = params.get("escape_character", "\\")
-            options["multiLine"] = str(params.get("multiline_values", True)).lower()
+            options["quote_character"] = params.get("quote_character", '"')
+            options["escape_character"] = params.get("escape_character", "\\")
+            options["multiline_values"] = params.get("multiline_values", True)
 
             # Schema handling
             if self.config.custom_schema_json:
@@ -219,6 +231,6 @@ class BatchReader:
                 schema_dict = json.loads(self.config.custom_schema_json)
                 options["schema"] = StructType.fromJson(schema_dict)
             else:
-                options["inferSchema"] = "true"
+                options["inferSchema"] = True
 
         return options

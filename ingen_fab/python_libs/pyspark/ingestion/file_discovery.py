@@ -291,7 +291,11 @@ class FileDiscovery:
 
     def _sort_batches(self, batches: List[BatchInfo]) -> List[BatchInfo]:
         """
-        Sort batches chronologically by modified time.
+        Sort batches for sequential processing.
+
+        Sorting strategy:
+        - If sort_by is configured in extraction_params: Sort by extracted metadata fields, then modified time
+        - If no sort_by: Sort by modified time only
 
         Args:
             batches: List of BatchInfo objects
@@ -302,8 +306,84 @@ class FileDiscovery:
         if not batches:
             return batches
 
-        batches.sort(key=lambda x: x.modified_time or datetime.min)
+        # Get metadata patterns and sort config from extraction_params
+        extraction_params = self.config.extraction_params if isinstance(self.config.extraction_params, dict) else {}
+        metadata_patterns = extraction_params.get("filename_metadata", [])
+        sort_by = extraction_params.get("sort_by", [])
+        sort_order = extraction_params.get("sort_order", "asc")
+
+        # If no sort_by configured, sort by modified time only
+        if not sort_by:
+            batches.sort(key=lambda x: x.modified_time or datetime.min)
+            self.logger.debug(f"Sorted {len(batches)} batch(es) by modified time")
+            return batches
+
+        def get_sort_key(batch_info: BatchInfo) -> tuple:
+            """Generate sort key from metadata fields plus modified time"""
+            # Extract metadata from batch file path
+            metadata = self._extract_metadata_from_path(
+                batch_info.file_paths[0] if batch_info.file_paths else "",
+                metadata_patterns
+            )
+
+            # Build sort key tuple from sort_by fields
+            sort_values = []
+            for field_name in sort_by:
+                value = metadata.get(field_name)
+                # Use empty string if not found (sorts first for asc, last for desc)
+                sort_values.append(value if value is not None else "")
+
+            # Add modified time as final tie-breaker
+            sort_values.append(batch_info.modified_time or datetime.min)
+
+            return tuple(sort_values)
+
+        # Sort with reverse flag based on sort_order
+        reverse = (sort_order == "desc")
+        batches.sort(key=get_sort_key, reverse=reverse)
+
+        # Log sorting method
+        sort_fields = ", ".join(sort_by)
+        self.logger.debug(
+            f"Sorted {len(batches)} batch(es) by [{sort_fields}] ({sort_order}) then modified time"
+        )
+
         return batches
+
+    def _extract_metadata_from_path(self, path: str, metadata_patterns: List[dict]) -> dict:
+        """
+        Extract metadata values from file path using configured patterns.
+
+        Args:
+            path: Full file path
+            metadata_patterns: List of metadata extraction patterns
+
+        Returns:
+            Dict mapping metadata field names to extracted values
+        """
+        import re
+
+        metadata = {}
+
+        for pattern in metadata_patterns:
+            field_name = pattern["name"]
+            regex = pattern["regex"]
+
+            try:
+                match = re.search(regex, path)
+                if match:
+                    groups = match.groups()
+                    if groups:
+                        # Single group or concatenate multiple groups
+                        if len(groups) == 1:
+                            value = groups[0]
+                        else:
+                            value = "".join(groups)
+                        metadata[field_name] = value
+            except Exception:
+                pass  # Silently skip failed extractions
+
+        return metadata
 
     def _get_unprocessed_items(
         self, item_infos: List[FileInfo]

@@ -402,6 +402,10 @@ class FileSystemExtractor:
             directories_only=False,
         )
 
+        # Sort files to ensure chronological processing
+        if files:
+            files = self._sort_files(files)
+
         return files
 
     def _discover_folders_in_inbound(self) -> List[FolderInfo]:
@@ -480,6 +484,10 @@ class FileSystemExtractor:
             except Exception as e:
                 self.logger.warning(f"Could not process folder {folder_path}: {e}")
                 continue
+
+        # Sort folders to ensure chronological processing
+        if folder_infos:
+            folder_infos = self._sort_folders(folder_infos)
 
         return folder_infos
 
@@ -616,34 +624,58 @@ class FileSystemExtractor:
             # Per-folder mode (fixed name)
             return self.params.control_file_pattern
 
+    def _build_hive_partition_path(self) -> str:
+        """
+        Build Hive partition path from process date and raw_partition_columns.
+
+        Returns:
+            Hive partition path like "date=2025-11-09/" or "year=2025/month=11/day=09/"
+        """
+        from datetime import datetime
+
+        now = datetime.now()
+        num_cols = len(self.params.raw_partition_columns)
+
+        if num_cols == 1:
+            # Single date column: date=2025-11-09/
+            col_name = self.params.raw_partition_columns[0]
+            return f"{col_name}={now.strftime('%Y-%m-%d')}/"
+
+        elif num_cols == 3:
+            # Hierarchical date: year=2025/month=11/day=09/
+            return (f"{self.params.raw_partition_columns[0]}={now.year}/"
+                    f"{self.params.raw_partition_columns[1]}={now.month:02d}/"
+                    f"{self.params.raw_partition_columns[2]}={now.day:02d}/")
+
+        elif num_cols == 4:
+            # Hierarchical datetime: year=2025/month=11/day=09/hour=14/
+            return (f"{self.params.raw_partition_columns[0]}={now.year}/"
+                    f"{self.params.raw_partition_columns[1]}={now.month:02d}/"
+                    f"{self.params.raw_partition_columns[2]}={now.day:02d}/"
+                    f"{self.params.raw_partition_columns[3]}={now.hour:02d}/")
+
+        else:
+            raise ValueError(
+                f"raw_partition_columns must have 1, 3, or 4 items. "
+                f"Got {num_cols}: {self.params.raw_partition_columns}"
+            )
+
     def _build_raw_path(self, file_info: FileInfo) -> str:
         """
         Build the raw layer path for a file.
 
-        Uses output_structure template with date extraction via regex or process date.
+        Raw layer is ALWAYS partitioned by process date (receipt date) using Hive partitioning.
+        Business dates are extracted as columns in bronze layer.
 
         Returns the FULL ABFSS path for both fsspec operations and batch table storage.
         """
         filename = os.path.basename(file_info.path)
 
-        # Get date string: either process date or extracted from path via regex
-        date_str = None
-        if self.params.use_process_date:
-            # Use current execution date (for snapshots without dates)
-            date_str = datetime.now().strftime("%Y%m%d")
-            self.logger.debug(f"Using process date for partitioning: {date_str}")
-        elif self.params.date_regex:
-            # Extract date from full file path using regex
-            date_str = self._extract_date_with_regex(file_info.path)
+        # Build Hive partition path
+        partition_path = self._build_hive_partition_path()
 
-        # Build output path using template (FULL ABFSS path)
-        if date_str and self.params.output_structure:
-            # Parse date and build folder structure
-            folder_path = self._resolve_output_structure(date_str)
-            return f"{self.raw_landing_full.rstrip('/')}/{folder_path}/{filename}"
-        else:
-            # No date - put directly in raw
-            return f"{self.raw_landing_full.rstrip('/')}/{filename}"
+        # Return full path with Hive partitions
+        return f"{self.raw_landing_full.rstrip('/')}/{partition_path}{filename}"
 
     def _extract_date_with_regex(self, path: str) -> Optional[str]:
         """
@@ -692,34 +724,151 @@ class FileSystemExtractor:
             self.logger.warning(f"Date extraction failed for {path}: {e}")
             return None
 
-    def _resolve_output_structure(self, date_str: str) -> str:
+    def _sort_files(self, files: List[FileInfo]) -> List[FileInfo]:
         """
-        Resolve output_structure template with date components.
+        Sort files for sequential processing.
+
+        Sorting strategy:
+        - If sort_by is configured: Sort by extracted metadata fields, then modified time (tie-breaker)
+        - If no sort_by: Sort by modified time only
 
         Args:
-            date_str: Date string in format YYYYMMDD or YYYY-MM-DD
+            files: List of FileInfo objects to sort
 
         Returns:
-            Resolved path like "2025/01/07"
+            Sorted list of FileInfo objects
         """
-        # Normalize date string to YYYYMMDD
-        normalized = date_str.replace("-", "").replace("/", "")
+        if not files:
+            return files
 
-        if len(normalized) != 8:
-            self.logger.warning(f"Invalid date format: {date_str}, expected YYYYMMDD")
-            return ""
+        # If no sort_by configured, sort by modified time only
+        if not self.params.sort_by:
+            files.sort(key=lambda x: x.modified_ms)
+            self.logger.debug(f"Sorted {len(files)} file(s) by modified time")
+            return files
 
-        year = normalized[0:4]
-        month = normalized[4:6]
-        day = normalized[6:8]
+        def get_sort_key(file_info: FileInfo) -> tuple:
+            """Generate sort key from metadata fields plus modified time"""
+            # Extract all metadata for this file
+            metadata = self._extract_metadata_from_path(file_info.path)
 
-        # Replace placeholders
-        output = self.params.output_structure
-        output = output.replace("{YYYY}", year)
-        output = output.replace("{MM}", month)
-        output = output.replace("{DD}", day)
+            # Build sort key tuple from sort_by fields
+            sort_values = []
+            for field_name in self.params.sort_by:
+                value = metadata.get(field_name)
+                # Use empty string if not found (sorts first for asc, last for desc)
+                sort_values.append(value if value is not None else "")
 
-        return output.strip("/")
+            # Add modified time as final tie-breaker
+            sort_values.append(file_info.modified_ms)
+
+            return tuple(sort_values)
+
+        # Sort with reverse flag based on sort_order
+        reverse = (self.params.sort_order == "desc")
+        sorted_files = sorted(files, key=get_sort_key, reverse=reverse)
+
+        # Log sorting method
+        sort_fields = ", ".join(self.params.sort_by)
+        self.logger.debug(
+            f"Sorted {len(files)} file(s) by [{sort_fields}] ({self.params.sort_order}) then modified time"
+        )
+
+        return sorted_files
+
+    def _sort_folders(self, folders: List[FolderInfo]) -> List[FolderInfo]:
+        """
+        Sort folders for sequential processing.
+
+        Sorting strategy:
+        - If sort_by is configured: Sort by extracted metadata fields, then latest modified time (tie-breaker)
+        - If no sort_by: Sort by latest modified time only
+
+        Args:
+            folders: List of FolderInfo objects to sort
+
+        Returns:
+            Sorted list of FolderInfo objects
+        """
+        if not folders:
+            return folders
+
+        # If no sort_by configured, sort by modified time only
+        if not self.params.sort_by:
+            folders.sort(key=lambda x: x.latest_modified_ms)
+            self.logger.debug(f"Sorted {len(folders)} folder(s) by modified time")
+            return folders
+
+        def get_sort_key(folder_info: FolderInfo) -> tuple:
+            """Generate sort key from metadata fields plus modified time"""
+            # Extract all metadata for this folder
+            metadata = self._extract_metadata_from_path(folder_info.path)
+
+            # Build sort key tuple from sort_by fields
+            sort_values = []
+            for field_name in self.params.sort_by:
+                value = metadata.get(field_name)
+                # Use empty string if not found (sorts first for asc, last for desc)
+                sort_values.append(value if value is not None else "")
+
+            # Add latest modified time as final tie-breaker
+            sort_values.append(folder_info.latest_modified_ms)
+
+            return tuple(sort_values)
+
+        # Sort with reverse flag based on sort_order
+        reverse = (self.params.sort_order == "desc")
+        sorted_folders = sorted(folders, key=get_sort_key, reverse=reverse)
+
+        # Log sorting method
+        sort_fields = ", ".join(self.params.sort_by)
+        self.logger.debug(
+            f"Sorted {len(folders)} folder(s) by [{sort_fields}] ({self.params.sort_order}) then modified time"
+        )
+
+        return sorted_folders
+
+    def _extract_metadata_from_path(self, path: str) -> dict:
+        """
+        Extract metadata values from file/folder path using configured patterns.
+
+        Args:
+            path: Full file or folder path
+
+        Returns:
+            Dict mapping metadata field names to extracted values
+        """
+        metadata = {}
+
+        if not self.params.filename_metadata:
+            return metadata
+
+        for pattern in self.params.filename_metadata:
+            field_name = pattern["name"]
+            regex = pattern["regex"]
+
+            try:
+                match = re.search(regex, path)
+                if match:
+                    groups = match.groups()
+                    if groups:
+                        # Single group or concatenate multiple groups
+                        if len(groups) == 1:
+                            value = groups[0]
+                        else:
+                            value = "".join(groups)
+
+                        # Store raw string value (type conversion happens in loader)
+                        metadata[field_name] = value
+                        self.logger.debug(f"Extracted {field_name}='{value}' from: {path}")
+                    else:
+                        self.logger.warning(f"Regex matched but no capture groups for {field_name}: {regex}")
+                else:
+                    self.logger.debug(f"Regex did not match for {field_name}: {path}")
+            except Exception as e:
+                self.logger.warning(f"Metadata extraction failed for {field_name} on {path}: {e}")
+
+        return metadata
 
     def _extract_files_to_raw(
         self, files: List[FileInfo], result: FileSystemExtractionResult
@@ -892,28 +1041,15 @@ Resource: {self.config.resource_name}
         """
         Build the raw layer path for a folder batch.
 
-        Uses output_structure template with date extraction via regex or process date.
+        Raw layer is ALWAYS partitioned by process date (receipt date) using Hive partitioning.
 
         Returns the FULL ABFSS path for both fsspec operations and batch table storage.
         """
-        # Get date string: either process date or extracted from path via regex
-        date_str = None
-        if self.params.use_process_date:
-            # Use current execution date (for snapshots)
-            date_str = datetime.now().strftime("%Y%m%d")
-            self.logger.debug(f"Using process date for partitioning: {date_str}")
-        elif self.params.date_regex:
-            # Extract from folder path using regex
-            date_str = self._extract_date_with_regex(folder_info.path)
+        # Build Hive partition path
+        partition_path = self._build_hive_partition_path()
 
-        # Build output path using template (FULL ABFSS path)
-        if date_str and self.params.output_structure:
-            # Parse date and build folder structure
-            folder_path = self._resolve_output_structure(date_str)
-            return f"{self.raw_landing_full.rstrip('/')}/{folder_path}/"
-        else:
-            # No date - use folder name
-            return f"{self.raw_landing_full.rstrip('/')}/{folder_info.name}/"
+        # Return full path with Hive partitions (ends with /)
+        return f"{self.raw_landing_full.rstrip('/')}/{partition_path}"
 
     def _extract_folders_to_raw(
         self, folders: List[FolderInfo], result: FileSystemExtractionResult
@@ -1009,26 +1145,15 @@ Resource: {self.config.resource_name}
         """
         Build the raw layer path for an "all" batch.
 
-        Uses process date or regex extraction from inbound path.
+        Raw layer is ALWAYS partitioned by process date (receipt date) using Hive partitioning.
 
         Returns the FULL ABFSS path for both fsspec operations and batch table storage.
         """
-        # Get date string using process date or regex
-        date_str = None
-        if self.params.use_process_date:
-            date_str = datetime.now().strftime("%Y%m%d")
-            self.logger.debug(f"Using process date for batch folder: {date_str}")
-        elif self.params.date_regex:
-            # Try to extract from inbound path itself using regex
-            date_str = self._extract_date_with_regex(self.inbound_full_path)
+        # Build Hive partition path
+        partition_path = self._build_hive_partition_path()
 
-        # Build output path using template (FULL ABFSS path)
-        if date_str and self.params.output_structure:
-            folder_path = self._resolve_output_structure(date_str)
-            return f"{self.raw_landing_full.rstrip('/')}/{folder_path}/"
-        else:
-            # No date - use a generic folder name
-            return f"{self.raw_landing_full.rstrip('/')}/batch_{datetime.now().strftime('%Y%m%d_%H%M%S')}/"
+        # Return full path with Hive partitions (ends with /)
+        return f"{self.raw_landing_full.rstrip('/')}/{partition_path}"
 
     def _extract_all_to_raw(
         self, files: List[FileInfo], result: FileSystemExtractionResult

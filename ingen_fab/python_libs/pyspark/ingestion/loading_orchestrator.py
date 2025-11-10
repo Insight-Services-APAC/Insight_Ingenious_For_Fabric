@@ -460,7 +460,7 @@ class LoadingOrchestrator:
         # self._log_batch_start(config, execution_id, load_run_id, load_id, batch_info)
 
         # Add ingestion metadata
-        df = self._add_ingestion_metadata(df, load_id, batch_info)
+        df = self._add_ingestion_metadata(df, load_id, batch_info, config)
 
         # Validate data
         if df.count() == 0:
@@ -817,12 +817,19 @@ class LoadingOrchestrator:
         df: DataFrame,
         load_id: str,
         batch_info,
+        config: ResourceConfig,
     ) -> DataFrame:
         """Add ingestion metadata columns to DataFrame"""
         result_df = df
 
-        # Add load_id
-        result_df = result_df.withColumn("_raw_load_id", lit(load_id))
+        # Add filename metadata columns FIRST (extracted from path - business columns like file_date)
+        if batch_info.file_paths:
+            file_path = batch_info.file_paths[0]
+            result_df = self._add_filename_metadata_columns(result_df, file_path, config)
+
+        # Add soft delete column (if enabled)
+        if config.soft_delete_enabled:
+            result_df = result_df.withColumn("_raw_is_deleted", lit(False))
 
         # Add filename
         if batch_info.file_paths:
@@ -830,11 +837,94 @@ class LoadingOrchestrator:
             filename = os.path.basename(batch_info.file_paths[0])
             result_df = result_df.withColumn("_raw_filename", lit(filename))
 
-        # Add timestamps
+        # Add load_id
+        result_df = result_df.withColumn("_raw_load_id", lit(load_id))
+
+        # Add timestamps (last)
         result_df = result_df.withColumn("_raw_created_at", current_timestamp()) \
                              .withColumn("_raw_updated_at", current_timestamp())
 
         return result_df
+
+    def _add_filename_metadata_columns(
+        self,
+        df: DataFrame,
+        file_path: str,
+        config: ResourceConfig
+    ) -> DataFrame:
+        """
+        Extract metadata from file path and add as DataFrame columns.
+
+        Args:
+            df: Source DataFrame
+            file_path: Full file path to extract metadata from
+            config: Resource configuration with extraction_params
+
+        Returns:
+            DataFrame with added metadata columns
+        """
+        from pyspark.sql.functions import to_date, to_timestamp
+
+        # Get metadata patterns from extraction_params
+        if not config.extraction_params or not isinstance(config.extraction_params, dict):
+            return df
+
+        metadata_patterns = config.extraction_params.get("filename_metadata", [])
+        if not metadata_patterns:
+            return df
+
+        # Extract each metadata field and add as column
+        for pattern in metadata_patterns:
+            field_name = pattern["name"]
+            regex = pattern["regex"]
+            field_type = pattern.get("type", "string")
+            date_format = pattern.get("format", "yyyyMMdd")
+
+            try:
+                # Extract value using Python regex
+                import re
+                match = re.search(regex, file_path)
+
+                if match:
+                    groups = match.groups()
+                    if groups:
+                        # Single group or concatenate multiple groups
+                        if len(groups) == 1:
+                            value = groups[0]
+                        else:
+                            value = "".join(groups)
+
+                        # Add column with appropriate type conversion
+                        if field_type == "date":
+                            df = df.withColumn(field_name, to_date(lit(value), date_format))
+                        elif field_type == "timestamp":
+                            df = df.withColumn(field_name, to_timestamp(lit(value), date_format))
+                        elif field_type == "int":
+                            df = df.withColumn(field_name, lit(int(value)))
+                        elif field_type == "long":
+                            df = df.withColumn(field_name, lit(int(value)).cast("long"))
+                        elif field_type == "double":
+                            df = df.withColumn(field_name, lit(float(value)))
+                        elif field_type == "boolean":
+                            df = df.withColumn(field_name, lit(value.lower() in ["true", "1", "yes"]))
+                        else:  # string (default)
+                            df = df.withColumn(field_name, lit(value))
+
+                        logger.debug(f"Added metadata column: {field_name}='{value}' ({field_type})")
+                    else:
+                        # Regex matched but no capture groups - add NULL
+                        df = df.withColumn(field_name, lit(None))
+                else:
+                    # Regex didn't match - add NULL
+                    df = df.withColumn(field_name, lit(None))
+                    logger.debug(f"Metadata field {field_name} not found in path: {file_path}")
+
+            except Exception as e:
+                # Error during extraction/conversion - add NULL and log warning
+                df = df.withColumn(field_name, lit(None))
+                logger.warning(f"Failed to extract metadata field {field_name}: {e}")
+
+        return df
 
     # ========================================================================
     # LOGGING METHODS (delegate to FileLoadingLogger if provided)

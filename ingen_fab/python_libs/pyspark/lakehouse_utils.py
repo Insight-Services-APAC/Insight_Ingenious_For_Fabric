@@ -314,6 +314,8 @@ class lakehouse_utils(DataStoreInterface):
                 # Get all insert and update values
                 valid_values = cdc_config.insert_values + cdc_config.update_values
                 df_to_write = df.filter(col(cdc_config.operation_column).isin(valid_values))
+                # Drop CDC operation column - it's transient metadata, not business data
+                df_to_write = df_to_write.drop(cdc_config.operation_column)
 
             self.write_to_table(
                 df=df_to_write,
@@ -359,21 +361,23 @@ class lakehouse_utils(DataStoreInterface):
         # ========================================================================
         if cdc_config:
             # Split DataFrame into INSERT, UPDATE, DELETE operations
-            df_inserts = df.filter(col(cdc_config.operation_column).isin(cdc_config.insert_values))
-            df_updates = df.filter(col(cdc_config.operation_column).isin(cdc_config.update_values))
-            df_deletes = df.filter(col(cdc_config.operation_column).isin(cdc_config.delete_values))
+            df_inserts = df.filter(col(cdc_config.operation_column).isin(cdc_config.insert_values)).drop(cdc_config.operation_column)
+            df_updates = df.filter(col(cdc_config.operation_column).isin(cdc_config.update_values)).drop(cdc_config.operation_column)
+            df_deletes = df.filter(col(cdc_config.operation_column).isin(cdc_config.delete_values))  # Keep for merge condition only
 
             # Process DELETEs first
             if df_deletes.count() > 0:
                 if soft_delete_enabled:
-                    # Soft delete: Mark as deleted with _raw_is_deleted=True
+                    # Soft delete: Mark as deleted and update metadata to reflect delete operation
                     merge_builder = delta_table.alias("target").merge(
                         df_deletes.alias("source"), merge_condition
                     )
                     merge_builder = merge_builder.whenMatchedUpdate(
                         set={
                             "_raw_is_deleted": "true",
-                            "_raw_updated_at": "CURRENT_TIMESTAMP()"
+                            "_raw_updated_at": "CURRENT_TIMESTAMP()",
+                            "_raw_load_id": "source._raw_load_id",      # Update to delete batch
+                            "_raw_filename": "source._raw_filename"     # Update to delete file
                         }
                     )
                     merge_builder.execute()
@@ -755,11 +759,11 @@ class lakehouse_utils(DataStoreInterface):
 
         # Apply common options based on file format
         if file_format.lower() == "csv":
-            # Apply basic CSV-specific options
-            if "header" in options:
-                reader = reader.option("header", str(options["header"]).lower())
-            if "delimiter" in options:
-                reader = reader.option("sep", options["delimiter"])
+            # Translate human-readable names to Spark option names
+            if "has_header" in options:
+                reader = reader.option("header", str(options["has_header"]).lower())
+            if "file_delimiter" in options:
+                reader = reader.option("sep", options["file_delimiter"])
             if "encoding" in options:
                 reader = reader.option("encoding", options["encoding"])
             if "inferSchema" in options:
@@ -772,12 +776,12 @@ class lakehouse_utils(DataStoreInterface):
                 reader = reader.option("timestampFormat", options["timestampFormat"])
 
             # Apply advanced CSV options for complex scenarios
-            if "quote" in options:
-                reader = reader.option("quote", options["quote"])
-            if "escape" in options:
-                reader = reader.option("escape", options["escape"])
-            if "multiLine" in options:
-                reader = reader.option("multiLine", str(options["multiLine"]).lower())
+            if "quote_character" in options:
+                reader = reader.option("quote", options["quote_character"])
+            if "escape_character" in options:
+                reader = reader.option("escape", options["escape_character"])
+            if "multiline_values" in options:
+                reader = reader.option("multiLine", str(options["multiline_values"]).lower())
             if "ignoreLeadingWhiteSpace" in options:
                 reader = reader.option(
                     "ignoreLeadingWhiteSpace",
