@@ -411,7 +411,7 @@ class FileDiscovery:
         # Filter by modified time (only consider items newer than last run)
         try:
             latest_time_result = (
-                self.spark.table("log_load_batch")
+                self.lakehouse.read_table("log_load_batch")
                 .filter(col("source_name") == self.config.source_name)
                 .filter(col("resource_name") == self.config.resource_name)
                 .filter(col("status") == ExecutionStatus.COMPLETED)
@@ -450,7 +450,7 @@ class FileDiscovery:
 
             # Get latest status for each file
             latest_status_df = (
-                self.spark.table("log_load_batch")
+                self.lakehouse.read_table("log_load_batch")
                 .filter(col("source_name") == self.config.source_name)
                 .filter(col("resource_name") == self.config.resource_name)
                 .withColumn("rn", row_number().over(window_spec))

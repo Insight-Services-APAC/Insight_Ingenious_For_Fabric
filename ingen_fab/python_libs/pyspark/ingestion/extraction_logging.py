@@ -7,6 +7,7 @@ from datetime import datetime
 from typing import Optional
 
 from pyspark.sql import SparkSession
+from pyspark.sql.functions import col, lit, current_timestamp
 
 from ingen_fab.python_libs.common.extract_resource_schema import (
     get_extract_resource_schema,
@@ -319,18 +320,25 @@ class ExtractionLogger:
                 )
             else:
                 # UPDATE existing row with final status (completed/failed/no_data)
-                update_query = f"""
-                    UPDATE log_resource_extract
-                    SET
-                        status = '{status}',
-                        error_message = {'NULL' if error_message is None else f"'{error_message}'"},
-                        updated_at = CURRENT_TIMESTAMP(),
-                        completed_at = CURRENT_TIMESTAMP()
-                    WHERE extract_run_id = '{extract_run_id}'
-                      AND source_name = '{config.source_name}'
-                      AND resource_name = '{config.resource_name}'
-                """
-                self.spark.sql(update_query)
+                set_values = {
+                    "status": lit(status),
+                    "updated_at": current_timestamp(),
+                    "completed_at": current_timestamp(),
+                }
+
+                # Add optional error_message only if it has a value
+                if error_message is not None:
+                    set_values["error_message"] = lit(error_message)
+
+                self.lakehouse.update_table(
+                    table_name="log_resource_extract",
+                    condition=(
+                        (col("extract_run_id") == extract_run_id) &
+                        (col("source_name") == config.source_name) &
+                        (col("resource_name") == config.resource_name)
+                    ),
+                    set_values=set_values,
+                )
 
             # Return the extract_run_id (either newly generated or passed in)
             return extract_run_id

@@ -223,7 +223,6 @@ class IngestionLoggingInterface(ABC):
         resource_name: str,
         execution_id: str,
         error_message: str,
-        error_details: str,
     ) -> None:
         """Log an error during resource execution"""
         pass
@@ -257,7 +256,6 @@ class IngestionLoggingInterface(ABC):
         execution_id: str,
         batch: BatchInfo,
         error_message: str,
-        error_details: str,
     ) -> None:
         """Log an error during batch processing"""
         pass

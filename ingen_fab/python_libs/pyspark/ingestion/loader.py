@@ -9,7 +9,7 @@ from datetime import datetime, timedelta
 from typing import List, Optional, Tuple
 
 from pyspark.sql import DataFrame, SparkSession
-from pyspark.sql.functions import col, row_number
+from pyspark.sql.functions import col, row_number, lit, current_timestamp
 from pyspark.sql.window import Window
 
 from ingen_fab.python_libs.common.load_resource_batch_schema import get_load_resource_batch_schema
@@ -119,7 +119,7 @@ class FileLoader:
             window_spec = Window.partitionBy("load_batch_id").orderBy(col("started_at").desc())
 
             stale_batches_df = (
-                self.spark.table("log_resource_load_batch")
+                self.lakehouse.read_table("log_resource_load_batch")
                 .filter(col("source_name") == self.config.source_name)
                 .filter(col("resource_name") == self.config.resource_name)
                 .withColumn("rn", row_number().over(window_spec))
@@ -160,9 +160,8 @@ class FileLoader:
                         None,                                     # 21. data_read_duration_ms
                         None,                                     # 22. total_duration_ms
                         "Recovered from stale processing state",  # 23. error_message
-                        None,                                     # 24. error_details
-                        None,                                     # 25. execution_duration_seconds
-                        None,                                     # 26. filename_attributes_json
+                        None,                                     # 24. execution_duration_seconds
+                        None,                                     # 25. filename_attributes_json
                         now,                                      # 27. started_at
                         now,                                      # 28. updated_at
                         None,                                     # 29. completed_at
@@ -171,7 +170,11 @@ class FileLoader:
 
                     recovery_df = self.spark.createDataFrame(recovery_data, get_load_resource_batch_schema())
 
-                    recovery_df.write.mode("append").saveAsTable("log_resource_load_batch")
+                    self.lakehouse.write_to_table(
+                        df=recovery_df,
+                        table_name="log_resource_load_batch",
+                        mode="append",
+                    )
                     logger.info(f"Reset batch {row.load_batch_id if hasattr(row, 'load_batch_id') else row.load_id} to pending")
             else:
                 logger.info("No stale batches found")
@@ -218,18 +221,21 @@ class FileLoader:
             None,                                     # 21. data_read_duration_ms
             None,                                     # 22. total_duration_ms
             None,                                     # 23. error_message
-            None,                                     # 24. error_details
-            None,                                     # 25. execution_duration_seconds
-            None,                                     # 26. filename_attributes_json
-            now,                                      # 27. started_at
-            now,                                      # 28. updated_at
-            None,                                     # 29. completed_at
-            1,                                        # 30. attempt_count
+            None,                                     # 24. execution_duration_seconds
+            None,                                     # 25. filename_attributes_json
+            now,                                      # 26. started_at
+            now,                                      # 27. updated_at
+            None,                                     # 28. completed_at
+            1,                                        # 29. attempt_count
         )]
 
         log_df = self.spark.createDataFrame(log_data, get_load_resource_batch_schema())
 
-        log_df.write.mode("append").saveAsTable("log_resource_load_batch")
+        self.lakehouse.write_to_table(
+            df=log_df,
+            table_name="log_resource_load_batch",
+            mode="append",
+        )
         logger.debug(f"Started batch {batch_info.batch_id}")
 
     def _complete_batch(self, batch_info: BatchInfo, metrics: ProcessingMetrics) -> None:
@@ -250,28 +256,38 @@ class FileLoader:
 
         # UPDATE existing row with completion metrics
         # Use partition keys (source_name, resource_name) for partition isolation
-        update_query = f"""
-            UPDATE log_resource_load_batch
-            SET
-                status = 'completed',
-                records_processed = {metrics.records_processed or 0},
-                records_inserted = {metrics.records_inserted or 0},
-                records_updated = {metrics.records_updated or 0},
-                records_deleted = {metrics.records_deleted or 0},
-                source_row_count = {metrics.source_row_count or 0},
-                target_row_count_before = {metrics.target_row_count_before or 0},
-                target_row_count_after = {metrics.target_row_count_after or 0},
-                row_count_reconciliation_status = {f"'{metrics.row_count_reconciliation_status}'" if metrics.row_count_reconciliation_status else 'NULL'},
-                data_read_duration_ms = {metrics.read_duration_ms or 'NULL'},
-                total_duration_ms = {metrics.total_duration_ms or 'NULL'},
-                execution_duration_seconds = {execution_duration_seconds or 'NULL'},
-                updated_at = CURRENT_TIMESTAMP(),
-                completed_at = CURRENT_TIMESTAMP()
-            WHERE load_batch_id = '{batch_info.batch_id}'
-              AND source_name = '{self.config.source_name}'
-              AND resource_name = '{self.config.resource_name}'
-        """
-        self.spark.sql(update_query)
+        set_values = {
+            "status": lit("completed"),
+            "records_processed": lit(metrics.records_processed or 0),
+            "records_inserted": lit(metrics.records_inserted or 0),
+            "records_updated": lit(metrics.records_updated or 0),
+            "records_deleted": lit(metrics.records_deleted or 0),
+            "source_row_count": lit(metrics.source_row_count or 0),
+            "target_row_count_before": lit(metrics.target_row_count_before or 0),
+            "target_row_count_after": lit(metrics.target_row_count_after or 0),
+            "updated_at": current_timestamp(),
+            "completed_at": current_timestamp(),
+        }
+
+        # Add optional fields only if they have values
+        if metrics.row_count_reconciliation_status:
+            set_values["row_count_reconciliation_status"] = lit(metrics.row_count_reconciliation_status)
+        if metrics.read_duration_ms:
+            set_values["data_read_duration_ms"] = lit(metrics.read_duration_ms)
+        if metrics.total_duration_ms:
+            set_values["total_duration_ms"] = lit(metrics.total_duration_ms)
+        if execution_duration_seconds:
+            set_values["execution_duration_seconds"] = lit(execution_duration_seconds)
+
+        self.lakehouse.update_table(
+            table_name="log_resource_load_batch",
+            condition=(
+                (col("load_batch_id") == batch_info.batch_id) &
+                (col("source_name") == self.config.source_name) &
+                (col("resource_name") == self.config.resource_name)
+            ),
+            set_values=set_values,
+        )
 
         logger.debug(f"Completed batch {batch_info.batch_id} - files remain in {self.config.raw_landing_path}")
 
@@ -283,22 +299,24 @@ class FileLoader:
             batch_info: Batch that failed
             error: Exception that caused the failure
         """
-        error_message = str(error).replace("'", "''")  # Escape single quotes for SQL
+        error_message = str(error)
 
         # UPDATE existing row with failure status
         # Use partition keys (source_name, resource_name) for partition isolation
-        update_query = f"""
-            UPDATE log_resource_load_batch
-            SET
-                status = 'failed',
-                error_message = '{error_message}',
-                updated_at = CURRENT_TIMESTAMP(),
-                completed_at = CURRENT_TIMESTAMP()
-            WHERE load_batch_id = '{batch_info.batch_id}'
-              AND source_name = '{self.config.source_name}'
-              AND resource_name = '{self.config.resource_name}'
-        """
-        self.spark.sql(update_query)
+        self.lakehouse.update_table(
+            table_name="log_resource_load_batch",
+            condition=(
+                (col("load_batch_id") == batch_info.batch_id) &
+                (col("source_name") == self.config.source_name) &
+                (col("resource_name") == self.config.resource_name)
+            ),
+            set_values={
+                "status": lit("failed"),
+                "error_message": lit(error_message),
+                "updated_at": current_timestamp(),
+                "completed_at": current_timestamp(),
+            },
+        )
 
         # Move files from landing to quarantine
         landing_base = self.config.raw_landing_path.rstrip('/')

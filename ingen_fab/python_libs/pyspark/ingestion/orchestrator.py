@@ -88,14 +88,6 @@ class FileLoadingOrchestrator:
         self.logger_instance = logger_instance
         self.max_concurrency = max_concurrency
 
-        # Configure logging if not already configured
-        if not logging.getLogger().handlers:
-            logging.basicConfig(
-                level=logging.INFO,
-                format='%(levelname)s - %(message)s',
-                force=True
-            )
-
     def process_resources(
         self,
         configs: List[ResourceConfig],

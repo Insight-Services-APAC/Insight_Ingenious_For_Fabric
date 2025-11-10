@@ -3,6 +3,7 @@
 
 import logging
 import os
+import re
 import time
 import uuid
 from collections import defaultdict
@@ -14,7 +15,6 @@ from pyspark.sql import DataFrame, SparkSession
 from pyspark.sql.functions import col, current_timestamp, lit
 
 from ingen_fab.python_libs.common.flat_file_ingestion_utils import (
-    ErrorHandlingUtils,
     ProcessingMetricsUtils,
 )
 from ingen_fab.python_libs.pyspark.ingestion.config import ResourceConfig
@@ -37,13 +37,27 @@ from ingen_fab.python_libs.pyspark.ingestion.results import (
 )
 from ingen_fab.python_libs.pyspark.lakehouse_utils import lakehouse_utils
 
-# Import warehouse utils for warehouse targets
-try:
-    from ingen_fab.python_libs.python.warehouse_utils import warehouse_utils
-except ImportError:
-    warehouse_utils = None  # type: ignore
-
 logger = logging.getLogger(__name__)
+
+
+# Context classes for cleaner method signatures
+class BatchContext:
+    """Groups batch-level processing context to reduce parameter count"""
+    def __init__(
+        self,
+        config: ResourceConfig,
+        execution_id: str,
+        load_run_id: str,
+        target_utils,
+        file_loader: 'FileLoader',
+        config_logger: logging.LoggerAdapter,
+    ):
+        self.config = config
+        self.execution_id = execution_id
+        self.load_run_id = load_run_id
+        self.target_utils = target_utils
+        self.file_loader = file_loader
+        self.config_logger = config_logger
 
 
 class LoadingOrchestrator:
@@ -58,7 +72,7 @@ class LoadingOrchestrator:
     - Loading step (raw → bronze)
     - Execution grouping and sequencing
     - Parallel processing within groups
-    - Target table writes (lakehouse or warehouse)
+    - Target table writes (lakehouse only)
     - State tracking and logging
     - Error handling
     - Metrics aggregation
@@ -86,7 +100,8 @@ class LoadingOrchestrator:
     def __init__(
         self,
         spark: SparkSession,
-        logger_instance: Optional[FileLoadingLogger] = None,
+        logger_instance: FileLoadingLogger,
+        log_lakehouse: lakehouse_utils,
         max_concurrency: int = 4,
     ):
         """
@@ -94,21 +109,14 @@ class LoadingOrchestrator:
 
         Args:
             spark: Spark session
-            logger_instance: Optional FileLoadingLogger instance for state tracking
-                           (if not provided, logging methods will be no-ops)
+            logger_instance: FileLoadingLogger instance for state tracking (required)
+            log_lakehouse: lakehouse_utils instance for log tables (log_resource_extract_batch, etc.)
             max_concurrency: Maximum number of parallel workers per group
         """
         self.spark = spark
         self.logger_instance = logger_instance
+        self.log_lakehouse = log_lakehouse
         self.max_concurrency = max_concurrency
-
-        # Configure logging if not already configured
-        if not logging.getLogger().handlers:
-            logging.basicConfig(
-                level=logging.INFO,
-                format='%(levelname)s - %(message)s',
-                force=True
-            )
 
     def process_resources(
         self,
@@ -281,7 +289,7 @@ class LoadingOrchestrator:
         target_utils = self._get_target_utils(config)
 
         # Log config execution start and capture load_run_id
-        load_run_id = self._log_config_execution_start(config, execution_id)
+        load_run_id = self.logger_instance.log_config_execution_start(config, execution_id)
 
         try:
             config_logger.info(f"Loading: {config.resource_name}")
@@ -301,13 +309,24 @@ class LoadingOrchestrator:
             if not discovered_batches:
                 config_logger.info("No files to process")
                 result.status = ExecutionStatus.NO_DATA
-                self._log_config_execution_completion(config, execution_id, load_run_id, result)
+                self.logger_instance.log_config_execution_completion(config, execution_id, load_run_id, result)
                 return result
 
             # Process batches one at a time
             total_batches = len(discovered_batches)
+
+            # Create batch context to simplify method signatures
+            batch_context = BatchContext(
+                config=config,
+                execution_id=execution_id,
+                load_run_id=load_run_id,
+                target_utils=target_utils,
+                file_loader=file_loader,
+                config_logger=config_logger,
+            )
+
             all_metrics, batches_processed, batches_failed = self._process_batches(
-                discovered_batches, config, execution_id, load_run_id, target_utils, file_loader, config_logger, total_batches
+                discovered_batches, batch_context, total_batches
             )
 
             # Update result with batch counts
@@ -318,33 +337,28 @@ class LoadingOrchestrator:
             self._finalize_result(result, all_metrics, config, start_time, config_logger)
 
             # Log config execution completion
-            self._log_config_execution_completion(config, execution_id, load_run_id, result)
+            self.logger_instance.log_config_execution_completion(config, execution_id, load_run_id, result)
 
         except (FileReadError, WriteError) as e:
             # Known loading errors - already have context
             result.status = ExecutionStatus.FAILED
             result.error_message = str(e)
             config_logger.exception(f"Loading failed: {e}")
-            self._log_config_execution_error(config, execution_id, load_run_id, str(e), result)
+            self.logger_instance.log_config_execution_error(config, execution_id, load_run_id, str(e), result)
 
         except Exception as e:
             # Unexpected error
             result.status = ExecutionStatus.FAILED
             result.error_message = str(e)
             config_logger.exception(f"Unexpected error in loading: {e}")
-            self._log_config_execution_error(config, execution_id, load_run_id, str(e), result)
+            self.logger_instance.log_config_execution_error(config, execution_id, load_run_id, str(e), result)
 
         return result
 
     def _process_batches(
         self,
         batches: List[BatchInfo],
-        config: ResourceConfig,
-        execution_id: str,
-        load_run_id: str,
-        target_utils,
-        file_loader: FileLoader,
-        config_logger: logging.LoggerAdapter,
+        ctx: BatchContext,
         total_batches: int,
     ) -> Tuple[List[ProcessingMetrics], int, int]:
         """
@@ -352,12 +366,8 @@ class LoadingOrchestrator:
 
         Args:
             batches: List of BatchInfo objects to process
-            config: ResourceConfig for this resource
-            execution_id: Unique execution identifier
-            load_run_id: Load run ID for this resource execution
-            target_utils: Lakehouse or warehouse utilities
-            file_loader: FileLoader instance for reading files
-            config_logger: Configured logger adapter
+            ctx: BatchContext with config, execution_id, load_run_id, target_utils, file_loader, config_logger
+            total_batches: Total number of batches to process
 
         Returns:
             Tuple of (all_metrics, batches_processed, batches_failed)
@@ -368,36 +378,57 @@ class LoadingOrchestrator:
 
         for batch_index, batch_info in enumerate(batches, start=1):
             try:
+                # Step 1: Mark batch as loading in extraction log
                 if batch_info.extract_batch_id:
                     self._update_load_state(
                         batch_info.extract_batch_id,
-                        config.source_name,
-                        config.resource_name,
+                        ctx.config.source_name,
+                        ctx.config.resource_name,
                         'loading'
                     )
 
-                file_loader._start_batch(batch_info, execution_id, load_run_id)
+                # Step 2: Mark batch as processing in load log
+                ctx.file_loader._start_batch(batch_info, ctx.execution_id, ctx.load_run_id)
 
-                df, read_metrics = file_loader.reader.read_batch(batch_info)
+                # Step 3: Read file into DataFrame
+                df, read_metrics = ctx.file_loader.reader.read_batch(batch_info)
 
-                combined_metrics = self._process_single_batch(
-                    batch_info, df, read_metrics, config, execution_id, load_run_id,
-                    target_utils, file_loader, config_logger, batch_index, total_batches
-                )
+                # Step 4: Add ingestion metadata to DataFrame
+                load_id = batch_info.batch_id
+                df = self._add_ingestion_metadata(df, load_id, batch_info, ctx.config)
 
-                # Complete batch lifecycle (mark as completed in logs, files stay in place)
-                file_loader._complete_batch(batch_info, combined_metrics)
+                # Step 5: Validate data (check for empty DataFrame)
+                if df.count() == 0:
+                    ctx.config_logger.warning(f"Loading batch {batch_index}/{total_batches}: 0 records - EMPTY (skipped)")
+                    self.logger_instance.log_batch_no_data(ctx.config, ctx.execution_id, ctx.load_run_id, load_id, batch_info)
+                    continue
 
-                # Update extraction log: mark as completed
+                # Step 6: Write DataFrame to target table
+                batch_start = time.time()
+                write_metrics = self._write_to_target(df, ctx.config, ctx.target_utils, ctx.config_logger)
+
+                # Step 7: Combine read and write metrics
+                combined_metrics = self._combine_metrics(read_metrics, write_metrics)
+
+                # Step 8: Mark batch as completed in load log
+                ctx.file_loader._complete_batch(batch_info, combined_metrics)
+
+                # Step 9: Mark batch as completed in extraction log
                 if batch_info.extract_batch_id:
                     self._update_load_state(
                         batch_info.extract_batch_id,
-                        config.source_name,
-                        config.resource_name,
+                        ctx.config.source_name,
+                        ctx.config.resource_name,
                         'completed'
                     )
 
-                # Track successful batch
+                # Step 10: Log progress and track successful batch
+                batch_duration = time.time() - batch_start
+                records_formatted = f"{combined_metrics.records_processed:,}"
+                ctx.config_logger.info(
+                    f"Loading batch {batch_index}/{total_batches}: {records_formatted} records ({batch_duration:.2f}s)"
+                )
+
                 if combined_metrics.records_processed > 0:
                     all_metrics.append(combined_metrics)
                     batches_processed += 1
@@ -407,85 +438,20 @@ class LoadingOrchestrator:
                 if batch_info.extract_batch_id:
                     self._update_load_state(
                         batch_info.extract_batch_id,
-                        config.source_name,
-                        config.resource_name,
+                        ctx.config.source_name,
+                        ctx.config.resource_name,
                         'failed'
                     )
 
                 # Handle batch error - mark as failed and move to quarantine
                 batches_failed += 1
-                file_loader._fail_batch(batch_info, error)
-                self._handle_batch_error(error, batch_info, config, execution_id, load_run_id, config_logger)
+                ctx.file_loader._fail_batch(batch_info, error)
+                self._handle_batch_error(error, batch_info, ctx.config_logger)
 
                 # Stop processing if any batch fails
                 raise
 
         return all_metrics, batches_processed, batches_failed
-
-    def _process_single_batch(
-        self,
-        batch_info: BatchInfo,
-        df: DataFrame,
-        read_metrics: ProcessingMetrics,
-        config: ResourceConfig,
-        execution_id: str,
-        load_run_id: str,
-        target_utils,
-        file_loader: FileLoader,
-        config_logger: logging.LoggerAdapter,
-        batch_index: int,
-        total_batches: int,
-    ) -> ProcessingMetrics:
-        """
-        Process a single batch - cleaner and more testable.
-
-        Args:
-            batch_info: Information about this batch
-            df: DataFrame to process
-            read_metrics: Metrics from file reading
-            config: Resource configuration
-            execution_id: Unique execution identifier
-            load_run_id: Load run ID for this resource execution
-            target_utils: Lakehouse or warehouse utilities
-            file_loader: FileLoader instance
-            config_logger: Configured logger adapter
-
-        Returns:
-            Combined ProcessingMetrics for this batch
-        """
-        batch_start = time.time()
-        load_id = batch_info.batch_id
-
-        # Log batch start (delegated to FileLoader now)
-        # self._log_batch_start(config, execution_id, load_run_id, load_id, batch_info)
-
-        # Add ingestion metadata
-        df = self._add_ingestion_metadata(df, load_id, batch_info, config)
-
-        # Validate data
-        if df.count() == 0:
-            config_logger.warning(f"Loading batch {batch_index}/{total_batches}: 0 records - EMPTY (skipped)")
-            # Log empty batch so it's not reprocessed on next run
-            self._log_batch_no_data(config, execution_id, load_run_id, load_id, batch_info)
-            return ProcessingMetrics()
-
-        # Write to target
-        write_metrics = self._write_to_target(df, config, target_utils, config_logger)
-
-        # Combine metrics
-        combined_metrics = self._combine_metrics(read_metrics, write_metrics)
-
-        # Log batch completion (delegated to FileLoader now)
-        # self._log_batch_completion(config, execution_id, load_run_id, load_id, combined_metrics, batch_info)
-
-        batch_duration = time.time() - batch_start
-        # Format numbers with commas
-        records_formatted = f"{combined_metrics.records_processed:,}"
-        config_logger.info(
-            f"Loading batch {batch_index}/{total_batches}: {records_formatted} records ({batch_duration:.2f}s)"
-        )
-
-        return combined_metrics
 
     def _combine_metrics(
         self,
@@ -505,6 +471,7 @@ class LoadingOrchestrator:
         return ProcessingMetrics(
             read_duration_ms=read_metrics.read_duration_ms,
             write_duration_ms=write_metrics.write_duration_ms,
+            total_duration_ms=read_metrics.read_duration_ms + write_metrics.write_duration_ms,
             records_processed=read_metrics.records_processed,
             records_inserted=write_metrics.records_inserted,
             records_updated=write_metrics.records_updated,
@@ -519,9 +486,6 @@ class LoadingOrchestrator:
         self,
         error: Exception,
         batch_info: BatchInfo,
-        config: ResourceConfig,
-        execution_id: str,
-        load_run_id: str,
         config_logger: logging.LoggerAdapter,
     ) -> None:
         """
@@ -530,9 +494,6 @@ class LoadingOrchestrator:
         Args:
             error: The exception that occurred
             batch_info: Information about the failed batch
-            config: Resource configuration
-            execution_id: Unique execution identifier
-            load_run_id: Load run ID for this resource execution
             config_logger: Configured logger adapter
         """
         load_id = batch_info.batch_id
@@ -543,9 +504,6 @@ class LoadingOrchestrator:
             config_logger.exception(f"Batch {load_id} write failed: {error_msg}")
         else:
             config_logger.exception(f"Batch {load_id} failed: {error_msg}")
-
-        # Log batch error to state tracking (delegated to FileLoader._fail_batch now)
-        # self._log_batch_error(config, execution_id, load_run_id, load_id, error_msg, batch_info)
 
     def _finalize_result(
         self,
@@ -585,9 +543,9 @@ class LoadingOrchestrator:
             result.status = ExecutionStatus.NO_DATA
 
     def _get_target_utils(self, config: ResourceConfig):
-        """Get target utilities (lakehouse or warehouse)"""
-        # Infer target type from target_lakehouse field
-        # (could also add explicit target_type field if needed)
+        """Get lakehouse utilities for target operations"""
+        # Currently only lakehouse targets are supported
+        # (warehouse support could be added in the future)
         return lakehouse_utils(
             target_workspace_name=config.target_workspace,
             target_lakehouse_name=config.target_lakehouse,
@@ -609,39 +567,24 @@ class LoadingOrchestrator:
         """
         try:
             # Check if log_resource_extract_batch table exists
-            try:
-                self.spark.sql("DESCRIBE TABLE log_resource_extract_batch")
-            except Exception:
+            if not self.log_lakehouse.check_if_table_exists("log_resource_extract_batch"):
                 logger.warning("Table 'log_resource_extract_batch' not found, no batches to load")
                 return []
 
             # Query for completed extractions ready for loading (using load_state)
             # This is the work queue pattern (like dlt's load_storage folders)
-            query = f"""
-                SELECT *
-                FROM log_resource_extract_batch
-                WHERE source_name = '{config.source_name}'
-                  AND resource_name = '{config.resource_name}'
-                  AND status = 'completed'
-                  AND load_state = 'pending'
-                ORDER BY completed_at ASC
-            """
-
-            extraction_df = self.spark.sql(query)
+            extraction_df = (
+                self.log_lakehouse.read_table("log_resource_extract_batch")
+                .filter(col("source_name") == config.source_name)
+                .filter(col("resource_name") == config.resource_name)
+                .filter(col("status") == "completed")
+                .filter(col("load_state") == "pending")
+                .orderBy(col("completed_at").asc())
+            )
             extraction_rows = extraction_df.collect()
 
             if not extraction_rows:
                 return []
-
-            # Get lakehouse utils for building full paths
-            source_workspace = config.source_config.connection_params.get("workspace_name")
-            source_lakehouse = config.source_config.connection_params.get("lakehouse_name")
-
-            lakehouse = lakehouse_utils(
-                target_workspace_name=source_workspace,
-                target_lakehouse_name=source_lakehouse,
-                spark=self.spark,
-            )
 
             # Convert extraction log rows to BatchInfo objects
             batches = []
@@ -699,17 +642,146 @@ class LoadingOrchestrator:
             new_state: New load_state ('loading', 'completed', 'failed')
         """
         try:
-            update_query = f"""
-                UPDATE log_resource_extract_batch
-                SET load_state = '{new_state}'
-                WHERE extract_batch_id = '{extract_batch_id}'
-                  AND source_name = '{source_name}'
-                  AND resource_name = '{resource_name}'
-            """
-            self.spark.sql(update_query)
+            self.log_lakehouse.update_table(
+                table_name="log_resource_extract_batch",
+                condition=(
+                    (col("extract_batch_id") == extract_batch_id) &
+                    (col("source_name") == source_name) &
+                    (col("resource_name") == resource_name)
+                ),
+                set_values={"load_state": lit(new_state)}
+            )
             logger.debug(f"Updated extraction {extract_batch_id} to load_state='{new_state}'")
         except Exception as e:
             logger.warning(f"Could not update load_state for {extract_batch_id}: {e}")
+
+    def _get_table_row_count(
+        self,
+        target_utils,
+        table_name: str,
+        schema_name: Optional[str],
+        config_logger: logging.LoggerAdapter,
+    ) -> int:
+        """
+        Get row count for a table, returning 0 if table doesn't exist.
+
+        Args:
+            target_utils: Lakehouse utilities
+            table_name: Name of the table
+            schema_name: Optional schema name
+            config_logger: Configured logger adapter
+
+        Returns:
+            Row count (0 if table doesn't exist)
+        """
+        try:
+            table_df = target_utils.read_table(table_name, schema_name=schema_name)
+            return table_df.count()
+        except Exception as e:
+            config_logger.debug(f"Table does not exist or cannot be read: {e}")
+            return 0
+
+    def _write_merge(
+        self,
+        df: DataFrame,
+        config: ResourceConfig,
+        target_utils,
+        config_logger: logging.LoggerAdapter,
+    ) -> ProcessingMetrics:
+        """
+        Write DataFrame using merge (upsert) mode.
+
+        Args:
+            df: Source DataFrame to merge
+            config: Resource configuration
+            target_utils: Lakehouse utilities
+            config_logger: Configured logger adapter
+
+        Returns:
+            ProcessingMetrics with merge results
+        """
+        metrics = ProcessingMetrics()
+
+        config_logger.info(f"Executing merge with keys: {config.merge_keys}")
+
+        merge_result = target_utils.merge_to_table(
+            df=df,
+            table_name=config.target_table,
+            merge_keys=config.merge_keys,
+            schema_name=config.target_schema,
+            immutable_columns=["_raw_created_at"],
+            enable_schema_evolution=config.enable_schema_evolution,
+            partition_by=config.partition_columns,
+            soft_delete_enabled=config.soft_delete_enabled,
+            cdc_config=config.cdc_config,
+        )
+
+        metrics.records_inserted = merge_result["records_inserted"]
+        metrics.records_updated = merge_result["records_updated"]
+        metrics.records_deleted = merge_result["records_deleted"]
+        metrics.target_row_count_before = merge_result["target_row_count_before"]
+        metrics.target_row_count_after = merge_result["target_row_count_after"]
+
+        return metrics
+
+    def _write_overwrite_or_append(
+        self,
+        df: DataFrame,
+        config: ResourceConfig,
+        target_utils,
+        config_logger: logging.LoggerAdapter,
+    ) -> ProcessingMetrics:
+        """
+        Write DataFrame using overwrite or append mode.
+
+        Args:
+            df: Source DataFrame to write
+            config: Resource configuration
+            target_utils: Lakehouse utilities
+            config_logger: Configured logger adapter
+
+        Returns:
+            ProcessingMetrics with write results
+        """
+        metrics = ProcessingMetrics()
+
+        # Get before count
+        metrics.target_row_count_before = self._get_table_row_count(
+            target_utils, config.target_table, config.target_schema, config_logger
+        )
+        config_logger.debug(f"Target table row count before write: {metrics.target_row_count_before}")
+
+        # Prepare write options
+        write_options = {}
+        if config.enable_schema_evolution:
+            write_options["mergeSchema"] = "true"
+
+        # Write data
+        target_utils.write_to_table(
+            df=df,
+            table_name=config.target_table,
+            schema_name=config.target_schema,
+            mode=config.write_mode,
+            options=write_options,
+            partition_by=config.partition_columns,
+        )
+
+        # Get after count
+        metrics.target_row_count_after = self._get_table_row_count(
+            target_utils, config.target_table, config.target_schema, config_logger
+        )
+        config_logger.debug(f"Target table row count after write: {metrics.target_row_count_after}")
+
+        # Calculate inserted/deleted
+        if config.write_mode == WriteMode.OVERWRITE:
+            metrics.records_inserted = metrics.target_row_count_after
+            metrics.records_deleted = metrics.target_row_count_before
+        elif config.write_mode == WriteMode.APPEND:
+            metrics.records_inserted = (
+                metrics.target_row_count_after - metrics.target_row_count_before
+            )
+
+        return metrics
 
     def _write_to_target(
         self,
@@ -718,76 +790,31 @@ class LoadingOrchestrator:
         target_utils,
         config_logger: logging.LoggerAdapter,
     ) -> ProcessingMetrics:
-        """Write DataFrame to target table"""
+        """
+        Write DataFrame to target table using configured write mode.
+
+        Delegates to specialized methods based on write mode:
+        - Merge: _write_merge()
+        - Overwrite/Append: _write_overwrite_or_append()
+
+        Args:
+            df: Source DataFrame to write
+            config: Resource configuration
+            target_utils: Lakehouse utilities
+            config_logger: Configured logger adapter
+
+        Returns:
+            ProcessingMetrics with write results and timing
+        """
         write_start = time.time()
-        metrics = ProcessingMetrics()
+        metrics = ProcessingMetrics()  # Initialize to ensure it's always defined for exception handler
 
         try:
-            # Handle merge mode
+            # Delegate to specialized write method based on mode
             if config.write_mode.lower() == WriteMode.MERGE:
-                config_logger.info(f"Executing merge with keys: {config.merge_keys}")
-
-                merge_result = target_utils.merge_to_table(
-                    df=df,
-                    table_name=config.target_table,
-                    merge_keys=config.merge_keys,
-                    schema_name=config.target_schema,
-                    immutable_columns=["_raw_created_at"],
-                    enable_schema_evolution=config.enable_schema_evolution,
-                    partition_by=config.partition_columns,
-                    soft_delete_enabled=config.soft_delete_enabled,
-                    cdc_config=config.cdc_config,
-                )
-
-                metrics.records_inserted = merge_result["records_inserted"]
-                metrics.records_updated = merge_result["records_updated"]
-                metrics.records_deleted = merge_result["records_deleted"]
-                metrics.target_row_count_before = merge_result["target_row_count_before"]
-                metrics.target_row_count_after = merge_result["target_row_count_after"]
-
+                metrics = self._write_merge(df, config, target_utils, config_logger)
             else:
-                # Standard write modes (overwrite, append)
-                # Get before count
-                try:
-                    existing_df = target_utils.read_table(config.target_table, schema_name=config.target_schema)
-                    metrics.target_row_count_before = existing_df.count()
-                    config_logger.debug(f"Target table row count before write: {metrics.target_row_count_before}")
-                except Exception as e:
-                    config_logger.debug(f"Table does not exist yet (before count): {e}")
-                    metrics.target_row_count_before = 0
-
-                # Prepare write options
-                write_options = {}
-                if config.enable_schema_evolution:
-                    write_options["mergeSchema"] = "true"
-
-                # Write data
-                target_utils.write_to_table(
-                    df=df,
-                    table_name=config.target_table,
-                    schema_name=config.target_schema,
-                    mode=config.write_mode,
-                    options=write_options,
-                    partition_by=config.partition_columns,
-                )
-
-                # Get after count
-                try:
-                    result_df = target_utils.read_table(config.target_table, schema_name=config.target_schema)
-                    metrics.target_row_count_after = result_df.count()
-                    config_logger.debug(f"Target table row count after write: {metrics.target_row_count_after}")
-                except Exception as e:
-                    config_logger.debug(f"Could not read table after write: {e}")
-                    metrics.target_row_count_after = 0
-
-                # Calculate inserted/deleted
-                if config.write_mode == WriteMode.OVERWRITE:
-                    metrics.records_inserted = metrics.target_row_count_after
-                    metrics.records_deleted = metrics.target_row_count_before
-                elif config.write_mode == WriteMode.APPEND:
-                    metrics.records_inserted = (
-                        metrics.target_row_count_after - metrics.target_row_count_before
-                    )
+                metrics = self._write_overwrite_or_append(df, config, target_utils, config_logger)
 
             write_end = time.time()
             metrics.write_duration_ms = int((write_end - write_start) * 1000)
@@ -833,7 +860,6 @@ class LoadingOrchestrator:
 
         # Add filename
         if batch_info.file_paths:
-            import os
             filename = os.path.basename(batch_info.file_paths[0])
             result_df = result_df.withColumn("_raw_filename", lit(filename))
 
@@ -882,7 +908,6 @@ class LoadingOrchestrator:
 
             try:
                 # Extract value using Python regex
-                import re
                 match = re.search(regex, file_path)
 
                 if match:
@@ -926,54 +951,3 @@ class LoadingOrchestrator:
 
         return df
 
-    # ========================================================================
-    # LOGGING METHODS (delegate to FileLoadingLogger if provided)
-    # ========================================================================
-
-    def _log_config_execution_start(self, config: ResourceConfig, execution_id: str) -> str:
-        """Log config execution start and return load_run_id"""
-        if self.logger_instance:
-            return self.logger_instance.log_config_execution_start(config, execution_id)
-        return str(uuid.uuid4())  # Generate ID even if no logger (for consistency)
-
-    def _log_config_execution_completion(
-        self, config: ResourceConfig, execution_id: str, load_run_id: str, result: ResourceExecutionResult
-    ) -> None:
-        """Log config execution completion"""
-        if self.logger_instance:
-            self.logger_instance.log_config_execution_completion(config, execution_id, load_run_id, result)
-
-    def _log_config_execution_error(
-        self, config: ResourceConfig, execution_id: str, load_run_id: str, error_msg: str, result: ResourceExecutionResult
-    ) -> None:
-        """Log config execution error"""
-        if self.logger_instance:
-            self.logger_instance.log_config_execution_error(config, execution_id, load_run_id, error_msg, result)
-
-    def _log_batch_start(
-        self, config: ResourceConfig, execution_id: str, load_run_id: str, load_id: str, batch_info
-    ) -> None:
-        """Log batch start"""
-        if self.logger_instance:
-            self.logger_instance.log_batch_start(config, execution_id, load_run_id, load_id, batch_info)
-
-    def _log_batch_completion(
-        self, config: ResourceConfig, execution_id: str, load_run_id: str, load_id: str, metrics: ProcessingMetrics, batch_info
-    ) -> None:
-        """Log batch completion"""
-        if self.logger_instance:
-            self.logger_instance.log_batch_completion(config, execution_id, load_run_id, load_id, metrics, batch_info)
-
-    def _log_batch_error(
-        self, config: ResourceConfig, execution_id: str, load_run_id: str, load_id: str, error_msg: str, batch_info
-    ) -> None:
-        """Log batch error"""
-        if self.logger_instance:
-            self.logger_instance.log_batch_error(config, execution_id, load_run_id, load_id, error_msg, batch_info)
-
-    def _log_batch_no_data(
-        self, config: ResourceConfig, execution_id: str, load_run_id: str, load_id: str, batch_info
-    ) -> None:
-        """Log batch with no data"""
-        if self.logger_instance:
-            self.logger_instance.log_batch_no_data(config, execution_id, load_run_id, load_id, batch_info)

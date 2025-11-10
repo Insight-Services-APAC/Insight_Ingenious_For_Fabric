@@ -4,7 +4,9 @@
       "Bash(find:*)",
       "mcp__ide__getDiagnostics",
       "WebSearch",
-      "WebFetch(domain:dlthub.com)"
+      "WebFetch(domain:dlthub.com)",
+      "Bash(git config:*)",
+      "Read(//home/dandical/.ssh/**)"
     ],
     "deny": [],
     "ask": []

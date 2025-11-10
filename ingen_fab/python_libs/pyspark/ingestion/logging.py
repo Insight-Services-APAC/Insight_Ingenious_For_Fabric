@@ -7,6 +7,7 @@ from datetime import datetime
 from typing import Optional
 
 from pyspark.sql import SparkSession
+from pyspark.sql.functions import col, lit, current_timestamp
 
 from ingen_fab.python_libs.common.load_resource_schema import (
     get_load_resource_schema,
@@ -259,7 +260,6 @@ class FileLoadingLogger:
                         None,                                 # data_read_duration_ms
                         None,                                 # total_duration_ms
                         None,                                 # error_message
-                        None,                                 # error_details
                         None,                                 # execution_duration_seconds
                         None,                                 # filename_attributes_json
                         now,                                  # started_at
@@ -279,29 +279,39 @@ class FileLoadingLogger:
                 )
             else:
                 # UPDATE existing row with final metrics (completed/failed/no_data/duplicate)
-                update_query = f"""
-                    UPDATE log_resource_load_batch
-                    SET
-                        status = '{status}',
-                        records_processed = {records_processed if records_processed is not None else 0},
-                        records_inserted = {records_inserted if records_inserted is not None else 0},
-                        records_updated = {records_updated if records_updated is not None else 0},
-                        records_deleted = {records_deleted if records_deleted is not None else 0},
-                        source_row_count = {source_row_count if source_row_count is not None else 0},
-                        target_row_count_before = {target_row_count_before if target_row_count_before is not None else 0},
-                        target_row_count_after = {target_row_count_after if target_row_count_after is not None else 0},
-                        row_count_reconciliation_status = '{row_count_reconciliation_status}',
-                        data_read_duration_ms = {data_read_duration_ms if data_read_duration_ms is not None else 'NULL'},
-                        total_duration_ms = {total_duration_ms if total_duration_ms is not None else 'NULL'},
-                        error_message = {'NULL' if error_message is None else f"'{error_message.replace(chr(39), chr(39) + chr(39))}'"},
-                        execution_duration_seconds = {execution_duration_seconds if execution_duration_seconds is not None else 'NULL'},
-                        updated_at = CURRENT_TIMESTAMP(),
-                        completed_at = CURRENT_TIMESTAMP()
-                    WHERE load_batch_id = '{load_id}'
-                      AND source_name = '{config.source_name}'
-                      AND resource_name = '{config.resource_name}'
-                """
-                self.spark.sql(update_query)
+                set_values = {
+                    "status": lit(status),
+                    "records_processed": lit(records_processed if records_processed is not None else 0),
+                    "records_inserted": lit(records_inserted if records_inserted is not None else 0),
+                    "records_updated": lit(records_updated if records_updated is not None else 0),
+                    "records_deleted": lit(records_deleted if records_deleted is not None else 0),
+                    "source_row_count": lit(source_row_count if source_row_count is not None else 0),
+                    "target_row_count_before": lit(target_row_count_before if target_row_count_before is not None else 0),
+                    "target_row_count_after": lit(target_row_count_after if target_row_count_after is not None else 0),
+                    "row_count_reconciliation_status": lit(row_count_reconciliation_status),
+                    "updated_at": current_timestamp(),
+                    "completed_at": current_timestamp(),
+                }
+
+                # Add optional fields only if they have values
+                if data_read_duration_ms is not None:
+                    set_values["data_read_duration_ms"] = lit(data_read_duration_ms)
+                if total_duration_ms is not None:
+                    set_values["total_duration_ms"] = lit(total_duration_ms)
+                if error_message is not None:
+                    set_values["error_message"] = lit(error_message)
+                if execution_duration_seconds is not None:
+                    set_values["execution_duration_seconds"] = lit(execution_duration_seconds)
+
+                self.lakehouse.update_table(
+                    table_name="log_resource_load_batch",
+                    condition=(
+                        (col("load_batch_id") == load_id) &
+                        (col("source_name") == config.source_name) &
+                        (col("resource_name") == config.resource_name)
+                    ),
+                    set_values=set_values,
+                )
 
         except Exception as e:
             logger.warning(f"Failed to log batch event ({status}): {e}")
@@ -435,7 +445,6 @@ class FileLoadingLogger:
                         None,                                 # records_deleted
                         None,                                 # total_duration_ms
                         None,                                 # error_message
-                        None,                                 # error_details
                         now,                                  # started_at
                         now,                                  # updated_at
                         None,                                 # completed_at (NULL for running)
@@ -452,27 +461,35 @@ class FileLoadingLogger:
                 )
             else:
                 # UPDATE existing row with final metrics (completed/failed/no_data)
-                update_query = f"""
-                    UPDATE log_resource_load
-                    SET
-                        status = '{status}',
-                        files_discovered = {files_discovered},
-                        files_processed = {files_processed},
-                        files_failed = {files_failed},
-                        files_skipped = {files_skipped},
-                        records_processed = {records_processed if records_processed is not None else 0},
-                        records_inserted = {records_inserted if records_inserted is not None else 0},
-                        records_updated = {records_updated if records_updated is not None else 0},
-                        records_deleted = {records_deleted if records_deleted is not None else 0},
-                        total_duration_ms = {total_duration_ms if total_duration_ms is not None else 'NULL'},
-                        error_message = {'NULL' if error_message is None else f"'{error_message.replace(chr(39), chr(39) + chr(39))}'"},
-                        updated_at = CURRENT_TIMESTAMP(),
-                        completed_at = CURRENT_TIMESTAMP()
-                    WHERE load_run_id = '{load_run_id}'
-                      AND source_name = '{config.source_name}'
-                      AND resource_name = '{config.resource_name}'
-                """
-                self.spark.sql(update_query)
+                set_values = {
+                    "status": lit(status),
+                    "files_discovered": lit(files_discovered),
+                    "files_processed": lit(files_processed),
+                    "files_failed": lit(files_failed),
+                    "files_skipped": lit(files_skipped),
+                    "records_processed": lit(records_processed if records_processed is not None else 0),
+                    "records_inserted": lit(records_inserted if records_inserted is not None else 0),
+                    "records_updated": lit(records_updated if records_updated is not None else 0),
+                    "records_deleted": lit(records_deleted if records_deleted is not None else 0),
+                    "updated_at": current_timestamp(),
+                    "completed_at": current_timestamp(),
+                }
+
+                # Add optional fields only if they have values
+                if total_duration_ms is not None:
+                    set_values["total_duration_ms"] = lit(total_duration_ms)
+                if error_message is not None:
+                    set_values["error_message"] = lit(error_message)
+
+                self.lakehouse.update_table(
+                    table_name="log_resource_load",
+                    condition=(
+                        (col("load_run_id") == load_run_id) &
+                        (col("source_name") == config.source_name) &
+                        (col("resource_name") == config.resource_name)
+                    ),
+                    set_values=set_values,
+                )
 
             # Return the load_run_id (either newly generated or passed in)
             return load_run_id

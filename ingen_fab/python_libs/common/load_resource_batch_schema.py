@@ -56,7 +56,6 @@ def get_load_resource_batch_schema() -> StructType:
             StructField("total_duration_ms", LongType(), nullable=True),
             # Error tracking
             StructField("error_message", StringType(), nullable=True),
-            StructField("error_details", StringType(), nullable=True),
             StructField("execution_duration_seconds", IntegerType(), nullable=True),
             # Metadata
             StructField(

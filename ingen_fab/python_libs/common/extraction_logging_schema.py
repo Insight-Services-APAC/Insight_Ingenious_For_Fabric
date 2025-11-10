@@ -61,7 +61,6 @@ def get_extraction_batch_schema() -> StructType:
             StructField("duration_ms", LongType(), nullable=True),  # Extraction duration
             # Error tracking
             StructField("error_message", StringType(), nullable=True),
-            StructField("error_details", StringType(), nullable=True),
         ]
     )
 

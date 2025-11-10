@@ -40,7 +40,6 @@ def get_extraction_run_schema() -> StructType:
             StructField("duration_ms", LongType(), nullable=True),  # Total extraction time
             # Error tracking
             StructField("error_message", StringType(), nullable=True),
-            StructField("error_details", StringType(), nullable=True),
             # Timestamp tracking (append-only pattern)
             StructField(
                 "started_at", TimestampType(), nullable=False

@@ -607,6 +607,43 @@ class lakehouse_utils(DataStoreInterface):
         after_count = delta_table.toDF().count()
         return before_count - after_count
 
+    def update_table(
+        self,
+        table_name: str,
+        set_values: dict[str, Any],
+        condition: Any,
+        schema_name: str | None = None,
+    ) -> None:
+        """
+        Update rows in a Delta table matching a condition.
+
+        Args:
+            table_name: Name of the table
+            set_values: Dictionary of column->value pairs (supports lit() expressions from pyspark.sql.functions)
+            condition: Filter condition (Column expression from pyspark.sql.functions, e.g., col("id") == "123")
+            schema_name: Optional schema name (prepended with underscore)
+
+        Example:
+            from pyspark.sql.functions import col, lit
+
+            lakehouse.update_table(
+                table_name="log_resource_extract_batch",
+                condition=(
+                    (col("extract_batch_id") == "abc-123") &
+                    (col("source_name") == "my_source")
+                ),
+                set_values={"load_state": lit("completed")}
+            )
+        """
+        # Handle schema_name same as other methods
+        table_full_name = table_name
+        if schema_name:
+            table_full_name = f"{schema_name}_{table_name}"
+
+        table_path = f"{self.lakehouse_tables_uri()}{table_full_name}"
+        delta_table = DeltaTable.forPath(self.spark, table_path)
+        delta_table.update(condition=condition, set=set_values)
+
     def rename_table(
         self,
         old_table_name: str,
