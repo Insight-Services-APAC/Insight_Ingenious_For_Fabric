@@ -170,7 +170,7 @@
 
 .md-typeset table:not([class]) th {
   background-color: var(--md-primary-fg-color);
-  color: white;
+  color:  #212121;
   font-weight: 600;
 }
 

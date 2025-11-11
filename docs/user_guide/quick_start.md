@@ -18,22 +18,31 @@ Create a new project with the complete starter template:
 
 ```bash
 # Initialize the project with complete template
-ingen_fab init new --project-name "My First Fabric Project"
+ingen_fab init new --project-name "MyFirstProject"
 
-# Navigate to the created project
-cd "My First Fabric Project"
 ```
+
+!!! tip "Using Sample Project Template"
+    For a more comprehensive starting point with platform manifests and example configurations, add the `--with-samples` flag:
+    ```bash
+    ingen_fab init new --project-name "MyFirstProject" --with-samples
+    ```
+    This uses the `sample_project` template which includes pre-configured platform manifests for multiple environments.
 
 This creates the following structure with complete starter files:
 ```
 My First Fabric Project/
+├── dbt_project/                    # dbt project folder      
+│   ├── macros/                    # dbt macros
+│   ├── metaextracts/              # dbt metadata extracts
+│   ├── models/                    # dbt models
+│   ├── dbt_project.yml             # dbt project configuration
+│   └── README.md                   # initial README file
 ├── ddl_scripts/                    # Sample DDL scripts included
-│   ├── Lakehouses/Config/         # Python DDL scripts for Delta tables
+│   ├── Lakehouses/                # Python DDL scripts for Delta tables
 │   └── Warehouses/               # SQL DDL scripts for warehouses
-│       ├── Config_WH/            # Config warehouse scripts
-│       └── Sample_WH/            # Sample warehouse scripts
 ├── fabric_workspace_items/        # Complete Fabric workspace structure
-│   ├── config/var_lib.VariableLibrary/  # Pre-configured variable library
+│   ├── config/                    # Pre-configured variable library
 │   ├── lakehouses/                # Sample lakehouse definitions
 │   └── warehouses/                # Sample warehouse definitions
 ├── platform_manifest_*.yml       # Environment deployment tracking
@@ -49,17 +58,13 @@ Set up environment variables and configure your workspace details:
 $env:FABRIC_ENVIRONMENT = "development"
 
 # Set workspace directory 
-$env:FABRIC_WORKSPACE_REPO_DIR = "My Fabric Project"
+$env:FABRIC_WORKSPACE_REPO_DIR = "MyFirstProject"
 ```
 
 Now edit the development environment variables:
 
-```bash
-vim fabric_workspace_items/config/var_lib.VariableLibrary/valueSets/development.json
-```
-
 Replace the placeholder values with your actual workspace IDs:
-Note: You can modify lakehouse and wearhouse names as needed. To do that, variable names must match the names under variables.json file. ** Do not modify config lakehouse/wearhouse names **
+Note: You can modify lakehouse and warehouse names as needed. To do that, variable names must match the names under variables.json file. ** Do not modify config lakehouse/warehouse names **
 
 
 ```json
@@ -120,6 +125,8 @@ The sample scripts create a customer table and insert sample data. You can:
 
 Transform your DDL scripts into executable notebooks:
 
+💡Remember to set your environment variables first.
+
 ```bash
 # Generate notebooks for lakehouses
 ingen_fab ddl compile \
@@ -142,8 +149,15 @@ This creates orchestrator notebooks in `fabric_workspace_items/ddl_scripts/` tha
 Deploy your project to your Fabric workspace:
 
 ```bash
-# Deploy to development environment
+# Deploy to whichever environment is set using your environment variables
 ingen_fab deploy deploy
+```
+
+Deploy python libraries:
+
+```bash
+# Deploy python libraries - these libraries are required for ddl script execution
+ingen_fab deploy upload-python-libs
 ```
 
 !!! note "Authentication Required"
@@ -249,9 +263,10 @@ export AZURE_CLIENT_SECRET="your-client-secret"
 **DDL scripts fail to execute:**
 - Check that your workspace and lakehouse IDs are correct
 - Ensure your DDL scripts have valid syntax
+- Check that you have deployed your python libraries
 - Review the execution logs in the Fabric notebook output
 
-**Notebooks not generated:**
+**DDL Notebooks not generated:**
 - Verify that your DDL scripts are in the correct directory structure
 - Check that file names start with numbers (001_, 002_, etc.)
 - Ensure scripts have proper file extensions (.py or .sql)
@@ -261,7 +276,6 @@ export AZURE_CLIENT_SECRET="your-client-secret"
 - Use `ingen_fab --help` for command-specific help
 - Check the [Examples](../examples/index.md) for more complex scenarios
 - Review the [Workflows](workflows.md) for best practices
-- Use the sample_project/ directory for hands-on learning
 
 !!! success "Congratulations!"
     You've successfully created and deployed your first Fabric project! You're now ready to build more complex data solutions with the Ingenious Fabric Accelerator.

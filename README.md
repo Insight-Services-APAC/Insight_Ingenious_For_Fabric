@@ -192,6 +192,7 @@ ingen_fab ddl ddls-from-metadata --lakehouse lh_silver2
 ingen_fab ddl ddls-from-metadata --lakehouse lh_silver2 --table customer_data
 ingen_fab ddl ddls-from-metadata --lakehouse lh_silver2 --no-sequence-numbers
 ingen_fab ddl ddls-from-metadata --lakehouse lh_silver2 --subdirectory custom_scripts
+ingen_fab ddl ddls-from-metadata --lakehouse lh_silver2 --metadata-file custom_metadata.csv
 
 # Compile flat file ingestion package for lakehouse
 ingen_fab package ingest compile --target-datastore lakehouse --include-samples
