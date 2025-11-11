@@ -131,6 +131,7 @@ else:
 # Inject Fabric variables from Variable Library value set
 SYNAPSE_DATASOURCE_NAME = "{% raw %}{{varlib:synapse_datasource_name}}{% endraw %}"
 SYNAPSE_DATASOURCE_LOCATION = "{% raw %}{{varlib:synapse_datasource_location}}{% endraw %}"
+SYNAPSE_EXTERNAL_TABLE_SCHEMA = "{% raw %}{{varlib:synapse_external_table_schema}}{% endraw %}"
 FABRIC_WORKSPACE_ID = "{% raw %}{{varlib:fabric_deployment_workspace_id}}{% endraw %}"
 FABRIC_LAKEHOUSE_ID = "{% raw %}{{varlib:config_lakehouse_id}}{% endraw %}"
 FABRIC_ENVIRONMENT = "{% raw %}{{varlib:fabric_environment}}{% endraw %}"
@@ -193,6 +194,7 @@ work_items = orchestrator.prepare_work_items(
     synapse_sync_fabric_pipeline_id = FABRIC_PIPELINE_ID,
     synapse_datasource_name = SYNAPSE_DATASOURCE_NAME,
     synapse_datasource_location = SYNAPSE_DATASOURCE_LOCATION,
+    synapse_external_table_schema = SYNAPSE_EXTERNAL_TABLE_SCHEMA,
     trigger_type=TRIGGER_TYPE,
     master_execution_parameters=MASTER_EXECUTION_PARAMETERS,
     work_items_json=None,  # None for daily mode
@@ -224,6 +226,7 @@ else:
             "synapse_sync_fabric_pipeline_id": wi.synapse_sync_fabric_pipeline_id,
             "synapse_datasource_name": wi.synapse_datasource_name,
             "synapse_datasource_location": wi.synapse_datasource_location,
+            "synapse_external_table_schema": wi.synapse_external_table_schema,
         }
         for wi in work_items
     ]
