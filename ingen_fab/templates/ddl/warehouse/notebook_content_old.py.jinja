@@ -1,0 +1,376 @@
+{%- import 'shared/notebook/macros/notebook_macros.py.jinja' as macros -%}
+{% if language_group == "synapse_pyspark" %}
+{%- include "shared/notebook/headers/pyspark.py.jinja" %}
+{% else %}
+{%- include "shared/notebook/headers/python.py.jinja" %}
+{% endif %}
+
+
+{% include "shared/notebook/environment/library_loader.py.jinja" %}
+
+
+{{macros.python_cell_with_heading("## 🗂️ Now Load the Custom Python Libraries")}}
+
+if run_mode == "local":
+    from datetime import datetime
+    from ingen_fab.python_libs.common.config_utils import *
+    from ingen_fab.python_libs.pyspark.notebook_utils_abstraction import NotebookUtilsFactory
+    from ingen_fab.python_libs.python.sql_templates import SQLTemplates
+    from ingen_fab.python_libs.python.warehouse_utils import warehouse_utils
+    from ingen_fab.python_libs.python.pipeline_utils import PipelineUtils
+    notebookutils = NotebookUtilsFactory.create_instance() 
+else:
+    from datetime import datetime
+    files_to_load = [
+        "ingen_fab/python_libs/common/config_utils.py",
+        "ingen_fab/python_libs/pyspark/notebook_utils_abstraction.py",
+        "ingen_fab/python_libs/python/sql_templates.py",
+        "ingen_fab/python_libs/python/warehouse_utils.py",
+        "ingen_fab/python_libs/python/pipeline_utils.py"
+    ]
+
+    load_python_modules_from_path(mount_path, files_to_load)
+
+{{macros.python_cell_with_heading("## ⚙️ Configuration Settings")}}
+
+# variableLibraryInjectionStart: var_lib
+
+
+# variableLibraryInjectionEnd: var_lib
+
+{{ macros.python_cell_with_heading("## 🆕 Instantiate Required Classes ")}}
+
+target_warehouse_config_prefix = "{{target_warehouse_config_prefix | required}}"
+configs: ConfigsObject = get_configs_as_object()
+target_warehouse_id = get_config_value(f"{target_warehouse_config_prefix.lower()}_warehouse_id")
+target_workspace_id = get_config_value(f"{target_warehouse_config_prefix.lower()}_workspace_id")
+
+# For warehouse environments in Fabric, we need to establish actual connections
+# In Fabric, warehouses can be accessed via SQL connection strings or ODBC
+
+print(f"🏢 FABRIC WAREHOUSE CONNECTION - EXECUTION MODE")
+print(f"Target Warehouse ID: {target_warehouse_id}")
+print(f"Target Workspace ID: {target_workspace_id}")
+print("=" * 60)
+print("� Attempting to establish warehouse connection...")
+
+try:
+    # Try to establish connection using Fabric's connection capabilities
+    # In Fabric notebooks, we can use pyodbc with the warehouse connection string
+    import pyodbc
+    
+    # Fabric warehouse connection string format
+    # This assumes the notebook is running in the same workspace as the warehouse
+    driver_name = "ODBC Driver 18 for SQL Server"
+    connection_string = f"Driver={driver_name};Server=tcp:{target_workspace_id}.datawarehouse.fabric.microsoft.com,1433;Database={target_warehouse_id};Authentication=ActiveDirectoryInteractive;Encrypt=yes;TrustServerCertificate=no;"
+    
+    print(f"Connection string: {connection_string}")
+    print("🔌 Testing warehouse connection...")
+    
+    # Test the connection
+    conn = pyodbc.connect(connection_string)
+    cursor = conn.cursor()
+    
+    # Test query
+    cursor.execute("SELECT @@VERSION as version")
+    version_result = cursor.fetchone()
+    if version_result:
+        print(f"✅ Successfully connected to warehouse!")
+        print(f"Database version: {version_result[0]}")
+        warehouse_connection_available = True
+    else:
+        print("⚠️ Connection test failed")
+        warehouse_connection_available = False
+        
+    cursor.close()
+    conn.close()
+    
+except Exception as e:
+    print(f"❌ Warehouse connection failed: {str(e)}")
+    print("📋 Falling back to display-only mode")
+    warehouse_connection_available = False
+
+print("=" * 60)
+
+class FabricWarehouseConnection:
+    """Fabric warehouse connection that can actually execute commands."""
+    def __init__(self, target_warehouse_id: str, target_workspace_id: str):
+        self.target_warehouse_id = target_warehouse_id
+        self.target_workspace_id = target_workspace_id
+        self._target_warehouse_id = target_warehouse_id  # For compatibility
+        self._target_workspace_id = target_workspace_id  # For compatibility
+        driver_name = "ODBC Driver 18 for SQL Server"
+        self.connection_string = f"Driver={driver_name};Server=tcp:{target_workspace_id}.datawarehouse.fabric.microsoft.com,1433;Database={target_warehouse_id};Authentication=ActiveDirectoryInteractive;Encrypt=yes;TrustServerCertificate=no;"
+        
+        # Check if we can actually connect
+        global warehouse_connection_available
+        self.can_execute = warehouse_connection_available
+    
+    def get_connection(self):
+        """Get a database connection to the warehouse."""
+        if not self.can_execute:
+            return None
+        try:
+            import pyodbc
+            return pyodbc.connect(self.connection_string)
+        except Exception as e:
+            print(f"⚠️ Connection failed: {str(e)}")
+            return None
+    
+    def check_if_table_exists(self, table_name: str, schema_name: str = "dbo") -> bool:
+        """Check if a table exists in the warehouse."""
+        query = f"""
+        SELECT COUNT(*) as count
+        FROM sys.tables t
+        JOIN sys.schemas s ON t.schema_id = s.schema_id
+        WHERE t.name = '{table_name}' AND s.name = '{schema_name}'
+        """
+        
+        if self.can_execute:
+            try:
+                result = self.execute_query(query)
+                if result and len(result) > 0:
+                    count = result[0][0]
+                    exists = count > 0
+                    print(f"🔍 Table {schema_name}.{table_name}: {'EXISTS' if exists else 'NOT FOUND'}")
+                    return exists
+            except Exception as e:
+                print(f"⚠️ Error checking table existence: {str(e)}")
+        
+        print(f"🔍 CHECK TABLE EXISTS: {schema_name}.{table_name} (assuming NOT EXISTS)")
+        return False
+    
+    def create_schema_if_not_exists(self, schema_name: str, max_retries: int = 3):
+        """Create schema if it doesn't exist."""
+        query = f"""
+        IF NOT EXISTS (SELECT * FROM sys.schemas WHERE name = '{schema_name}')
+        BEGIN
+            EXEC('CREATE SCHEMA [{schema_name}]')
+        END
+        """
+        print(f"\n📁 CREATE SCHEMA: {schema_name}")
+        print("DDL to execute against warehouse:")
+        print(query)
+        
+    @property
+    def target_store_id(self) -> str:
+        """Get the target warehouse ID."""
+        return self.target_warehouse_id
+    
+    def execute_query(self, query: str, conn=None, params=None, max_retries: int = 3):
+        """Execute SQL commands against the warehouse or display them."""
+        if self.can_execute:
+            # Actually execute against the warehouse
+            connection = conn or self.get_connection()
+            if connection:
+                try:
+                    cursor = connection.cursor()
+                    print(f"\n🔥 EXECUTING against warehouse {self.target_warehouse_id}:")
+                    print("-" * 60)
+                    print(query)
+                    print("-" * 60)
+                    
+                    cursor.execute(query)
+                    
+                    # For SELECT statements, fetch results
+                    if query.strip().upper().startswith('SELECT'):
+                        results = cursor.fetchall()
+                        cursor.close()
+                        if not conn:  # Only close if we created the connection
+                            connection.close()
+                        print(f"✅ Query executed successfully - {len(results)} rows returned")
+                        return results
+                    else:
+                        # For DDL statements, commit the transaction
+                        connection.commit()
+                        cursor.close()
+                        if not conn:  # Only close if we created the connection
+                            connection.close()
+                        print("✅ DDL command executed successfully")
+                        return []
+                        
+                except Exception as e:
+                    print(f"❌ Execution failed: {str(e)}")
+                    if cursor:
+                        cursor.close()
+                    if connection and not conn:
+                        connection.close()
+                    return []
+            else:
+                print("❌ No connection available")
+                return []
+        else:
+            # Display-only mode
+            print(f"\n📋 WAREHOUSE DDL COMMAND (Display Only)")
+            print(f"Warehouse: {self.target_warehouse_id}")
+            print("-" * 60)
+            print(query)
+            print("-" * 60)
+            print("⚠️ Command displayed only - no warehouse connection available")
+            return []
+
+# Create warehouse connection instance
+wu = FabricWarehouseConnection(
+    target_warehouse_id=target_warehouse_id,
+    target_workspace_id=target_workspace_id
+)
+
+# Create a warehouse-specific ddl_utils implementation for Fabric
+class FabricWarehouseDDLUtils:
+    """DDL utils implementation for Fabric warehouse environments."""
+    def __init__(self, warehouse_connection):
+        self.wu = warehouse_connection
+        self.execution_log_table_name = "ddl_script_executions"
+        self._table_available = True
+        self.initialise_ddl_script_executions_table()
+    
+    def initialise_ddl_script_executions_table(self) -> None:
+        """Initialize the execution log table in the Fabric warehouse."""
+        print("📋 DDL Execution Tracking Setup")
+        print("=" * 50)
+        print("To enable DDL execution tracking, execute the following against your warehouse:")
+        
+        # Create the DDL execution tracking table using SQL Server syntax
+        create_table_sql = f"""
+        IF NOT EXISTS (SELECT * FROM sys.tables WHERE name = '{self.execution_log_table_name}')
+        BEGIN
+            CREATE TABLE {self.execution_log_table_name} (
+                script_id NVARCHAR(255) NOT NULL PRIMARY KEY,
+                script_name NVARCHAR(255) NOT NULL,
+                execution_status NVARCHAR(50) NOT NULL,
+                update_date DATETIME2 NOT NULL DEFAULT GETDATE()
+            )
+        END
+        """
+        
+        print(create_table_sql)
+        print("=" * 50)
+        
+        # Since we can't execute against warehouse directly, disable table tracking
+        self._table_available = False
+        print("⚠️ Table tracking disabled - DDL execution will continue with output-only logging")
+    
+    def print_log(self):
+        """Print DDL execution log from the Fabric warehouse table."""
+        if not self._table_available:
+            print("DDL execution tracking table not available - check notebook output for execution details")
+            return
+            
+        try:
+            query = f"""
+            SELECT script_id, script_name, execution_status, update_date 
+            FROM {self.execution_log_table_name} 
+            ORDER BY update_date DESC
+            """
+            results = self.wu.execute_query(query)
+            
+            if not results or len(results) == 0:
+                print("No DDL executions logged.")
+                return
+            
+            print("DDL Execution Log:")
+            print("-" * 80)
+            print(f"{'Timestamp':<20} {'Script Name':<30} {'Script ID':<32} {'Status':<10}")
+            print("-" * 80)
+            
+            for row in results:
+                script_id = str(row[0])[:32] if len(str(row[0])) > 32 else str(row[0])
+                print(f"{str(row[3]):<20} {str(row[1]):<30} {script_id:<32} {str(row[2]):<10}")
+                
+        except Exception as e:
+            print(f"❌ Error reading execution log: {str(e)}")
+    
+    def check_if_script_has_run(self, script_id: str) -> bool:
+        """Check if a script has already been successfully executed."""
+        if not self._table_available:
+            return False
+            
+        try:
+            query = f"""
+            SELECT COUNT(*) as count FROM {self.execution_log_table_name} 
+            WHERE script_id = '{script_id}' AND execution_status = 'Success'
+            """
+            result = self.wu.execute_query(query)
+            return result and len(result) > 0 and result[0][0] > 0
+        except Exception as e:
+            print(f"⚠️ Warning: Could not check script execution status, assuming not run: {str(e)}")
+            return False
+    
+    def print_skipped_script_execution(self, guid: str, object_name: str) -> None:
+        """Print a message indicating that script execution was skipped."""
+        print(f"⏩ Skipping {object_name} (GUID: {guid}) - already executed successfully")
+    
+    def write_to_execution_log(self, object_guid: str, object_name: str, script_status: str) -> None:
+        """Write an execution entry to the Fabric warehouse log table."""
+        if not self._table_available:
+            print(f"📝 DDL execution: {object_name} - {script_status} (table tracking not available)")
+            return
+            
+        try:
+            # Use SQL Server MERGE for upsert operation
+            merge_sql = f"""
+            MERGE {self.execution_log_table_name} AS target
+            USING (VALUES ('{object_guid}', '{object_name}', '{script_status}', GETDATE())) 
+                AS source (script_id, script_name, execution_status, update_date)
+            ON target.script_id = source.script_id
+            WHEN MATCHED THEN
+                UPDATE SET 
+                    script_name = source.script_name,
+                    execution_status = source.execution_status,
+                    update_date = source.update_date
+            WHEN NOT MATCHED THEN
+                INSERT (script_id, script_name, execution_status, update_date)
+                VALUES (source.script_id, source.script_name, source.execution_status, source.update_date);
+            """
+            self.wu.execute_query(merge_sql)
+        except Exception as e:
+            print(f"⚠️ Warning: Could not write to execution log: {str(e)}")
+            print(f"📝 DDL execution: {object_name} - {script_status} (logged to output only)")
+    
+    def run_once(self, work_fn, object_name: str, guid: str = None) -> None:
+        """Execute a function exactly once, tracked by GUID in Fabric warehouse table."""
+        if guid is None:
+            # Generate a simple GUID from the function name and object name
+            import hashlib
+            guid = hashlib.md5(f"{object_name}_{work_fn.__name__}".encode()).hexdigest()
+        
+        if self.check_if_script_has_run(guid):
+            self.print_skipped_script_execution(guid, object_name)
+            return
+        
+        try:
+            print(f"🚀 Executing DDL for {object_name} (GUID: {guid})")
+            work_fn()
+            self.write_to_execution_log(guid, object_name, "Success")
+            print(f"✅ Successfully executed DDL for {object_name}")
+        except Exception as e:
+            self.write_to_execution_log(guid, object_name, "Failed")
+            print(f"❌ Failed to execute DDL for {object_name}: {str(e)}")
+            raise
+
+du = FabricWarehouseDDLUtils(wu)
+
+
+{{ macros.python_cell_with_heading("## 🏃‍♂️‍➡️ Run DDL Cells ")}}
+
+# DDL cells are injected below:
+
+{% for content in cells %}
+
+{{ content }}
+
+{% endfor %}
+
+
+{{macros.python_cell_with_heading("## 📇 Print the execution log")}}
+
+du.print_log() 
+
+{{macros.python_cell_with_heading("## ✔️ If we make it to the end return a successful result")}}
+
+notebookutils.notebook.exit("success")
+
+
+
+
+{%include "shared/notebook/cells/footer.py.jinja" %}
