@@ -1,0 +1,75 @@
+version: 2
+sources:
+- name: bronze
+  description: ''
+  schema: lh_bronze
+  tables:
+  - name: cities
+    description: ''
+    columns:
+    - name: CityID
+      data_type: int
+      description: ''
+    - name: CityName
+      data_type: string
+      description: ''
+    - name: StateProvinceID
+      data_type: int
+      description: ''
+    - name: LatestRecordedPopulation
+      data_type: int
+      description: ''
+    - name: LastEditedBy
+      data_type: string
+      description: ''
+    - name: ValidFrom
+      data_type: timestamp
+      description: ''
+    - name: ValidTo
+      data_type: timestamp
+      description: ''
+  - name: countries
+    description: ''
+    columns:
+    - name: CountryID
+      data_type: int
+      description: ''
+    - name: CountryName
+      data_type: string
+      description: ''
+    - name: FormalName
+      data_type: string
+      description: ''
+    - name: IsoAlpha3Code
+      data_type: string
+      description: ''
+    - name: IsoNumericCode
+      data_type: string
+      description: ''
+    - name: CountryType
+      data_type: string
+      description: ''
+    - name: LatestRecordedPopulation
+      data_type: bigint
+      description: ''
+    - name: Continent
+      data_type: string
+      description: ''
+    - name: Region
+      data_type: string
+      description: ''
+    - name: Subregion
+      data_type: string
+      description: ''
+    - name: LastEditedBy
+      data_type: string
+      description: ''
+    - name: ValidFrom
+      data_type: timestamp
+      description: ''
+    - name: ValidTo
+      data_type: timestamp
+      description: ''
+    - name: HappinessIndex
+      data_type: int
+      description: ''
