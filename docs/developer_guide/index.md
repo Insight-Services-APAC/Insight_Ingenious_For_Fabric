@@ -2,6 +2,9 @@
 
 [Home](../index.md) > Developer Guide
 
+!!! warning "Documentation Status"
+    The documentation in this guide needs to be reviewed and updated.
+
 Welcome to the Developer Guide for the Ingenious Fabric Accelerator! This section is designed for developers who want to understand the architecture, extend functionality, or contribute to the project.
 
 ## Architecture Overview

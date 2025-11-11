@@ -104,9 +104,9 @@ After installation, configure your environment variables for the CLI:
 $env:FABRIC_ENVIRONMENT = "development"
 
 # Set workspace directory 
-$env:FABRIC_WORKSPACE_REPO_DIR = "My Fabric Project"
+$env:FABRIC_WORKSPACE_REPO_DIR = "dp"
 ```
-The above assumes your working in a project "My Fabric Project" in the development environment.
+The above assumes your working in a project "dp" in the development environment.
 
 ### Shell Configuration (Optional)
 
@@ -194,13 +194,13 @@ Now that you have the CLI installed, create your first project:
 
     ```bash
     # Create a new project
-    ingen_fab init new --project-name "MyFirstProject"
+    ingen_fab init new --project-name "dp"
 
     # Or create with sample configurations
-    ingen_fab init new --project-name "MyFirstProject" --with-samples
+    ingen_fab init new --project-name "dp" --with-samples
 
     # Set environment variables
-    export FABRIC_WORKSPACE_REPO_DIR="MyFirstProject"
+    export FABRIC_WORKSPACE_REPO_DIR="dp"
     export FABRIC_ENVIRONMENT="development"
     ```
 
@@ -208,13 +208,13 @@ Now that you have the CLI installed, create your first project:
 
     ```powershell
     # Create a new project
-    ingen_fab init new --project-name "MyFirstProject"
+    ingen_fab init new --project-name "dp"
 
     # Or create with sample configurations
-    ingen_fab init new --project-name "MyFirstProject" --with-samples
+    ingen_fab init new --project-name "dp" --with-samples
 
     # Set environment variables
-    $env:FABRIC_WORKSPACE_REPO_DIR = "MyFirstProject"
+    $env:FABRIC_WORKSPACE_REPO_DIR = "dp"
     $env:FABRIC_ENVIRONMENT = "development"
     ```
 

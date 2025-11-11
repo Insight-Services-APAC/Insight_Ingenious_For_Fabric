@@ -2,6 +2,9 @@
 
 [Home](../index.md) > Packages
 
+!!! warning "Documentation Status"
+    The documentation in this guide needs to be reviewed and updated.
+
 Welcome to the Packages documentation! This section provides comprehensive information about available packages and how to use them in your Microsoft Fabric projects.
 
 ## What are Packages?
@@ -159,7 +162,7 @@ All packages follow these standards:
 
 ## Support and Resources
 
-- **[CLI Reference](../user_guide/cli_reference.md#package)** - Complete command documentation
+- **[CLI Reference](../user_guide/cli_reference.md)** - Complete command documentation
 - **[Examples](../examples/index.md)** - Real-world usage scenarios
 - **[Troubleshooting](../guides/troubleshooting.md#package-issues)** - Common issues and solutions
 - **[Developer Guide](../developer_guide/packages.md)** - Package development guide

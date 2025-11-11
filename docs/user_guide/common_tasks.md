@@ -8,8 +8,8 @@ Quick, task-oriented commands with links to deeper docs.
 
 | Task | Command | Notes | Links |
 |----------|-------------|-----------|-----------|
-| Initialize a new project | `ingen_fab init new --project-name "My Project"` | Creates workspace repo layout and starter templates. Add `--with-samples` for sample project template | [Quick Start](quick_start.md), [Workspace Layout](../reference/workspace-layout.md) |
-| Configure workspace by name | `ingen_fab init workspace --workspace-name "My Workspace"` | Optionally create if missing with `-c` | [CLI Reference → init](cli_reference.md#init) |
+| Initialize a new project | `ingen_fab init new --project-name "dp"` | Creates workspace repo layout and starter templates. Add `--with-samples` for sample project template | [Quick Start](quick_start.md), [Workspace Layout](workspace_layout.md) |
+| Configure workspace by name | `ingen_fab init workspace --workspace-name "dp_dev"` | Optionally create if missing with `-c` | [CLI Reference → init](cli_reference.md#init) |
 | Extract lakehouse/warehouse metadata | `ingen_fab deploy get-metadata --target both -f csv -o ./artifacts/meta.csv` | Flexible filters via `--schema`, `--table` | [Deploy Guide](deploy_guide.md), [CLI Reference → deploy](cli_reference.md#deploy) |
 | Convert metadata for dbt project | `Ingen_fab dbt convert-metadata --dbt-project dbt_project` | Converts metadata into dbt wrapper format | [DBT Integration](dbt_integration.md) |
 | Generate dbt notebooks | `ingen_fab dbt create-notebooks -p my_dbt_project` | Automatically configures dbt profile, prompts for lakehouse selection | [DBT Integration](dbt_integration.md) |
@@ -24,8 +24,6 @@ Quick, task-oriented commands with links to deeper docs.
 | Compare metadata files | `ingen_fab deploy compare-metadata -f1 before.csv -f2 after.csv -o diff.json --format json` | Detects missing tables/columns, data type changes | [Deploy Guide](deploy_guide.md), [CLI Reference → deploy](cli_reference.md#deploy) |
 | Deploy to an environment | `ingen_fab deploy deploy` | Requires `FABRIC_WORKSPACE_REPO_DIR`, `FABRIC_ENVIRONMENT` | [Deploy Guide](deploy_guide.md), [CLI Reference → deploy](cli_reference.md#deploy) |
 | Upload python_libs to OneLake | `ingen_fab deploy upload-python-libs` | Performs variable injection during upload | [Deploy Guide](deploy_guide.md), [CLI Reference → deploy](cli_reference.md#deploy) |
-| Run local tests (python) | `export FABRIC_ENVIRONMENT=local && ingen_fab test local python` | Set environment to `local` | [CLI Reference → test](cli_reference.md#test) |
-| Run local tests (pyspark) | `export FABRIC_ENVIRONMENT=local && ingen_fab test local pyspark` | Requires local Spark | [CLI Reference → test](cli_reference.md#test) |
 
 ## DBT Profile Setup
 
