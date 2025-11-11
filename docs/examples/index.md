@@ -2,6 +2,9 @@
 
 [Home](../index.md) > Examples
 
+!!! warning "Documentation Status"
+    The documentation in this guide needs to be reviewed and updated.
+
 This section provides practical examples and real-world scenarios for using the Ingenious Fabric Accelerator. From simple getting-started examples to complex multi-environment deployments, these examples will help you understand how to use the tool effectively.
 
 ## Available Examples

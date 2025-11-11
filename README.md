@@ -92,7 +92,7 @@ See the [Developer Guide](docs/developer_guide/index.md) for complete developmen
 
 ```bash
 # Create a new Fabric workspace project
-ingen_fab init new --project-name "My Fabric Project"
+ingen_fab init new --project-name "dp"
 ```
 
 ### Set Environment Variables
@@ -103,7 +103,7 @@ Replace the values below with your specific workspace details:
 $env:FABRIC_ENVIRONMENT = "development"
 
 # Set workspace directory 
-$env:FABRIC_WORKSPACE_REPO_DIR = "My Fabric Project"
+$env:FABRIC_WORKSPACE_REPO_DIR = "dp"
 ```
 
 ### Generate DDL Notebooks

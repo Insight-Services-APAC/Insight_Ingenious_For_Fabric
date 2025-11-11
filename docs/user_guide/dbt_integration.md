@@ -169,7 +169,7 @@ ingen_fab dbt generate-schema-yml --dbt-project analytics_models --lakehouse lh_
 ingen_fab dbt generate-schema-yml -p data_mart --lakehouse lh_silver --layer marts --dbt-type snapshot
 ```
 
-#### Execute DBT Commands (Proxy)
+#### Execute DBT Commands (Proxy) (Requires Review)
 
 All standard dbt commands are available through the `ingen_fab dbt exec` proxy:
 

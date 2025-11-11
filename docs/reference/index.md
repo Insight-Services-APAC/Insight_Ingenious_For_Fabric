@@ -10,7 +10,7 @@ Complete reference documentation for the Ingenious Fabric Accelerator, including
 
 ## Structure Reference  
 
-- **[Workspace Layout](workspace-layout.md)** - Directory structure and file organization patterns
+- **[Workspace Layout](../user_guide/workspace_layout.md)** - Directory structure and file organization patterns
 
 ## Quick Reference
 
