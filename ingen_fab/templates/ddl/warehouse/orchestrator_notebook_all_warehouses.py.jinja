@@ -12,9 +12,9 @@
 
 if run_mode == "local":
     from ingen_fab.python_libs.common.config_utils import *
-    from ingen_fab.python_libs.python.lakehouse_utils import lakehouse_utils
-    from ingen_fab.python_libs.python.ddl_utils import ddl_utils
-    from ingen_fab.python_libs.python.notebook_utils_abstraction import NotebookUtilsFactory
+    from ingen_fab.python_libs.pyspark.lakehouse_utils import lakehouse_utils
+    from ingen_fab.python_libs.pyspark.ddl_utils import ddl_utils
+    from ingen_fab.python_libs.pyspark.notebook_utils_abstraction import NotebookUtilsFactory
     from ingen_fab.python_libs.python.sql_templates import SQLTemplates
     from ingen_fab.python_libs.python.warehouse_utils import warehouse_utils
     from ingen_fab.python_libs.python.pipeline_utils import PipelineUtils
@@ -22,9 +22,9 @@ if run_mode == "local":
 else:
     files_to_load = [
         "ingen_fab/python_libs/common/config_utils.py",
-        "ingen_fab/python_libs/python/lakehouse_utils.py",
-        "ingen_fab/python_libs/python/ddl_utils.py",
-        "ingen_fab/python_libs/python/notebook_utils_abstraction.py",
+        "ingen_fab/python_libs/pyspark/lakehouse_utils.py",
+        "ingen_fab/python_libs/pyspark/ddl_utils.py",
+        "ingen_fab/python_libs/pyspark/notebook_utils_abstraction.py",
         "ingen_fab/python_libs/python/sql_templates.py",
         "ingen_fab/python_libs/python/warehouse_utils.py",
         "ingen_fab/python_libs/python/pipeline_utils.py"
@@ -37,13 +37,13 @@ else:
 configs: ConfigsObject = get_configs_as_object()
 
 
-{{macros.python_cell_with_heading("## 🏃‍♂️‍➡️ Run All Lakehouse Orchestrators in Parallel")}}
+{{macros.python_cell_with_heading("## 🏃‍♂️‍➡️ Run All Warehouse Orchestrators in Parallel")}}
 
 
-# Define the lakehouses and their orchestrators
-lakehouses_to_run = [
-{%- for lakehouse in lakehouses %}
-    {'name': '{{ lakehouse.name }}', 'orchestrator': '{{ lakehouse.orchestrator_name }}'},
+# Define the warehouses and their orchestrators
+warehouses_to_run = [
+{%- for warehouse in warehouses %}
+    {'name': '{{ warehouse.name }}', 'orchestrator': '{{ warehouse.orchestrator_name }}'},
 {%- endfor %}
 ]
 
@@ -57,20 +57,20 @@ import time
 start_time = datetime.now()
 results = {}
 
-print(f"Starting parallel orchestration for all lakehouses")
+print(f"Starting parallel orchestration for all warehouses")
 print(f"Start time: {start_time}")
 
-print(f"Total lakehouses to process: {{ total_lakehouses }}")
+print(f"Total warehouses to process: {{ total_warehouses }}")
 print("="*60)
 
 
-# Define function to run a single lakehouse orchestrator
-def run_lakehouse_orchestrator(lakehouse_name, orchestrator_name, stagger_delay=0):
-    """Run a single lakehouse orchestrator and return the result."""
+# Define function to run a single warehouse orchestrator
+def run_warehouse_orchestrator(warehouse_name, orchestrator_name, stagger_delay=0):
+    """Run a single warehouse orchestrator and return the result."""
     result = {
-        'lakehouse': lakehouse_name,
+        'warehouse': warehouse_name,
         'orchestrator': orchestrator_name,
-        'orchestrator_path': f"ddl_scripts/Warehouses/{lakehouse_name}/{orchestrator_name}.Notebook/notebook-content.py",
+        'orchestrator_path': f"ddl_scripts/Warehouses/{warehouse_name}/{orchestrator_name}.Notebook/notebook-content.py",
         'start_time': datetime.now(),
         'end_time': None,
         'duration': None,
@@ -82,18 +82,18 @@ def run_lakehouse_orchestrator(lakehouse_name, orchestrator_name, stagger_delay=
     try:
         # Add staggered delay to avoid concurrent update issues
         if stagger_delay > 0:
-            print(f"[{result['start_time']}] Waiting {stagger_delay:.1f}s before starting {lakehouse_name} (staggered execution)")
+            print(f"[{result['start_time']}] Waiting {stagger_delay:.1f}s before starting {warehouse_name} (staggered execution)")
             time.sleep(stagger_delay)
             
-        print(f"[{result['start_time']}] Starting orchestrator for {lakehouse_name}")
+        print(f"[{result['start_time']}] Starting orchestrator for {warehouse_name}")
         
         params = {}
 
-        # Run the lakehouse orchestrator
+        # Run the warehouse orchestrator using mssparkutils
         notebook_result = notebookutils.mssparkutils.notebook.run(
             f"{orchestrator_name}",
-            timeout=7200,  # 2 hour timeout per lakehouse
-            params=params
+            7200,  # 2 hour timeout per warehouse
+            params
         )
         
         result['end_time'] = datetime.now()
@@ -103,7 +103,7 @@ def run_lakehouse_orchestrator(lakehouse_name, orchestrator_name, stagger_delay=
         else:
             raise Exception(f"Notebook returned unexpected result: {notebook_result}")
         
-        print(f"[{result['end_time']}] ✓ Completed {lakehouse_name} in {result['duration']}")
+        print(f"[{result['end_time']}] ✓ Completed {warehouse_name} in {result['duration']}")
         
     except Exception as e:
         result['end_time'] = datetime.now()
@@ -111,41 +111,41 @@ def run_lakehouse_orchestrator(lakehouse_name, orchestrator_name, stagger_delay=
         result['status'] = 'Failed'
         result['error'] = str(e)
         
-        print(f"[{result['end_time']}] ✗ Failed {lakehouse_name} after {result['duration']}")
+        print(f"[{result['end_time']}] ✗ Failed {warehouse_name} after {result['duration']}")
         print(f"  Error: {result['error']}")
     
     return result
 
 
-# Execute all lakehouse orchestrators in parallel
-print("\nStarting parallel execution of lakehouse orchestrators...")
+# Execute all warehouse orchestrators in parallel
+print("\nStarting parallel execution of warehouse orchestrators...")
 print("="*60)
 
 
 # Run orchestrators in parallel using ThreadPoolExecutor with staggered execution
-with ThreadPoolExecutor(max_workers={{ total_lakehouses }}) as executor:
+with ThreadPoolExecutor(max_workers={{ total_warehouses }}) as executor:
     # Submit all tasks with staggered delays (0.2 seconds apart)
-    future_to_lakehouse = {}
-    for i, lakehouse in enumerate(lakehouses_to_run):
+    future_to_warehouse = {}
+    for i, warehouse in enumerate(warehouses_to_run):
         stagger_delay = i * 0.2  # 0.2-second stagger between executions
         future = executor.submit(
-            run_lakehouse_orchestrator, 
-            lakehouse['name'], 
-            lakehouse['orchestrator'],
+            run_warehouse_orchestrator, 
+            warehouse['name'], 
+            warehouse['orchestrator'],
             stagger_delay
         )
-        future_to_lakehouse[future] = lakehouse['name']
+        future_to_warehouse[future] = warehouse['name']
     
     # Process completed tasks as they finish
-    for future in as_completed(future_to_lakehouse):
-        lakehouse_name = future_to_lakehouse[future]
+    for future in as_completed(future_to_warehouse):
+        warehouse_name = future_to_warehouse[future]
         try:
             result = future.result()
-            results[lakehouse_name] = result
+            results[warehouse_name] = result
         except Exception as exc:
-            print(f'Lakehouse {lakehouse_name} generated an exception: {exc}')
-            results[lakehouse_name] = {
-                'lakehouse': lakehouse_name,
+            print(f'Warehouse {warehouse_name} generated an exception: {exc}')
+            results[warehouse_name] = {
+                'warehouse': warehouse_name,
                 'status': 'Exception',
                 'error': str(exc)
             }
@@ -159,7 +159,7 @@ print("\n" + "="*60)
 print("ORCHESTRATION SUMMARY REPORT")
 print("="*60)
 print(f"Total execution time: {total_duration}")
-print(f"Total lakehouses: {{ total_lakehouses }}")
+print(f"Total warehouses: {{ total_warehouses }}")
 
 # Count results
 success_count = sum(1 for r in results.values() if r['status'] == 'Success')
@@ -172,13 +172,13 @@ print(f"Exceptions: {exception_count}")
 print("\n" + "-"*60)
 
 
-# Detailed results for each lakehouse
-print("\nDETAILED RESULTS BY LAKEHOUSE:")
+# Detailed results for each warehouse
+print("\nDETAILED RESULTS BY WAREHOUSE:")
 print("="*60)
 
-for lakehouse_name in sorted(results.keys()):
-    result = results[lakehouse_name]
-    print(f"\n{lakehouse_name}:")
+for warehouse_name in sorted(results.keys()):
+    result = results[warehouse_name]
+    print(f"\n{warehouse_name}:")
     print(f"  Status: {result['status']}")
     
     if 'duration' in result and result['duration']:
@@ -192,17 +192,17 @@ for lakehouse_name in sorted(results.keys()):
 
 # Create a summary table using markdown
 summary_data = []
-for lakehouse_name in sorted(results.keys()):
-    result = results[lakehouse_name]
+for warehouse_name in sorted(results.keys()):
+    result = results[warehouse_name]
     status_icon = "✓" if result['status'] == 'Success' else "✗"
     duration_str = str(result.get('duration', 'N/A'))
     orchestrator_path = result.get('orchestrator_path', 'N/A')
-    summary_data.append(f"| {lakehouse_name} | {status_icon} {result['status']} | {duration_str} | {orchestrator_path} |")
+    summary_data.append(f"| {warehouse_name} | {status_icon} {result['status']} | {duration_str} | {orchestrator_path} |")
 
 markdown_table = f"""
 ## Execution Summary Table
 
-| Lakehouse | Status | Duration | Orchestrator Path |
+| Warehouse | Status | Duration | Orchestrator Path |
 |-----------|--------|----------|-------------------|
 {chr(10).join(summary_data)}
 
@@ -214,11 +214,11 @@ print(markdown_table)
 
 # Final status and exit
 if failed_count == 0 and exception_count == 0:
-    final_message = f"✓ All {success_count} lakehouses processed successfully!"
+    final_message = f"✓ All {success_count} warehouses processed successfully!"
     print(f"\n{final_message}")
     notebookutils.notebook.exit(final_message)
 else:
-    final_message = f"Completed with {failed_count + exception_count} failures out of {{ total_lakehouses }} lakehouses"
+    final_message = f"Completed with {failed_count + exception_count} failures out of {{ total_warehouses }} warehouses"
     print(f"\n✗ {final_message}")
     notebookutils.notebook.exit(final_message)
     raise Exception(final_message)
