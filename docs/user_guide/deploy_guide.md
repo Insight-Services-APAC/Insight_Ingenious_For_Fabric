@@ -13,6 +13,7 @@ Practical guide to deploy changes, upload Python libraries with variable injecti
 | Upload dbt project to config lakehouse| `ingen_fab deploy upload-dbt-project` | `--dbt-project` (required)|
 | Extract metadata | `ingen_fab deploy get-metadata` | `--target`, `--schema`, `--table`, `--format`, `--output` |
 | Compare metadata | `ingen_fab deploy compare-metadata` | `--file1`, `--file2`, `--format`, `--output` |
+| Download artefact | `ingen_fab deploy download-artefact` | `--artifact-type`, `--output-dir`, `--workspace-id`, `--include-content`, `--overwrite` |
 | Delete all items | `ingen_fab deploy delete-all` | `--force` |
 
 ## Prerequisites
@@ -130,6 +131,30 @@ ingen_fab deploy compare-metadata \
   --file1 pre_deploy.csv --file2 post_deploy.csv \
   -o deployment_validation.json --format json
 ```
+
+## Download artifacts from workspace
+
+Download artifacts from the Fabric workspace to local directory for backup, analysis, or version control.
+
+```bash
+
+# Download an artefact from the existing environment's workspace
+ingen_fab deploy download-artefact --artefact-name "rp_test" --artefact-type Report
+
+```
+
+Common flags:
+- `--artifact-type / -t`: `notebook`, `lakehouse`, `warehouse`, `all`
+- `--output-dir / -o`: Local directory destination (default: `./downloaded_artifacts`)
+- `--workspace-id`: Specific workspace ID (uses environment config if not specified)
+- `--include-content`: Include notebook content files (default: false)
+- `--overwrite`: Overwrite existing files (default: false)
+
+**Use cases:**
+- **Backup**: Create local backups of Fabric workspace artifacts
+- **Version Control**: Download artifacts for Git repository storage
+- **Migration**: Export artifacts from one workspace for import to another
+- **Analysis**: Download notebooks for local code review and analysis
 
 ## Clean up
 

@@ -9,18 +9,22 @@ This guide covers best practices and common workflows for using the Ingenious Fa
 ### 1. Project Setup
 
 ```bash
-# Initialize new project
+# Initialize new project (minimal template)
 ingen_fab init new --project-name "Data Analytics Platform"
 
-# Navigate to the project directory
-cd "Data Analytics Platform"
+# Or initialize with sample configurations and platform manifests
+ingen_fab init new --project-name "Data Analytics Platform" --with-samples
 
 # Set environment (development, UAT, production)
 $env:FABRIC_ENVIRONMENT = "development"
 
 # Set workspace directory 
-$env:FABRIC_WORKSPACE_REPO_DIR = "My Fabric Project"
+$env:FABRIC_WORKSPACE_REPO_DIR = "Data Analytics Platform"
 ```
+
+!!! tip "Choosing the Right Template"
+    - **Default template** (`project_templates`): Minimal structure, best for starting from scratch
+    - **Sample template** (`--with-samples`): Includes platform manifests and sample configurations, ideal for learning or quick prototyping
 
 ### 2. Development Cycle
 

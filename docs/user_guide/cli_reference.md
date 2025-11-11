@@ -7,10 +7,10 @@ Complete reference for all Ingenious Fabric Accelerator commands, options, and u
 !!! tip "Before you begin"
     Activate your environment and set defaults to simplify commands.
 
-    ```bash
-    source .venv/bin/activate
+    ```powershell
+    .\.venv\Scripts\Activate.ps1
     ```
-    ```bash
+    ```powershell
     # Set environment (development, UAT, production)
     $env:FABRIC_ENVIRONMENT = "development"
 
@@ -23,13 +23,13 @@ Complete reference for all Ingenious Fabric Accelerator commands, options, and u
 | Group | Purpose | Common example |
 |-------|---------|----------------|
 | `init` | Create projects / configure workspace | `ingen_fab init new --project-name MyProj` |
-| `ddl` | Compile notebooks from DDL scripts | `ingen_fab ddl compile -o fabric_workspace_repo -g Warehouse` |
-| `deploy` | Deploy, upload libs, extract/compare metadata | `ingen_fab deploy get-metadata --target both -f csv -o meta.csv` |
+| `ddl` | Compile notebooks from DDL scripts and assist in creating ddl scripts | `ingen_fab ddl compile -o fabric_workspace_repo -g Warehouse` |
+| `deploy` | Deploy, upload libs, extract/compare metadata and dwonload artefacts | `ingen_fab deploy get-metadata --target both -f csv -o meta.csv` |
 | `notebook` | Scan and transform notebooks | `ingen_fab notebook scan-notebook-blocks -a` |
 | `test` | Local and platform tests | `FABRIC_ENVIRONMENT=local ingen_fab test local python` |
 | `package` | Run solution packages | `ingen_fab package ingest compile -d warehouse` |
 | `libs` | Compile Python libs with injection | `ingen_fab libs compile` |
-| `dbt` | Generate notebooks from dbt outputs | `ingen_fab dbt create-notebooks -p my_dbt_proj` |
+| `dbt` | Generate notebooks from dbt outputs and convert metadata to dbt-adapter format | `ingen_fab dbt create-notebooks -p my_dbt_proj` |
 
 ## Global Options
 
@@ -62,6 +62,7 @@ ingen_fab init new --project-name "My Project"
 **Options:**
 - `--project-name` (required): Name of the project
 - `--path`: Path where to create the project (default: current directory)
+- `--with-samples`: Use sample_project as template instead of project_templates (includes additional sample data and configurations)
 
 **What gets created:**
 - Complete variable library with environment-specific configurations
@@ -70,18 +71,31 @@ ingen_fab init new --project-name "My Project"
 - Platform manifests for deployment tracking
 - Comprehensive README with setup instructions
 
+!!! note "Template Options"
+    By default, `init new` creates a minimal project structure from `project_templates`. 
+    Use `--with-samples` to include the full sample project with platform manifests and example configurations.
+
 **Examples:**
 ```bash
-# Create a new project in current directory
+# Create a new project with minimal template
 ingen_fab init new --project-name "Data Analytics Platform"
+
+# Create project with sample data and configurations
+ingen_fab init new --project-name "My Project" --with-samples
 
 # Create project in specific path
 ingen_fab init new --project-name "ML Pipeline" --path ./projects
+
+# Create project with samples in specific path
+ingen_fab init new --project-name "ML Pipeline" --path ./projects --with-samples
 ```
 
 **Next steps after creation:**
+
 1. Update variable values in `fabric_workspace_items/config/var_lib.VariableLibrary/valueSets/development.json`
+
 2. Generate DDL notebooks: `ingen_fab ddl compile --output-mode fabric_workspace_repo --generation-mode Lakehouse`
+
 3. Deploy to Fabric: `ingen_fab deploy deploy --fabric-environment development`
 
 #### `init workspace`
@@ -125,9 +139,9 @@ Running `ingen_fab init workspace` will automatically find the "config" lakehous
 - `--environment`: Environment to configure (defaults to `$FABRIC_ENVIRONMENT`)
 
 **Examples:**
-```bash
+```powershell
 # Configure workspace for development environment
-export FABRIC_ENVIRONMENT=development
+$env:FABRIC_ENVIRONMENT = "development"
 ingen_fab init workspace
 
 # Specify workspace explicitly
@@ -156,11 +170,17 @@ ingen_fab ddl compile --output-mode fabric_workspace_repo --generation-mode Ware
 
 **Examples:**
 ```bash
-# Generate warehouse notebooks for Fabric deployment
-ingen_fab ddl compile --output-mode fabric_workspace_repo --generation-mode Warehouse
+# Generate both lakehouse and warehouse notebooks (defaults to fabric_workspace_items folder)
+ingen_fab ddl compile
+
+# Generate lakehouse notebooks (defaults to fabric_workspace_items folder)
+ingen_fab ddl compile -g Lakehouse
 
 # Generate lakehouse notebooks
 ingen_fab ddl compile --output-mode fabric_workspace_repo --generation-mode Lakehouse
+
+# Generate warehouse notebooks for Fabric deployment
+ingen_fab ddl compile --output-mode fabric_workspace_repo --generation-mode Warehouse
 
 # Generate with verbose output
 ingen_fab ddl compile -o fabric_workspace_repo -g Warehouse -v
@@ -171,58 +191,69 @@ ingen_fab ddl compile -o fabric_workspace_repo -g Warehouse -v
 Generate DDL Python scripts from a metadata CSV file (typically `metadata/lakehouse_metadata_all.csv`).
 
 ```bash
-ingen_fab ddl ddls-from-metadata --lakehouse lh_silver2
+ingen_fab ddl ddls-from-metadata --lakehouse lh_bronze
 ```
 
 **Options:**
 - `--lakehouse` / `-l`: Lakehouse name to generate DDLs for (required)
+
 - `--table` / `-t`: Specific table name to generate (optional, generates all tables if not specified)
+
+- `--metadata-file` / `-m`: Path to CSV metadata file (default: `metadata/lakehouse_metadata_all.csv`)
+
 - `--subdirectory` / `-d`: Subdirectory for output files (default: `generated`)
+
 - `--sequence-numbers` / `--no-sequence-numbers` / `-s` / `-ns`: Include sequence number prefixes in filenames (default: True)
+
 - `--verbose` / `-v`: Enable verbose output
 
 **Output:**
 - With sequence numbers: `001_lh_silver2_customer.py`, `002_lh_silver2_orders.py`
+
 - Without sequence numbers: `lh_silver2_customer.py`, `lh_silver2_orders.py`
+
 - Output path: `{workspace}/ddl_scripts/Lakehouses/{lakehouse}/{subdirectory}/`
 
 **System Table Exclusion:**
 
-The command automatically excludes these system/monitoring tables:
-- `exec_sessions_history`
-- `exec_requests_history`
-- `long_running_queries`
-- `managed_delta_table_forks`
-
-Tables with schemas `sys` or `queryinsights` are also excluded.
+Tables with schemas `sys` or `queryinsights` are excluded.
 
 **Examples:**
 ```bash
 # Generate DDL for all tables in lakehouse
-ingen_fab ddl ddls-from-metadata --lakehouse lh_silver2
+ingen_fab ddl ddls-from-metadata --lakehouse lh_bronze
 
 # Generate DDL for specific table only
-ingen_fab ddl ddls-from-metadata --lakehouse lh_silver2 --table customer_data
+ingen_fab ddl ddls-from-metadata --lakehouse lh_bronze --table customer_data
 
 # Generate without sequence numbers in filenames
-ingen_fab ddl ddls-from-metadata --lakehouse lh_silver2 --no-sequence-numbers
+ingen_fab ddl ddls-from-metadata --lakehouse lh_bronze --no-sequence-numbers
 
 # Custom output subdirectory
-ingen_fab ddl ddls-from-metadata --lakehouse lh_silver2 --subdirectory staging_ddls
+ingen_fab ddl ddls-from-metadata --lakehouse lh_bronze --subdirectory staging_ddls
+
+# Use custom metadata CSV file
+ingen_fab ddl ddls-from-metadata --lakehouse lh_bronze --metadata-file custom_metadata.csv
+
+# Use metadata file from different directory
+ingen_fab ddl ddls-from-metadata --lakehouse lh_bronze --metadata-file /path/to/external_metadata.csv
 
 # Combine options with short flags
-ingen_fab ddl ddls-from-metadata -l lh_silver2 -t orders -d production -ns
+ingen_fab ddl ddls-from-metadata -l lh_bronze -t orders -d production -ns -m custom_meta.csv
 ```
 
 **Typical Workflow:**
-```bash
-# 1. Extract metadata from lakehouse
-ingen_fab deploy get-metadata --lakehouse-name lh_silver2 --format csv
+```powershell
+# 1. Extract metadata from lakehouse (creates metadata/lakehouse_metadata_all.csv)
+ingen_fab deploy get-metadata --lakehouse-name lh_bronze --format csv
 
-# 2. Generate DDL scripts from the metadata
-ingen_fab ddl ddls-from-metadata --lakehouse lh_silver2
+# 2. Generate DDL scripts from the metadata (uses default file)
+ingen_fab ddl ddls-from-metadata --lakehouse lh_bronze
 
-# 3. Review and customize the generated scripts in ddl_scripts/Lakehouses/lh_silver2/generated/
+# 3. OR use a custom metadata file
+ingen_fab ddl ddls-from-metadata --lakehouse lh_bronze --metadata-file my_custom_metadata.csv
+
+# 4. Review and customize the generated scripts in ddl_scripts/Lakehouses/lh_silver2/generated/
 ```
 
 ## deploy {#deploy}
@@ -245,8 +276,8 @@ Uses the global options `--fabric-workspace-repo-dir` and `--fabric-environment`
 ingen_fab deploy deploy --fabric-workspace-repo-dir . --fabric-environment development
 
 # Using environment variables
-export FABRIC_WORKSPACE_REPO_DIR="./sample_project"
-export FABRIC_ENVIRONMENT="development"
+$env:FABRIC_WORKSPACE_REPO_DIR = "./sample_project"
+$env:FABRIC_ENVIRONMENT = "development"
 ingen_fab deploy deploy
 ```
 
@@ -294,20 +325,32 @@ ingen_fab deploy get-metadata [OPTIONS]
 - `--target` / `-tgt`: `lakehouse` (default), `warehouse`, or `both`
 
 **Workspace/asset filters:**
-- `--workspace-id` | `--workspace-name`
+
+- Workspace: `--workspace-id` | `--workspace-name`
+
 - Lakehouse: `--lakehouse-id` | `--lakehouse-name`
+
 - Warehouse: `--warehouse-id` | `--warehouse-name`
 
 **Metadata filters and connection:**
+
 - `--schema` / `-s`: Schema name filter
+
 - `--table` / `-t`: Table name substring filter
+
 - `--method` / `-m`: `sql-endpoint` (default) or `sql-endpoint-odbc`
+
 - `--sql-endpoint-id`: Explicit SQL endpoint ID
+
 - `--sql-endpoint-server`: Endpoint server prefix (e.g., `myws-abc123`)
 
+
 **Output control:**
+
 - `--format` / `-f`: `csv` (default), `json`, or `table`
+
 - `--output` / `-o`: Write output to a file; omit to print to console
+
 - Lakehouse only: `--all`: Extract all lakehouses in the workspace
 
 **Examples:**
@@ -403,6 +446,86 @@ Found 4 differences between metadata_before.csv and metadata_after.csv:
 └────────────────┴──────────────────────────────────────────────────┴──────────────────┴──────────────────┘
 ```
 
+#### `deploy download-artefact` {#deploy-download-artefact}
+
+Download artifacts from the Fabric workspace to local directory.
+
+```bash
+ingen_fab deploy download-artefact [OPTIONS]
+```
+
+**Options:**
+
+- `--artifact-type` / `-t`: Type of artifact to download (`notebook`, `lakehouse`, `warehouse`, `all`)
+
+- `--output-dir` / `-o`: Local directory to save artifacts (default: `./downloaded_artifacts`)
+
+- `--workspace-id`: Workspace ID to download from (uses environment config if not specified)
+
+- `--include-content`: Include notebook content files (default: false)
+
+- `--overwrite`: Overwrite existing files (default: false)
+
+Uses the global options `--fabric-workspace-repo-dir` and `--fabric-environment`.
+
+**Examples:**
+```bash
+# Download an artefact from the existing environment's workspace
+ingen_fab deploy download-artefact --artefact-name "rp_test" --artefact-type Report
+```
+
+#### `deploy upload-dbt-project` {#deploy-upload-dbt-project}
+
+Upload a dbt project to the Fabric workspace for execution.
+
+```bash
+ingen_fab deploy upload-dbt-project [OPTIONS]
+```
+
+**Options:**
+
+- `--project-path` / `-p`: Path to dbt project directory (default: current directory)
+
+- `--target-lakehouse` / `-l`: Target lakehouse name for dbt execution
+
+- `--target-workspace` / `-w`: Target workspace name (uses environment config if not specified)
+
+
+- `--models` / `-m`: Specific dbt models to include (comma-separated)
+
+- `--exclude` / `-e`: Models to exclude from upload (comma-separated)
+
+- `--include-profiles`: Include dbt profiles.yml file (default: false)
+
+- `--overwrite`: Overwrite existing dbt project files (default: false)
+
+Uses the global options `--fabric-workspace-repo-dir` and `--fabric-environment`.
+
+**Examples:**
+```bash
+# Upload entire dbt project to default lakehouse
+ingen_fab deploy upload-dbt-project --project-path ./my_dbt_project
+
+# Upload specific models to named lakehouse
+ingen_fab deploy upload-dbt-project \
+  --project-path ./analytics_dbt \
+  --target-lakehouse "Analytics Lakehouse" \
+  --models "staging.customers,marts.customer_summary"
+
+# Upload project excluding test models
+ingen_fab deploy upload-dbt-project \
+  --project-path ./dbt_project \
+  --exclude "tests.*,staging.test_*" \
+  --overwrite
+
+# Upload with profiles and specific workspace
+ingen_fab deploy upload-dbt-project \
+  --project-path ./enterprise_dbt \
+  --target-workspace "Production Analytics" \
+  --target-lakehouse "Gold Layer" \
+  --include-profiles
+```
+
 ## notebook {#notebook}
 
 Manage and scan notebook content.
@@ -488,9 +611,9 @@ ingen_fab test local python
 - `lib` (optional): Specific test file to run (without _pytest.py suffix)
 
 **Examples:**
-```bash
+```powershell
 # Test all Python libraries
-export FABRIC_ENVIRONMENT=local
+$env:FABRIC_ENVIRONMENT = "local"
 ingen_fab test local python
 
 # Test specific library
@@ -809,43 +932,106 @@ The dbt profile is automatically created or updated at `~/.dbt/profiles.yml` wit
 Generate Fabric notebooks from dbt models and tests. This command will prompt you to select a lakehouse if multiple options are available.
 
 ```bash
-ingen_fab dbt create-notebooks --dbt-project-name my_dbt_project
+ingen_fab dbt create-notebooks --dbt-project my_dbt_project
 ```
 
 **Options:**
-- `--dbt-project-name` / `-p`: Name of the dbt project
-- `--target-dir` / `-t`: Target directory for notebooks (default: dbt output path)
-- `--incremental-models-cadence` / `-i`: Cadence for incremental models (default: DAILY)
-- `--seed-refresh-cadence` / `-s`: Cadence for seed refresh (default: DAILY)
-- `--master-notebook-cadence` / `-m`: Cadence for master notebook (default: DAILY)
+
+- `--dbt-project` / `-p`: Name of the dbt project directory under the workspace repo
+
+- `--skip-profile-confirmation`: Skip confirmation prompt when updating dbt profile
 
 **Examples:**
 ```bash
 # Create notebooks for a dbt project
-ingen_fab dbt create-notebooks --dbt-project-name analytics_models
+ingen_fab dbt create-notebooks --dbt-project analytics_models
 
-# With custom cadences
-ingen_fab dbt create-notebooks -p data_mart -i HOURLY -s WEEKLY -m DAILY
+# Skip profile confirmation prompt
+ingen_fab dbt create-notebooks -p data_mart --skip-profile-confirmation
 ```
 
 #### `dbt convert-metadata`
 
-Convert dbt metadata to Fabric format.
+Convert cached lakehouse metadata to dbt metaextracts format.
 
 ```bash
-ingen_fab dbt convert-metadata --dbt-project-dir ./dbt_project
+ingen_fab dbt convert-metadata --dbt-project my_dbt_project
 ```
 
 **Options:**
-- `--dbt-project-dir` / `-p`: Directory containing the dbt project
+
+- `--dbt-project` / `-p`: Name of the dbt project directory under the workspace repo
+
+- `--skip-profile-confirmation`: Skip confirmation prompt when updating dbt profile
+
+**Prerequisites:**
+The metadata must first be extracted using:
+```bash
+ingen_fab deploy get-metadata --target lakehouse
+```
+
+This creates the required `metadata/lakehouse_metadata_all.csv` file.
+
+**What it does:**
+- Reads from `{workspace}/metadata/lakehouse_metadata_all.csv`
+- Creates JSON files in `{workspace}/{dbt_project}/metaextracts/` for dbt_wrapper to use
 
 **Examples:**
 ```bash
 # Convert metadata for dbt project
-ingen_fab dbt convert-metadata --dbt-project-dir ./analytics/dbt_project
+ingen_fab dbt convert-metadata --dbt-project analytics_models
+
+# Skip profile confirmation
+ingen_fab dbt convert-metadata -p my_dbt_project --skip-profile-confirmation
 ```
 
-#### `dbt` (proxy command)
+#### `dbt generate-schema-yml`
+
+Convert cached lakehouse metadata to dbt schema.yml format for a specific lakehouse and layer.
+
+```bash
+ingen_fab dbt generate-schema-yml --dbt-project my_dbt_project --lakehouse lh_bronze --layer staging --dbt-type model
+```
+
+**Options:**
+
+- `--dbt-project` / `-p`: Name of the dbt project directory under the workspace repo
+
+- `--lakehouse`: Name of the lakehouse to use as a filter for the csv
+
+- `--layer`: Name of the dbt layer
+
+- `--dbt-type`: Is this for a model or a snapshot?
+
+- `--skip-profile-confirmation`: Skip confirmation prompt when updating dbt profile
+
+**Prerequisites:**
+The metadata must first be extracted using:
+```bash
+ingen_fab deploy get-metadata --target lakehouse
+```
+
+This creates the required `metadata/lakehouse_metadata_all.csv` file.
+
+**What it does:**
+- Reads from `{workspace}/metadata/lakehouse_metadata_all.csv`
+- Creates schema.yml file in the appropriate dbt project directory
+- Filters metadata for the specified lakehouse and layer
+- Generates dbt-compatible schema definitions
+
+**Examples:**
+```bash
+# Generate schema.yml for staging models in bronze lakehouse
+ingen_fab dbt generate-schema-yml --dbt-project analytics_models --lakehouse lh_bronze --layer staging --dbt-type model
+
+# Generate schema.yml for snapshots with short flags
+ingen_fab dbt generate-schema-yml -p data_mart --lakehouse lh_silver --layer marts --dbt-type snapshot
+
+# Skip profile confirmation
+ingen_fab dbt generate-schema-yml -p my_dbt_project --lakehouse lh_gold --layer reporting --dbt-type model --skip-profile-confirmation
+```
+
+#### `dbt exec` (proxy command)
 
 Proxy any dbt command to dbt_wrapper inside the Fabric workspace repo. The `exec` command provides intelligent lakehouse selection:
 
@@ -859,14 +1045,12 @@ ingen_fab dbt [DBT_COMMAND] [DBT_OPTIONS]
 
 **Examples:**
 ```bash
-# Run dbt through the proxy (smart lakehouse selection)
-ingen_fab dbt run --models my_model
+# build dbt models and snapshots
+Ingen_fab dbt exec -- stage run build --project-dir dbt_project
 
-# Test dbt models
-ingen_fab dbt test
+# build dbt master notebooks
+Ingen_fab dbt exec -- stage run post-scripts --project-dir dbt_project
 
-# Generate dbt docs
-ingen_fab dbt docs generate
 ```
 
 **Typical Output:**
@@ -887,23 +1071,26 @@ Set these to avoid specifying options repeatedly:
 
 ```bash
 # Core configuration
-export FABRIC_WORKSPACE_REPO_DIR="./sample_project"
-export FABRIC_ENVIRONMENT="development"
+$env:FABRIC_WORKSPACE_REPO_DIR = "./sample_project"
+$env:FABRIC_ENVIRONMENT = "development"
 
 # For local testing
-export FABRIC_ENVIRONMENT="local"  # Required for test local commands
+$env:FABRIC_ENVIRONMENT = "local"  # Required for test local commands
 
 # Authentication (for deployment)
-export AZURE_TENANT_ID="your-tenant-id"
-export AZURE_CLIENT_ID="your-client-id"
-export AZURE_CLIENT_SECRET="your-client-secret"
+$env:AZURE_TENANT_ID = "your-tenant-id"
+$env:AZURE_CLIENT_ID = "your-client-id"
+$env:AZURE_CLIENT_SECRET = "your-client-secret"
 ```
 
 ### Configuration Files
 
-The tool looks for configuration in:
-1. `platform_manifest_*.yml` files in your project root
+The tool uses the following configurations:
+
+1. `platform_manifest_*.yml` files in your project root to determine what has been deployed to the current environment and uses file hashing to determine if any artefacts have been updated
+
 2. Variable library files in `fabric_workspace_items/config/var_lib.VariableLibrary/valueSets/`
+
 3. Environment variables
 
 ## Common Usage Patterns
@@ -913,45 +1100,51 @@ The tool looks for configuration in:
 ```bash
 # 1. Create project
 ingen_fab init new --project-name "My Project"
-cd "My Project"
 
 # 2. Configure environment variables
-export FABRIC_WORKSPACE_REPO_DIR="./My Project"
-export FABRIC_ENVIRONMENT="development"
+$env:FABRIC_WORKSPACE_REPO_DIR = "./My Project"
+$env:FABRIC_ENVIRONMENT = "development"
 
 # 3. Update configuration
 # Edit fabric_workspace_items/config/var_lib.VariableLibrary/valueSets/development.json
 # Replace placeholder GUIDs with your actual workspace and lakehouse IDs
 
-# 4. Generate notebooks
+# 4. Develop and build dbt notebooks, copy them to fabric_workspace_items
+
+ingen_fab dbt exec -- stage run build --project-dir dbt_project
+ingen_fab dbt exec -- stage run post-scripts --project-dir dbt_project
+ingen_fab dbt create-notebooks -p my_dbt_project
+
+# 5. Generate ddl notebooks
 ingen_fab ddl compile --output-mode fabric_workspace_repo --generation-mode Warehouse
 ingen_fab ddl compile --output-mode fabric_workspace_repo --generation-mode Lakehouse
 
-# 5. Test locally
-export FABRIC_ENVIRONMENT=local
+# 6. Test locally
+$env:FABRIC_ENVIRONMENT = 'local'
 ingen_fab test local python
 ingen_fab test local pyspark
 
-# 6. Deploy to development
-export FABRIC_ENVIRONMENT=development
+# 7. Deploy to development
+$env:FABRIC_ENVIRONMENT = 'development'
 ingen_fab deploy deploy
 
-# 7. Generate and run platform tests
+# 8S. Generate and run platform tests
 ingen_fab test platform generate
 ```
 
 ### Multi-Environment Deployment
 
-```bash
+```powershell
 # Deploy to different environments
-for env in development test production; do
-    ingen_fab deploy deploy --fabric-workspace-repo-dir . --fabric-environment $env
-done
+@('development', 'test', 'production') | ForEach-Object {
+    $env:FABRIC_ENVIRONMENT = $_
+    ingen_fab deploy deploy --fabric-workspace-repo-dir . --fabric-environment $_
+}
 ```
 
 ### Working with Packages
 
-```bash
+```powershell
 # Flat File Ingestion
 ingen_fab package ingest compile --include-samples
 ingen_fab package ingest compile --target-datastore warehouse --include-samples
