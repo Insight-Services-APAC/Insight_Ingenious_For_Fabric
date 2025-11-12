@@ -13,7 +13,7 @@ Practical guide to deploy changes, upload Python libraries with variable injecti
 | Upload dbt project to config lakehouse| `ingen_fab deploy upload-dbt-project` | `--dbt-project` (required)|
 | Extract metadata | `ingen_fab deploy get-metadata` | `--target`, `--schema`, `--table`, `--format`, `--output` |
 | Compare metadata | `ingen_fab deploy compare-metadata` | `--file1`, `--file2`, `--format`, `--output` |
-| Download artefact | `ingen_fab deploy download-artefact` | `--artifact-type`, `--output-dir`, `--workspace-id`, `--include-content`, `--overwrite` |
+| Download artefact | `ingen_fab deploy download-artefact` | `--artefact-name`, `--artefact-type`, `--output-path`, `--workspace-id`, `--force` |
 | Delete all items | `ingen_fab deploy delete-all` | `--force` |
 
 ## Prerequisites
@@ -137,20 +137,35 @@ ingen_fab deploy compare-metadata \
 Download artifacts from the Fabric workspace to local directory for backup, analysis, or version control.
 
 ```bash
+# Download a notebook from the workspace
+ingen_fab deploy download-artefact --artefact-name "My Notebook" --artefact-type Notebook
 
-# Download an artefact from the existing environment's workspace
+# Download a Power BI report
 ingen_fab deploy download-artefact --artefact-name "rp_test" --artefact-type Report
 
+# Download a data pipeline
+ingen_fab deploy download-artefact -n "ETL Pipeline" -t DataPipeline
 ```
 
-Common flags:
-- `--artifact-type / -t`: `notebook`, `lakehouse`, `warehouse`, `all`
-- `--output-dir / -o`: Local directory destination (default: `./downloaded_artifacts`)
-- `--workspace-id`: Specific workspace ID (uses environment config if not specified)
-- `--include-content`: Include notebook content files (default: false)
-- `--overwrite`: Overwrite existing files (default: false)
+**Supported Artefact Types:**
+- `Notebook` - Jupyter notebooks with source code
+- `Report` - Power BI report definitions
+- `SemanticModel` - Tabular semantic models (datasets)
+- `DataPipeline` - Data pipeline configurations
+- `GraphQLApi` - GraphQL API definitions
+- `DataflowGen2` - Dataflow Gen2 definitions
+- `SparkJobDefinition` - Spark job definitions
+- `DataWarehouse` - Data warehouse schemas
+- `KQLDatabase` - KQL database definitions
 
-**Use cases:**
+**Common Options:**
+- `--artefact-name / -n`: Name of the artefact (required)
+- `--artefact-type / -t`: Type of artefact (required)
+- `--output-path / -o`: Local directory destination (default: `fabric_workspace_items`)
+- `--workspace-id / -w`: Specific workspace ID (uses environment config if not specified)
+- `--force / -f`: Overwrite existing files without confirmation
+
+**Use Cases:**
 - **Backup**: Create local backups of Fabric workspace artifacts
 - **Version Control**: Download artifacts for Git repository storage
 - **Migration**: Export artifacts from one workspace for import to another

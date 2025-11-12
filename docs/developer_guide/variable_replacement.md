@@ -171,6 +171,18 @@ configs_object: ConfigsObject = ConfigsObject(**configs_dict)
 
 ## When Replacements Occur
 
+### Supported Artifact Types
+
+Variable substitution is applied to the following artifact types during deployment:
+
+| Artifact Type | File Pattern | Description |
+|---------------|--------------|-------------|
+| **Notebooks** | `notebook-content.py` | Python notebook source files |
+| **Semantic Models** | `*.tmdl` | Tabular Model Definition Language files |
+| **GraphQL APIs** | `graphql-definition.json` | GraphQL API definition files |
+
+These artifact types support both placeholder replacement (`{{varlib:variable_name}}`) and code injection between markers during the deployment process.
+
 ### Development Workflow
 
 ```bash
@@ -181,6 +193,7 @@ ingen_fab deploy perform-code-replacements
 - **Placeholder replacement**: ❌ No (preserved for deployment)
 - **Code injection**: ✅ Yes (enables local development)
 - **Location**: In-place file modification
+- **Artifacts**: Notebooks only (for local development)
 
 ### DDL Compilation
 
@@ -203,6 +216,7 @@ ingen_fab deploy deploy
 - **Placeholder replacement**: ✅ Yes (environment-specific values)
 - **Code injection**: ✅ Yes (complete configuration)
 - **Location**: Output directory for deployment
+- **Artifacts**: Notebooks, Semantic Models, and GraphQL APIs
 
 ### OneLake Upload
 
@@ -255,6 +269,106 @@ config_value = reader.get_variable("config_lakehouse_id")
 ```
 
 ## Advanced Usage
+
+### Artifact-Specific Examples
+
+#### Notebooks (notebook-content.py)
+
+Notebooks support both placeholder replacement and code injection:
+
+```python
+# Template with placeholders
+workspace_id = "{{varlib:fabric_deployment_workspace_id}}"
+lakehouse_id = "{{varlib:config_lakehouse_id}}"
+
+# variableLibraryInjectionStart: var_lib
+# Config variables will be injected here during deployment
+# variableLibraryInjectionEnd: var_lib
+
+# Use injected configs_dict
+spark.conf.set(f"spark.sql.lakehouse.id", configs_dict['config_lakehouse_id'])
+```
+
+After deployment:
+```python
+# Placeholders replaced
+workspace_id = "544530ea-a8c9-4464-8878-f666d2a8f418"
+lakehouse_id = "514ebe8f-2bf9-4a31-88f7-13d84706431c"
+
+# variableLibraryInjectionStart: var_lib
+configs_dict = {
+    'fabric_deployment_workspace_id': '544530ea-a8c9-4464-8878-f666d2a8f418',
+    'config_lakehouse_id': '514ebe8f-2bf9-4a31-88f7-13d84706431c'
+}
+# variableLibraryInjectionEnd: var_lib
+
+# Use injected configs_dict
+spark.conf.set(f"spark.sql.lakehouse.id", configs_dict['config_lakehouse_id'])
+```
+
+#### Semantic Models (*.tmdl)
+
+Semantic model TMDL files can use placeholders for data sources:
+
+```tmdl
+table Customer
+    lineageTag: abc123
+    sourceExpression:
+        kind: m
+        expression: =
+            let
+                Source = Lakehouse.Contents("{{varlib:config_lakehouse_id}}"),
+                Navigation = Source{[workspaceId="{{varlib:fabric_deployment_workspace_id}}"]}[Data]
+            in
+                Navigation
+```
+
+After deployment:
+```tmdl
+table Customer
+    lineageTag: abc123
+    sourceExpression:
+        kind: m
+        expression: =
+            let
+                Source = Lakehouse.Contents("514ebe8f-2bf9-4a31-88f7-13d84706431c"),
+                Navigation = Source{[workspaceId="544530ea-a8c9-4464-8878-f666d2a8f418"]}[Data]
+            in
+                Navigation
+```
+
+#### GraphQL APIs (graphql-definition.json)
+
+GraphQL API definitions can use placeholders for connection information:
+
+```json
+{
+  "dataSource": {
+    "type": "Lakehouse",
+    "workspaceId": "{{varlib:fabric_deployment_workspace_id}}",
+    "lakehouseId": "{{varlib:config_lakehouse_id}}"
+  },
+  "schema": {
+    "types": [...],
+    "queries": [...]
+  }
+}
+```
+
+After deployment:
+```json
+{
+  "dataSource": {
+    "type": "Lakehouse",
+    "workspaceId": "544530ea-a8c9-4464-8878-f666d2a8f418",
+    "lakehouseId": "514ebe8f-2bf9-4a31-88f7-13d84706431c"
+  },
+  "schema": {
+    "types": [...],
+    "queries": [...]
+  }
+}
+```
 
 ### Custom Variable Processing
 

@@ -292,8 +292,8 @@ ingen_fab init new --project-name "My Data Platform"
 ingen_fab ddl compile --output-mode fabric_workspace_repo --generation-mode Warehouse
 ingen_fab ddl compile --output-mode fabric_workspace_repo --generation-mode Lakehouse
 
-# 5. Deploy to your environment
-ingen_fab deploy deploy --fabric-workspace-repo-dir . --fabric-environment development
+# 5. Deploy to your environment (ensure environment variables are set)
+ingen_fab deploy deploy
 
 # 6. Generate and run platform tests
 ingen_fab test platform generate

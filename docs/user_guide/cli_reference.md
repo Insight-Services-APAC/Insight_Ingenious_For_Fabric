@@ -92,7 +92,7 @@ ingen_fab init new --project-name "ML Pipeline" --path ./projects --with-samples
 
 2. Generate DDL notebooks: `ingen_fab ddl compile --output-mode fabric_workspace_repo --generation-mode Lakehouse`
 
-3. Deploy to Fabric: `ingen_fab deploy deploy --fabric-environment development`
+3. Deploy to Fabric: `ingen_fab deploy deploy`
 
 #### `init workspace`
 
@@ -184,7 +184,9 @@ ingen_fab ddl compile -o fabric_workspace_repo -g Warehouse -v
 
 #### `ddl ddls-from-metadata`
 
-Generate DDL Python scripts from a metadata CSV file (typically `metadata/lakehouse_metadata_all.csv`).
+Generate DDL Python scripts from a metadata CSV file (defaults to `metadata/lakehouse_metadata_all.csv`).
+
+If you used ingen_fab deploy get-metadata to generate a file with another name, please specify it using --metadata-file.
 
 ```bash
 ingen_fab ddl ddls-from-metadata --lakehouse lh_bronze
@@ -264,15 +266,12 @@ Deploy all artifacts to a specific environment.
 ingen_fab deploy deploy
 ```
 
-Uses the global options `--fabric-workspace-repo-dir` and `--fabric-environment`.
+Requires the global options `--fabric-workspace-repo-dir` and `--fabric-environment` to be set either via command line or environment variables.
 
 **Examples:**
 ```bash
-# Deploy to development
-ingen_fab deploy deploy --fabric-workspace-repo-dir . --fabric-environment development
-
-# Using environment variables
-$env:FABRIC_WORKSPACE_REPO_DIR = "./sample_project"
+# Using environment variables (recommended)
+$env:FABRIC_WORKSPACE_REPO_DIR = "dp"
 $env:FABRIC_ENVIRONMENT = "development"
 ingen_fab deploy deploy
 ```
@@ -444,7 +443,7 @@ Found 4 differences between metadata_before.csv and metadata_after.csv:
 
 #### `deploy download-artefact` {#deploy-download-artefact}
 
-Download artifacts from the Fabric workspace to local directory.
+Download artifacts from the Fabric workspace to local directory for version control and redeployment.
 
 ```bash
 ingen_fab deploy download-artefact [OPTIONS]
@@ -452,22 +451,50 @@ ingen_fab deploy download-artefact [OPTIONS]
 
 **Options:**
 
-- `--artifact-type` / `-t`: Type of artifact to download (`notebook`, `lakehouse`, `warehouse`, `all`)
+- `--artefact-name` / `-n`: Name of the Fabric artefact to download (required)
 
-- `--output-dir` / `-o`: Local directory to save artifacts (default: `./downloaded_artifacts`)
+- `--artefact-type` / `-t`: Type of Fabric artefact (required) - see supported types below
 
-- `--workspace-id`: Workspace ID to download from (uses environment config if not specified)
+- `--output-path` / `-o`: Directory to save the downloaded artefact (default: `fabric_workspace_items`)
 
-- `--include-content`: Include notebook content files (default: false)
+- `--workspace-id` / `-w`: Target workspace ID (overrides environment workspace)
 
-- `--overwrite`: Overwrite existing files (default: false)
+- `--force` / `-f`: Overwrite existing files without confirmation
+
+**Supported Artefact Types:**
+
+The following artefact types can be downloaded using the Fabric REST API:
+
+- `Notebook` - Jupyter notebooks with source code
+- `Report` - Power BI report definitions
+- `SemanticModel` - Tabular semantic models (datasets)
+- `DataPipeline` - Data pipeline configurations
+- `GraphQLApi` - GraphQL API definitions
+- `DataflowGen2` - Dataflow Gen2 definitions
+- `SparkJobDefinition` - Spark job definitions
+- `DataWarehouse` - Data warehouse schemas
+- `KQLDatabase` - KQL database definitions
+
+**Note:** Some Fabric item types (like Lakehouse, Environment, VariableLibrary) cannot be downloaded via the REST API and must be managed through other means.
 
 Uses the global options `--fabric-workspace-repo-dir` and `--fabric-environment`.
 
 **Examples:**
 ```bash
-# Download an artefact from the existing environment's workspace
+# Download a notebook from the workspace
+ingen_fab deploy download-artefact --artefact-name "My Notebook" --artefact-type Notebook
+
+# Download a Power BI report
 ingen_fab deploy download-artefact --artefact-name "rp_test" --artefact-type Report
+
+# Download a data pipeline
+ingen_fab deploy download-artefact -n "ETL Pipeline" -t DataPipeline
+
+# Download from a specific workspace
+ingen_fab deploy download-artefact -n "Sales Report" -t Report -w abc123-def456
+
+# Download with custom output path
+ingen_fab deploy download-artefact -n "My Notebook" -t Notebook -o ./downloads
 ```
 
 #### `deploy upload-dbt-project` {#deploy-upload-dbt-project}
@@ -565,12 +592,16 @@ ingen_fab dbt create-notebooks -p data_mart --skip-profile-confirmation
 Convert cached lakehouse metadata to dbt metaextracts format.
 
 ```bash
-ingen_fab dbt convert-metadata --dbt-project my_dbt_project
+ingen_fab dbt convert-metadata --dbt-project _dbt_project
 ```
 
 **Options:**
 
 - `--dbt-project` / `-p`: Name of the dbt project directory under the workspace repo
+
+- `--metadata-file` / `-m`: Path to CSV metadata file (default: `metadata/lakehouse_metadata_all.csv`)
+  - Can be absolute or relative to workspace root
+  - Use this if you generated metadata with a custom filename
 
 - `--skip-profile-confirmation`: Skip confirmation prompt when updating dbt profile
 
@@ -580,16 +611,22 @@ The metadata must first be extracted using:
 ingen_fab deploy get-metadata --target lakehouse
 ```
 
-This creates the required `metadata/lakehouse_metadata_all.csv` file.
+This creates the required `metadata/lakehouse_metadata_all.csv` file (or custom path if specified).
 
 **What it does:**
-- Reads from `{workspace}/metadata/lakehouse_metadata_all.csv`
+- Reads from `{workspace}/metadata/lakehouse_metadata_all.csv` (or specified custom path)
 - Creates JSON files in `{workspace}/{dbt_project}/metaextracts/` for dbt_wrapper to use
 
 **Examples:**
 ```bash
-# Convert metadata for dbt project
+# Convert metadata for dbt project (using default metadata file)
 ingen_fab dbt convert-metadata --dbt-project analytics_models
+
+# Use custom metadata file (relative path)
+ingen_fab dbt convert-metadata --dbt-project analytics_models --metadata-file metadata/custom_lakehouse_data.csv
+
+# Use custom metadata file (absolute path)
+ingen_fab dbt convert-metadata -p analytics_models -m C:\data\lakehouse_export.csv
 
 # Skip profile confirmation
 ingen_fab dbt convert-metadata -p my_dbt_project --skip-profile-confirmation
@@ -681,7 +718,7 @@ Set these to avoid specifying options repeatedly:
 
 ```bash
 # Core configuration
-$env:FABRIC_WORKSPACE_REPO_DIR = "./sample_project"
+$env:FABRIC_WORKSPACE_REPO_DIR = "dp"
 $env:FABRIC_ENVIRONMENT = "development"
 
 # For local testing
@@ -712,7 +749,7 @@ The tool uses the following configurations:
 ingen_fab init new --project-name "My Project"
 
 # 2. Configure environment variables
-$env:FABRIC_WORKSPACE_REPO_DIR = "./My Project"
+$env:FABRIC_WORKSPACE_REPO_DIR = "dp"
 $env:FABRIC_ENVIRONMENT = "development"
 
 # 3. Update configuration
@@ -745,10 +782,11 @@ ingen_fab test platform generate
 ### Multi-Environment Deployment
 
 ```powershell
-# Deploy to different environments
+# Deploy to different environments using environment variables
 @('development', 'test', 'production') | ForEach-Object {
     $env:FABRIC_ENVIRONMENT = $_
-    ingen_fab deploy deploy --fabric-workspace-repo-dir . --fabric-environment $_
+    $env:FABRIC_WORKSPACE_REPO_DIR = "dp"
+    ingen_fab deploy deploy
 }
 ```
 

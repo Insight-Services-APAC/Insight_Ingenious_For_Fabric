@@ -11,7 +11,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
     ```bash
     source .venv/bin/activate
     export FABRIC_ENVIRONMENT="local"
-    export FABRIC_WORKSPACE_REPO_DIR="sample_project"
+    export FABRIC_WORKSPACE_REPO_DIR="dp"
     ```
 
 === "Windows"
@@ -19,7 +19,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
     ```powershell
     .venv\Scripts\activate
     $env:FABRIC_ENVIRONMENT = "local"
-    $env:FABRIC_WORKSPACE_REPO_DIR = "sample_project"
+    $env:FABRIC_WORKSPACE_REPO_DIR = "dp"
     ```
 
 This must be done at the start of every session to ensure proper dependency access and correct CLI operation.
@@ -120,7 +120,7 @@ mkdocs serve --dev-addr=0.0.0.0:8000
 
     ```powershell
     # Test CLI commands (use sample_project for testing)
-    $env:FABRIC_WORKSPACE_REPO_DIR = "./sample_project"
+    $env:FABRIC_WORKSPACE_REPO_DIR = "dp"
     $env:FABRIC_ENVIRONMENT = "development"
 
     # Generate DDL notebooks

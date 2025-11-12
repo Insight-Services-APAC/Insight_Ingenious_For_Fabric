@@ -44,7 +44,7 @@ Quick setup:
 === "Windows"
 
     ```powershell
-    $env:FABRIC_WORKSPACE_REPO_DIR = "./sample_project"
+    $env:FABRIC_WORKSPACE_REPO_DIR = "dp"
     $env:FABRIC_ENVIRONMENT = "development"
     # For service principal auth (optional)
     $env:AZURE_TENANT_ID = "<tenant-guid>"
