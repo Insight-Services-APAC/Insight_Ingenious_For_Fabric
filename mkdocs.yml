@@ -100,6 +100,7 @@ nav:
     - Deploy Guide (CI/CD): guides/cicd-deployment.md
     - CLI Reference: user_guide/cli_reference.md
     - Workflows: user_guide/workflows.md
+    - Variable Replacement: user_guide/variable-replacement.md
     - DDL Script Organization: user_guide/ddl-organization.md
     - DBT Integration: user_guide/dbt_integration.md
     - Best Practices: user_guide/best-practices.md
