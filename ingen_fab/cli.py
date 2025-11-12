@@ -392,6 +392,7 @@ def upload_dbt_project(
         typer.Option(
             "--dbt-project",
             "-p",
+            prompt="dbt project directory",
             help="Name of the dbt project subdirectory (appended to the base project path)"
         )
     ]
