@@ -4,12 +4,13 @@ from rich.console import Console
 
 console = Console()
 
-def generate_ddl_scripts(ctx, lakehouse, include_sequence_numbers=True, table_filter=None, subdirectory="generated"):
+def generate_ddl_scripts(ctx, lakehouse, include_sequence_numbers=True, table_filter=None, subdirectory="generated", metadata_file=None):
     """
     Generate one DDL Python script per table from the metadata CSV for the specified lakehouse.
     Each script is named like '<lakehouse>_<table>.py' or optionally '001_<lakehouse>_<table>.py' with sequence numbers.
     Optionally filter for a specific table name.
     Output files are placed in a configurable subdirectory (default: 'generated').
+    Optionally specify a custom metadata CSV file path.
     """
     workspace_dir = ctx.obj.get("fabric_workspace_repo_dir") if ctx.obj else None
     if not workspace_dir:
@@ -17,10 +18,21 @@ def generate_ddl_scripts(ctx, lakehouse, include_sequence_numbers=True, table_fi
         return
 
     workspace_dir = Path(workspace_dir)
-    metadata_csv = workspace_dir / "metadata" / "lakehouse_metadata_all.csv"
+    
+    # Use custom metadata file if provided, otherwise use default
+    if metadata_file:
+        # Convert to Path object if it's a string and make it absolute if relative
+        metadata_csv = Path(metadata_file)
+        if not metadata_csv.is_absolute():
+            metadata_csv = workspace_dir / metadata_csv
+    else:
+        metadata_csv = workspace_dir / "metadata" / "lakehouse_metadata_all.csv"
+    
     if not metadata_csv.exists():
         console.print(f"[red]Metadata CSV not found:[/red] {metadata_csv}")
         return
+
+    console.print(f"[blue]Using metadata file:[/blue] {metadata_csv}")
 
     # Output directory for DDL scripts
     ddl_dir = workspace_dir / "ddl_scripts" / "Lakehouses" / lakehouse / subdirectory

@@ -12,7 +12,7 @@ from ingen_fab.fabric_api.utils import FabricApiUtils
 from ingen_fab.python_libs.common.utils.path_utils import PathUtils
 
 
-def init_solution(project_name: str | None, path: Path):
+def init_solution(project_name: str | None, path: Path, with_samples: bool = False):
     console = Console()
 
     # Determine project name and path
@@ -45,7 +45,16 @@ def init_solution(project_name: str | None, path: Path):
 
     # Get the templates directory using the new path utilities
     try:
-        templates_dir = PathUtils.get_template_path("project")
+        if with_samples:
+            # Use sample_project as the template source
+            templates_dir = PathUtils.get_package_resource_path("sample_project")
+            ConsoleStyles.print_info(
+                console,
+                "Using sample_project as template (includes sample data and configurations)",
+            )
+        else:
+            # Use the default project_templates
+            templates_dir = PathUtils.get_template_path("project")
     except FileNotFoundError as e:
         ConsoleStyles.print_error(console, f"❌ Project templates not found: {e}")
         return

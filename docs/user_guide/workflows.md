@@ -4,82 +4,183 @@
 
 This guide covers best practices and common workflows for using the Ingenious Fabric Accelerator effectively in your projects.
 
+The guide assumes that you are working in a cloned DevOps repo.
+
 ## Development Workflow
 
 ### 1. Project Setup
 
 ```bash
-# Initialize new project
-ingen_fab init new --project-name "Data Analytics Platform"
+# Initialize new project (minimal template)
+ingen_fab init new --project-name "dp"
 
-# Navigate to the project directory
-cd "Data Analytics Platform"
+# Or initialize with sample configurations and platform manifests
+ingen_fab init new --project-name "dp" --with-samples
 
 # Set environment (development, UAT, production)
 $env:FABRIC_ENVIRONMENT = "development"
 
 # Set workspace directory 
-$env:FABRIC_WORKSPACE_REPO_DIR = "My Fabric Project"
+$env:FABRIC_WORKSPACE_REPO_DIR = "dp"
 ```
+
+!!! tip "Choosing the Right Template"
+    - **Default template** (`project_templates`): Minimal structure, best for starting from scratch
+    - **Sample template** (`--with-samples`): Includes platform manifests and sample configurations, ideal for learning or quick prototyping
 
 ### 2. Development Cycle
 
 ```mermaid
 graph TD
-    A[Write DDL Scripts] --> B[Generate Notebooks]
-    B --> C[Test Locally]
-    C --> D{Tests Pass?}
-    D -->|No| A
-    D -->|Yes| E[Deploy to Dev]
-    E --> F[Test on Platform]
-    F --> G{Platform Tests Pass?}
-    G -->|No| A
-    G -->|Yes| H[Deploy to Higher Environments]
+    A[Create Lakehouses and Warehouses] --> B[Initial Configuration of development.json]
+    B --> C[Deploy to Dev]
+    C --> D[Init Workspace Variables development.json]
+    D --> E{Using dbt adapter?}
+    E -->|Yes| F[Develop dbt models]
+    E -->|No| H
+    F --> G[Generate dbt notebooks]
+    G --> H{Developing in Fabric?}
+    H -->|Yes| I[Develop Fabric Artefacts in Fabric]
+    H -->|No| M
+    I --> J[Download Fabric artefacts]
+    J --> K{Requires variable replacement?}
+    K -->|Yes| L[Add variables to Fabric Artefacts]
+    K -->|No| M
+    L --> M{DDL scripts required?}
+    M -->|Yes| N[Build DDL scripts]
+    M -->|No| P
+    N --> O[Build DDL Notebooks]
+    O --> P[Deploy to Dev]
+    P --> Q[Unit Test on Fabric]
+    Q --> R{Tests Pass?}
+    R -->|No| E
+    R -->|Yes| S[Configure DevOps Environment and yml scripts]
+    S --> T[Deploy to Higher Environments]
 ```
 
 **Step-by-step:**
 
-1. **Write DDL Scripts**
-   ```bash
-   # Create DDL scripts in numbered order
-   mkdir -p ddl_scripts/Lakehouses/Config/001_Initial_Setup
-   vim ddl_scripts/Lakehouses/Config/001_Initial_Setup/001_create_tables.py
-   ```
+1.  **Create Lakehouses and Warehouses**
 
-2. **Generate Notebooks**
-   ```bash
-   # For warehouses
-   ingen_fab ddl compile --output-mode fabric_workspace_repo --generation-mode Warehouse
-   
-   # For lakehouses
-   ingen_fab ddl compile --output-mode fabric_workspace_repo --generation-mode Lakehouse
-   ```
+    Create lakehouse and warehouse definitions in your project. These are .Lakehouse and .Warehouse items under fabric_workspace_items/
+    
+    For examples, see the sample project.
 
-3. **Test Locally**
-   ```bash
-   # Set environment for local testing
-   export FABRIC_ENVIRONMENT=local
-   
-   # Test Python implementations
-   ingen_fab test local python
-   
-   # Test PySpark implementations
-   ingen_fab test local pyspark
-   ```
+2.  **Initial Configuration of development.json**
 
-4. **Deploy to Development**
-   ```bash
-   # Set environment back to development
-   export FABRIC_ENVIRONMENT=development
-   
-   # Deploy
-   ingen_fab deploy deploy --fabric-workspace-repo-dir . --fabric-environment development
-   ```
+    Configure environment-specific variables by editing fabric_workspace_items/config/var_lib.VariableLibrary/valueSets/development.json
 
-5. **Generate Platform Tests**
-   ```bash
-   ingen_fab test platform generate
-   ```
+    For the initial configurations, the variables below are important.
+
+    ```json
+    {
+      "$schema": "https://developer.microsoft.com/json-schemas/fabric/item/variableLibrary/definition/valueSet/1.0.0/schema.json",
+      "name": "development",
+      "variableOverrides": [
+        {
+          "name": "fabric_environment",
+          "value": "development"
+        },
+        {
+          "name": "fabric_deployment_workspace_id",
+          "value": "xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx"
+        },
+        {
+          "name": "config_workspace_name",
+          "value": "dp_dev"
+        }
+      ]
+    }
+    ```
+
+    Note: The structure of the json files under valueSets must align with the structure of variables.json
+
+3.  **Deploy to Dev**
+
+    ```bash
+    $env:FABRIC_ENVIRONMENT = "development"
+    $env:FABRIC_WORKSPACE_REPO_DIR = "dp"
+
+    ingen_fab deploy deploy
+    ```
+
+4.  **Initialize Workspace Variables**
+
+    This process will update the lakehouse and warehouse specific variable values in your development.json
+
+    ```bash
+    # Sync variable library to workspace
+    ingen_fab init workspace --workspace-name dp_dev
+    ```
+
+5.  **Choose Development Approach**
+
+    **If using dbt adapter:**
+    
+    ```bash
+    # Develop dbt models and snapshots. Update schema.yml files
+   
+    # Extract metadata for lakehouses
+    ingen_fab deploy get-metadata --target lakehouse
+
+    # Convert metadata for dbt format (uses default metadata/lakehouse_metadata_all.csv)
+    ingen_fab dbt convert-metadata --dbt-project dbt_project
+    
+    # Or use custom metadata file if needed
+    # ingen_fab dbt convert-metadata --dbt-project dbt_project --metadata-file metadata/custom_export.csv
+    
+    # Build dbt models and masters
+    ingen_fab dbt exec -- stage run build --project-dir dbt_project
+    ingen_fab dbt exec -- stage run post-scripts --project-dir dbt_project
+
+    # Generate dbt notebooks
+    ingen_fab dbt create-notebooks --dbt-project dbt_project
+    ```
+
+    **If developing in Fabric:**
+    
+    - Develop notebooks, data pipelines, and other artifacts directly in Fabric workspace
+    - Download artifacts when ready:
+      ```bash
+      ingen_fab deploy download-artefact --artefact-name "my_notebook" --artefact-type Notebook
+      ```
+    - Add variable replacement markers if needed for environment-specific values
+
+6.  **Build DDL Scripts (if required)**
+
+    Create DDL scripts, following folder and file naming conventions
+
+7.  **Generate DDL Notebooks**
+
+    ```bash
+    # For warehouses from DDL
+    ingen_fab ddl compile --output-mode fabric_workspace_repo --generation-mode Warehouse
+    
+    # For lakehouses from DDL
+    ingen_fab ddl compile --output-mode fabric_workspace_repo --generation-mode Lakehouse
+    ```
+
+8.  **Deploy to Dev and Test**
+
+    ```bash   
+    # Deploy to dev workspace
+    ingen_fab deploy
+    ```
+
+9.  **Commit and Push Changes**
+
+    Commit changes to repository.
+    A trunk based development approach is recommended with Pull Requests for quality control.
+
+10. **Deploy to Higher Environments**
+
+    Deploy to higher environments using DevOpS CI\CD pipelines.
+    Remember to create \ configure value sets specific to the environments:
+
+    - test.json
+    - uat.json
+    - production.json
+    
 
 ## Environment Management
 
@@ -88,7 +189,7 @@ graph TD
 Recommended environment progression:
 
 ```
-Local Development → Development → Test → Production
+Development → Test → UAT → Production
 ```
 
 ### Environment Configuration
@@ -97,212 +198,38 @@ Each environment should have its own configuration:
 
 ```bash
 fabric_workspace_items/config/var_lib.VariableLibrary/valueSets/
-├── local.json
 ├── development.json
 ├── test.json
+├── uat.json
 └── production.json
 ```
 
 **Example configuration:**
 
-=== "development.json"
-    ```json
-    {
-      "fabric_environment": "development",
-      "config_workspace_id": "dev-workspace-guid",
-      "config_lakehouse_id": "dev-lakehouse-guid",
-      "data_retention_days": 30,
-      "enable_debug_logging": true
-    }
-    ```
+For example configurations, see the json files under the sample project.
 
-=== "test.json"
-    ```json
-    {
-      "fabric_environment": "test",
-      "config_workspace_id": "test-workspace-guid",
-      "config_lakehouse_id": "test-lakehouse-guid",
-      "data_retention_days": 90,
-      "enable_debug_logging": false
-    }
-    ```
-
-=== "production.json"
-    ```json
-    {
-      "fabric_environment": "production",
-      "config_workspace_id": "prod-workspace-guid",
-      "config_lakehouse_id": "prod-lakehouse-guid",
-      "data_retention_days": 365,
-      "enable_debug_logging": false
-    }
-    ```
 
 ### Deployment Strategy
 
 ```bash
-# Deploy to development first
-ingen_fab deploy deploy --fabric-workspace-repo-dir . --fabric-environment development
+# Deploy to development first. Note that with trunk based development, this may require developer workspaces and branches
+# Set environment variables first
+$env:FABRIC_WORKSPACE_REPO_DIR = "dp"
+$env:FABRIC_ENVIRONMENT = "development"
 
-# Generate and run platform tests
-ingen_fab test platform generate
+ingen_fab deploy deploy
 
-# Deploy to test
-ingen_fab deploy deploy --fabric-workspace-repo-dir . --fabric-environment test
+# Validate in development workspace, then deploy to test using DevOps pipelines
 
-# Final deployment to production
-ingen_fab deploy deploy --fabric-workspace-repo-dir . --fabric-environment production
+# Validate in test workspace, then deploy to UAT using DevOps pipelines
+
+# Final deployment to production using DevOps pipelines
 ```
 
-## DDL Script Organization
+Note that deploy deploy can be used from Visual Studio Code to deploy to any environment, but a DevOps appraoch is recommended.
 
-### Directory Structure
-
-```
-ddl_scripts/
-├── Lakehouses/
-│   ├── Config/
-│   │   ├── 001_Initial_Setup/
-│   │   │   ├── 001_create_config_tables.py
-│   │   │   └── 002_insert_initial_data.py
-│   │   └── 002_Schema_Updates/
-│   │       └── 001_add_new_columns.py
-│   └── Data/
-│       └── 001_Initial_Setup/
-│           └── 001_create_data_tables.py
-└── Warehouses/
-    └── EDW/
-        ├── 001_Initial_Setup/
-        │   ├── 001_create_schemas.sql
-        │   └── 002_create_tables.sql
-        └── 002_Data_Load/
-            └── 001_load_reference_data.sql
-```
-
-### Naming Conventions
-
-**Folders:**
-- Use descriptive names: `001_Initial_Setup`, `002_Schema_Updates`
-- Include version numbers for ordering
-- Group related scripts together
-
-**Files:**
-- Start with numbers: `001_`, `002_`, etc.
-- Use descriptive names: `create_config_tables.py`
-- Use appropriate extensions: `.py` for Python, `.sql` for SQL
-
-### Script Best Practices
-
-1. **Idempotent Operations**
-   ```python
-   # Always use IF NOT EXISTS
-   sql = """
-   CREATE TABLE IF NOT EXISTS config.metadata (
-       id BIGINT,
-       name STRING,
-       value STRING
-   ) USING DELTA
-   """
-   ```
-
-2. **Error Handling**
-   ```python
-   try:
-       ddl_utils.execute_ddl(sql, "Create metadata table")
-       print("✅ Metadata table created successfully")
-   except Exception as e:
-       print(f"❌ Failed to create metadata table: {e}")
-       raise
-   ```
-
-3. **Logging**
-   ```python
-   ddl_utils.log_execution("001_create_config_tables.py", "Create configuration tables")
-   ```
-
-## Testing Strategies
-
-### Local Testing
-
-Test your code before deploying:
-
-```bash
-# Set environment for local testing
-export FABRIC_ENVIRONMENT=local
-
-# Test Python libraries
-ingen_fab test local python
-
-# Test PySpark libraries
-ingen_fab test local pyspark
-
-# Test common libraries
-ingen_fab test local common
-
-# Test specific module
-ingen_fab test local python ddl_utils
-```
-
-### Platform Testing
-
-Generate platform tests:
-
-```bash
-# Generate platform test notebooks
-ingen_fab test platform generate
-
-# The generated test notebooks can then be run in Fabric:
-# - platform_testing/python_platform_test.Notebook
-# - platform_testing/pyspark_platform_test.Notebook
-```
-
-### Continuous Integration
-
-Example CI/CD workflow:
-
-```yaml
-# .github/workflows/ci.yml
-name: CI
-
-on: [push, pull_request]
-
-jobs:
-  test:
-    runs-on: ubuntu-latest
-    steps:
-    - uses: actions/checkout@v4
-    
-    - name: Setup Python
-      uses: actions/setup-python@v4
-      with:
-        python-version: '3.12'
-    
-    - name: Install dependencies
-      run: |
-        pip install uv
-        uv sync
-    
-    - name: Run tests
-      run: |
-        export FABRIC_ENVIRONMENT=local
-        uv run ingen_fab test local python
-        uv run ingen_fab test local pyspark
-    
-    - name: Generate notebooks
-      run: |
-        uv run ingen_fab ddl compile --output-mode fabric_workspace_repo --generation-mode Warehouse
-        uv run ingen_fab ddl compile --output-mode fabric_workspace_repo --generation-mode Lakehouse
-    
-    - name: Deploy to staging
-      if: github.ref == 'refs/heads/main'
-      run: |
-        export FABRIC_ENVIRONMENT=development
-        uv run ingen_fab deploy deploy --fabric-workspace-repo-dir . --fabric-environment development
-      env:
-        AZURE_TENANT_ID: ${{ "{{" }} secrets.AZURE_TENANT_ID {{ "}}" }}
-        AZURE_CLIENT_ID: ${{ "{{" }} secrets.AZURE_CLIENT_ID {{ "}}" }}
-        AZURE_CLIENT_SECRET: ${{ "{{" }} secrets.AZURE_CLIENT_SECRET {{ "}}" }}
-```
+!!! tip "DDL Script Organization"
+    For detailed guidance on organizing DDL scripts, including naming conventions, best practices, and examples, see the [DDL Script Organization Guide](ddl-organization.md).
 
 ## Troubleshooting Workflow
 
@@ -320,76 +247,16 @@ jobs:
    ```
 
 2. **DDL Script Failures**
-   ```bash
-   # Check script syntax locally
-   python ddl_scripts/Lakehouses/Config/001_Initial_Setup/001_create_tables.py
-   
-   # Review generated notebooks
-   cat fabric_workspace_items/ddl_scripts/Lakehouses/Config/001_Initial_Creation_Config_Lakehouses.Notebook/notebook-content.py
-   ```
+
+   DDL notebooks may fail if the python or SQL scripts have not been developed properly
 
 3. **Variable Resolution Issues**
-   ```bash
-   # Verify variable files
-   cat fabric_workspace_items/config/var_lib.VariableLibrary/valueSets/development.json
+
+   Variables in json value set files must correspond with those in variables.json
    
-   # Compile libraries with variable injection
-   ingen_fab libs compile
-   ```
+   settings.json must list all value sets
 
-### Debug Workflow
-
-```bash
-# 1. Test locally first
-export FABRIC_ENVIRONMENT=local
-ingen_fab test local python
-
-# 2. Check notebook content
-ingen_fab notebook scan-notebook-blocks --base-dir ./fabric_workspace_items
-
-# 3. Find all notebook files
-ingen_fab notebook find-notebook-content-files --base-dir ./fabric_workspace_items
-
-# 4. Deploy to development
-export FABRIC_ENVIRONMENT=development
-ingen_fab deploy deploy --fabric-workspace-repo-dir . --fabric-environment development
-```
-
-## Advanced Workflows
-
-### Multi-Project Management
-
-```bash
-# Create multiple related projects
-for project in analytics ml-pipeline reporting; do
-    ingen_fab init new --project-name "$project"
-done
-```
-
-### Shared Libraries
-
-```bash
-# Create shared library project
-ingen_fab init new --project-name "shared-libs"
-
-# Reference shared libraries in other projects
-# Update python_libs/ to include shared components
-```
-
-### Environment Promotion
-
-```bash
-# Promote from development to test
-ingen_fab deploy deploy --fabric-workspace-repo-dir . --fabric-environment test
-
-# Generate platform tests for validation
-ingen_fab test platform generate
-
-# Promote to production
-ingen_fab deploy deploy --fabric-workspace-repo-dir . --fabric-environment production
-```
-
-### Working with Flat File Ingestion
+### Working with Flat File Ingestion (Requires review)
 
 The flat file ingestion package supports both lakehouse and warehouse targets with different processing approaches:
 
@@ -412,7 +279,6 @@ ingen_fab package ingest run --config-id "customers_import" --execution-group 1
 - **Warehouse**: Use for high-performance bulk loading with COPY INTO and SQL-based operations
 - **Both**: Generate separate notebooks for maximum flexibility
 
-```
 
 ### Schema Change Management
 
@@ -433,44 +299,7 @@ ingen_fab deploy deploy
 ingen_fab deploy get-metadata --target both --format csv -o updated_schema.csv
 
 # 5. Compare and analyze changes
-ingen_fab deploy compare-metadata \
-  -f1 baseline_schema.csv \
-  -f2 updated_schema.csv \
-  -o schema_changes.json --format json
-```
-
-**Environment comparison workflow:**
-```bash
-# Compare production vs staging schemas
-ingen_fab deploy get-metadata --target both -o prod_schema.csv --fabric-environment production
-ingen_fab deploy get-metadata --target both -o staging_schema.csv --fabric-environment staging
-
-# Generate comparison report
-ingen_fab deploy compare-metadata \
-  -f1 prod_schema.csv \
-  -f2 staging_schema.csv \
-  --format table
-```
-
-**Migration validation workflow:**
-```bash
-# Before migration
-ingen_fab deploy get-metadata --target lakehouse -o pre_migration.csv
-
-# Run migration scripts
-# ... execute your migration ...
-
-# After migration  
-ingen_fab deploy get-metadata --target lakehouse -o post_migration.csv
-
-# Validate changes match expectations
-ingen_fab deploy compare-metadata \
-  -f1 pre_migration.csv \
-  -f2 post_migration.csv \
-  -o migration_validation.json --format json
-
-# Review differences for unexpected changes
-cat migration_validation.json | jq '.differences[] | select(.type == "missing_table")'
+ingen_fab deploy compare-metadata -f1 baseline_schema.csv -f2 updated_schema.csv  -o schema_changes.json --format json
 ```
 
 **What the comparison detects:**
@@ -479,71 +308,8 @@ cat migration_validation.json | jq '.differences[] | select(.type == "missing_ta
 - Data type changes (e.g., `varchar(50)` → `varchar(100)`)
 - Nullable constraint changes (`NULL` → `NOT NULL`)
 
-### Managing Python Libraries
+## Related Topics
 
-```bash
-# Compile Python libraries with variable injection
-ingen_fab libs compile
-
-# Compile specific library file
-ingen_fab libs compile --target-file "python_libs/common/config_utils.py"
-
-# Upload libraries to Fabric
-ingen_fab deploy upload-python-libs
-```
-
-## Best Practices
-
-### Code Organization
-
-- **Separate concerns**: Keep DDL scripts focused on single responsibilities
-- **Version control**: Use descriptive commit messages and branch strategies
-- **Documentation**: Include README files in each major directory
-
-### Development Practices
-
-- **Test early and often**: Run local tests before platform deployment
-- **Use version control**: Commit changes frequently with meaningful messages
-- **Environment parity**: Keep environments as similar as possible
-
-### Deployment Practices
-
-- **Gradual rollout**: Deploy to development first, then test, then production
-- **Backup strategy**: Ensure you can rollback changes if needed
-- **Monitoring**: Monitor execution logs in Fabric after deployment
-
-### Security Practices
-
-- **Secret management**: Use Azure Key Vault or environment variables
-- **Access control**: Implement proper RBAC in Fabric workspaces
-- **Audit logging**: Enable audit logs for all environments
-
-## Performance Optimization
-
-### Notebook Generation
-
-```bash
-# Generate notebooks for multiple types sequentially
-ingen_fab ddl compile --output-mode fabric_workspace_repo --generation-mode Warehouse
-ingen_fab ddl compile --output-mode fabric_workspace_repo --generation-mode Lakehouse
-```
-
-### Testing
-
-```bash
-# Run specific test modules for faster feedback
-ingen_fab test local python ddl_utils
-ingen_fab test local pyspark lakehouse_utils
-```
-
-### Deployment
-
-```bash
-# Clean up old items before deployment if needed
-ingen_fab deploy delete-all --environment development --force
-
-# Deploy fresh
-ingen_fab deploy deploy --fabric-workspace-repo-dir . --fabric-environment development
-```
+For best practices on dbt, code organization, development, deployment, security, and performance optimization, see the [Best Practices Guide](best-practices.md).
 
 This workflow guide provides a comprehensive approach to using the Ingenious Fabric Accelerator effectively in your projects. Adapt these patterns to fit your specific needs and organizational requirements.

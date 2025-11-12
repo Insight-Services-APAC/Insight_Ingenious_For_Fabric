@@ -22,6 +22,7 @@ There are subfolders for `lakehouse` and `warehouse`, each containing:
 - `notebook_content.py.jinja` – wraps the rendered cells to create a notebook.
 - `nb_cell_python.py.jinja` and `nb_cell_sql.py.jinja` – templates for Python and SQL cells.
 - `orchestrator_notebook.py.jinja` – orchestrator that runs notebooks for a single entity.
-- `orchestrator_notebook_all_lakehouses.py.jinja` – orchestrator that runs all entities.
+- `orchestrator_notebook_all_lakehouses.py.jinja` – orchestrator that runs all lakehouse entities.
+- `orchestrator_notebook_all_warehouses.py.jinja` – orchestrator that runs all warehouse entities.
 
 You can customise these templates to fit your own coding standards or add additional cells.

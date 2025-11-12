@@ -23,7 +23,7 @@ Set up environment variables to avoid specifying them on each command:
 
     ```powershell
     # Project location
-    $env:FABRIC_WORKSPACE_REPO_DIR = "./sample_project"
+    $env:FABRIC_WORKSPACE_REPO_DIR = "dp"
 
     # Target environment
     $env:FABRIC_ENVIRONMENT = "development"
