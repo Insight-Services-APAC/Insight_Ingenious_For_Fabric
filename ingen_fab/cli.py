@@ -661,6 +661,17 @@ def deploy_download_artefact(
     the full source code for notebooks, report definitions, data pipeline configurations,
     and other artefact-specific content.
     
+    Supported artefact types:
+      - Notebook
+      - Report
+      - SemanticModel
+      - DataPipeline
+      - GraphQLApi
+      - DataflowGen2
+      - SparkJobDefinition
+      - DataWarehouse
+      - KQLDatabase
+    
     The downloaded artefact will be saved in the fabric_workspace_items/downloaded/{type}/
     folder structure, making it ready for version control and redeployment.
     
@@ -674,6 +685,27 @@ def deploy_download_artefact(
       # Download from specific workspace
       ingen_fab deploy download-artefact -n "ETL Pipeline" -t DataPipeline -w abc123-def456
     """
+    # Validate artefact type
+    supported_types = [
+        "Notebook", "Report", "SemanticModel", "DataPipeline", "GraphQLApi",
+        "DataflowGen2", "SparkJobDefinition", "DataWarehouse", "KQLDatabase"
+    ]
+    
+    if artefact_type not in supported_types:
+        console_styles.print_error(
+            console,
+            f"❌ Unsupported artefact type '{artefact_type}'."
+        )
+        console_styles.print_info(
+            console,
+            f"Supported types: {', '.join(supported_types)}"
+        )
+        console_styles.print_info(
+            console,
+            f"\nNote: The artefact type '{artefact_type}' exists in Fabric but cannot be downloaded using the REST API."
+        )
+        raise typer.Exit(code=1)
+    
     deploy_commands.download_artefact(
         ctx=ctx,
         artefact_name=artefact_name,
@@ -1175,6 +1207,14 @@ def dbt_convert_metadata(
             help="Name of the dbt project directory under the workspace repo",
         ),
     ],
+    metadata_file: Annotated[
+        Optional[Path],
+        typer.Option(
+            "--metadata-file",
+            "-m",
+            help="Path to CSV metadata file (default: metadata/lakehouse_metadata_all.csv)",
+        ),
+    ] = None,
     skip_profile_confirmation: Annotated[
         bool,
         typer.Option(
@@ -1192,7 +1232,7 @@ def dbt_convert_metadata(
     ingen_fab deploy get-metadata --target lakehouse
     """
     dbt_commands.convert_metadata_to_dbt_format(
-        ctx, dbt_project, skip_profile_confirmation
+        ctx, dbt_project, metadata_file, skip_profile_confirmation
     )
 
 @dbt_app.command("generate-schema-yml")
