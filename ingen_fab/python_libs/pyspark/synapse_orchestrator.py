@@ -312,14 +312,15 @@ class SynapseOrchestrator(SynapseOrchestratorInterface):
                             "synapse_connection_name": getattr(work_item, "synapse_connection_name", None),
                             "synapse_datasource_name": getattr(work_item, "synapse_datasource_name", None) or "",
                             "synapse_datasource_location": getattr(work_item, "synapse_datasource_location", None) or "",
+                            "synapse_external_table_schema": getattr(work_item, "synapse_external_table_schema", None) or "",
                             "custom_select_sql": getattr(work_item, "custom_select_sql", None),
                         }
                         pipeline_params = extract_utils.build_pipeline_parameters_from_record(extraction_spec)
-                    except Exception:
-                        pipeline_params = None
+                    except Exception as e:
+                        logger.error(f"Error building pipeline parameters for {table_info}: {e}")
+                        raise e
                 if pipeline_params is None:
                     pipeline_params = self.get_pipeline_parameters(work_item, config)
-                
                 logger.info(f"Processing {table_info} - Triggering pipeline...")
                 
                 # Use pipeline id resolved during work item creation process
@@ -557,6 +558,7 @@ class SynapseOrchestrator(SynapseOrchestratorInterface):
         synapse_sync_fabric_pipeline_id: Optional[str],
         synapse_datasource_name: str,
         synapse_datasource_location: str,
+        synapse_external_table_schema: str,
         *,
         trigger_type: Optional[str] = "Manual",
         master_execution_parameters: Optional[Dict[str, Any]] = None,
@@ -643,6 +645,7 @@ class SynapseOrchestrator(SynapseOrchestratorInterface):
                         synapse_sync_fabric_pipeline_id=resolved_pipeline_id,  # per‑item resolved value
                         synapse_datasource_name=resolved_ds_name,
                         synapse_datasource_location=resolved_ds_loc,
+                        synapse_external_table_schema=synapse_external_table_schema,
                         synapse_connection_name=item.get("synapse_connection_name"),
                         export_base_dir=item.get("export_base_dir"),
                         trigger_type=item.get("trigger_type") or trigger_type,
@@ -689,6 +692,7 @@ class SynapseOrchestrator(SynapseOrchestratorInterface):
                                 synapse_connection_name=getattr(row, "synapse_connection_name", None),
                                 synapse_datasource_name=resolved_ds_name,
                                 synapse_datasource_location=resolved_ds_loc,
+                                synapse_external_table_schema=synapse_external_table_schema,
                                 export_base_dir=getattr(row, "export_base_dir", None),
                                 trigger_type=trigger_type,
                                 master_execution_parameters=master_execution_parameters,
@@ -717,6 +721,7 @@ class SynapseOrchestrator(SynapseOrchestratorInterface):
                             synapse_connection_name=getattr(row, "synapse_connection_name", None),
                             synapse_datasource_name=resolved_ds_name,
                             synapse_datasource_location=resolved_ds_loc,
+                            synapse_external_table_schema=synapse_external_table_schema,
                             export_base_dir=getattr(row, "export_base_dir", None),
                             trigger_type=trigger_type,
                             master_execution_parameters=master_execution_parameters,

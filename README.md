@@ -92,7 +92,7 @@ See the [Developer Guide](docs/developer_guide/index.md) for complete developmen
 
 ```bash
 # Create a new Fabric workspace project
-ingen_fab init new --project-name "My Fabric Project"
+ingen_fab init new --project-name "dp"
 ```
 
 ### Set Environment Variables
@@ -103,7 +103,7 @@ Replace the values below with your specific workspace details:
 $env:FABRIC_ENVIRONMENT = "development"
 
 # Set workspace directory 
-$env:FABRIC_WORKSPACE_REPO_DIR = "My Fabric Project"
+$env:FABRIC_WORKSPACE_REPO_DIR = "dp"
 ```
 
 ### Generate DDL Notebooks
@@ -192,6 +192,7 @@ ingen_fab ddl ddls-from-metadata --lakehouse lh_silver2
 ingen_fab ddl ddls-from-metadata --lakehouse lh_silver2 --table customer_data
 ingen_fab ddl ddls-from-metadata --lakehouse lh_silver2 --no-sequence-numbers
 ingen_fab ddl ddls-from-metadata --lakehouse lh_silver2 --subdirectory custom_scripts
+ingen_fab ddl ddls-from-metadata --lakehouse lh_silver2 --metadata-file custom_metadata.csv
 
 # Compile flat file ingestion package for lakehouse
 ingen_fab package ingest compile --target-datastore lakehouse --include-samples
@@ -234,7 +235,7 @@ The tests run entirely offline. A few end-to-end tests are skipped unless the re
 
 ## Sample project
 
-See [sample_project/README.md](sample_project/README.md) for a tour of the example Fabric workspace used by the CLI.
+See [Sample Project](docs/examples/sample_project.md) for a tour of the example Fabric workspace used by the CLI.
 
 ## Project Structure
 
@@ -310,7 +311,7 @@ mkdocs serve --dev-addr=0.0.0.0:8000
 
 Additional documentation:
 
-- **[sample_project/README.md](sample_project/README.md)** - Complete example workspace with step-by-step workflow
+- **[Sample Project](docs/examples/sample_project.md)** - Complete example workspace with step-by-step workflow
 - **[ingen_fab/python_libs/README.md](ingen_fab/python_libs/README.md)** - Reusable Python and PySpark libraries
 - **[ingen_fab/ddl_scripts/README.md](ingen_fab/ddl_scripts/README.md)** - DDL notebook generation templates
 

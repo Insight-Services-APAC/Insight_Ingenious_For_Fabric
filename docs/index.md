@@ -26,7 +26,7 @@ Ingenious for Fabric is a comprehensive command line tool built with [Typer](htt
 
     ---
 
-    Manage variables per environment and deploy workspace items consistently across dev, test, and prod.
+    Manage variables per environment, deploy workspace items, extract metadata, and track schema changes across dev, test, and prod.
 
     [:octicons-arrow-right-24: Learn more](user_guide/deploy_guide.md)
 
@@ -45,14 +45,6 @@ Ingenious for Fabric is a comprehensive command line tool built with [Typer](htt
     Scan, analyze, and transform notebook content with reusable helpers that work locally and in Fabric.
 
     [:octicons-arrow-right-24: Learn more](developer_guide/notebook_utils.md)
-
--   :material-test-tube:{ .lg .middle } **Testing Framework**
-
-    ---
-
-    Run local library tests and platform validations to keep notebooks and libs reliable.
-
-    [:octicons-arrow-right-24: Learn more](user_guide/cli_reference.md#test)
 
 -   :material-language-python:{ .lg .middle } **Python Libraries**
 
@@ -92,7 +84,7 @@ Ingenious for Fabric is a comprehensive command line tool built with [Typer](htt
 
     New to Ingenious? Start here for installation and your first project.
 
-    [:octicons-arrow-right-24: Quick Start Guide](getting-started/quick-start.md)
+    [:octicons-arrow-right-24: Quick Start Guide](user_guide/quick_start.md)
 
 -   :material-console:{ .lg .middle } **User Guides**
 
@@ -108,7 +100,7 @@ Ingenious for Fabric is a comprehensive command line tool built with [Typer](htt
 
     Technical reference for configuration and architecture.
 
-    [:octicons-arrow-right-24: Environment Variables](reference/environment-variables.md) · [:octicons-arrow-right-24: Workspace Layout](reference/workspace-layout.md)
+    [:octicons-arrow-right-24: Environment Variables](reference/environment-variables.md) · [:octicons-arrow-right-24: Workspace Layout](user_guide/workspace_layout.md)
 
 -   :material-code-braces:{ .lg .middle } **Developer Guide**
 
@@ -126,14 +118,14 @@ Ingenious for Fabric is a comprehensive command line tool built with [Typer](htt
 
 ```bash
 # 1. Create project
-ingen_fab init new --project-name "My Project"
+ingen_fab init new --project-name "dp"
 
 # 2. Set environment
-export FABRIC_WORKSPACE_REPO_DIR="./My Project"
+export FABRIC_WORKSPACE_REPO_DIR="dp"
 export FABRIC_ENVIRONMENT="development"
 
 # 3. Generate notebooks
-ingen_fab ddl compile --output-mode fabric_workspace_repo --generation-mode Warehouse
+ingen_fab ddl compile --generation-mode Warehouse
 
 # 4. Deploy
 ingen_fab deploy deploy
@@ -169,10 +161,7 @@ project_templates/        # Templates for new project initialization
 - **[`init`](user_guide/cli_reference.md#init)** - Initialize solutions and projects
 - **[`ddl`](user_guide/cli_reference.md#ddl)** - Compile DDL notebooks from templates
 - **[`deploy`](user_guide/cli_reference.md#deploy)** - Deploy to environments and manage workspace items
-- **[`notebook`](user_guide/cli_reference.md#notebook)** - Manage and scan notebook content
-- **[`test`](user_guide/cli_reference.md#test)** - Test notebooks and Python blocks (local and platform)
-- **[`package`](user_guide/cli_reference.md#package)** - Compile and run extension packages
-- **[`libs`](user_guide/cli_reference.md#libs)** - Compile and manage Python libraries
+- **[`dbt`](user_guide/cli_reference.md#dbt)** - Generate notebooks from dbt outputs and convert metadata
 
 ## Core Concepts
 
@@ -240,6 +229,5 @@ Comprehensive testing framework supporting both local development and Fabric pla
 ## Support
 
 - **Documentation**: Browse the complete documentation on this site
-- **Sitemap**: See the [complete documentation map](SITEMAP.md) for all available pages
 - **Help**: Use `ingen_fab --help` for CLI assistance
 - **Local Development**: Use the sample project for testing and learning

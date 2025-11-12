@@ -18,22 +18,31 @@ Create a new project with the complete starter template:
 
 ```bash
 # Initialize the project with complete template
-ingen_fab init new --project-name "My First Fabric Project"
+ingen_fab init new --project-name "dp"
 
-# Navigate to the created project
-cd "My First Fabric Project"
 ```
+
+!!! tip "Using Sample Project Template"
+    For a more comprehensive starting point with platform manifests and example configurations, add the `--with-samples` flag:
+    ```bash
+    ingen_fab init new --project-name "dp" --with-samples
+    ```
+    This uses the `sample_project` template which includes pre-configured platform manifests for multiple environments.
 
 This creates the following structure with complete starter files:
 ```
-My First Fabric Project/
+dp/
+├── dbt_project/                    # dbt project folder      
+│   ├── macros/                    # dbt macros
+│   ├── metaextracts/              # dbt metadata extracts
+│   ├── models/                    # dbt models
+│   ├── dbt_project.yml             # dbt project configuration
+│   └── README.md                   # initial README file
 ├── ddl_scripts/                    # Sample DDL scripts included
-│   ├── Lakehouses/Config/         # Python DDL scripts for Delta tables
+│   ├── Lakehouses/                # Python DDL scripts for Delta tables
 │   └── Warehouses/               # SQL DDL scripts for warehouses
-│       ├── Config_WH/            # Config warehouse scripts
-│       └── Sample_WH/            # Sample warehouse scripts
 ├── fabric_workspace_items/        # Complete Fabric workspace structure
-│   ├── config/var_lib.VariableLibrary/  # Pre-configured variable library
+│   ├── config/                    # Pre-configured variable library
 │   ├── lakehouses/                # Sample lakehouse definitions
 │   └── warehouses/                # Sample warehouse definitions
 ├── platform_manifest_*.yml       # Environment deployment tracking
@@ -49,17 +58,13 @@ Set up environment variables and configure your workspace details:
 $env:FABRIC_ENVIRONMENT = "development"
 
 # Set workspace directory 
-$env:FABRIC_WORKSPACE_REPO_DIR = "My Fabric Project"
+$env:FABRIC_WORKSPACE_REPO_DIR = "dp"
 ```
 
 Now edit the development environment variables:
 
-```bash
-vim fabric_workspace_items/config/var_lib.VariableLibrary/valueSets/development.json
-```
-
 Replace the placeholder values with your actual workspace IDs:
-Note: You can modify lakehouse and wearhouse names as needed. To do that, variable names must match the names under variables.json file. ** Do not modify config lakehouse/wearhouse names **
+Note: You can modify lakehouse and warehouse names as needed. To do that, variable names must match the names under variables.json file. ** Do not modify config lakehouse/warehouse names **
 
 
 ```json
@@ -95,14 +100,17 @@ Note: You can modify lakehouse and wearhouse names as needed. To do that, variab
 
 ## Step 3: Explore the Sample DDL Scripts
 
-The project template includes sample DDL scripts to get you started. Take a look at what's included:
+The sample project template includes sample DDL scripts to get you started. Take a look at what's included:
 
-```bash
-# View the sample Lakehouse DDL script
-cat ddl_scripts/Lakehouses/Config/001_Initial_Creation/001_sample_customer_table_create.py
-
-# View the sample Warehouse DDL script  
-cat ddl_scripts/Warehouses/Sample_WH/001_Initial_Creation/001_sample_customer_table_create.sql
+```
+dp/
+    ├── ddl_scripts/                # Sample DDL scripts included
+    ├── Lakehouses/                # Python DDL scripts for Delta tables
+    │   ├── lh_bronze/             # sample python ddl scripts for the bronze lakehouse
+    │   ├── lh_silver/             # sample python ddl scripts for the silver lakehouse  
+    │   ├── lh_gold/               # sample python ddl scripts for the gold lakehouse
+    └── Warehouses/                # SQL DDL scripts for warehouses
+        └── wh_gold/               # sample sql ddl scripts for the gold warehouse
 ```
 
 The sample scripts create a customer table and insert sample data. You can:
@@ -120,16 +128,14 @@ The sample scripts create a customer table and insert sample data. You can:
 
 Transform your DDL scripts into executable notebooks:
 
+💡Remember to set your environment variables first.
+
 ```bash
 # Generate notebooks for lakehouses
-ingen_fab ddl compile \
-    --output-mode fabric_workspace_repo \
-    --generation-mode Lakehouse
+ingen_fab ddl compile --generation-mode Lakehouse
 
 # Generate notebooks for warehouses (if you have any)
-ingen_fab ddl compile \
-    --output-mode fabric_workspace_repo \
-    --generation-mode Warehouse
+ingen_fab ddl compile --generation-mode Warehouse
 ```
 
 This creates orchestrator notebooks in `fabric_workspace_items/ddl_scripts/` that will:
@@ -142,8 +148,15 @@ This creates orchestrator notebooks in `fabric_workspace_items/ddl_scripts/` tha
 Deploy your project to your Fabric workspace:
 
 ```bash
-# Deploy to development environment
+# Deploy to whichever environment is set using your environment variables
 ingen_fab deploy deploy
+```
+
+Deploy python libraries:
+
+```bash
+# Deploy python libraries - these libraries are required for ddl script execution
+ingen_fab deploy upload-python-libs
 ```
 
 !!! note "Authentication Required"
@@ -159,69 +172,6 @@ The orchestrator will:
 - Execute all DDL scripts in the correct sequence
 - Log execution status and prevent duplicate runs
 - Handle errors gracefully with detailed logging
-
-## Step 7: Verify Your Deployment
-
-Test that everything is working correctly:
-
-```bash
-# Generate platform tests
-ingen_fab test platform generate \
-    --fabric-workspace-repo-dir . \
-    --fabric-environment development
-```
-
-Or run the platform testing notebooks directly in Fabric:
-- `platform_testing/python_platform_test.Notebook`
-- `platform_testing/pyspark_platform_test.Notebook`
-
-## Common First-Time Workflows
-
-### Adding More DDL Scripts
-
-```bash
-# Create a new DDL script for additional tables
-cat > ddl_scripts/Lakehouses/Config/001_Initial_Setup/002_create_data_tables.py << 'EOF'
-# Create additional data tables
-from lakehouse_utils import LakehouseUtils
-from ddl_utils import DDLUtils
-
-lakehouse_utils = LakehouseUtils()
-ddl_utils = DDLUtils()
-
-# Create a sample data table
-sql_create_table = """
-CREATE TABLE IF NOT EXISTS data.sample_data (
-    id BIGINT,
-    name STRING,
-    value DOUBLE,
-    created_date TIMESTAMP
-) USING DELTA
-LOCATION 'Tables/data/sample_data'
-"""
-
-ddl_utils.execute_ddl(sql_create_table, "Create sample data table")
-print("✅ Sample data table created successfully!")
-EOF
-
-# Regenerate notebooks
-ingen_fab ddl compile --output-mode fabric_workspace_repo --generation-mode Lakehouse
-
-# Redeploy
-ingen_fab deploy deploy 
-```
-
-### Testing Changes Locally
-
-```bash
-# Test your Python libraries locally (requires FABRIC_ENVIRONMENT=local)
-export FABRIC_ENVIRONMENT=local
-ingen_fab test local python
-ingen_fab test local pyspark
-
-# Scan notebook content
-ingen_fab notebook scan-notebook-blocks --base-dir ./fabric_workspace_items
-```
 
 ## Next Steps
 
@@ -249,9 +199,10 @@ export AZURE_CLIENT_SECRET="your-client-secret"
 **DDL scripts fail to execute:**
 - Check that your workspace and lakehouse IDs are correct
 - Ensure your DDL scripts have valid syntax
+- Check that you have deployed your python libraries
 - Review the execution logs in the Fabric notebook output
 
-**Notebooks not generated:**
+**DDL Notebooks not generated:**
 - Verify that your DDL scripts are in the correct directory structure
 - Check that file names start with numbers (001_, 002_, etc.)
 - Ensure scripts have proper file extensions (.py or .sql)
@@ -261,7 +212,6 @@ export AZURE_CLIENT_SECRET="your-client-secret"
 - Use `ingen_fab --help` for command-specific help
 - Check the [Examples](../examples/index.md) for more complex scenarios
 - Review the [Workflows](workflows.md) for best practices
-- Use the sample_project/ directory for hands-on learning
 
 !!! success "Congratulations!"
     You've successfully created and deployed your first Fabric project! You're now ready to build more complex data solutions with the Ingenious Fabric Accelerator.

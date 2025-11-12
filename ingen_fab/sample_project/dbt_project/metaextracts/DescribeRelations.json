@@ -1,0 +1,5021 @@
+[
+  {
+    "col_name": "distributed_statement_id",
+    "data_type": "string",
+    "comment": null,
+    "namespace": "config",
+    "tableName": "exec_requests_history"
+  },
+  {
+    "col_name": "database_name",
+    "data_type": "string",
+    "comment": null,
+    "namespace": "config",
+    "tableName": "exec_requests_history"
+  },
+  {
+    "col_name": "submit_time",
+    "data_type": "timestamp",
+    "comment": null,
+    "namespace": "config",
+    "tableName": "exec_requests_history"
+  },
+  {
+    "col_name": "start_time",
+    "data_type": "timestamp",
+    "comment": null,
+    "namespace": "config",
+    "tableName": "exec_requests_history"
+  },
+  {
+    "col_name": "end_time",
+    "data_type": "timestamp",
+    "comment": null,
+    "namespace": "config",
+    "tableName": "exec_requests_history"
+  },
+  {
+    "col_name": "is_distributed",
+    "data_type": "int",
+    "comment": null,
+    "namespace": "config",
+    "tableName": "exec_requests_history"
+  },
+  {
+    "col_name": "statement_type",
+    "data_type": "string",
+    "comment": null,
+    "namespace": "config",
+    "tableName": "exec_requests_history"
+  },
+  {
+    "col_name": "total_elapsed_time_ms",
+    "data_type": "bigint",
+    "comment": null,
+    "namespace": "config",
+    "tableName": "exec_requests_history"
+  },
+  {
+    "col_name": "login_name",
+    "data_type": "string",
+    "comment": null,
+    "namespace": "config",
+    "tableName": "exec_requests_history"
+  },
+  {
+    "col_name": "row_count",
+    "data_type": "bigint",
+    "comment": null,
+    "namespace": "config",
+    "tableName": "exec_requests_history"
+  },
+  {
+    "col_name": "status",
+    "data_type": "string",
+    "comment": null,
+    "namespace": "config",
+    "tableName": "exec_requests_history"
+  },
+  {
+    "col_name": "session_id",
+    "data_type": "int",
+    "comment": null,
+    "namespace": "config",
+    "tableName": "exec_requests_history"
+  },
+  {
+    "col_name": "connection_id",
+    "data_type": "string",
+    "comment": null,
+    "namespace": "config",
+    "tableName": "exec_requests_history"
+  },
+  {
+    "col_name": "program_name",
+    "data_type": "string",
+    "comment": null,
+    "namespace": "config",
+    "tableName": "exec_requests_history"
+  },
+  {
+    "col_name": "batch_id",
+    "data_type": "string",
+    "comment": null,
+    "namespace": "config",
+    "tableName": "exec_requests_history"
+  },
+  {
+    "col_name": "root_batch_id",
+    "data_type": "string",
+    "comment": null,
+    "namespace": "config",
+    "tableName": "exec_requests_history"
+  },
+  {
+    "col_name": "query_hash",
+    "data_type": "string",
+    "comment": null,
+    "namespace": "config",
+    "tableName": "exec_requests_history"
+  },
+  {
+    "col_name": "label",
+    "data_type": "string",
+    "comment": null,
+    "namespace": "config",
+    "tableName": "exec_requests_history"
+  },
+  {
+    "col_name": "result_cache_hit",
+    "data_type": "int",
+    "comment": null,
+    "namespace": "config",
+    "tableName": "exec_requests_history"
+  },
+  {
+    "col_name": "allocated_cpu_time_ms",
+    "data_type": "bigint",
+    "comment": null,
+    "namespace": "config",
+    "tableName": "exec_requests_history"
+  },
+  {
+    "col_name": "data_scanned_remote_storage_mb",
+    "data_type": "decimal",
+    "comment": null,
+    "namespace": "config",
+    "tableName": "exec_requests_history"
+  },
+  {
+    "col_name": "data_scanned_memory_mb",
+    "data_type": "decimal",
+    "comment": null,
+    "namespace": "config",
+    "tableName": "exec_requests_history"
+  },
+  {
+    "col_name": "data_scanned_disk_mb",
+    "data_type": "decimal",
+    "comment": null,
+    "namespace": "config",
+    "tableName": "exec_requests_history"
+  },
+  {
+    "col_name": "command",
+    "data_type": "string",
+    "comment": null,
+    "namespace": "config",
+    "tableName": "exec_requests_history"
+  },
+  {
+    "col_name": "session_id",
+    "data_type": "int",
+    "comment": null,
+    "namespace": "config",
+    "tableName": "exec_sessions_history"
+  },
+  {
+    "col_name": "connection_id",
+    "data_type": "string",
+    "comment": null,
+    "namespace": "config",
+    "tableName": "exec_sessions_history"
+  },
+  {
+    "col_name": "session_start_time",
+    "data_type": "timestamp",
+    "comment": null,
+    "namespace": "config",
+    "tableName": "exec_sessions_history"
+  },
+  {
+    "col_name": "session_end_time",
+    "data_type": "timestamp",
+    "comment": null,
+    "namespace": "config",
+    "tableName": "exec_sessions_history"
+  },
+  {
+    "col_name": "program_name",
+    "data_type": "string",
+    "comment": null,
+    "namespace": "config",
+    "tableName": "exec_sessions_history"
+  },
+  {
+    "col_name": "login_name",
+    "data_type": "string",
+    "comment": null,
+    "namespace": "config",
+    "tableName": "exec_sessions_history"
+  },
+  {
+    "col_name": "status",
+    "data_type": "string",
+    "comment": null,
+    "namespace": "config",
+    "tableName": "exec_sessions_history"
+  },
+  {
+    "col_name": "context_info",
+    "data_type": "string",
+    "comment": null,
+    "namespace": "config",
+    "tableName": "exec_sessions_history"
+  },
+  {
+    "col_name": "total_query_elapsed_time_ms",
+    "data_type": "bigint",
+    "comment": null,
+    "namespace": "config",
+    "tableName": "exec_sessions_history"
+  },
+  {
+    "col_name": "last_request_start_time",
+    "data_type": "timestamp",
+    "comment": null,
+    "namespace": "config",
+    "tableName": "exec_sessions_history"
+  },
+  {
+    "col_name": "last_request_end_time",
+    "data_type": "timestamp",
+    "comment": null,
+    "namespace": "config",
+    "tableName": "exec_sessions_history"
+  },
+  {
+    "col_name": "is_user_process",
+    "data_type": "boolean",
+    "comment": null,
+    "namespace": "config",
+    "tableName": "exec_sessions_history"
+  },
+  {
+    "col_name": "prev_error",
+    "data_type": "int",
+    "comment": null,
+    "namespace": "config",
+    "tableName": "exec_sessions_history"
+  },
+  {
+    "col_name": "group_id",
+    "data_type": "bigint",
+    "comment": null,
+    "namespace": "config",
+    "tableName": "exec_sessions_history"
+  },
+  {
+    "col_name": "database_id",
+    "data_type": "int",
+    "comment": null,
+    "namespace": "config",
+    "tableName": "exec_sessions_history"
+  },
+  {
+    "col_name": "authenticating_database_id",
+    "data_type": "int",
+    "comment": null,
+    "namespace": "config",
+    "tableName": "exec_sessions_history"
+  },
+  {
+    "col_name": "open_transaction_count",
+    "data_type": "bigint",
+    "comment": null,
+    "namespace": "config",
+    "tableName": "exec_sessions_history"
+  },
+  {
+    "col_name": "text_size",
+    "data_type": "int",
+    "comment": null,
+    "namespace": "config",
+    "tableName": "exec_sessions_history"
+  },
+  {
+    "col_name": "language",
+    "data_type": "string",
+    "comment": null,
+    "namespace": "config",
+    "tableName": "exec_sessions_history"
+  },
+  {
+    "col_name": "date_format",
+    "data_type": "string",
+    "comment": null,
+    "namespace": "config",
+    "tableName": "exec_sessions_history"
+  },
+  {
+    "col_name": "date_first",
+    "data_type": "int",
+    "comment": null,
+    "namespace": "config",
+    "tableName": "exec_sessions_history"
+  },
+  {
+    "col_name": "quoted_identifier",
+    "data_type": "boolean",
+    "comment": null,
+    "namespace": "config",
+    "tableName": "exec_sessions_history"
+  },
+  {
+    "col_name": "arithabort",
+    "data_type": "boolean",
+    "comment": null,
+    "namespace": "config",
+    "tableName": "exec_sessions_history"
+  },
+  {
+    "col_name": "ansi_null_dflt_on",
+    "data_type": "boolean",
+    "comment": null,
+    "namespace": "config",
+    "tableName": "exec_sessions_history"
+  },
+  {
+    "col_name": "ansi_defaults",
+    "data_type": "boolean",
+    "comment": null,
+    "namespace": "config",
+    "tableName": "exec_sessions_history"
+  },
+  {
+    "col_name": "ansi_warnings",
+    "data_type": "boolean",
+    "comment": null,
+    "namespace": "config",
+    "tableName": "exec_sessions_history"
+  },
+  {
+    "col_name": "ansi_padding",
+    "data_type": "boolean",
+    "comment": null,
+    "namespace": "config",
+    "tableName": "exec_sessions_history"
+  },
+  {
+    "col_name": "ansi_nulls",
+    "data_type": "boolean",
+    "comment": null,
+    "namespace": "config",
+    "tableName": "exec_sessions_history"
+  },
+  {
+    "col_name": "concat_null_yields_null",
+    "data_type": "boolean",
+    "comment": null,
+    "namespace": "config",
+    "tableName": "exec_sessions_history"
+  },
+  {
+    "col_name": "transaction_isolation_level",
+    "data_type": "int",
+    "comment": null,
+    "namespace": "config",
+    "tableName": "exec_sessions_history"
+  },
+  {
+    "col_name": "lock_timeout",
+    "data_type": "bigint",
+    "comment": null,
+    "namespace": "config",
+    "tableName": "exec_sessions_history"
+  },
+  {
+    "col_name": "deadlock_priority",
+    "data_type": "int",
+    "comment": null,
+    "namespace": "config",
+    "tableName": "exec_sessions_history"
+  },
+  {
+    "col_name": "original_security_id",
+    "data_type": "string",
+    "comment": null,
+    "namespace": "config",
+    "tableName": "exec_sessions_history"
+  },
+  {
+    "col_name": "database_name",
+    "data_type": "string",
+    "comment": null,
+    "namespace": "config",
+    "tableName": "exec_sessions_history"
+  },
+  {
+    "col_name": "database_name",
+    "data_type": "string",
+    "comment": null,
+    "namespace": "config",
+    "tableName": "frequently_run_queries"
+  },
+  {
+    "col_name": "number_of_runs",
+    "data_type": "int",
+    "comment": null,
+    "namespace": "config",
+    "tableName": "frequently_run_queries"
+  },
+  {
+    "col_name": "min_run_total_elapsed_time_ms",
+    "data_type": "bigint",
+    "comment": null,
+    "namespace": "config",
+    "tableName": "frequently_run_queries"
+  },
+  {
+    "col_name": "max_run_total_elapsed_time_ms",
+    "data_type": "bigint",
+    "comment": null,
+    "namespace": "config",
+    "tableName": "frequently_run_queries"
+  },
+  {
+    "col_name": "avg_total_elapsed_time_ms",
+    "data_type": "bigint",
+    "comment": null,
+    "namespace": "config",
+    "tableName": "frequently_run_queries"
+  },
+  {
+    "col_name": "number_of_successful_runs",
+    "data_type": "int",
+    "comment": null,
+    "namespace": "config",
+    "tableName": "frequently_run_queries"
+  },
+  {
+    "col_name": "number_of_failed_runs",
+    "data_type": "int",
+    "comment": null,
+    "namespace": "config",
+    "tableName": "frequently_run_queries"
+  },
+  {
+    "col_name": "number_of_canceled_runs",
+    "data_type": "int",
+    "comment": null,
+    "namespace": "config",
+    "tableName": "frequently_run_queries"
+  },
+  {
+    "col_name": "last_run_total_elapsed_time_ms",
+    "data_type": "bigint",
+    "comment": null,
+    "namespace": "config",
+    "tableName": "frequently_run_queries"
+  },
+  {
+    "col_name": "last_run_start_time",
+    "data_type": "timestamp",
+    "comment": null,
+    "namespace": "config",
+    "tableName": "frequently_run_queries"
+  },
+  {
+    "col_name": "last_dist_statement_id",
+    "data_type": "string",
+    "comment": null,
+    "namespace": "config",
+    "tableName": "frequently_run_queries"
+  },
+  {
+    "col_name": "query_hash",
+    "data_type": "string",
+    "comment": null,
+    "namespace": "config",
+    "tableName": "frequently_run_queries"
+  },
+  {
+    "col_name": "last_run_command",
+    "data_type": "string",
+    "comment": null,
+    "namespace": "config",
+    "tableName": "frequently_run_queries"
+  },
+  {
+    "col_name": "database_name",
+    "data_type": "string",
+    "comment": null,
+    "namespace": "config",
+    "tableName": "long_running_queries"
+  },
+  {
+    "col_name": "median_total_elapsed_time_ms",
+    "data_type": "float",
+    "comment": null,
+    "namespace": "config",
+    "tableName": "long_running_queries"
+  },
+  {
+    "col_name": "last_run_total_elapsed_time_ms",
+    "data_type": "bigint",
+    "comment": null,
+    "namespace": "config",
+    "tableName": "long_running_queries"
+  },
+  {
+    "col_name": "last_run_start_time",
+    "data_type": "timestamp",
+    "comment": null,
+    "namespace": "config",
+    "tableName": "long_running_queries"
+  },
+  {
+    "col_name": "last_dist_statement_id",
+    "data_type": "string",
+    "comment": null,
+    "namespace": "config",
+    "tableName": "long_running_queries"
+  },
+  {
+    "col_name": "last_run_session_id",
+    "data_type": "int",
+    "comment": null,
+    "namespace": "config",
+    "tableName": "long_running_queries"
+  },
+  {
+    "col_name": "number_of_runs",
+    "data_type": "int",
+    "comment": null,
+    "namespace": "config",
+    "tableName": "long_running_queries"
+  },
+  {
+    "col_name": "query_hash",
+    "data_type": "string",
+    "comment": null,
+    "namespace": "config",
+    "tableName": "long_running_queries"
+  },
+  {
+    "col_name": "last_run_command",
+    "data_type": "string",
+    "comment": null,
+    "namespace": "config",
+    "tableName": "long_running_queries"
+  },
+  {
+    "col_name": "table_id",
+    "data_type": "bigint",
+    "comment": null,
+    "namespace": "config",
+    "tableName": "external_delta_tables"
+  },
+  {
+    "col_name": "is_blocked",
+    "data_type": "boolean",
+    "comment": null,
+    "namespace": "config",
+    "tableName": "external_delta_tables"
+  },
+  {
+    "col_name": "relative_path",
+    "data_type": "string",
+    "comment": null,
+    "namespace": "config",
+    "tableName": "external_delta_tables"
+  },
+  {
+    "col_name": "latest_manifest_version",
+    "data_type": "bigint",
+    "comment": null,
+    "namespace": "config",
+    "tableName": "external_delta_tables"
+  },
+  {
+    "col_name": "latest_checkpoint_version",
+    "data_type": "bigint",
+    "comment": null,
+    "namespace": "config",
+    "tableName": "external_delta_tables"
+  },
+  {
+    "col_name": "latest_etag",
+    "data_type": "string",
+    "comment": null,
+    "namespace": "config",
+    "tableName": "external_delta_tables"
+  },
+  {
+    "col_name": "last_update_time",
+    "data_type": "timestamp",
+    "comment": null,
+    "namespace": "config",
+    "tableName": "external_delta_tables"
+  },
+  {
+    "col_name": "delta_log_commit_sequence_id",
+    "data_type": "bigint",
+    "comment": null,
+    "namespace": "config",
+    "tableName": "managed_delta_table_checkpoints"
+  },
+  {
+    "col_name": "part",
+    "data_type": "int",
+    "comment": null,
+    "namespace": "config",
+    "tableName": "managed_delta_table_checkpoints"
+  },
+  {
+    "col_name": "file_guid",
+    "data_type": "string",
+    "comment": null,
+    "namespace": "config",
+    "tableName": "managed_delta_table_checkpoints"
+  },
+  {
+    "col_name": "version",
+    "data_type": "bigint",
+    "comment": null,
+    "namespace": "config",
+    "tableName": "managed_delta_table_checkpoints"
+  },
+  {
+    "col_name": "source_table_guid",
+    "data_type": "string",
+    "comment": null,
+    "namespace": "config",
+    "tableName": "managed_delta_table_checkpoints"
+  },
+  {
+    "col_name": "source_database_guid",
+    "data_type": "string",
+    "comment": null,
+    "namespace": "config",
+    "tableName": "managed_delta_table_checkpoints"
+  },
+  {
+    "col_name": "table_guid",
+    "data_type": "string",
+    "comment": null,
+    "namespace": "config",
+    "tableName": "managed_delta_table_checkpoints"
+  },
+  {
+    "col_name": "checkpoint_file_name",
+    "data_type": "string",
+    "comment": null,
+    "namespace": "config",
+    "tableName": "managed_delta_table_checkpoints"
+  },
+  {
+    "col_name": "manifest_root",
+    "data_type": "string",
+    "comment": null,
+    "namespace": "config",
+    "tableName": "managed_delta_table_checkpoints"
+  },
+  {
+    "col_name": "commit_sequence_id",
+    "data_type": "bigint",
+    "comment": null,
+    "namespace": "config",
+    "tableName": "managed_delta_table_forks"
+  },
+  {
+    "col_name": "fork_guid",
+    "data_type": "string",
+    "comment": null,
+    "namespace": "config",
+    "tableName": "managed_delta_table_forks"
+  },
+  {
+    "col_name": "source_table_guid",
+    "data_type": "string",
+    "comment": null,
+    "namespace": "config",
+    "tableName": "managed_delta_table_forks"
+  },
+  {
+    "col_name": "source_database_guid",
+    "data_type": "string",
+    "comment": null,
+    "namespace": "config",
+    "tableName": "managed_delta_table_forks"
+  },
+  {
+    "col_name": "xdes_ts",
+    "data_type": "bigint",
+    "comment": null,
+    "namespace": "config",
+    "tableName": "managed_delta_table_forks"
+  },
+  {
+    "col_name": "commit_time",
+    "data_type": "timestamp",
+    "comment": null,
+    "namespace": "config",
+    "tableName": "managed_delta_table_forks"
+  },
+  {
+    "col_name": "table_guid",
+    "data_type": "string",
+    "comment": null,
+    "namespace": "config",
+    "tableName": "managed_delta_table_forks"
+  },
+  {
+    "col_name": "folder_name",
+    "data_type": "string",
+    "comment": null,
+    "namespace": "config",
+    "tableName": "managed_delta_table_forks"
+  },
+  {
+    "col_name": "commit_sequence_id",
+    "data_type": "bigint",
+    "comment": null,
+    "namespace": "config",
+    "tableName": "managed_delta_table_log_files"
+  },
+  {
+    "col_name": "file_guid",
+    "data_type": "string",
+    "comment": null,
+    "namespace": "config",
+    "tableName": "managed_delta_table_log_files"
+  },
+  {
+    "col_name": "xdes_ts",
+    "data_type": "bigint",
+    "comment": null,
+    "namespace": "config",
+    "tableName": "managed_delta_table_log_files"
+  },
+  {
+    "col_name": "append_only",
+    "data_type": "boolean",
+    "comment": null,
+    "namespace": "config",
+    "tableName": "managed_delta_table_log_files"
+  },
+  {
+    "col_name": "rows_inserted",
+    "data_type": "bigint",
+    "comment": null,
+    "namespace": "config",
+    "tableName": "managed_delta_table_log_files"
+  },
+  {
+    "col_name": "commit_time",
+    "data_type": "timestamp",
+    "comment": null,
+    "namespace": "config",
+    "tableName": "managed_delta_table_log_files"
+  },
+  {
+    "col_name": "source_table_guid",
+    "data_type": "string",
+    "comment": null,
+    "namespace": "config",
+    "tableName": "managed_delta_table_log_files"
+  },
+  {
+    "col_name": "source_database_guid",
+    "data_type": "string",
+    "comment": null,
+    "namespace": "config",
+    "tableName": "managed_delta_table_log_files"
+  },
+  {
+    "col_name": "manifest_file_name",
+    "data_type": "string",
+    "comment": null,
+    "namespace": "config",
+    "tableName": "managed_delta_table_log_files"
+  },
+  {
+    "col_name": "manifest_root",
+    "data_type": "string",
+    "comment": null,
+    "namespace": "config",
+    "tableName": "managed_delta_table_log_files"
+  },
+  {
+    "col_name": "table_guid",
+    "data_type": "string",
+    "comment": null,
+    "namespace": "config",
+    "tableName": "managed_delta_table_log_files"
+  },
+  {
+    "col_name": "table_id",
+    "data_type": "bigint",
+    "comment": null,
+    "namespace": "config",
+    "tableName": "managed_delta_tables"
+  },
+  {
+    "col_name": "object_id",
+    "data_type": "int",
+    "comment": null,
+    "namespace": "config",
+    "tableName": "managed_delta_tables"
+  },
+  {
+    "col_name": "table_guid",
+    "data_type": "string",
+    "comment": null,
+    "namespace": "config",
+    "tableName": "managed_delta_tables"
+  },
+  {
+    "col_name": "fork_guid",
+    "data_type": "string",
+    "comment": null,
+    "namespace": "config",
+    "tableName": "managed_delta_tables"
+  },
+  {
+    "col_name": "delta_log_feature_status",
+    "data_type": "int",
+    "comment": null,
+    "namespace": "config",
+    "tableName": "managed_delta_tables"
+  },
+  {
+    "col_name": "manifest_root",
+    "data_type": "string",
+    "comment": null,
+    "namespace": "config",
+    "tableName": "managed_delta_tables"
+  },
+  {
+    "col_name": "system_task_consideration_bitmask",
+    "data_type": "int",
+    "comment": null,
+    "namespace": "config",
+    "tableName": "managed_delta_tables"
+  },
+  {
+    "col_name": "drop_commit_time",
+    "data_type": "timestamp",
+    "comment": null,
+    "namespace": "config",
+    "tableName": "managed_delta_tables"
+  },
+  {
+    "col_name": "name",
+    "data_type": "string",
+    "comment": null,
+    "namespace": "config",
+    "tableName": "sys_dw_schemas"
+  },
+  {
+    "col_name": "schema_id",
+    "data_type": "int",
+    "comment": null,
+    "namespace": "config",
+    "tableName": "sys_dw_schemas"
+  },
+  {
+    "col_name": "principal_id",
+    "data_type": "int",
+    "comment": null,
+    "namespace": "config",
+    "tableName": "sys_dw_schemas"
+  },
+  {
+    "col_name": "is_internal",
+    "data_type": "boolean",
+    "comment": null,
+    "namespace": "config",
+    "tableName": "sys_dw_schemas"
+  },
+  {
+    "col_name": "CityID",
+    "data_type": "int",
+    "comment": null,
+    "namespace": "lh_bronze",
+    "tableName": "cities"
+  },
+  {
+    "col_name": "CityName",
+    "data_type": "string",
+    "comment": null,
+    "namespace": "lh_bronze",
+    "tableName": "cities"
+  },
+  {
+    "col_name": "StateProvinceID",
+    "data_type": "int",
+    "comment": null,
+    "namespace": "lh_bronze",
+    "tableName": "cities"
+  },
+  {
+    "col_name": "LatestRecordedPopulation",
+    "data_type": "int",
+    "comment": null,
+    "namespace": "lh_bronze",
+    "tableName": "cities"
+  },
+  {
+    "col_name": "LastEditedBy",
+    "data_type": "string",
+    "comment": null,
+    "namespace": "lh_bronze",
+    "tableName": "cities"
+  },
+  {
+    "col_name": "ValidFrom",
+    "data_type": "timestamp",
+    "comment": null,
+    "namespace": "lh_bronze",
+    "tableName": "cities"
+  },
+  {
+    "col_name": "ValidTo",
+    "data_type": "timestamp",
+    "comment": null,
+    "namespace": "lh_bronze",
+    "tableName": "cities"
+  },
+  {
+    "col_name": "CountryID",
+    "data_type": "int",
+    "comment": null,
+    "namespace": "lh_bronze",
+    "tableName": "countries"
+  },
+  {
+    "col_name": "CountryName",
+    "data_type": "string",
+    "comment": null,
+    "namespace": "lh_bronze",
+    "tableName": "countries"
+  },
+  {
+    "col_name": "FormalName",
+    "data_type": "string",
+    "comment": null,
+    "namespace": "lh_bronze",
+    "tableName": "countries"
+  },
+  {
+    "col_name": "IsoAlpha3Code",
+    "data_type": "string",
+    "comment": null,
+    "namespace": "lh_bronze",
+    "tableName": "countries"
+  },
+  {
+    "col_name": "IsoNumericCode",
+    "data_type": "string",
+    "comment": null,
+    "namespace": "lh_bronze",
+    "tableName": "countries"
+  },
+  {
+    "col_name": "CountryType",
+    "data_type": "string",
+    "comment": null,
+    "namespace": "lh_bronze",
+    "tableName": "countries"
+  },
+  {
+    "col_name": "LatestRecordedPopulation",
+    "data_type": "bigint",
+    "comment": null,
+    "namespace": "lh_bronze",
+    "tableName": "countries"
+  },
+  {
+    "col_name": "Continent",
+    "data_type": "string",
+    "comment": null,
+    "namespace": "lh_bronze",
+    "tableName": "countries"
+  },
+  {
+    "col_name": "Region",
+    "data_type": "string",
+    "comment": null,
+    "namespace": "lh_bronze",
+    "tableName": "countries"
+  },
+  {
+    "col_name": "Subregion",
+    "data_type": "string",
+    "comment": null,
+    "namespace": "lh_bronze",
+    "tableName": "countries"
+  },
+  {
+    "col_name": "LastEditedBy",
+    "data_type": "string",
+    "comment": null,
+    "namespace": "lh_bronze",
+    "tableName": "countries"
+  },
+  {
+    "col_name": "ValidFrom",
+    "data_type": "timestamp",
+    "comment": null,
+    "namespace": "lh_bronze",
+    "tableName": "countries"
+  },
+  {
+    "col_name": "ValidTo",
+    "data_type": "timestamp",
+    "comment": null,
+    "namespace": "lh_bronze",
+    "tableName": "countries"
+  },
+  {
+    "col_name": "HappinessIndex",
+    "data_type": "int",
+    "comment": null,
+    "namespace": "lh_bronze",
+    "tableName": "countries"
+  },
+  {
+    "col_name": "CountryID",
+    "data_type": "int",
+    "comment": null,
+    "namespace": "lh_bronze",
+    "tableName": "countries_backup_20251106_225919"
+  },
+  {
+    "col_name": "CountryName",
+    "data_type": "string",
+    "comment": null,
+    "namespace": "lh_bronze",
+    "tableName": "countries_backup_20251106_225919"
+  },
+  {
+    "col_name": "FormalName",
+    "data_type": "string",
+    "comment": null,
+    "namespace": "lh_bronze",
+    "tableName": "countries_backup_20251106_225919"
+  },
+  {
+    "col_name": "IsoAlpha3Code",
+    "data_type": "string",
+    "comment": null,
+    "namespace": "lh_bronze",
+    "tableName": "countries_backup_20251106_225919"
+  },
+  {
+    "col_name": "IsoNumericCode",
+    "data_type": "string",
+    "comment": null,
+    "namespace": "lh_bronze",
+    "tableName": "countries_backup_20251106_225919"
+  },
+  {
+    "col_name": "CountryType",
+    "data_type": "string",
+    "comment": null,
+    "namespace": "lh_bronze",
+    "tableName": "countries_backup_20251106_225919"
+  },
+  {
+    "col_name": "LatestRecordedPopulation",
+    "data_type": "bigint",
+    "comment": null,
+    "namespace": "lh_bronze",
+    "tableName": "countries_backup_20251106_225919"
+  },
+  {
+    "col_name": "Continent",
+    "data_type": "string",
+    "comment": null,
+    "namespace": "lh_bronze",
+    "tableName": "countries_backup_20251106_225919"
+  },
+  {
+    "col_name": "Region",
+    "data_type": "string",
+    "comment": null,
+    "namespace": "lh_bronze",
+    "tableName": "countries_backup_20251106_225919"
+  },
+  {
+    "col_name": "Subregion",
+    "data_type": "string",
+    "comment": null,
+    "namespace": "lh_bronze",
+    "tableName": "countries_backup_20251106_225919"
+  },
+  {
+    "col_name": "LastEditedBy",
+    "data_type": "string",
+    "comment": null,
+    "namespace": "lh_bronze",
+    "tableName": "countries_backup_20251106_225919"
+  },
+  {
+    "col_name": "ValidFrom",
+    "data_type": "timestamp",
+    "comment": null,
+    "namespace": "lh_bronze",
+    "tableName": "countries_backup_20251106_225919"
+  },
+  {
+    "col_name": "ValidTo",
+    "data_type": "timestamp",
+    "comment": null,
+    "namespace": "lh_bronze",
+    "tableName": "countries_backup_20251106_225919"
+  },
+  {
+    "col_name": "script_id",
+    "data_type": "string",
+    "comment": null,
+    "namespace": "lh_bronze",
+    "tableName": "ddl_script_executions"
+  },
+  {
+    "col_name": "script_name",
+    "data_type": "string",
+    "comment": null,
+    "namespace": "lh_bronze",
+    "tableName": "ddl_script_executions"
+  },
+  {
+    "col_name": "execution_status",
+    "data_type": "string",
+    "comment": null,
+    "namespace": "lh_bronze",
+    "tableName": "ddl_script_executions"
+  },
+  {
+    "col_name": "update_date",
+    "data_type": "timestamp",
+    "comment": null,
+    "namespace": "lh_bronze",
+    "tableName": "ddl_script_executions"
+  },
+  {
+    "col_name": "distributed_statement_id",
+    "data_type": "string",
+    "comment": null,
+    "namespace": "lh_bronze",
+    "tableName": "exec_requests_history"
+  },
+  {
+    "col_name": "database_name",
+    "data_type": "string",
+    "comment": null,
+    "namespace": "lh_bronze",
+    "tableName": "exec_requests_history"
+  },
+  {
+    "col_name": "submit_time",
+    "data_type": "timestamp",
+    "comment": null,
+    "namespace": "lh_bronze",
+    "tableName": "exec_requests_history"
+  },
+  {
+    "col_name": "start_time",
+    "data_type": "timestamp",
+    "comment": null,
+    "namespace": "lh_bronze",
+    "tableName": "exec_requests_history"
+  },
+  {
+    "col_name": "end_time",
+    "data_type": "timestamp",
+    "comment": null,
+    "namespace": "lh_bronze",
+    "tableName": "exec_requests_history"
+  },
+  {
+    "col_name": "is_distributed",
+    "data_type": "int",
+    "comment": null,
+    "namespace": "lh_bronze",
+    "tableName": "exec_requests_history"
+  },
+  {
+    "col_name": "statement_type",
+    "data_type": "string",
+    "comment": null,
+    "namespace": "lh_bronze",
+    "tableName": "exec_requests_history"
+  },
+  {
+    "col_name": "total_elapsed_time_ms",
+    "data_type": "bigint",
+    "comment": null,
+    "namespace": "lh_bronze",
+    "tableName": "exec_requests_history"
+  },
+  {
+    "col_name": "login_name",
+    "data_type": "string",
+    "comment": null,
+    "namespace": "lh_bronze",
+    "tableName": "exec_requests_history"
+  },
+  {
+    "col_name": "row_count",
+    "data_type": "bigint",
+    "comment": null,
+    "namespace": "lh_bronze",
+    "tableName": "exec_requests_history"
+  },
+  {
+    "col_name": "status",
+    "data_type": "string",
+    "comment": null,
+    "namespace": "lh_bronze",
+    "tableName": "exec_requests_history"
+  },
+  {
+    "col_name": "session_id",
+    "data_type": "int",
+    "comment": null,
+    "namespace": "lh_bronze",
+    "tableName": "exec_requests_history"
+  },
+  {
+    "col_name": "connection_id",
+    "data_type": "string",
+    "comment": null,
+    "namespace": "lh_bronze",
+    "tableName": "exec_requests_history"
+  },
+  {
+    "col_name": "program_name",
+    "data_type": "string",
+    "comment": null,
+    "namespace": "lh_bronze",
+    "tableName": "exec_requests_history"
+  },
+  {
+    "col_name": "batch_id",
+    "data_type": "string",
+    "comment": null,
+    "namespace": "lh_bronze",
+    "tableName": "exec_requests_history"
+  },
+  {
+    "col_name": "root_batch_id",
+    "data_type": "string",
+    "comment": null,
+    "namespace": "lh_bronze",
+    "tableName": "exec_requests_history"
+  },
+  {
+    "col_name": "query_hash",
+    "data_type": "string",
+    "comment": null,
+    "namespace": "lh_bronze",
+    "tableName": "exec_requests_history"
+  },
+  {
+    "col_name": "label",
+    "data_type": "string",
+    "comment": null,
+    "namespace": "lh_bronze",
+    "tableName": "exec_requests_history"
+  },
+  {
+    "col_name": "result_cache_hit",
+    "data_type": "int",
+    "comment": null,
+    "namespace": "lh_bronze",
+    "tableName": "exec_requests_history"
+  },
+  {
+    "col_name": "allocated_cpu_time_ms",
+    "data_type": "bigint",
+    "comment": null,
+    "namespace": "lh_bronze",
+    "tableName": "exec_requests_history"
+  },
+  {
+    "col_name": "data_scanned_remote_storage_mb",
+    "data_type": "decimal",
+    "comment": null,
+    "namespace": "lh_bronze",
+    "tableName": "exec_requests_history"
+  },
+  {
+    "col_name": "data_scanned_memory_mb",
+    "data_type": "decimal",
+    "comment": null,
+    "namespace": "lh_bronze",
+    "tableName": "exec_requests_history"
+  },
+  {
+    "col_name": "data_scanned_disk_mb",
+    "data_type": "decimal",
+    "comment": null,
+    "namespace": "lh_bronze",
+    "tableName": "exec_requests_history"
+  },
+  {
+    "col_name": "command",
+    "data_type": "string",
+    "comment": null,
+    "namespace": "lh_bronze",
+    "tableName": "exec_requests_history"
+  },
+  {
+    "col_name": "session_id",
+    "data_type": "int",
+    "comment": null,
+    "namespace": "lh_bronze",
+    "tableName": "exec_sessions_history"
+  },
+  {
+    "col_name": "connection_id",
+    "data_type": "string",
+    "comment": null,
+    "namespace": "lh_bronze",
+    "tableName": "exec_sessions_history"
+  },
+  {
+    "col_name": "session_start_time",
+    "data_type": "timestamp",
+    "comment": null,
+    "namespace": "lh_bronze",
+    "tableName": "exec_sessions_history"
+  },
+  {
+    "col_name": "session_end_time",
+    "data_type": "timestamp",
+    "comment": null,
+    "namespace": "lh_bronze",
+    "tableName": "exec_sessions_history"
+  },
+  {
+    "col_name": "program_name",
+    "data_type": "string",
+    "comment": null,
+    "namespace": "lh_bronze",
+    "tableName": "exec_sessions_history"
+  },
+  {
+    "col_name": "login_name",
+    "data_type": "string",
+    "comment": null,
+    "namespace": "lh_bronze",
+    "tableName": "exec_sessions_history"
+  },
+  {
+    "col_name": "status",
+    "data_type": "string",
+    "comment": null,
+    "namespace": "lh_bronze",
+    "tableName": "exec_sessions_history"
+  },
+  {
+    "col_name": "context_info",
+    "data_type": "string",
+    "comment": null,
+    "namespace": "lh_bronze",
+    "tableName": "exec_sessions_history"
+  },
+  {
+    "col_name": "total_query_elapsed_time_ms",
+    "data_type": "bigint",
+    "comment": null,
+    "namespace": "lh_bronze",
+    "tableName": "exec_sessions_history"
+  },
+  {
+    "col_name": "last_request_start_time",
+    "data_type": "timestamp",
+    "comment": null,
+    "namespace": "lh_bronze",
+    "tableName": "exec_sessions_history"
+  },
+  {
+    "col_name": "last_request_end_time",
+    "data_type": "timestamp",
+    "comment": null,
+    "namespace": "lh_bronze",
+    "tableName": "exec_sessions_history"
+  },
+  {
+    "col_name": "is_user_process",
+    "data_type": "boolean",
+    "comment": null,
+    "namespace": "lh_bronze",
+    "tableName": "exec_sessions_history"
+  },
+  {
+    "col_name": "prev_error",
+    "data_type": "int",
+    "comment": null,
+    "namespace": "lh_bronze",
+    "tableName": "exec_sessions_history"
+  },
+  {
+    "col_name": "group_id",
+    "data_type": "bigint",
+    "comment": null,
+    "namespace": "lh_bronze",
+    "tableName": "exec_sessions_history"
+  },
+  {
+    "col_name": "database_id",
+    "data_type": "int",
+    "comment": null,
+    "namespace": "lh_bronze",
+    "tableName": "exec_sessions_history"
+  },
+  {
+    "col_name": "authenticating_database_id",
+    "data_type": "int",
+    "comment": null,
+    "namespace": "lh_bronze",
+    "tableName": "exec_sessions_history"
+  },
+  {
+    "col_name": "open_transaction_count",
+    "data_type": "bigint",
+    "comment": null,
+    "namespace": "lh_bronze",
+    "tableName": "exec_sessions_history"
+  },
+  {
+    "col_name": "text_size",
+    "data_type": "int",
+    "comment": null,
+    "namespace": "lh_bronze",
+    "tableName": "exec_sessions_history"
+  },
+  {
+    "col_name": "language",
+    "data_type": "string",
+    "comment": null,
+    "namespace": "lh_bronze",
+    "tableName": "exec_sessions_history"
+  },
+  {
+    "col_name": "date_format",
+    "data_type": "string",
+    "comment": null,
+    "namespace": "lh_bronze",
+    "tableName": "exec_sessions_history"
+  },
+  {
+    "col_name": "date_first",
+    "data_type": "int",
+    "comment": null,
+    "namespace": "lh_bronze",
+    "tableName": "exec_sessions_history"
+  },
+  {
+    "col_name": "quoted_identifier",
+    "data_type": "boolean",
+    "comment": null,
+    "namespace": "lh_bronze",
+    "tableName": "exec_sessions_history"
+  },
+  {
+    "col_name": "arithabort",
+    "data_type": "boolean",
+    "comment": null,
+    "namespace": "lh_bronze",
+    "tableName": "exec_sessions_history"
+  },
+  {
+    "col_name": "ansi_null_dflt_on",
+    "data_type": "boolean",
+    "comment": null,
+    "namespace": "lh_bronze",
+    "tableName": "exec_sessions_history"
+  },
+  {
+    "col_name": "ansi_defaults",
+    "data_type": "boolean",
+    "comment": null,
+    "namespace": "lh_bronze",
+    "tableName": "exec_sessions_history"
+  },
+  {
+    "col_name": "ansi_warnings",
+    "data_type": "boolean",
+    "comment": null,
+    "namespace": "lh_bronze",
+    "tableName": "exec_sessions_history"
+  },
+  {
+    "col_name": "ansi_padding",
+    "data_type": "boolean",
+    "comment": null,
+    "namespace": "lh_bronze",
+    "tableName": "exec_sessions_history"
+  },
+  {
+    "col_name": "ansi_nulls",
+    "data_type": "boolean",
+    "comment": null,
+    "namespace": "lh_bronze",
+    "tableName": "exec_sessions_history"
+  },
+  {
+    "col_name": "concat_null_yields_null",
+    "data_type": "boolean",
+    "comment": null,
+    "namespace": "lh_bronze",
+    "tableName": "exec_sessions_history"
+  },
+  {
+    "col_name": "transaction_isolation_level",
+    "data_type": "int",
+    "comment": null,
+    "namespace": "lh_bronze",
+    "tableName": "exec_sessions_history"
+  },
+  {
+    "col_name": "lock_timeout",
+    "data_type": "bigint",
+    "comment": null,
+    "namespace": "lh_bronze",
+    "tableName": "exec_sessions_history"
+  },
+  {
+    "col_name": "deadlock_priority",
+    "data_type": "int",
+    "comment": null,
+    "namespace": "lh_bronze",
+    "tableName": "exec_sessions_history"
+  },
+  {
+    "col_name": "original_security_id",
+    "data_type": "string",
+    "comment": null,
+    "namespace": "lh_bronze",
+    "tableName": "exec_sessions_history"
+  },
+  {
+    "col_name": "database_name",
+    "data_type": "string",
+    "comment": null,
+    "namespace": "lh_bronze",
+    "tableName": "exec_sessions_history"
+  },
+  {
+    "col_name": "database_name",
+    "data_type": "string",
+    "comment": null,
+    "namespace": "lh_bronze",
+    "tableName": "frequently_run_queries"
+  },
+  {
+    "col_name": "number_of_runs",
+    "data_type": "int",
+    "comment": null,
+    "namespace": "lh_bronze",
+    "tableName": "frequently_run_queries"
+  },
+  {
+    "col_name": "min_run_total_elapsed_time_ms",
+    "data_type": "bigint",
+    "comment": null,
+    "namespace": "lh_bronze",
+    "tableName": "frequently_run_queries"
+  },
+  {
+    "col_name": "max_run_total_elapsed_time_ms",
+    "data_type": "bigint",
+    "comment": null,
+    "namespace": "lh_bronze",
+    "tableName": "frequently_run_queries"
+  },
+  {
+    "col_name": "avg_total_elapsed_time_ms",
+    "data_type": "bigint",
+    "comment": null,
+    "namespace": "lh_bronze",
+    "tableName": "frequently_run_queries"
+  },
+  {
+    "col_name": "number_of_successful_runs",
+    "data_type": "int",
+    "comment": null,
+    "namespace": "lh_bronze",
+    "tableName": "frequently_run_queries"
+  },
+  {
+    "col_name": "number_of_failed_runs",
+    "data_type": "int",
+    "comment": null,
+    "namespace": "lh_bronze",
+    "tableName": "frequently_run_queries"
+  },
+  {
+    "col_name": "number_of_canceled_runs",
+    "data_type": "int",
+    "comment": null,
+    "namespace": "lh_bronze",
+    "tableName": "frequently_run_queries"
+  },
+  {
+    "col_name": "last_run_total_elapsed_time_ms",
+    "data_type": "bigint",
+    "comment": null,
+    "namespace": "lh_bronze",
+    "tableName": "frequently_run_queries"
+  },
+  {
+    "col_name": "last_run_start_time",
+    "data_type": "timestamp",
+    "comment": null,
+    "namespace": "lh_bronze",
+    "tableName": "frequently_run_queries"
+  },
+  {
+    "col_name": "last_dist_statement_id",
+    "data_type": "string",
+    "comment": null,
+    "namespace": "lh_bronze",
+    "tableName": "frequently_run_queries"
+  },
+  {
+    "col_name": "query_hash",
+    "data_type": "string",
+    "comment": null,
+    "namespace": "lh_bronze",
+    "tableName": "frequently_run_queries"
+  },
+  {
+    "col_name": "last_run_command",
+    "data_type": "string",
+    "comment": null,
+    "namespace": "lh_bronze",
+    "tableName": "frequently_run_queries"
+  },
+  {
+    "col_name": "database_name",
+    "data_type": "string",
+    "comment": null,
+    "namespace": "lh_bronze",
+    "tableName": "long_running_queries"
+  },
+  {
+    "col_name": "median_total_elapsed_time_ms",
+    "data_type": "float",
+    "comment": null,
+    "namespace": "lh_bronze",
+    "tableName": "long_running_queries"
+  },
+  {
+    "col_name": "last_run_total_elapsed_time_ms",
+    "data_type": "bigint",
+    "comment": null,
+    "namespace": "lh_bronze",
+    "tableName": "long_running_queries"
+  },
+  {
+    "col_name": "last_run_start_time",
+    "data_type": "timestamp",
+    "comment": null,
+    "namespace": "lh_bronze",
+    "tableName": "long_running_queries"
+  },
+  {
+    "col_name": "last_dist_statement_id",
+    "data_type": "string",
+    "comment": null,
+    "namespace": "lh_bronze",
+    "tableName": "long_running_queries"
+  },
+  {
+    "col_name": "last_run_session_id",
+    "data_type": "int",
+    "comment": null,
+    "namespace": "lh_bronze",
+    "tableName": "long_running_queries"
+  },
+  {
+    "col_name": "number_of_runs",
+    "data_type": "int",
+    "comment": null,
+    "namespace": "lh_bronze",
+    "tableName": "long_running_queries"
+  },
+  {
+    "col_name": "query_hash",
+    "data_type": "string",
+    "comment": null,
+    "namespace": "lh_bronze",
+    "tableName": "long_running_queries"
+  },
+  {
+    "col_name": "last_run_command",
+    "data_type": "string",
+    "comment": null,
+    "namespace": "lh_bronze",
+    "tableName": "long_running_queries"
+  },
+  {
+    "col_name": "table_id",
+    "data_type": "bigint",
+    "comment": null,
+    "namespace": "lh_bronze",
+    "tableName": "external_delta_tables"
+  },
+  {
+    "col_name": "is_blocked",
+    "data_type": "boolean",
+    "comment": null,
+    "namespace": "lh_bronze",
+    "tableName": "external_delta_tables"
+  },
+  {
+    "col_name": "relative_path",
+    "data_type": "string",
+    "comment": null,
+    "namespace": "lh_bronze",
+    "tableName": "external_delta_tables"
+  },
+  {
+    "col_name": "latest_manifest_version",
+    "data_type": "bigint",
+    "comment": null,
+    "namespace": "lh_bronze",
+    "tableName": "external_delta_tables"
+  },
+  {
+    "col_name": "latest_checkpoint_version",
+    "data_type": "bigint",
+    "comment": null,
+    "namespace": "lh_bronze",
+    "tableName": "external_delta_tables"
+  },
+  {
+    "col_name": "latest_etag",
+    "data_type": "string",
+    "comment": null,
+    "namespace": "lh_bronze",
+    "tableName": "external_delta_tables"
+  },
+  {
+    "col_name": "last_update_time",
+    "data_type": "timestamp",
+    "comment": null,
+    "namespace": "lh_bronze",
+    "tableName": "external_delta_tables"
+  },
+  {
+    "col_name": "delta_log_commit_sequence_id",
+    "data_type": "bigint",
+    "comment": null,
+    "namespace": "lh_bronze",
+    "tableName": "managed_delta_table_checkpoints"
+  },
+  {
+    "col_name": "part",
+    "data_type": "int",
+    "comment": null,
+    "namespace": "lh_bronze",
+    "tableName": "managed_delta_table_checkpoints"
+  },
+  {
+    "col_name": "file_guid",
+    "data_type": "string",
+    "comment": null,
+    "namespace": "lh_bronze",
+    "tableName": "managed_delta_table_checkpoints"
+  },
+  {
+    "col_name": "version",
+    "data_type": "bigint",
+    "comment": null,
+    "namespace": "lh_bronze",
+    "tableName": "managed_delta_table_checkpoints"
+  },
+  {
+    "col_name": "source_table_guid",
+    "data_type": "string",
+    "comment": null,
+    "namespace": "lh_bronze",
+    "tableName": "managed_delta_table_checkpoints"
+  },
+  {
+    "col_name": "source_database_guid",
+    "data_type": "string",
+    "comment": null,
+    "namespace": "lh_bronze",
+    "tableName": "managed_delta_table_checkpoints"
+  },
+  {
+    "col_name": "table_guid",
+    "data_type": "string",
+    "comment": null,
+    "namespace": "lh_bronze",
+    "tableName": "managed_delta_table_checkpoints"
+  },
+  {
+    "col_name": "checkpoint_file_name",
+    "data_type": "string",
+    "comment": null,
+    "namespace": "lh_bronze",
+    "tableName": "managed_delta_table_checkpoints"
+  },
+  {
+    "col_name": "manifest_root",
+    "data_type": "string",
+    "comment": null,
+    "namespace": "lh_bronze",
+    "tableName": "managed_delta_table_checkpoints"
+  },
+  {
+    "col_name": "commit_sequence_id",
+    "data_type": "bigint",
+    "comment": null,
+    "namespace": "lh_bronze",
+    "tableName": "managed_delta_table_forks"
+  },
+  {
+    "col_name": "fork_guid",
+    "data_type": "string",
+    "comment": null,
+    "namespace": "lh_bronze",
+    "tableName": "managed_delta_table_forks"
+  },
+  {
+    "col_name": "source_table_guid",
+    "data_type": "string",
+    "comment": null,
+    "namespace": "lh_bronze",
+    "tableName": "managed_delta_table_forks"
+  },
+  {
+    "col_name": "source_database_guid",
+    "data_type": "string",
+    "comment": null,
+    "namespace": "lh_bronze",
+    "tableName": "managed_delta_table_forks"
+  },
+  {
+    "col_name": "xdes_ts",
+    "data_type": "bigint",
+    "comment": null,
+    "namespace": "lh_bronze",
+    "tableName": "managed_delta_table_forks"
+  },
+  {
+    "col_name": "commit_time",
+    "data_type": "timestamp",
+    "comment": null,
+    "namespace": "lh_bronze",
+    "tableName": "managed_delta_table_forks"
+  },
+  {
+    "col_name": "table_guid",
+    "data_type": "string",
+    "comment": null,
+    "namespace": "lh_bronze",
+    "tableName": "managed_delta_table_forks"
+  },
+  {
+    "col_name": "folder_name",
+    "data_type": "string",
+    "comment": null,
+    "namespace": "lh_bronze",
+    "tableName": "managed_delta_table_forks"
+  },
+  {
+    "col_name": "commit_sequence_id",
+    "data_type": "bigint",
+    "comment": null,
+    "namespace": "lh_bronze",
+    "tableName": "managed_delta_table_log_files"
+  },
+  {
+    "col_name": "file_guid",
+    "data_type": "string",
+    "comment": null,
+    "namespace": "lh_bronze",
+    "tableName": "managed_delta_table_log_files"
+  },
+  {
+    "col_name": "xdes_ts",
+    "data_type": "bigint",
+    "comment": null,
+    "namespace": "lh_bronze",
+    "tableName": "managed_delta_table_log_files"
+  },
+  {
+    "col_name": "append_only",
+    "data_type": "boolean",
+    "comment": null,
+    "namespace": "lh_bronze",
+    "tableName": "managed_delta_table_log_files"
+  },
+  {
+    "col_name": "rows_inserted",
+    "data_type": "bigint",
+    "comment": null,
+    "namespace": "lh_bronze",
+    "tableName": "managed_delta_table_log_files"
+  },
+  {
+    "col_name": "commit_time",
+    "data_type": "timestamp",
+    "comment": null,
+    "namespace": "lh_bronze",
+    "tableName": "managed_delta_table_log_files"
+  },
+  {
+    "col_name": "source_table_guid",
+    "data_type": "string",
+    "comment": null,
+    "namespace": "lh_bronze",
+    "tableName": "managed_delta_table_log_files"
+  },
+  {
+    "col_name": "source_database_guid",
+    "data_type": "string",
+    "comment": null,
+    "namespace": "lh_bronze",
+    "tableName": "managed_delta_table_log_files"
+  },
+  {
+    "col_name": "manifest_file_name",
+    "data_type": "string",
+    "comment": null,
+    "namespace": "lh_bronze",
+    "tableName": "managed_delta_table_log_files"
+  },
+  {
+    "col_name": "manifest_root",
+    "data_type": "string",
+    "comment": null,
+    "namespace": "lh_bronze",
+    "tableName": "managed_delta_table_log_files"
+  },
+  {
+    "col_name": "table_guid",
+    "data_type": "string",
+    "comment": null,
+    "namespace": "lh_bronze",
+    "tableName": "managed_delta_table_log_files"
+  },
+  {
+    "col_name": "table_id",
+    "data_type": "bigint",
+    "comment": null,
+    "namespace": "lh_bronze",
+    "tableName": "managed_delta_tables"
+  },
+  {
+    "col_name": "object_id",
+    "data_type": "int",
+    "comment": null,
+    "namespace": "lh_bronze",
+    "tableName": "managed_delta_tables"
+  },
+  {
+    "col_name": "table_guid",
+    "data_type": "string",
+    "comment": null,
+    "namespace": "lh_bronze",
+    "tableName": "managed_delta_tables"
+  },
+  {
+    "col_name": "fork_guid",
+    "data_type": "string",
+    "comment": null,
+    "namespace": "lh_bronze",
+    "tableName": "managed_delta_tables"
+  },
+  {
+    "col_name": "delta_log_feature_status",
+    "data_type": "int",
+    "comment": null,
+    "namespace": "lh_bronze",
+    "tableName": "managed_delta_tables"
+  },
+  {
+    "col_name": "manifest_root",
+    "data_type": "string",
+    "comment": null,
+    "namespace": "lh_bronze",
+    "tableName": "managed_delta_tables"
+  },
+  {
+    "col_name": "system_task_consideration_bitmask",
+    "data_type": "int",
+    "comment": null,
+    "namespace": "lh_bronze",
+    "tableName": "managed_delta_tables"
+  },
+  {
+    "col_name": "drop_commit_time",
+    "data_type": "timestamp",
+    "comment": null,
+    "namespace": "lh_bronze",
+    "tableName": "managed_delta_tables"
+  },
+  {
+    "col_name": "name",
+    "data_type": "string",
+    "comment": null,
+    "namespace": "lh_bronze",
+    "tableName": "sys_dw_schemas"
+  },
+  {
+    "col_name": "schema_id",
+    "data_type": "int",
+    "comment": null,
+    "namespace": "lh_bronze",
+    "tableName": "sys_dw_schemas"
+  },
+  {
+    "col_name": "principal_id",
+    "data_type": "int",
+    "comment": null,
+    "namespace": "lh_bronze",
+    "tableName": "sys_dw_schemas"
+  },
+  {
+    "col_name": "is_internal",
+    "data_type": "boolean",
+    "comment": null,
+    "namespace": "lh_bronze",
+    "tableName": "sys_dw_schemas"
+  },
+  {
+    "col_name": "CityID",
+    "data_type": "int",
+    "comment": null,
+    "namespace": "lh_gold",
+    "tableName": "dim_cities"
+  },
+  {
+    "col_name": "CityName",
+    "data_type": "string",
+    "comment": null,
+    "namespace": "lh_gold",
+    "tableName": "dim_cities"
+  },
+  {
+    "col_name": "StateProvinceID",
+    "data_type": "int",
+    "comment": null,
+    "namespace": "lh_gold",
+    "tableName": "dim_cities"
+  },
+  {
+    "col_name": "LatestRecordedPopulation",
+    "data_type": "int",
+    "comment": null,
+    "namespace": "lh_gold",
+    "tableName": "dim_cities"
+  },
+  {
+    "col_name": "LastEditedBy",
+    "data_type": "string",
+    "comment": null,
+    "namespace": "lh_gold",
+    "tableName": "dim_cities"
+  },
+  {
+    "col_name": "ValidFrom",
+    "data_type": "timestamp",
+    "comment": null,
+    "namespace": "lh_gold",
+    "tableName": "dim_cities"
+  },
+  {
+    "col_name": "ValidTo",
+    "data_type": "timestamp",
+    "comment": null,
+    "namespace": "lh_gold",
+    "tableName": "dim_cities"
+  },
+  {
+    "col_name": "distributed_statement_id",
+    "data_type": "string",
+    "comment": null,
+    "namespace": "lh_gold",
+    "tableName": "exec_requests_history"
+  },
+  {
+    "col_name": "database_name",
+    "data_type": "string",
+    "comment": null,
+    "namespace": "lh_gold",
+    "tableName": "exec_requests_history"
+  },
+  {
+    "col_name": "submit_time",
+    "data_type": "timestamp",
+    "comment": null,
+    "namespace": "lh_gold",
+    "tableName": "exec_requests_history"
+  },
+  {
+    "col_name": "start_time",
+    "data_type": "timestamp",
+    "comment": null,
+    "namespace": "lh_gold",
+    "tableName": "exec_requests_history"
+  },
+  {
+    "col_name": "end_time",
+    "data_type": "timestamp",
+    "comment": null,
+    "namespace": "lh_gold",
+    "tableName": "exec_requests_history"
+  },
+  {
+    "col_name": "is_distributed",
+    "data_type": "int",
+    "comment": null,
+    "namespace": "lh_gold",
+    "tableName": "exec_requests_history"
+  },
+  {
+    "col_name": "statement_type",
+    "data_type": "string",
+    "comment": null,
+    "namespace": "lh_gold",
+    "tableName": "exec_requests_history"
+  },
+  {
+    "col_name": "total_elapsed_time_ms",
+    "data_type": "bigint",
+    "comment": null,
+    "namespace": "lh_gold",
+    "tableName": "exec_requests_history"
+  },
+  {
+    "col_name": "login_name",
+    "data_type": "string",
+    "comment": null,
+    "namespace": "lh_gold",
+    "tableName": "exec_requests_history"
+  },
+  {
+    "col_name": "row_count",
+    "data_type": "bigint",
+    "comment": null,
+    "namespace": "lh_gold",
+    "tableName": "exec_requests_history"
+  },
+  {
+    "col_name": "status",
+    "data_type": "string",
+    "comment": null,
+    "namespace": "lh_gold",
+    "tableName": "exec_requests_history"
+  },
+  {
+    "col_name": "session_id",
+    "data_type": "int",
+    "comment": null,
+    "namespace": "lh_gold",
+    "tableName": "exec_requests_history"
+  },
+  {
+    "col_name": "connection_id",
+    "data_type": "string",
+    "comment": null,
+    "namespace": "lh_gold",
+    "tableName": "exec_requests_history"
+  },
+  {
+    "col_name": "program_name",
+    "data_type": "string",
+    "comment": null,
+    "namespace": "lh_gold",
+    "tableName": "exec_requests_history"
+  },
+  {
+    "col_name": "batch_id",
+    "data_type": "string",
+    "comment": null,
+    "namespace": "lh_gold",
+    "tableName": "exec_requests_history"
+  },
+  {
+    "col_name": "root_batch_id",
+    "data_type": "string",
+    "comment": null,
+    "namespace": "lh_gold",
+    "tableName": "exec_requests_history"
+  },
+  {
+    "col_name": "query_hash",
+    "data_type": "string",
+    "comment": null,
+    "namespace": "lh_gold",
+    "tableName": "exec_requests_history"
+  },
+  {
+    "col_name": "label",
+    "data_type": "string",
+    "comment": null,
+    "namespace": "lh_gold",
+    "tableName": "exec_requests_history"
+  },
+  {
+    "col_name": "result_cache_hit",
+    "data_type": "int",
+    "comment": null,
+    "namespace": "lh_gold",
+    "tableName": "exec_requests_history"
+  },
+  {
+    "col_name": "allocated_cpu_time_ms",
+    "data_type": "bigint",
+    "comment": null,
+    "namespace": "lh_gold",
+    "tableName": "exec_requests_history"
+  },
+  {
+    "col_name": "data_scanned_remote_storage_mb",
+    "data_type": "decimal",
+    "comment": null,
+    "namespace": "lh_gold",
+    "tableName": "exec_requests_history"
+  },
+  {
+    "col_name": "data_scanned_memory_mb",
+    "data_type": "decimal",
+    "comment": null,
+    "namespace": "lh_gold",
+    "tableName": "exec_requests_history"
+  },
+  {
+    "col_name": "data_scanned_disk_mb",
+    "data_type": "decimal",
+    "comment": null,
+    "namespace": "lh_gold",
+    "tableName": "exec_requests_history"
+  },
+  {
+    "col_name": "command",
+    "data_type": "string",
+    "comment": null,
+    "namespace": "lh_gold",
+    "tableName": "exec_requests_history"
+  },
+  {
+    "col_name": "session_id",
+    "data_type": "int",
+    "comment": null,
+    "namespace": "lh_gold",
+    "tableName": "exec_sessions_history"
+  },
+  {
+    "col_name": "connection_id",
+    "data_type": "string",
+    "comment": null,
+    "namespace": "lh_gold",
+    "tableName": "exec_sessions_history"
+  },
+  {
+    "col_name": "session_start_time",
+    "data_type": "timestamp",
+    "comment": null,
+    "namespace": "lh_gold",
+    "tableName": "exec_sessions_history"
+  },
+  {
+    "col_name": "session_end_time",
+    "data_type": "timestamp",
+    "comment": null,
+    "namespace": "lh_gold",
+    "tableName": "exec_sessions_history"
+  },
+  {
+    "col_name": "program_name",
+    "data_type": "string",
+    "comment": null,
+    "namespace": "lh_gold",
+    "tableName": "exec_sessions_history"
+  },
+  {
+    "col_name": "login_name",
+    "data_type": "string",
+    "comment": null,
+    "namespace": "lh_gold",
+    "tableName": "exec_sessions_history"
+  },
+  {
+    "col_name": "status",
+    "data_type": "string",
+    "comment": null,
+    "namespace": "lh_gold",
+    "tableName": "exec_sessions_history"
+  },
+  {
+    "col_name": "context_info",
+    "data_type": "string",
+    "comment": null,
+    "namespace": "lh_gold",
+    "tableName": "exec_sessions_history"
+  },
+  {
+    "col_name": "total_query_elapsed_time_ms",
+    "data_type": "bigint",
+    "comment": null,
+    "namespace": "lh_gold",
+    "tableName": "exec_sessions_history"
+  },
+  {
+    "col_name": "last_request_start_time",
+    "data_type": "timestamp",
+    "comment": null,
+    "namespace": "lh_gold",
+    "tableName": "exec_sessions_history"
+  },
+  {
+    "col_name": "last_request_end_time",
+    "data_type": "timestamp",
+    "comment": null,
+    "namespace": "lh_gold",
+    "tableName": "exec_sessions_history"
+  },
+  {
+    "col_name": "is_user_process",
+    "data_type": "boolean",
+    "comment": null,
+    "namespace": "lh_gold",
+    "tableName": "exec_sessions_history"
+  },
+  {
+    "col_name": "prev_error",
+    "data_type": "int",
+    "comment": null,
+    "namespace": "lh_gold",
+    "tableName": "exec_sessions_history"
+  },
+  {
+    "col_name": "group_id",
+    "data_type": "bigint",
+    "comment": null,
+    "namespace": "lh_gold",
+    "tableName": "exec_sessions_history"
+  },
+  {
+    "col_name": "database_id",
+    "data_type": "int",
+    "comment": null,
+    "namespace": "lh_gold",
+    "tableName": "exec_sessions_history"
+  },
+  {
+    "col_name": "authenticating_database_id",
+    "data_type": "int",
+    "comment": null,
+    "namespace": "lh_gold",
+    "tableName": "exec_sessions_history"
+  },
+  {
+    "col_name": "open_transaction_count",
+    "data_type": "bigint",
+    "comment": null,
+    "namespace": "lh_gold",
+    "tableName": "exec_sessions_history"
+  },
+  {
+    "col_name": "text_size",
+    "data_type": "int",
+    "comment": null,
+    "namespace": "lh_gold",
+    "tableName": "exec_sessions_history"
+  },
+  {
+    "col_name": "language",
+    "data_type": "string",
+    "comment": null,
+    "namespace": "lh_gold",
+    "tableName": "exec_sessions_history"
+  },
+  {
+    "col_name": "date_format",
+    "data_type": "string",
+    "comment": null,
+    "namespace": "lh_gold",
+    "tableName": "exec_sessions_history"
+  },
+  {
+    "col_name": "date_first",
+    "data_type": "int",
+    "comment": null,
+    "namespace": "lh_gold",
+    "tableName": "exec_sessions_history"
+  },
+  {
+    "col_name": "quoted_identifier",
+    "data_type": "boolean",
+    "comment": null,
+    "namespace": "lh_gold",
+    "tableName": "exec_sessions_history"
+  },
+  {
+    "col_name": "arithabort",
+    "data_type": "boolean",
+    "comment": null,
+    "namespace": "lh_gold",
+    "tableName": "exec_sessions_history"
+  },
+  {
+    "col_name": "ansi_null_dflt_on",
+    "data_type": "boolean",
+    "comment": null,
+    "namespace": "lh_gold",
+    "tableName": "exec_sessions_history"
+  },
+  {
+    "col_name": "ansi_defaults",
+    "data_type": "boolean",
+    "comment": null,
+    "namespace": "lh_gold",
+    "tableName": "exec_sessions_history"
+  },
+  {
+    "col_name": "ansi_warnings",
+    "data_type": "boolean",
+    "comment": null,
+    "namespace": "lh_gold",
+    "tableName": "exec_sessions_history"
+  },
+  {
+    "col_name": "ansi_padding",
+    "data_type": "boolean",
+    "comment": null,
+    "namespace": "lh_gold",
+    "tableName": "exec_sessions_history"
+  },
+  {
+    "col_name": "ansi_nulls",
+    "data_type": "boolean",
+    "comment": null,
+    "namespace": "lh_gold",
+    "tableName": "exec_sessions_history"
+  },
+  {
+    "col_name": "concat_null_yields_null",
+    "data_type": "boolean",
+    "comment": null,
+    "namespace": "lh_gold",
+    "tableName": "exec_sessions_history"
+  },
+  {
+    "col_name": "transaction_isolation_level",
+    "data_type": "int",
+    "comment": null,
+    "namespace": "lh_gold",
+    "tableName": "exec_sessions_history"
+  },
+  {
+    "col_name": "lock_timeout",
+    "data_type": "bigint",
+    "comment": null,
+    "namespace": "lh_gold",
+    "tableName": "exec_sessions_history"
+  },
+  {
+    "col_name": "deadlock_priority",
+    "data_type": "int",
+    "comment": null,
+    "namespace": "lh_gold",
+    "tableName": "exec_sessions_history"
+  },
+  {
+    "col_name": "original_security_id",
+    "data_type": "string",
+    "comment": null,
+    "namespace": "lh_gold",
+    "tableName": "exec_sessions_history"
+  },
+  {
+    "col_name": "database_name",
+    "data_type": "string",
+    "comment": null,
+    "namespace": "lh_gold",
+    "tableName": "exec_sessions_history"
+  },
+  {
+    "col_name": "database_name",
+    "data_type": "string",
+    "comment": null,
+    "namespace": "lh_gold",
+    "tableName": "frequently_run_queries"
+  },
+  {
+    "col_name": "number_of_runs",
+    "data_type": "int",
+    "comment": null,
+    "namespace": "lh_gold",
+    "tableName": "frequently_run_queries"
+  },
+  {
+    "col_name": "min_run_total_elapsed_time_ms",
+    "data_type": "bigint",
+    "comment": null,
+    "namespace": "lh_gold",
+    "tableName": "frequently_run_queries"
+  },
+  {
+    "col_name": "max_run_total_elapsed_time_ms",
+    "data_type": "bigint",
+    "comment": null,
+    "namespace": "lh_gold",
+    "tableName": "frequently_run_queries"
+  },
+  {
+    "col_name": "avg_total_elapsed_time_ms",
+    "data_type": "bigint",
+    "comment": null,
+    "namespace": "lh_gold",
+    "tableName": "frequently_run_queries"
+  },
+  {
+    "col_name": "number_of_successful_runs",
+    "data_type": "int",
+    "comment": null,
+    "namespace": "lh_gold",
+    "tableName": "frequently_run_queries"
+  },
+  {
+    "col_name": "number_of_failed_runs",
+    "data_type": "int",
+    "comment": null,
+    "namespace": "lh_gold",
+    "tableName": "frequently_run_queries"
+  },
+  {
+    "col_name": "number_of_canceled_runs",
+    "data_type": "int",
+    "comment": null,
+    "namespace": "lh_gold",
+    "tableName": "frequently_run_queries"
+  },
+  {
+    "col_name": "last_run_total_elapsed_time_ms",
+    "data_type": "bigint",
+    "comment": null,
+    "namespace": "lh_gold",
+    "tableName": "frequently_run_queries"
+  },
+  {
+    "col_name": "last_run_start_time",
+    "data_type": "timestamp",
+    "comment": null,
+    "namespace": "lh_gold",
+    "tableName": "frequently_run_queries"
+  },
+  {
+    "col_name": "last_dist_statement_id",
+    "data_type": "string",
+    "comment": null,
+    "namespace": "lh_gold",
+    "tableName": "frequently_run_queries"
+  },
+  {
+    "col_name": "query_hash",
+    "data_type": "string",
+    "comment": null,
+    "namespace": "lh_gold",
+    "tableName": "frequently_run_queries"
+  },
+  {
+    "col_name": "last_run_command",
+    "data_type": "string",
+    "comment": null,
+    "namespace": "lh_gold",
+    "tableName": "frequently_run_queries"
+  },
+  {
+    "col_name": "database_name",
+    "data_type": "string",
+    "comment": null,
+    "namespace": "lh_gold",
+    "tableName": "long_running_queries"
+  },
+  {
+    "col_name": "median_total_elapsed_time_ms",
+    "data_type": "float",
+    "comment": null,
+    "namespace": "lh_gold",
+    "tableName": "long_running_queries"
+  },
+  {
+    "col_name": "last_run_total_elapsed_time_ms",
+    "data_type": "bigint",
+    "comment": null,
+    "namespace": "lh_gold",
+    "tableName": "long_running_queries"
+  },
+  {
+    "col_name": "last_run_start_time",
+    "data_type": "timestamp",
+    "comment": null,
+    "namespace": "lh_gold",
+    "tableName": "long_running_queries"
+  },
+  {
+    "col_name": "last_dist_statement_id",
+    "data_type": "string",
+    "comment": null,
+    "namespace": "lh_gold",
+    "tableName": "long_running_queries"
+  },
+  {
+    "col_name": "last_run_session_id",
+    "data_type": "int",
+    "comment": null,
+    "namespace": "lh_gold",
+    "tableName": "long_running_queries"
+  },
+  {
+    "col_name": "number_of_runs",
+    "data_type": "int",
+    "comment": null,
+    "namespace": "lh_gold",
+    "tableName": "long_running_queries"
+  },
+  {
+    "col_name": "query_hash",
+    "data_type": "string",
+    "comment": null,
+    "namespace": "lh_gold",
+    "tableName": "long_running_queries"
+  },
+  {
+    "col_name": "last_run_command",
+    "data_type": "string",
+    "comment": null,
+    "namespace": "lh_gold",
+    "tableName": "long_running_queries"
+  },
+  {
+    "col_name": "table_id",
+    "data_type": "bigint",
+    "comment": null,
+    "namespace": "lh_gold",
+    "tableName": "external_delta_tables"
+  },
+  {
+    "col_name": "is_blocked",
+    "data_type": "boolean",
+    "comment": null,
+    "namespace": "lh_gold",
+    "tableName": "external_delta_tables"
+  },
+  {
+    "col_name": "relative_path",
+    "data_type": "string",
+    "comment": null,
+    "namespace": "lh_gold",
+    "tableName": "external_delta_tables"
+  },
+  {
+    "col_name": "latest_manifest_version",
+    "data_type": "bigint",
+    "comment": null,
+    "namespace": "lh_gold",
+    "tableName": "external_delta_tables"
+  },
+  {
+    "col_name": "latest_checkpoint_version",
+    "data_type": "bigint",
+    "comment": null,
+    "namespace": "lh_gold",
+    "tableName": "external_delta_tables"
+  },
+  {
+    "col_name": "latest_etag",
+    "data_type": "string",
+    "comment": null,
+    "namespace": "lh_gold",
+    "tableName": "external_delta_tables"
+  },
+  {
+    "col_name": "last_update_time",
+    "data_type": "timestamp",
+    "comment": null,
+    "namespace": "lh_gold",
+    "tableName": "external_delta_tables"
+  },
+  {
+    "col_name": "delta_log_commit_sequence_id",
+    "data_type": "bigint",
+    "comment": null,
+    "namespace": "lh_gold",
+    "tableName": "managed_delta_table_checkpoints"
+  },
+  {
+    "col_name": "part",
+    "data_type": "int",
+    "comment": null,
+    "namespace": "lh_gold",
+    "tableName": "managed_delta_table_checkpoints"
+  },
+  {
+    "col_name": "file_guid",
+    "data_type": "string",
+    "comment": null,
+    "namespace": "lh_gold",
+    "tableName": "managed_delta_table_checkpoints"
+  },
+  {
+    "col_name": "version",
+    "data_type": "bigint",
+    "comment": null,
+    "namespace": "lh_gold",
+    "tableName": "managed_delta_table_checkpoints"
+  },
+  {
+    "col_name": "source_table_guid",
+    "data_type": "string",
+    "comment": null,
+    "namespace": "lh_gold",
+    "tableName": "managed_delta_table_checkpoints"
+  },
+  {
+    "col_name": "source_database_guid",
+    "data_type": "string",
+    "comment": null,
+    "namespace": "lh_gold",
+    "tableName": "managed_delta_table_checkpoints"
+  },
+  {
+    "col_name": "table_guid",
+    "data_type": "string",
+    "comment": null,
+    "namespace": "lh_gold",
+    "tableName": "managed_delta_table_checkpoints"
+  },
+  {
+    "col_name": "checkpoint_file_name",
+    "data_type": "string",
+    "comment": null,
+    "namespace": "lh_gold",
+    "tableName": "managed_delta_table_checkpoints"
+  },
+  {
+    "col_name": "manifest_root",
+    "data_type": "string",
+    "comment": null,
+    "namespace": "lh_gold",
+    "tableName": "managed_delta_table_checkpoints"
+  },
+  {
+    "col_name": "commit_sequence_id",
+    "data_type": "bigint",
+    "comment": null,
+    "namespace": "lh_gold",
+    "tableName": "managed_delta_table_forks"
+  },
+  {
+    "col_name": "fork_guid",
+    "data_type": "string",
+    "comment": null,
+    "namespace": "lh_gold",
+    "tableName": "managed_delta_table_forks"
+  },
+  {
+    "col_name": "source_table_guid",
+    "data_type": "string",
+    "comment": null,
+    "namespace": "lh_gold",
+    "tableName": "managed_delta_table_forks"
+  },
+  {
+    "col_name": "source_database_guid",
+    "data_type": "string",
+    "comment": null,
+    "namespace": "lh_gold",
+    "tableName": "managed_delta_table_forks"
+  },
+  {
+    "col_name": "xdes_ts",
+    "data_type": "bigint",
+    "comment": null,
+    "namespace": "lh_gold",
+    "tableName": "managed_delta_table_forks"
+  },
+  {
+    "col_name": "commit_time",
+    "data_type": "timestamp",
+    "comment": null,
+    "namespace": "lh_gold",
+    "tableName": "managed_delta_table_forks"
+  },
+  {
+    "col_name": "table_guid",
+    "data_type": "string",
+    "comment": null,
+    "namespace": "lh_gold",
+    "tableName": "managed_delta_table_forks"
+  },
+  {
+    "col_name": "folder_name",
+    "data_type": "string",
+    "comment": null,
+    "namespace": "lh_gold",
+    "tableName": "managed_delta_table_forks"
+  },
+  {
+    "col_name": "commit_sequence_id",
+    "data_type": "bigint",
+    "comment": null,
+    "namespace": "lh_gold",
+    "tableName": "managed_delta_table_log_files"
+  },
+  {
+    "col_name": "file_guid",
+    "data_type": "string",
+    "comment": null,
+    "namespace": "lh_gold",
+    "tableName": "managed_delta_table_log_files"
+  },
+  {
+    "col_name": "xdes_ts",
+    "data_type": "bigint",
+    "comment": null,
+    "namespace": "lh_gold",
+    "tableName": "managed_delta_table_log_files"
+  },
+  {
+    "col_name": "append_only",
+    "data_type": "boolean",
+    "comment": null,
+    "namespace": "lh_gold",
+    "tableName": "managed_delta_table_log_files"
+  },
+  {
+    "col_name": "rows_inserted",
+    "data_type": "bigint",
+    "comment": null,
+    "namespace": "lh_gold",
+    "tableName": "managed_delta_table_log_files"
+  },
+  {
+    "col_name": "commit_time",
+    "data_type": "timestamp",
+    "comment": null,
+    "namespace": "lh_gold",
+    "tableName": "managed_delta_table_log_files"
+  },
+  {
+    "col_name": "source_table_guid",
+    "data_type": "string",
+    "comment": null,
+    "namespace": "lh_gold",
+    "tableName": "managed_delta_table_log_files"
+  },
+  {
+    "col_name": "source_database_guid",
+    "data_type": "string",
+    "comment": null,
+    "namespace": "lh_gold",
+    "tableName": "managed_delta_table_log_files"
+  },
+  {
+    "col_name": "manifest_file_name",
+    "data_type": "string",
+    "comment": null,
+    "namespace": "lh_gold",
+    "tableName": "managed_delta_table_log_files"
+  },
+  {
+    "col_name": "manifest_root",
+    "data_type": "string",
+    "comment": null,
+    "namespace": "lh_gold",
+    "tableName": "managed_delta_table_log_files"
+  },
+  {
+    "col_name": "table_guid",
+    "data_type": "string",
+    "comment": null,
+    "namespace": "lh_gold",
+    "tableName": "managed_delta_table_log_files"
+  },
+  {
+    "col_name": "table_id",
+    "data_type": "bigint",
+    "comment": null,
+    "namespace": "lh_gold",
+    "tableName": "managed_delta_tables"
+  },
+  {
+    "col_name": "object_id",
+    "data_type": "int",
+    "comment": null,
+    "namespace": "lh_gold",
+    "tableName": "managed_delta_tables"
+  },
+  {
+    "col_name": "table_guid",
+    "data_type": "string",
+    "comment": null,
+    "namespace": "lh_gold",
+    "tableName": "managed_delta_tables"
+  },
+  {
+    "col_name": "fork_guid",
+    "data_type": "string",
+    "comment": null,
+    "namespace": "lh_gold",
+    "tableName": "managed_delta_tables"
+  },
+  {
+    "col_name": "delta_log_feature_status",
+    "data_type": "int",
+    "comment": null,
+    "namespace": "lh_gold",
+    "tableName": "managed_delta_tables"
+  },
+  {
+    "col_name": "manifest_root",
+    "data_type": "string",
+    "comment": null,
+    "namespace": "lh_gold",
+    "tableName": "managed_delta_tables"
+  },
+  {
+    "col_name": "system_task_consideration_bitmask",
+    "data_type": "int",
+    "comment": null,
+    "namespace": "lh_gold",
+    "tableName": "managed_delta_tables"
+  },
+  {
+    "col_name": "drop_commit_time",
+    "data_type": "timestamp",
+    "comment": null,
+    "namespace": "lh_gold",
+    "tableName": "managed_delta_tables"
+  },
+  {
+    "col_name": "name",
+    "data_type": "string",
+    "comment": null,
+    "namespace": "lh_gold",
+    "tableName": "sys_dw_schemas"
+  },
+  {
+    "col_name": "schema_id",
+    "data_type": "int",
+    "comment": null,
+    "namespace": "lh_gold",
+    "tableName": "sys_dw_schemas"
+  },
+  {
+    "col_name": "principal_id",
+    "data_type": "int",
+    "comment": null,
+    "namespace": "lh_gold",
+    "tableName": "sys_dw_schemas"
+  },
+  {
+    "col_name": "is_internal",
+    "data_type": "boolean",
+    "comment": null,
+    "namespace": "lh_gold",
+    "tableName": "sys_dw_schemas"
+  },
+  {
+    "col_name": "batch_id",
+    "data_type": "string",
+    "comment": null,
+    "namespace": "lh_log",
+    "tableName": "batch"
+  },
+  {
+    "col_name": "start_time",
+    "data_type": "bigint",
+    "comment": null,
+    "namespace": "lh_log",
+    "tableName": "batch"
+  },
+  {
+    "col_name": "status",
+    "data_type": "string",
+    "comment": null,
+    "namespace": "lh_log",
+    "tableName": "batch"
+  },
+  {
+    "col_name": "master_notebook",
+    "data_type": "string",
+    "comment": null,
+    "namespace": "lh_log",
+    "tableName": "batch"
+  },
+  {
+    "col_name": "notebook",
+    "data_type": "string",
+    "comment": null,
+    "namespace": "lh_log",
+    "tableName": "execution_log"
+  },
+  {
+    "col_name": "start_time",
+    "data_type": "float",
+    "comment": null,
+    "namespace": "lh_log",
+    "tableName": "execution_log"
+  },
+  {
+    "col_name": "status",
+    "data_type": "string",
+    "comment": null,
+    "namespace": "lh_log",
+    "tableName": "execution_log"
+  },
+  {
+    "col_name": "error",
+    "data_type": "string",
+    "comment": null,
+    "namespace": "lh_log",
+    "tableName": "execution_log"
+  },
+  {
+    "col_name": "execution_time",
+    "data_type": "float",
+    "comment": null,
+    "namespace": "lh_log",
+    "tableName": "execution_log"
+  },
+  {
+    "col_name": "run_order",
+    "data_type": "int",
+    "comment": null,
+    "namespace": "lh_log",
+    "tableName": "execution_log"
+  },
+  {
+    "col_name": "batch_id",
+    "data_type": "string",
+    "comment": null,
+    "namespace": "lh_log",
+    "tableName": "execution_log"
+  },
+  {
+    "col_name": "master_notebook",
+    "data_type": "string",
+    "comment": null,
+    "namespace": "lh_log",
+    "tableName": "execution_log"
+  },
+  {
+    "col_name": "distributed_statement_id",
+    "data_type": "string",
+    "comment": null,
+    "namespace": "lh_log",
+    "tableName": "exec_requests_history"
+  },
+  {
+    "col_name": "database_name",
+    "data_type": "string",
+    "comment": null,
+    "namespace": "lh_log",
+    "tableName": "exec_requests_history"
+  },
+  {
+    "col_name": "submit_time",
+    "data_type": "timestamp",
+    "comment": null,
+    "namespace": "lh_log",
+    "tableName": "exec_requests_history"
+  },
+  {
+    "col_name": "start_time",
+    "data_type": "timestamp",
+    "comment": null,
+    "namespace": "lh_log",
+    "tableName": "exec_requests_history"
+  },
+  {
+    "col_name": "end_time",
+    "data_type": "timestamp",
+    "comment": null,
+    "namespace": "lh_log",
+    "tableName": "exec_requests_history"
+  },
+  {
+    "col_name": "is_distributed",
+    "data_type": "int",
+    "comment": null,
+    "namespace": "lh_log",
+    "tableName": "exec_requests_history"
+  },
+  {
+    "col_name": "statement_type",
+    "data_type": "string",
+    "comment": null,
+    "namespace": "lh_log",
+    "tableName": "exec_requests_history"
+  },
+  {
+    "col_name": "total_elapsed_time_ms",
+    "data_type": "bigint",
+    "comment": null,
+    "namespace": "lh_log",
+    "tableName": "exec_requests_history"
+  },
+  {
+    "col_name": "login_name",
+    "data_type": "string",
+    "comment": null,
+    "namespace": "lh_log",
+    "tableName": "exec_requests_history"
+  },
+  {
+    "col_name": "row_count",
+    "data_type": "bigint",
+    "comment": null,
+    "namespace": "lh_log",
+    "tableName": "exec_requests_history"
+  },
+  {
+    "col_name": "status",
+    "data_type": "string",
+    "comment": null,
+    "namespace": "lh_log",
+    "tableName": "exec_requests_history"
+  },
+  {
+    "col_name": "session_id",
+    "data_type": "int",
+    "comment": null,
+    "namespace": "lh_log",
+    "tableName": "exec_requests_history"
+  },
+  {
+    "col_name": "connection_id",
+    "data_type": "string",
+    "comment": null,
+    "namespace": "lh_log",
+    "tableName": "exec_requests_history"
+  },
+  {
+    "col_name": "program_name",
+    "data_type": "string",
+    "comment": null,
+    "namespace": "lh_log",
+    "tableName": "exec_requests_history"
+  },
+  {
+    "col_name": "batch_id",
+    "data_type": "string",
+    "comment": null,
+    "namespace": "lh_log",
+    "tableName": "exec_requests_history"
+  },
+  {
+    "col_name": "root_batch_id",
+    "data_type": "string",
+    "comment": null,
+    "namespace": "lh_log",
+    "tableName": "exec_requests_history"
+  },
+  {
+    "col_name": "query_hash",
+    "data_type": "string",
+    "comment": null,
+    "namespace": "lh_log",
+    "tableName": "exec_requests_history"
+  },
+  {
+    "col_name": "label",
+    "data_type": "string",
+    "comment": null,
+    "namespace": "lh_log",
+    "tableName": "exec_requests_history"
+  },
+  {
+    "col_name": "result_cache_hit",
+    "data_type": "int",
+    "comment": null,
+    "namespace": "lh_log",
+    "tableName": "exec_requests_history"
+  },
+  {
+    "col_name": "allocated_cpu_time_ms",
+    "data_type": "bigint",
+    "comment": null,
+    "namespace": "lh_log",
+    "tableName": "exec_requests_history"
+  },
+  {
+    "col_name": "data_scanned_remote_storage_mb",
+    "data_type": "decimal",
+    "comment": null,
+    "namespace": "lh_log",
+    "tableName": "exec_requests_history"
+  },
+  {
+    "col_name": "data_scanned_memory_mb",
+    "data_type": "decimal",
+    "comment": null,
+    "namespace": "lh_log",
+    "tableName": "exec_requests_history"
+  },
+  {
+    "col_name": "data_scanned_disk_mb",
+    "data_type": "decimal",
+    "comment": null,
+    "namespace": "lh_log",
+    "tableName": "exec_requests_history"
+  },
+  {
+    "col_name": "command",
+    "data_type": "string",
+    "comment": null,
+    "namespace": "lh_log",
+    "tableName": "exec_requests_history"
+  },
+  {
+    "col_name": "session_id",
+    "data_type": "int",
+    "comment": null,
+    "namespace": "lh_log",
+    "tableName": "exec_sessions_history"
+  },
+  {
+    "col_name": "connection_id",
+    "data_type": "string",
+    "comment": null,
+    "namespace": "lh_log",
+    "tableName": "exec_sessions_history"
+  },
+  {
+    "col_name": "session_start_time",
+    "data_type": "timestamp",
+    "comment": null,
+    "namespace": "lh_log",
+    "tableName": "exec_sessions_history"
+  },
+  {
+    "col_name": "session_end_time",
+    "data_type": "timestamp",
+    "comment": null,
+    "namespace": "lh_log",
+    "tableName": "exec_sessions_history"
+  },
+  {
+    "col_name": "program_name",
+    "data_type": "string",
+    "comment": null,
+    "namespace": "lh_log",
+    "tableName": "exec_sessions_history"
+  },
+  {
+    "col_name": "login_name",
+    "data_type": "string",
+    "comment": null,
+    "namespace": "lh_log",
+    "tableName": "exec_sessions_history"
+  },
+  {
+    "col_name": "status",
+    "data_type": "string",
+    "comment": null,
+    "namespace": "lh_log",
+    "tableName": "exec_sessions_history"
+  },
+  {
+    "col_name": "context_info",
+    "data_type": "string",
+    "comment": null,
+    "namespace": "lh_log",
+    "tableName": "exec_sessions_history"
+  },
+  {
+    "col_name": "total_query_elapsed_time_ms",
+    "data_type": "bigint",
+    "comment": null,
+    "namespace": "lh_log",
+    "tableName": "exec_sessions_history"
+  },
+  {
+    "col_name": "last_request_start_time",
+    "data_type": "timestamp",
+    "comment": null,
+    "namespace": "lh_log",
+    "tableName": "exec_sessions_history"
+  },
+  {
+    "col_name": "last_request_end_time",
+    "data_type": "timestamp",
+    "comment": null,
+    "namespace": "lh_log",
+    "tableName": "exec_sessions_history"
+  },
+  {
+    "col_name": "is_user_process",
+    "data_type": "boolean",
+    "comment": null,
+    "namespace": "lh_log",
+    "tableName": "exec_sessions_history"
+  },
+  {
+    "col_name": "prev_error",
+    "data_type": "int",
+    "comment": null,
+    "namespace": "lh_log",
+    "tableName": "exec_sessions_history"
+  },
+  {
+    "col_name": "group_id",
+    "data_type": "bigint",
+    "comment": null,
+    "namespace": "lh_log",
+    "tableName": "exec_sessions_history"
+  },
+  {
+    "col_name": "database_id",
+    "data_type": "int",
+    "comment": null,
+    "namespace": "lh_log",
+    "tableName": "exec_sessions_history"
+  },
+  {
+    "col_name": "authenticating_database_id",
+    "data_type": "int",
+    "comment": null,
+    "namespace": "lh_log",
+    "tableName": "exec_sessions_history"
+  },
+  {
+    "col_name": "open_transaction_count",
+    "data_type": "bigint",
+    "comment": null,
+    "namespace": "lh_log",
+    "tableName": "exec_sessions_history"
+  },
+  {
+    "col_name": "text_size",
+    "data_type": "int",
+    "comment": null,
+    "namespace": "lh_log",
+    "tableName": "exec_sessions_history"
+  },
+  {
+    "col_name": "language",
+    "data_type": "string",
+    "comment": null,
+    "namespace": "lh_log",
+    "tableName": "exec_sessions_history"
+  },
+  {
+    "col_name": "date_format",
+    "data_type": "string",
+    "comment": null,
+    "namespace": "lh_log",
+    "tableName": "exec_sessions_history"
+  },
+  {
+    "col_name": "date_first",
+    "data_type": "int",
+    "comment": null,
+    "namespace": "lh_log",
+    "tableName": "exec_sessions_history"
+  },
+  {
+    "col_name": "quoted_identifier",
+    "data_type": "boolean",
+    "comment": null,
+    "namespace": "lh_log",
+    "tableName": "exec_sessions_history"
+  },
+  {
+    "col_name": "arithabort",
+    "data_type": "boolean",
+    "comment": null,
+    "namespace": "lh_log",
+    "tableName": "exec_sessions_history"
+  },
+  {
+    "col_name": "ansi_null_dflt_on",
+    "data_type": "boolean",
+    "comment": null,
+    "namespace": "lh_log",
+    "tableName": "exec_sessions_history"
+  },
+  {
+    "col_name": "ansi_defaults",
+    "data_type": "boolean",
+    "comment": null,
+    "namespace": "lh_log",
+    "tableName": "exec_sessions_history"
+  },
+  {
+    "col_name": "ansi_warnings",
+    "data_type": "boolean",
+    "comment": null,
+    "namespace": "lh_log",
+    "tableName": "exec_sessions_history"
+  },
+  {
+    "col_name": "ansi_padding",
+    "data_type": "boolean",
+    "comment": null,
+    "namespace": "lh_log",
+    "tableName": "exec_sessions_history"
+  },
+  {
+    "col_name": "ansi_nulls",
+    "data_type": "boolean",
+    "comment": null,
+    "namespace": "lh_log",
+    "tableName": "exec_sessions_history"
+  },
+  {
+    "col_name": "concat_null_yields_null",
+    "data_type": "boolean",
+    "comment": null,
+    "namespace": "lh_log",
+    "tableName": "exec_sessions_history"
+  },
+  {
+    "col_name": "transaction_isolation_level",
+    "data_type": "int",
+    "comment": null,
+    "namespace": "lh_log",
+    "tableName": "exec_sessions_history"
+  },
+  {
+    "col_name": "lock_timeout",
+    "data_type": "bigint",
+    "comment": null,
+    "namespace": "lh_log",
+    "tableName": "exec_sessions_history"
+  },
+  {
+    "col_name": "deadlock_priority",
+    "data_type": "int",
+    "comment": null,
+    "namespace": "lh_log",
+    "tableName": "exec_sessions_history"
+  },
+  {
+    "col_name": "original_security_id",
+    "data_type": "string",
+    "comment": null,
+    "namespace": "lh_log",
+    "tableName": "exec_sessions_history"
+  },
+  {
+    "col_name": "database_name",
+    "data_type": "string",
+    "comment": null,
+    "namespace": "lh_log",
+    "tableName": "exec_sessions_history"
+  },
+  {
+    "col_name": "database_name",
+    "data_type": "string",
+    "comment": null,
+    "namespace": "lh_log",
+    "tableName": "frequently_run_queries"
+  },
+  {
+    "col_name": "number_of_runs",
+    "data_type": "int",
+    "comment": null,
+    "namespace": "lh_log",
+    "tableName": "frequently_run_queries"
+  },
+  {
+    "col_name": "min_run_total_elapsed_time_ms",
+    "data_type": "bigint",
+    "comment": null,
+    "namespace": "lh_log",
+    "tableName": "frequently_run_queries"
+  },
+  {
+    "col_name": "max_run_total_elapsed_time_ms",
+    "data_type": "bigint",
+    "comment": null,
+    "namespace": "lh_log",
+    "tableName": "frequently_run_queries"
+  },
+  {
+    "col_name": "avg_total_elapsed_time_ms",
+    "data_type": "bigint",
+    "comment": null,
+    "namespace": "lh_log",
+    "tableName": "frequently_run_queries"
+  },
+  {
+    "col_name": "number_of_successful_runs",
+    "data_type": "int",
+    "comment": null,
+    "namespace": "lh_log",
+    "tableName": "frequently_run_queries"
+  },
+  {
+    "col_name": "number_of_failed_runs",
+    "data_type": "int",
+    "comment": null,
+    "namespace": "lh_log",
+    "tableName": "frequently_run_queries"
+  },
+  {
+    "col_name": "number_of_canceled_runs",
+    "data_type": "int",
+    "comment": null,
+    "namespace": "lh_log",
+    "tableName": "frequently_run_queries"
+  },
+  {
+    "col_name": "last_run_total_elapsed_time_ms",
+    "data_type": "bigint",
+    "comment": null,
+    "namespace": "lh_log",
+    "tableName": "frequently_run_queries"
+  },
+  {
+    "col_name": "last_run_start_time",
+    "data_type": "timestamp",
+    "comment": null,
+    "namespace": "lh_log",
+    "tableName": "frequently_run_queries"
+  },
+  {
+    "col_name": "last_dist_statement_id",
+    "data_type": "string",
+    "comment": null,
+    "namespace": "lh_log",
+    "tableName": "frequently_run_queries"
+  },
+  {
+    "col_name": "query_hash",
+    "data_type": "string",
+    "comment": null,
+    "namespace": "lh_log",
+    "tableName": "frequently_run_queries"
+  },
+  {
+    "col_name": "last_run_command",
+    "data_type": "string",
+    "comment": null,
+    "namespace": "lh_log",
+    "tableName": "frequently_run_queries"
+  },
+  {
+    "col_name": "database_name",
+    "data_type": "string",
+    "comment": null,
+    "namespace": "lh_log",
+    "tableName": "long_running_queries"
+  },
+  {
+    "col_name": "median_total_elapsed_time_ms",
+    "data_type": "float",
+    "comment": null,
+    "namespace": "lh_log",
+    "tableName": "long_running_queries"
+  },
+  {
+    "col_name": "last_run_total_elapsed_time_ms",
+    "data_type": "bigint",
+    "comment": null,
+    "namespace": "lh_log",
+    "tableName": "long_running_queries"
+  },
+  {
+    "col_name": "last_run_start_time",
+    "data_type": "timestamp",
+    "comment": null,
+    "namespace": "lh_log",
+    "tableName": "long_running_queries"
+  },
+  {
+    "col_name": "last_dist_statement_id",
+    "data_type": "string",
+    "comment": null,
+    "namespace": "lh_log",
+    "tableName": "long_running_queries"
+  },
+  {
+    "col_name": "last_run_session_id",
+    "data_type": "int",
+    "comment": null,
+    "namespace": "lh_log",
+    "tableName": "long_running_queries"
+  },
+  {
+    "col_name": "number_of_runs",
+    "data_type": "int",
+    "comment": null,
+    "namespace": "lh_log",
+    "tableName": "long_running_queries"
+  },
+  {
+    "col_name": "query_hash",
+    "data_type": "string",
+    "comment": null,
+    "namespace": "lh_log",
+    "tableName": "long_running_queries"
+  },
+  {
+    "col_name": "last_run_command",
+    "data_type": "string",
+    "comment": null,
+    "namespace": "lh_log",
+    "tableName": "long_running_queries"
+  },
+  {
+    "col_name": "table_id",
+    "data_type": "bigint",
+    "comment": null,
+    "namespace": "lh_log",
+    "tableName": "external_delta_tables"
+  },
+  {
+    "col_name": "is_blocked",
+    "data_type": "boolean",
+    "comment": null,
+    "namespace": "lh_log",
+    "tableName": "external_delta_tables"
+  },
+  {
+    "col_name": "relative_path",
+    "data_type": "string",
+    "comment": null,
+    "namespace": "lh_log",
+    "tableName": "external_delta_tables"
+  },
+  {
+    "col_name": "latest_manifest_version",
+    "data_type": "bigint",
+    "comment": null,
+    "namespace": "lh_log",
+    "tableName": "external_delta_tables"
+  },
+  {
+    "col_name": "latest_checkpoint_version",
+    "data_type": "bigint",
+    "comment": null,
+    "namespace": "lh_log",
+    "tableName": "external_delta_tables"
+  },
+  {
+    "col_name": "latest_etag",
+    "data_type": "string",
+    "comment": null,
+    "namespace": "lh_log",
+    "tableName": "external_delta_tables"
+  },
+  {
+    "col_name": "last_update_time",
+    "data_type": "timestamp",
+    "comment": null,
+    "namespace": "lh_log",
+    "tableName": "external_delta_tables"
+  },
+  {
+    "col_name": "delta_log_commit_sequence_id",
+    "data_type": "bigint",
+    "comment": null,
+    "namespace": "lh_log",
+    "tableName": "managed_delta_table_checkpoints"
+  },
+  {
+    "col_name": "part",
+    "data_type": "int",
+    "comment": null,
+    "namespace": "lh_log",
+    "tableName": "managed_delta_table_checkpoints"
+  },
+  {
+    "col_name": "file_guid",
+    "data_type": "string",
+    "comment": null,
+    "namespace": "lh_log",
+    "tableName": "managed_delta_table_checkpoints"
+  },
+  {
+    "col_name": "version",
+    "data_type": "bigint",
+    "comment": null,
+    "namespace": "lh_log",
+    "tableName": "managed_delta_table_checkpoints"
+  },
+  {
+    "col_name": "source_table_guid",
+    "data_type": "string",
+    "comment": null,
+    "namespace": "lh_log",
+    "tableName": "managed_delta_table_checkpoints"
+  },
+  {
+    "col_name": "source_database_guid",
+    "data_type": "string",
+    "comment": null,
+    "namespace": "lh_log",
+    "tableName": "managed_delta_table_checkpoints"
+  },
+  {
+    "col_name": "table_guid",
+    "data_type": "string",
+    "comment": null,
+    "namespace": "lh_log",
+    "tableName": "managed_delta_table_checkpoints"
+  },
+  {
+    "col_name": "checkpoint_file_name",
+    "data_type": "string",
+    "comment": null,
+    "namespace": "lh_log",
+    "tableName": "managed_delta_table_checkpoints"
+  },
+  {
+    "col_name": "manifest_root",
+    "data_type": "string",
+    "comment": null,
+    "namespace": "lh_log",
+    "tableName": "managed_delta_table_checkpoints"
+  },
+  {
+    "col_name": "commit_sequence_id",
+    "data_type": "bigint",
+    "comment": null,
+    "namespace": "lh_log",
+    "tableName": "managed_delta_table_forks"
+  },
+  {
+    "col_name": "fork_guid",
+    "data_type": "string",
+    "comment": null,
+    "namespace": "lh_log",
+    "tableName": "managed_delta_table_forks"
+  },
+  {
+    "col_name": "source_table_guid",
+    "data_type": "string",
+    "comment": null,
+    "namespace": "lh_log",
+    "tableName": "managed_delta_table_forks"
+  },
+  {
+    "col_name": "source_database_guid",
+    "data_type": "string",
+    "comment": null,
+    "namespace": "lh_log",
+    "tableName": "managed_delta_table_forks"
+  },
+  {
+    "col_name": "xdes_ts",
+    "data_type": "bigint",
+    "comment": null,
+    "namespace": "lh_log",
+    "tableName": "managed_delta_table_forks"
+  },
+  {
+    "col_name": "commit_time",
+    "data_type": "timestamp",
+    "comment": null,
+    "namespace": "lh_log",
+    "tableName": "managed_delta_table_forks"
+  },
+  {
+    "col_name": "table_guid",
+    "data_type": "string",
+    "comment": null,
+    "namespace": "lh_log",
+    "tableName": "managed_delta_table_forks"
+  },
+  {
+    "col_name": "folder_name",
+    "data_type": "string",
+    "comment": null,
+    "namespace": "lh_log",
+    "tableName": "managed_delta_table_forks"
+  },
+  {
+    "col_name": "commit_sequence_id",
+    "data_type": "bigint",
+    "comment": null,
+    "namespace": "lh_log",
+    "tableName": "managed_delta_table_log_files"
+  },
+  {
+    "col_name": "file_guid",
+    "data_type": "string",
+    "comment": null,
+    "namespace": "lh_log",
+    "tableName": "managed_delta_table_log_files"
+  },
+  {
+    "col_name": "xdes_ts",
+    "data_type": "bigint",
+    "comment": null,
+    "namespace": "lh_log",
+    "tableName": "managed_delta_table_log_files"
+  },
+  {
+    "col_name": "append_only",
+    "data_type": "boolean",
+    "comment": null,
+    "namespace": "lh_log",
+    "tableName": "managed_delta_table_log_files"
+  },
+  {
+    "col_name": "rows_inserted",
+    "data_type": "bigint",
+    "comment": null,
+    "namespace": "lh_log",
+    "tableName": "managed_delta_table_log_files"
+  },
+  {
+    "col_name": "commit_time",
+    "data_type": "timestamp",
+    "comment": null,
+    "namespace": "lh_log",
+    "tableName": "managed_delta_table_log_files"
+  },
+  {
+    "col_name": "source_table_guid",
+    "data_type": "string",
+    "comment": null,
+    "namespace": "lh_log",
+    "tableName": "managed_delta_table_log_files"
+  },
+  {
+    "col_name": "source_database_guid",
+    "data_type": "string",
+    "comment": null,
+    "namespace": "lh_log",
+    "tableName": "managed_delta_table_log_files"
+  },
+  {
+    "col_name": "manifest_file_name",
+    "data_type": "string",
+    "comment": null,
+    "namespace": "lh_log",
+    "tableName": "managed_delta_table_log_files"
+  },
+  {
+    "col_name": "manifest_root",
+    "data_type": "string",
+    "comment": null,
+    "namespace": "lh_log",
+    "tableName": "managed_delta_table_log_files"
+  },
+  {
+    "col_name": "table_guid",
+    "data_type": "string",
+    "comment": null,
+    "namespace": "lh_log",
+    "tableName": "managed_delta_table_log_files"
+  },
+  {
+    "col_name": "table_id",
+    "data_type": "bigint",
+    "comment": null,
+    "namespace": "lh_log",
+    "tableName": "managed_delta_tables"
+  },
+  {
+    "col_name": "object_id",
+    "data_type": "int",
+    "comment": null,
+    "namespace": "lh_log",
+    "tableName": "managed_delta_tables"
+  },
+  {
+    "col_name": "table_guid",
+    "data_type": "string",
+    "comment": null,
+    "namespace": "lh_log",
+    "tableName": "managed_delta_tables"
+  },
+  {
+    "col_name": "fork_guid",
+    "data_type": "string",
+    "comment": null,
+    "namespace": "lh_log",
+    "tableName": "managed_delta_tables"
+  },
+  {
+    "col_name": "delta_log_feature_status",
+    "data_type": "int",
+    "comment": null,
+    "namespace": "lh_log",
+    "tableName": "managed_delta_tables"
+  },
+  {
+    "col_name": "manifest_root",
+    "data_type": "string",
+    "comment": null,
+    "namespace": "lh_log",
+    "tableName": "managed_delta_tables"
+  },
+  {
+    "col_name": "system_task_consideration_bitmask",
+    "data_type": "int",
+    "comment": null,
+    "namespace": "lh_log",
+    "tableName": "managed_delta_tables"
+  },
+  {
+    "col_name": "drop_commit_time",
+    "data_type": "timestamp",
+    "comment": null,
+    "namespace": "lh_log",
+    "tableName": "managed_delta_tables"
+  },
+  {
+    "col_name": "name",
+    "data_type": "string",
+    "comment": null,
+    "namespace": "lh_log",
+    "tableName": "sys_dw_schemas"
+  },
+  {
+    "col_name": "schema_id",
+    "data_type": "int",
+    "comment": null,
+    "namespace": "lh_log",
+    "tableName": "sys_dw_schemas"
+  },
+  {
+    "col_name": "principal_id",
+    "data_type": "int",
+    "comment": null,
+    "namespace": "lh_log",
+    "tableName": "sys_dw_schemas"
+  },
+  {
+    "col_name": "is_internal",
+    "data_type": "boolean",
+    "comment": null,
+    "namespace": "lh_log",
+    "tableName": "sys_dw_schemas"
+  },
+  {
+    "col_name": "CityID",
+    "data_type": "int",
+    "comment": null,
+    "namespace": "lh_silver",
+    "tableName": "cities"
+  },
+  {
+    "col_name": "CityName",
+    "data_type": "string",
+    "comment": null,
+    "namespace": "lh_silver",
+    "tableName": "cities"
+  },
+  {
+    "col_name": "StateProvinceID",
+    "data_type": "int",
+    "comment": null,
+    "namespace": "lh_silver",
+    "tableName": "cities"
+  },
+  {
+    "col_name": "LatestRecordedPopulation",
+    "data_type": "int",
+    "comment": null,
+    "namespace": "lh_silver",
+    "tableName": "cities"
+  },
+  {
+    "col_name": "LastEditedBy",
+    "data_type": "string",
+    "comment": null,
+    "namespace": "lh_silver",
+    "tableName": "cities"
+  },
+  {
+    "col_name": "ValidFrom",
+    "data_type": "timestamp",
+    "comment": null,
+    "namespace": "lh_silver",
+    "tableName": "cities"
+  },
+  {
+    "col_name": "ValidTo",
+    "data_type": "timestamp",
+    "comment": null,
+    "namespace": "lh_silver",
+    "tableName": "cities"
+  },
+  {
+    "col_name": "CountryID",
+    "data_type": "int",
+    "comment": null,
+    "namespace": "lh_silver",
+    "tableName": "countries"
+  },
+  {
+    "col_name": "CountryName",
+    "data_type": "string",
+    "comment": null,
+    "namespace": "lh_silver",
+    "tableName": "countries"
+  },
+  {
+    "col_name": "FormalName",
+    "data_type": "string",
+    "comment": null,
+    "namespace": "lh_silver",
+    "tableName": "countries"
+  },
+  {
+    "col_name": "IsoAlpha3Code",
+    "data_type": "string",
+    "comment": null,
+    "namespace": "lh_silver",
+    "tableName": "countries"
+  },
+  {
+    "col_name": "IsoNumericCode",
+    "data_type": "string",
+    "comment": null,
+    "namespace": "lh_silver",
+    "tableName": "countries"
+  },
+  {
+    "col_name": "CountryType",
+    "data_type": "string",
+    "comment": null,
+    "namespace": "lh_silver",
+    "tableName": "countries"
+  },
+  {
+    "col_name": "LatestRecordedPopulation",
+    "data_type": "bigint",
+    "comment": null,
+    "namespace": "lh_silver",
+    "tableName": "countries"
+  },
+  {
+    "col_name": "Continent",
+    "data_type": "string",
+    "comment": null,
+    "namespace": "lh_silver",
+    "tableName": "countries"
+  },
+  {
+    "col_name": "Region",
+    "data_type": "string",
+    "comment": null,
+    "namespace": "lh_silver",
+    "tableName": "countries"
+  },
+  {
+    "col_name": "Subregion",
+    "data_type": "string",
+    "comment": null,
+    "namespace": "lh_silver",
+    "tableName": "countries"
+  },
+  {
+    "col_name": "LastEditedBy",
+    "data_type": "string",
+    "comment": null,
+    "namespace": "lh_silver",
+    "tableName": "countries"
+  },
+  {
+    "col_name": "ValidFrom",
+    "data_type": "timestamp",
+    "comment": null,
+    "namespace": "lh_silver",
+    "tableName": "countries"
+  },
+  {
+    "col_name": "ValidTo",
+    "data_type": "timestamp",
+    "comment": null,
+    "namespace": "lh_silver",
+    "tableName": "countries"
+  },
+  {
+    "col_name": "HappinessIndex",
+    "data_type": "int",
+    "comment": null,
+    "namespace": "lh_silver",
+    "tableName": "countries"
+  },
+  {
+    "col_name": "script_id",
+    "data_type": "string",
+    "comment": null,
+    "namespace": "lh_silver",
+    "tableName": "ddl_script_executions"
+  },
+  {
+    "col_name": "script_name",
+    "data_type": "string",
+    "comment": null,
+    "namespace": "lh_silver",
+    "tableName": "ddl_script_executions"
+  },
+  {
+    "col_name": "execution_status",
+    "data_type": "string",
+    "comment": null,
+    "namespace": "lh_silver",
+    "tableName": "ddl_script_executions"
+  },
+  {
+    "col_name": "update_date",
+    "data_type": "timestamp",
+    "comment": null,
+    "namespace": "lh_silver",
+    "tableName": "ddl_script_executions"
+  },
+  {
+    "col_name": "distributed_statement_id",
+    "data_type": "string",
+    "comment": null,
+    "namespace": "lh_silver",
+    "tableName": "exec_requests_history"
+  },
+  {
+    "col_name": "database_name",
+    "data_type": "string",
+    "comment": null,
+    "namespace": "lh_silver",
+    "tableName": "exec_requests_history"
+  },
+  {
+    "col_name": "submit_time",
+    "data_type": "timestamp",
+    "comment": null,
+    "namespace": "lh_silver",
+    "tableName": "exec_requests_history"
+  },
+  {
+    "col_name": "start_time",
+    "data_type": "timestamp",
+    "comment": null,
+    "namespace": "lh_silver",
+    "tableName": "exec_requests_history"
+  },
+  {
+    "col_name": "end_time",
+    "data_type": "timestamp",
+    "comment": null,
+    "namespace": "lh_silver",
+    "tableName": "exec_requests_history"
+  },
+  {
+    "col_name": "is_distributed",
+    "data_type": "int",
+    "comment": null,
+    "namespace": "lh_silver",
+    "tableName": "exec_requests_history"
+  },
+  {
+    "col_name": "statement_type",
+    "data_type": "string",
+    "comment": null,
+    "namespace": "lh_silver",
+    "tableName": "exec_requests_history"
+  },
+  {
+    "col_name": "total_elapsed_time_ms",
+    "data_type": "bigint",
+    "comment": null,
+    "namespace": "lh_silver",
+    "tableName": "exec_requests_history"
+  },
+  {
+    "col_name": "login_name",
+    "data_type": "string",
+    "comment": null,
+    "namespace": "lh_silver",
+    "tableName": "exec_requests_history"
+  },
+  {
+    "col_name": "row_count",
+    "data_type": "bigint",
+    "comment": null,
+    "namespace": "lh_silver",
+    "tableName": "exec_requests_history"
+  },
+  {
+    "col_name": "status",
+    "data_type": "string",
+    "comment": null,
+    "namespace": "lh_silver",
+    "tableName": "exec_requests_history"
+  },
+  {
+    "col_name": "session_id",
+    "data_type": "int",
+    "comment": null,
+    "namespace": "lh_silver",
+    "tableName": "exec_requests_history"
+  },
+  {
+    "col_name": "connection_id",
+    "data_type": "string",
+    "comment": null,
+    "namespace": "lh_silver",
+    "tableName": "exec_requests_history"
+  },
+  {
+    "col_name": "program_name",
+    "data_type": "string",
+    "comment": null,
+    "namespace": "lh_silver",
+    "tableName": "exec_requests_history"
+  },
+  {
+    "col_name": "batch_id",
+    "data_type": "string",
+    "comment": null,
+    "namespace": "lh_silver",
+    "tableName": "exec_requests_history"
+  },
+  {
+    "col_name": "root_batch_id",
+    "data_type": "string",
+    "comment": null,
+    "namespace": "lh_silver",
+    "tableName": "exec_requests_history"
+  },
+  {
+    "col_name": "query_hash",
+    "data_type": "string",
+    "comment": null,
+    "namespace": "lh_silver",
+    "tableName": "exec_requests_history"
+  },
+  {
+    "col_name": "label",
+    "data_type": "string",
+    "comment": null,
+    "namespace": "lh_silver",
+    "tableName": "exec_requests_history"
+  },
+  {
+    "col_name": "result_cache_hit",
+    "data_type": "int",
+    "comment": null,
+    "namespace": "lh_silver",
+    "tableName": "exec_requests_history"
+  },
+  {
+    "col_name": "allocated_cpu_time_ms",
+    "data_type": "bigint",
+    "comment": null,
+    "namespace": "lh_silver",
+    "tableName": "exec_requests_history"
+  },
+  {
+    "col_name": "data_scanned_remote_storage_mb",
+    "data_type": "decimal",
+    "comment": null,
+    "namespace": "lh_silver",
+    "tableName": "exec_requests_history"
+  },
+  {
+    "col_name": "data_scanned_memory_mb",
+    "data_type": "decimal",
+    "comment": null,
+    "namespace": "lh_silver",
+    "tableName": "exec_requests_history"
+  },
+  {
+    "col_name": "data_scanned_disk_mb",
+    "data_type": "decimal",
+    "comment": null,
+    "namespace": "lh_silver",
+    "tableName": "exec_requests_history"
+  },
+  {
+    "col_name": "command",
+    "data_type": "string",
+    "comment": null,
+    "namespace": "lh_silver",
+    "tableName": "exec_requests_history"
+  },
+  {
+    "col_name": "session_id",
+    "data_type": "int",
+    "comment": null,
+    "namespace": "lh_silver",
+    "tableName": "exec_sessions_history"
+  },
+  {
+    "col_name": "connection_id",
+    "data_type": "string",
+    "comment": null,
+    "namespace": "lh_silver",
+    "tableName": "exec_sessions_history"
+  },
+  {
+    "col_name": "session_start_time",
+    "data_type": "timestamp",
+    "comment": null,
+    "namespace": "lh_silver",
+    "tableName": "exec_sessions_history"
+  },
+  {
+    "col_name": "session_end_time",
+    "data_type": "timestamp",
+    "comment": null,
+    "namespace": "lh_silver",
+    "tableName": "exec_sessions_history"
+  },
+  {
+    "col_name": "program_name",
+    "data_type": "string",
+    "comment": null,
+    "namespace": "lh_silver",
+    "tableName": "exec_sessions_history"
+  },
+  {
+    "col_name": "login_name",
+    "data_type": "string",
+    "comment": null,
+    "namespace": "lh_silver",
+    "tableName": "exec_sessions_history"
+  },
+  {
+    "col_name": "status",
+    "data_type": "string",
+    "comment": null,
+    "namespace": "lh_silver",
+    "tableName": "exec_sessions_history"
+  },
+  {
+    "col_name": "context_info",
+    "data_type": "string",
+    "comment": null,
+    "namespace": "lh_silver",
+    "tableName": "exec_sessions_history"
+  },
+  {
+    "col_name": "total_query_elapsed_time_ms",
+    "data_type": "bigint",
+    "comment": null,
+    "namespace": "lh_silver",
+    "tableName": "exec_sessions_history"
+  },
+  {
+    "col_name": "last_request_start_time",
+    "data_type": "timestamp",
+    "comment": null,
+    "namespace": "lh_silver",
+    "tableName": "exec_sessions_history"
+  },
+  {
+    "col_name": "last_request_end_time",
+    "data_type": "timestamp",
+    "comment": null,
+    "namespace": "lh_silver",
+    "tableName": "exec_sessions_history"
+  },
+  {
+    "col_name": "is_user_process",
+    "data_type": "boolean",
+    "comment": null,
+    "namespace": "lh_silver",
+    "tableName": "exec_sessions_history"
+  },
+  {
+    "col_name": "prev_error",
+    "data_type": "int",
+    "comment": null,
+    "namespace": "lh_silver",
+    "tableName": "exec_sessions_history"
+  },
+  {
+    "col_name": "group_id",
+    "data_type": "bigint",
+    "comment": null,
+    "namespace": "lh_silver",
+    "tableName": "exec_sessions_history"
+  },
+  {
+    "col_name": "database_id",
+    "data_type": "int",
+    "comment": null,
+    "namespace": "lh_silver",
+    "tableName": "exec_sessions_history"
+  },
+  {
+    "col_name": "authenticating_database_id",
+    "data_type": "int",
+    "comment": null,
+    "namespace": "lh_silver",
+    "tableName": "exec_sessions_history"
+  },
+  {
+    "col_name": "open_transaction_count",
+    "data_type": "bigint",
+    "comment": null,
+    "namespace": "lh_silver",
+    "tableName": "exec_sessions_history"
+  },
+  {
+    "col_name": "text_size",
+    "data_type": "int",
+    "comment": null,
+    "namespace": "lh_silver",
+    "tableName": "exec_sessions_history"
+  },
+  {
+    "col_name": "language",
+    "data_type": "string",
+    "comment": null,
+    "namespace": "lh_silver",
+    "tableName": "exec_sessions_history"
+  },
+  {
+    "col_name": "date_format",
+    "data_type": "string",
+    "comment": null,
+    "namespace": "lh_silver",
+    "tableName": "exec_sessions_history"
+  },
+  {
+    "col_name": "date_first",
+    "data_type": "int",
+    "comment": null,
+    "namespace": "lh_silver",
+    "tableName": "exec_sessions_history"
+  },
+  {
+    "col_name": "quoted_identifier",
+    "data_type": "boolean",
+    "comment": null,
+    "namespace": "lh_silver",
+    "tableName": "exec_sessions_history"
+  },
+  {
+    "col_name": "arithabort",
+    "data_type": "boolean",
+    "comment": null,
+    "namespace": "lh_silver",
+    "tableName": "exec_sessions_history"
+  },
+  {
+    "col_name": "ansi_null_dflt_on",
+    "data_type": "boolean",
+    "comment": null,
+    "namespace": "lh_silver",
+    "tableName": "exec_sessions_history"
+  },
+  {
+    "col_name": "ansi_defaults",
+    "data_type": "boolean",
+    "comment": null,
+    "namespace": "lh_silver",
+    "tableName": "exec_sessions_history"
+  },
+  {
+    "col_name": "ansi_warnings",
+    "data_type": "boolean",
+    "comment": null,
+    "namespace": "lh_silver",
+    "tableName": "exec_sessions_history"
+  },
+  {
+    "col_name": "ansi_padding",
+    "data_type": "boolean",
+    "comment": null,
+    "namespace": "lh_silver",
+    "tableName": "exec_sessions_history"
+  },
+  {
+    "col_name": "ansi_nulls",
+    "data_type": "boolean",
+    "comment": null,
+    "namespace": "lh_silver",
+    "tableName": "exec_sessions_history"
+  },
+  {
+    "col_name": "concat_null_yields_null",
+    "data_type": "boolean",
+    "comment": null,
+    "namespace": "lh_silver",
+    "tableName": "exec_sessions_history"
+  },
+  {
+    "col_name": "transaction_isolation_level",
+    "data_type": "int",
+    "comment": null,
+    "namespace": "lh_silver",
+    "tableName": "exec_sessions_history"
+  },
+  {
+    "col_name": "lock_timeout",
+    "data_type": "bigint",
+    "comment": null,
+    "namespace": "lh_silver",
+    "tableName": "exec_sessions_history"
+  },
+  {
+    "col_name": "deadlock_priority",
+    "data_type": "int",
+    "comment": null,
+    "namespace": "lh_silver",
+    "tableName": "exec_sessions_history"
+  },
+  {
+    "col_name": "original_security_id",
+    "data_type": "string",
+    "comment": null,
+    "namespace": "lh_silver",
+    "tableName": "exec_sessions_history"
+  },
+  {
+    "col_name": "database_name",
+    "data_type": "string",
+    "comment": null,
+    "namespace": "lh_silver",
+    "tableName": "exec_sessions_history"
+  },
+  {
+    "col_name": "database_name",
+    "data_type": "string",
+    "comment": null,
+    "namespace": "lh_silver",
+    "tableName": "frequently_run_queries"
+  },
+  {
+    "col_name": "number_of_runs",
+    "data_type": "int",
+    "comment": null,
+    "namespace": "lh_silver",
+    "tableName": "frequently_run_queries"
+  },
+  {
+    "col_name": "min_run_total_elapsed_time_ms",
+    "data_type": "bigint",
+    "comment": null,
+    "namespace": "lh_silver",
+    "tableName": "frequently_run_queries"
+  },
+  {
+    "col_name": "max_run_total_elapsed_time_ms",
+    "data_type": "bigint",
+    "comment": null,
+    "namespace": "lh_silver",
+    "tableName": "frequently_run_queries"
+  },
+  {
+    "col_name": "avg_total_elapsed_time_ms",
+    "data_type": "bigint",
+    "comment": null,
+    "namespace": "lh_silver",
+    "tableName": "frequently_run_queries"
+  },
+  {
+    "col_name": "number_of_successful_runs",
+    "data_type": "int",
+    "comment": null,
+    "namespace": "lh_silver",
+    "tableName": "frequently_run_queries"
+  },
+  {
+    "col_name": "number_of_failed_runs",
+    "data_type": "int",
+    "comment": null,
+    "namespace": "lh_silver",
+    "tableName": "frequently_run_queries"
+  },
+  {
+    "col_name": "number_of_canceled_runs",
+    "data_type": "int",
+    "comment": null,
+    "namespace": "lh_silver",
+    "tableName": "frequently_run_queries"
+  },
+  {
+    "col_name": "last_run_total_elapsed_time_ms",
+    "data_type": "bigint",
+    "comment": null,
+    "namespace": "lh_silver",
+    "tableName": "frequently_run_queries"
+  },
+  {
+    "col_name": "last_run_start_time",
+    "data_type": "timestamp",
+    "comment": null,
+    "namespace": "lh_silver",
+    "tableName": "frequently_run_queries"
+  },
+  {
+    "col_name": "last_dist_statement_id",
+    "data_type": "string",
+    "comment": null,
+    "namespace": "lh_silver",
+    "tableName": "frequently_run_queries"
+  },
+  {
+    "col_name": "query_hash",
+    "data_type": "string",
+    "comment": null,
+    "namespace": "lh_silver",
+    "tableName": "frequently_run_queries"
+  },
+  {
+    "col_name": "last_run_command",
+    "data_type": "string",
+    "comment": null,
+    "namespace": "lh_silver",
+    "tableName": "frequently_run_queries"
+  },
+  {
+    "col_name": "database_name",
+    "data_type": "string",
+    "comment": null,
+    "namespace": "lh_silver",
+    "tableName": "long_running_queries"
+  },
+  {
+    "col_name": "median_total_elapsed_time_ms",
+    "data_type": "float",
+    "comment": null,
+    "namespace": "lh_silver",
+    "tableName": "long_running_queries"
+  },
+  {
+    "col_name": "last_run_total_elapsed_time_ms",
+    "data_type": "bigint",
+    "comment": null,
+    "namespace": "lh_silver",
+    "tableName": "long_running_queries"
+  },
+  {
+    "col_name": "last_run_start_time",
+    "data_type": "timestamp",
+    "comment": null,
+    "namespace": "lh_silver",
+    "tableName": "long_running_queries"
+  },
+  {
+    "col_name": "last_dist_statement_id",
+    "data_type": "string",
+    "comment": null,
+    "namespace": "lh_silver",
+    "tableName": "long_running_queries"
+  },
+  {
+    "col_name": "last_run_session_id",
+    "data_type": "int",
+    "comment": null,
+    "namespace": "lh_silver",
+    "tableName": "long_running_queries"
+  },
+  {
+    "col_name": "number_of_runs",
+    "data_type": "int",
+    "comment": null,
+    "namespace": "lh_silver",
+    "tableName": "long_running_queries"
+  },
+  {
+    "col_name": "query_hash",
+    "data_type": "string",
+    "comment": null,
+    "namespace": "lh_silver",
+    "tableName": "long_running_queries"
+  },
+  {
+    "col_name": "last_run_command",
+    "data_type": "string",
+    "comment": null,
+    "namespace": "lh_silver",
+    "tableName": "long_running_queries"
+  },
+  {
+    "col_name": "table_id",
+    "data_type": "bigint",
+    "comment": null,
+    "namespace": "lh_silver",
+    "tableName": "external_delta_tables"
+  },
+  {
+    "col_name": "is_blocked",
+    "data_type": "boolean",
+    "comment": null,
+    "namespace": "lh_silver",
+    "tableName": "external_delta_tables"
+  },
+  {
+    "col_name": "relative_path",
+    "data_type": "string",
+    "comment": null,
+    "namespace": "lh_silver",
+    "tableName": "external_delta_tables"
+  },
+  {
+    "col_name": "latest_manifest_version",
+    "data_type": "bigint",
+    "comment": null,
+    "namespace": "lh_silver",
+    "tableName": "external_delta_tables"
+  },
+  {
+    "col_name": "latest_checkpoint_version",
+    "data_type": "bigint",
+    "comment": null,
+    "namespace": "lh_silver",
+    "tableName": "external_delta_tables"
+  },
+  {
+    "col_name": "latest_etag",
+    "data_type": "string",
+    "comment": null,
+    "namespace": "lh_silver",
+    "tableName": "external_delta_tables"
+  },
+  {
+    "col_name": "last_update_time",
+    "data_type": "timestamp",
+    "comment": null,
+    "namespace": "lh_silver",
+    "tableName": "external_delta_tables"
+  },
+  {
+    "col_name": "delta_log_commit_sequence_id",
+    "data_type": "bigint",
+    "comment": null,
+    "namespace": "lh_silver",
+    "tableName": "managed_delta_table_checkpoints"
+  },
+  {
+    "col_name": "part",
+    "data_type": "int",
+    "comment": null,
+    "namespace": "lh_silver",
+    "tableName": "managed_delta_table_checkpoints"
+  },
+  {
+    "col_name": "file_guid",
+    "data_type": "string",
+    "comment": null,
+    "namespace": "lh_silver",
+    "tableName": "managed_delta_table_checkpoints"
+  },
+  {
+    "col_name": "version",
+    "data_type": "bigint",
+    "comment": null,
+    "namespace": "lh_silver",
+    "tableName": "managed_delta_table_checkpoints"
+  },
+  {
+    "col_name": "source_table_guid",
+    "data_type": "string",
+    "comment": null,
+    "namespace": "lh_silver",
+    "tableName": "managed_delta_table_checkpoints"
+  },
+  {
+    "col_name": "source_database_guid",
+    "data_type": "string",
+    "comment": null,
+    "namespace": "lh_silver",
+    "tableName": "managed_delta_table_checkpoints"
+  },
+  {
+    "col_name": "table_guid",
+    "data_type": "string",
+    "comment": null,
+    "namespace": "lh_silver",
+    "tableName": "managed_delta_table_checkpoints"
+  },
+  {
+    "col_name": "checkpoint_file_name",
+    "data_type": "string",
+    "comment": null,
+    "namespace": "lh_silver",
+    "tableName": "managed_delta_table_checkpoints"
+  },
+  {
+    "col_name": "manifest_root",
+    "data_type": "string",
+    "comment": null,
+    "namespace": "lh_silver",
+    "tableName": "managed_delta_table_checkpoints"
+  },
+  {
+    "col_name": "commit_sequence_id",
+    "data_type": "bigint",
+    "comment": null,
+    "namespace": "lh_silver",
+    "tableName": "managed_delta_table_forks"
+  },
+  {
+    "col_name": "fork_guid",
+    "data_type": "string",
+    "comment": null,
+    "namespace": "lh_silver",
+    "tableName": "managed_delta_table_forks"
+  },
+  {
+    "col_name": "source_table_guid",
+    "data_type": "string",
+    "comment": null,
+    "namespace": "lh_silver",
+    "tableName": "managed_delta_table_forks"
+  },
+  {
+    "col_name": "source_database_guid",
+    "data_type": "string",
+    "comment": null,
+    "namespace": "lh_silver",
+    "tableName": "managed_delta_table_forks"
+  },
+  {
+    "col_name": "xdes_ts",
+    "data_type": "bigint",
+    "comment": null,
+    "namespace": "lh_silver",
+    "tableName": "managed_delta_table_forks"
+  },
+  {
+    "col_name": "commit_time",
+    "data_type": "timestamp",
+    "comment": null,
+    "namespace": "lh_silver",
+    "tableName": "managed_delta_table_forks"
+  },
+  {
+    "col_name": "table_guid",
+    "data_type": "string",
+    "comment": null,
+    "namespace": "lh_silver",
+    "tableName": "managed_delta_table_forks"
+  },
+  {
+    "col_name": "folder_name",
+    "data_type": "string",
+    "comment": null,
+    "namespace": "lh_silver",
+    "tableName": "managed_delta_table_forks"
+  },
+  {
+    "col_name": "commit_sequence_id",
+    "data_type": "bigint",
+    "comment": null,
+    "namespace": "lh_silver",
+    "tableName": "managed_delta_table_log_files"
+  },
+  {
+    "col_name": "file_guid",
+    "data_type": "string",
+    "comment": null,
+    "namespace": "lh_silver",
+    "tableName": "managed_delta_table_log_files"
+  },
+  {
+    "col_name": "xdes_ts",
+    "data_type": "bigint",
+    "comment": null,
+    "namespace": "lh_silver",
+    "tableName": "managed_delta_table_log_files"
+  },
+  {
+    "col_name": "append_only",
+    "data_type": "boolean",
+    "comment": null,
+    "namespace": "lh_silver",
+    "tableName": "managed_delta_table_log_files"
+  },
+  {
+    "col_name": "rows_inserted",
+    "data_type": "bigint",
+    "comment": null,
+    "namespace": "lh_silver",
+    "tableName": "managed_delta_table_log_files"
+  },
+  {
+    "col_name": "commit_time",
+    "data_type": "timestamp",
+    "comment": null,
+    "namespace": "lh_silver",
+    "tableName": "managed_delta_table_log_files"
+  },
+  {
+    "col_name": "source_table_guid",
+    "data_type": "string",
+    "comment": null,
+    "namespace": "lh_silver",
+    "tableName": "managed_delta_table_log_files"
+  },
+  {
+    "col_name": "source_database_guid",
+    "data_type": "string",
+    "comment": null,
+    "namespace": "lh_silver",
+    "tableName": "managed_delta_table_log_files"
+  },
+  {
+    "col_name": "manifest_file_name",
+    "data_type": "string",
+    "comment": null,
+    "namespace": "lh_silver",
+    "tableName": "managed_delta_table_log_files"
+  },
+  {
+    "col_name": "manifest_root",
+    "data_type": "string",
+    "comment": null,
+    "namespace": "lh_silver",
+    "tableName": "managed_delta_table_log_files"
+  },
+  {
+    "col_name": "table_guid",
+    "data_type": "string",
+    "comment": null,
+    "namespace": "lh_silver",
+    "tableName": "managed_delta_table_log_files"
+  },
+  {
+    "col_name": "table_id",
+    "data_type": "bigint",
+    "comment": null,
+    "namespace": "lh_silver",
+    "tableName": "managed_delta_tables"
+  },
+  {
+    "col_name": "object_id",
+    "data_type": "int",
+    "comment": null,
+    "namespace": "lh_silver",
+    "tableName": "managed_delta_tables"
+  },
+  {
+    "col_name": "table_guid",
+    "data_type": "string",
+    "comment": null,
+    "namespace": "lh_silver",
+    "tableName": "managed_delta_tables"
+  },
+  {
+    "col_name": "fork_guid",
+    "data_type": "string",
+    "comment": null,
+    "namespace": "lh_silver",
+    "tableName": "managed_delta_tables"
+  },
+  {
+    "col_name": "delta_log_feature_status",
+    "data_type": "int",
+    "comment": null,
+    "namespace": "lh_silver",
+    "tableName": "managed_delta_tables"
+  },
+  {
+    "col_name": "manifest_root",
+    "data_type": "string",
+    "comment": null,
+    "namespace": "lh_silver",
+    "tableName": "managed_delta_tables"
+  },
+  {
+    "col_name": "system_task_consideration_bitmask",
+    "data_type": "int",
+    "comment": null,
+    "namespace": "lh_silver",
+    "tableName": "managed_delta_tables"
+  },
+  {
+    "col_name": "drop_commit_time",
+    "data_type": "timestamp",
+    "comment": null,
+    "namespace": "lh_silver",
+    "tableName": "managed_delta_tables"
+  },
+  {
+    "col_name": "name",
+    "data_type": "string",
+    "comment": null,
+    "namespace": "lh_silver",
+    "tableName": "sys_dw_schemas"
+  },
+  {
+    "col_name": "schema_id",
+    "data_type": "int",
+    "comment": null,
+    "namespace": "lh_silver",
+    "tableName": "sys_dw_schemas"
+  },
+  {
+    "col_name": "principal_id",
+    "data_type": "int",
+    "comment": null,
+    "namespace": "lh_silver",
+    "tableName": "sys_dw_schemas"
+  },
+  {
+    "col_name": "is_internal",
+    "data_type": "boolean",
+    "comment": null,
+    "namespace": "lh_silver",
+    "tableName": "sys_dw_schemas"
+  }
+]
