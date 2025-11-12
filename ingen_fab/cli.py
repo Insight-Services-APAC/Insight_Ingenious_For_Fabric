@@ -391,7 +391,7 @@ def delete_all(
     )
 
 
-@deploy_app.command("upload_python_libs")
+@deploy_app.command("upload-python-libs")
 def upload_python_libs(ctx: typer.Context):
     """Inject code into python_libs (in-place) and upload to Fabric config lakehouse."""
     deploy_commands.upload_python_libs_to_config_lakehouse(
@@ -400,7 +400,7 @@ def upload_python_libs(ctx: typer.Context):
         console=console,
     )
 
-@deploy_app.command("upload_dbt_project")
+@deploy_app.command("upload-dbt-project")
 def upload_dbt_project(
     ctx: typer.Context,
     dbt_project: Annotated[
