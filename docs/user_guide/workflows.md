@@ -121,10 +121,13 @@ graph TD
     # Develop dbt models and snapshots. Update schema.yml files
    
     # Extract metadata for lakehouses
-    ingen_fab deploy get-metadata
+    ingen_fab deploy get-metadata --target lakehouse
 
-    # Convert metdata for dbt format 
+    # Convert metadata for dbt format (uses default metadata/lakehouse_metadata_all.csv)
     ingen_fab dbt convert-metadata --dbt-project dbt_project
+    
+    # Or use custom metadata file if needed
+    # ingen_fab dbt convert-metadata --dbt-project dbt_project --metadata-file metadata/custom_export.csv
     
     # Build dbt models and masters
     ingen_fab dbt exec -- stage run build --project-dir dbt_project
@@ -210,7 +213,11 @@ For example configurations, see the json files under the sample project.
 
 ```bash
 # Deploy to development first. Note that with trunk based development, this may require developer workspaces and branches
-ingen_fab deploy deploy --fabric-workspace-repo-dir . --fabric-environment development
+# Set environment variables first
+$env:FABRIC_WORKSPACE_REPO_DIR = "dp"
+$env:FABRIC_ENVIRONMENT = "development"
+
+ingen_fab deploy deploy
 
 # Validate in development workspace, then deploy to test using DevOps pipelines
 

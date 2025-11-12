@@ -397,7 +397,7 @@ Configuration-driven data pipelines:
 
 3. **Redeploy**:
    ```bash
-   ingen_fab deploy deploy --fabric-workspace-repo-dir . --fabric-environment development
+   ingen_fab deploy deploy
    ```
 
 ### Adding New Environments
@@ -422,7 +422,10 @@ Configuration-driven data pipelines:
 
 3. **Deploy to new environment**:
    ```bash
-   ingen_fab deploy deploy --fabric-workspace-repo-dir . --fabric-environment staging
+   $env:FABRIC_WORKSPACE_REPO_DIR = "dp"
+   $env:FABRIC_ENVIRONMENT = "development"
+
+   ingen_fab deploy deploy
    ```
 
 ## Advanced Usage
@@ -476,8 +479,10 @@ jobs:
         cd sample_project
         uv run ingen_fab ddl compile --output-mode fabric_workspace_repo --generation-mode Warehouse
         uv run ingen_fab ddl compile --output-mode fabric_workspace_repo --generation-mode Lakehouse
-        uv run ingen_fab deploy deploy --fabric-workspace-repo-dir . --fabric-environment development
+        uv run ingen_fab deploy deploy
       env:
+        FABRIC_WORKSPACE_REPO_DIR: "."
+        FABRIC_ENVIRONMENT: "development"
         AZURE_TENANT_ID: ${{ "{{" }} secrets.AZURE_TENANT_ID {{ "}}" }}
         AZURE_CLIENT_ID: ${{ "{{" }} secrets.AZURE_CLIENT_ID {{ "}}" }}
         AZURE_CLIENT_SECRET: ${{ "{{" }} secrets.AZURE_CLIENT_SECRET {{ "}}" }}

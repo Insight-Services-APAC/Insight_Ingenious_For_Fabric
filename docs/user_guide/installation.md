@@ -311,9 +311,9 @@ Ensure you have Python 3.12 (Recommended) or higher:
 
 ```bash
 python --version
-# Should show Python 3.12.x or higher
+# Should show Python 3.12.x
 
-# If not, install Python 3.12+
+# If not, install Python 3.12
 # On Ubuntu/Debian:
 sudo apt update && sudo apt install python3.12
 
@@ -324,7 +324,7 @@ brew install python@3.12
 # Download from https://www.python.org/downloads/
 ```
 
-Ensure you have Python 3.12 (Recommended) or higher:
+Ensure you have Python 3.12 (Recommended):
 
 #### SSL Certificate Issues
 

@@ -54,14 +54,14 @@ Different environments can use different lakehouses:
 
     ```bash
     export FABRIC_ENVIRONMENT="development"
-    ingen_fab dbt run  # Uses development lakehouse selection
+    ingen_fab dbt exec run  # Uses development lakehouse selection
     ```
 
 === "Production"
 
     ```bash
     export FABRIC_ENVIRONMENT="production"
-    ingen_fab dbt run  # Uses production lakehouse selection
+    ingen_fab dbt exec run  # Uses production lakehouse selection
     ```
 
 ## Setting Up DBT Projects
@@ -148,14 +148,23 @@ ingen_fab dbt create-notebooks -p data_mart --skip-profile-confirmation
 Convert cached lakehouse metadata to dbt metaextracts format:
 
 ```bash
-# Convert metadata for dbt project
+# Convert metadata for dbt project (using default metadata file)
 ingen_fab dbt convert-metadata --dbt-project analytics_models
+
+# Use custom metadata file
+ingen_fab dbt convert-metadata --dbt-project analytics_models --metadata-file metadata/custom_data.csv
 
 # Skip profile confirmation
 ingen_fab dbt convert-metadata -p my_dbt_project --skip-profile-confirmation
+
+# Use custom metadata file with short flags
+ingen_fab dbt convert-metadata -p analytics_models -m metadata/warehouse_export.csv
 ```
 
 **Prerequisites**: Extract metadata first using `ingen_fab deploy get-metadata --target lakehouse`
+
+**Options**:
+- `--metadata-file` / `-m`: Optional path to CSV metadata file (defaults to `metadata/lakehouse_metadata_all.csv`)
 
 #### Generate Schema YAML Files
 

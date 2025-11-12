@@ -74,8 +74,8 @@ ingen_fab dbt create-notebooks --dbt-project analytics_dbt
 # Clean up old items before deployment if needed
 ingen_fab deploy delete-all --environment development --force
 
-# Deploy fresh
-ingen_fab deploy deploy --fabric-workspace-repo-dir . --fabric-environment development
+# Deploy fresh (ensure environment variables are set)
+ingen_fab deploy deploy
 ```
 
 ## Related Topics
