@@ -92,7 +92,7 @@ See the [Developer Guide](docs/developer_guide/index.md) for complete developmen
 
 ```bash
 # Create a new Fabric workspace project
-ingen_fab init new --project-name "My Fabric Project"
+ingen_fab init new --project-name "dp"
 ```
 
 ### Set Environment Variables
@@ -103,7 +103,7 @@ Replace the values below with your specific workspace details:
 $env:FABRIC_ENVIRONMENT = "development"
 
 # Set workspace directory 
-$env:FABRIC_WORKSPACE_REPO_DIR = "My Fabric Project"
+$env:FABRIC_WORKSPACE_REPO_DIR = "dp"
 ```
 
 ### Generate DDL Notebooks
@@ -192,6 +192,7 @@ ingen_fab ddl ddls-from-metadata --lakehouse lh_silver2
 ingen_fab ddl ddls-from-metadata --lakehouse lh_silver2 --table customer_data
 ingen_fab ddl ddls-from-metadata --lakehouse lh_silver2 --no-sequence-numbers
 ingen_fab ddl ddls-from-metadata --lakehouse lh_silver2 --subdirectory custom_scripts
+ingen_fab ddl ddls-from-metadata --lakehouse lh_silver2 --metadata-file custom_metadata.csv
 
 # Compile flat file ingestion package for lakehouse
 ingen_fab package ingest compile --target-datastore lakehouse --include-samples
@@ -291,8 +292,8 @@ ingen_fab init new --project-name "My Data Platform"
 ingen_fab ddl compile --output-mode fabric_workspace_repo --generation-mode Warehouse
 ingen_fab ddl compile --output-mode fabric_workspace_repo --generation-mode Lakehouse
 
-# 5. Deploy to your environment
-ingen_fab deploy deploy --fabric-workspace-repo-dir . --fabric-environment development
+# 5. Deploy to your environment (ensure environment variables are set)
+ingen_fab deploy deploy
 
 # 6. Generate and run platform tests
 ingen_fab test platform generate

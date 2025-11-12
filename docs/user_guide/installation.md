@@ -18,6 +18,10 @@ Before installing, ensure your system meets these requirements:
 
 ## Installation
 
+The instructions below assume that you are installing Ingenious in an empty directory and are in a Powershell Terminal in Visual Studio Code.
+
+Note that the installations from Github below all show an installation from *main*. The recommended approach is to install from the latest release. See Ingenious [Releases](https://github.com/Insight-Services-APAC/Insight_Ingenious_For_Fabric/releases) - append the release number to the github path, for example @v1.0
+
 ### Standard Installation
 
 Install the Ingenious Fabric Accelerator directly from pip:
@@ -25,7 +29,7 @@ Install the Ingenious Fabric Accelerator directly from pip:
 === "macOS/Linux"
 
     ```bash
-    # Install the package
+    # Install the package (when available in PyPI)
     pip install insight-ingenious-for-fabric
 
     # Or install from GitHub
@@ -35,7 +39,7 @@ Install the Ingenious Fabric Accelerator directly from pip:
 === "Windows"
 
     ```powershell
-    # Install the package
+    # Install the package (when available in PyPI)
     pip install insight-ingenious-for-fabric
 
     # Or install from GitHub
@@ -53,7 +57,7 @@ It's recommended to use a virtual environment to avoid conflicts with other pack
     python -m venv fabric-env
     source fabric-env/bin/activate
 
-    # Install the package
+    # Install the package (when available in PyPI)
     pip install insight-ingenious-for-fabric
 
     # Or install from GitHub
@@ -67,7 +71,7 @@ It's recommended to use a virtual environment to avoid conflicts with other pack
     python -m venv fabric-env
     fabric-env\Scripts\activate
 
-    # Install the package
+    # Install the package (when available in PyPI)
     pip install insight-ingenious-for-fabric
 
     # Or install from GitHub
@@ -77,11 +81,17 @@ It's recommended to use a virtual environment to avoid conflicts with other pack
 ### Installing with Optional Dependencies
 
 ```bash
+# Install with all optional dependencies (when available in PyPI)
+pip install "insight-ingenious-for-fabric[dbt,dataprep]"
+```
+
+### Installing dbt adapter
+
+If you are going to develop dbt models, you will need to install Insight's dbt adapter:
+
+```bash
 # Install with dbt support
 pip install git+https://github.com/Insight-Services-APAC/APAC-Capability-DAI-DbtFabricSparkNB.git
-
-# Install with all optional dependencies
-pip install "insight-ingenious-for-fabric[dbt,dataprep]"
 ```
 
 ## Environment Setup
@@ -94,8 +104,9 @@ After installation, configure your environment variables for the CLI:
 $env:FABRIC_ENVIRONMENT = "development"
 
 # Set workspace directory 
-$env:FABRIC_WORKSPACE_REPO_DIR = "My Fabric Project"
+$env:FABRIC_WORKSPACE_REPO_DIR = "dp"
 ```
+The above assumes your working in a project "dp" in the development environment.
 
 ### Shell Configuration (Optional)
 
@@ -136,11 +147,9 @@ pip show insight-ingenious-for-fabric
 # Display CLI help
 ingen_fab --help
 
-# Check version
-ingen_fab --version
 ```
 
-Expected output:
+Expected output ingen_fab --help:
 ```
 Usage: ingen_fab [OPTIONS] COMMAND [ARGS]...
 
@@ -160,6 +169,21 @@ Commands:
   dbt       Commands for dbt integration
 ```
 
+Expected output pip show insight-ingenious-for-fabric:
+```
+
+Name: insight-ingenious-for-fabric
+Version: 0.1.0
+Summary: Accelerator for building Microsoft Fabric Applications
+Home-page:
+Author:
+Author-email:
+License:
+Location: C:\source\test\Ingenious_Test\fabric-env\Lib\site-packages
+Requires: azure-cli, azure-identity, azure-storage-blob, azure-storage-file-datalake, deltalake, fabric_cicd, faker, jinja2, lazy-import, pandas, psycopg2-binary, pyarrow, pyodbc, requests, sqlglot, typer
+Required-by:
+```
+
 ## Getting Started
 
 ### Create Your First Project
@@ -170,13 +194,13 @@ Now that you have the CLI installed, create your first project:
 
     ```bash
     # Create a new project
-    ingen_fab init new --project-name "My First Project"
+    ingen_fab init new --project-name "dp"
 
-    # Navigate to the project
-    cd "My First Project"
+    # Or create with sample configurations
+    ingen_fab init new --project-name "dp" --with-samples
 
     # Set environment variables
-    export FABRIC_WORKSPACE_REPO_DIR="."
+    export FABRIC_WORKSPACE_REPO_DIR="dp"
     export FABRIC_ENVIRONMENT="development"
     ```
 
@@ -184,13 +208,13 @@ Now that you have the CLI installed, create your first project:
 
     ```powershell
     # Create a new project
-    ingen_fab init new --project-name "My First Project"
+    ingen_fab init new --project-name "dp"
 
-    # Navigate to the project
-    cd "My First Project"
+    # Or create with sample configurations
+    ingen_fab init new --project-name "dp" --with-samples
 
     # Set environment variables
-    $env:FABRIC_WORKSPACE_REPO_DIR = "."
+    $env:FABRIC_WORKSPACE_REPO_DIR = "dp"
     $env:FABRIC_ENVIRONMENT = "development"
     ```
 
@@ -231,29 +255,55 @@ For deploying to Fabric, set up authentication:
 If the command is not recognized after installation:
 
 ```bash
-# Check if the package is installed
+# Check if the package is installed (assumes grep is installed)
 pip list | grep insight-ingenious-for-fabric
+
+# Check if the package is installed (without grep)
+pip list
 
 # Ensure pip scripts are in PATH
 export PATH="$PATH:$HOME/.local/bin"
-
-# Or use python -m to run the module
-python -m ingen_fab --help
 ```
 
 #### Permission Errors
 
-If you encounter permission errors during installation:
+If you encounter permission errors during installation, do an install for current user only:
 
 ```bash
-# Install for current user only
+# Install for current user only (when available in PyPI)
 pip install --user insight-ingenious-for-fabric
 
-# Or use a virtual environment (recommended)
-python -m venv fabric-env
-source fabric-env/bin/activate
-pip install insight-ingenious-for-fabric
 ```
+
+Or Create a virtual environment (recommended)
+
+=== "macOS/Linux"
+
+    ```bash
+    # Create a virtual environment
+    python -m venv fabric-env
+    source fabric-env/bin/activate
+
+    # Install the package (when available in PyPI)
+    pip install insight-ingenious-for-fabric
+
+    # Or install from GitHub
+    pip install git+https://github.com/Insight-Services-APAC/Insight_Ingenious_For_Fabric.git
+    ```
+
+=== "Windows"
+
+    ```powershell
+    # Create a virtual environment
+    python -m venv fabric-env
+    fabric-env\Scripts\activate
+
+    # Install the package (when available in PyPI)
+    pip install insight-ingenious-for-fabric
+
+    # Or install from GitHub
+    pip install git+https://github.com/Insight-Services-APAC/Insight_Ingenious_For_Fabric.git
+    ```
 
 #### Python Version Issues
 
@@ -261,9 +311,9 @@ Ensure you have Python 3.12 (Recommended) or higher:
 
 ```bash
 python --version
-# Should show Python 3.12.x or higher
+# Should show Python 3.12.x
 
-# If not, install Python 3.12+
+# If not, install Python 3.12
 # On Ubuntu/Debian:
 sudo apt update && sudo apt install python3.12
 
@@ -274,7 +324,7 @@ brew install python@3.12
 # Download from https://www.python.org/downloads/
 ```
 
-Ensure you have Python 3.12 (Recommended) or higher:
+Ensure you have Python 3.12 (Recommended):
 
 #### SSL Certificate Issues
 
@@ -319,7 +369,7 @@ If you revieved a an error indicating a package with pre-release marker, error d
 To update to the latest version:
 
 ```bash
-# Update the package
+# Update the package (when available in PyPI)
 pip install --upgrade insight-ingenious-for-fabric
 
 # Or update from GitHub
@@ -331,7 +381,7 @@ pip install --upgrade git+https://github.com/Insight-Services-APAC/Insight_Ingen
 To remove the package:
 
 ```bash
-# Uninstall the package
+# Uninstall the package (when available in PyPI)
 pip uninstall insight-ingenious-for-fabric
 
 # If using a virtual environment, you can just delete it

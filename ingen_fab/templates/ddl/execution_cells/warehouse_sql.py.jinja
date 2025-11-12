@@ -1,0 +1,48 @@
+# METADATA ********************
+
+# META {
+# META   "language": "python",
+# META   "language_group": "{{language_group | required}}"
+# META }
+
+# MARKDOWN ********************
+
+# ## 🏢 {{heading_name}}
+
+# CELL ********************
+
+# Script GUID: {{script_guid}}
+# File: {{sql_file_name}}
+
+def work():
+    """Execute warehouse SQL with run-once tracking"""
+    sql = """
+{{content}}
+    """
+    
+    print(f"🔄 Executing SQL from {{sql_file_name}}:")
+    print(f"```sql\n{sql.strip()}\n```")
+    
+    # Use warehouse DDL utilities for execution
+    if {{warehouse_connection_var}} and {{warehouse_connection_var}}.warehouse_connection.can_execute:
+        try:
+            result = {{warehouse_connection_var}}.warehouse_connection.execute_ddl(
+                sql.strip(), 
+                f"Execute {{sql_file_name}}", 
+                max_retries=3
+            )
+            if result:
+                print(f"✅ Successfully executed {{sql_file_name}}")
+                return True
+            else:
+                print(f"❌ Failed to execute {{sql_file_name}}")
+                return False
+        except Exception as e:
+            print(f"❌ Error executing {{sql_file_name}}: {str(e)}")
+            return False
+    else:
+        print("⚠️ Warehouse connection not available - SQL displayed only")
+        return True
+
+# Execute with run-once tracking
+{{warehouse_connection_var}}.run_once(work, "{{script_name}}", "{{script_guid}}")

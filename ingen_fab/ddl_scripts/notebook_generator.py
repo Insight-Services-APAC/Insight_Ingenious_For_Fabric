@@ -36,14 +36,13 @@ class NotebookGenerator(BaseNotebookCompiler):
         fabric_workspace_repo_dir: str | None = None,
     ):
         self.generation_mode = generation_mode
-        self.language_group = "synapse_pyspark"  # Default language group
+        self.language_group = "synapse_pyspark"  # Use PySpark for both lakehouse and warehouse
         self.output_mode = output_mode
         self.base_dir = Path.cwd()
 
-        if self.generation_mode == NotebookGenerator.GenerationMode.warehouse:
-            self.language_group = "jupyter_python"
-        else:
-            self.language_group = "synapse_pyspark"
+        # Both lakehouse and warehouse now use PySpark environment
+        # This ensures consistent behavior and avoids notebookutils.mssparkutils issues
+        self.language_group = "synapse_pyspark"
 
         if templates_dir is None:
             # Use the unified template directory with proper path resolution
@@ -149,15 +148,32 @@ print(f"Configuration notebook for {self.entities_folder}")
                     cell_task, description=f"[dim]Processing {file_path.name}[/dim]"
                 )
 
-            # Determine the template to use based on file extension
+            # Determine the template to use based on file extension and generation mode
             if file_path.suffix == ".py":
                 cell_template = self.load_template(
                     "ddl/execution_cells/pyspark.py.jinja"
                 )
             elif file_path.suffix == ".sql":
-                cell_template = self.load_template(
-                    "ddl/execution_cells/spark_sql.py.jinja"
-                )
+                # Use different templates for warehouse vs lakehouse SQL execution
+                if self.generation_mode == NotebookGenerator.GenerationMode.warehouse:
+                    try:
+                        cell_template = self.load_template(
+                            "ddl/execution_cells/warehouse_sql.py.jinja"
+                        )
+                    except Exception:
+                        # Fallback to spark_sql template if warehouse_sql template doesn't exist
+                        # This maintains backward compatibility while allowing for future warehouse-specific templates
+                        cell_template = self.load_template(
+                            "ddl/execution_cells/spark_sql.py.jinja"
+                        )
+                        if self.console:
+                            self.console.print(
+                                f"[yellow]⚠️  Using fallback spark_sql template for warehouse SQL file: {file_path.name}[/yellow]"
+                            )
+                else:
+                    cell_template = self.load_template(
+                        "ddl/execution_cells/spark_sql.py.jinja"
+                    )
             else:
                 continue  # Skip unsupported file types
 
@@ -171,28 +187,35 @@ print(f"Configuration notebook for {self.entities_folder}")
             relative_path = resolved_file_path.relative_to(resolved_entities_dir)
             script_guid = self.generate_guid(str(relative_path))
 
-            # Render cell template
-            rendered_cell = cell_template.render(
-                heading_level="#",
-                heading_name=f"Cell for {file_path.name}",
-                content=content,
-                script_guid=script_guid,
-                script_name=file_path.stem,
-                target_workspace_id="example-workspace-id",
-                target_lakehouse_id=(
-                    "example-lakehouse-id"
-                    if self.generation_mode
-                    == NotebookGenerator.GenerationMode.lakehouse
-                    else None
-                ),
-                target_warehouse_id=(
-                    "example-warehouse-id"
-                    if self.generation_mode
-                    == NotebookGenerator.GenerationMode.warehouse
-                    else None
-                ),
-                language_group=self.language_group,
-            )
+            # Render cell template with appropriate variables for warehouse vs lakehouse
+            template_vars = {
+                "heading_level": "#",
+                "heading_name": f"Cell for {file_path.name}",
+                "content": content,
+                "script_guid": script_guid,
+                "script_name": file_path.stem,
+                "target_workspace_id": "example-workspace-id",
+                "language_group": self.language_group,
+            }
+            
+            # Add mode-specific variables
+            if self.generation_mode == NotebookGenerator.GenerationMode.warehouse:
+                template_vars["target_warehouse_id"] = "example-warehouse-id"
+                template_vars["target_lakehouse_id"] = None
+                # Add warehouse-specific variables for SQL execution
+                if file_path.suffix == ".sql":
+                    template_vars["use_warehouse_execution"] = True
+                    template_vars["use_run_once_tracking"] = True
+                    template_vars["warehouse_connection_var"] = "du"  # Variable name for warehouse DDL utils
+                    template_vars["sql_file_name"] = file_path.name
+            else:
+                template_vars["target_lakehouse_id"] = "example-lakehouse-id"
+                template_vars["target_warehouse_id"] = None
+                if file_path.suffix == ".sql":
+                    template_vars["use_warehouse_execution"] = False
+                    template_vars["use_run_once_tracking"] = False
+                    
+            rendered_cell = cell_template.render(**template_vars)
 
             # Add cell to the list
             cells.append(rendered_cell)
@@ -203,11 +226,18 @@ print(f"Configuration notebook for {self.entities_folder}")
             # time.sleep(0.5)  # Simulate processing time for each cell
 
         # Render the notebook template with the cells
-        rendered_notebook = notebook_template.render(
-            cells=cells,
-            target_lakehouse_config_prefix=target_lakehouse_config_prefix,
-            language_group=self.language_group,
-        )
+        # Use appropriate variable name based on generation mode
+        template_vars = {
+            "cells": cells,
+            "language_group": self.language_group,
+        }
+        
+        if self.generation_mode == NotebookGenerator.GenerationMode.warehouse:
+            template_vars["target_warehouse_config_prefix"] = target_lakehouse_config_prefix
+        else:
+            template_vars["target_lakehouse_config_prefix"] = target_lakehouse_config_prefix
+            
+        rendered_notebook = notebook_template.render(**template_vars)
 
         # Create notebook with platform file
         resolved_config_folder = Path(config_folder).resolve()
@@ -248,13 +278,22 @@ print(f"Configuration notebook for {self.entities_folder}")
                     "total": len(notebook_names),
                 }
             )  # Render the orchestrator notebook
-        orchestrator_content = orchestrator_template.render(
-            lakehouse_name=entity_name,
-            notebooks=notebooks,
-            total_notebooks=len(notebook_names),
-            target_lakehouse_config_prefix=target_lakehouse_config_prefix,
-            language_group=self.language_group,
-        )
+        
+        # Use appropriate variable names and entity name based on generation mode
+        template_vars = {
+            "notebooks": notebooks,
+            "total_notebooks": len(notebook_names),
+            "language_group": self.language_group,
+        }
+        
+        if self.generation_mode == NotebookGenerator.GenerationMode.warehouse:
+            template_vars["warehouse_name"] = entity_name
+            template_vars["target_warehouse_config_prefix"] = target_lakehouse_config_prefix
+        else:
+            template_vars["lakehouse_name"] = entity_name
+            template_vars["target_lakehouse_config_prefix"] = target_lakehouse_config_prefix
+            
+        orchestrator_content = orchestrator_template.render(**template_vars)
 
         # Create notebook with platform file
         notebook_name = f"00_orchestrator_{entity_name}_{self.generation_mode.lower()}"
@@ -270,24 +309,39 @@ print(f"Configuration notebook for {self.entities_folder}")
         """Generate a master orchestrator notebook that runs all entity orchestrators in parallel."""
 
         # Load the template
-        all_lakehouses_template = self.load_template(
-            f"ddl/{self.generation_mode.lower()}/orchestrator_notebook_all_lakehouses.py.jinja"
-        )
+        if self.generation_mode == NotebookGenerator.GenerationMode.warehouse:
+            template_name = f"ddl/{self.generation_mode.lower()}/orchestrator_notebook_all_warehouses.py.jinja"
+        else:
+            template_name = f"ddl/{self.generation_mode.lower()}/orchestrator_notebook_all_lakehouses.py.jinja"
+        
+        all_entities_template = self.load_template(template_name)
 
-        # Prepare lakehouse data.
-        lakehouses = []
+        # Prepare entity data.
+        entities = []
         for name in entity_names:
-            lakehouses.append(
+            entities.append(
                 {
                     "name": name,
                     "orchestrator_name": f"00_orchestrator_{name}_{self.generation_mode.lower()}_ddl_scripts",
                 }
-            )  # Render the all lakehouses orchestrator notebook
-        orchestrator_content = all_lakehouses_template.render(
-            lakehouses=lakehouses,
-            total_lakehouses=len(lakehouses),
-            language_group=self.language_group,
-        )
+            )  
+        
+        # Determine template variables based on generation mode
+        if self.generation_mode == NotebookGenerator.GenerationMode.warehouse:
+            template_vars = {
+                "warehouses": entities,
+                "total_warehouses": len(entities),
+                "language_group": self.language_group,
+            }
+        else:
+            template_vars = {
+                "lakehouses": entities,
+                "total_lakehouses": len(entities),
+                "language_group": self.language_group,
+            }
+            
+        # Render the orchestrator notebook
+        orchestrator_content = all_entities_template.render(**template_vars)
 
         # Create notebook with platform file
         notebook_name = f"00_all_{self.entities_folder.lower()}_orchestrator"

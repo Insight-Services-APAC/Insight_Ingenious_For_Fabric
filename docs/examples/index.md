@@ -2,6 +2,9 @@
 
 [Home](../index.md) > Examples
 
+!!! warning "Documentation Status"
+    The documentation in this guide needs to be reviewed and updated.
+
 This section provides practical examples and real-world scenarios for using the Ingenious Fabric Accelerator. From simple getting-started examples to complex multi-environment deployments, these examples will help you understand how to use the tool effectively.
 
 ## Available Examples
@@ -80,11 +83,12 @@ export FABRIC_ENVIRONMENT=local
 ingen_fab test local python
 ingen_fab test local pyspark
 
-# Deploy to development
-ingen_fab deploy deploy --fabric-workspace-repo-dir . --fabric-environment development
+# Deploy to development (ensure FABRIC_WORKSPACE_REPO_DIR and FABRIC_ENVIRONMENT are set)
+export FABRIC_WORKSPACE_REPO_DIR="."
+export FABRIC_ENVIRONMENT=development
+ingen_fab deploy deploy
 
 # Generate platform tests
-export FABRIC_ENVIRONMENT=development
 ingen_fab test platform generate
 ```
 
@@ -272,9 +276,11 @@ az account show
 export AZURE_TENANT_ID="your-tenant-id"
 export AZURE_CLIENT_ID="your-client-id"
 export AZURE_CLIENT_SECRET="your-client-secret"
+export FABRIC_WORKSPACE_REPO_DIR="."
+export FABRIC_ENVIRONMENT="development"
 
 # Test deployment
-ingen_fab deploy deploy --fabric-workspace-repo-dir . --fabric-environment development --dry-run
+ingen_fab deploy deploy
 ```
 
 #### DDL Script Issues
@@ -342,8 +348,10 @@ jobs:
     
     - name: Deploy to staging
       run: |
-        uv run ingen_fab deploy deploy --fabric-workspace-repo-dir . --fabric-environment staging
+        uv run ingen_fab deploy deploy
       env:
+        FABRIC_WORKSPACE_REPO_DIR: "."
+        FABRIC_ENVIRONMENT: "staging"
         AZURE_TENANT_ID: ${{ "{{" }} secrets.AZURE_TENANT_ID {{ "}}" }}
         AZURE_CLIENT_ID: ${{ "{{" }} secrets.AZURE_CLIENT_ID {{ "}}" }}
         AZURE_CLIENT_SECRET: ${{ "{{" }} secrets.AZURE_CLIENT_SECRET {{ "}}" }}

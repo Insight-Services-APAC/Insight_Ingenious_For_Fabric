@@ -291,6 +291,12 @@ def ddls_from_metadata(
             "--table", "-t", help="Name of specific table to generate DDL for (optional)"
         ),
     ] = None,
+    metadata_file: Annotated[
+        Optional[Path],
+        typer.Option(
+            "--metadata-file", "-m", help="Path to CSV metadata file (default: metadata/lakehouse_metadata_all.csv)"
+        ),
+    ] = None,
     subdirectory: Annotated[
         str,
         typer.Option(
@@ -313,7 +319,7 @@ def ddls_from_metadata(
     # notebook_generator module is already lazy imported at the top of the file
 
 
-    ddl_commands.generate_ddl_scripts(ctx, lakehouse, sequence_numbers, table, subdirectory)
+    ddl_commands.generate_ddl_scripts(ctx, lakehouse, sequence_numbers, table, subdirectory, metadata_file)
 
 # Initialize commands
 
@@ -327,8 +333,16 @@ def init_solution(
     path: Annotated[
         Path, typer.Option("--path", help="Base path where the project will be created")
     ] = Path("."),
+    with_samples: Annotated[
+        bool,
+        typer.Option(
+            "--with-samples",
+            help="Use sample_project as template instead of project_templates",
+        ),
+    ] = False,
 ):
-    init_commands.init_solution(project_name, path)
+    """Create a new project."""
+    init_commands.init_solution(project_name, path, with_samples)
 
 
 @init_app.command("workspace")
@@ -358,16 +372,18 @@ def init_workspace(
 # Deploy commands
 
 
-@deploy_app.command()
+@deploy_app.command("deploy")
 def deploy(ctx: typer.Context):
+    "Deploy Fabric artefacts to the target environment."
     deploy_commands.deploy_to_environment(ctx)
 
 
-@deploy_app.command()
+@deploy_app.command("delete-all")
 def delete_all(
     ctx: typer.Context,
     force: Annotated[bool, typer.Option("--force", "-f")] = False,
 ):
+    """Delete all workspace items in the target environment."""
     workspace_commands.delete_workspace_items(
         environment=ctx.obj["fabric_environment"],
         project_path=ctx.obj["fabric_workspace_repo_dir"],
@@ -375,7 +391,7 @@ def delete_all(
     )
 
 
-@deploy_app.command()
+@deploy_app.command("upload-python-libs")
 def upload_python_libs(ctx: typer.Context):
     """Inject code into python_libs (in-place) and upload to Fabric config lakehouse."""
     deploy_commands.upload_python_libs_to_config_lakehouse(
@@ -384,7 +400,7 @@ def upload_python_libs(ctx: typer.Context):
         console=console,
     )
 
-@deploy_app.command()
+@deploy_app.command("upload-dbt-project")
 def upload_dbt_project(
     ctx: typer.Context,
     dbt_project: Annotated[
@@ -646,6 +662,17 @@ def deploy_download_artefact(
     the full source code for notebooks, report definitions, data pipeline configurations,
     and other artefact-specific content.
     
+    Supported artefact types:
+      - Notebook
+      - Report
+      - SemanticModel
+      - DataPipeline
+      - GraphQLApi
+      - DataflowGen2
+      - SparkJobDefinition
+      - DataWarehouse
+      - KQLDatabase
+    
     The downloaded artefact will be saved in the fabric_workspace_items/downloaded/{type}/
     folder structure, making it ready for version control and redeployment.
     
@@ -659,6 +686,27 @@ def deploy_download_artefact(
       # Download from specific workspace
       ingen_fab deploy download-artefact -n "ETL Pipeline" -t DataPipeline -w abc123-def456
     """
+    # Validate artefact type
+    supported_types = [
+        "Notebook", "Report", "SemanticModel", "DataPipeline", "GraphQLApi",
+        "DataflowGen2", "SparkJobDefinition", "DataWarehouse", "KQLDatabase"
+    ]
+    
+    if artefact_type not in supported_types:
+        console_styles.print_error(
+            console,
+            f"❌ Unsupported artefact type '{artefact_type}'."
+        )
+        console_styles.print_info(
+            console,
+            f"Supported types: {', '.join(supported_types)}"
+        )
+        console_styles.print_info(
+            console,
+            f"\nNote: The artefact type '{artefact_type}' exists in Fabric but cannot be downloaded using the REST API."
+        )
+        raise typer.Exit(code=1)
+    
     deploy_commands.download_artefact(
         ctx=ctx,
         artefact_name=artefact_name,
@@ -750,8 +798,11 @@ def find_notebook_content_files(
         "fabric_workspace_items"
     ),
 ):
-    notebook_commands.find_notebook_content_files(base_dir)
-
+    from rich.console import Console
+    console = Console()
+    console.print("[yellow]⚠️  This functionality is not yet implemented.[/yellow]")
+    console.print("[dim]The find-notebook-content-files command is currently under development.[/dim]")
+    # notebook_commands.find_notebook_content_files(base_dir)
 
 @notebook_app.command()
 def scan_notebook_blocks(
@@ -1157,6 +1208,14 @@ def dbt_convert_metadata(
             help="Name of the dbt project directory under the workspace repo",
         ),
     ],
+    metadata_file: Annotated[
+        Optional[Path],
+        typer.Option(
+            "--metadata-file",
+            "-m",
+            help="Path to CSV metadata file (default: metadata/lakehouse_metadata_all.csv)",
+        ),
+    ] = None,
     skip_profile_confirmation: Annotated[
         bool,
         typer.Option(
@@ -1174,7 +1233,7 @@ def dbt_convert_metadata(
     ingen_fab deploy get-metadata --target lakehouse
     """
     dbt_commands.convert_metadata_to_dbt_format(
-        ctx, dbt_project, skip_profile_confirmation
+        ctx, dbt_project, metadata_file, skip_profile_confirmation
     )
 
 @dbt_app.command("generate-schema-yml")
@@ -1700,7 +1759,11 @@ def libs_app_compile(
     ] = None,
 ):
     """Compile Python libraries by injecting variables from the variable library."""
-    libs_commands.libs_compile(ctx=ctx, target_file=target_file)
+    from rich.console import Console
+    console = Console()
+    console.print("[yellow]⚠️  This functionality is not yet implemented.[/yellow]")
+    console.print("[dim]The libs compile command is currently under development.[/dim]")
+    # libs_commands.libs_compile(ctx=ctx, target_file=target_file)
 
 
 if __name__ == "__main__":

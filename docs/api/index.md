@@ -2,6 +2,9 @@
 
 [Home](../index.md) > API Reference
 
+!!! warning "Documentation Status"
+    The documentation in this guide needs to be reviewed and updated.
+
 ## Overview
 
 The Ingenious Fabric Accelerator is primarily a CLI tool for building, deploying, and managing Microsoft Fabric applications. It provides Python libraries that are used within generated notebooks and can be imported for custom development.

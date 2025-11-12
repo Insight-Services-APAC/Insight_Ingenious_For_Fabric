@@ -97,9 +97,13 @@ nav:
     - Environment Variables: reference/environment-variables.md
     - Workspace Layout: user_guide/workspace_layout.md
     - Deploy Guide: user_guide/deploy_guide.md
+    - Deploy Guide (CI/CD): guides/cicd-deployment.md
     - CLI Reference: user_guide/cli_reference.md
     - Workflows: user_guide/workflows.md
+    - Variable Replacement: user_guide/variable-replacement.md
+    - DDL Script Organization: user_guide/ddl-organization.md
     - DBT Integration: user_guide/dbt_integration.md
+    - Best Practices: user_guide/best-practices.md
   - Developer Guide:
     - developer_guide/index.md
     - Python Libraries: developer_guide/python_libraries.md

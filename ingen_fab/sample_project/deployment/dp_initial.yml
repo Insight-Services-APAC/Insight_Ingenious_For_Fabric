@@ -1,0 +1,177 @@
+trigger: none
+
+stages:
+- stage: 'DEV'
+  displayName: 'DEV'
+  variables:
+  - group: DP-Development-Lib
+  jobs:
+  - deployment: DEV_Deployment
+    displayName: DEV Deployment
+    pool:
+      vmImage: ubuntu-latest
+    environment:
+      name: 'DP-Development-Env'
+    strategy:
+      runOnce:
+        deploy:
+          steps:
+          - checkout: self
+            persistCredentials: true
+          - task: UsePythonVersion@0
+            inputs:
+              versionSpec: '3.12'
+          - task: AzureCLI@2
+            displayName: 'Install Ingenious'
+            inputs:
+              azureSubscription: "dp_fabric_sc"
+              scriptType: "bash"
+              scriptLocation: "inlineScript"
+              inlineScript: |
+                echo "--------------- Installing Ingenious --------------- "
+                pip install git+https://github.com/Insight-Services-APAC/Insight_Ingenious_For_Fabric.git
+            env:
+              FABRIC_ENVIRONMENT: $(FABRIC_ENVIRONMENT)
+              FABRIC_WORKSPACE_REPO_DIR: dp
+              WORKSPACE_MANIFEST_LOCATION: local
+              IS_SINGLE_WORKSPACE: $(IS_SINGLE_WORKSPACE)
+              ITEM_TYPES_TO_DEPLOY: VariableLibrary,Lakehouse
+          - task: AzureCLI@2
+            displayName: 'Deploy Fabric artefacts'
+            inputs:
+              azureSubscription: "dp_fabric_sc"
+              scriptType: "bash"
+              scriptLocation: "inlineScript"
+              inlineScript: |
+                echo "--------------- Deploy Fabric artefacts --------------- "
+                ingen_fab deploy deploy
+            env:
+              FABRIC_ENVIRONMENT: $(FABRIC_ENVIRONMENT)
+              FABRIC_WORKSPACE_REPO_DIR: dp
+              WORKSPACE_MANIFEST_LOCATION: local
+              IS_SINGLE_WORKSPACE: $(IS_SINGLE_WORKSPACE)
+              ITEM_TYPES_TO_DEPLOY: VariableLibrary,Lakehouse
+          - task: AzureCLI@2
+            displayName: 'Update Workspace variables'
+            inputs:
+              azureSubscription: "dp_fabric_sc"
+              scriptType: "bash"
+              scriptLocation: "inlineScript"
+              inlineScript: |
+                echo "--------------- Update Workspace variables --------------- "
+                ingen_fab init workspace --workspace-name dp_dev
+            env:
+              FABRIC_ENVIRONMENT: $(FABRIC_ENVIRONMENT)
+              FABRIC_WORKSPACE_REPO_DIR: dp
+              WORKSPACE_MANIFEST_LOCATION: local
+              IS_SINGLE_WORKSPACE: $(IS_SINGLE_WORKSPACE)
+              ITEM_TYPES_TO_DEPLOY: VariableLibrary,Lakehouse
+          - task: AzureCLI@2
+            displayName: 'Upload Python Libs'
+            inputs:
+              azureSubscription: "dp_fabric_sc"
+              scriptType: "bash"
+              scriptLocation: "inlineScript"
+              inlineScript: |
+                echo "--------------- Upload Python Libs --------------- "
+                ingen_fab deploy upload-python-libs
+            env:
+              FABRIC_ENVIRONMENT: $(FABRIC_ENVIRONMENT)
+              FABRIC_WORKSPACE_REPO_DIR: dp
+              WORKSPACE_MANIFEST_LOCATION: local
+              IS_SINGLE_WORKSPACE: $(IS_SINGLE_WORKSPACE)
+              ITEM_TYPES_TO_DEPLOY: VariableLibrary,Lakehouse
+          - script: |
+              git config --global user.email "user@domain.com"
+              git config --global user.name "user"
+              git add .
+              git commit -m "Automated file update from pipeline"
+              git push origin HEAD:$(Build.SourceBranchName)
+            displayName: 'Commit and push changes to repository'
+- stage: 'TST'
+  displayName: 'TST'
+  variables:
+  - group: DP-Test-Lib
+  jobs:
+  - deployment: TST_Deployment
+    displayName: TST Deployment
+    pool:
+      vmImage: ubuntu-latest
+    environment:
+      name: 'DP-Test-Env'
+    strategy:
+      runOnce:
+        deploy:
+          steps:
+          - checkout: self
+            persistCredentials: true
+          - task: UsePythonVersion@0
+            inputs:
+              versionSpec: '3.12'
+          - task: AzureCLI@2
+            displayName: 'Install Ingenious'
+            inputs:
+              azureSubscription: "dp_fabric_sc"
+              scriptType: "bash"
+              scriptLocation: "inlineScript"
+              inlineScript: |
+                echo "--------------- Installing Ingenious --------------- "
+                pip install git+https://github.com/Insight-Services-APAC/Insight_Ingenious_For_Fabric.git
+            env:
+              FABRIC_ENVIRONMENT: $(FABRIC_ENVIRONMENT)
+              FABRIC_WORKSPACE_REPO_DIR: dp
+              WORKSPACE_MANIFEST_LOCATION: local
+              IS_SINGLE_WORKSPACE: $(IS_SINGLE_WORKSPACE)
+              ITEM_TYPES_TO_DEPLOY: VariableLibrary,Lakehouse
+          - task: AzureCLI@2
+            displayName: 'Deploy Fabric artefacts'
+            inputs:
+              azureSubscription: "dp_fabric_sc"
+              scriptType: "bash"
+              scriptLocation: "inlineScript"
+              inlineScript: |
+                echo "--------------- Deploy Fabric artefacts --------------- "
+                ingen_fab deploy deploy
+            env:
+              FABRIC_ENVIRONMENT: $(FABRIC_ENVIRONMENT)
+              FABRIC_WORKSPACE_REPO_DIR: dp
+              WORKSPACE_MANIFEST_LOCATION: local
+              IS_SINGLE_WORKSPACE: $(IS_SINGLE_WORKSPACE)
+              ITEM_TYPES_TO_DEPLOY: VariableLibrary,Lakehouse
+          - task: AzureCLI@2
+            displayName: 'Update Workspace variables'
+            inputs:
+              azureSubscription: "dp_fabric_sc"
+              scriptType: "bash"
+              scriptLocation: "inlineScript"
+              inlineScript: |
+                echo "--------------- Update Workspace variables --------------- "
+                ingen_fab init workspace --workspace-name dp_tst
+            env:
+              FABRIC_ENVIRONMENT: $(FABRIC_ENVIRONMENT)
+              FABRIC_WORKSPACE_REPO_DIR: dp
+              WORKSPACE_MANIFEST_LOCATION: local
+              IS_SINGLE_WORKSPACE: $(IS_SINGLE_WORKSPACE)
+              ITEM_TYPES_TO_DEPLOY: VariableLibrary,Lakehouse
+          - task: AzureCLI@2
+            displayName: 'Upload Python Libs'
+            inputs:
+              azureSubscription: "dp_fabric_sc"
+              scriptType: "bash"
+              scriptLocation: "inlineScript"
+              inlineScript: |
+                echo "--------------- Upload Python Libs --------------- "
+                ingen_fab deploy upload-python-libs
+            env:
+              FABRIC_ENVIRONMENT: $(FABRIC_ENVIRONMENT)
+              FABRIC_WORKSPACE_REPO_DIR: dp
+              WORKSPACE_MANIFEST_LOCATION: local
+              IS_SINGLE_WORKSPACE: $(IS_SINGLE_WORKSPACE)
+              ITEM_TYPES_TO_DEPLOY: VariableLibrary,Lakehouse
+          - script: |
+              git config --global user.email "user@domain.com"
+              git config --global user.name "user"
+              git add .
+              git commit -m "Automated file update from pipeline"
+              git push origin HEAD:$(Build.SourceBranchName)
+            displayName: 'Commit and push changes to repository'
