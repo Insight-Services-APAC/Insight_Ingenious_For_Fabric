@@ -5,6 +5,30 @@ from dataclasses import dataclass, field
 from datetime import datetime
 from typing import Any, Dict, List, Optional
 
+# Import ExecutionStatus for type hints
+from ingen_fab.python_libs.pyspark.ingestion.constants import ExecutionStatus
+
+
+@dataclass
+class BatchExtractionResult:
+    """Result of a single batch extraction event"""
+
+    extraction_id: str                      # Unique batch ID (becomes extract_batch_id)
+    source_path: str                        # Where batch came from (inbound path)
+    destination_path: str                   # Where batch was promoted to (raw path)
+    status: ExecutionStatus                 # ExecutionStatus enum (convert to str only when logging to table)
+
+    # Batch metrics
+    file_count: int = 1                     # Number of files in this batch
+    file_size_bytes: int = 0                # Total size of batch
+    promoted_count: int = 0                 # Successfully promoted files
+    failed_count: int = 0                   # Failed files
+    duplicate_count: int = 0                # Skipped duplicates
+    duration_ms: int = 0                    # Extraction duration
+
+    # Error tracking
+    error_message: Optional[str] = None     # Error if batch failed
+
 
 @dataclass
 class BatchInfo:
@@ -60,19 +84,54 @@ class ProcessingMetrics:
 
 
 @dataclass
-class ResourceExecutionResult:
-    """Result of processing a resource"""
+class BatchReadResult:
+    """Result of reading a batch file (file loading framework)"""
+
+    status: str  # "success" | "rejected"
+    metrics: 'ProcessingMetrics'  # Always provided (both success and rejection paths)
+    df: Optional[Any] = None  # DataFrame (use Any to avoid importing pyspark.sql.DataFrame)
+    rejection_reason: str = ""  # Required for rejected status, empty for success
+    corrupt_count: int = 0
+
+
+@dataclass
+class ResourceExtractionResult:
+    """Result of extraction for a resource"""
 
     resource_name: str
-    status: str                             # 'pending', 'running', 'completed', 'failed', 'no_data'
+    status: ExecutionStatus                 # ExecutionStatus enum (convert to str only when logging to table)
+
+    # Batch tracking
+    batches_processed: int = 0              # Successfully extracted batches
+    batches_failed: int = 0                 # Failed batches
+
+    # Extraction metrics
+    total_items_count: int = 0              # Total items (files, etc.) across all batches
+    total_bytes: int = 0                    # Total bytes extracted
+
+    # Errors
+    error_message: Optional[str] = None
+
+    # Timing
+    started_at: Optional[datetime] = None
+    completed_at: Optional[datetime] = None
+
+
+@dataclass
+class ResourceExecutionResult:
+    """Result of loading/processing a resource (file loading framework)"""
+
+    resource_name: str
+    status: ExecutionStatus                 # ExecutionStatus enum (convert to str only when logging to table)
 
     # Batch tracking
     batches_processed: int = 0
     batches_failed: int = 0
+    batches_rejected: int = 0
     batches_discovered: int = 0
     batches_skipped: int = 0
 
-    # Metrics (optional, populated after processing)
+    # Loading-specific metrics (optional, populated after processing)
     metrics: Optional[ProcessingMetrics] = None
 
     # Errors

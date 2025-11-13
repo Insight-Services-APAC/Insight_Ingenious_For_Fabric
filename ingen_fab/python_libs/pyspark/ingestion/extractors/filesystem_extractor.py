@@ -4,25 +4,23 @@
 import logging
 import os
 import re
+import time
+import uuid
 from datetime import datetime
-from typing import List, Optional
+from typing import Generator, List, Optional
 
-from pyspark.sql import SparkSession
-
-from ingen_fab.python_libs.common.flat_file_ingestion_utils import (
-    DatePartitionUtils,
-    FilePatternUtils,
-)
 from ingen_fab.python_libs.pyspark.ingestion.config import (
     FileSystemExtractionParams,
     ResourceConfig,
 )
-from ingen_fab.python_libs.pyspark.ingestion.constants import DuplicateHandling
+from ingen_fab.python_libs.pyspark.ingestion.constants import DuplicateHandling, ExecutionStatus
 from ingen_fab.python_libs.pyspark.ingestion.exceptions import (
+    DuplicateDataError,
     DuplicateFilesError,
     ErrorContext,
     ExtractionError,
 )
+from ingen_fab.python_libs.pyspark.ingestion.results import BatchExtractionResult
 from ingen_fab.python_libs.common.fsspec_utils import (
     get_filesystem_client,
     move_file,
@@ -34,6 +32,19 @@ from ingen_fab.python_libs.common.fsspec_utils import (
 from ingen_fab.python_libs.pyspark.lakehouse_utils import FileInfo
 
 logger = logging.getLogger(__name__)
+
+# Suppress verbose Azure SDK and adlfs logging (must be at module level before any clients are created)
+logging.getLogger("azure").setLevel(logging.WARNING)
+logging.getLogger("azure.core").setLevel(logging.WARNING)
+logging.getLogger("azure.core.pipeline").setLevel(logging.WARNING)
+logging.getLogger("azure.core.pipeline.policies").setLevel(logging.WARNING)
+logging.getLogger("azure.identity").setLevel(logging.WARNING)
+logging.getLogger("azure.identity._credentials").setLevel(logging.WARNING)
+logging.getLogger("adlfs").setLevel(logging.WARNING)
+logging.getLogger("adlfs.spec").setLevel(logging.WARNING)
+logging.getLogger("fsspec").setLevel(logging.WARNING)
+logging.getLogger("fsspec.spec").setLevel(logging.WARNING)
+logging.getLogger("adlfs.utils").setLevel(logging.WARNING)
 
 
 class FolderInfo:
@@ -87,31 +98,6 @@ class ValidationResult:
         return len(self.valid_files) + len(self.failed_files) + len(self.duplicate_files)
 
 
-class FileSystemExtractionResult:
-    """Result of FileSystem extraction from inbound to raw"""
-
-    def __init__(self):
-        self.extracted_count: int = 0
-        self.failed_count: int = 0
-        self.duplicate_count: int = 0
-        self.extracted_files: List[tuple[str, str, int]] = []  # (source_path, destination_path, duration_ms) tuples
-        self.failed_files: List[tuple[str, str]] = []  # (file_path, error)
-        self.total_files_count: int = 0  # Total number of files extracted
-        self.error_message: Optional[str] = None  # Validation failure message (not an exception)
-
-    def summary(self) -> str:
-        if self.total_files_count > 0:
-            return (
-                f"Extraction: {self.extracted_count} folders ({self.total_files_count} files) → {self.extracted_count} batches"
-            )
-        else:
-            return (
-                f"Extracted: {self.extracted_count}, "
-                f"Failed: {self.failed_count}, "
-                f"Duplicates: {self.duplicate_count}"
-            )
-
-
 class FileSystemExtractor:
     """
     Extracts (validates and moves) files from inbound to raw layer.
@@ -126,21 +112,23 @@ class FileSystemExtractor:
     def __init__(
         self,
         resource_config: ResourceConfig,
-        spark: SparkSession,
-        location_resolver=None,  # Not used for filesystem
         logger_instance=None,  # Optional context-aware logger
+        extraction_logger=None,  # REQUIRED extraction logger for duplicate checking
     ):
         """
         Initialize FileSystemExtractor.
 
         Args:
             resource_config: Resource configuration
-            spark: Spark session
-            location_resolver: Not used (kept for interface compatibility)
             logger_instance: Optional logger instance with resource context (ConfigLoggerAdapter)
+            extraction_logger: Extraction logger for querying log tables (REQUIRED)
         """
         self.config = resource_config
-        self.spark = spark
+        self.extraction_logger = extraction_logger
+
+        # Validate required dependencies
+        if self.extraction_logger is None:
+            raise ValueError("extraction_logger is required for duplicate detection")
 
         # Parse extraction params
         if isinstance(resource_config.extraction_params, dict):
@@ -188,17 +176,19 @@ class FileSystemExtractor:
         # Use provided logger or fallback to module logger
         self.logger = logger_instance if logger_instance is not None else logger
 
-    def extract(self) -> FileSystemExtractionResult:
+    def extract(self) -> Generator[BatchExtractionResult, None, None]:
         """
         Extract files/folders from inbound to raw layer.
 
         Routes to folder-batch or file-level extraction based on batch_by parameter.
 
-        Returns:
-            FileSystemExtractionResult with summary of extracted/failed items
-        """
-        result = FileSystemExtractionResult()
+        Yields:
+            BatchExtractionResult for each batch extracted (real-time streaming)
 
+        Raises:
+            ExtractionError: On validation or extraction failures
+            DuplicateFilesError: If duplicates detected and duplicate_handling=FAIL
+        """
         try:
             self.logger.debug(f"Starting extraction: {self.config.resource_name}")
             self.logger.debug(f"Batch mode: {self.params.batch_by}")
@@ -208,13 +198,13 @@ class FileSystemExtractor:
             # Route based on batch_by parameter
             if self.params.batch_by == "folder":
                 # FOLDER-BATCH EXTRACTION
-                return self._extract_folders(result)
+                yield from self._extract_folders()
             elif self.params.batch_by == "all":
                 # ALL-FILES-AS-ONE-BATCH EXTRACTION
-                return self._extract_all(result)
+                yield from self._extract_all()
             else:
                 # FILE-LEVEL EXTRACTION (default)
-                return self._extract_files(result)
+                yield from self._extract_files()
 
         except (ExtractionError, DuplicateFilesError):
             # Re-raise known extraction errors without wrapping
@@ -231,19 +221,27 @@ class FileSystemExtractor:
                 ),
             ) from e
 
-    def _extract_files(self, result: FileSystemExtractionResult) -> FileSystemExtractionResult:
+    def _extract_files(self) -> Generator[BatchExtractionResult, None, None]:
         """Extract individual files (batch_by='file')"""
         # Step 1: Discover files in inbound
         files = self._discover_files_in_inbound()
 
         if not files:
-            self.logger.info("No files found in inbound")
             # Check require_files when no files discovered
             if self.params.require_files:
-                result.error_message = f"No files found in {self.params.inbound_path} (require_files=True)"
-            return result
+                raise ExtractionError(
+                    message=f"No files found in {self.params.inbound_path} (require_files=True)",
+                    context=ErrorContext(
+                        resource_name=self.config.resource_name,
+                        source_name=self.config.source_name,
+                        operation="discover_files",
+                    ),
+                )
+            # No files but not required - log and return
+            self.logger.info("No files found in inbound")
+            return  # No files, empty generator
 
-        self.logger.info(f"Discovered {len(files)} file(s) in inbound")
+        self.logger.info(f"Discovered {len(files)} files in inbound")
 
         # Step 2: Validate files
         validation = self._validate_files(files)
@@ -251,48 +249,55 @@ class FileSystemExtractor:
         # Step 3: Handle validation results
         if validation.failed_files:
             self.logger.warning(
-                f"{len(validation.failed_files)} file(s) failed validation"
+                f"{len(validation.failed_files)} files failed validation"
             )
             for file_info, error in validation.failed_files:
                 self._write_error_file(file_info, error)
-                result.failed_files.append((file_info.path, error))
-                result.failed_count += 1
 
         if validation.duplicate_files:
-            result.duplicate_count = len(validation.duplicate_files)
             dup_names = [os.path.basename(f.path) for f in validation.duplicate_files]
-            self.logger.warning(f"Skipping {result.duplicate_count} duplicate(s): {', '.join(dup_names)}")
+            self.logger.warning(f"Skipping {len(validation.duplicate_files)} duplicate(s): {', '.join(dup_names)}")
 
         # Check require_files BEFORE extraction
         if self.params.require_files and len(validation.valid_files) == 0:
-            result.error_message = (
-                f"No valid files in {self.params.inbound_path} (require_files=True): "
-                f"{len(files)} discovered, {len(validation.failed_files)} failed validation, "
-                f"{len(validation.duplicate_files)} duplicates"
+            raise ExtractionError(
+                message=(
+                    f"No valid files in {self.params.inbound_path} (require_files=True): "
+                    f"{len(files)} discovered, {len(validation.failed_files)} failed validation, "
+                    f"{len(validation.duplicate_files)} duplicates"
+                ),
+                context=ErrorContext(
+                    resource_name=self.config.resource_name,
+                    source_name=self.config.source_name,
+                    operation="validate_files",
+                ),
             )
-            return result
 
-        # Step 4: Extract valid files to raw
+        # Step 4: Extract valid files to raw (yields batches)
         if validation.valid_files:
-            self._extract_files_to_raw(validation.valid_files, result)
-            result.total_files_count = result.extracted_count  # For file-level, count = extracted_count
+            yield from self._extract_files_to_raw(validation.valid_files)
 
-        self.logger.info(f"Extraction complete: {result.summary()}")
-        return result
-
-    def _extract_folders(self, result: FileSystemExtractionResult) -> FileSystemExtractionResult:
+    def _extract_folders(self) -> Generator[BatchExtractionResult, None, None]:
         """Extract folder batches (batch_by='folder')"""
         # Step 1: Discover folders in inbound
         folders = self._discover_folders_in_inbound()
 
         if not folders:
-            self.logger.info("No folders found in inbound")
             # Check require_files when no folders discovered
             if self.params.require_files:
-                result.error_message = f"No folders found in {self.params.inbound_path} (require_files=True)"
-            return result
+                raise ExtractionError(
+                    message=f"No folders found in {self.params.inbound_path} (require_files=True)",
+                    context=ErrorContext(
+                        resource_name=self.config.resource_name,
+                        source_name=self.config.source_name,
+                        operation="discover_folders",
+                    ),
+                )
+            # No folders but not required - log and return
+            self.logger.info("No folders found in inbound")
+            return  # No folders, empty generator
 
-        self.logger.info(f"Discovered {len(folders)} folder(s) in inbound")
+        self.logger.info(f"Discovered {len(folders)} folders in inbound")
         total_files = sum(f.file_count for f in folders)
         self.logger.info(f"Total files across folders: {total_files}")
 
@@ -302,53 +307,59 @@ class FileSystemExtractor:
         # Step 3: Handle validation results
         if validation.failed_folders:
             self.logger.warning(
-                f"{len(validation.failed_folders)} folder(s) failed validation"
+                f"{len(validation.failed_folders)} folders failed validation"
             )
-            for folder_info, error in validation.failed_folders:
-                result.failed_files.append((folder_info.path, error))
-                result.failed_count += 1
 
         if validation.duplicate_folders:
-            result.duplicate_count = len(validation.duplicate_folders)
             # Show full paths for better clarity
             dup_paths = [f.path for f in validation.duplicate_folders]
             self.logger.warning(
-                f"Skipping {result.duplicate_count} duplicate folder(s):\n  " +
+                f"Skipping {len(validation.duplicate_folders)} duplicate folders:\n  " +
                 "\n  ".join(dup_paths)
             )
 
         # Check require_files BEFORE extraction
         if self.params.require_files and len(validation.valid_folders) == 0:
-            result.error_message = (
-                f"No valid folders in {self.params.inbound_path} (require_files=True): "
-                f"{len(folders)} discovered, {len(validation.failed_folders)} failed validation, "
-                f"{len(validation.duplicate_folders)} duplicates"
+            raise ExtractionError(
+                message=(
+                    f"No valid folders in {self.params.inbound_path} (require_files=True): "
+                    f"{len(folders)} discovered, {len(validation.failed_folders)} failed validation, "
+                    f"{len(validation.duplicate_folders)} duplicates"
+                ),
+                context=ErrorContext(
+                    resource_name=self.config.resource_name,
+                    source_name=self.config.source_name,
+                    operation="validate_folders",
+                ),
             )
-            return result
 
-        # Step 4: Extract valid folders to raw
+        # Step 4: Extract valid folders to raw (yields batches)
         if validation.valid_folders:
-            self._extract_folders_to_raw(validation.valid_folders, result)
+            yield from self._extract_folders_to_raw(validation.valid_folders)
 
-        self.logger.info(f"Extraction complete: {result.summary()}")
-        return result
-
-    def _extract_all(self, result: FileSystemExtractionResult) -> FileSystemExtractionResult:
+    def _extract_all(self) -> Generator[BatchExtractionResult, None, None]:
         """Extract all files as one batch (batch_by='all')"""
         # Step 1: Discover all files in inbound directory
         files = self._discover_files_in_inbound()
 
         if not files:
-            self.logger.info("No files found in inbound")
             # Check require_files when no files discovered
             if self.params.require_files:
-                result.error_message = f"No files found in {self.params.inbound_path} (require_files=True)"
-            return result
+                raise ExtractionError(
+                    message=f"No files found in {self.params.inbound_path} (require_files=True)",
+                    context=ErrorContext(
+                        resource_name=self.config.resource_name,
+                        source_name=self.config.source_name,
+                        operation="discover_files",
+                    ),
+                )
+            # No files but not required - log and return
+            self.logger.info("No files found in inbound")
+            return  # No files, empty generator
 
-        self.logger.info(f"Discovered {len(files)} file(s) in inbound (treating as ONE batch)")
+        self.logger.info(f"Discovered {len(files)} files in inbound (treating as ONE batch)")
 
         # Step 2: Check for duplicate batch
-        is_duplicate = False
         if self.params.duplicate_handling != DuplicateHandling.ALLOW:
             # Build expected raw folder path for this batch
             raw_folder_path = self._build_raw_folder_path_for_all_batch()
@@ -358,36 +369,21 @@ class FileSystemExtractor:
                 if not is_directory_empty(self.dest_fs, raw_folder_path):
                     # Folder exists and has files - this is a duplicate
                     self.logger.warning(f"Duplicate batch detected: {raw_folder_path} already exists")
-                    result.duplicate_count = len(files)
-                    is_duplicate = True
 
                     # Fail if configured
                     if self.params.duplicate_handling == DuplicateHandling.FAIL:
-                        raise DuplicateFilesError(
+                        raise DuplicateDataError(
                             f"Duplicate batch detected: folder {raw_folder_path} already processed"
                         )
+
+                    # Skip mode - return empty generator
+                    return
             except Exception:
                 # Folder doesn't exist - not a duplicate, proceed
                 pass
 
-        # Check require_files BEFORE extraction
-        if self.params.require_files and is_duplicate:
-            result.error_message = (
-                f"No valid batches in {self.params.inbound_path} (require_files=True): "
-                f"duplicate batch detected"
-            )
-            return result
-
-        # If duplicate and skip mode, return early
-        if is_duplicate:
-            return result
-
-        # Step 3: Move all files to raw as one batch
-        self._extract_all_to_raw(files, result)
-        result.total_files_count = len(files)  # For all-batch, total is all files
-
-        self.logger.info(f"Extraction complete: {result.summary()}")
-        return result
+        # Step 3: Move all files to raw as one batch (yields single batch)
+        yield from self._extract_all_to_raw(files)
 
     def _discover_files_in_inbound(self) -> List[FileInfo]:
         """Discover files in inbound folder matching discovery pattern"""
@@ -557,7 +553,7 @@ class FileSystemExtractor:
             # Fail on duplicates if configured
             if duplicates and self.params.duplicate_handling == DuplicateHandling.FAIL:
                 dup_names = [os.path.basename(f.path) for f in duplicates]
-                raise DuplicateFilesError(
+                raise DuplicateDataError(
                     f"Duplicate files detected: {', '.join(dup_names)}"
                 )
 
@@ -579,22 +575,26 @@ class FileSystemExtractor:
 
     def _check_for_duplicates(self, files: List[FileInfo]) -> List[FileInfo]:
         """
-        Check if any files already exist in raw layer.
+        Check if any files have already been extracted (across all partitions).
+
+        Queries extraction logs to find files previously extracted on ANY date.
 
         Returns:
-            List of files that are duplicates (already exist in raw)
+            List of files that are duplicates (already extracted)
         """
         duplicates = []
 
         for file_info in files:
-            # Build expected raw path
-            raw_file_path = self._build_raw_path(file_info)
+            filename = os.path.basename(file_info.path)
 
-            # Check if file already exists in raw
-            if file_exists(self.dest_fs, raw_file_path):
+            # Query extraction logs (works across all partitions)
+            if self.extraction_logger.check_file_already_extracted(
+                config=self.config,
+                filename=filename
+            ):
                 duplicates.append(file_info)
                 self.logger.debug(
-                    f"Duplicate: {os.path.basename(file_info.path)} already exists in raw"
+                    f"Duplicate: {filename} already extracted (found in extraction logs)"
                 )
 
         return duplicates
@@ -744,7 +744,7 @@ class FileSystemExtractor:
         # If no sort_by configured, sort by modified time only
         if not self.params.sort_by:
             files.sort(key=lambda x: x.modified_ms)
-            self.logger.debug(f"Sorted {len(files)} file(s) by modified time")
+            self.logger.debug(f"Sorted {len(files)} files by modified time")
             return files
 
         def get_sort_key(file_info: FileInfo) -> tuple:
@@ -771,7 +771,7 @@ class FileSystemExtractor:
         # Log sorting method
         sort_fields = ", ".join(self.params.sort_by)
         self.logger.debug(
-            f"Sorted {len(files)} file(s) by [{sort_fields}] ({self.params.sort_order}) then modified time"
+            f"Sorted {len(files)} files by [{sort_fields}] ({self.params.sort_order}) then modified time"
         )
 
         return sorted_files
@@ -796,7 +796,7 @@ class FileSystemExtractor:
         # If no sort_by configured, sort by modified time only
         if not self.params.sort_by:
             folders.sort(key=lambda x: x.latest_modified_ms)
-            self.logger.debug(f"Sorted {len(folders)} folder(s) by modified time")
+            self.logger.debug(f"Sorted {len(folders)} folders by modified time")
             return folders
 
         def get_sort_key(folder_info: FolderInfo) -> tuple:
@@ -823,7 +823,7 @@ class FileSystemExtractor:
         # Log sorting method
         sort_fields = ", ".join(self.params.sort_by)
         self.logger.debug(
-            f"Sorted {len(folders)} folder(s) by [{sort_fields}] ({self.params.sort_order}) then modified time"
+            f"Sorted {len(folders)} folders by [{sort_fields}] ({self.params.sort_order}) then modified time"
         )
 
         return sorted_folders
@@ -871,24 +871,24 @@ class FileSystemExtractor:
         return metadata
 
     def _extract_files_to_raw(
-        self, files: List[FileInfo], result: FileSystemExtractionResult
-    ) -> None:
-        """Move validated files from inbound to raw"""
-        import time
+        self, files: List[FileInfo]
+    ) -> Generator[BatchExtractionResult, None, None]:
+        """Move validated files from inbound to raw, yielding batch for each file"""
         first_file_path = None
+        extracted_count = 0
 
         for file_info in files:
+            # Track first file for cleanup
+            if first_file_path is None:
+                first_file_path = file_info.path
+
+            # Build destination path in raw
+            raw_path = self._build_raw_path(file_info)
+
+            # Track extraction timing
+            start_time = time.time()
+
             try:
-                # Track first file for cleanup
-                if first_file_path is None:
-                    first_file_path = file_info.path
-
-                # Build destination path in raw
-                raw_path = self._build_raw_path(file_info)
-
-                # Track extraction timing
-                start_time = time.time()
-
                 # Move file
                 success = move_file(
                     source_fs=self.source_fs,
@@ -901,30 +901,60 @@ class FileSystemExtractor:
                 duration_ms = int((end_time - start_time) * 1000)
 
                 if success:
-                    result.extracted_count += 1
-                    # Store source-destination-duration tuple for complete audit trail
-                    result.extracted_files.append((file_info.path, raw_path, duration_ms))
-                    self.logger.info(
-                        f"Extracted: {os.path.basename(file_info.path)} → {raw_path}"
-                    )
-
                     # Also move control file if it exists
                     if self.params.require_control_file and self._has_control_file(file_info):
                         self._move_control_file(file_info, raw_path)
+
+                    # Yield success batch
+                    yield BatchExtractionResult(
+                        extraction_id=str(uuid.uuid4()),
+                        source_path=file_info.path,
+                        destination_path=raw_path,
+                        status=ExecutionStatus.COMPLETED,
+                        file_count=1,
+                        file_size_bytes=file_info.size,
+                        promoted_count=1,
+                        duration_ms=duration_ms,
+                    )
+                    extracted_count += 1
+                    self.logger.info(f"Extracted: {os.path.basename(file_info.path)}")
                 else:
+                    # Yield failed batch
                     error = "Move operation failed"
-                    result.failed_count += 1
-                    result.failed_files.append((file_info.path, error))
+                    yield BatchExtractionResult(
+                        extraction_id=str(uuid.uuid4()),
+                        source_path=file_info.path,
+                        destination_path=raw_path,
+                        status=ExecutionStatus.FAILED,
+                        file_count=1,
+                        file_size_bytes=file_info.size,
+                        failed_count=1,
+                        duration_ms=duration_ms,
+                        error_message=error,
+                    )
                     self.logger.error(f"Failed to move {file_info.path}: {error}")
 
             except Exception as e:
+                end_time = time.time()
+                duration_ms = int((end_time - start_time) * 1000)
                 error = str(e)
-                result.failed_count += 1
-                result.failed_files.append((file_info.path, error))
+
+                # Yield failed batch
+                yield BatchExtractionResult(
+                    extraction_id=str(uuid.uuid4()),
+                    source_path=file_info.path,
+                    destination_path=raw_path,
+                    status=ExecutionStatus.FAILED,
+                    file_count=1,
+                    file_size_bytes=file_info.size,
+                    failed_count=1,
+                    duration_ms=duration_ms,
+                    error_message=error,
+                )
                 self.logger.error(f"Failed to extract {file_info.path}: {error}")
 
         # Clean up empty directories in inbound ONCE after all files moved
-        if first_file_path and result.extracted_count > 0:
+        if first_file_path and extracted_count > 0:
             cleanup_empty_directories(
                 fs=self.source_fs,
                 start_path=first_file_path,
@@ -996,7 +1026,7 @@ Resource: {self.config.resource_name}
             # Fail on duplicates if configured
             if duplicates and self.params.duplicate_handling == DuplicateHandling.FAIL:
                 dup_names = [f.name for f in duplicates]
-                raise DuplicateFilesError(
+                raise DuplicateDataError(
                     f"Duplicate folders detected: {', '.join(dup_names)}"
                 )
 
@@ -1010,30 +1040,31 @@ Resource: {self.config.resource_name}
 
     def _check_for_duplicate_folders(self, folders: List[FolderInfo]) -> List[FolderInfo]:
         """
-        Check if any folders already exist in raw layer.
+        Check if any folders have already been extracted (across all partitions).
+
+        For folder batches, checks if the FOLDER NAME was previously extracted.
 
         Args:
             folders: List of FolderInfo objects
 
         Returns:
-            List of folders that are duplicates (already exist in raw)
+            List of folders that are duplicates (already extracted)
         """
         duplicates = []
 
         for folder_info in folders:
-            # Build expected raw folder path
-            raw_folder_path = self._build_raw_folder_path(folder_info)
+            # Use folder name as the duplicate key (not individual files)
+            folder_name = folder_info.name
 
-            # Check if folder already exists in raw (check if non-empty)
-            try:
-                if not is_directory_empty(self.dest_fs, raw_folder_path):
-                    duplicates.append(folder_info)
-                    self.logger.debug(
-                        f"Duplicate: Folder {folder_info.name} already exists in raw"
-                    )
-            except Exception:
-                # Folder doesn't exist - not a duplicate
-                pass
+            # Query extraction logs for this folder name
+            if self.extraction_logger.check_file_already_extracted(
+                config=self.config,
+                filename=folder_name
+            ):
+                duplicates.append(folder_info)
+                self.logger.debug(
+                    f"Duplicate: Folder {folder_name} already extracted (found in logs)"
+                )
 
         return duplicates
 
@@ -1052,90 +1083,95 @@ Resource: {self.config.resource_name}
         return f"{self.raw_landing_full.rstrip('/')}/{partition_path}"
 
     def _extract_folders_to_raw(
-        self, folders: List[FolderInfo], result: FileSystemExtractionResult
-    ) -> None:
+        self, folders: List[FolderInfo]
+    ) -> Generator[BatchExtractionResult, None, None]:
         """
-        Move validated folder batches from inbound to raw.
+        Move validated folder batches from inbound to raw, yielding batch for each folder.
 
         Args:
             folders: List of FolderInfo objects to extract
-            result: FileSystemExtractionResult to update with progress
         """
-        import time
         for folder_info in folders:
-            try:
-                # Track extraction timing for this folder batch
-                folder_start_time = time.time()
+            # Track extraction timing for this folder batch
+            folder_start_time = time.time()
 
-                # Build destination folder path in raw
-                raw_folder_path = self._build_raw_folder_path(folder_info)
+            # Build destination folder path in raw
+            raw_folder_path = self._build_raw_folder_path(folder_info)
 
-                self.logger.debug(
-                    f"Extracting folder: {folder_info.name} ({folder_info.file_count} files)"
-                )
+            self.logger.debug(
+                f"Extracting folder: {folder_info.name} ({folder_info.file_count} files)"
+            )
 
-                # Move all files in the folder
-                files_moved = 0
-                files_failed = 0
+            # Move all files in the folder
+            files_moved = 0
+            files_failed = 0
 
-                for file_info in folder_info.files:
-                    try:
-                        # Build destination file path
-                        filename = os.path.basename(file_info.path)
-                        dest_file_path = f"{raw_folder_path}{filename}"
+            for file_info in folder_info.files:
+                try:
+                    # Build destination file path
+                    filename = os.path.basename(file_info.path)
+                    dest_file_path = f"{raw_folder_path}{filename}"
 
-                        # Move file
-                        success = move_file(
-                            source_fs=self.source_fs,
-                            source_path=file_info.path,
-                            dest_fs=self.dest_fs,
-                            dest_path=dest_file_path,
-                        )
+                    # Move file
+                    success = move_file(
+                        source_fs=self.source_fs,
+                        source_path=file_info.path,
+                        dest_fs=self.dest_fs,
+                        dest_path=dest_file_path,
+                    )
 
-                        if success:
-                            files_moved += 1
-                        else:
-                            files_failed += 1
-                            self.logger.warning(f"Failed to move file: {file_info.path}")
-
-                    except Exception as e:
+                    if success:
+                        files_moved += 1
+                    else:
                         files_failed += 1
-                        self.logger.warning(f"Failed to move {file_info.path}: {e}")
+                        self.logger.warning(f"Failed to move file: {file_info.path}")
 
-                # Calculate folder extraction duration
-                folder_end_time = time.time()
-                folder_duration_ms = int((folder_end_time - folder_start_time) * 1000)
+                except Exception as e:
+                    files_failed += 1
+                    self.logger.warning(f"Failed to move {file_info.path}: {e}")
 
-                # Update result
-                if files_failed == 0:
-                    result.extracted_count += 1
-                    # Store source-destination-duration tuple for complete audit trail
-                    result.extracted_files.append((folder_info.path, raw_folder_path, folder_duration_ms))
-                    result.total_files_count += files_moved  # Track total files
-                    self.logger.debug(
-                        f"✓ Extracted folder: {folder_info.name} → {raw_folder_path} ({files_moved} files)"
+            # Calculate folder extraction duration
+            folder_end_time = time.time()
+            folder_duration_ms = int((folder_end_time - folder_start_time) * 1000)
+
+            # Yield batch record
+            if files_failed == 0:
+                # Success batch
+                yield BatchExtractionResult(
+                    extraction_id=str(uuid.uuid4()),
+                    source_path=folder_info.path,
+                    destination_path=raw_folder_path,
+                    status=ExecutionStatus.COMPLETED,
+                    file_count=files_moved,
+                    file_size_bytes=folder_info.total_size,
+                    promoted_count=files_moved,
+                    duration_ms=folder_duration_ms,
+                )
+                self.logger.debug(f"✓ Extracted folder: {folder_info.name} ({files_moved} files)")
+
+                # Clean up empty directories in inbound after successful folder extraction
+                if folder_info.files:
+                    cleanup_empty_directories(
+                        fs=self.source_fs,
+                        start_path=folder_info.files[0].path,
+                        stop_path=self.inbound_full_path,
                     )
-
-                    # Clean up empty directories in inbound after successful folder extraction
-                    if folder_info.files:
-                        cleanup_empty_directories(
-                            fs=self.source_fs,
-                            start_path=folder_info.files[0].path,
-                            stop_path=self.inbound_full_path,
-                        )
-                else:
-                    error = f"Partial failure: {files_moved} succeeded, {files_failed} failed"
-                    result.failed_count += 1
-                    result.failed_files.append((folder_info.path, error))
-                    self.logger.error(
-                        f"✗ Folder {folder_info.name}: {error}"
-                    )
-
-            except Exception as e:
-                error = str(e)
-                result.failed_count += 1
-                result.failed_files.append((folder_info.path, error))
-                self.logger.error(f"Failed to extract folder {folder_info.name}: {error}")
+            else:
+                # Failed/partial batch
+                error = f"Partial failure: {files_moved} succeeded, {files_failed} failed"
+                yield BatchExtractionResult(
+                    extraction_id=str(uuid.uuid4()),
+                    source_path=folder_info.path,
+                    destination_path=raw_folder_path,
+                    status=ExecutionStatus.FAILED,
+                    file_count=folder_info.file_count,
+                    file_size_bytes=folder_info.total_size,
+                    promoted_count=files_moved,
+                    failed_count=files_failed,
+                    duration_ms=folder_duration_ms,
+                    error_message=error,
+                )
+                self.logger.error(f"✗ Folder {folder_info.name}: {error}")
 
     # =========================================================================
     # ALL-BATCH METHODS (for batch_by="all")
@@ -1156,16 +1192,14 @@ Resource: {self.config.resource_name}
         return f"{self.raw_landing_full.rstrip('/')}/{partition_path}"
 
     def _extract_all_to_raw(
-        self, files: List[FileInfo], result: FileSystemExtractionResult
-    ) -> None:
+        self, files: List[FileInfo]
+    ) -> Generator[BatchExtractionResult, None, None]:
         """
-        Move all files to raw as one batch.
+        Move all files to raw as one batch, yielding single batch record.
 
         Args:
             files: List of FileInfo objects to move
-            result: FileSystemExtractionResult to update with progress
         """
-        import time
         # Track extraction timing for this batch
         batch_start_time = time.time()
 
@@ -1173,13 +1207,14 @@ Resource: {self.config.resource_name}
         raw_folder_path = self._build_raw_folder_path_for_all_batch()
 
         self.logger.info(
-            f"Extracting all files as ONE batch: {len(files)} file(s) → {raw_folder_path}"
+            f"Extracting all files as ONE batch: {len(files)} files → {raw_folder_path}"
         )
 
         # Move all files to the destination folder
         files_moved = 0
         files_failed = 0
         first_file_path = None
+        total_bytes = sum(f.size for f in files)
 
         for file_info in files:
             try:
@@ -1214,18 +1249,33 @@ Resource: {self.config.resource_name}
         batch_end_time = time.time()
         batch_duration_ms = int((batch_end_time - batch_start_time) * 1000)
 
-        # Update result
+        # Yield single batch record
         if files_failed == 0:
-            result.extracted_count = 1  # ONE batch
-            # Store source-destination-duration tuple for complete audit trail
-            result.extracted_files.append((self.inbound_full_path, raw_folder_path, batch_duration_ms))
-            self.logger.info(
-                f"✓ Extracted batch → {raw_folder_path} ({files_moved} files)"
+            yield BatchExtractionResult(
+                extraction_id=str(uuid.uuid4()),
+                source_path=self.inbound_full_path,
+                destination_path=raw_folder_path,
+                status=ExecutionStatus.COMPLETED,
+                file_count=files_moved,
+                file_size_bytes=total_bytes,
+                promoted_count=files_moved,
+                duration_ms=batch_duration_ms,
             )
+            self.logger.info(f"✓ Extracted batch ({files_moved} files)")
         else:
             error = f"Partial failure: {files_moved} succeeded, {files_failed} failed"
-            result.failed_count = 1
-            result.failed_files.append((self.inbound_full_path, error))
+            yield BatchExtractionResult(
+                extraction_id=str(uuid.uuid4()),
+                source_path=self.inbound_full_path,
+                destination_path=raw_folder_path,
+                status=ExecutionStatus.FAILED,
+                file_count=len(files),
+                file_size_bytes=total_bytes,
+                promoted_count=files_moved,
+                failed_count=files_failed,
+                duration_ms=batch_duration_ms,
+                error_message=error,
+            )
             self.logger.error(f"✗ Batch extraction failed: {error}")
 
         # Clean up empty directories in inbound ONCE after all files moved

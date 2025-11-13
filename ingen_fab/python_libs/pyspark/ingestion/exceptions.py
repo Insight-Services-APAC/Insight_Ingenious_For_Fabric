@@ -112,25 +112,19 @@ class ExtractionError(IngestionError):
     pass
 
 
+class DuplicateDataError(ExtractionError):
+    """Raised when duplicate data is detected during extraction and duplicate_handling='fail'"""
+
+    pass
+
+
 # =============================================================================
 # File Discovery Errors
 # =============================================================================
 
 
-class FileDiscoveryError(IngestionError):
-    """Raised when file discovery fails"""
-
-    pass
-
-
-class FileNotFoundError(FileDiscoveryError):
-    """Raised when expected file is not found"""
-
-    pass
-
-
 class DuplicateFilesError(IngestionError):
-    """Raised when duplicate files are detected and duplicate_handling='fail'"""
+    """Raised when duplicate files are detected during loading (file discovery phase)"""
 
     pass
 
@@ -150,6 +144,34 @@ class SchemaValidationError(FileReadError):
     """Raised when schema validation fails"""
 
     pass
+
+
+class DataQualityRejectionError(Exception):
+    """
+    Raised when data quality check fails (e.g., corrupt records exceed tolerance).
+
+    This is expected business logic, not a system error.
+
+    Signals:
+    - File should stay in landing (not quarantined)
+    - Extraction log should stay as 'pending' (for retry)
+    - Processing should stop (fail-fast to maintain data continuity)
+    - Log at INFO level (no ERROR, no stack trace)
+    """
+
+    def __init__(self, message: str, context: Optional['ErrorContext'] = None):
+        self.message = message
+        self.context = context
+        super().__init__(self._format_message())
+
+    def _format_message(self) -> str:
+        """Format error message with context"""
+        if self.context:
+            return f"{self.message} [{self.context}]"
+        return self.message
+
+    def __str__(self) -> str:
+        return self._format_message()
 
 
 # =============================================================================
@@ -239,7 +261,7 @@ class ArchiveResult:
         if self.total_files == 0:
             return "No files to archive"
         return (
-            f"Archived {self.succeeded}/{self.total_files} file(s) successfully"
+            f"Archived {self.succeeded}/{self.total_files} files successfully"
             + (f", {self.failed} failed" if self.failed > 0 else "")
         )
 

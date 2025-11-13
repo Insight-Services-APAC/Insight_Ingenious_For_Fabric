@@ -119,6 +119,7 @@ class ResourceConfig:
 
     custom_schema_json: Optional[str] = None
     data_validation_rules: Optional[str] = None
+    corrupt_record_tolerance: int = 0  # Max corrupt records allowed (0 = reject any corrupt records)
 
     # ========================================================================
     # EXECUTION CONTROL (Used by BOTH frameworks)
@@ -164,6 +165,7 @@ class ResourceConfig:
             cdc_config=cdc_config,
             custom_schema_json=config_dict.get("custom_schema_json"),
             data_validation_rules=config_dict.get("data_validation_rules"),
+            corrupt_record_tolerance=config_dict.get("corrupt_record_tolerance", 0),
             execution_group=config_dict.get("execution_group", 1),
             active=config_dict.get("active", True),
         )
@@ -192,6 +194,7 @@ class FileSystemExtractionParams:
     quote_character: str = '"'
     escape_character: str = "\\"
     multiline_values: bool = True
+    null_value: str = ""  # String to treat as NULL when reading CSV
 
     # Validation
     require_control_file: bool = False

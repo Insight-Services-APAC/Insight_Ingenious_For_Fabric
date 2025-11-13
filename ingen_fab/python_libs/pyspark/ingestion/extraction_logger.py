@@ -16,29 +16,10 @@ from ingen_fab.python_libs.common.extract_resource_batch_schema import (
     get_extract_resource_batch_schema,
 )
 from ingen_fab.python_libs.pyspark.ingestion.config import ResourceConfig
+from ingen_fab.python_libs.pyspark.ingestion.constants import ExecutionStatus
 from ingen_fab.python_libs.pyspark.lakehouse_utils import lakehouse_utils
 
 logger = logging.getLogger(__name__)
-
-
-class ExtractionResult:
-    """Container for extraction metrics (generic across all source types)"""
-
-    def __init__(
-        self,
-        batches_extracted: int = 0,
-        batches_failed: int = 0,
-        items_count: int = 0,  # Total items (files, rows, records, etc.) across all batches
-        total_bytes: int = 0,
-        duration_ms: int = 0,
-        completed_at: Optional[datetime] = None,
-    ):
-        self.batches_extracted = batches_extracted
-        self.batches_failed = batches_failed
-        self.items_count = items_count
-        self.total_bytes = total_bytes
-        self.duration_ms = duration_ms
-        self.completed_at = completed_at or datetime.now()
 
 
 class ExtractionLogger:
@@ -60,7 +41,6 @@ class ExtractionLogger:
             auto_create_tables: If True, automatically create log tables if they don't exist
         """
         self.lakehouse = lakehouse_utils_instance
-        self.spark = lakehouse_utils_instance.spark
 
         if auto_create_tables:
             self.ensure_log_tables_exist()
@@ -69,13 +49,12 @@ class ExtractionLogger:
         """Create log tables if they don't exist"""
         try:
             # Check and create log_resource_extract_batch table
-            try:
-                self.spark.sql("DESCRIBE TABLE log_resource_extract_batch")
+            if self.lakehouse.check_if_table_exists("log_resource_extract_batch"):
                 logger.debug("Table 'log_resource_extract_batch' already exists")
-            except Exception:
+            else:
                 logger.info("Creating table 'log_resource_extract_batch' with partitioning by (source_name, resource_name)")
                 schema = get_extract_resource_batch_schema()
-                empty_df = self.spark.createDataFrame([], schema)
+                empty_df = self.lakehouse.spark.createDataFrame([], schema)
                 self.lakehouse.write_to_table(
                     df=empty_df,
                     table_name="log_resource_extract_batch",
@@ -84,13 +63,12 @@ class ExtractionLogger:
                 )
 
             # Check and create log_resource_extract table
-            try:
-                self.spark.sql("DESCRIBE TABLE log_resource_extract")
+            if self.lakehouse.check_if_table_exists("log_resource_extract"):
                 logger.debug("Table 'log_resource_extract' already exists")
-            except Exception:
+            else:
                 logger.info("Creating table 'log_resource_extract' with partitioning by (source_name, resource_name)")
                 schema = get_extract_resource_schema()
-                empty_df = self.spark.createDataFrame([], schema)
+                empty_df = self.lakehouse.spark.createDataFrame([], schema)
                 self.lakehouse.write_to_table(
                     df=empty_df,
                     table_name="log_resource_extract",
@@ -144,19 +122,16 @@ class ExtractionLogger:
             error_message: Error if failed
         """
         try:
-            # Convert status to string
-            status = str(status)
-
             # Determine load_state based on extraction status
-            if status == 'completed':
-                load_state = 'pending'  # Ready for loading
+            if status == ExecutionStatus.COMPLETED:
+                load_state = ExecutionStatus.PENDING  # Ready for loading
             else:
-                load_state = 'skipped'  # Don't load failed/duplicate/running extractions
+                load_state = ExecutionStatus.SKIPPED  # Don't load failed/duplicate/running extractions
 
             # Timestamps
             now = datetime.now()
             started_at = now
-            completed_at = now if status in ('completed', 'failed', 'duplicate') else None
+            completed_at = now if status in (ExecutionStatus.COMPLETED, ExecutionStatus.FAILED, ExecutionStatus.DUPLICATE) else None
 
             # Build log row
             log_data = [
@@ -166,8 +141,8 @@ class ExtractionLogger:
                     execution_id,           # master_execution_id (denormalized)
                     config.source_name,     # source_name (denormalized for partitioning)
                     config.resource_name,   # resource_name (denormalized for partitioning)
-                    status,
-                    load_state,             # Track downstream loading status
+                    str(status),            # Convert enum to string for Spark
+                    str(load_state),        # Convert enum to string for Spark
                     source_path,
                     destination_path,       # KEY: where loader reads from
                     file_count,
@@ -183,7 +158,7 @@ class ExtractionLogger:
             ]
 
             schema = get_extract_resource_batch_schema()
-            log_df = self.spark.createDataFrame(log_data, schema)
+            log_df = self.lakehouse.spark.createDataFrame(log_data, schema)
 
             # Append to log table (partitioned by source_name, resource_name for isolation)
             self.lakehouse.write_to_table(
@@ -213,7 +188,7 @@ class ExtractionLogger:
         return self._log_extraction_config_event(
             config=config,
             execution_id=execution_id,
-            status="running",
+            status=ExecutionStatus.RUNNING,
         )
 
     def log_extraction_config_completion(
@@ -221,15 +196,13 @@ class ExtractionLogger:
         config: ResourceConfig,
         execution_id: str,
         extract_run_id: str,
-        result: ExtractionResult,
     ) -> None:
         """Log the completion of resource extraction"""
         self._log_extraction_config_event(
             config=config,
             execution_id=execution_id,
             extract_run_id=extract_run_id,
-            status="completed",
-            completed_at=result.completed_at,
+            status=ExecutionStatus.COMPLETED,
         )
 
     def log_extraction_config_error(
@@ -238,14 +211,13 @@ class ExtractionLogger:
         execution_id: str,
         extract_run_id: str,
         error_message: str,
-        result: ExtractionResult,
     ) -> None:
         """Log a resource extraction error"""
         self._log_extraction_config_event(
             config=config,
             execution_id=execution_id,
             extract_run_id=extract_run_id,
-            status="failed",
+            status=ExecutionStatus.FAILED,
             error_message=error_message,
         )
 
@@ -260,7 +232,7 @@ class ExtractionLogger:
             config=config,
             execution_id=execution_id,
             extract_run_id=extract_run_id,
-            status="no_data",
+            status=ExecutionStatus.NO_DATA,
         )
 
     def _log_extraction_config_event(
@@ -282,16 +254,13 @@ class ExtractionLogger:
             extract_run_id: The run ID for this resource extraction
         """
         try:
-            # Convert status to string
-            status = str(status)
-
             # Timestamps
             now = datetime.now()
             completed_at = completed_at if completed_at else (
-                now if status in ('completed', 'failed', 'no_data') else None
+                now if status in (ExecutionStatus.COMPLETED, ExecutionStatus.FAILED, ExecutionStatus.NO_DATA) else None
             )
 
-            if status == "running":
+            if status == ExecutionStatus.RUNNING:
                 # Generate new extract_run_id for INSERT
                 extract_run_id = str(uuid.uuid4())
 
@@ -302,7 +271,7 @@ class ExtractionLogger:
                         execution_id,           # master_execution_id
                         config.source_name,     # source_name
                         config.resource_name,   # resource_name
-                        status,
+                        str(status),            # Convert enum to string for Spark
                         error_message,
                         now,                    # started_at
                         now,                    # updated_at
@@ -311,7 +280,7 @@ class ExtractionLogger:
                 ]
 
                 schema = get_extract_resource_schema()
-                log_df = self.spark.createDataFrame(log_data, schema)
+                log_df = self.lakehouse.spark.createDataFrame(log_data, schema)
 
                 self.lakehouse.write_to_table(
                     df=log_df,
@@ -321,7 +290,7 @@ class ExtractionLogger:
             else:
                 # UPDATE existing row with final status (completed/failed/no_data)
                 set_values = {
-                    "status": lit(status),
+                    "status": lit(str(status)),  # Convert enum to string for Spark
                     "updated_at": current_timestamp(),
                     "completed_at": current_timestamp(),
                 }
@@ -344,6 +313,50 @@ class ExtractionLogger:
             return extract_run_id
 
         except Exception as e:
-            logger.warning(f"Failed to log extraction config event ({status}): {e}")
+            logger.warning(f"Failed to log extraction config event ({str(status)}): {e}")
             # Return a generated ID even on error to prevent cascading failures
             return extract_run_id if extract_run_id else str(uuid.uuid4())
+
+    def check_file_already_extracted(
+        self,
+        config: ResourceConfig,
+        filename: str,
+    ) -> bool:
+        """
+        Check if a file has already been successfully extracted (across all partitions/dates).
+
+        Queries log_resource_extract_batch table to see if this filename
+        appears in any completed extraction's destination_path.
+
+        Args:
+            config: Resource configuration
+            filename: File basename to check (e.g., "pe_Item_Ref_20251112.dat")
+
+        Returns:
+            True if file was previously extracted, False otherwise
+        """
+        try:
+            # Check if log table exists
+            if not self.lakehouse.check_if_table_exists("log_resource_extract_batch"):
+                logger.debug("Table 'log_resource_extract_batch' not found - cannot check duplicates")
+                return False
+
+            # Query for any completed extractions with this filename in destination_path
+            # destination_path format: abfss://.../raw/pe/pe_item_ref/ds=2025-11-13/pe_Item_Ref_20251112.dat
+            # Use SQL endswith to match filename at end of path
+            result_df = (
+                self.lakehouse.read_table("log_resource_extract_batch")
+                .filter(col("source_name") == config.source_name)
+                .filter(col("resource_name") == config.resource_name)
+                .filter(col("status") == str(ExecutionStatus.COMPLETED))
+                .filter(col("destination_path").endswith(f"/{filename}"))
+                .limit(1)  # Only need to know if at least one exists
+            )
+
+            # If any rows found, file was already extracted
+            return result_df.count() > 0
+
+        except Exception as e:
+            logger.warning(f"Could not check extraction logs for duplicates: {e}")
+            # On error, return False (allow file through - safer than blocking)
+            return False

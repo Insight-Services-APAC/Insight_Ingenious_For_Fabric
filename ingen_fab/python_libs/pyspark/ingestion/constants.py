@@ -13,6 +13,7 @@ class ExecutionStatus(StrEnum):
     NO_DATA = "no_data"
     DUPLICATE = "duplicate"
     SKIPPED = "skipped"
+    REJECTED = "rejected"
 
 
 class ImportPattern(StrEnum):

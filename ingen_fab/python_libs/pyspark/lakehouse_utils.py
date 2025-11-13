@@ -819,6 +819,8 @@ class lakehouse_utils(DataStoreInterface):
                 reader = reader.option("escape", options["escape_character"])
             if "multiline_values" in options:
                 reader = reader.option("multiLine", str(options["multiline_values"]).lower())
+            if "null_value" in options:
+                reader = reader.option("nullValue", options["null_value"])
             if "ignoreLeadingWhiteSpace" in options:
                 reader = reader.option(
                     "ignoreLeadingWhiteSpace",

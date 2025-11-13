@@ -1,35 +1,19 @@
-"""
-Filesystem utilities using fsspec for multi-filesystem support.
-
-Provides unified interface for OneLake (Fabric) filesystems.
-Uses the ABFSS protocol via fsspec client.
-"""
-
 import os
 import logging
 from typing import List, Dict, Any, Tuple
 from datetime import datetime
+
+# Suppress Fabric fsspec wrapper and related logging (BEFORE imports)
+logging.getLogger("fsspec_wrapper.trident.core").setLevel(logging.WARNING)
+logging.getLogger("fsspec").setLevel(logging.WARNING)
+logging.getLogger("adlfs").setLevel(logging.WARNING)
+
 from fsspec import AbstractFileSystem
 from fsspec.core import url_to_fs
 
 from ingen_fab.python_libs.pyspark.lakehouse_utils import FileInfo
 
 logger = logging.getLogger(__name__)
-
-# Suppress verbose Azure SDK and adlfs logging
-logging.getLogger("azure").setLevel(logging.WARNING)
-logging.getLogger("azure.core").setLevel(logging.WARNING)
-logging.getLogger("azure.core.pipeline").setLevel(logging.WARNING)
-logging.getLogger("azure.core.pipeline.policies").setLevel(logging.WARNING)
-logging.getLogger("azure.identity").setLevel(logging.WARNING)
-logging.getLogger("azure.identity._credentials").setLevel(logging.WARNING)
-logging.getLogger("adlfs").setLevel(logging.WARNING)
-logging.getLogger("adlfs.spec").setLevel(logging.WARNING)
-logging.getLogger("fsspec").setLevel(logging.WARNING)
-logging.getLogger("fsspec.spec").setLevel(logging.WARNING)
-# Suppress adlfs internal connection logs
-logging.getLogger("adlfs.utils").setLevel(logging.WARNING)
-
 
 def build_onelake_url(workspace_name: str, lakehouse_name: str, path: str = "") -> str:
     """

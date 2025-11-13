@@ -1,26 +1,29 @@
-# File Loading Framework - FileLoader (Coordinator)
-# Coordinates file discovery and batch reading
-# Main entry point for the ingestion framework
+# File Loading Framework - FileLoader
+# Manages all file operations for batch processing
 
 import json
 import logging
-import uuid
-from datetime import datetime, timedelta
-from typing import List, Optional, Tuple
+import time
+from datetime import datetime
+from typing import Optional
 
-from pyspark.sql import DataFrame, SparkSession
-from pyspark.sql.functions import col, row_number, lit, current_timestamp
-from pyspark.sql.window import Window
+from pyspark.sql import SparkSession
+from pyspark.sql.functions import col
+from pyspark.sql.types import StructType, StructField, StringType
 
-from ingen_fab.python_libs.common.load_resource_batch_schema import get_load_resource_batch_schema
-from ingen_fab.python_libs.pyspark.ingestion.batch_reader import BatchReader
 from ingen_fab.python_libs.pyspark.ingestion.config import ResourceConfig
-from ingen_fab.python_libs.pyspark.ingestion.file_discovery import FileDiscovery
+from ingen_fab.python_libs.pyspark.ingestion.exceptions import (
+    ErrorContext,
+    FileReadError,
+    SchemaValidationError,
+)
+from ingen_fab.python_libs.pyspark.ingestion.logging_utils import ConfigLoggerAdapter
 from ingen_fab.python_libs.pyspark.ingestion.results import (
     BatchInfo,
+    BatchReadResult,
     ProcessingMetrics,
 )
-from ingen_fab.python_libs.pyspark.lakehouse_utils import FileInfo, lakehouse_utils
+from ingen_fab.python_libs.pyspark.lakehouse_utils import lakehouse_utils
 
 # Configure logging
 logger = logging.getLogger(__name__)
@@ -28,14 +31,15 @@ logger = logging.getLogger(__name__)
 
 class FileLoader:
     """
-    Coordinates file discovery and batch reading.
+    Manages all file operations for batch processing.
 
-    This is the main entry point for file loading. It composes:
-    - FileDiscovery: Finds files/folders and creates BatchInfo objects
-    - BatchReader: Reads batches into DataFrames
+    This class handles:
+    - Reading batch files into DataFrames (CSV, JSON, Parquet, etc.)
+    - Schema handling (custom or inferred)
+    - File quarantine operations
+    - Read metrics tracking
 
-    This class maintains backward compatibility while delegating
-    all work to specialized components.
+    NOTE: Discovery and logging are handled by LoadingOrchestrator and LoadingLogger.
     """
 
     def __init__(
@@ -48,7 +52,7 @@ class FileLoader:
         Initialize FileLoader with configuration.
 
         Args:
-            spark: Spark session for reading files and querying log tables
+            spark: Spark session for reading files
             config: ResourceConfig with file loading settings
             lakehouse_utils_instance: Optional pre-configured lakehouse_utils instance
                                      (if not provided, will create from config)
@@ -56,7 +60,7 @@ class FileLoader:
         self.spark = spark
         self.config = config
 
-        # Store lakehouse_utils for file movements
+        # Get or create lakehouse_utils for file operations
         if lakehouse_utils_instance:
             self.lakehouse = lakehouse_utils_instance
         else:
@@ -75,10 +79,6 @@ class FileLoader:
                 spark=spark,
             )
 
-        # Initialize components
-        self.discovery = FileDiscovery(spark, config, self.lakehouse)
-        self.reader = BatchReader(spark, config, self.lakehouse)
-
         # Configure logging if not already configured
         if not logging.getLogger().handlers:
             logging.basicConfig(
@@ -87,236 +87,226 @@ class FileLoader:
                 force=True
             )
 
-    @property
-    def last_duplicate_items(self) -> List[FileInfo]:
-        """
-        Get list of duplicate items from last discovery operation.
+        # Create logger adapter with resource context
+        self.logger = ConfigLoggerAdapter(logger, {
+            'source_name': self.config.source_name,
+            'config_name': self.config.resource_name,
+        })
 
-        Forwards to FileDiscovery component.
-        """
-        return self.discovery.last_duplicate_items
+    def _count_corrupt_records(self, df) -> int:
+        """Count corrupt records in DataFrame"""
+        return df.filter(col("_corrupt_record").isNotNull()).count()
 
-    def _recover_stale_batches(self) -> None:
-        """
-        Find processing batches older than threshold and reset them to pending.
+    def _count_duplicates(self, df) -> int:
+        """Count duplicate records on merge keys"""
+        if not self.config.merge_keys:
+            return 0
 
-        This is crash recovery - finds batches stuck in "processing" status
-        from a previous crashed run and marks them for retry.
+        return (
+            df.groupBy(*self.config.merge_keys)
+            .count()
+            .filter(col("count") > 1)
+            .count()
+        )
+
+    def _read_dataframe(self, batch_info: BatchInfo, file_format: str, options: dict):
+        """Read batch files into DataFrame and cache for validation"""
+        if len(batch_info.file_paths) == 1:
+            # Single file or folder
+            df = self.lakehouse.read_file(
+                file_path=batch_info.file_paths[0],
+                file_format=file_format,
+                options=options,
+            )
+        else:
+            # Multiple files - use Spark batch read
+            reader = self.spark.read.format(file_format.lower())
+
+            if "schema" in options:
+                reader = reader.schema(options["schema"])
+
+            # Apply corrupt record tracking options (must be applied for all formats)
+            if "columnNameOfCorruptRecord" in options:
+                reader = reader.option("columnNameOfCorruptRecord", options["columnNameOfCorruptRecord"])
+            if "mode" in options:
+                reader = reader.option("mode", options["mode"])
+
+            # Apply CSV options - translate human-readable names to Spark option names
+            if file_format.lower() == "csv":
+                if "has_header" in options:
+                    reader = reader.option("header", str(options["has_header"]).lower())
+                if "file_delimiter" in options:
+                    reader = reader.option("sep", options["file_delimiter"])
+                if "encoding" in options:
+                    reader = reader.option("encoding", options["encoding"])
+                if "quote_character" in options:
+                    reader = reader.option("quote", options["quote_character"])
+                if "escape_character" in options:
+                    reader = reader.option("escape", options["escape_character"])
+                if "multiline_values" in options:
+                    reader = reader.option("multiLine", str(options["multiline_values"]).lower())
+                if "inferSchema" in options:
+                    reader = reader.option("inferSchema", str(options["inferSchema"]).lower())
+
+            df = reader.load(batch_info.file_paths)
+
+        # Cache DataFrame before querying _corrupt_record (required by Spark 2.3+)
+        df.cache()
+        return df
+
+    def read_batch(self, batch_info: BatchInfo) -> BatchReadResult:
         """
+        Read batch files into DataFrame with quality checks.
+
+        Args:
+            batch_info: BatchInfo describing what to read
+
+        Returns:
+            BatchReadResult with status ("success" | "rejected"), df, metrics, and optional rejection reason
+        """
+        read_start = time.time()
+        metrics = ProcessingMetrics()
+
         try:
-            # Check if log table exists
-            self.spark.sql("DESCRIBE TABLE log_resource_load_batch")
-        except Exception:
-            # Log table doesn't exist yet - nothing to recover
-            logger.info("Log table 'log_resource_load_batch' not found, skipping stale batch recovery")
-            return
+            # Validate file_format
+            if not self.config.file_format:
+                raise ValueError("file_format is required")
 
-        try:
-            # Find stale batches (processing for more than 1 hour)
-            threshold_time = datetime.now() - timedelta(hours=1)
+            file_format = self.config.file_format
 
-            # Get latest status for each batch (using load_batch_id from schema)
-            window_spec = Window.partitionBy("load_batch_id").orderBy(col("started_at").desc())
+            # Get file reading options and read DataFrame
+            options = self._get_file_read_options()
+            df = self._read_dataframe(batch_info, file_format, options)
 
-            stale_batches_df = (
-                self.lakehouse.read_table("log_resource_load_batch")
-                .filter(col("source_name") == self.config.source_name)
-                .filter(col("resource_name") == self.config.resource_name)
-                .withColumn("rn", row_number().over(window_spec))
-                .filter(col("rn") == 1)
-                .filter(col("status") == "processing")
-                .filter(col("started_at") < threshold_time)
+            # Validate corrupt records
+            corrupt_count = self._count_corrupt_records(df)
+            if corrupt_count > self.config.corrupt_record_tolerance:
+                # Exceed tolerance - reject batch
+                read_end = time.time()
+                metrics.read_duration_ms = int((read_end - read_start) * 1000)
+                metrics.corrupt_records_count = corrupt_count
+                df.unpersist()
+
+                return BatchReadResult(
+                    status="rejected",
+                    rejection_reason=f"Corrupt record count ({corrupt_count}) exceeds tolerance ({self.config.corrupt_record_tolerance})",
+                    corrupt_count=corrupt_count,
+                    metrics=metrics,
+                )
+
+            # Clean corrupt records (if within tolerance)
+            if corrupt_count > 0:
+                self.logger.warning(
+                    f"Found {corrupt_count} corrupt record(s) (within tolerance {self.config.corrupt_record_tolerance}), dropping them"
+                )
+                df = df.filter(col("_corrupt_record").isNull())
+
+            # Drop the corrupt record column (not needed in target)
+            if "_corrupt_record" in df.columns:
+                df = df.drop("_corrupt_record")
+
+            # Remove full duplicate rows
+            df = df.distinct()
+
+            # Validate duplicates on merge keys
+            duplicate_count = self._count_duplicates(df)
+            if duplicate_count > 0:
+                # Reject - no tolerance for duplicates
+                read_end = time.time()
+                metrics.read_duration_ms = int((read_end - read_start) * 1000)
+                metrics.source_row_count = df.count()
+                df.unpersist()
+
+                return BatchReadResult(
+                    status="rejected",
+                    rejection_reason=f"Found {duplicate_count} duplicate record(s) on merge keys {self.config.merge_keys}",
+                    metrics=metrics,
+                )
+
+            # Track validation metrics
+            metrics.corrupt_records_count = corrupt_count
+
+            # Calculate metrics
+            read_end = time.time()
+            metrics.read_duration_ms = int((read_end - read_start) * 1000)
+            metrics.source_row_count = df.count()
+            metrics.records_processed = metrics.source_row_count
+
+            # Unpersist cached DataFrame before returning (free memory)
+            df.unpersist()
+
+            return BatchReadResult(
+                status="success",
+                df=df,
+                metrics=metrics,
+                corrupt_count=corrupt_count,
             )
 
-            stale_batches = stale_batches_df.collect()
-
-            if stale_batches:
-                logger.warning(f"Found {len(stale_batches)} stale batch(es), resetting to pending")
-
-                for row in stale_batches:
-                    now = datetime.now()
-                    # INSERT new row with status='pending' for recovery with all 30 schema fields
-                    recovery_data = [(
-                        row.load_batch_id if hasattr(row, 'load_batch_id') else row.load_id,  # 1. load_batch_id
-                        "",                                       # 2. load_run_id (empty string for non-nullable field)
-                        "",                                       # 3. master_execution_id (empty string for non-nullable field)
-                        row.extract_batch_id if hasattr(row, 'extract_batch_id') else None,  # 4. extract_batch_id
-                        self.config.source_name,                  # 5. source_name
-                        self.config.resource_name,                # 6. resource_name
-                        "pending",                                # 7. status (recovered)
-                        row.source_file_path,                     # 8. source_file_path
-                        row.source_file_size_bytes if hasattr(row, 'source_file_size_bytes') else None,  # 9. source_file_size_bytes
-                        row.source_file_modified_time if hasattr(row, 'source_file_modified_time') else None,  # 10. source_file_modified_time
-                        (row.target_table_name if hasattr(row, 'target_table_name') else self.config.target_table) or "",  # 11. target_table_name
-                        None,                                     # 12. records_processed
-                        None,                                     # 13. records_inserted
-                        None,                                     # 14. records_updated
-                        None,                                     # 15. records_deleted
-                        None,                                     # 16. source_row_count
-                        None,                                     # 17. target_row_count_before
-                        None,                                     # 18. target_row_count_after
-                        None,                                     # 19. row_count_reconciliation_status
-                        0,                                        # 20. corrupt_records_count
-                        None,                                     # 21. data_read_duration_ms
-                        None,                                     # 22. total_duration_ms
-                        "Recovered from stale processing state",  # 23. error_message
-                        None,                                     # 24. execution_duration_seconds
-                        None,                                     # 25. filename_attributes_json
-                        now,                                      # 27. started_at
-                        now,                                      # 28. updated_at
-                        None,                                     # 29. completed_at
-                        (row.attempt_count + 1) if hasattr(row, 'attempt_count') else 1,  # 30. attempt_count (increment)
-                    )]
-
-                    recovery_df = self.spark.createDataFrame(recovery_data, get_load_resource_batch_schema())
-
-                    self.lakehouse.write_to_table(
-                        df=recovery_df,
-                        table_name="log_resource_load_batch",
-                        mode="append",
-                    )
-                    logger.info(f"Reset batch {row.load_batch_id if hasattr(row, 'load_batch_id') else row.load_id} to pending")
-            else:
-                logger.info("No stale batches found")
-
         except Exception as e:
-            logger.warning(f"Error during stale batch recovery: {e}")
+            read_end = time.time()
+            metrics.read_duration_ms = int((read_end - read_start) * 1000)
 
-    def _start_batch(self, batch_info: BatchInfo, execution_id: str, load_run_id: str) -> None:
+            # Get file path for context
+            file_path = batch_info.file_paths[0] if batch_info.file_paths else "unknown"
+
+            # Check if this is a schema validation error (user config issue)
+            error_str = str(e).lower()
+            is_schema_error = (
+                "schema" in error_str
+                or "decimal scale" in error_str
+                or "decimal precision" in error_str
+                or "parsedatatype" in error_str
+                or ("cannot be greater than precision" in error_str)
+            )
+
+            if is_schema_error:
+                # Schema errors are user config issues - log cleanly without stack trace
+                self.logger.error(f"Schema validation failed: {e}")
+
+                raise SchemaValidationError(
+                    message=f"Schema validation failed for {self.config.resource_name}",
+                    context=ErrorContext(
+                        resource_name=self.config.resource_name,
+                        source_name=self.config.source_name,
+                        batch_id=batch_info.batch_id,
+                        file_path=file_path,
+                        operation="read_batch",
+                        additional_info={
+                            "file_format": self.config.file_format,
+                            "schema_error": str(e),
+                        },
+                    ),
+                ) from e
+            else:
+                # System errors - log with full stack trace
+                self.logger.exception(f"Failed to read batch: {e}")
+
+                raise FileReadError(
+                    message=f"Failed to read batch {batch_info.batch_id}",
+                    context=ErrorContext(
+                        resource_name=self.config.resource_name,
+                        source_name=self.config.source_name,
+                        batch_id=batch_info.batch_id,
+                        file_path=file_path,
+                        operation="read_batch",
+                        additional_info={
+                            "file_format": self.config.file_format,
+                            "import_mode": self.config.import_mode,
+                        },
+                    ),
+                ) from e
+
+    def quarantine_batch(self, batch_info: BatchInfo, error_message: str) -> None:
         """
-        Mark batch as processing in log table (INSERT new row).
+        Move failed batch files to quarantine directory.
 
-        Args:
-            batch_info: Batch to start processing
-            execution_id: Master execution ID from orchestrator
-            load_run_id: Load run ID from orchestrator (FK to log_resource_load)
-        """
-        now = datetime.now()
-
-        # Get source file path from batch
-        source_file_path = batch_info.file_paths[0] if batch_info.file_paths else "unknown"
-
-        # INSERT to log_resource_load_batch with all 30 schema fields
-        log_data = [(
-            batch_info.batch_id,                      # 1. load_batch_id
-            load_run_id,                              # 2. load_run_id (FK to log_resource_load)
-            execution_id,                             # 3. master_execution_id
-            batch_info.extract_batch_id,              # 4. extract_batch_id
-            self.config.source_name,                  # 5. source_name
-            self.config.resource_name,                # 6. resource_name
-            "processing",                             # 7. status
-            source_file_path,                         # 8. source_file_path
-            batch_info.size_bytes,                    # 9. source_file_size_bytes
-            batch_info.modified_time,                 # 10. source_file_modified_time
-            self.config.target_table or "",           # 11. target_table_name
-            None,                                     # 12. records_processed (running)
-            None,                                     # 13. records_inserted
-            None,                                     # 14. records_updated
-            None,                                     # 15. records_deleted
-            None,                                     # 16. source_row_count
-            None,                                     # 17. target_row_count_before
-            None,                                     # 18. target_row_count_after
-            None,                                     # 19. row_count_reconciliation_status
-            0,                                        # 20. corrupt_records_count
-            None,                                     # 21. data_read_duration_ms
-            None,                                     # 22. total_duration_ms
-            None,                                     # 23. error_message
-            None,                                     # 24. execution_duration_seconds
-            None,                                     # 25. filename_attributes_json
-            now,                                      # 26. started_at
-            now,                                      # 27. updated_at
-            None,                                     # 28. completed_at
-            1,                                        # 29. attempt_count
-        )]
-
-        log_df = self.spark.createDataFrame(log_data, get_load_resource_batch_schema())
-
-        self.lakehouse.write_to_table(
-            df=log_df,
-            table_name="log_resource_load_batch",
-            mode="append",
-        )
-        logger.debug(f"Started batch {batch_info.batch_id}")
-
-    def _complete_batch(self, batch_info: BatchInfo, metrics: ProcessingMetrics) -> None:
-        """
-        Mark batch as completed in logs (UPDATE existing row).
-
-        Files STAY in raw_landing_path (no archiving) to enable easy replay.
-        To replay: UPDATE log_extract_batch SET load_state = 'pending' WHERE extraction_id = '...'
-
-        Args:
-            batch_info: Batch that completed successfully
-            metrics: Processing metrics from the batch
-        """
-        # Calculate execution duration
-        execution_duration_seconds = None
-        if metrics.total_duration_ms:
-            execution_duration_seconds = int(metrics.total_duration_ms / 1000)
-
-        # UPDATE existing row with completion metrics
-        # Use partition keys (source_name, resource_name) for partition isolation
-        set_values = {
-            "status": lit("completed"),
-            "records_processed": lit(metrics.records_processed or 0),
-            "records_inserted": lit(metrics.records_inserted or 0),
-            "records_updated": lit(metrics.records_updated or 0),
-            "records_deleted": lit(metrics.records_deleted or 0),
-            "source_row_count": lit(metrics.source_row_count or 0),
-            "target_row_count_before": lit(metrics.target_row_count_before or 0),
-            "target_row_count_after": lit(metrics.target_row_count_after or 0),
-            "updated_at": current_timestamp(),
-            "completed_at": current_timestamp(),
-        }
-
-        # Add optional fields only if they have values
-        if metrics.row_count_reconciliation_status:
-            set_values["row_count_reconciliation_status"] = lit(metrics.row_count_reconciliation_status)
-        if metrics.read_duration_ms:
-            set_values["data_read_duration_ms"] = lit(metrics.read_duration_ms)
-        if metrics.total_duration_ms:
-            set_values["total_duration_ms"] = lit(metrics.total_duration_ms)
-        if execution_duration_seconds:
-            set_values["execution_duration_seconds"] = lit(execution_duration_seconds)
-
-        self.lakehouse.update_table(
-            table_name="log_resource_load_batch",
-            condition=(
-                (col("load_batch_id") == batch_info.batch_id) &
-                (col("source_name") == self.config.source_name) &
-                (col("resource_name") == self.config.resource_name)
-            ),
-            set_values=set_values,
-        )
-
-        logger.debug(f"Completed batch {batch_info.batch_id} - files remain in {self.config.raw_landing_path}")
-
-    def _fail_batch(self, batch_info: BatchInfo, error: Exception) -> None:
-        """
-        Mark batch as failed and move files to quarantine (UPDATE existing row).
+        This is a file management operation (not logging). Call this after logging
+        the batch failure via LoadingLogger.log_batch_error().
 
         Args:
             batch_info: Batch that failed
-            error: Exception that caused the failure
+            error_message: Error message describing why the batch failed
         """
-        error_message = str(error)
-
-        # UPDATE existing row with failure status
-        # Use partition keys (source_name, resource_name) for partition isolation
-        self.lakehouse.update_table(
-            table_name="log_resource_load_batch",
-            condition=(
-                (col("load_batch_id") == batch_info.batch_id) &
-                (col("source_name") == self.config.source_name) &
-                (col("resource_name") == self.config.resource_name)
-            ),
-            set_values={
-                "status": lit("failed"),
-                "error_message": lit(error_message),
-                "updated_at": current_timestamp(),
-                "completed_at": current_timestamp(),
-            },
-        )
 
         # Move files from landing to quarantine
         landing_base = self.config.raw_landing_path.rstrip('/')
@@ -358,8 +348,8 @@ class FileLoader:
                 metadata_json = json.dumps(error_metadata, indent=2)
 
                 # Write error metadata (would need to implement this via spark)
-                # For now, just log it
-                logger.error(f"Error metadata: {metadata_json}")
+                # For now, just log it at debug level
+                logger.debug(f"Error metadata: {metadata_json}")
             else:
                 logger.warning(f"Failed to move file to quarantine: {file_path}")
 
@@ -370,60 +360,48 @@ class FileLoader:
                 self.config.raw_landing_path
             )
 
-        logger.error(f"Failed batch {batch_info.batch_id}: {error_message}")
+        logger.info(f"Quarantined batch {batch_info.batch_id}: {error_message}")
 
-    def discover_and_read_files(self) -> List[Tuple[BatchInfo, DataFrame, ProcessingMetrics]]:
-        """
-        Main entry point: discover files from raw layer and read them into DataFrames.
+    def _get_file_read_options(self) -> dict:
+        """Build file reading options from configuration"""
+        options = {}
 
-        NOTE: This is a backward-compatibility method. Prefer using LoadingOrchestrator.
-        Since this bypasses the orchestrator, it generates its own execution_id and load_run_id.
+        if not self.config.file_format:
+            return options
 
-        Returns:
-            List of (BatchInfo, DataFrame, ProcessingMetrics) tuples
-        """
-        # Generate IDs for this direct call (bypassing orchestrator)
-        execution_id = str(uuid.uuid4())
-        load_run_id = str(uuid.uuid4())
-        logger.warning("discover_and_read_files() called directly - prefer using LoadingOrchestrator")
+        if self.config.file_format.lower() == "csv":
+            # For filesystem sources, get CSV params from extraction_params
+            # For other sources (already in raw), they may be in loading_params
+            if self.config.source_config.source_type == "filesystem":
+                params = self.config.extraction_params
+            else:
+                params = self.config.loading_params
 
-        # Step 0: Recover any stale batches from previous crashed runs
-        self._recover_stale_batches()
+            # Pass through human-readable names (translation to Spark names happens in lakehouse_utils)
+            options["has_header"] = params.get("has_header", True)
+            options["file_delimiter"] = params.get("file_delimiter", ",")
+            options["encoding"] = params.get("encoding", "utf-8")
+            options["quote_character"] = params.get("quote_character", '"')
+            options["escape_character"] = params.get("escape_character", "\\")
+            options["multiline_values"] = params.get("multiline_values", True)
+            options["null_value"] = params.get("null_value", "")
 
-        # Step 1: Discover files from raw layer
-        discovered_batches = self.discovery.discover()
+            # Schema handling
+            if self.config.custom_schema_json:
+                schema_dict = json.loads(self.config.custom_schema_json)
+                schema = StructType.fromJson(schema_dict)
 
-        if not discovered_batches:
-            return []
+                # Append corrupt record column if not already present
+                # (required when using columnNameOfCorruptRecord with explicit schema)
+                if "_corrupt_record" not in [field.name for field in schema.fields]:
+                    schema = schema.add(StructField("_corrupt_record", StringType(), True))
 
-        # Step 2: Read each discovered batch with lifecycle management
-        results = []
-        for batch_info in discovered_batches:
-            try:
-                # Mark batch as processing
-                self._start_batch(batch_info, execution_id, load_run_id)
+                options["schema"] = schema
+            else:
+                options["inferSchema"] = True
 
-                # Read the batch
-                df, metrics = self.reader.read_batch(batch_info)
+        # Enable corrupt record tracking (Spark PERMISSIVE mode - works for all formats)
+        options["columnNameOfCorruptRecord"] = "_corrupt_record"
+        options["mode"] = "PERMISSIVE"
 
-                # Add to results (completion happens in orchestrator after bronze write)
-                results.append((batch_info, df, metrics))
-
-            except Exception as e:
-                # Mark batch as failed and move to quarantine
-                self._fail_batch(batch_info, e)
-                logger.error(f"Batch {batch_info.batch_id} failed: {e}")
-                # Continue processing other batches
-
-        return results
-
-    def discover_files(self) -> List[BatchInfo]:
-        """
-        Discover files based on configuration.
-
-        Delegates to FileDiscovery component.
-
-        Returns:
-            List of BatchInfo objects representing discovered batches
-        """
-        return self.discovery.discover()
+        return options

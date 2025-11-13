@@ -6,7 +6,14 @@
       "WebSearch",
       "WebFetch(domain:dlthub.com)",
       "Bash(git config:*)",
-      "Read(//home/dandical/.ssh/**)"
+      "Read(//home/dandical/.ssh/**)",
+      "Bash(source:*)",
+      "Bash(python:*)",
+      "Bash(python3:*)",
+      "Bash(while read f)",
+      "Bash(do echo \"=== $f ===\")",
+      "Bash(head:*)",
+      "Bash(done)"
     ],
     "deny": [],
     "ask": []
