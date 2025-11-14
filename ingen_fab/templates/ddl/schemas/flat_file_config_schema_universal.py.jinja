@@ -68,7 +68,6 @@ schema = StructType([
     StructField("duplicate_handling", StringType(), nullable=True),  # 'skip', 'allow', 'fail' (default: 'skip')
     # Validation
     StructField("require_files", BooleanType(), nullable=True),  # If True, fail config when no files are found (default: False)
-    # Control file settings
-    StructField("require_control_file", BooleanType(), nullable=True),  # If True, only process files with control files (default: False)
+    # Control file settings (validation enabled when pattern is set)
     StructField("control_file_pattern", StringType(), nullable=True),  # Pattern: "{basename}.CTL" (per-file) or "_SUCCESS" (per-folder, auto-detected)
 ])

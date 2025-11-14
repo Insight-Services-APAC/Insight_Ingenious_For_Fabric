@@ -196,7 +196,7 @@ class PythonFlatFileProcessor(FlatFileProcessorInterface):
             # Convert pandas DataFrame to format suitable for warehouse_utils
             # This depends on the specific warehouse_utils implementation
 
-            if config.write_mode == "overwrite":
+            if config.target_write_mode == "overwrite":
                 # Truncate table first
                 truncate_query = f"TRUNCATE TABLE {config.target_schema_name}.{config.target_table_name}"
                 self.warehouse_utils.execute_query(truncate_query)
@@ -222,10 +222,10 @@ class PythonFlatFileProcessor(FlatFileProcessorInterface):
             write_end = time.time()
             metrics.write_duration_ms = int((write_end - write_start) * 1000)
 
-            if config.write_mode == "overwrite":
+            if config.target_write_mode == "overwrite":
                 metrics.records_inserted = metrics.target_row_count_after
                 metrics.records_deleted = metrics.target_row_count_before
-            elif config.write_mode == "append":
+            elif config.target_write_mode == "append":
                 metrics.records_inserted = (
                     metrics.target_row_count_after - metrics.target_row_count_before
                 )
@@ -233,7 +233,7 @@ class PythonFlatFileProcessor(FlatFileProcessorInterface):
             print(f"Wrote data to {table_name} in {metrics.write_duration_ms}ms")
 
             return ProcessingMetricsUtils.calculate_performance_metrics(
-                metrics, config.write_mode
+                metrics, config.target_write_mode
             )
 
         except Exception as e:
@@ -415,7 +415,7 @@ class PythonFlatFileIngestionOrchestrator(FlatFileIngestionOrchestrator):
             print(f"Source: {config.source_file_path}")
             print(f"Target: {config.target_schema_name}.{config.target_table_name}")
             print(f"Format: {config.source_file_format}")
-            print(f"Write Mode: {config.write_mode}")
+            print(f"Write Mode: {config.target_write_mode}")
 
             # Validate configuration
             validation_errors = ConfigurationUtils.validate_config(config)
@@ -493,7 +493,7 @@ class PythonFlatFileIngestionOrchestrator(FlatFileIngestionOrchestrator):
             # Aggregate metrics
             if all_metrics:
                 result["metrics"] = ProcessingMetricsUtils.merge_metrics(
-                    all_metrics, config.write_mode
+                    all_metrics, config.target_write_mode
                 )
                 result["status"] = "completed"
 

@@ -86,8 +86,7 @@ class FlatFileIngestionConfig:
     # Validation
     require_files: bool = False
 
-    # Control file settings
-    require_control_file: bool = False
+    # Control file settings (validation enabled when pattern is set)
     control_file_pattern: Optional[str] = None  # e.g., "{basename}.CTL", "_SUCCESS"
 
     def __post_init__(self):
@@ -184,8 +183,7 @@ class FlatFileIngestionConfig:
             date_range_end=config_row.get("date_range_end"),
             duplicate_handling=config_row.get("duplicate_handling", "skip"),
             require_files=config_row.get("require_files", False),
-            # Control file settings
-            require_control_file=config_row.get("require_control_file", False),
+            # Control file settings (validation enabled when pattern is set)
             control_file_pattern=config_row.get("control_file_pattern"),
         )
 

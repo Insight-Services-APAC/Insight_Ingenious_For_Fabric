@@ -39,6 +39,7 @@ class BatchInfo:
 
     # Source info (flexible for different batch types)
     file_paths: List[str] = field(default_factory=list)  # For file loading: list of file paths
+    destination_path: Optional[str] = None  # Full path with Hive partitions (e.g., abfss://.../ds=2025-11-14/file.csv)
 
     # Metadata
     size_bytes: int = 0

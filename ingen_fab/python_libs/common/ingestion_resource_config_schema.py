@@ -169,7 +169,6 @@ def row_to_resource_config(row) -> ResourceConfig:
             "recursive",
             "has_header",
             "multiline_values",
-            "require_control_file",
             "require_files",
             "enable_archive",
             "cleanup_empty_dirs",

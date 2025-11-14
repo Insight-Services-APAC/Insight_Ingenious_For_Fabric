@@ -361,8 +361,8 @@ class ExtractionOrchestrator:
         if source_type == "filesystem":
             return FileSystemExtractor(
                 resource_config=config,
-                logger_instance=logger_instance,
                 extraction_logger=self.extraction_logger,
+                logger_instance=logger_instance,
             )
         elif source_type == "api":
             raise NotImplementedError(

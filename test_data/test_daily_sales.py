@@ -57,7 +57,6 @@ extraction_params = FileSystemExtractionParams(
     multiline_values=True,
 
     # Validation
-    require_control_file=False,
     duplicate_handling="skip",  # Skip already processed files
     require_files=False,  # Don't fail if no files (default: False)
 

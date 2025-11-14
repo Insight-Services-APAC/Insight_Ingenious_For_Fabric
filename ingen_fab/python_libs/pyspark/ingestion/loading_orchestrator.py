@@ -79,9 +79,9 @@ class LoadingOrchestrator:
     - Error handling
     - Metrics aggregation
 
-    File Management (Quarantine-Only Pattern):
+    File Management (Replay-Friendly Pattern):
     - Successful loads: Files STAY in raw_landing_path (no archiving!)
-    - Failed loads: Files move to raw_quarantined_path (corrupt/invalid files only)
+    - Failed loads: Files STAY in raw_landing_path for manual intervention
     - This enables easy replay by resetting load_state to 'pending'
 
     Replay Workflow:
@@ -162,6 +162,7 @@ class LoadingOrchestrator:
                 batch_id=str(uuid.uuid4()),
                 extract_batch_id=row.extract_batch_id,
                 file_paths=[row.destination_path],
+                destination_path=row.destination_path,
                 size_bytes=row.file_size_bytes or 0,
                 modified_time=row.completed_at,
             )
@@ -400,7 +401,7 @@ class LoadingOrchestrator:
             target_full = f"{config.target_schema}.{config.target_table}" if config.target_schema else config.target_table
             config_logger.info(
                 f"Raw: {config.raw_landing_path} → Target: {target_full} "
-                f"({config.file_format}, {config.write_mode})"
+                f"({config.file_format}, {config.target_write_mode})"
             )
 
             # Create FileLoader instance
@@ -513,8 +514,43 @@ class LoadingOrchestrator:
                     batch_info
                 )
 
-                # Step 2: Read file into DataFrame
-                read_result = ctx.file_loader.read_batch(batch_info)
+                # Step 2a: Load files to raw table (no validation)
+                raw_result = ctx.file_loader.load_files_to_raw_table(batch_info)
+
+                # Check for Step 1 failure (system error)
+                if raw_result.status == "failed":
+                    error_message = raw_result.rejection_reason or "Unknown error"
+                    ctx.config_logger.error(f"Failed to load files to raw table: {error_message}")
+
+                    # Log batch error
+                    self.logger_instance.log_batch_error(
+                        ctx.config,
+                        ctx.execution_id,
+                        ctx.load_run_id,
+                        batch_info.batch_id,
+                        error_message,
+                        batch_info
+                    )
+
+                    batches_failed += 1
+                    # Stop processing - this is a system failure
+                    raise WriteError(
+                        message=f"Failed to load files to raw table: {error_message}",
+                        context=ErrorContext(
+                            resource_name=ctx.config.resource_name,
+                            source_name=ctx.config.source_name,
+                            batch_id=batch_info.batch_id,
+                            file_path=batch_info.file_paths[0] if batch_info.file_paths else "unknown",
+                            operation="load_files_to_raw_table",
+                        ),
+                    )
+
+                # Log Step 1 success
+                raw_rows = raw_result.metrics.source_row_count
+                ctx.config_logger.info(f"Step 1/2: Loaded {raw_rows:,} rows to raw table")
+
+                # Step 2b: Load from raw table to target (with validation)
+                read_result = ctx.file_loader.load_raw_table_to_target(batch_info)
 
                 # Check for rejection (data quality issue - fail fast to maintain data continuity)
                 if read_result.status == "rejected":
@@ -533,7 +569,7 @@ class LoadingOrchestrator:
                     )
 
                     # Log with clean INFO message (no stack trace)
-                    ctx.config_logger.info(f"Batch rejected: {file_name}")
+                    ctx.config_logger.info(f"Step 2/2: Batch rejected: {file_name}")
                     ctx.config_logger.info(f"Reason: {rejection_reason}")
                     ctx.config_logger.info(f"Action: File remains in landing - fix required before retry")
 
@@ -546,7 +582,7 @@ class LoadingOrchestrator:
                             source_name=ctx.config.source_name,
                             batch_id=batch_info.batch_id,
                             file_path=batch_info.file_paths[0] if batch_info.file_paths else "unknown",
-                            operation="read_batch",
+                            operation="load_raw_table_to_target",
                             additional_info={"rejection_reason": rejection_reason},
                         ),
                     )
@@ -554,6 +590,10 @@ class LoadingOrchestrator:
                 # Success path - extract DataFrame and metrics
                 df = read_result.df
                 read_metrics = read_result.metrics
+
+                # Log Step 2 success
+                validated_rows = read_metrics.source_row_count
+                ctx.config_logger.info(f"Step 2/2: Validated {validated_rows:,} rows from raw table")
 
                 # Step 3: Add ingestion metadata to DataFrame
                 load_id = batch_info.batch_id
@@ -750,7 +790,7 @@ class LoadingOrchestrator:
         # Aggregate metrics if we have any
         if all_metrics:
             result.metrics = ProcessingMetricsUtils.merge_metrics(
-                all_metrics, config.write_mode
+                all_metrics, config.target_write_mode
             )
 
             end_time = time.time()
@@ -818,16 +858,16 @@ class LoadingOrchestrator:
         """
         metrics = ProcessingMetrics()
 
-        config_logger.info(f"Executing merge with keys: {config.merge_keys}")
+        config_logger.info(f"Executing merge with keys: {config.target_merge_keys}")
 
         merge_result = target_utils.merge_to_table(
             df=df,
             table_name=config.target_table,
-            merge_keys=config.merge_keys,
+            merge_keys=config.target_merge_keys,
             schema_name=config.target_schema,
             immutable_columns=["_raw_created_at"],
             enable_schema_evolution=config.enable_schema_evolution,
-            partition_by=config.partition_columns,
+            partition_by=config.target_partition_columns,
             soft_delete_enabled=config.soft_delete_enabled,
             cdc_config=config.cdc_config,
         )
@@ -877,9 +917,9 @@ class LoadingOrchestrator:
             df=df,
             table_name=config.target_table,
             schema_name=config.target_schema,
-            mode=config.write_mode,
+            mode=config.target_write_mode,
             options=write_options,
-            partition_by=config.partition_columns,
+            partition_by=config.target_partition_columns,
         )
 
         # Get after count
@@ -889,10 +929,10 @@ class LoadingOrchestrator:
         config_logger.debug(f"Target table row count after write: {metrics.target_row_count_after}")
 
         # Calculate inserted/deleted
-        if config.write_mode == WriteMode.OVERWRITE:
+        if config.target_write_mode == WriteMode.OVERWRITE:
             metrics.records_inserted = metrics.target_row_count_after
             metrics.records_deleted = metrics.target_row_count_before
-        elif config.write_mode == WriteMode.APPEND:
+        elif config.target_write_mode == WriteMode.APPEND:
             metrics.records_inserted = (
                 metrics.target_row_count_after - metrics.target_row_count_before
             )
@@ -927,7 +967,7 @@ class LoadingOrchestrator:
 
         try:
             # Delegate to specialized write method based on mode
-            if config.write_mode.lower() == WriteMode.MERGE:
+            if config.target_write_mode.lower() == WriteMode.MERGE:
                 metrics = self._write_merge(df, config, target_utils, config_logger)
             else:
                 metrics = self._write_overwrite_or_append(df, config, target_utils, config_logger)
@@ -936,7 +976,7 @@ class LoadingOrchestrator:
             metrics.write_duration_ms = int((write_end - write_start) * 1000)
 
             return ProcessingMetricsUtils.calculate_performance_metrics(
-                metrics, config.write_mode
+                metrics, config.target_write_mode
             )
 
         except Exception as e:
@@ -950,7 +990,7 @@ class LoadingOrchestrator:
                     operation="write_to_target",
                     additional_info={
                         "table": f"{config.target_schema}.{config.target_table}",
-                        "write_mode": config.write_mode,
+                        "write_mode": config.target_write_mode,
                     },
                 ),
             ) from e

@@ -7,7 +7,7 @@ import re
 import time
 import uuid
 from datetime import datetime
-from typing import Generator, List, Optional
+from typing import Generator, List
 
 from ingen_fab.python_libs.pyspark.ingestion.config import (
     FileSystemExtractionParams,
@@ -20,6 +20,7 @@ from ingen_fab.python_libs.pyspark.ingestion.exceptions import (
     ErrorContext,
     ExtractionError,
 )
+from ingen_fab.python_libs.pyspark.ingestion.extraction_logger import ExtractionLogger
 from ingen_fab.python_libs.pyspark.ingestion.results import BatchExtractionResult
 from ingen_fab.python_libs.common.fsspec_utils import (
     get_filesystem_client,
@@ -112,23 +113,19 @@ class FileSystemExtractor:
     def __init__(
         self,
         resource_config: ResourceConfig,
+        extraction_logger: ExtractionLogger,
         logger_instance=None,  # Optional context-aware logger
-        extraction_logger=None,  # REQUIRED extraction logger for duplicate checking
     ):
         """
         Initialize FileSystemExtractor.
 
         Args:
             resource_config: Resource configuration
+            extraction_logger: Extraction logger for querying log tables (required)
             logger_instance: Optional logger instance with resource context (ConfigLoggerAdapter)
-            extraction_logger: Extraction logger for querying log tables (REQUIRED)
         """
         self.config = resource_config
         self.extraction_logger = extraction_logger
-
-        # Validate required dependencies
-        if self.extraction_logger is None:
-            raise ValueError("extraction_logger is required for duplicate detection")
 
         # Parse extraction params
         if isinstance(resource_config.extraction_params, dict):
@@ -412,9 +409,9 @@ class FileSystemExtractor:
         Otherwise, recursively searches all folders.
 
         Configuration examples:
-        - partition_depth=3, date_regex=r"(\d{4})/(\d{2})/(\d{2})" → Day-level (YYYY/MM/DD)
-        - partition_depth=4, date_regex=r"(\d{4})/(\d{2})/(\d{2})/(\d{2})" → Hour-level (YYYY/MM/DD/HH)
-        - partition_depth=5, date_regex=r"(\d{4})/(\d{2})/(\d{2})/(\d{2})/(\d{2})" → Minute-level
+        - partition_depth=3 → Day-level folders (e.g., 2025/01/14/)
+        - partition_depth=4 → Hour-level folders (e.g., 2025/01/14/10/)
+        - partition_depth=5 → Minute-level folders (e.g., 2025/01/14/10/30/)
 
         Returns list of FolderInfo objects, one per folder batch.
         Used when batch_by="folder" to treat each folder as a batch.
@@ -460,17 +457,7 @@ class FileSystemExtractor:
                     # No files in this folder - skip it
                     continue
 
-                # If date_regex is configured, validate folder matches regex
-                if self.params.date_regex:
-                    date_str = self._extract_date_with_regex(folder_path)
-                    if not date_str:
-                        # Regex didn't match - skip this folder
-                        self.logger.debug(
-                            f"Skipping folder (regex mismatch): {folder_path}"
-                        )
-                        continue
-
-                # Valid folder with files and matching regex
+                # Valid folder with files
                 folder_info = FolderInfo(path=folder_path, files=files_in_folder)
                 folder_infos.append(folder_info)
                 self.logger.debug(
@@ -557,8 +544,8 @@ class FileSystemExtractor:
                     f"Duplicate files detected: {', '.join(dup_names)}"
                 )
 
-        # Validate control files
-        if self.params.require_control_file and self.params.control_file_pattern:
+        # Validate control files (if pattern specified)
+        if self.params.control_file_pattern:
             for file_info in files:
                 if self._has_control_file(file_info):
                     result.add_valid(file_info)
@@ -676,53 +663,6 @@ class FileSystemExtractor:
 
         # Return full path with Hive partitions
         return f"{self.raw_landing_full.rstrip('/')}/{partition_path}{filename}"
-
-    def _extract_date_with_regex(self, path: str) -> Optional[str]:
-        """
-        Extract date from path using regex pattern.
-
-        Supports:
-        - Single capture group: r"daily_sales_(\d{8})" → "20250107"
-        - Multiple capture groups: r"(\d{4})/(\d{2})/(\d{2})" → "20250107"
-
-        Args:
-            path: Full file path to extract date from
-
-        Returns:
-            Date string in YYYYMMDD format, or None if no match
-        """
-        if not self.params.date_regex:
-            return None
-
-        try:
-            match = re.search(self.params.date_regex, path)
-            if not match:
-                self.logger.warning(f"Date regex did not match path: {path}")
-                return None
-
-            # Get all capture groups
-            groups = match.groups()
-
-            if not groups:
-                self.logger.warning(f"Date regex matched but has no capture groups: {self.params.date_regex}")
-                return None
-
-            if len(groups) == 1:
-                # Single group - should be YYYYMMDD format
-                date_str = groups[0]
-            elif len(groups) == 3:
-                # Three groups - assume YYYY, MM, DD
-                date_str = f"{groups[0]}{groups[1]}{groups[2]}"
-            else:
-                # Concatenate all groups
-                date_str = "".join(groups)
-
-            self.logger.debug(f"Extracted date '{date_str}' from path: {path}")
-            return date_str
-
-        except Exception as e:
-            self.logger.warning(f"Date extraction failed for {path}: {e}")
-            return None
 
     def _sort_files(self, files: List[FileInfo]) -> List[FileInfo]:
         """
@@ -902,7 +842,7 @@ class FileSystemExtractor:
 
                 if success:
                     # Also move control file if it exists
-                    if self.params.require_control_file and self._has_control_file(file_info):
+                    if self.params.control_file_pattern and self._has_control_file(file_info):
                         self._move_control_file(file_info, raw_path)
 
                     # Yield success batch

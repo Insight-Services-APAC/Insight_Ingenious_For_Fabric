@@ -332,13 +332,13 @@ class ConfigurationUtils:
 
         # Write mode validation
         supported_write_modes = ["overwrite", "append", "merge"]
-        if config.write_mode.lower() not in supported_write_modes:
+        if config.target_write_mode.lower() not in supported_write_modes:
             errors.append(f"write_mode must be one of: {supported_write_modes}")
 
         # Merge mode specific validation
-        if config.write_mode.lower() == "merge":
+        if config.target_write_mode.lower() == "merge":
             # Check if merge_keys is provided
-            if not config.merge_keys or len(config.merge_keys) == 0:
+            if not config.target_merge_keys or len(config.target_merge_keys) == 0:
                 errors.append(
                     "merge_keys must be provided when write_mode is 'merge'. "
                     "Please specify one or more column names to use as merge keys."
@@ -352,9 +352,9 @@ class ConfigurationUtils:
                 )
         else:
             # For non-merge modes, merge_keys should not be populated
-            if config.merge_keys and len(config.merge_keys) > 0:
+            if config.target_merge_keys and len(config.target_merge_keys) > 0:
                 errors.append(
-                    f"merge_keys should not be specified for write_mode '{config.write_mode}'. "
+                    f"merge_keys should not be specified for write_mode '{config.target_write_mode}'. "
                     "merge_keys are only applicable when write_mode is 'merge'. "
                     "Please remove merge_keys or change write_mode to 'merge'."
                 )

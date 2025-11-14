@@ -172,8 +172,7 @@ loading_params = FileSystemLoadingParams(
     import_pattern="incremental_folders",
     discovery_pattern="batch_*",
     duplicate_handling="skip",
-    require_control_file=True,
-    control_file_pattern="_SUCCESS",
+    control_file_pattern="_SUCCESS",  # Control file validation enabled when pattern set
 )
 resource_config = ResourceConfig(
     source_file_path="raw/batches",  # Directory containing folders

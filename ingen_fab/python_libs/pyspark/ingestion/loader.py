@@ -4,11 +4,10 @@
 import json
 import logging
 import time
-from datetime import datetime
-from typing import Optional
+from typing import Dict, Optional
 
 from pyspark.sql import SparkSession
-from pyspark.sql.functions import col
+from pyspark.sql.functions import col, lit, current_timestamp, concat_ws, when, expr
 from pyspark.sql.types import StructType, StructField, StringType
 
 from ingen_fab.python_libs.pyspark.ingestion.config import ResourceConfig
@@ -36,7 +35,6 @@ class FileLoader:
     This class handles:
     - Reading batch files into DataFrames (CSV, JSON, Parquet, etc.)
     - Schema handling (custom or inferred)
-    - File quarantine operations
     - Read metrics tracking
 
     NOTE: Discovery and logging are handled by LoadingOrchestrator and LoadingLogger.
@@ -99,15 +97,43 @@ class FileLoader:
 
     def _count_duplicates(self, df) -> int:
         """Count duplicate records on merge keys"""
-        if not self.config.merge_keys:
+        if not self.config.target_merge_keys:
             return 0
 
         return (
-            df.groupBy(*self.config.merge_keys)
+            df.groupBy(*self.config.target_merge_keys)
             .count()
             .filter(col("count") > 1)
             .count()
         )
+
+    def _parse_partition_values(self, path: str) -> Dict[str, str]:
+        """
+        Parse Hive partition values from path.
+
+        Extracts key=value pairs from paths like:
+        - "abfss://.../raw/pe/buyername/ds=2025-11-14/file.csv" → {"ds": "2025-11-14"}
+        - "abfss://.../year=2025/month=11/day=14/file.parquet" → {"year": "2025", "month": "11", "day": "14"}
+
+        Args:
+            path: Full ABFSS path with Hive partitions
+
+        Returns:
+            Dict mapping partition column names to values
+        """
+        import re
+
+        partition_values = {}
+
+        # Extract all key=value pairs from path
+        # Pattern: word characters followed by = followed by word/digit/dash characters
+        pattern = r'(\w+)=([\w\-]+)'
+        matches = re.findall(pattern, path)
+
+        for col_name, col_value in matches:
+            partition_values[col_name] = col_value
+
+        return partition_values
 
     def _read_dataframe(self, batch_info: BatchInfo, file_format: str, options: dict):
         """Read batch files into DataFrame and cache for validation"""
@@ -219,7 +245,7 @@ class FileLoader:
 
                 return BatchReadResult(
                     status="rejected",
-                    rejection_reason=f"Found {duplicate_count} duplicate record(s) on merge keys {self.config.merge_keys}",
+                    rejection_reason=f"Found {duplicate_count} duplicate record(s) on merge keys {self.config.target_merge_keys}",
                     metrics=metrics,
                 )
 
@@ -296,71 +322,367 @@ class FileLoader:
                     ),
                 ) from e
 
-    def quarantine_batch(self, batch_info: BatchInfo, error_message: str) -> None:
+    def load_files_to_raw_table(self, batch_info: BatchInfo) -> BatchReadResult:
         """
-        Move failed batch files to quarantine directory.
+        Load files to raw table with structural validation only (Step 1 of two-step loading).
 
-        This is a file management operation (not logging). Call this after logging
-        the batch failure via LoadingLogger.log_batch_error().
+        Strategy:
+        - Infer schema to get column names
+        - Cast ALL columns to STRING (no type validation)
+        - Use PERMISSIVE mode to capture structurally corrupt rows in _raw_corrupt_record
+        - Add raw metadata columns (_raw_load_id, _raw_file_path, _raw_loaded_at, _raw_corrupt_record)
+        - Add partition columns from batch destination path
+        - Write to raw_table with partition alignment
 
         Args:
-            batch_info: Batch that failed
-            error_message: Error message describing why the batch failed
+            batch_info: Batch info with file_paths and destination_path
+
+        Returns:
+            BatchReadResult with success/failed status (no rejection possible in Step 1)
         """
+        start_time = time.time()
+        metrics = ProcessingMetrics()
 
-        # Move files from landing to quarantine
-        landing_base = self.config.raw_landing_path.rstrip('/')
-        first_file_relative_path = None
+        # Save original ANSI setting and disable for PERMISSIVE mode
+        original_ansi = self.spark.conf.get("spark.sql.ansi.enabled", "false")
+        self.spark.conf.set("spark.sql.ansi.enabled", "false")
 
-        for file_path in batch_info.file_paths:
-            # Extract relative path from landing
-            if file_path.startswith(landing_base):
-                relative_path = file_path[len(landing_base):].lstrip('/')
-            else:
-                # File path might be full URI, extract after landing folder name
-                landing_folder = landing_base.split('/')[-1]
-                if landing_folder in file_path:
-                    relative_path = file_path.split(landing_folder + '/', 1)[1]
-                else:
-                    relative_path = file_path.split('/')[-1]
+        try:
+            if not self.config.file_format:
+                raise ValueError("file_format is required")
 
-            # Track first file's relative path for cleanup
-            if first_file_relative_path is None:
-                first_file_relative_path = f"{landing_base}/{relative_path}"
+            file_format = self.config.file_format
 
-            # Build quarantine path
-            quarantine_path = f"{self.config.raw_quarantined_path.rstrip('/')}/{relative_path}"
+            # Get file reading options (delimiter, encoding, etc.) but with inference
+            options = self._get_file_read_options()
+            # Remove schema if provided (we need to infer first)
+            options.pop("schema", None)
+            options["inferSchema"] = True
 
-            # Move file
-            success = self.lakehouse.move_file(file_path, quarantine_path)
-            if success:
-                logger.info(f"Moved file to quarantine: {relative_path}")
+            # Read and infer schema
+            df_inferred = self._read_dataframe(batch_info, file_format, options)
+            inferred_schema = df_inferred.schema
 
-                # Save error metadata as JSON
-                error_metadata = {
-                    "batch_id": batch_info.batch_id,
-                    "error_message": error_message,
-                    "timestamp": datetime.now().isoformat(),
-                    "config_id": self.config.resource_name,
-                }
+            # Build all-string schema WITH _raw_corrupt_record column
+            string_schema = StructType([
+                StructField(field.name, StringType(), True)
+                for field in inferred_schema.fields
+                if field.name != "_raw_corrupt_record"  # Exclude if present from inference
+            ])
+            # Add _raw_corrupt_record column for structural corruption tracking
+            string_schema = string_schema.add(StructField("_raw_corrupt_record", StringType(), True))
 
-                metadata_path = f"{quarantine_path}.error.json"
-                metadata_json = json.dumps(error_metadata, indent=2)
+            # Re-read with string schema + corruption tracking
+            options["schema"] = string_schema
+            options["columnNameOfCorruptRecord"] = "_raw_corrupt_record"
+            options["mode"] = "PERMISSIVE"
+            options.pop("inferSchema", None)
 
-                # Write error metadata (would need to implement this via spark)
-                # For now, just log it at debug level
-                logger.debug(f"Error metadata: {metadata_json}")
-            else:
-                logger.warning(f"Failed to move file to quarantine: {file_path}")
+            df = self._read_dataframe(batch_info, file_format, options)
 
-        # Clean up empty directories in landing ONCE after all files moved
-        if first_file_relative_path:
-            self.lakehouse.cleanup_empty_directories_recursive(
-                first_file_relative_path,
-                self.config.raw_landing_path
+            # Add raw metadata columns
+            df = df.withColumn("_raw_load_id", lit(batch_info.batch_id))
+            df = df.withColumn("_raw_file_path", lit(batch_info.file_paths[0] if batch_info.file_paths else "unknown"))
+            df = df.withColumn("_raw_loaded_at", current_timestamp())
+
+            # Parse and add partition columns from destination path
+            partition_cols = []
+            if batch_info.destination_path:
+                partition_values = self._parse_partition_values(batch_info.destination_path)
+                for col_name, col_value in partition_values.items():
+                    df = df.withColumn(col_name, lit(col_value))
+                    partition_cols.append(col_name)
+
+            # Reorder columns: business columns, then metadata in specific order
+            business_cols = [c for c in df.columns if not c.startswith("_raw") and c not in partition_cols]
+            ordered_cols = (
+                business_cols +
+                ["_raw_load_id", "_raw_file_path", "_raw_corrupt_record", "_raw_loaded_at"] +
+                partition_cols
+            )
+            df = df.select(ordered_cols)
+
+            # Get raw table connection
+            raw_table_utils = lakehouse_utils(
+                target_workspace_name=self.config.raw_table_workspace,
+                target_lakehouse_name=self.config.raw_table_lakehouse,
+                spark=self.spark,
             )
 
-        logger.info(f"Quarantined batch {batch_info.batch_id}: {error_message}")
+            # Write to raw table using lakehouse_utils
+            raw_table_utils.write_to_table(
+                df=df,
+                table_name=self.config.raw_table_name,
+                mode=self.config.raw_table_write_mode,
+                schema_name=self.config.raw_table_schema,
+                partition_by=self.config.raw_table_partition_columns,
+            )
+
+            # Calculate metrics
+            end_time = time.time()
+            metrics.read_duration_ms = int((end_time - start_time) * 1000)
+            metrics.source_row_count = df.count()
+            metrics.records_processed = metrics.source_row_count
+
+            return BatchReadResult(
+                status="success",
+                metrics=metrics,
+            )
+
+        except Exception as e:
+            # Step 1 failures are system errors (file read, table write)
+            end_time = time.time()
+            metrics.read_duration_ms = int((end_time - start_time) * 1000)
+
+            self.logger.exception(f"Failed to load files to raw table: {e}")
+
+            return BatchReadResult(
+                status="failed",
+                metrics=metrics,
+                rejection_reason=f"Raw table load failed: {str(e)}",
+            )
+
+        finally:
+            # Restore original ANSI setting
+            self.spark.conf.set("spark.sql.ansi.enabled", original_ansi)
+
+    def load_raw_table_to_target(self, batch_info: BatchInfo) -> BatchReadResult:
+        """
+        Load batch from raw table and apply validation (Step 2 of two-step loading).
+
+        Strategy:
+        - Read from raw_table filtered by partition + _raw_load_id
+        - Apply schema validation (cast strings to proper types)
+        - Apply corrupt record checks
+        - Apply duplicate checks on merge keys
+        - Return validated DataFrame for target write
+
+        Args:
+            batch_info: Batch info with destination_path for partition filtering
+
+        Returns:
+            BatchReadResult with validated DataFrame (same as current read_batch)
+        """
+        start_time = time.time()
+        metrics = ProcessingMetrics()
+
+        try:
+            # Get raw table connection
+            raw_table_utils = lakehouse_utils(
+                target_workspace_name=self.config.raw_table_workspace,
+                target_lakehouse_name=self.config.raw_table_lakehouse,
+                spark=self.spark,
+            )
+
+            # Read from raw table using lakehouse_utils
+            df_raw = raw_table_utils.read_table(
+                table_name=self.config.raw_table_name,
+                schema_name=self.config.raw_table_schema,
+            )
+
+            # Parse partition values from destination path
+            if batch_info.destination_path:
+                partition_values = self._parse_partition_values(batch_info.destination_path)
+
+                # Apply partition filters (partition pruning)
+                for col_name, col_value in partition_values.items():
+                    df_raw = df_raw.filter(col(col_name) == col_value)
+
+            # Filter to specific batch
+            df_raw = df_raw.filter(col("_raw_load_id") == batch_info.batch_id)
+
+            # Drop raw metadata columns (not needed in target)
+            df_raw = df_raw.drop("_raw_load_id", "_raw_file_path", "_raw_loaded_at")
+
+            # Drop partition columns (will be re-added in target if needed)
+            for col_name in self.config.raw_table_partition_columns:
+                if col_name in df_raw.columns:
+                    df_raw = df_raw.drop(col_name)
+
+            # Check _raw_corrupt_record from Step 1 (structural corruption from CSV)
+            corrupt_count = 0
+            if "_raw_corrupt_record" in df_raw.columns:
+                corrupt_count = df_raw.filter(col("_raw_corrupt_record").isNotNull()).count()
+
+                if corrupt_count > self.config.corrupt_record_tolerance:
+                    end_time = time.time()
+                    metrics.read_duration_ms = int((end_time - start_time) * 1000)
+                    metrics.corrupt_records_count = corrupt_count
+
+                    return BatchReadResult(
+                        status="rejected",
+                        rejection_reason=f"Structural corruption: {corrupt_count} corrupt rows exceeds tolerance ({self.config.corrupt_record_tolerance})",
+                        corrupt_count=corrupt_count,
+                        metrics=metrics,
+                    )
+
+                # Filter out corrupt rows (if within tolerance)
+                if corrupt_count > 0:
+                    self.logger.warning(f"Found {corrupt_count} structurally corrupt rows, dropping them")
+                    df_raw = df_raw.filter(col("_raw_corrupt_record").isNull())
+
+                # Drop _raw_corrupt_record column
+                df_raw = df_raw.drop("_raw_corrupt_record")
+
+            # Apply schema validation with try_cast (identifies problematic rows)
+            if self.config.custom_schema_json:
+                schema_dict = json.loads(self.config.custom_schema_json)
+                target_schema = StructType.fromJson(schema_dict)
+
+                # Build casted columns using try_cast (returns null on failure)
+                casted_columns = []
+                for field in target_schema.fields:
+                    if field.name in df_raw.columns:
+                        # Use try_cast - returns null on cast failure instead of throwing
+                        casted_columns.append(
+                            expr(f"try_cast({field.name} as {field.dataType.simpleString()})").alias(field.name)
+                        )
+                    else:
+                        # Add missing column as null
+                        casted_columns.append(lit(None).cast(field.dataType).alias(field.name))
+
+                # Build error tracking column - concatenates names of columns that failed to cast
+                error_tracking_exprs = []
+                for field in target_schema.fields:
+                    if field.name in df_raw.columns:
+                        # If try_cast returns null but original value is not null, cast failed
+                        error_tracking_exprs.append(
+                            when(
+                                expr(f"try_cast({field.name} as {field.dataType.simpleString()})").isNull()
+                                & col(field.name).isNotNull(),
+                                lit(field.name),
+                            )
+                        )
+
+                error_tracking_column = concat_ws(", ", *error_tracking_exprs).alias("_type_cast_error")
+
+                # Select all casted columns + error tracking
+                df_with_casts = df_raw.select(*casted_columns, error_tracking_column)
+
+                # Count rows with cast errors
+                cast_error_count = df_with_casts.filter(col("_type_cast_error") != "").count()
+
+                # Check if cast errors exceed tolerance
+                if cast_error_count > self.config.corrupt_record_tolerance:
+                    end_time = time.time()
+                    metrics.read_duration_ms = int((end_time - start_time) * 1000)
+                    metrics.corrupt_records_count = corrupt_count + cast_error_count
+
+                    # Get sample of failed columns for error message
+                    error_samples = (
+                        df_with_casts.filter(col("_type_cast_error") != "")
+                        .select("_type_cast_error")
+                        .limit(5)
+                        .collect()
+                    )
+                    failed_columns = set()
+                    for row in error_samples:
+                        for col_name in row._type_cast_error.split(", "):
+                            if col_name:
+                                failed_columns.add(col_name)
+
+                    return BatchReadResult(
+                        status="rejected",
+                        rejection_reason=f"Type casting errors: {cast_error_count} rows failed to cast (tolerance: {self.config.corrupt_record_tolerance}). Failed columns: {', '.join(sorted(failed_columns))}",
+                        corrupt_count=corrupt_count + cast_error_count,
+                        metrics=metrics,
+                    )
+
+                # Filter out rows with cast errors (if within tolerance)
+                if cast_error_count > 0:
+                    self.logger.warning(
+                        f"Found {cast_error_count} rows with type cast errors, filtering them out (within tolerance)"
+                    )
+                    df_typed = df_with_casts.filter(col("_type_cast_error") == "").drop("_type_cast_error")
+                else:
+                    df_typed = df_with_casts.drop("_type_cast_error")
+
+            else:
+                # No schema validation - use strings as-is
+                df_typed = df_raw
+                cast_error_count = 0
+
+            # Remove full duplicates
+            df_typed = df_typed.distinct()
+
+            # Validate duplicates on merge keys
+            duplicate_count = self._count_duplicates(df_typed)
+            if duplicate_count > 0:
+                end_time = time.time()
+                metrics.read_duration_ms = int((end_time - start_time) * 1000)
+                metrics.source_row_count = df_typed.count()
+
+                return BatchReadResult(
+                    status="rejected",
+                    rejection_reason=f"Found {duplicate_count} duplicate records on merge keys {self.config.target_merge_keys}",
+                    metrics=metrics,
+                )
+
+            # Calculate metrics
+            end_time = time.time()
+            metrics.read_duration_ms = int((end_time - start_time) * 1000)
+            metrics.source_row_count = df_typed.count()
+            metrics.records_processed = metrics.source_row_count
+            metrics.corrupt_records_count = corrupt_count + cast_error_count
+
+            return BatchReadResult(
+                status="success",
+                df=df_typed,
+                metrics=metrics,
+                corrupt_count=corrupt_count + cast_error_count,
+            )
+
+        except Exception as e:
+            # Schema validation or read errors
+            end_time = time.time()
+            metrics.read_duration_ms = int((end_time - start_time) * 1000)
+
+            # Get file path for context
+            file_path = batch_info.file_paths[0] if batch_info.file_paths else "unknown"
+
+            # Check if schema error
+            error_str = str(e).lower()
+            is_schema_error = (
+                "schema" in error_str
+                or "decimal scale" in error_str
+                or "decimal precision" in error_str
+                or "parsedatatype" in error_str
+                or ("cannot be greater than precision" in error_str)
+            )
+
+            if is_schema_error:
+                self.logger.error(f"Schema validation failed: {e}")
+
+                raise SchemaValidationError(
+                    message=f"Schema validation failed for {self.config.resource_name}",
+                    context=ErrorContext(
+                        resource_name=self.config.resource_name,
+                        source_name=self.config.source_name,
+                        batch_id=batch_info.batch_id,
+                        file_path=file_path,
+                        operation="load_raw_table_to_target",
+                        additional_info={
+                            "file_format": self.config.file_format,
+                            "schema_error": str(e),
+                        },
+                    ),
+                ) from e
+            else:
+                self.logger.exception(f"Failed to read from raw table: {e}")
+
+                raise FileReadError(
+                    message=f"Failed to read from raw table for batch {batch_info.batch_id}",
+                    context=ErrorContext(
+                        resource_name=self.config.resource_name,
+                        source_name=self.config.source_name,
+                        batch_id=batch_info.batch_id,
+                        file_path=file_path,
+                        operation="load_raw_table_to_target",
+                        additional_info={
+                            "raw_table": f"{self.config.raw_table_schema}.{self.config.raw_table_name}",
+                        },
+                    ),
+                ) from e
 
     def _get_file_read_options(self) -> dict:
         """Build file reading options from configuration"""

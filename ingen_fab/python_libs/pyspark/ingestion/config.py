@@ -46,11 +46,11 @@ class ResourceConfig:
     Contains settings for BOTH extraction and file loading.
     Each framework uses only the fields relevant to it.
 
-    Architecture (dlt-inspired quarantine-only pattern):
+    Architecture (dlt-inspired pattern):
     - Extraction writes TO raw_landing_path
     - Loading reads FROM raw_landing_path
     - On successful bronze write, files STAY in raw_landing_path (replay-friendly!)
-    - On failure, files move to raw_quarantined_path (corrupt/invalid files only)
+    - On failure, files STAY in raw_landing_path for manual intervention
     - State tracked in log_resource_extract_batch.load_state for easy replay
     """
 
@@ -66,9 +66,8 @@ class ResourceConfig:
     # RAW LAYER (Used by BOTH frameworks)
     # ========================================================================
 
-    # Raw layer locations (extraction writes to landing, loading only moves failed files to quarantine)
-    raw_landing_path: str                   # e.g., "Files/raw/edl/fct_sales/" - files stay here after successful loads!
-    raw_quarantined_path: str               # e.g., "Files/raw/quarantined/edl/fct_sales/" - only corrupt/invalid files
+    # Raw layer locations (extraction writes to landing, loading reads from landing)
+    raw_landing_path: str                   # e.g., "Files/raw/edl/fct_sales/" - files stay here (successful or failed)
     file_format: str                        # 'csv', 'parquet', 'json'
 
     # ========================================================================
@@ -90,21 +89,27 @@ class ResourceConfig:
     loading_params: Dict[str, Any] = field(default_factory=dict)
 
     # ========================================================================
-    # TARGET SETTINGS (Used by File Loading Framework ONLY)
+    # STEP 1: FILES → RAW TABLE (Used by File Loading Framework ONLY)
+    # ========================================================================
+
+    raw_table_workspace: str = ""
+    raw_table_lakehouse: str = ""
+    raw_table_schema: str = ""
+    raw_table_name: str = ""
+    raw_table_write_mode: str = "append"    # 'overwrite' or 'append'
+    raw_table_partition_columns: List[str] = field(default_factory=list)
+
+    # ========================================================================
+    # STEP 2: RAW TABLE → TARGET TABLE (Used by File Loading Framework ONLY)
     # ========================================================================
 
     target_workspace: str = ""
     target_lakehouse: str = ""              # or target_warehouse
     target_schema: str = ""
     target_table: str = ""
-
-    # ========================================================================
-    # WRITE SETTINGS (Used by File Loading Framework ONLY)
-    # ========================================================================
-
-    write_mode: str = "overwrite"           # 'overwrite', 'append', 'merge'
-    merge_keys: List[str] = field(default_factory=list)
-    partition_columns: List[str] = field(default_factory=list)
+    target_write_mode: str = "merge"        # 'overwrite', 'append', 'merge'
+    target_merge_keys: List[str] = field(default_factory=list)
+    target_partition_columns: List[str] = field(default_factory=list)
     enable_schema_evolution: bool = True
 
     # Soft delete (applies to ALL merge operations - with or without CDC)
@@ -142,24 +147,34 @@ class ResourceConfig:
         if "cdc_config" in config_dict and config_dict["cdc_config"]:
             cdc_config = CDCConfig.from_dict(config_dict["cdc_config"])
 
+        # Backward compatibility: map old field names to new ones
+        target_write_mode = config_dict.get("target_write_mode") or config_dict.get("write_mode", "overwrite")
+        target_merge_keys = config_dict.get("target_merge_keys") or config_dict.get("merge_keys")
+        target_partition_columns = config_dict.get("target_partition_columns") or config_dict.get("partition_columns")
+
         return cls(
             resource_name=config_dict["resource_name"],
             source_name=config_dict["source_name"],
             source_config=source_config,
             raw_landing_path=config_dict["raw_landing_path"],
-            raw_quarantined_path=config_dict["raw_quarantined_path"],
             file_format=config_dict["file_format"],
             extraction_params=config_dict.get("extraction_params", {}),
             import_mode=config_dict.get("import_mode", "incremental"),
             batch_by=config_dict.get("batch_by", "folder"),
             loading_params=config_dict.get("loading_params", {}),
+            raw_table_workspace=config_dict.get("raw_table_workspace", ""),
+            raw_table_lakehouse=config_dict.get("raw_table_lakehouse", ""),
+            raw_table_schema=config_dict.get("raw_table_schema", ""),
+            raw_table_name=config_dict.get("raw_table_name", ""),
+            raw_table_write_mode=config_dict.get("raw_table_write_mode", "append"),
+            raw_table_partition_columns=split_csv(config_dict.get("raw_table_partition_columns")),
             target_workspace=config_dict.get("target_workspace", ""),
             target_lakehouse=config_dict.get("target_lakehouse", ""),
             target_schema=config_dict.get("target_schema", ""),
             target_table=config_dict.get("target_table", ""),
-            write_mode=config_dict.get("write_mode", "overwrite"),
-            merge_keys=split_csv(config_dict.get("merge_keys")),
-            partition_columns=split_csv(config_dict.get("partition_columns")),
+            target_write_mode=target_write_mode,
+            target_merge_keys=split_csv(target_merge_keys),
+            target_partition_columns=split_csv(target_partition_columns),
             enable_schema_evolution=config_dict.get("enable_schema_evolution", True),
             soft_delete_enabled=config_dict.get("soft_delete_enabled", False),
             cdc_config=cdc_config,
@@ -197,8 +212,7 @@ class FileSystemExtractionParams:
     null_value: str = ""  # String to treat as NULL when reading CSV
 
     # Validation
-    require_control_file: bool = False
-    control_file_pattern: Optional[str] = None
+    control_file_pattern: Optional[str] = None  # If set, only process files with control files
     duplicate_handling: str = "fail"  # 'fail', 'skip', 'allow'
     require_files: bool = False  # If True, fail extraction when no files found
 
