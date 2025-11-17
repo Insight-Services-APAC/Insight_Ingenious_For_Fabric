@@ -10,7 +10,7 @@ from datetime import datetime
 from typing import Dict, Optional
 
 from pyspark.sql import DataFrame, SparkSession
-from pyspark.sql.functions import col, lit, current_timestamp, concat_ws, when, expr, to_date, to_timestamp
+from pyspark.sql.functions import col, lit, current_timestamp, concat_ws, when, expr, to_date, to_timestamp, trim
 from pyspark.sql.types import StructField, StringType
 
 from ingen_fab.python_libs.common.flat_file_ingestion_utils import ProcessingMetricsUtils
@@ -243,6 +243,10 @@ class FileLoader:
 
                 # Drop corrupt record column
                 df_stg = df_stg.drop(self.metadata_cols.stg_corrupt_record)
+
+            # Trim all string columns (improves merge key matching and removes source whitespace issues)
+            for column in df_stg.columns:
+                df_stg = df_stg.withColumn(column, trim(col(column)))
 
             # Apply schema validation with try_cast (identifies problematic rows)
             target_schema = self.config.target_schema_columns.to_target_schema()
