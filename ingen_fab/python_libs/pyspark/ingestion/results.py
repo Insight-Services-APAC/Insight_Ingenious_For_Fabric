@@ -35,7 +35,7 @@ class BatchInfo:
     """Information about a batch that was processed"""
 
     batch_id: str                           # Unique identifier
-    extract_batch_id: Optional[str] = None  # FK to log_resource_extract_batch.extract_batch_id (for correlation)
+    extract_batch_id: str                   # FK to log_resource_extract_batch.extract_batch_id (loading always driven by extraction)
 
     # Source info (flexible for different batch types)
     file_paths: List[str] = field(default_factory=list)  # For file loading: list of file paths
@@ -85,13 +85,13 @@ class ProcessingMetrics:
 
 
 @dataclass
-class BatchReadResult:
-    """Result of reading a batch file (file loading framework)"""
+class BatchResult:
+    """Result of processing a batch (read + write operation)"""
 
-    status: str  # "success" | "rejected"
-    metrics: 'ProcessingMetrics'  # Always provided (both success and rejection paths)
-    df: Optional[Any] = None  # DataFrame (use Any to avoid importing pyspark.sql.DataFrame)
-    rejection_reason: str = ""  # Required for rejected status, empty for success
+    status: str  # "success" | "rejected" | "failed"
+    metrics: 'ProcessingMetrics'  # Always provided (all status paths)
+    df: Optional[Any] = None  # DataFrame (use Any to avoid importing pyspark.sql.DataFrame) - typically None after write
+    rejection_reason: str = ""  # Required for rejected/failed status, empty for success
     corrupt_count: int = 0
 
 

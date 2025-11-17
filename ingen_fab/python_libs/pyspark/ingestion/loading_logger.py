@@ -336,7 +336,7 @@ class LoadingLogger:
     # RESOURCE-LEVEL LOGGING (log_resource_load table)
     # ========================================================================
 
-    def log_config_execution_start(
+    def log_resource_execution_start(
         self,
         config: ResourceConfig,
         execution_id: str,
@@ -347,13 +347,13 @@ class LoadingLogger:
         Returns:
             load_run_id: The generated run ID for this resource load (use for batch logging)
         """
-        return self._log_config_execution_event(
+        return self._log_resource_execution_event(
             config=config,
             execution_id=execution_id,
             status=ExecutionStatus.RUNNING,
         )
 
-    def log_config_execution_completion(
+    def log_resource_execution_completion(
         self,
         config: ResourceConfig,
         execution_id: str,
@@ -367,7 +367,7 @@ class LoadingLogger:
         files_failed = result.batches_failed
         files_skipped = 0  # Could track this separately if needed
 
-        self._log_config_execution_event(
+        self._log_resource_execution_event(
             config=config,
             execution_id=execution_id,
             load_run_id=load_run_id,
@@ -379,7 +379,7 @@ class LoadingLogger:
             metrics=result.metrics,
         )
 
-    def log_config_execution_error(
+    def log_resource_execution_error(
         self,
         config: ResourceConfig,
         execution_id: str,
@@ -392,7 +392,7 @@ class LoadingLogger:
         files_processed = result.batches_processed
         files_failed = result.batches_failed
 
-        self._log_config_execution_event(
+        self._log_resource_execution_event(
             config=config,
             execution_id=execution_id,
             load_run_id=load_run_id,
@@ -403,7 +403,7 @@ class LoadingLogger:
             error_message=error_message,
         )
 
-    def _log_config_execution_event(
+    def _log_resource_execution_event(
         self,
         config: ResourceConfig,
         execution_id: str,

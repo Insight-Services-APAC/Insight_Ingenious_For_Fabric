@@ -13,7 +13,8 @@
       "Bash(while read f)",
       "Bash(do echo \"=== $f ===\")",
       "Bash(head:*)",
-      "Bash(done)"
+      "Bash(done)",
+      "Bash(sed:*)"
     ],
     "deny": [],
     "ask": []

@@ -58,7 +58,7 @@ class ExtractionOrchestrator:
         if not logging.getLogger().handlers:
             logging.basicConfig(
                 level=logging.INFO,
-                format='%(asctime)s | %(levelname)s | %(message)s',
+                format='%(asctime)s | %(levelname)-8s | %(message)s',
                 datefmt='%Y-%m-%d %H:%M:%S',
                 force=True
             )
@@ -189,8 +189,13 @@ class ExtractionOrchestrator:
             f"{len(results)} resource(s) - {completed} completed, {failed} failed, {no_data} no data"
         )
 
-        # Log individual results with batch and item counts
-        for result in results:
+        # Sort results: successful/no-data first, then failed
+        successful_results = [r for r in results if r.status != ExecutionStatus.FAILED]
+        failed_results = [r for r in results if r.status == ExecutionStatus.FAILED]
+        sorted_results = successful_results + failed_results
+
+        # Log all results in sorted order
+        for result in sorted_results:
             icon = "✓" if result.status == ExecutionStatus.COMPLETED else "✗" if result.status == ExecutionStatus.FAILED else "○"
             batches = result.batches_processed
             batch_text = f"{batches} batches"
@@ -199,16 +204,16 @@ class ExtractionOrchestrator:
             total_items = result.total_items_count
             file_text = f"{total_items} files"
 
-            logger.info(
-                f"{icon} {result.resource_name} ({result.status}) - {batch_text}, {file_text}"
-            )
-
-        # Log all errors at bottom (separate section for easy troubleshooting)
-        failed_results = [r for r in results if r.error_message]
-        if failed_results:
-            logger.info("")  # Blank line for separation
-            for result in failed_results:
-                logger.error(f"✗ {result.resource_name}: {result.error_message}")
+            if result.status == ExecutionStatus.FAILED and result.error_message:
+                # Failed - log summary at INFO level (ERROR already logged when it happened)
+                logger.info(
+                    f"{icon} {result.resource_name} (failed) - {result.error_message}"
+                )
+            else:
+                # Successful or no data - log status
+                logger.info(
+                    f"{icon} {result.resource_name} ({result.status}) - {batch_text}, {file_text}"
+                )
 
         return results
 
@@ -250,7 +255,7 @@ class ExtractionOrchestrator:
         try:
             config_logger.info(f"Extracting: {config.resource_name}")
             config_logger.info(
-                f"Source: {config.source_config.source_type} ({config.file_format}) → {config.raw_landing_path}"
+                f"Source: {config.source_config.source_type} ({config.raw_file_format}) → {config.raw_landing_path}"
             )
 
             # Get extractor and iterate over batches (generator pattern)

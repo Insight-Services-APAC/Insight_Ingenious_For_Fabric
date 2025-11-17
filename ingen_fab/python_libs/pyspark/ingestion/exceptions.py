@@ -65,8 +65,6 @@ class IngestionError(Exception):
     def _format_message(self) -> str:
         """Format error message with context"""
         parts = [self.message]
-        if self.context and str(self.context) != "no context":
-            parts.append(f"[{self.context}]")
         if self.error_code:
             parts.append(f"(code: {self.error_code})")
         return " ".join(parts)
@@ -166,8 +164,6 @@ class DataQualityRejectionError(Exception):
 
     def _format_message(self) -> str:
         """Format error message with context"""
-        if self.context:
-            return f"{self.message} [{self.context}]"
         return self.message
 
     def __str__(self) -> str:

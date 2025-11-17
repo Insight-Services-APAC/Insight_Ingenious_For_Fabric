@@ -4,6 +4,80 @@
 from dataclasses import dataclass, field
 from typing import Any, Dict, List, Optional
 
+from pyspark.sql.types import StructType, StructField, StringType
+
+
+# ============================================================================
+# METADATA COLUMN CONFIGURATION
+# ============================================================================
+
+@dataclass
+class MetadataColumns:
+    """
+    Metadata column names used by the loading framework.
+
+    Defaults match current framework conventions. Clients can override via
+    LoadingOrchestrator for custom naming preferences (dbt-style overrides).
+
+    Example:
+        # Override specific columns
+        MetadataColumns.from_dict({
+            "_raw_created_load_id": "batch_id",
+            "_raw_created_at": "created_ts"
+        })
+    """
+    # Staging table metadata (Step 1: Files → Staging)
+    stg_created_load_id: str = "_stg_created_load_id"
+    stg_file_path: str = "_stg_file_path"
+    stg_created_at: str = "_stg_created_at"
+    stg_corrupt_record: str = "_stg_corrupt_record"
+
+    # Target table metadata (Step 2: Staging → Target)
+    raw_created_load_id: str = "_raw_created_load_id"
+    raw_updated_load_id: str = "_raw_updated_load_id"
+    raw_file_path: str = "_raw_file_path"
+    raw_loaded_at: str = "_raw_loaded_at"
+    raw_corrupt_record: str = "_raw_corrupt_record"
+    raw_created_at: str = "_raw_created_at"
+    raw_updated_at: str = "_raw_updated_at"
+    raw_is_deleted: str = "_raw_is_deleted"
+    raw_filename: str = "_raw_filename"
+
+    @classmethod
+    def from_dict(cls, overrides: Optional[Dict[str, str]] = None) -> "MetadataColumns":
+        """
+        Create MetadataColumns from override dict.
+
+        Keys are default column names, values are custom names.
+        Supports 0, 1, or many overrides - only specified columns change.
+
+        Args:
+            overrides: Dict mapping default names to custom names, e.g.:
+                {"_raw_created_load_id": "batch_id", "_raw_created_at": "created_ts"}
+
+        Returns:
+            MetadataColumns instance with overrides applied
+        """
+        if not overrides:
+            return cls()
+
+        defaults = cls()
+        return cls(
+            stg_created_load_id=overrides.get("_stg_created_load_id", defaults.stg_created_load_id),
+            stg_file_path=overrides.get("_stg_file_path", defaults.stg_file_path),
+            stg_created_at=overrides.get("_stg_created_at", defaults.stg_created_at),
+            stg_corrupt_record=overrides.get("_stg_corrupt_record", defaults.stg_corrupt_record),
+            raw_created_load_id=overrides.get("_raw_created_load_id", defaults.raw_created_load_id),
+            raw_updated_load_id=overrides.get("_raw_updated_load_id", defaults.raw_updated_load_id),
+            raw_file_path=overrides.get("_raw_file_path", defaults.raw_file_path),
+            raw_loaded_at=overrides.get("_raw_loaded_at", defaults.raw_loaded_at),
+            raw_corrupt_record=overrides.get("_raw_corrupt_record", defaults.raw_corrupt_record),
+            raw_created_at=overrides.get("_raw_created_at", defaults.raw_created_at),
+            raw_updated_at=overrides.get("_raw_updated_at", defaults.raw_updated_at),
+            raw_is_deleted=overrides.get("_raw_is_deleted", defaults.raw_is_deleted),
+            raw_filename=overrides.get("_raw_filename", defaults.raw_filename),
+        )
+
 
 # ============================================================================
 # SOURCE CONFIGURATION
@@ -19,19 +93,123 @@ class SourceConfig:
 
     source_type: str                        # 'api', 'database', 'filesystem'
 
-    # Connection parameters (source-type specific)
-    connection_params: Dict[str, Any] = field(default_factory=dict)
-
-    # Authentication
-    auth_type: Optional[str] = None
-    auth_params: Optional[Dict[str, Any]] = None
-
-    # Metadata
-    description: Optional[str] = None
+    # Connection parameters (source-type specific, includes auth if needed)
+    source_connection_params: Dict[str, Any] = field(default_factory=dict)
 
     def __post_init__(self):
         if not self.source_type:
             raise ValueError("source_type is required")
+
+
+# ============================================================================
+# SCHEMA CONFIGURATION
+# ============================================================================
+
+@dataclass
+class SchemaColumns:
+    """
+    Schema definition for a table.
+
+    Stores column definitions and converts to Spark StructType on demand.
+    Uses Spark's native type system (integer, string, decimal(10,2), etc.)
+
+    Example:
+        SchemaColumns.from_list([
+            {"column_name": "id", "data_type": "integer"},
+            {"column_name": "amount", "data_type": "decimal(10,2)"},
+            {"column_name": "name", "data_type": "string"}
+        ])
+    """
+    columns: List[Dict[str, str]]  # [{"column_name": "id", "data_type": "integer"}, ...]
+
+    def to_spark_schema(self) -> StructType:
+        """
+        Convert to Spark StructType using native JSON schema parsing.
+
+        Returns:
+            pyspark.sql.types.StructType
+
+        Raises:
+            ValueError: If schema contains invalid Spark types
+        """
+        # Convert to Spark JSON schema format
+        fields = []
+        for col in self.columns:
+            fields.append({
+                "name": col["column_name"],
+                "type": col["data_type"],
+                "nullable": True,
+                "metadata": {}
+            })
+
+        spark_json_schema = {
+            "type": "struct",
+            "fields": fields
+        }
+
+        try:
+            return StructType.fromJson(spark_json_schema)
+        except Exception as e:
+            col_summary = ", ".join([f"{c['column_name']}:{c['data_type']}" for c in self.columns])
+            raise ValueError(f"Invalid Spark schema - {str(e)}. Columns: {col_summary}")
+
+    def to_raw_schema(self) -> StructType:
+        """
+        Convert to raw table schema (all fields as StringType).
+
+        Raw tables store everything as string for schema evolution safety
+        and to preserve original values before type casting.
+
+        Returns:
+            StructType with all fields converted to StringType
+        """
+        typed_schema = self.to_spark_schema()
+        return StructType([
+            StructField(field.name, StringType(), True)
+            for field in typed_schema.fields
+        ])
+
+    def to_target_schema(self) -> StructType:
+        """
+        Convert to target table schema (typed fields).
+
+        Returns typed schema for target table writes and type casting validation.
+        Alias for to_spark_schema() for clarity.
+
+        Returns:
+            StructType with fields using configured data types
+        """
+        return self.to_spark_schema()
+
+    @classmethod
+    def from_list(cls, schema_columns: List[Dict[str, str]]) -> "SchemaColumns":
+        """
+        Create SchemaColumns from list of dicts with validation.
+
+        Args:
+            schema_columns: [{"column_name": "id", "data_type": "integer"}, ...]
+
+        Returns:
+            SchemaColumns instance
+
+        Raises:
+            ValueError: If schema_columns has invalid structure or empty
+        """
+        if not schema_columns:
+            raise ValueError("schema_columns is required and cannot be empty")
+
+        # Validate structure
+        for idx, col_def in enumerate(schema_columns):
+            if not isinstance(col_def, dict):
+                raise ValueError(f"schema_columns[{idx}]: expected dict, got {type(col_def).__name__}")
+
+            if "column_name" not in col_def:
+                raise ValueError(f"schema_columns[{idx}]: missing 'column_name'")
+
+            if "data_type" not in col_def:
+                raise ValueError(f"schema_columns[{idx}]: missing 'data_type'")
+
+        return cls(columns=schema_columns)
 
 
 # ============================================================================
@@ -68,39 +246,31 @@ class ResourceConfig:
 
     # Raw layer locations (extraction writes to landing, loading reads from landing)
     raw_landing_path: str                   # e.g., "Files/raw/edl/fct_sales/" - files stay here (successful or failed)
-    file_format: str                        # 'csv', 'parquet', 'json'
+    raw_file_format: str                    # 'csv', 'parquet', 'json'
+    raw_storage_workspace: str              # Workspace where raw files are stored
+    raw_storage_lakehouse: str              # Lakehouse where raw files are stored
+    target_schema_columns: SchemaColumns    # REQUIRED - Schema with column names and Spark data types
 
     # ========================================================================
     # EXTRACTION SETTINGS (Used by Extraction Framework ONLY)
     # ========================================================================
 
     # Source-type specific extraction parameters
-    extraction_params: Dict[str, Any] = field(default_factory=dict)
+    source_extraction_params: Dict[str, Any] = field(default_factory=dict)
 
     # ========================================================================
-    # LOADING SETTINGS (Used by File Loading Framework ONLY)
+    # STEP 1: FILES → STAGING TABLE (Used by File Loading Framework ONLY)
     # ========================================================================
 
-    # Loading strategy
-    import_mode: str = "incremental"        # 'incremental', 'full'
-    batch_by: str = "folder"                # 'file', 'folder'
-
-    # Advanced loading parameters (optional, rarely needed)
-    loading_params: Dict[str, Any] = field(default_factory=dict)
-
-    # ========================================================================
-    # STEP 1: FILES → RAW TABLE (Used by File Loading Framework ONLY)
-    # ========================================================================
-
-    raw_table_workspace: str = ""
-    raw_table_lakehouse: str = ""
-    raw_table_schema: str = ""
-    raw_table_name: str = ""
-    raw_table_write_mode: str = "append"    # 'overwrite' or 'append'
-    raw_table_partition_columns: List[str] = field(default_factory=list)
+    stg_table_workspace: str = ""
+    stg_table_lakehouse: str = ""
+    stg_table_schema: str = ""
+    stg_table_name: str = ""
+    stg_table_write_mode: str = "append"    # 'overwrite' or 'append'
+    stg_table_partition_columns: List[str] = field(default_factory=list)
 
     # ========================================================================
-    # STEP 2: RAW TABLE → TARGET TABLE (Used by File Loading Framework ONLY)
+    # STEP 2: STAGING TABLE → TARGET TABLE (Used by File Loading Framework ONLY)
     # ========================================================================
 
     target_workspace: str = ""
@@ -110,21 +280,22 @@ class ResourceConfig:
     target_write_mode: str = "merge"        # 'overwrite', 'append', 'merge'
     target_merge_keys: List[str] = field(default_factory=list)
     target_partition_columns: List[str] = field(default_factory=list)
-    enable_schema_evolution: bool = True
 
     # Soft delete (applies to ALL merge operations - with or without CDC)
-    soft_delete_enabled: bool = False       # If True, DELETE becomes UPDATE SET _raw_is_deleted=True
+    target_soft_delete_enabled: bool = False    # If True, DELETE becomes UPDATE SET _raw_is_deleted=True
 
     # CDC configuration (optional, only for CDC sources)
-    cdc_config: Optional['CDCConfig'] = None  # None = standard merge (no CDC operations)
+    target_cdc_config: Optional['CDCConfig'] = None  # None = standard merge (no CDC operations)
+
+    # Load type (incremental vs full snapshot)
+    target_load_type: str = "incremental"  # 'incremental' or 'full' - full loads mark missing records as deleted
 
     # ========================================================================
     # DATA VALIDATION (Used by File Loading Framework ONLY)
     # ========================================================================
 
-    custom_schema_json: Optional[str] = None
-    data_validation_rules: Optional[str] = None
-    corrupt_record_tolerance: int = 0  # Max corrupt records allowed (0 = reject any corrupt records)
+    target_max_corrupt_records: int = 0  # Max corrupt records allowed (0 = reject any corrupt records)
+    target_fail_on_rejection: bool = True  # If True, fail on rejections. If False, skip rejected batches and continue.
 
     # ========================================================================
     # EXECUTION CONTROL (Used by BOTH frameworks)
@@ -143,9 +314,9 @@ class ResourceConfig:
             return [item.strip() for item in value.split(",") if item.strip()]
 
         # Parse CDC config if present
-        cdc_config = None
-        if "cdc_config" in config_dict and config_dict["cdc_config"]:
-            cdc_config = CDCConfig.from_dict(config_dict["cdc_config"])
+        target_cdc_config = None
+        if "target_cdc_config" in config_dict and config_dict["target_cdc_config"]:
+            target_cdc_config = CDCConfig.from_dict(config_dict["target_cdc_config"])
 
         # Backward compatibility: map old field names to new ones
         target_write_mode = config_dict.get("target_write_mode") or config_dict.get("write_mode", "overwrite")
@@ -157,17 +328,16 @@ class ResourceConfig:
             source_name=config_dict["source_name"],
             source_config=source_config,
             raw_landing_path=config_dict["raw_landing_path"],
-            file_format=config_dict["file_format"],
-            extraction_params=config_dict.get("extraction_params", {}),
-            import_mode=config_dict.get("import_mode", "incremental"),
-            batch_by=config_dict.get("batch_by", "folder"),
-            loading_params=config_dict.get("loading_params", {}),
-            raw_table_workspace=config_dict.get("raw_table_workspace", ""),
-            raw_table_lakehouse=config_dict.get("raw_table_lakehouse", ""),
-            raw_table_schema=config_dict.get("raw_table_schema", ""),
-            raw_table_name=config_dict.get("raw_table_name", ""),
-            raw_table_write_mode=config_dict.get("raw_table_write_mode", "append"),
-            raw_table_partition_columns=split_csv(config_dict.get("raw_table_partition_columns")),
+            raw_file_format=config_dict["raw_file_format"],
+            raw_storage_workspace=config_dict["raw_storage_workspace"],
+            raw_storage_lakehouse=config_dict["raw_storage_lakehouse"],
+            source_extraction_params=config_dict.get("source_extraction_params", {}),
+            stg_table_workspace=config_dict.get("stg_table_workspace", ""),
+            stg_table_lakehouse=config_dict.get("stg_table_lakehouse", ""),
+            stg_table_schema=config_dict.get("stg_table_schema", ""),
+            stg_table_name=config_dict.get("stg_table_name", ""),
+            stg_table_write_mode=config_dict.get("stg_table_write_mode", "append"),
+            stg_table_partition_columns=split_csv(config_dict.get("stg_table_partition_columns")),
             target_workspace=config_dict.get("target_workspace", ""),
             target_lakehouse=config_dict.get("target_lakehouse", ""),
             target_schema=config_dict.get("target_schema", ""),
@@ -175,12 +345,12 @@ class ResourceConfig:
             target_write_mode=target_write_mode,
             target_merge_keys=split_csv(target_merge_keys),
             target_partition_columns=split_csv(target_partition_columns),
-            enable_schema_evolution=config_dict.get("enable_schema_evolution", True),
-            soft_delete_enabled=config_dict.get("soft_delete_enabled", False),
-            cdc_config=cdc_config,
-            custom_schema_json=config_dict.get("custom_schema_json"),
-            data_validation_rules=config_dict.get("data_validation_rules"),
-            corrupt_record_tolerance=config_dict.get("corrupt_record_tolerance", 0),
+            target_soft_delete_enabled=config_dict.get("target_soft_delete_enabled", False),
+            target_cdc_config=target_cdc_config,
+            target_load_type=config_dict.get("target_load_type", "incremental"),
+            target_schema_columns=SchemaColumns.from_list(config_dict["target_schema_columns"]),
+            target_max_corrupt_records=config_dict.get("target_max_corrupt_records", 0),
+            target_fail_on_rejection=config_dict.get("target_fail_on_rejection", True),
             execution_group=config_dict.get("execution_group", 1),
             active=config_dict.get("active", True),
         )

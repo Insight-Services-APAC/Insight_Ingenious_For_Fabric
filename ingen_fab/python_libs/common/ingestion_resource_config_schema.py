@@ -1,5 +1,5 @@
 # Centralized schema definition for ingestion resource configuration
-# This ensures consistency between DDL creation and ConfigManager operations
+# This ensures consistency between DDL creation and ConfigIngestionManager operations
 
 from pyspark.sql.types import (
     ArrayType,
@@ -25,78 +25,71 @@ def get_ingestion_resource_config_schema() -> StructType:
     Returns the standardized schema for the config_ingestion_resource table.
     This schema stores ResourceConfig objects with polymorphic source parameters.
 
-    Uses MapType for flexible source_params to support multiple source types:
-    - filesystem (FileSystemLoadingParams)
+    Uses MapType for flexible params to support multiple source types:
+    - filesystem (FileSystemExtractionParams)
     - api (APIExtractionParams)
     - database (DatabaseExtractionParams)
 
-    Primary Key: config_id
+    Primary Key: resource_name
     """
     return StructType(
         [
             # ====================================================================
             # IDENTITY
             # ====================================================================
-            StructField("config_id", StringType(), False),  # PK
-            StructField("resource_name", StringType(), False),
+            StructField("resource_name", StringType(), False),  # PK
             StructField("source_name", StringType(), False),
             # ====================================================================
             # SOURCE CONFIGURATION
             # ====================================================================
-            StructField(
-                "source_type", StringType(), False
-            ),  # 'filesystem', 'api', 'database'
-            StructField(
-                "connection_params", MapType(StringType(), StringType()), True
-            ),
-            # Authentication
-            StructField("auth_type", StringType(), True),
-            StructField("auth_params", MapType(StringType(), StringType()), True),
-            # Source description
-            StructField("source_description", StringType(), True),
+            StructField("source_type", StringType(), False),  # 'filesystem', 'api', 'database'
+            StructField("source_connection_params", MapType(StringType(), StringType()), True),
+            StructField("source_extraction_params", MapType(StringType(), StringType()), True),
             # ====================================================================
-            # EXTRACTION SETTINGS (for future extraction framework)
+            # RAW LAYER (Used by BOTH frameworks)
             # ====================================================================
-            StructField("extraction_output_path", StringType(), True),
-            StructField(
-                "extraction_params", MapType(StringType(), StringType()), True
-            ),
+            StructField("raw_landing_path", StringType(), False),
+            StructField("raw_file_format", StringType(), False),  # 'csv', 'parquet', 'json'
+            StructField("raw_storage_workspace", StringType(), False),
+            StructField("raw_storage_lakehouse", StringType(), False),
             # ====================================================================
-            # FILE LOADING SETTINGS
+            # STAGING TABLE (Step 1: FILES → STAGING TABLE)
             # ====================================================================
-            StructField("source_file_path", StringType(), True),
-            StructField("source_file_format", StringType(), True),
-            # POLYMORPHIC PARAMETERS (different per source_type!)
-            StructField("loading_params", MapType(StringType(), StringType()), True),
+            StructField("stg_table_workspace", StringType(), True),
+            StructField("stg_table_lakehouse", StringType(), True),
+            StructField("stg_table_schema", StringType(), True),
+            StructField("stg_table_name", StringType(), True),
+            StructField("stg_table_write_mode", StringType(), True),  # 'overwrite', 'append'
+            StructField("stg_table_partition_columns", ArrayType(StringType()), True),
             # ====================================================================
-            # TARGET SETTINGS
+            # TARGET TABLE (Step 2: STAGING TABLE → TARGET TABLE)
             # ====================================================================
-            StructField("target_workspace_name", StringType(), True),
-            StructField("target_datastore_name", StringType(), True),
-            StructField(
-                "target_datastore_type", StringType(), True
-            ),  # 'lakehouse', 'warehouse'
-            StructField("target_schema_name", StringType(), True),
-            StructField("target_table_name", StringType(), True),
+            StructField("target_workspace", StringType(), True),
+            StructField("target_lakehouse", StringType(), True),
+            StructField("target_schema", StringType(), True),
+            StructField("target_table", StringType(), True),
+            StructField("target_schema_columns", ArrayType(StructType([
+                StructField("column_name", StringType(), False),
+                StructField("data_type", StringType(), False),
+            ])), False),
+            StructField("target_write_mode", StringType(), True),  # 'overwrite', 'append', 'merge'
+            StructField("target_merge_keys", ArrayType(StringType()), True),
+            StructField("target_partition_columns", ArrayType(StringType()), True),
+            StructField("target_soft_delete_enabled", BooleanType(), True),
+            StructField("target_cdc_config", StructType([
+                StructField("operation_column", StringType(), False),
+                StructField("insert_values", ArrayType(StringType()), False),
+                StructField("update_values", ArrayType(StringType()), False),
+                StructField("delete_values", ArrayType(StringType()), False),
+            ]), True),
+            StructField("target_load_type", StringType(), True),
+            StructField("target_max_corrupt_records", IntegerType(), True),
+            StructField("target_fail_on_rejection", BooleanType(), True),
             # ====================================================================
-            # WRITE SETTINGS
-            # ====================================================================
-            StructField(
-                "write_mode", StringType(), True
-            ),  # 'overwrite', 'append', 'merge'
-            StructField("merge_keys", ArrayType(StringType()), True),
-            StructField("partition_columns", ArrayType(StringType()), True),
-            StructField("enable_schema_evolution", BooleanType(), True),
-            # ====================================================================
-            # DATA VALIDATION
-            # ====================================================================
-            StructField("custom_schema_json", StringType(), True),
-            StructField("data_validation_rules", StringType(), True),
-            # ====================================================================
-            # EXECUTION CONTROL
+            # EXECUTION CONTROL (Used by BOTH frameworks)
             # ====================================================================
             StructField("execution_group", IntegerType(), True),
-            StructField("active_yn", StringType(), True),
+            StructField("active", BooleanType(), True),
             # ====================================================================
             # METADATA
             # ====================================================================
@@ -111,7 +104,7 @@ def get_ingestion_resource_config_schema() -> StructType:
 def row_to_resource_config(row) -> ResourceConfig:
     """
     Parse Delta table row back into ResourceConfig object.
-    Internal helper used by ConfigManager.
+    Internal helper used by ConfigIngestionManager.
 
     Args:
         row: Spark Row or dict representing a config_ingestion_resource row
@@ -119,20 +112,7 @@ def row_to_resource_config(row) -> ResourceConfig:
     Returns:
         ResourceConfig object
     """
-
-    # Helper to parse string values back to proper types
-    def parse_value(value: str, expected_type: type = str):
-        if value is None or value == "":
-            return None
-        if expected_type == bool:
-            return value.lower() == "true"
-        elif expected_type == int:
-            return int(value)
-        elif expected_type == float:
-            return float(value)
-        elif expected_type in (list, dict):
-            return json.loads(value)
-        return value
+    from ingen_fab.python_libs.pyspark.ingestion.config import SchemaColumns, CDCConfig
 
     # Helper to convert MapType back to dict
     def maptype_to_dict(map_col) -> Dict[str, Any]:
@@ -147,68 +127,155 @@ def row_to_resource_config(row) -> ResourceConfig:
         return row.get(name)
 
     # Reconstruct SourceConfig
-    connection_params = maptype_to_dict(get_field("connection_params"))
-    auth_params = maptype_to_dict(get_field("auth_params"))
+    source_connection_params = maptype_to_dict(get_field("source_connection_params"))
 
     source_config = SourceConfig(
         source_type=get_field("source_type"),
-        connection_params=connection_params,
-        auth_type=get_field("auth_type"),
-        auth_params=auth_params if auth_params else None,
-        description=get_field("source_description"),
+        source_connection_params=source_connection_params,
     )
 
-    # Reconstruct loading_params from MapType
-    # Type conversion based on known FileSystemLoadingParams fields
-    loading_params_raw = maptype_to_dict(get_field("loading_params"))
-    loading_params = {}
+    # Reconstruct SchemaColumns from array of structs
+    target_schema_columns_array = get_field("target_schema_columns")
+    if target_schema_columns_array:
+        # Convert Spark array of Row objects to list of dicts
+        columns_list = [{"column_name": row.column_name, "data_type": row.data_type} for row in target_schema_columns_array]
+        target_schema_columns = SchemaColumns.from_list(columns_list)
+    else:
+        # Empty schema (should not happen with NOT NULL constraint)
+        target_schema_columns = SchemaColumns.from_list([])
 
-    for key, value in loading_params_raw.items():
-        # Boolean fields
-        if key in [
-            "recursive",
-            "has_header",
-            "multiline_values",
-            "require_files",
-            "enable_archive",
-            "cleanup_empty_dirs",
-        ]:
-            loading_params[key] = parse_value(value, bool)
-        # Keep as string
-        else:
-            loading_params[key] = value
+    # Reconstruct source_extraction_params
+    source_extraction_params = maptype_to_dict(get_field("source_extraction_params"))
 
-    # Reconstruct extraction_params (for future use)
-    extraction_params = maptype_to_dict(get_field("extraction_params"))
+    # Parse JSON string fields in source_extraction_params
+    if source_extraction_params:
+        if 'filename_metadata' in source_extraction_params and isinstance(source_extraction_params['filename_metadata'], str):
+            source_extraction_params['filename_metadata'] = json.loads(source_extraction_params['filename_metadata'])
+        if 'sort_by' in source_extraction_params and isinstance(source_extraction_params['sort_by'], str):
+            source_extraction_params['sort_by'] = json.loads(source_extraction_params['sort_by'])
+        if 'raw_partition_columns' in source_extraction_params and isinstance(source_extraction_params['raw_partition_columns'], str):
+            source_extraction_params['raw_partition_columns'] = json.loads(source_extraction_params['raw_partition_columns'])
+
+    # Reconstruct CDCConfig from struct (optional)
+    target_cdc_config = None
+    target_cdc_config_struct = get_field("target_cdc_config")
+    if target_cdc_config_struct:
+        target_cdc_config = CDCConfig(
+            operation_column=target_cdc_config_struct.operation_column,
+            insert_values=list(target_cdc_config_struct.insert_values),
+            update_values=list(target_cdc_config_struct.update_values),
+            delete_values=list(target_cdc_config_struct.delete_values),
+        )
 
     # Reconstruct ResourceConfig
     return ResourceConfig(
         resource_name=get_field("resource_name"),
         source_name=get_field("source_name"),
         source_config=source_config,
-        extraction_output_path=get_field("extraction_output_path"),
-        extraction_params=extraction_params,
-        source_file_path=get_field("source_file_path"),
-        source_file_format=get_field("source_file_format"),
-        loading_params=loading_params,
-        target_workspace_name=get_field("target_workspace_name") or "",
-        target_datastore_name=get_field("target_datastore_name") or "",
-        target_datastore_type=get_field("target_datastore_type") or "",
-        target_schema_name=get_field("target_schema_name") or "",
-        target_table_name=get_field("target_table_name") or "",
-        write_mode=get_field("write_mode") or "overwrite",
-        merge_keys=list(get_field("merge_keys")) if get_field("merge_keys") else [],
-        partition_columns=list(get_field("partition_columns"))
-        if get_field("partition_columns")
-        else [],
-        enable_schema_evolution=get_field("enable_schema_evolution")
-        if get_field("enable_schema_evolution") is not None
-        else True,
-        custom_schema_json=get_field("custom_schema_json"),
-        data_validation_rules=get_field("data_validation_rules"),
+        raw_landing_path=get_field("raw_landing_path"),
+        raw_file_format=get_field("raw_file_format"),
+        raw_storage_workspace=get_field("raw_storage_workspace"),
+        raw_storage_lakehouse=get_field("raw_storage_lakehouse"),
+        target_schema_columns=target_schema_columns,
+        source_extraction_params=source_extraction_params,
+        stg_table_workspace=get_field("stg_table_workspace") or "",
+        stg_table_lakehouse=get_field("stg_table_lakehouse") or "",
+        stg_table_schema=get_field("stg_table_schema") or "",
+        stg_table_name=get_field("stg_table_name") or "",
+        stg_table_write_mode=get_field("stg_table_write_mode") or "append",
+        stg_table_partition_columns=list(get_field("stg_table_partition_columns")) if get_field("stg_table_partition_columns") else [],
+        target_workspace=get_field("target_workspace") or "",
+        target_lakehouse=get_field("target_lakehouse") or "",
+        target_schema=get_field("target_schema") or "",
+        target_table=get_field("target_table") or "",
+        target_write_mode=get_field("target_write_mode") or "merge",
+        target_merge_keys=list(get_field("target_merge_keys")) if get_field("target_merge_keys") else [],
+        target_partition_columns=list(get_field("target_partition_columns")) if get_field("target_partition_columns") else [],
+        target_soft_delete_enabled=get_field("target_soft_delete_enabled") if get_field("target_soft_delete_enabled") is not None else False,
+        target_cdc_config=target_cdc_config,
+        target_load_type=get_field("target_load_type") or "incremental",
+        target_max_corrupt_records=get_field("target_max_corrupt_records") or 0,
+        target_fail_on_rejection=get_field("target_fail_on_rejection") if get_field("target_fail_on_rejection") is not None else True,
         execution_group=get_field("execution_group") or 1,
-        active_yn=get_field("active_yn") or "Y",
+        active=get_field("active") if get_field("active") is not None else True,
     )
+
+
+def resource_config_to_row(config: ResourceConfig, created_by: str = "system", updated_by: str = "system") -> Dict[str, Any]:
+    """
+    Convert ResourceConfig object to dict matching Delta table schema.
+    Used by ConfigIngestionManager for saving configs.
+
+    Args:
+        config: ResourceConfig object to serialize
+        created_by: Username for created_by field
+        updated_by: Username for updated_by field
+
+    Returns:
+        Dict with keys matching schema field names
+    """
+    from datetime import datetime
+
+    # Convert SchemaColumns to array of structs
+    target_schema_columns_array = [
+        {"column_name": col["column_name"], "data_type": col["data_type"]}
+        for col in config.target_schema_columns.columns
+    ]
+
+    # Convert CDCConfig to struct (if present)
+    target_cdc_config_struct = None
+    if config.target_cdc_config:
+        target_cdc_config_struct = {
+            "operation_column": config.target_cdc_config.operation_column,
+            "insert_values": config.target_cdc_config.insert_values,
+            "update_values": config.target_cdc_config.update_values,
+            "delete_values": config.target_cdc_config.delete_values,
+        }
+
+    # Build row dict
+    return {
+        # IDENTITY
+        "resource_name": config.resource_name,
+        "source_name": config.source_name,
+        # SOURCE CONFIGURATION
+        "source_type": config.source_config.source_type,
+        "source_connection_params": config.source_config.source_connection_params,
+        "source_extraction_params": config.source_extraction_params,
+        # RAW LAYER
+        "raw_landing_path": config.raw_landing_path,
+        "raw_file_format": config.raw_file_format,
+        "raw_storage_workspace": config.raw_storage_workspace,
+        "raw_storage_lakehouse": config.raw_storage_lakehouse,
+        "target_schema_columns": target_schema_columns_array,
+        # STAGING TABLE
+        "stg_table_workspace": config.stg_table_workspace,
+        "stg_table_lakehouse": config.stg_table_lakehouse,
+        "stg_table_schema": config.stg_table_schema,
+        "stg_table_name": config.stg_table_name,
+        "stg_table_write_mode": config.stg_table_write_mode,
+        "stg_table_partition_columns": config.stg_table_partition_columns,
+        # TARGET TABLE
+        "target_workspace": config.target_workspace,
+        "target_lakehouse": config.target_lakehouse,
+        "target_schema": config.target_schema,
+        "target_table": config.target_table,
+        "target_write_mode": config.target_write_mode,
+        "target_merge_keys": config.target_merge_keys,
+        "target_partition_columns": config.target_partition_columns,
+        "target_soft_delete_enabled": config.target_soft_delete_enabled,
+        "target_cdc_config": target_cdc_config_struct,
+        "target_load_type": config.target_load_type,
+        "target_max_corrupt_records": config.target_max_corrupt_records,
+        "target_fail_on_rejection": config.target_fail_on_rejection,
+        # EXECUTION CONTROL
+        "execution_group": config.execution_group,
+        "active": config.active,
+        # METADATA
+        "created_at": datetime.now(),
+        "updated_at": datetime.now(),
+        "created_by": created_by,
+        "updated_by": updated_by,
+    }
 
 
 def get_column_names() -> list[str]:

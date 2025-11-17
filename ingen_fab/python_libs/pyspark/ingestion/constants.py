@@ -47,6 +47,13 @@ class WriteMode(StrEnum):
     MERGE = "merge"
 
 
+class LoadType(StrEnum):
+    """Target table load types for merge operations"""
+
+    INCREMENTAL = "incremental"  # Only insert/update records from batch (don't infer deletes)
+    FULL = "full"  # Batch is complete snapshot, mark missing records as deleted
+
+
 class DatastoreType(StrEnum):
     """Target datastore types"""
 

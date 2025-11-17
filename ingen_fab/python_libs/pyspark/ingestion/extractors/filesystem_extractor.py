@@ -128,25 +128,25 @@ class FileSystemExtractor:
         self.extraction_logger = extraction_logger
 
         # Parse extraction params
-        if isinstance(resource_config.extraction_params, dict):
+        if isinstance(resource_config.source_extraction_params, dict):
             self.params = FileSystemExtractionParams.from_dict(
-                resource_config.extraction_params
+                resource_config.source_extraction_params
             )
-        elif isinstance(resource_config.extraction_params, FileSystemExtractionParams):
-            self.params = resource_config.extraction_params
+        elif isinstance(resource_config.source_extraction_params, FileSystemExtractionParams):
+            self.params = resource_config.source_extraction_params
         else:
             raise ValueError(
-                "extraction_params must be dict or FileSystemExtractionParams"
+                "source_extraction_params must be dict or FileSystemExtractionParams"
             )
 
         # Get SOURCE filesystem client
-        source_params = resource_config.source_config.connection_params
+        source_params = resource_config.source_config.source_connection_params
         self.source_fs, self.source_base_url = get_filesystem_client(source_params)
 
-        # Get DESTINATION filesystem client (target lakehouse)
+        # Get DESTINATION filesystem client (raw storage lakehouse)
         dest_params = {
-            "workspace_name": resource_config.target_workspace,
-            "lakehouse_name": resource_config.target_lakehouse,
+            "workspace_name": resource_config.raw_storage_workspace,
+            "lakehouse_name": resource_config.raw_storage_lakehouse,
         }
         self.dest_fs, self.dest_base_url = get_filesystem_client(dest_params)
 
@@ -382,11 +382,11 @@ class FileSystemExtractor:
         # Step 3: Move all files to raw as one batch (yields single batch)
         yield from self._extract_all_to_raw(files)
 
-    def _discover_files_in_inbound(self) -> List[FileInfo]:
-        """Discover files in inbound folder matching discovery pattern"""
+    def _find_files_matching_pattern(self) -> List[FileInfo]:
+        """Find all files in inbound matching discovery pattern"""
         pattern = self.params.discovery_pattern or "*"
 
-        files = glob(
+        return glob(
             fs=self.source_fs,
             path=self.inbound_full_path,
             pattern=pattern,
@@ -395,11 +395,47 @@ class FileSystemExtractor:
             directories_only=False,
         )
 
-        # Sort files to ensure chronological processing
-        if files:
-            files = self._sort_files(files)
+    def _filter_ready_files(self, files: List[FileInfo]) -> List[FileInfo]:
+        """Filter files to only those that are ready to process (have control files if required)"""
+        if not self.params.control_file_pattern:
+            # No control file requirement - all files are ready
+            return files
 
-        return files
+        # Filter to only files with control files
+        ready_files = []
+        skipped_files = []
+
+        for file_info in files:
+            if self._has_control_file(file_info):
+                ready_files.append(file_info)
+            else:
+                skipped_files.append(file_info)
+
+        # Log skipped files at INFO level (not an error - just not ready yet)
+        if skipped_files:
+            skipped_names = [os.path.basename(f.path) for f in skipped_files]
+            self.logger.info(
+                f"Skipped {len(skipped_files)} file(s) waiting for control files: {', '.join(skipped_names)}"
+            )
+
+        if ready_files:
+            self.logger.info(f"Found {len(ready_files)} file(s) with control files")
+
+        return ready_files
+
+    def _discover_files_in_inbound(self) -> List[FileInfo]:
+        """Discover ready-to-process files in inbound folder"""
+        # Step 1: Find all files matching pattern
+        files = self._find_files_matching_pattern()
+
+        # Step 2: Filter to only ready files (have control files if required)
+        ready_files = self._filter_ready_files(files)
+
+        # Step 3: Sort for chronological processing
+        if ready_files:
+            ready_files = self._sort_files(ready_files)
+
+        return ready_files
 
     def _discover_folders_in_inbound(self) -> List[FolderInfo]:
         """
@@ -520,14 +556,16 @@ class FileSystemExtractor:
 
     def _validate_files(self, files: List[FileInfo]) -> ValidationResult:
         """
-        Validate files for control files, duplicates, etc.
+        Validate files for duplicates.
+
+        Note: Control file filtering happens during discovery, not validation.
 
         Returns:
-            ValidationResult with valid, failed, and duplicate files categorized
+            ValidationResult with valid and duplicate files categorized
         """
         result = ValidationResult()
 
-        # Check for duplicates first (check if files already exist in raw)
+        # Check for duplicates (check if files already exist in raw)
         if self.params.duplicate_handling != DuplicateHandling.ALLOW:
             duplicates = self._check_for_duplicates(files)
             for dup in duplicates:
@@ -544,19 +582,9 @@ class FileSystemExtractor:
                     f"Duplicate files detected: {', '.join(dup_names)}"
                 )
 
-        # Validate control files (if pattern specified)
-        if self.params.control_file_pattern:
-            for file_info in files:
-                if self._has_control_file(file_info):
-                    result.add_valid(file_info)
-                else:
-                    result.add_failed(
-                        file_info, f"Missing control file: {self._get_control_file_name(file_info)}"
-                    )
-        else:
-            # No control file validation - all are valid
-            for file_info in files:
-                result.add_valid(file_info)
+        # All non-duplicate files are valid (control files already filtered during discovery)
+        for file_info in files:
+            result.add_valid(file_info)
 
         return result
 
@@ -589,13 +617,33 @@ class FileSystemExtractor:
     def _has_control_file(self, file_info: FileInfo) -> bool:
         """Check if control file exists for this file"""
         control_file_path = self._get_control_file_path(file_info)
-        return file_exists(self.source_fs, control_file_path)
+        exists = file_exists(self.source_fs, control_file_path)
+
+        # Debug logging
+        data_file = os.path.basename(file_info.path)
+        control_file = os.path.basename(control_file_path)
+        self.logger.info(
+            f"Control file check: {data_file} → {control_file} ({'FOUND' if exists else 'NOT FOUND'})"
+        )
+        if not exists:
+            self.logger.info(f"Expected control file path: {control_file_path}")
+
+        return exists
 
     def _get_control_file_path(self, file_info: FileInfo) -> str:
         """Build control file path"""
         directory = os.path.dirname(file_info.path.rstrip("/"))
         control_file_name = self._get_control_file_name(file_info)
-        return f"{directory}/{control_file_name}".replace("//", "/")
+        control_file_path = f"{directory}/{control_file_name}"
+
+        # Debug logging
+        self.logger.debug(
+            f"Control file path construction: data_file='{file_info.path}' "
+            f"→ directory='{directory}' → control_name='{control_file_name}' "
+            f"→ full_path='{control_file_path}'"
+        )
+
+        return control_file_path
 
     def _get_control_file_name(self, file_info: FileInfo) -> str:
         """Get control file name for a file"""

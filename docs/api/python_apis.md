@@ -328,14 +328,14 @@ var_lib.set_variable("connection_string", "server=localhost")
 var_lib.load_variables("config/variables.json")
 ```
 
-#### `ConfigManager`
+#### `ConfigIngestionManager`
 
 Configuration management.
 
 ```python
-from ingen_fab.config_utils import ConfigManager
+from ingen_fab.config_utils import ConfigIngestionManager
 
-config = ConfigManager()
+config = ConfigIngestionManager()
 
 # Load configuration
 config.load_config("ingen_fab.yaml")
@@ -615,9 +615,9 @@ else:
 ### Dynamic Configuration
 
 ```python
-from ingen_fab.config_utils import ConfigManager
+from ingen_fab.config_utils import ConfigIngestionManager
 
-config = ConfigManager()
+config = ConfigIngestionManager()
 
 # Load configuration from multiple sources
 config.load_from_file('config.yaml')

@@ -34,7 +34,7 @@ from ingen_fab.python_libs.pyspark.ingestion.extractors.filesystem_extractor imp
 )
 
 # File Loading Framework (builds on shared configs)
-from ingen_fab.python_libs.pyspark.ingestion.config_manager import ConfigManager
+from ingen_fab.python_libs.pyspark.ingestion.config_manager import ConfigIngestionManager
 from ingen_fab.python_libs.pyspark.ingestion.loader import FileLoader
 from ingen_fab.python_libs.pyspark.ingestion.loading_logger import LoadingLogger
 
@@ -60,7 +60,7 @@ __all__ = [
     # Extraction
     "FileSystemExtractor",
     # File Loading
-    "ConfigManager",
+    "ConfigIngestionManager",
     "FileLoader",
     "LoadingLogger",
 ]

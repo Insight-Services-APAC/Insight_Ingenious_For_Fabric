@@ -155,11 +155,10 @@ def move_file(
         # Delete source after successful copy
         source_fs.rm(source_path)
 
-        logger.debug(f"Moved file: {source_path} → {dest_path}")
         return True
 
     except Exception as e:
-        logger.error(f"Failed to move {source_path} → {dest_path}: {e}")
+        logger.error(f"✗ Failed to move {source_path} → {dest_path}: {e}")
         return False
 
 
@@ -205,11 +204,24 @@ def glob(
         logger.error("fsspec glob returned list instead of dict - version too old?")
         return []
 
-    # Extract protocol from input path (e.g., "abfss://")
-    # fsspec.glob() returns normalized paths without protocol, so we need to add it back
-    protocol_prefix = ""
+    # Extract URL prefix from input path (protocol + host + container)
+    # fsspec.glob() returns paths like "CONTAINER/path/to/file", we need to reconstruct full ABFSS URL
+    url_prefix = ""
+    container = ""
     if "://" in path:
-        protocol_prefix = path.split("://")[0] + "://"
+        # Parse ABFSS URL: abfss://CONTAINER@HOST/PATH
+        protocol = path.split("://")[0]  # e.g., "abfss"
+        rest = path.split("://", 1)[1]  # e.g., "CONTAINER@HOST/PATH"
+
+        if "@" in rest:
+            # Extract container and host (e.g., "CONTAINER@onelake.dfs.fabric.microsoft.com")
+            container_and_host = rest.split("/", 1)[0]
+            container = container_and_host.split("@")[0]
+            url_prefix = f"{protocol}://{container_and_host}/"
+        else:
+            # No host in URL (shouldn't happen with ABFSS, but handle it)
+            container = rest.split("/", 1)[0]
+            url_prefix = f"{protocol}://{container}/"
 
     # Filter and convert to FileInfo
     items = []
@@ -225,9 +237,17 @@ def glob(
                 continue
         # If both True, return everything (files and dirs)
 
-        # Reconstruct full ABFSS path if protocol was present in input
-        if protocol_prefix and not item_path.startswith(protocol_prefix):
-            full_path = f"{protocol_prefix}{item_path}"
+        # Reconstruct full ABFSS path
+        if url_prefix:
+            # fsspec returns paths like "CONTAINER/path/to/file"
+            # We need to rebuild as "abfss://CONTAINER@HOST/path/to/file"
+            if container and item_path.startswith(f"{container}/"):
+                # Strip container prefix and add URL prefix
+                path_without_container = item_path[len(container) + 1:]
+                full_path = f"{url_prefix}{path_without_container}"
+            else:
+                # Path doesn't start with container - just prepend URL prefix
+                full_path = f"{url_prefix}{item_path}"
         else:
             full_path = item_path
 
