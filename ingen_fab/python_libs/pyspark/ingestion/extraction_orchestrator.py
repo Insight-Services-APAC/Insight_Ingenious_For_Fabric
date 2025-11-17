@@ -84,6 +84,7 @@ class ExtractionOrchestrator:
             "successful": 0,
             "failed": 0,
             "no_data": 0,
+            "missing_required_files": 0,
             "resources": [],
             "execution_groups_processed": [],
         }
@@ -125,10 +126,15 @@ class ExtractionOrchestrator:
                     results["failed"] += 1
                 else:
                     results["no_data"] += 1
+                    # Check if this was a required file that's missing
+                    config = next(c for c in group_configs if c.resource_name == result.resource_name)
+                    if config.source_extraction_params.get("require_files", False):
+                        results["missing_required_files"] += 1
 
         logger.info(
             f"Extraction complete: {results['successful']} successful, "
-            f"{results['failed']} failed, {results['no_data']} no data"
+            f"{results['failed']} failed, {results['no_data']} no data, "
+            f"{results['missing_required_files']} missing required files"
         )
 
         return results

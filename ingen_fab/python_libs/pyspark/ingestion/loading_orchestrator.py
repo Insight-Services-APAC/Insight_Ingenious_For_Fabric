@@ -231,6 +231,7 @@ class LoadingOrchestrator:
             "successful": 0,
             "failed": 0,
             "no_data": 0,
+            "rejected_batches": 0,
             "resources": [],
             "execution_groups_processed": [],
         }
@@ -273,9 +274,13 @@ class LoadingOrchestrator:
                 else:
                     results["no_data"] += 1
 
+                # Sum all rejections across resources
+                results["rejected_batches"] += result.batches_rejected
+
         logger.info(
             f"Execution complete: {results['successful']} successful, "
-            f"{results['failed']} failed, {results['no_data']} no data"
+            f"{results['failed']} failed, {results['no_data']} no data, "
+            f"{results['rejected_batches']} rejected batches"
         )
 
         return results
@@ -950,11 +955,11 @@ class LoadingOrchestrator:
             config_logger: Configured logger adapter
         """
         # Determine final status based on batch outcomes
-        if result.batches_failed > 0 or result.batches_rejected > 0:
-            # Any failures or rejections = FAILED status
+        if result.batches_failed > 0:
+            # System failures = FAILED status
             result.status = ExecutionStatus.FAILED
         elif result.batches_processed > 0:
-            # All batches succeeded = COMPLETED status
+            # All batches succeeded (rejections don't cause failure) = COMPLETED status
             result.status = ExecutionStatus.COMPLETED
         else:
             # No batches discovered or all skipped = NO_DATA status

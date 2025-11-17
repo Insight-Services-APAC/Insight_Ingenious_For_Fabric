@@ -224,18 +224,11 @@ class FileSystemExtractor:
         files = self._discover_files_in_inbound()
 
         if not files:
-            # Check require_files when no files discovered
+            # No files discovered
             if self.params.require_files:
-                raise ExtractionError(
-                    message=f"No files found in {self.params.inbound_path} (require_files=True)",
-                    context=ErrorContext(
-                        resource_name=self.config.resource_name,
-                        source_name=self.config.source_name,
-                        operation="discover_files",
-                    ),
-                )
-            # No files but not required - log and return
-            self.logger.info("No files found in inbound")
+                self.logger.warning(f"No files found in {self.params.inbound_path} (require_files=True)")
+            else:
+                self.logger.info("No files found in inbound")
             return  # No files, empty generator
 
         self.logger.info(f"Discovered {len(files)} files in inbound")
@@ -257,18 +250,12 @@ class FileSystemExtractor:
 
         # Check require_files BEFORE extraction
         if self.params.require_files and len(validation.valid_files) == 0:
-            raise ExtractionError(
-                message=(
-                    f"No valid files in {self.params.inbound_path} (require_files=True): "
-                    f"{len(files)} discovered, {len(validation.failed_files)} failed validation, "
-                    f"{len(validation.duplicate_files)} duplicates"
-                ),
-                context=ErrorContext(
-                    resource_name=self.config.resource_name,
-                    source_name=self.config.source_name,
-                    operation="validate_files",
-                ),
+            self.logger.warning(
+                f"No valid files in {self.params.inbound_path} (require_files=True): "
+                f"{len(files)} discovered, {len(validation.failed_files)} failed validation, "
+                f"{len(validation.duplicate_files)} duplicates"
             )
+            return  # No valid files, empty generator
 
         # Step 4: Extract valid files to raw (yields batches)
         if validation.valid_files:
@@ -280,18 +267,11 @@ class FileSystemExtractor:
         folders = self._discover_folders_in_inbound()
 
         if not folders:
-            # Check require_files when no folders discovered
+            # No folders discovered
             if self.params.require_files:
-                raise ExtractionError(
-                    message=f"No folders found in {self.params.inbound_path} (require_files=True)",
-                    context=ErrorContext(
-                        resource_name=self.config.resource_name,
-                        source_name=self.config.source_name,
-                        operation="discover_folders",
-                    ),
-                )
-            # No folders but not required - log and return
-            self.logger.info("No folders found in inbound")
+                self.logger.warning(f"No folders found in {self.params.inbound_path} (require_files=True)")
+            else:
+                self.logger.info("No folders found in inbound")
             return  # No folders, empty generator
 
         self.logger.info(f"Discovered {len(folders)} folders in inbound")
@@ -317,18 +297,12 @@ class FileSystemExtractor:
 
         # Check require_files BEFORE extraction
         if self.params.require_files and len(validation.valid_folders) == 0:
-            raise ExtractionError(
-                message=(
-                    f"No valid folders in {self.params.inbound_path} (require_files=True): "
-                    f"{len(folders)} discovered, {len(validation.failed_folders)} failed validation, "
-                    f"{len(validation.duplicate_folders)} duplicates"
-                ),
-                context=ErrorContext(
-                    resource_name=self.config.resource_name,
-                    source_name=self.config.source_name,
-                    operation="validate_folders",
-                ),
+            self.logger.warning(
+                f"No valid folders in {self.params.inbound_path} (require_files=True): "
+                f"{len(folders)} discovered, {len(validation.failed_folders)} failed validation, "
+                f"{len(validation.duplicate_folders)} duplicates"
             )
+            return  # No valid folders, empty generator
 
         # Step 4: Extract valid folders to raw (yields batches)
         if validation.valid_folders:
@@ -340,18 +314,11 @@ class FileSystemExtractor:
         files = self._discover_files_in_inbound()
 
         if not files:
-            # Check require_files when no files discovered
+            # No files discovered
             if self.params.require_files:
-                raise ExtractionError(
-                    message=f"No files found in {self.params.inbound_path} (require_files=True)",
-                    context=ErrorContext(
-                        resource_name=self.config.resource_name,
-                        source_name=self.config.source_name,
-                        operation="discover_files",
-                    ),
-                )
-            # No files but not required - log and return
-            self.logger.info("No files found in inbound")
+                self.logger.warning(f"No files found in {self.params.inbound_path} (require_files=True)")
+            else:
+                self.logger.info("No files found in inbound")
             return  # No files, empty generator
 
         self.logger.info(f"Discovered {len(files)} files in inbound (treating as ONE batch)")
