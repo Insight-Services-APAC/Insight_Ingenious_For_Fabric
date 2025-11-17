@@ -249,6 +249,7 @@ class ResourceConfig:
     raw_file_format: str                    # 'csv', 'parquet', 'json'
     raw_storage_workspace: str              # Workspace where raw files are stored
     raw_storage_lakehouse: str              # Lakehouse where raw files are stored
+    raw_error_path: str                     # e.g., "Files/errors/edl/fct_sales/" - rejected files moved here
     target_schema_columns: SchemaColumns    # REQUIRED - Schema with column names and Spark data types
 
     # ========================================================================
@@ -331,6 +332,7 @@ class ResourceConfig:
             raw_file_format=config_dict["raw_file_format"],
             raw_storage_workspace=config_dict["raw_storage_workspace"],
             raw_storage_lakehouse=config_dict["raw_storage_lakehouse"],
+            raw_error_path=config_dict["raw_error_path"],
             source_extraction_params=config_dict.get("source_extraction_params", {}),
             stg_table_workspace=config_dict.get("stg_table_workspace", ""),
             stg_table_lakehouse=config_dict.get("stg_table_lakehouse", ""),

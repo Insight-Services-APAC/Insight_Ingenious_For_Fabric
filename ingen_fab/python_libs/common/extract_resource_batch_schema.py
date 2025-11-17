@@ -35,7 +35,7 @@ def get_extract_resource_batch_schema() -> StructType:
             StructField("source_name", StringType(), nullable=False),  # Source system (denormalized for partitioning)
             StructField("resource_name", StringType(), nullable=False),  # Resource/table name (denormalized for partitioning)
             StructField(
-                "status", StringType(), nullable=False
+                "extract_state", StringType(), nullable=False
             ),  # running, completed, failed, duplicate
             StructField(
                 "load_state", StringType(), nullable=False

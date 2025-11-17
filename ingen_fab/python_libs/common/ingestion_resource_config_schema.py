@@ -52,6 +52,7 @@ def get_ingestion_resource_config_schema() -> StructType:
             StructField("raw_file_format", StringType(), False),  # 'csv', 'parquet', 'json'
             StructField("raw_storage_workspace", StringType(), False),
             StructField("raw_storage_lakehouse", StringType(), False),
+            StructField("raw_error_path", StringType(), False),  # Path for rejected files
             # ====================================================================
             # STAGING TABLE (Step 1: FILES → STAGING TABLE)
             # ====================================================================
@@ -176,6 +177,7 @@ def row_to_resource_config(row) -> ResourceConfig:
         raw_file_format=get_field("raw_file_format"),
         raw_storage_workspace=get_field("raw_storage_workspace"),
         raw_storage_lakehouse=get_field("raw_storage_lakehouse"),
+        raw_error_path=get_field("raw_error_path"),
         target_schema_columns=target_schema_columns,
         source_extraction_params=source_extraction_params,
         stg_table_workspace=get_field("stg_table_workspace") or "",
@@ -246,6 +248,7 @@ def resource_config_to_row(config: ResourceConfig, created_by: str = "system", u
         "raw_file_format": config.raw_file_format,
         "raw_storage_workspace": config.raw_storage_workspace,
         "raw_storage_lakehouse": config.raw_storage_lakehouse,
+        "raw_error_path": config.raw_error_path,
         "target_schema_columns": target_schema_columns_array,
         # STAGING TABLE
         "stg_table_workspace": config.stg_table_workspace,

@@ -296,7 +296,7 @@ class LoadingLogger:
             else:
                 # UPDATE existing row with final metrics (completed/failed/no_data/duplicate)
                 set_values = {
-                    "status": lit(str(status)),  # Convert enum to string for Spark
+                    "load_state": lit(str(status)),  # Convert enum to string for Spark
                     "records_processed": lit(records_processed if records_processed is not None else 0),
                     "records_inserted": lit(records_inserted if records_inserted is not None else 0),
                     "records_updated": lit(records_updated if records_updated is not None else 0),
@@ -475,7 +475,7 @@ class LoadingLogger:
             else:
                 # UPDATE existing row with final metrics (completed/failed/no_data)
                 set_values = {
-                    "status": lit(str(status)),  # Convert enum to string for Spark
+                    "load_state": lit(str(status)),  # Convert enum to string for Spark
                     "files_discovered": lit(files_discovered),
                     "files_processed": lit(files_processed),
                     "files_failed": lit(files_failed),
@@ -541,7 +541,7 @@ class LoadingLogger:
                 self.lakehouse.read_table("log_resource_extract_batch")
                 .filter(col("source_name") == config.source_name)
                 .filter(col("resource_name") == config.resource_name)
-                .filter(col("status") == str(ExecutionStatus.COMPLETED))
+                .filter(col("extract_state") == str(ExecutionStatus.COMPLETED))
                 .filter(col("load_state") == str(ExecutionStatus.PENDING))
                 .orderBy(col("completed_at").asc())
             )
@@ -584,7 +584,7 @@ class LoadingLogger:
                 .filter(col("resource_name") == config.resource_name)
                 .withColumn("rn", row_number().over(window_spec))
                 .filter(col("rn") == 1)
-                .filter(col("status") == "processing")
+                .filter(col("load_state") == "processing")
                 .filter(col("started_at") < threshold_time)
             )
 

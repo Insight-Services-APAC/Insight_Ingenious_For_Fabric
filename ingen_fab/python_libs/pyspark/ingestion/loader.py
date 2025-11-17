@@ -81,7 +81,7 @@ class FileLoader:
         - Use custom_schema_json from config (if provided) OR infer schema from file
         - Cast ALL columns to STRING (no type validation)
         - Use PERMISSIVE mode to capture structurally corrupt rows in _stg_corrupt_record
-        - Add staging metadata columns (_stg_created_load_id, _stg_file_path, _stg_created_at, _stg_corrupt_record)
+        - Add staging metadata columns (_stg_corrupt_record, _stg_file_path, _stg_created_load_id, _stg_created_at)
         - Add partition columns from batch destination path
         - Write to stg_table with partition alignment
 
@@ -130,8 +130,8 @@ class FileLoader:
 
             ordered_cols = (
                 business_cols +
-                [self.metadata_cols.stg_created_load_id, self.metadata_cols.stg_file_path,
-                 self.metadata_cols.stg_corrupt_record, self.metadata_cols.stg_created_at] +
+                [self.metadata_cols.stg_corrupt_record, self.metadata_cols.stg_file_path,
+                 self.metadata_cols.stg_created_load_id, self.metadata_cols.stg_created_at] +
                 partition_cols
             )
             df = df.select(ordered_cols)
@@ -605,10 +605,10 @@ class FileLoader:
 
         Adds in order:
         1. Filename metadata columns (file_date, etc.) - business columns extracted from path
-        2. _raw_created_load_id (current batch_id - for inserts, immutable on updates)
-        3. _raw_updated_load_id (current batch_id - updated on every load)
-        4. _raw_is_deleted (if soft_delete_enabled)
-        5. _raw_filename
+        2. _raw_filename - file tracking
+        3. _raw_is_deleted (if soft_delete_enabled) - file tracking
+        4. _raw_created_load_id (current batch_id - for inserts, immutable on updates) - load tracking
+        5. _raw_updated_load_id (current batch_id - updated on every load) - load tracking
         6. _raw_created_at, _raw_updated_at (timestamps)
 
         Note: Staging columns (_stg_*) have already been dropped
@@ -627,20 +627,20 @@ class FileLoader:
             file_path = batch_info.file_paths[0]
             result_df = self._add_filename_metadata_columns(result_df, file_path)
 
-        # Add created load_id (current batch - immutable on merge)
-        result_df = result_df.withColumn(self.metadata_cols.raw_created_load_id, lit(batch_info.batch_id))
-
-        # Add updated load_id (current batch - updates on every load)
-        result_df = result_df.withColumn(self.metadata_cols.raw_updated_load_id, lit(batch_info.batch_id))
-
-        # Add soft delete column (if enabled)
-        if self.config.target_soft_delete_enabled:
-            result_df = result_df.withColumn(self.metadata_cols.raw_is_deleted, lit(False))
-
-        # Add filename
+        # Add filename (file tracking)
         if batch_info.file_paths:
             filename = os.path.basename(batch_info.file_paths[0])
             result_df = result_df.withColumn(self.metadata_cols.raw_filename, lit(filename))
+
+        # Add soft delete column (file tracking - if enabled)
+        if self.config.target_soft_delete_enabled:
+            result_df = result_df.withColumn(self.metadata_cols.raw_is_deleted, lit(False))
+
+        # Add created load_id (load tracking - current batch, immutable on merge)
+        result_df = result_df.withColumn(self.metadata_cols.raw_created_load_id, lit(batch_info.batch_id))
+
+        # Add updated load_id (load tracking - current batch, updates on every load)
+        result_df = result_df.withColumn(self.metadata_cols.raw_updated_load_id, lit(batch_info.batch_id))
 
         # Add timestamps (last)
         result_df = result_df.withColumn(self.metadata_cols.raw_created_at, current_timestamp()) \

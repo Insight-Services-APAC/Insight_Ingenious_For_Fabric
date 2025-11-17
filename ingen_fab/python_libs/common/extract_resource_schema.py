@@ -29,7 +29,7 @@ def get_extract_resource_schema() -> StructType:
             StructField("source_name", StringType(), nullable=False),  # Source system (e.g., "edl", "sap")
             StructField("resource_name", StringType(), nullable=False),  # Resource/table name
             StructField(
-                "status", StringType(), nullable=False
+                "extract_state", StringType(), nullable=False
             ),  # running, completed, failed, no_data
             # Error tracking
             StructField("error_message", StringType(), nullable=True),

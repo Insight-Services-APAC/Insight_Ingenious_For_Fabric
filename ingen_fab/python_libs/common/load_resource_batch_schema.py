@@ -32,7 +32,7 @@ def get_load_resource_batch_schema() -> StructType:
             StructField("source_name", StringType(), nullable=False),  # Source system (denormalized for partitioning)
             StructField("resource_name", StringType(), nullable=False),  # Resource/table name (denormalized for partitioning)
             StructField(
-                "status", StringType(), nullable=False
+                "load_state", StringType(), nullable=False
             ),  # running, completed, failed, duplicate, skipped
             # Source file information
             StructField("source_file_path", StringType(), nullable=False),

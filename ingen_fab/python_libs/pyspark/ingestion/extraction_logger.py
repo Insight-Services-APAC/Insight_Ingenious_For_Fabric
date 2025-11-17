@@ -141,8 +141,8 @@ class ExtractionLogger:
                     execution_id,           # master_execution_id (denormalized)
                     config.source_name,     # source_name (denormalized for partitioning)
                     config.resource_name,   # resource_name (denormalized for partitioning)
-                    str(status),            # Convert enum to string for Spark
-                    str(load_state),        # Convert enum to string for Spark
+                    str(status),            # extract_state - Convert enum to string for Spark
+                    str(load_state),        # load_state - Convert enum to string for Spark
                     source_path,
                     destination_path,       # KEY: where loader reads from
                     file_count,
@@ -271,7 +271,7 @@ class ExtractionLogger:
                         execution_id,           # master_execution_id
                         config.source_name,     # source_name
                         config.resource_name,   # resource_name
-                        str(status),            # Convert enum to string for Spark
+                        str(status),            # extract_state - Convert enum to string for Spark
                         error_message,
                         now,                    # started_at
                         now,                    # updated_at
@@ -290,7 +290,7 @@ class ExtractionLogger:
             else:
                 # UPDATE existing row with final status (completed/failed/no_data)
                 set_values = {
-                    "status": lit(str(status)),  # Convert enum to string for Spark
+                    "extract_state": lit(str(status)),  # Convert enum to string for Spark
                     "updated_at": current_timestamp(),
                     "completed_at": current_timestamp(),
                 }
@@ -348,7 +348,7 @@ class ExtractionLogger:
                 self.lakehouse.read_table("log_resource_extract_batch")
                 .filter(col("source_name") == config.source_name)
                 .filter(col("resource_name") == config.resource_name)
-                .filter(col("status") == str(ExecutionStatus.COMPLETED))
+                .filter(col("extract_state") == str(ExecutionStatus.COMPLETED))
                 .filter(col("destination_path").endswith(f"/{filename}"))
                 .limit(1)  # Only need to know if at least one exists
             )

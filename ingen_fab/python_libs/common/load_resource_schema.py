@@ -28,7 +28,7 @@ def get_load_resource_schema() -> StructType:
             StructField("source_name", StringType(), nullable=False),  # Source system (e.g., "edl", "sap")
             StructField("resource_name", StringType(), nullable=False),  # Resource/table name
             StructField(
-                "status", StringType(), nullable=False
+                "load_state", StringType(), nullable=False
             ),  # running, completed, failed, no_data
             # File counts
             StructField("files_discovered", LongType(), nullable=True),

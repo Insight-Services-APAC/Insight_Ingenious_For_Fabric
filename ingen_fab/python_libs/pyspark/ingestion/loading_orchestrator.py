@@ -9,6 +9,7 @@ from collections import defaultdict
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import datetime
 from typing import Any, Dict, List, Optional, Tuple
+from urllib.parse import urlparse
 
 from pyspark.sql import SparkSession
 
@@ -540,7 +541,7 @@ class LoadingOrchestrator:
 
             except DataQualityRejectionError as error:
                 # Data quality rejection - fail fast to maintain data continuity
-                # File stays in landing, extraction log stays 'pending' for retry
+                # File moved to error location, extraction log updated to 'failed'
 
                 # Extract rejection reason from exception
                 if error.context and error.context.additional_info:
@@ -634,8 +635,8 @@ class LoadingOrchestrator:
         Execute all workflow steps for processing a single batch.
 
         Workflow:
-        1. Load files to raw table (no validation)
-        2. Load raw table to target with validation and write (loader adds metadata)
+        1. Load files to staging table (no validation)
+        2. Load staging table to target with validation and write (loader adds metadata)
 
         Args:
             batch_info: Information about the batch to process
@@ -646,20 +647,20 @@ class LoadingOrchestrator:
 
         Raises:
             DataQualityRejectionError: If validation fails (corrupt records, duplicates, etc.)
-            WriteError: If loading to raw or target table fails
+            WriteError: If loading to staging or target table fails
             SchemaValidationError: If schema config is invalid (rare - safety net)
-            FileReadError: If reading from raw table fails
+            FileReadError: If reading from staging table fails
         """
 
-        # Step 1: Load files to raw table (no validation)
+        # Step 1: Load files to staging table (no validation)
         raw_result = ctx.file_loader.load_files_to_stg_table(batch_info)
 
         if raw_result.status == "failed":
             error_message = raw_result.rejection_reason or "Unknown error"
-            ctx.config_logger.error(f"Failed to load files to raw table: {error_message}")
+            ctx.config_logger.error(f"Failed to load files to staging table: {error_message}")
 
             raise WriteError(
-                message=f"Failed to load files to raw table: {error_message}",
+                message=f"Failed to load files to staging table: {error_message}",
                 context=ErrorContext(
                     resource_name=ctx.config.resource_name,
                     source_name=ctx.config.source_name,
@@ -671,9 +672,9 @@ class LoadingOrchestrator:
 
         # Log Step 1 success
         raw_rows = raw_result.metrics.source_row_count
-        ctx.config_logger.info(f"Step 1/2: Loaded {raw_rows:,} rows to raw table")
+        ctx.config_logger.info(f"Step 1/2: Loaded {raw_rows:,} rows to staging table")
 
-        # Step 2: Load from raw table to target with validation and write
+        # Step 2: Load from staging table to target with validation and write
         result = ctx.file_loader.load_stg_table_to_target(batch_info)
 
         # Check for rejection
@@ -683,7 +684,17 @@ class LoadingOrchestrator:
 
             ctx.config_logger.info(f"Step 2/2: Batch rejected: {file_name}")
             ctx.config_logger.info(f"Reason: {rejection_reason}")
-            ctx.config_logger.info(f"Action: File remains in landing - fix required before retry")
+
+            # Move rejected batch to error location (data file + control file if present)
+            self._move_rejected_batch_to_error(batch_info, ctx)
+
+            # Update extraction log (PENDING → FAILED) so it's not picked up again
+            self.logger_instance.update_extraction_batch_load_state(
+                batch_info.extract_batch_id,
+                ctx.config.source_name,
+                ctx.config.resource_name,
+                ExecutionStatus.FAILED
+            )
 
             raise DataQualityRejectionError(
                 message=f"Data quality rejection: {rejection_reason}",
@@ -703,6 +714,199 @@ class LoadingOrchestrator:
         ctx.config_logger.info(f"Step 2/2: Wrote {target_rows:,} rows to target table")
 
         return metrics
+
+    def _extract_lakehouse_relative_path(
+        self,
+        file_path: str,
+        base_path: str,
+    ) -> str:
+        """
+        Extract relative path from either ABFSS URL or relative path.
+
+        Handles both:
+        - ABFSS URLs: abfss://container@host/lakehouse.Lakehouse/Files/raw/pe/.../file.dat
+        - Relative paths: Files/raw/pe/.../file.dat
+
+        For ABFSS URLs, extracts the path after '.Lakehouse/' and then
+        calculates the relative portion after base_path.
+
+        Args:
+            file_path: Full ABFSS URL or relative path
+            base_path: Base path to strip (e.g., "Files/raw/pe/pe_prom_codes")
+
+        Returns:
+            Relative path after base_path (e.g., "ds=2025-11-17/file.dat")
+            Falls back to filename only if base_path not found in path
+        """
+        # Parse the path to extract lakehouse-relative portion
+        if file_path.startswith("abfss://"):
+            # Parse ABFSS URL to extract path component
+            parsed = urlparse(file_path)
+            url_path = parsed.path  # e.g., "/lakehouse.Lakehouse/Files/raw/pe/.../file.dat"
+
+            # Extract path after '.Lakehouse/' boundary
+            lakehouse_boundary = ".Lakehouse/"
+            if lakehouse_boundary in url_path:
+                # Split on boundary and take everything after it
+                lakehouse_relative = url_path.split(lakehouse_boundary, 1)[1]
+            else:
+                # Fallback: use entire path without leading slash
+                lakehouse_relative = url_path.lstrip("/")
+        else:
+            # Already a relative path
+            lakehouse_relative = file_path
+
+        # Now calculate relative path after base_path
+        # Normalize both paths (remove trailing/leading slashes for comparison)
+        normalized_base = base_path.strip("/")
+        normalized_full = lakehouse_relative.strip("/")
+
+        # Try to find base_path in the full path
+        if normalized_base in normalized_full:
+            # Split on base path and take everything after it
+            relative_path = normalized_full.split(normalized_base, 1)[1].lstrip("/")
+        else:
+            # Fallback: use just the filename (last component)
+            # This handles cases where folder structure differs
+            relative_path = os.path.basename(normalized_full)
+
+        return relative_path
+
+    def _move_rejected_batch_to_error(
+        self,
+        batch_info: BatchInfo,
+        ctx: BatchContext,
+    ) -> None:
+        """
+        Move rejected batch files to error location.
+
+        Handles:
+        - Data file movement from raw_landing_path to raw_error_path
+        - Control file movement (if control_file_pattern configured)
+
+        Note:
+            Extraction batch logs are NOT updated - they remain pointing to landing.
+            Loading batch logs record the rejection with status='failed'.
+            Control file movement failures are logged but don't cause exceptions.
+
+        Args:
+            batch_info: Information about the rejected batch
+            ctx: Batch processing context
+        """
+        # Validate destination_path exists
+        if not batch_info.destination_path:
+            ctx.config_logger.warning("Cannot move rejected batch - destination_path is missing")
+            return
+
+        # Build error destination path (preserve folder structure)
+        source_path = batch_info.destination_path
+        relative_path = self._extract_lakehouse_relative_path(
+            file_path=source_path,
+            base_path=ctx.config.raw_landing_path,
+        )
+        error_path = f"{ctx.config.raw_error_path.rstrip('/')}/{relative_path}"
+
+        ctx.config_logger.info(f"Moving rejected file: {source_path} → {error_path}")
+
+        # Move data file to error location
+        data_moved = ctx.file_loader.source_lakehouse_utils.move_file(source_path, error_path)
+
+        if data_moved:
+            ctx.config_logger.info("Data file moved to error location successfully")
+
+            # Move control file if configured (best-effort, don't fail batch if this fails)
+            self._move_control_file_to_error(source_path, error_path, ctx)
+
+        else:
+            ctx.config_logger.warning("Failed to move data file to error location - file remains in landing")
+
+    def _move_control_file_to_error(
+        self,
+        data_source_path: str,
+        data_error_path: str,
+        ctx: BatchContext,
+    ) -> None:
+        """
+        Move control file to error location (best-effort).
+
+        Derives control file paths from data file paths and attempts to move.
+        Failures are logged but don't raise exceptions (graceful degradation).
+
+        Args:
+            data_source_path: Data file path in landing location
+            data_error_path: Data file path in error location
+            ctx: Batch processing context
+        """
+        # Check if control files are configured for this resource
+        control_pattern = ctx.config.source_extraction_params.get("control_file_pattern")
+        if not control_pattern:
+            # No control file configuration - nothing to do
+            return
+
+        try:
+            # Derive control file paths from data file paths
+            control_source = self._derive_control_file_path(data_source_path, control_pattern)
+            control_error = self._derive_control_file_path(data_error_path, control_pattern)
+
+            if not control_source or not control_error:
+                ctx.config_logger.debug("Could not derive control file paths - skipping control file move")
+                return
+
+            # Attempt to move control file
+            control_moved = ctx.file_loader.source_lakehouse_utils.move_file(
+                control_source, control_error
+            )
+
+            if control_moved:
+                control_filename = os.path.basename(control_source)
+                ctx.config_logger.debug(f"Control file moved: {control_filename}")
+            else:
+                # File might not exist or already moved - log at debug level
+                ctx.config_logger.debug("Control file not found or could not be moved")
+
+        except Exception as e:
+            # Control file movement is best-effort - log and continue
+            ctx.config_logger.debug(f"Could not move control file: {e}")
+
+    def _derive_control_file_path(
+        self,
+        data_file_path: str,
+        control_pattern: str,
+    ) -> Optional[str]:
+        """
+        Derive control file path from data file path using control_file_pattern.
+
+        Supports two pattern modes:
+        - Per-file mode: "{basename}.ctl" → derives from data filename
+          Example: sales_20251117.dat → sales_20251117.ctl
+        - Per-folder mode: "control.txt" → fixed name in same directory
+          Example: sales_20251117.dat → control.txt
+
+        Args:
+            data_file_path: Full path to data file
+            control_pattern: Control file pattern from extraction params
+
+        Returns:
+            Full path to control file, or None if pattern is invalid
+        """
+        if not control_pattern or not data_file_path:
+            return None
+
+        # Extract directory and filename from data file path
+        directory = os.path.dirname(data_file_path)
+        filename = os.path.basename(data_file_path)
+
+        # Determine control file name based on pattern mode
+        if "{basename}" in control_pattern:
+            # Per-file mode: Replace {basename} with data file basename (no extension)
+            basename = os.path.splitext(filename)[0]
+            control_filename = control_pattern.replace("{basename}", basename)
+        else:
+            # Per-folder mode: Use pattern as fixed filename
+            control_filename = control_pattern
+
+        # Build full control file path
+        return f"{directory}/{control_filename}" if directory else control_filename
 
     def _handle_batch_error(
         self,
