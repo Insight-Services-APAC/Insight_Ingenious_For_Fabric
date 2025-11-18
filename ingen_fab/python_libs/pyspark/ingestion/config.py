@@ -225,11 +225,11 @@ class ResourceConfig:
     Each framework uses only the fields relevant to it.
 
     Architecture (dlt-inspired pattern):
-    - Extraction writes TO raw_landing_path
-    - Loading reads FROM raw_landing_path
-    - On successful bronze write, files STAY in raw_landing_path (replay-friendly!)
-    - On failure, files STAY in raw_landing_path for manual intervention
-    - State tracked in log_resource_extract_batch.load_state for easy replay
+    - Extraction writes TO extract_path
+    - Loading reads FROM extract_path
+    - On successful bronze write, files STAY in extract_path
+    - On failure, files STAY in extract_path for manual intervention
+    - State tracked in log_resource_extract_batch.load_state
     """
 
     # ========================================================================
@@ -241,15 +241,15 @@ class ResourceConfig:
     source_config: SourceConfig             # Source connection info
 
     # ========================================================================
-    # RAW LAYER (Used by BOTH frameworks)
+    # EXTRACT LAYER (Used by BOTH frameworks)
     # ========================================================================
 
-    # Raw layer locations (extraction writes to landing, loading reads from landing)
-    raw_landing_path: str                   # e.g., "Files/raw/edl/fct_sales/" - files stay here (successful or failed)
-    raw_file_format: str                    # 'csv', 'parquet', 'json'
-    raw_storage_workspace: str              # Workspace where raw files are stored
-    raw_storage_lakehouse: str              # Lakehouse where raw files are stored
-    raw_error_path: str                     # e.g., "Files/errors/edl/fct_sales/" - rejected files moved here
+    # Extract layer locations (extraction writes to landing, loading reads from landing)
+    extract_path: str               # e.g., "Files/raw/edl/fct_sales/" - files stay here (successful or failed)
+    extract_file_format: str                # 'csv', 'parquet', 'json'
+    extract_storage_workspace: str          # Workspace where raw files are stored
+    extract_storage_lakehouse: str          # Lakehouse where raw files are stored
+    extract_error_path: str                 # e.g., "Files/errors/edl/fct_sales/" - rejected files moved here
     target_schema_columns: SchemaColumns    # REQUIRED - Schema with column names and Spark data types
 
     # ========================================================================
@@ -305,6 +305,23 @@ class ResourceConfig:
     execution_group: int = 1
     active: bool = True
 
+    def __post_init__(self):
+        """Validate configuration after initialization"""
+        # Required fields
+        if not self.resource_name:
+            raise ValueError("resource_name is required")
+        if not self.source_name:
+            raise ValueError("source_name is required")
+
+        # Write mode validation
+        valid_write_modes = ["overwrite", "append", "merge"]
+        if self.target_write_mode and self.target_write_mode not in valid_write_modes:
+            raise ValueError(f"target_write_mode must be one of {valid_write_modes}, got '{self.target_write_mode}'")
+
+        # Merge requires keys
+        if self.target_write_mode == "merge" and not self.target_merge_keys:
+            raise ValueError("target_merge_keys required when target_write_mode='merge'")
+
     @classmethod
     def from_dict(cls, config_dict: Dict[str, Any], source_config: SourceConfig) -> "ResourceConfig":
         """Create ResourceConfig from dictionary"""
@@ -328,11 +345,11 @@ class ResourceConfig:
             resource_name=config_dict["resource_name"],
             source_name=config_dict["source_name"],
             source_config=source_config,
-            raw_landing_path=config_dict["raw_landing_path"],
-            raw_file_format=config_dict["raw_file_format"],
-            raw_storage_workspace=config_dict["raw_storage_workspace"],
-            raw_storage_lakehouse=config_dict["raw_storage_lakehouse"],
-            raw_error_path=config_dict["raw_error_path"],
+            extract_path=config_dict["extract_path"],
+            extract_file_format=config_dict["extract_file_format"],
+            extract_storage_workspace=config_dict["extract_storage_workspace"],
+            extract_storage_lakehouse=config_dict["extract_storage_lakehouse"],
+            extract_error_path=config_dict["extract_error_path"],
             source_extraction_params=config_dict.get("source_extraction_params", {}),
             stg_table_workspace=config_dict.get("stg_table_workspace", ""),
             stg_table_lakehouse=config_dict.get("stg_table_lakehouse", ""),
@@ -385,8 +402,8 @@ class FileSystemExtractionParams:
 
     # Validation
     control_file_pattern: Optional[str] = None  # If set, only process files with control files
-    duplicate_handling: str = "fail"  # 'fail', 'skip', 'allow'
-    require_files: bool = False  # If True, fail extraction when no files found
+    duplicate_handling: str = "skip"  # 'skip', 'allow', 'fail'
+    no_data_handling: str = "allow"  # 'allow', 'warn', 'fail' - when no data extracted
 
     # Metadata extraction from filename/path (NEW)
     filename_metadata: List[Dict[str, Any]] = field(default_factory=list)
@@ -411,6 +428,29 @@ class FileSystemExtractionParams:
     # Custom names supported: ["ds"], ["process_date"], ["yr", "mo", "dy"], etc.
 
     partition_depth: Optional[int] = None  # Folder depth for batch_by="folder" (e.g., 3 for YYYY/MM/DD)
+
+    def __post_init__(self):
+        """Validate extraction parameters"""
+        # Required fields
+        if not self.inbound_path:
+            raise ValueError("inbound_path is required")
+
+        # Enum validations
+        valid_duplicate = ["skip", "allow", "fail"]
+        if self.duplicate_handling not in valid_duplicate:
+            raise ValueError(f"duplicate_handling must be one of {valid_duplicate}, got '{self.duplicate_handling}'")
+
+        valid_no_data = ["allow", "warn", "fail"]
+        if self.no_data_handling not in valid_no_data:
+            raise ValueError(f"no_data_handling must be one of {valid_no_data}, got '{self.no_data_handling}'")
+
+        valid_batch_by = ["file", "folder", "all"]
+        if self.batch_by not in valid_batch_by:
+            raise ValueError(f"batch_by must be one of {valid_batch_by}, got '{self.batch_by}'")
+
+        valid_sort_order = ["asc", "desc"]
+        if self.sort_order not in valid_sort_order:
+            raise ValueError(f"sort_order must be one of {valid_sort_order}, got '{self.sort_order}'")
 
     def to_dict(self) -> Dict[str, Any]:
         """Convert to dict for storage in ResourceConfig.extraction_params"""

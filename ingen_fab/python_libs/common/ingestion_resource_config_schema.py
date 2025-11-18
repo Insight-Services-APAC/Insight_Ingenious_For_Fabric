@@ -46,13 +46,13 @@ def get_ingestion_resource_config_schema() -> StructType:
             StructField("source_connection_params", MapType(StringType(), StringType()), True),
             StructField("source_extraction_params", MapType(StringType(), StringType()), True),
             # ====================================================================
-            # RAW LAYER (Used by BOTH frameworks)
+            # EXTRACT LAYER (Used by BOTH frameworks)
             # ====================================================================
-            StructField("raw_landing_path", StringType(), False),
-            StructField("raw_file_format", StringType(), False),  # 'csv', 'parquet', 'json'
-            StructField("raw_storage_workspace", StringType(), False),
-            StructField("raw_storage_lakehouse", StringType(), False),
-            StructField("raw_error_path", StringType(), False),  # Path for rejected files
+            StructField("extract_path", StringType(), False),
+            StructField("extract_file_format", StringType(), False),  # 'csv', 'parquet', 'json'
+            StructField("extract_storage_workspace", StringType(), False),
+            StructField("extract_storage_lakehouse", StringType(), False),
+            StructField("extract_error_path", StringType(), False),  # Path for rejected files
             # ====================================================================
             # STAGING TABLE (Step 1: FILES → STAGING TABLE)
             # ====================================================================
@@ -173,11 +173,11 @@ def row_to_resource_config(row) -> ResourceConfig:
         resource_name=get_field("resource_name"),
         source_name=get_field("source_name"),
         source_config=source_config,
-        raw_landing_path=get_field("raw_landing_path"),
-        raw_file_format=get_field("raw_file_format"),
-        raw_storage_workspace=get_field("raw_storage_workspace"),
-        raw_storage_lakehouse=get_field("raw_storage_lakehouse"),
-        raw_error_path=get_field("raw_error_path"),
+        extract_path=get_field("extract_path"),
+        extract_file_format=get_field("extract_file_format"),
+        extract_storage_workspace=get_field("extract_storage_workspace"),
+        extract_storage_lakehouse=get_field("extract_storage_lakehouse"),
+        extract_error_path=get_field("extract_error_path"),
         target_schema_columns=target_schema_columns,
         source_extraction_params=source_extraction_params,
         stg_table_workspace=get_field("stg_table_workspace") or "",
@@ -243,12 +243,12 @@ def resource_config_to_row(config: ResourceConfig, created_by: str = "system", u
         "source_type": config.source_config.source_type,
         "source_connection_params": config.source_config.source_connection_params,
         "source_extraction_params": config.source_extraction_params,
-        # RAW LAYER
-        "raw_landing_path": config.raw_landing_path,
-        "raw_file_format": config.raw_file_format,
-        "raw_storage_workspace": config.raw_storage_workspace,
-        "raw_storage_lakehouse": config.raw_storage_lakehouse,
-        "raw_error_path": config.raw_error_path,
+        # EXTRACT LAYER
+        "extract_path": config.extract_path,
+        "extract_file_format": config.extract_file_format,
+        "extract_storage_workspace": config.extract_storage_workspace,
+        "extract_storage_lakehouse": config.extract_storage_lakehouse,
+        "extract_error_path": config.extract_error_path,
         "target_schema_columns": target_schema_columns_array,
         # STAGING TABLE
         "stg_table_workspace": config.stg_table_workspace,

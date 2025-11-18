@@ -2,6 +2,7 @@
 # Batch-level extraction tracking - what files were extracted and where they landed
 
 from pyspark.sql.types import (
+    ArrayType,
     IntegerType,
     LongType,
     StringType,
@@ -43,10 +44,10 @@ def get_extract_resource_batch_schema() -> StructType:
             # Path information (CRITICAL for loading)
             StructField(
                 "source_path", StringType(), nullable=True
-            ),  # Original location (inbound, API, DB)
+            ),  # Original location (inbound)
             StructField(
-                "destination_path", StringType(), nullable=False
-            ),  # Where promoted (raw/landing) - LOADER READS THIS
+                "extract_file_paths", ArrayType(StringType()), nullable=False
+            ),  # Files/folders promoted to raw - LOADER READS THIS
             # Batch metrics
             StructField("file_count", IntegerType(), nullable=True),  # Files in batch
             StructField("file_size_bytes", LongType(), nullable=True),  # Total size

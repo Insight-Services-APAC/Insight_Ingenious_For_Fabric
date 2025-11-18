@@ -779,15 +779,20 @@ class lakehouse_utils(DataStoreInterface):
 
     def read_file(
         self,
-        file_path: str,
+        file_path: str | list[str],
         file_format: str,
         options: dict[str, Any] | None = None,
     ) -> Any:
         """
-        Read a file from the file system using the appropriate method for the environment.
+        Read a file or files from the file system using the appropriate method for the environment.
 
         In local mode, uses standard Spark file access.
         In Fabric mode, uses notebookutils.fs for OneLake file access.
+
+        Args:
+            file_path: Single path (string) or multiple paths (list of strings)
+            file_format: File format (csv, parquet, json, etc.)
+            options: Additional read options
         """
         if options is None:
             options = {}
@@ -867,36 +872,42 @@ class lakehouse_utils(DataStoreInterface):
         if "schema" in options:
             reader = reader.schema(options["schema"])
 
-        # Build full file path using the lakehouse files URI
-        if file_path.startswith("/"):
-            # Absolute local path - convert to file:// URI
-            if self.spark_version == "local":
-                # Clean up any double slashes that might come from list_files
-                clean_path = file_path.replace("//", "/")
-                full_file_path = f"file://{clean_path}"
-            else:
-                # For Fabric, absolute paths shouldn't happen, treat as relative
-                full_file_path = f"{self.lakehouse_files_uri()}{file_path}"
-        elif not file_path.startswith(("file://", "abfss://")):
-            # Relative path - combine with lakehouse files URI
+        # Build full file path(s) using the lakehouse files URI
+        # Handle both single path (string) and multiple paths (list)
+        paths = [file_path] if isinstance(file_path, str) else file_path
 
-            if self.spark_version == "local":
-                # print("Using local Spark file access.")
-                # use path utils to get first part of the path
-                first_part = Path(file_path).parts[0]
-                print(f"First part of path: {first_part}")
-                if first_part == "Files":
-                    file_path = Path(*Path(file_path).parts[1:])
-                full_file_path = f"{self.lakehouse_files_uri()}{str(file_path)}"
+        full_file_paths = []
+        for path in paths:
+            if path.startswith("/"):
+                # Absolute local path - convert to file:// URI
+                if self.spark_version == "local":
+                    # Clean up any double slashes that might come from list_files
+                    clean_path = path.replace("//", "/")
+                    full_path = f"file://{clean_path}"
+                else:
+                    # For Fabric, absolute paths shouldn't happen, treat as relative
+                    full_path = f"{self.lakehouse_files_uri()}{path}"
+            elif not path.startswith(("file://", "abfss://")):
+                # Relative path - combine with lakehouse files URI
+                if self.spark_version == "local":
+                    # use path utils to get first part of the path
+                    first_part = Path(path).parts[0]
+                    if first_part == "Files":
+                        path = str(Path(*Path(path).parts[1:]))
+                    full_path = f"{self.lakehouse_files_uri()}{path}"
+                else:
+                    full_path = f"{self.lakehouse_files_uri()}{path}"
             else:
-                # print("Using Fabric Spark file access.")
-                full_file_path = f"{self.lakehouse_files_uri()}{file_path}"
+                # Already absolute path
+                full_path = path
+            full_file_paths.append(full_path)
 
+        logging.debug(f"Reading file from: {full_file_paths}")
+        # Load single path or multiple paths
+        if len(full_file_paths) == 1:
+            return reader.load(full_file_paths[0])
         else:
-            # Already absolute path
-            full_file_path = file_path
-        logging.debug(f"Reading file from: {full_file_path}")
-        return reader.load(full_file_path)
+            return reader.load(full_file_paths)
 
     def write_file(
         self,

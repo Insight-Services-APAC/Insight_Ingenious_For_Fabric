@@ -7,7 +7,7 @@ from datetime import datetime
 from typing import Optional
 
 from pyspark.sql import SparkSession
-from pyspark.sql.functions import col, lit, current_timestamp
+from pyspark.sql.functions import col, lit, current_timestamp, exists
 
 from ingen_fab.python_libs.common.extract_resource_schema import (
     get_extract_resource_schema,
@@ -90,7 +90,7 @@ class ExtractionLogger:
         extract_run_id: str,
         extraction_id: str,
         status: str,
-        destination_path: str,
+        extract_file_paths: list,
         source_path: Optional[str] = None,
         file_count: int = 0,
         file_size_bytes: int = 0,
@@ -103,7 +103,7 @@ class ExtractionLogger:
         """
         Log extraction batch event (file or folder level).
 
-        This is the work queue for loading - each row says "file X is ready at path Y".
+        This is the work queue for loading - each row says "these files are ready".
 
         Args:
             config: Resource configuration
@@ -111,8 +111,8 @@ class ExtractionLogger:
             extract_run_id: Parent resource extraction run ID (FK to log_resource_extract)
             extraction_id: Unique batch ID (becomes extract_batch_id)
             status: 'running', 'completed', 'failed', 'duplicate'
-            destination_path: WHERE file was promoted to (raw/landing) - CRITICAL for loading
-            source_path: Where file came from (inbound, API, etc)
+            extract_file_paths: List of file/folder paths promoted to raw - LOADER READS THESE
+            source_path: Where files came from (inbound)
             file_count: Number of files in batch
             file_size_bytes: Total size in bytes
             promoted_count: Successfully promoted files
@@ -144,7 +144,7 @@ class ExtractionLogger:
                     str(status),            # extract_state - Convert enum to string for Spark
                     str(load_state),        # load_state - Convert enum to string for Spark
                     source_path,
-                    destination_path,       # KEY: where loader reads from
+                    extract_file_paths,     # KEY: what loader reads
                     file_count,
                     file_size_bytes,
                     promoted_count,
@@ -191,48 +191,30 @@ class ExtractionLogger:
             status=ExecutionStatus.RUNNING,
         )
 
-    def log_extraction_config_completion(
+    def log_extraction_config_end(
         self,
         config: ResourceConfig,
         execution_id: str,
         extract_run_id: str,
+        status: ExecutionStatus,
+        error_message: Optional[str] = None,
     ) -> None:
-        """Log the completion of resource extraction"""
-        self._log_extraction_config_event(
-            config=config,
-            execution_id=execution_id,
-            extract_run_id=extract_run_id,
-            status=ExecutionStatus.COMPLETED,
-        )
+        """
+        Log the end of resource extraction with final status.
 
-    def log_extraction_config_error(
-        self,
-        config: ResourceConfig,
-        execution_id: str,
-        extract_run_id: str,
-        error_message: str,
-    ) -> None:
-        """Log a resource extraction error"""
+        Args:
+            config: Resource configuration
+            execution_id: Master execution ID
+            extract_run_id: Run ID from log_extraction_config_start
+            status: Final status (COMPLETED, FAILED, NO_DATA, DUPLICATE)
+            error_message: Optional error message for failures
+        """
         self._log_extraction_config_event(
             config=config,
             execution_id=execution_id,
             extract_run_id=extract_run_id,
-            status=ExecutionStatus.FAILED,
+            status=status,
             error_message=error_message,
-        )
-
-    def log_extraction_config_no_data(
-        self,
-        config: ResourceConfig,
-        execution_id: str,
-        extract_run_id: str,
-    ) -> None:
-        """Log extraction with no data found"""
-        self._log_extraction_config_event(
-            config=config,
-            execution_id=execution_id,
-            extract_run_id=extract_run_id,
-            status=ExecutionStatus.NO_DATA,
         )
 
     def _log_extraction_config_event(
@@ -257,7 +239,7 @@ class ExtractionLogger:
             # Timestamps
             now = datetime.now()
             completed_at = completed_at if completed_at else (
-                now if status in (ExecutionStatus.COMPLETED, ExecutionStatus.FAILED, ExecutionStatus.NO_DATA) else None
+                now if status in (ExecutionStatus.COMPLETED, ExecutionStatus.FAILED, ExecutionStatus.NO_DATA, ExecutionStatus.DUPLICATE, ExecutionStatus.SKIPPED) else None
             )
 
             if status == ExecutionStatus.RUNNING:
@@ -326,7 +308,7 @@ class ExtractionLogger:
         Check if a file has already been successfully extracted (across all partitions/dates).
 
         Queries log_resource_extract_batch table to see if this filename
-        appears in any completed extraction's destination_path.
+        appears in any completed extraction's extract_file_paths array.
 
         Args:
             config: Resource configuration
@@ -341,15 +323,15 @@ class ExtractionLogger:
                 logger.debug("Table 'log_resource_extract_batch' not found - cannot check duplicates")
                 return False
 
-            # Query for any completed extractions with this filename in destination_path
-            # destination_path format: abfss://.../raw/pe/pe_item_ref/ds=2025-11-13/pe_Item_Ref_20251112.dat
-            # Use SQL endswith to match filename at end of path
+            # Query for any completed extractions with this filename in extract_file_paths array
+            # Each path in array format: abfss://.../raw/pe/pe_item_ref/ds=2025-11-13/pe_Item_Ref_20251112.dat
+            # Use exists() to check if any element in array ends with the filename
             result_df = (
                 self.lakehouse.read_table("log_resource_extract_batch")
                 .filter(col("source_name") == config.source_name)
                 .filter(col("resource_name") == config.resource_name)
                 .filter(col("extract_state") == str(ExecutionStatus.COMPLETED))
-                .filter(col("destination_path").endswith(f"/{filename}"))
+                .filter(exists(col("extract_file_paths"), lambda p: p.endswith(f"/{filename}")))
                 .limit(1)  # Only need to know if at least one exists
             )
 

@@ -95,16 +95,16 @@ class FileLoader:
         metrics = ProcessingMetrics()
 
         try:
-            if not self.config.raw_file_format:
-                raise ValueError("raw_file_format is required")
+            if not self.config.extract_file_format:
+                raise ValueError("extract_file_format is required")
 
             # Get complete file read options (includes schema, corruption tracking, format params)
             options = self._get_file_read_options()
 
-            # Read files from source
+            # Read files from source (supports single file, multiple files, or folder path)
             df = self.source_lakehouse_utils.read_file(
-                file_path=batch_info.file_paths[0],
-                file_format=self.config.raw_file_format,
+                file_path=batch_info.file_paths if len(batch_info.file_paths) > 1 else batch_info.file_paths[0],
+                file_format=self.config.extract_file_format,
                 options=options,
             )
 
@@ -399,7 +399,7 @@ class FileLoader:
                         file_path=file_path,
                         operation="load_stg_table_to_target",
                         additional_info={
-                            "file_format": self.config.raw_file_format,
+                            "file_format": self.config.extract_file_format,
                             "schema_error": str(e),
                         },
                     ),
@@ -467,10 +467,10 @@ class FileLoader:
         """Build file reading options from configuration"""
         options = {}
 
-        if not self.config.raw_file_format:
+        if not self.config.extract_file_format:
             return options
 
-        if self.config.raw_file_format.lower() == "csv":
+        if self.config.extract_file_format.lower() == "csv":
             # Get CSV format params from source_extraction_params (all source types)
             params = self.config.source_extraction_params
 

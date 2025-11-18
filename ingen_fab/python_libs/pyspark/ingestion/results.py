@@ -15,7 +15,7 @@ class BatchExtractionResult:
 
     extraction_id: str                      # Unique batch ID (becomes extract_batch_id)
     source_path: str                        # Where batch came from (inbound path)
-    destination_path: str                   # Where batch was promoted to (raw path)
+    extract_file_paths: List[str]           # Files/folders promoted to raw - loader reads these
     status: ExecutionStatus                 # ExecutionStatus enum (convert to str only when logging to table)
 
     # Batch metrics

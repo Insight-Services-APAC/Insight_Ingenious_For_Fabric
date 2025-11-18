@@ -39,6 +39,14 @@ class DuplicateHandling(StrEnum):
     FAIL = "fail"
 
 
+class NoDataHandling(StrEnum):
+    """Handling when no data is extracted (no files or all duplicates)"""
+
+    ALLOW = "allow"  # Expected, mark as SKIPPED
+    WARN = "warn"    # Mark as NO_DATA/DUPLICATE, continue
+    FAIL = "fail"    # Fail extraction
+
+
 class WriteMode(StrEnum):
     """Delta table write modes"""
 

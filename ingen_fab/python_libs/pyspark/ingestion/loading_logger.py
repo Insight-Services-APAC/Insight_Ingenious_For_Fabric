@@ -534,7 +534,7 @@ class LoadingLogger:
             if not self.lakehouse.check_if_table_exists("log_resource_extract_batch"):
                 logger.warning("Table 'log_resource_extract_batch' not found")
                 # Return empty DataFrame with expected schema
-                return self.lakehouse.spark.createDataFrame([], "extract_batch_id string, destination_path string, file_size_bytes long, completed_at timestamp")
+                return self.lakehouse.spark.createDataFrame([], "extract_batch_id string, extract_file_paths array<string>, file_size_bytes long, completed_at timestamp")
 
             # Query for completed extractions ready for loading
             return (
@@ -549,7 +549,7 @@ class LoadingLogger:
         except Exception as e:
             logger.warning(f"Could not query extraction logs: {e}")
             # Return empty DataFrame on error
-            return self.lakehouse.spark.createDataFrame([], "extract_batch_id string, destination_path string, file_size_bytes long, completed_at timestamp")
+            return self.lakehouse.spark.createDataFrame([], "extract_batch_id string, extract_file_paths array<string>, file_size_bytes long, completed_at timestamp")
 
     def query_stale_batches(self, config: ResourceConfig, threshold_hours: int):
         """

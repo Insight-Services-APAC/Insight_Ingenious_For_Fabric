@@ -73,8 +73,8 @@ class LoadingOrchestrator:
     - Metrics aggregation
 
     File Management (Replay-Friendly Pattern):
-    - Successful loads: Files STAY in raw_landing_path (no archiving!)
-    - Failed loads: Files STAY in raw_landing_path for manual intervention
+    - Successful loads: Files STAY in extract_path (no archiving!)
+    - Failed loads: Files STAY in extract_path for manual intervention
     - This enables easy replay by resetting load_state to 'pending'
 
     Replay Workflow:
@@ -156,25 +156,32 @@ class LoadingOrchestrator:
         batches = []
         for row in rows:
             # Validation logic (business rule)
-            if not row.destination_path.startswith("abfss://"):
+            if not row.extract_file_paths or len(row.extract_file_paths) == 0:
                 raise ValueError(
-                    f"Invalid destination_path in batch table: {row.destination_path}. "
-                    f"Expected full ABFSS URL (e.g., abfss://workspace@onelake.../Files/raw/...)"
+                    f"Empty extract_file_paths in batch table for extract_batch_id: {row.extract_batch_id}"
                 )
+
+            # Validate all paths are ABFSS URLs
+            for path in row.extract_file_paths:
+                if not path.startswith("abfss://"):
+                    raise ValueError(
+                        f"Invalid path in extract_file_paths: {path}. "
+                        f"Expected full ABFSS URL (e.g., abfss://workspace@onelake.../Files/raw/...)"
+                    )
 
             # Create BatchInfo
             batch_info = BatchInfo(
                 batch_id=str(uuid.uuid4()),
                 extract_batch_id=row.extract_batch_id,
-                file_paths=[row.destination_path],
-                destination_path=row.destination_path,
+                file_paths=list(row.extract_file_paths),
+                destination_path=row.extract_file_paths[0],  # First path for compatibility
                 size_bytes=row.file_size_bytes or 0,
                 modified_time=row.completed_at,
             )
 
             # Add folder name if this is a folder path (business logic)
-            if row.destination_path.endswith("/"):
-                folder_name = os.path.basename(row.destination_path.rstrip("/"))
+            if row.extract_file_paths[0].endswith("/"):
+                folder_name = os.path.basename(row.extract_file_paths[0].rstrip("/"))
                 batch_info.folder_name = folder_name
 
             batches.append(batch_info)
@@ -402,8 +409,8 @@ class LoadingOrchestrator:
             # Consolidate metadata into single line
             target_full = f"{config.target_schema}.{config.target_table}" if config.target_schema else config.target_table
             config_logger.info(
-                f"Raw: {config.raw_landing_path} → Target: {target_full} "
-                f"({config.raw_file_format}, {config.target_write_mode})"
+                f"Extract: {config.extract_path} → Target: {target_full} "
+                f"({config.extract_file_format}, {config.target_write_mode})"
             )
 
             # Create FileLoader instance
@@ -786,7 +793,7 @@ class LoadingOrchestrator:
         Move rejected batch files to error location.
 
         Handles:
-        - Data file movement from raw_landing_path to raw_error_path
+        - Data file movement from extract_path to extract_error_path
         - Control file movement (if control_file_pattern configured)
 
         Note:
@@ -807,9 +814,9 @@ class LoadingOrchestrator:
         source_path = batch_info.destination_path
         relative_path = self._extract_lakehouse_relative_path(
             file_path=source_path,
-            base_path=ctx.config.raw_landing_path,
+            base_path=ctx.config.extract_path,
         )
-        error_path = f"{ctx.config.raw_error_path.rstrip('/')}/{relative_path}"
+        error_path = f"{ctx.config.extract_error_path.rstrip('/')}/{relative_path}"
 
         ctx.config_logger.info(f"Moving rejected file: {source_path} → {error_path}")
 
