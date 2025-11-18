@@ -89,15 +89,19 @@ class OneLakeUtils:
         self.workspace_name = self._get_workspace_name()
         self.lakehouses = dict[str, str]()
 
-    def get_config_lakehouse_id(self) -> str:
+    def get_config_lakehouse_id(self) -> Optional[str]:
         """
         Get the config lakehouse ID from the variable library.
 
         Returns:
             The config lakehouse ID
         """
-        return get_variable_from_environment(
-            self.environment, self.project_path, "config_lakehouse_id"
+        config_lakehouse_name = get_variable_from_environment(
+            self.environment, self.project_path, "config_lakehouse_name"
+        )
+
+        return self.fabric_api.get_lakehouse_id_from_name(
+            self.workspace_id, config_lakehouse_name
         )
 
     def _get_datalake_service_client(self) -> DataLakeServiceClient:
