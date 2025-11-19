@@ -391,7 +391,10 @@ Configuration-driven data pipelines:
 
 3. **Redeploy**:
    ```bash
-   ingen_fab deploy deploy --fabric-workspace-repo-dir . --fabric-environment development
+   # Ensure environment variables are set
+   export FABRIC_WORKSPACE_REPO_DIR="dp"
+   export FABRIC_ENVIRONMENT="development"
+   ingen_fab deploy deploy
    ```
 
 ### Adding New Environments
@@ -416,7 +419,9 @@ Configuration-driven data pipelines:
 
 3. **Deploy to new environment**:
    ```bash
-   ingen_fab deploy deploy --fabric-workspace-repo-dir . --fabric-environment staging
+   export FABRIC_WORKSPACE_REPO_DIR="."
+   export FABRIC_ENVIRONMENT="staging"
+   ingen_fab deploy deploy
    ```
 
 ## Advanced Usage
@@ -470,8 +475,10 @@ jobs:
         cd sample_project
         uv run ingen_fab ddl compile --output-mode fabric_workspace_repo --generation-mode Warehouse
         uv run ingen_fab ddl compile --output-mode fabric_workspace_repo --generation-mode Lakehouse
-        uv run ingen_fab deploy deploy --fabric-workspace-repo-dir . --fabric-environment development
+        uv run ingen_fab deploy deploy
       env:
+        FABRIC_WORKSPACE_REPO_DIR: "."
+        FABRIC_ENVIRONMENT: "development"
         AZURE_TENANT_ID: ${{ "{{" }} secrets.AZURE_TENANT_ID {{ "}}" }}
         AZURE_CLIENT_ID: ${{ "{{" }} secrets.AZURE_CLIENT_ID {{ "}}" }}
         AZURE_CLIENT_SECRET: ${{ "{{" }} secrets.AZURE_CLIENT_SECRET {{ "}}" }}
@@ -511,7 +518,7 @@ jobs:
 - **Documentation**: Review the [User Guide](../user_guide/index.md) for detailed command usage
 - **CLI Help**: Use `ingen_fab --help` for command-specific help
 - **Examples**: Check other examples in this section
-- **Issues**: Report problems on [GitHub Issues](https://github.com/your-org/ingen_fab/issues)
+- **Support**: Reach out to your platform team for assistance
 
 ## Next Steps
 

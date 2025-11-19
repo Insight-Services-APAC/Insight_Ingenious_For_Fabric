@@ -32,6 +32,7 @@ class WorkItem:
     synapse_connection_name: Optional[str] = None
     synapse_datasource_name: Optional[str] = None
     synapse_datasource_location: Optional[str] = None
+    synapse_external_table_schema: Optional[str] = None
     export_base_dir: Optional[str] = None
     # Run-scoped metadata (single source of truth; avoid separate config dicts)
     trigger_type: Optional[str] = None
@@ -163,6 +164,7 @@ class SynapseOrchestratorInterface(ABC):
         synapse_sync_fabric_pipeline_id: Optional[str],
         synapse_datasource_name: str,
         synapse_datasource_location: str,
+        synapse_external_table_schema: str,
         *,
         trigger_type: Optional[str] = "Manual",
         master_execution_parameters: Optional[Dict[str, Any]] = None,

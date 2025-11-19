@@ -1,6 +1,6 @@
 # Environment Variables
 
-[Home](../index.md) > [Reference](environment-variables.md) > Environment Variables
+[Home](../index.md) > [Reference](index.md) > Environment Variables
 
 Reference for environment variables used by the CLI and deploy workflows.
 
@@ -30,12 +30,25 @@ Notes:
 
 Quick setup:
 
-```bash
-export FABRIC_WORKSPACE_REPO_DIR="./sample_project"
-export FABRIC_ENVIRONMENT="development"
-# For service principal auth (optional)
-export AZURE_TENANT_ID="<tenant-guid>"
-export AZURE_CLIENT_ID="<client-id>"
-export AZURE_CLIENT_SECRET="<secret>"
-```
+=== "Unix/Linux/macOS"
+
+    ```bash
+    export FABRIC_WORKSPACE_REPO_DIR="./sample_project"
+    export FABRIC_ENVIRONMENT="development"
+    # For service principal auth (optional)
+    export AZURE_TENANT_ID="<tenant-guid>"
+    export AZURE_CLIENT_ID="<client-id>"
+    export AZURE_CLIENT_SECRET="<secret>"
+    ```
+
+=== "Windows"
+
+    ```powershell
+    $env:FABRIC_WORKSPACE_REPO_DIR = "dp"
+    $env:FABRIC_ENVIRONMENT = "development"
+    # For service principal auth (optional)
+    $env:AZURE_TENANT_ID = "<tenant-guid>"
+    $env:AZURE_CLIENT_ID = "<client-id>"
+    $env:AZURE_CLIENT_SECRET = "<secret>"
+    ```
 

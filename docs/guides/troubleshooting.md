@@ -1,6 +1,6 @@
 # Troubleshooting
 
-[Home](../index.md) > [Guides](cli-reference.md) > Troubleshooting
+[Home](../index.md) > [Guides](index.md) > Troubleshooting
 
 Common issues and solutions when working with the Ingenious Fabric Accelerator.
 

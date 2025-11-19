@@ -28,7 +28,7 @@ This report documents all discrepancies found between the documentation and actu
    - Documented `dbt create-notebooks`, `convert-metadata`, and proxy commands
    - Removed obsolete extract command references
 
-3. **docs/user_guide/environment_variables.md**:
+3. **docs/reference/environment-variables.md**:
    - Added IGEN_FAB_CONFIG, SQL_SERVER_PASSWORD, MYSQL_PASSWORD
    - Added POSTGRES_PASSWORD, POSTGRES_HOST, POSTGRES_PORT, POSTGRES_USER, POSTGRES_DATABASE
 

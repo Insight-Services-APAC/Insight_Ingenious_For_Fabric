@@ -38,11 +38,29 @@ This guide covers everything you need to know to get started and become proficie
 - Creating notebooks from dbt
 - Best practices
 
+### [Common Tasks](common_tasks.md)
+- Quick reference for frequently used commands
+- Step-by-step guides for common operations
+- Command examples with explanations
+- Tips and tricks
+
+### [Environment Variables](../reference/environment-variables.md)
+- Configuration variables reference
+- Authentication settings
+- Workspace configuration
+- Runtime environment settings
+
+### [Workspace Layout](workspace_layout.md)
+- Project structure overview
+- Directory organization
+- File naming conventions
+- Best practices
+
 ## Prerequisites
 
 Before using the Ingenious Fabric Accelerator, ensure you have:
 
-- Python 3.12 or higher
+- Python 3.12 (Recommended) or higher
 - Access to a Microsoft Fabric workspace
 - Basic understanding of SQL and Python
 - Familiarity with command-line tools
@@ -54,7 +72,7 @@ If you need assistance:
 1. **Check this documentation** - Most questions are answered here
 2. **Use the built-in help** - Run `ingen_fab --help` for command-specific help
 3. **Review examples** - Check the [Examples](../examples/index.md) section
-4. **Report issues** - Use [GitHub Issues](https://github.com/your-org/ingen_fab/issues) for bugs
+4. **Contact your administrator** - For workspace or access issues
 
 ## Quick Navigation
 

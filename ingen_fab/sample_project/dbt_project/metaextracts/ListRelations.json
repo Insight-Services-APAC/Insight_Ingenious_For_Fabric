@@ -1,0 +1,422 @@
+[
+  {
+    "namespace": "config",
+    "tableName": "exec_requests_history",
+    "isTemporary": false,
+    "information": "Catalog: spark_catalog\nDatabase: config\nTable: exec_requests_history\nOwner: trusted-service-user\nCreated Time: Sat Aug 02 10:38:14 UTC 2025\nLast Access: UNKNOWN\nCreated By: Spark 3.2.1-SNAPSHOT\nType: MANAGED\nProvider: delta\nTable Properties: [trident.autodiscovered.table=true]\nLocation: abfss://4aacd5e0-a895-44be-b26a-fd1da0fe2efc@onelake.dfs.fabric.microsoft.com/828a070f-1747-4eda-bcb2-bc10e55c75d9/Tables/exec_requests_history\nSerde Library: org.apache.hadoop.hive.serde2.lazy.LazySimpleSerDe\nInputFormat: org.apache.hadoop.mapred.SequenceFileInputFormat\nOutputFormat: org.apache.hadoop.hive.ql.io.HiveSequenceFileOutputFormat\nPartition Provider: Catalog\n",
+    "type": "MANAGED"
+  },
+  {
+    "namespace": "config",
+    "tableName": "exec_sessions_history",
+    "isTemporary": false,
+    "information": "Catalog: spark_catalog\nDatabase: config\nTable: exec_sessions_history\nOwner: trusted-service-user\nCreated Time: Sat Aug 02 10:38:14 UTC 2025\nLast Access: UNKNOWN\nCreated By: Spark 3.2.1-SNAPSHOT\nType: MANAGED\nProvider: delta\nTable Properties: [trident.autodiscovered.table=true]\nLocation: abfss://4aacd5e0-a895-44be-b26a-fd1da0fe2efc@onelake.dfs.fabric.microsoft.com/828a070f-1747-4eda-bcb2-bc10e55c75d9/Tables/exec_sessions_history\nSerde Library: org.apache.hadoop.hive.serde2.lazy.LazySimpleSerDe\nInputFormat: org.apache.hadoop.mapred.SequenceFileInputFormat\nOutputFormat: org.apache.hadoop.hive.ql.io.HiveSequenceFileOutputFormat\nPartition Provider: Catalog\n",
+    "type": "MANAGED"
+  },
+  {
+    "namespace": "config",
+    "tableName": "frequently_run_queries",
+    "isTemporary": false,
+    "information": "Catalog: spark_catalog\nDatabase: config\nTable: frequently_run_queries\nOwner: trusted-service-user\nCreated Time: Sat Aug 02 10:38:14 UTC 2025\nLast Access: UNKNOWN\nCreated By: Spark 3.2.1-SNAPSHOT\nType: MANAGED\nProvider: delta\nTable Properties: [trident.autodiscovered.table=true]\nLocation: abfss://4aacd5e0-a895-44be-b26a-fd1da0fe2efc@onelake.dfs.fabric.microsoft.com/828a070f-1747-4eda-bcb2-bc10e55c75d9/Tables/frequently_run_queries\nSerde Library: org.apache.hadoop.hive.serde2.lazy.LazySimpleSerDe\nInputFormat: org.apache.hadoop.mapred.SequenceFileInputFormat\nOutputFormat: org.apache.hadoop.hive.ql.io.HiveSequenceFileOutputFormat\nPartition Provider: Catalog\n",
+    "type": "MANAGED"
+  },
+  {
+    "namespace": "config",
+    "tableName": "long_running_queries",
+    "isTemporary": false,
+    "information": "Catalog: spark_catalog\nDatabase: config\nTable: long_running_queries\nOwner: trusted-service-user\nCreated Time: Sat Aug 02 10:38:14 UTC 2025\nLast Access: UNKNOWN\nCreated By: Spark 3.2.1-SNAPSHOT\nType: MANAGED\nProvider: delta\nTable Properties: [trident.autodiscovered.table=true]\nLocation: abfss://4aacd5e0-a895-44be-b26a-fd1da0fe2efc@onelake.dfs.fabric.microsoft.com/828a070f-1747-4eda-bcb2-bc10e55c75d9/Tables/long_running_queries\nSerde Library: org.apache.hadoop.hive.serde2.lazy.LazySimpleSerDe\nInputFormat: org.apache.hadoop.mapred.SequenceFileInputFormat\nOutputFormat: org.apache.hadoop.hive.ql.io.HiveSequenceFileOutputFormat\nPartition Provider: Catalog\n",
+    "type": "MANAGED"
+  },
+  {
+    "namespace": "config",
+    "tableName": "external_delta_tables",
+    "isTemporary": false,
+    "information": "Catalog: spark_catalog\nDatabase: config\nTable: external_delta_tables\nOwner: trusted-service-user\nCreated Time: Sat Aug 02 10:38:14 UTC 2025\nLast Access: UNKNOWN\nCreated By: Spark 3.2.1-SNAPSHOT\nType: MANAGED\nProvider: delta\nTable Properties: [trident.autodiscovered.table=true]\nLocation: abfss://4aacd5e0-a895-44be-b26a-fd1da0fe2efc@onelake.dfs.fabric.microsoft.com/828a070f-1747-4eda-bcb2-bc10e55c75d9/Tables/external_delta_tables\nSerde Library: org.apache.hadoop.hive.serde2.lazy.LazySimpleSerDe\nInputFormat: org.apache.hadoop.mapred.SequenceFileInputFormat\nOutputFormat: org.apache.hadoop.hive.ql.io.HiveSequenceFileOutputFormat\nPartition Provider: Catalog\n",
+    "type": "MANAGED"
+  },
+  {
+    "namespace": "config",
+    "tableName": "managed_delta_table_checkpoints",
+    "isTemporary": false,
+    "information": "Catalog: spark_catalog\nDatabase: config\nTable: managed_delta_table_checkpoints\nOwner: trusted-service-user\nCreated Time: Sat Aug 02 10:38:14 UTC 2025\nLast Access: UNKNOWN\nCreated By: Spark 3.2.1-SNAPSHOT\nType: MANAGED\nProvider: delta\nTable Properties: [trident.autodiscovered.table=true]\nLocation: abfss://4aacd5e0-a895-44be-b26a-fd1da0fe2efc@onelake.dfs.fabric.microsoft.com/828a070f-1747-4eda-bcb2-bc10e55c75d9/Tables/managed_delta_table_checkpoints\nSerde Library: org.apache.hadoop.hive.serde2.lazy.LazySimpleSerDe\nInputFormat: org.apache.hadoop.mapred.SequenceFileInputFormat\nOutputFormat: org.apache.hadoop.hive.ql.io.HiveSequenceFileOutputFormat\nPartition Provider: Catalog\n",
+    "type": "MANAGED"
+  },
+  {
+    "namespace": "config",
+    "tableName": "managed_delta_table_forks",
+    "isTemporary": false,
+    "information": "Catalog: spark_catalog\nDatabase: config\nTable: managed_delta_table_forks\nOwner: trusted-service-user\nCreated Time: Sat Aug 02 10:38:14 UTC 2025\nLast Access: UNKNOWN\nCreated By: Spark 3.2.1-SNAPSHOT\nType: MANAGED\nProvider: delta\nTable Properties: [trident.autodiscovered.table=true]\nLocation: abfss://4aacd5e0-a895-44be-b26a-fd1da0fe2efc@onelake.dfs.fabric.microsoft.com/828a070f-1747-4eda-bcb2-bc10e55c75d9/Tables/managed_delta_table_forks\nSerde Library: org.apache.hadoop.hive.serde2.lazy.LazySimpleSerDe\nInputFormat: org.apache.hadoop.mapred.SequenceFileInputFormat\nOutputFormat: org.apache.hadoop.hive.ql.io.HiveSequenceFileOutputFormat\nPartition Provider: Catalog\n",
+    "type": "MANAGED"
+  },
+  {
+    "namespace": "config",
+    "tableName": "managed_delta_table_log_files",
+    "isTemporary": false,
+    "information": "Catalog: spark_catalog\nDatabase: config\nTable: managed_delta_table_log_files\nOwner: trusted-service-user\nCreated Time: Sat Aug 02 10:38:14 UTC 2025\nLast Access: UNKNOWN\nCreated By: Spark 3.2.1-SNAPSHOT\nType: MANAGED\nProvider: delta\nTable Properties: [trident.autodiscovered.table=true]\nLocation: abfss://4aacd5e0-a895-44be-b26a-fd1da0fe2efc@onelake.dfs.fabric.microsoft.com/828a070f-1747-4eda-bcb2-bc10e55c75d9/Tables/managed_delta_table_log_files\nSerde Library: org.apache.hadoop.hive.serde2.lazy.LazySimpleSerDe\nInputFormat: org.apache.hadoop.mapred.SequenceFileInputFormat\nOutputFormat: org.apache.hadoop.hive.ql.io.HiveSequenceFileOutputFormat\nPartition Provider: Catalog\n",
+    "type": "MANAGED"
+  },
+  {
+    "namespace": "config",
+    "tableName": "managed_delta_tables",
+    "isTemporary": false,
+    "information": "Catalog: spark_catalog\nDatabase: config\nTable: managed_delta_tables\nOwner: trusted-service-user\nCreated Time: Sat Aug 02 10:38:14 UTC 2025\nLast Access: UNKNOWN\nCreated By: Spark 3.2.1-SNAPSHOT\nType: MANAGED\nProvider: delta\nTable Properties: [trident.autodiscovered.table=true]\nLocation: abfss://4aacd5e0-a895-44be-b26a-fd1da0fe2efc@onelake.dfs.fabric.microsoft.com/828a070f-1747-4eda-bcb2-bc10e55c75d9/Tables/managed_delta_tables\nSerde Library: org.apache.hadoop.hive.serde2.lazy.LazySimpleSerDe\nInputFormat: org.apache.hadoop.mapred.SequenceFileInputFormat\nOutputFormat: org.apache.hadoop.hive.ql.io.HiveSequenceFileOutputFormat\nPartition Provider: Catalog\n",
+    "type": "MANAGED"
+  },
+  {
+    "namespace": "config",
+    "tableName": "sys_dw_schemas",
+    "isTemporary": false,
+    "information": "Catalog: spark_catalog\nDatabase: config\nTable: sys_dw_schemas\nOwner: trusted-service-user\nCreated Time: Sat Aug 02 10:38:14 UTC 2025\nLast Access: UNKNOWN\nCreated By: Spark 3.2.1-SNAPSHOT\nType: MANAGED\nProvider: delta\nTable Properties: [trident.autodiscovered.table=true]\nLocation: abfss://4aacd5e0-a895-44be-b26a-fd1da0fe2efc@onelake.dfs.fabric.microsoft.com/828a070f-1747-4eda-bcb2-bc10e55c75d9/Tables/sys_dw_schemas\nSerde Library: org.apache.hadoop.hive.serde2.lazy.LazySimpleSerDe\nInputFormat: org.apache.hadoop.mapred.SequenceFileInputFormat\nOutputFormat: org.apache.hadoop.hive.ql.io.HiveSequenceFileOutputFormat\nPartition Provider: Catalog\n",
+    "type": "MANAGED"
+  },
+  {
+    "namespace": "lh_bronze",
+    "tableName": "cities",
+    "isTemporary": false,
+    "information": "Catalog: spark_catalog\nDatabase: lh_bronze\nTable: cities\nOwner: trusted-service-user\nCreated Time: Sat Aug 02 10:38:14 UTC 2025\nLast Access: UNKNOWN\nCreated By: Spark 3.2.1-SNAPSHOT\nType: MANAGED\nProvider: delta\nTable Properties: [trident.autodiscovered.table=true]\nLocation: abfss://4aacd5e0-a895-44be-b26a-fd1da0fe2efc@onelake.dfs.fabric.microsoft.com/8378279a-6626-40e1-9d9e-8c391f419e7a/Tables/cities\nSerde Library: org.apache.hadoop.hive.serde2.lazy.LazySimpleSerDe\nInputFormat: org.apache.hadoop.mapred.SequenceFileInputFormat\nOutputFormat: org.apache.hadoop.hive.ql.io.HiveSequenceFileOutputFormat\nPartition Provider: Catalog\n",
+    "type": "MANAGED"
+  },
+  {
+    "namespace": "lh_bronze",
+    "tableName": "countries",
+    "isTemporary": false,
+    "information": "Catalog: spark_catalog\nDatabase: lh_bronze\nTable: countries\nOwner: trusted-service-user\nCreated Time: Sat Aug 02 10:38:14 UTC 2025\nLast Access: UNKNOWN\nCreated By: Spark 3.2.1-SNAPSHOT\nType: MANAGED\nProvider: delta\nTable Properties: [trident.autodiscovered.table=true]\nLocation: abfss://4aacd5e0-a895-44be-b26a-fd1da0fe2efc@onelake.dfs.fabric.microsoft.com/8378279a-6626-40e1-9d9e-8c391f419e7a/Tables/countries\nSerde Library: org.apache.hadoop.hive.serde2.lazy.LazySimpleSerDe\nInputFormat: org.apache.hadoop.mapred.SequenceFileInputFormat\nOutputFormat: org.apache.hadoop.hive.ql.io.HiveSequenceFileOutputFormat\nPartition Provider: Catalog\n",
+    "type": "MANAGED"
+  },
+  {
+    "namespace": "lh_bronze",
+    "tableName": "countries_backup_20251106_225919",
+    "isTemporary": false,
+    "information": "Catalog: spark_catalog\nDatabase: lh_bronze\nTable: countries_backup_20251106_225919\nOwner: trusted-service-user\nCreated Time: Sat Aug 02 10:38:14 UTC 2025\nLast Access: UNKNOWN\nCreated By: Spark 3.2.1-SNAPSHOT\nType: MANAGED\nProvider: delta\nTable Properties: [trident.autodiscovered.table=true]\nLocation: abfss://4aacd5e0-a895-44be-b26a-fd1da0fe2efc@onelake.dfs.fabric.microsoft.com/8378279a-6626-40e1-9d9e-8c391f419e7a/Tables/countries_backup_20251106_225919\nSerde Library: org.apache.hadoop.hive.serde2.lazy.LazySimpleSerDe\nInputFormat: org.apache.hadoop.mapred.SequenceFileInputFormat\nOutputFormat: org.apache.hadoop.hive.ql.io.HiveSequenceFileOutputFormat\nPartition Provider: Catalog\n",
+    "type": "MANAGED"
+  },
+  {
+    "namespace": "lh_bronze",
+    "tableName": "ddl_script_executions",
+    "isTemporary": false,
+    "information": "Catalog: spark_catalog\nDatabase: lh_bronze\nTable: ddl_script_executions\nOwner: trusted-service-user\nCreated Time: Sat Aug 02 10:38:14 UTC 2025\nLast Access: UNKNOWN\nCreated By: Spark 3.2.1-SNAPSHOT\nType: MANAGED\nProvider: delta\nTable Properties: [trident.autodiscovered.table=true]\nLocation: abfss://4aacd5e0-a895-44be-b26a-fd1da0fe2efc@onelake.dfs.fabric.microsoft.com/8378279a-6626-40e1-9d9e-8c391f419e7a/Tables/ddl_script_executions\nSerde Library: org.apache.hadoop.hive.serde2.lazy.LazySimpleSerDe\nInputFormat: org.apache.hadoop.mapred.SequenceFileInputFormat\nOutputFormat: org.apache.hadoop.hive.ql.io.HiveSequenceFileOutputFormat\nPartition Provider: Catalog\n",
+    "type": "MANAGED"
+  },
+  {
+    "namespace": "lh_bronze",
+    "tableName": "exec_requests_history",
+    "isTemporary": false,
+    "information": "Catalog: spark_catalog\nDatabase: lh_bronze\nTable: exec_requests_history\nOwner: trusted-service-user\nCreated Time: Sat Aug 02 10:38:14 UTC 2025\nLast Access: UNKNOWN\nCreated By: Spark 3.2.1-SNAPSHOT\nType: MANAGED\nProvider: delta\nTable Properties: [trident.autodiscovered.table=true]\nLocation: abfss://4aacd5e0-a895-44be-b26a-fd1da0fe2efc@onelake.dfs.fabric.microsoft.com/8378279a-6626-40e1-9d9e-8c391f419e7a/Tables/exec_requests_history\nSerde Library: org.apache.hadoop.hive.serde2.lazy.LazySimpleSerDe\nInputFormat: org.apache.hadoop.mapred.SequenceFileInputFormat\nOutputFormat: org.apache.hadoop.hive.ql.io.HiveSequenceFileOutputFormat\nPartition Provider: Catalog\n",
+    "type": "MANAGED"
+  },
+  {
+    "namespace": "lh_bronze",
+    "tableName": "exec_sessions_history",
+    "isTemporary": false,
+    "information": "Catalog: spark_catalog\nDatabase: lh_bronze\nTable: exec_sessions_history\nOwner: trusted-service-user\nCreated Time: Sat Aug 02 10:38:14 UTC 2025\nLast Access: UNKNOWN\nCreated By: Spark 3.2.1-SNAPSHOT\nType: MANAGED\nProvider: delta\nTable Properties: [trident.autodiscovered.table=true]\nLocation: abfss://4aacd5e0-a895-44be-b26a-fd1da0fe2efc@onelake.dfs.fabric.microsoft.com/8378279a-6626-40e1-9d9e-8c391f419e7a/Tables/exec_sessions_history\nSerde Library: org.apache.hadoop.hive.serde2.lazy.LazySimpleSerDe\nInputFormat: org.apache.hadoop.mapred.SequenceFileInputFormat\nOutputFormat: org.apache.hadoop.hive.ql.io.HiveSequenceFileOutputFormat\nPartition Provider: Catalog\n",
+    "type": "MANAGED"
+  },
+  {
+    "namespace": "lh_bronze",
+    "tableName": "frequently_run_queries",
+    "isTemporary": false,
+    "information": "Catalog: spark_catalog\nDatabase: lh_bronze\nTable: frequently_run_queries\nOwner: trusted-service-user\nCreated Time: Sat Aug 02 10:38:14 UTC 2025\nLast Access: UNKNOWN\nCreated By: Spark 3.2.1-SNAPSHOT\nType: MANAGED\nProvider: delta\nTable Properties: [trident.autodiscovered.table=true]\nLocation: abfss://4aacd5e0-a895-44be-b26a-fd1da0fe2efc@onelake.dfs.fabric.microsoft.com/8378279a-6626-40e1-9d9e-8c391f419e7a/Tables/frequently_run_queries\nSerde Library: org.apache.hadoop.hive.serde2.lazy.LazySimpleSerDe\nInputFormat: org.apache.hadoop.mapred.SequenceFileInputFormat\nOutputFormat: org.apache.hadoop.hive.ql.io.HiveSequenceFileOutputFormat\nPartition Provider: Catalog\n",
+    "type": "MANAGED"
+  },
+  {
+    "namespace": "lh_bronze",
+    "tableName": "long_running_queries",
+    "isTemporary": false,
+    "information": "Catalog: spark_catalog\nDatabase: lh_bronze\nTable: long_running_queries\nOwner: trusted-service-user\nCreated Time: Sat Aug 02 10:38:14 UTC 2025\nLast Access: UNKNOWN\nCreated By: Spark 3.2.1-SNAPSHOT\nType: MANAGED\nProvider: delta\nTable Properties: [trident.autodiscovered.table=true]\nLocation: abfss://4aacd5e0-a895-44be-b26a-fd1da0fe2efc@onelake.dfs.fabric.microsoft.com/8378279a-6626-40e1-9d9e-8c391f419e7a/Tables/long_running_queries\nSerde Library: org.apache.hadoop.hive.serde2.lazy.LazySimpleSerDe\nInputFormat: org.apache.hadoop.mapred.SequenceFileInputFormat\nOutputFormat: org.apache.hadoop.hive.ql.io.HiveSequenceFileOutputFormat\nPartition Provider: Catalog\n",
+    "type": "MANAGED"
+  },
+  {
+    "namespace": "lh_bronze",
+    "tableName": "external_delta_tables",
+    "isTemporary": false,
+    "information": "Catalog: spark_catalog\nDatabase: lh_bronze\nTable: external_delta_tables\nOwner: trusted-service-user\nCreated Time: Sat Aug 02 10:38:14 UTC 2025\nLast Access: UNKNOWN\nCreated By: Spark 3.2.1-SNAPSHOT\nType: MANAGED\nProvider: delta\nTable Properties: [trident.autodiscovered.table=true]\nLocation: abfss://4aacd5e0-a895-44be-b26a-fd1da0fe2efc@onelake.dfs.fabric.microsoft.com/8378279a-6626-40e1-9d9e-8c391f419e7a/Tables/external_delta_tables\nSerde Library: org.apache.hadoop.hive.serde2.lazy.LazySimpleSerDe\nInputFormat: org.apache.hadoop.mapred.SequenceFileInputFormat\nOutputFormat: org.apache.hadoop.hive.ql.io.HiveSequenceFileOutputFormat\nPartition Provider: Catalog\n",
+    "type": "MANAGED"
+  },
+  {
+    "namespace": "lh_bronze",
+    "tableName": "managed_delta_table_checkpoints",
+    "isTemporary": false,
+    "information": "Catalog: spark_catalog\nDatabase: lh_bronze\nTable: managed_delta_table_checkpoints\nOwner: trusted-service-user\nCreated Time: Sat Aug 02 10:38:14 UTC 2025\nLast Access: UNKNOWN\nCreated By: Spark 3.2.1-SNAPSHOT\nType: MANAGED\nProvider: delta\nTable Properties: [trident.autodiscovered.table=true]\nLocation: abfss://4aacd5e0-a895-44be-b26a-fd1da0fe2efc@onelake.dfs.fabric.microsoft.com/8378279a-6626-40e1-9d9e-8c391f419e7a/Tables/managed_delta_table_checkpoints\nSerde Library: org.apache.hadoop.hive.serde2.lazy.LazySimpleSerDe\nInputFormat: org.apache.hadoop.mapred.SequenceFileInputFormat\nOutputFormat: org.apache.hadoop.hive.ql.io.HiveSequenceFileOutputFormat\nPartition Provider: Catalog\n",
+    "type": "MANAGED"
+  },
+  {
+    "namespace": "lh_bronze",
+    "tableName": "managed_delta_table_forks",
+    "isTemporary": false,
+    "information": "Catalog: spark_catalog\nDatabase: lh_bronze\nTable: managed_delta_table_forks\nOwner: trusted-service-user\nCreated Time: Sat Aug 02 10:38:14 UTC 2025\nLast Access: UNKNOWN\nCreated By: Spark 3.2.1-SNAPSHOT\nType: MANAGED\nProvider: delta\nTable Properties: [trident.autodiscovered.table=true]\nLocation: abfss://4aacd5e0-a895-44be-b26a-fd1da0fe2efc@onelake.dfs.fabric.microsoft.com/8378279a-6626-40e1-9d9e-8c391f419e7a/Tables/managed_delta_table_forks\nSerde Library: org.apache.hadoop.hive.serde2.lazy.LazySimpleSerDe\nInputFormat: org.apache.hadoop.mapred.SequenceFileInputFormat\nOutputFormat: org.apache.hadoop.hive.ql.io.HiveSequenceFileOutputFormat\nPartition Provider: Catalog\n",
+    "type": "MANAGED"
+  },
+  {
+    "namespace": "lh_bronze",
+    "tableName": "managed_delta_table_log_files",
+    "isTemporary": false,
+    "information": "Catalog: spark_catalog\nDatabase: lh_bronze\nTable: managed_delta_table_log_files\nOwner: trusted-service-user\nCreated Time: Sat Aug 02 10:38:14 UTC 2025\nLast Access: UNKNOWN\nCreated By: Spark 3.2.1-SNAPSHOT\nType: MANAGED\nProvider: delta\nTable Properties: [trident.autodiscovered.table=true]\nLocation: abfss://4aacd5e0-a895-44be-b26a-fd1da0fe2efc@onelake.dfs.fabric.microsoft.com/8378279a-6626-40e1-9d9e-8c391f419e7a/Tables/managed_delta_table_log_files\nSerde Library: org.apache.hadoop.hive.serde2.lazy.LazySimpleSerDe\nInputFormat: org.apache.hadoop.mapred.SequenceFileInputFormat\nOutputFormat: org.apache.hadoop.hive.ql.io.HiveSequenceFileOutputFormat\nPartition Provider: Catalog\n",
+    "type": "MANAGED"
+  },
+  {
+    "namespace": "lh_bronze",
+    "tableName": "managed_delta_tables",
+    "isTemporary": false,
+    "information": "Catalog: spark_catalog\nDatabase: lh_bronze\nTable: managed_delta_tables\nOwner: trusted-service-user\nCreated Time: Sat Aug 02 10:38:14 UTC 2025\nLast Access: UNKNOWN\nCreated By: Spark 3.2.1-SNAPSHOT\nType: MANAGED\nProvider: delta\nTable Properties: [trident.autodiscovered.table=true]\nLocation: abfss://4aacd5e0-a895-44be-b26a-fd1da0fe2efc@onelake.dfs.fabric.microsoft.com/8378279a-6626-40e1-9d9e-8c391f419e7a/Tables/managed_delta_tables\nSerde Library: org.apache.hadoop.hive.serde2.lazy.LazySimpleSerDe\nInputFormat: org.apache.hadoop.mapred.SequenceFileInputFormat\nOutputFormat: org.apache.hadoop.hive.ql.io.HiveSequenceFileOutputFormat\nPartition Provider: Catalog\n",
+    "type": "MANAGED"
+  },
+  {
+    "namespace": "lh_bronze",
+    "tableName": "sys_dw_schemas",
+    "isTemporary": false,
+    "information": "Catalog: spark_catalog\nDatabase: lh_bronze\nTable: sys_dw_schemas\nOwner: trusted-service-user\nCreated Time: Sat Aug 02 10:38:14 UTC 2025\nLast Access: UNKNOWN\nCreated By: Spark 3.2.1-SNAPSHOT\nType: MANAGED\nProvider: delta\nTable Properties: [trident.autodiscovered.table=true]\nLocation: abfss://4aacd5e0-a895-44be-b26a-fd1da0fe2efc@onelake.dfs.fabric.microsoft.com/8378279a-6626-40e1-9d9e-8c391f419e7a/Tables/sys_dw_schemas\nSerde Library: org.apache.hadoop.hive.serde2.lazy.LazySimpleSerDe\nInputFormat: org.apache.hadoop.mapred.SequenceFileInputFormat\nOutputFormat: org.apache.hadoop.hive.ql.io.HiveSequenceFileOutputFormat\nPartition Provider: Catalog\n",
+    "type": "MANAGED"
+  },
+  {
+    "namespace": "lh_gold",
+    "tableName": "dim_cities",
+    "isTemporary": false,
+    "information": "Catalog: spark_catalog\nDatabase: lh_gold\nTable: dim_cities\nOwner: trusted-service-user\nCreated Time: Sat Aug 02 10:38:14 UTC 2025\nLast Access: UNKNOWN\nCreated By: Spark 3.2.1-SNAPSHOT\nType: MANAGED\nProvider: delta\nTable Properties: [trident.autodiscovered.table=true]\nLocation: abfss://4aacd5e0-a895-44be-b26a-fd1da0fe2efc@onelake.dfs.fabric.microsoft.com/819d308e-6c5d-4181-ac94-8fa808d83e91/Tables/dim_cities\nSerde Library: org.apache.hadoop.hive.serde2.lazy.LazySimpleSerDe\nInputFormat: org.apache.hadoop.mapred.SequenceFileInputFormat\nOutputFormat: org.apache.hadoop.hive.ql.io.HiveSequenceFileOutputFormat\nPartition Provider: Catalog\n",
+    "type": "MANAGED"
+  },
+  {
+    "namespace": "lh_gold",
+    "tableName": "exec_requests_history",
+    "isTemporary": false,
+    "information": "Catalog: spark_catalog\nDatabase: lh_gold\nTable: exec_requests_history\nOwner: trusted-service-user\nCreated Time: Sat Aug 02 10:38:14 UTC 2025\nLast Access: UNKNOWN\nCreated By: Spark 3.2.1-SNAPSHOT\nType: MANAGED\nProvider: delta\nTable Properties: [trident.autodiscovered.table=true]\nLocation: abfss://4aacd5e0-a895-44be-b26a-fd1da0fe2efc@onelake.dfs.fabric.microsoft.com/819d308e-6c5d-4181-ac94-8fa808d83e91/Tables/exec_requests_history\nSerde Library: org.apache.hadoop.hive.serde2.lazy.LazySimpleSerDe\nInputFormat: org.apache.hadoop.mapred.SequenceFileInputFormat\nOutputFormat: org.apache.hadoop.hive.ql.io.HiveSequenceFileOutputFormat\nPartition Provider: Catalog\n",
+    "type": "MANAGED"
+  },
+  {
+    "namespace": "lh_gold",
+    "tableName": "exec_sessions_history",
+    "isTemporary": false,
+    "information": "Catalog: spark_catalog\nDatabase: lh_gold\nTable: exec_sessions_history\nOwner: trusted-service-user\nCreated Time: Sat Aug 02 10:38:14 UTC 2025\nLast Access: UNKNOWN\nCreated By: Spark 3.2.1-SNAPSHOT\nType: MANAGED\nProvider: delta\nTable Properties: [trident.autodiscovered.table=true]\nLocation: abfss://4aacd5e0-a895-44be-b26a-fd1da0fe2efc@onelake.dfs.fabric.microsoft.com/819d308e-6c5d-4181-ac94-8fa808d83e91/Tables/exec_sessions_history\nSerde Library: org.apache.hadoop.hive.serde2.lazy.LazySimpleSerDe\nInputFormat: org.apache.hadoop.mapred.SequenceFileInputFormat\nOutputFormat: org.apache.hadoop.hive.ql.io.HiveSequenceFileOutputFormat\nPartition Provider: Catalog\n",
+    "type": "MANAGED"
+  },
+  {
+    "namespace": "lh_gold",
+    "tableName": "frequently_run_queries",
+    "isTemporary": false,
+    "information": "Catalog: spark_catalog\nDatabase: lh_gold\nTable: frequently_run_queries\nOwner: trusted-service-user\nCreated Time: Sat Aug 02 10:38:14 UTC 2025\nLast Access: UNKNOWN\nCreated By: Spark 3.2.1-SNAPSHOT\nType: MANAGED\nProvider: delta\nTable Properties: [trident.autodiscovered.table=true]\nLocation: abfss://4aacd5e0-a895-44be-b26a-fd1da0fe2efc@onelake.dfs.fabric.microsoft.com/819d308e-6c5d-4181-ac94-8fa808d83e91/Tables/frequently_run_queries\nSerde Library: org.apache.hadoop.hive.serde2.lazy.LazySimpleSerDe\nInputFormat: org.apache.hadoop.mapred.SequenceFileInputFormat\nOutputFormat: org.apache.hadoop.hive.ql.io.HiveSequenceFileOutputFormat\nPartition Provider: Catalog\n",
+    "type": "MANAGED"
+  },
+  {
+    "namespace": "lh_gold",
+    "tableName": "long_running_queries",
+    "isTemporary": false,
+    "information": "Catalog: spark_catalog\nDatabase: lh_gold\nTable: long_running_queries\nOwner: trusted-service-user\nCreated Time: Sat Aug 02 10:38:14 UTC 2025\nLast Access: UNKNOWN\nCreated By: Spark 3.2.1-SNAPSHOT\nType: MANAGED\nProvider: delta\nTable Properties: [trident.autodiscovered.table=true]\nLocation: abfss://4aacd5e0-a895-44be-b26a-fd1da0fe2efc@onelake.dfs.fabric.microsoft.com/819d308e-6c5d-4181-ac94-8fa808d83e91/Tables/long_running_queries\nSerde Library: org.apache.hadoop.hive.serde2.lazy.LazySimpleSerDe\nInputFormat: org.apache.hadoop.mapred.SequenceFileInputFormat\nOutputFormat: org.apache.hadoop.hive.ql.io.HiveSequenceFileOutputFormat\nPartition Provider: Catalog\n",
+    "type": "MANAGED"
+  },
+  {
+    "namespace": "lh_gold",
+    "tableName": "external_delta_tables",
+    "isTemporary": false,
+    "information": "Catalog: spark_catalog\nDatabase: lh_gold\nTable: external_delta_tables\nOwner: trusted-service-user\nCreated Time: Sat Aug 02 10:38:14 UTC 2025\nLast Access: UNKNOWN\nCreated By: Spark 3.2.1-SNAPSHOT\nType: MANAGED\nProvider: delta\nTable Properties: [trident.autodiscovered.table=true]\nLocation: abfss://4aacd5e0-a895-44be-b26a-fd1da0fe2efc@onelake.dfs.fabric.microsoft.com/819d308e-6c5d-4181-ac94-8fa808d83e91/Tables/external_delta_tables\nSerde Library: org.apache.hadoop.hive.serde2.lazy.LazySimpleSerDe\nInputFormat: org.apache.hadoop.mapred.SequenceFileInputFormat\nOutputFormat: org.apache.hadoop.hive.ql.io.HiveSequenceFileOutputFormat\nPartition Provider: Catalog\n",
+    "type": "MANAGED"
+  },
+  {
+    "namespace": "lh_gold",
+    "tableName": "managed_delta_table_checkpoints",
+    "isTemporary": false,
+    "information": "Catalog: spark_catalog\nDatabase: lh_gold\nTable: managed_delta_table_checkpoints\nOwner: trusted-service-user\nCreated Time: Sat Aug 02 10:38:14 UTC 2025\nLast Access: UNKNOWN\nCreated By: Spark 3.2.1-SNAPSHOT\nType: MANAGED\nProvider: delta\nTable Properties: [trident.autodiscovered.table=true]\nLocation: abfss://4aacd5e0-a895-44be-b26a-fd1da0fe2efc@onelake.dfs.fabric.microsoft.com/819d308e-6c5d-4181-ac94-8fa808d83e91/Tables/managed_delta_table_checkpoints\nSerde Library: org.apache.hadoop.hive.serde2.lazy.LazySimpleSerDe\nInputFormat: org.apache.hadoop.mapred.SequenceFileInputFormat\nOutputFormat: org.apache.hadoop.hive.ql.io.HiveSequenceFileOutputFormat\nPartition Provider: Catalog\n",
+    "type": "MANAGED"
+  },
+  {
+    "namespace": "lh_gold",
+    "tableName": "managed_delta_table_forks",
+    "isTemporary": false,
+    "information": "Catalog: spark_catalog\nDatabase: lh_gold\nTable: managed_delta_table_forks\nOwner: trusted-service-user\nCreated Time: Sat Aug 02 10:38:14 UTC 2025\nLast Access: UNKNOWN\nCreated By: Spark 3.2.1-SNAPSHOT\nType: MANAGED\nProvider: delta\nTable Properties: [trident.autodiscovered.table=true]\nLocation: abfss://4aacd5e0-a895-44be-b26a-fd1da0fe2efc@onelake.dfs.fabric.microsoft.com/819d308e-6c5d-4181-ac94-8fa808d83e91/Tables/managed_delta_table_forks\nSerde Library: org.apache.hadoop.hive.serde2.lazy.LazySimpleSerDe\nInputFormat: org.apache.hadoop.mapred.SequenceFileInputFormat\nOutputFormat: org.apache.hadoop.hive.ql.io.HiveSequenceFileOutputFormat\nPartition Provider: Catalog\n",
+    "type": "MANAGED"
+  },
+  {
+    "namespace": "lh_gold",
+    "tableName": "managed_delta_table_log_files",
+    "isTemporary": false,
+    "information": "Catalog: spark_catalog\nDatabase: lh_gold\nTable: managed_delta_table_log_files\nOwner: trusted-service-user\nCreated Time: Sat Aug 02 10:38:14 UTC 2025\nLast Access: UNKNOWN\nCreated By: Spark 3.2.1-SNAPSHOT\nType: MANAGED\nProvider: delta\nTable Properties: [trident.autodiscovered.table=true]\nLocation: abfss://4aacd5e0-a895-44be-b26a-fd1da0fe2efc@onelake.dfs.fabric.microsoft.com/819d308e-6c5d-4181-ac94-8fa808d83e91/Tables/managed_delta_table_log_files\nSerde Library: org.apache.hadoop.hive.serde2.lazy.LazySimpleSerDe\nInputFormat: org.apache.hadoop.mapred.SequenceFileInputFormat\nOutputFormat: org.apache.hadoop.hive.ql.io.HiveSequenceFileOutputFormat\nPartition Provider: Catalog\n",
+    "type": "MANAGED"
+  },
+  {
+    "namespace": "lh_gold",
+    "tableName": "managed_delta_tables",
+    "isTemporary": false,
+    "information": "Catalog: spark_catalog\nDatabase: lh_gold\nTable: managed_delta_tables\nOwner: trusted-service-user\nCreated Time: Sat Aug 02 10:38:14 UTC 2025\nLast Access: UNKNOWN\nCreated By: Spark 3.2.1-SNAPSHOT\nType: MANAGED\nProvider: delta\nTable Properties: [trident.autodiscovered.table=true]\nLocation: abfss://4aacd5e0-a895-44be-b26a-fd1da0fe2efc@onelake.dfs.fabric.microsoft.com/819d308e-6c5d-4181-ac94-8fa808d83e91/Tables/managed_delta_tables\nSerde Library: org.apache.hadoop.hive.serde2.lazy.LazySimpleSerDe\nInputFormat: org.apache.hadoop.mapred.SequenceFileInputFormat\nOutputFormat: org.apache.hadoop.hive.ql.io.HiveSequenceFileOutputFormat\nPartition Provider: Catalog\n",
+    "type": "MANAGED"
+  },
+  {
+    "namespace": "lh_gold",
+    "tableName": "sys_dw_schemas",
+    "isTemporary": false,
+    "information": "Catalog: spark_catalog\nDatabase: lh_gold\nTable: sys_dw_schemas\nOwner: trusted-service-user\nCreated Time: Sat Aug 02 10:38:14 UTC 2025\nLast Access: UNKNOWN\nCreated By: Spark 3.2.1-SNAPSHOT\nType: MANAGED\nProvider: delta\nTable Properties: [trident.autodiscovered.table=true]\nLocation: abfss://4aacd5e0-a895-44be-b26a-fd1da0fe2efc@onelake.dfs.fabric.microsoft.com/819d308e-6c5d-4181-ac94-8fa808d83e91/Tables/sys_dw_schemas\nSerde Library: org.apache.hadoop.hive.serde2.lazy.LazySimpleSerDe\nInputFormat: org.apache.hadoop.mapred.SequenceFileInputFormat\nOutputFormat: org.apache.hadoop.hive.ql.io.HiveSequenceFileOutputFormat\nPartition Provider: Catalog\n",
+    "type": "MANAGED"
+  },
+  {
+    "namespace": "lh_log",
+    "tableName": "batch",
+    "isTemporary": false,
+    "information": "Catalog: spark_catalog\nDatabase: lh_log\nTable: batch\nOwner: trusted-service-user\nCreated Time: Sat Aug 02 10:38:14 UTC 2025\nLast Access: UNKNOWN\nCreated By: Spark 3.2.1-SNAPSHOT\nType: MANAGED\nProvider: delta\nTable Properties: [trident.autodiscovered.table=true]\nLocation: abfss://4aacd5e0-a895-44be-b26a-fd1da0fe2efc@onelake.dfs.fabric.microsoft.com/6728f57a-bc2a-469a-ac84-480449a097d5/Tables/batch\nSerde Library: org.apache.hadoop.hive.serde2.lazy.LazySimpleSerDe\nInputFormat: org.apache.hadoop.mapred.SequenceFileInputFormat\nOutputFormat: org.apache.hadoop.hive.ql.io.HiveSequenceFileOutputFormat\nPartition Provider: Catalog\n",
+    "type": "MANAGED"
+  },
+  {
+    "namespace": "lh_log",
+    "tableName": "execution_log",
+    "isTemporary": false,
+    "information": "Catalog: spark_catalog\nDatabase: lh_log\nTable: execution_log\nOwner: trusted-service-user\nCreated Time: Sat Aug 02 10:38:14 UTC 2025\nLast Access: UNKNOWN\nCreated By: Spark 3.2.1-SNAPSHOT\nType: MANAGED\nProvider: delta\nTable Properties: [trident.autodiscovered.table=true]\nLocation: abfss://4aacd5e0-a895-44be-b26a-fd1da0fe2efc@onelake.dfs.fabric.microsoft.com/6728f57a-bc2a-469a-ac84-480449a097d5/Tables/execution_log\nSerde Library: org.apache.hadoop.hive.serde2.lazy.LazySimpleSerDe\nInputFormat: org.apache.hadoop.mapred.SequenceFileInputFormat\nOutputFormat: org.apache.hadoop.hive.ql.io.HiveSequenceFileOutputFormat\nPartition Provider: Catalog\n",
+    "type": "MANAGED"
+  },
+  {
+    "namespace": "lh_log",
+    "tableName": "exec_requests_history",
+    "isTemporary": false,
+    "information": "Catalog: spark_catalog\nDatabase: lh_log\nTable: exec_requests_history\nOwner: trusted-service-user\nCreated Time: Sat Aug 02 10:38:14 UTC 2025\nLast Access: UNKNOWN\nCreated By: Spark 3.2.1-SNAPSHOT\nType: MANAGED\nProvider: delta\nTable Properties: [trident.autodiscovered.table=true]\nLocation: abfss://4aacd5e0-a895-44be-b26a-fd1da0fe2efc@onelake.dfs.fabric.microsoft.com/6728f57a-bc2a-469a-ac84-480449a097d5/Tables/exec_requests_history\nSerde Library: org.apache.hadoop.hive.serde2.lazy.LazySimpleSerDe\nInputFormat: org.apache.hadoop.mapred.SequenceFileInputFormat\nOutputFormat: org.apache.hadoop.hive.ql.io.HiveSequenceFileOutputFormat\nPartition Provider: Catalog\n",
+    "type": "MANAGED"
+  },
+  {
+    "namespace": "lh_log",
+    "tableName": "exec_sessions_history",
+    "isTemporary": false,
+    "information": "Catalog: spark_catalog\nDatabase: lh_log\nTable: exec_sessions_history\nOwner: trusted-service-user\nCreated Time: Sat Aug 02 10:38:14 UTC 2025\nLast Access: UNKNOWN\nCreated By: Spark 3.2.1-SNAPSHOT\nType: MANAGED\nProvider: delta\nTable Properties: [trident.autodiscovered.table=true]\nLocation: abfss://4aacd5e0-a895-44be-b26a-fd1da0fe2efc@onelake.dfs.fabric.microsoft.com/6728f57a-bc2a-469a-ac84-480449a097d5/Tables/exec_sessions_history\nSerde Library: org.apache.hadoop.hive.serde2.lazy.LazySimpleSerDe\nInputFormat: org.apache.hadoop.mapred.SequenceFileInputFormat\nOutputFormat: org.apache.hadoop.hive.ql.io.HiveSequenceFileOutputFormat\nPartition Provider: Catalog\n",
+    "type": "MANAGED"
+  },
+  {
+    "namespace": "lh_log",
+    "tableName": "frequently_run_queries",
+    "isTemporary": false,
+    "information": "Catalog: spark_catalog\nDatabase: lh_log\nTable: frequently_run_queries\nOwner: trusted-service-user\nCreated Time: Sat Aug 02 10:38:14 UTC 2025\nLast Access: UNKNOWN\nCreated By: Spark 3.2.1-SNAPSHOT\nType: MANAGED\nProvider: delta\nTable Properties: [trident.autodiscovered.table=true]\nLocation: abfss://4aacd5e0-a895-44be-b26a-fd1da0fe2efc@onelake.dfs.fabric.microsoft.com/6728f57a-bc2a-469a-ac84-480449a097d5/Tables/frequently_run_queries\nSerde Library: org.apache.hadoop.hive.serde2.lazy.LazySimpleSerDe\nInputFormat: org.apache.hadoop.mapred.SequenceFileInputFormat\nOutputFormat: org.apache.hadoop.hive.ql.io.HiveSequenceFileOutputFormat\nPartition Provider: Catalog\n",
+    "type": "MANAGED"
+  },
+  {
+    "namespace": "lh_log",
+    "tableName": "long_running_queries",
+    "isTemporary": false,
+    "information": "Catalog: spark_catalog\nDatabase: lh_log\nTable: long_running_queries\nOwner: trusted-service-user\nCreated Time: Sat Aug 02 10:38:14 UTC 2025\nLast Access: UNKNOWN\nCreated By: Spark 3.2.1-SNAPSHOT\nType: MANAGED\nProvider: delta\nTable Properties: [trident.autodiscovered.table=true]\nLocation: abfss://4aacd5e0-a895-44be-b26a-fd1da0fe2efc@onelake.dfs.fabric.microsoft.com/6728f57a-bc2a-469a-ac84-480449a097d5/Tables/long_running_queries\nSerde Library: org.apache.hadoop.hive.serde2.lazy.LazySimpleSerDe\nInputFormat: org.apache.hadoop.mapred.SequenceFileInputFormat\nOutputFormat: org.apache.hadoop.hive.ql.io.HiveSequenceFileOutputFormat\nPartition Provider: Catalog\n",
+    "type": "MANAGED"
+  },
+  {
+    "namespace": "lh_log",
+    "tableName": "external_delta_tables",
+    "isTemporary": false,
+    "information": "Catalog: spark_catalog\nDatabase: lh_log\nTable: external_delta_tables\nOwner: trusted-service-user\nCreated Time: Sat Aug 02 10:38:14 UTC 2025\nLast Access: UNKNOWN\nCreated By: Spark 3.2.1-SNAPSHOT\nType: MANAGED\nProvider: delta\nTable Properties: [trident.autodiscovered.table=true]\nLocation: abfss://4aacd5e0-a895-44be-b26a-fd1da0fe2efc@onelake.dfs.fabric.microsoft.com/6728f57a-bc2a-469a-ac84-480449a097d5/Tables/external_delta_tables\nSerde Library: org.apache.hadoop.hive.serde2.lazy.LazySimpleSerDe\nInputFormat: org.apache.hadoop.mapred.SequenceFileInputFormat\nOutputFormat: org.apache.hadoop.hive.ql.io.HiveSequenceFileOutputFormat\nPartition Provider: Catalog\n",
+    "type": "MANAGED"
+  },
+  {
+    "namespace": "lh_log",
+    "tableName": "managed_delta_table_checkpoints",
+    "isTemporary": false,
+    "information": "Catalog: spark_catalog\nDatabase: lh_log\nTable: managed_delta_table_checkpoints\nOwner: trusted-service-user\nCreated Time: Sat Aug 02 10:38:14 UTC 2025\nLast Access: UNKNOWN\nCreated By: Spark 3.2.1-SNAPSHOT\nType: MANAGED\nProvider: delta\nTable Properties: [trident.autodiscovered.table=true]\nLocation: abfss://4aacd5e0-a895-44be-b26a-fd1da0fe2efc@onelake.dfs.fabric.microsoft.com/6728f57a-bc2a-469a-ac84-480449a097d5/Tables/managed_delta_table_checkpoints\nSerde Library: org.apache.hadoop.hive.serde2.lazy.LazySimpleSerDe\nInputFormat: org.apache.hadoop.mapred.SequenceFileInputFormat\nOutputFormat: org.apache.hadoop.hive.ql.io.HiveSequenceFileOutputFormat\nPartition Provider: Catalog\n",
+    "type": "MANAGED"
+  },
+  {
+    "namespace": "lh_log",
+    "tableName": "managed_delta_table_forks",
+    "isTemporary": false,
+    "information": "Catalog: spark_catalog\nDatabase: lh_log\nTable: managed_delta_table_forks\nOwner: trusted-service-user\nCreated Time: Sat Aug 02 10:38:14 UTC 2025\nLast Access: UNKNOWN\nCreated By: Spark 3.2.1-SNAPSHOT\nType: MANAGED\nProvider: delta\nTable Properties: [trident.autodiscovered.table=true]\nLocation: abfss://4aacd5e0-a895-44be-b26a-fd1da0fe2efc@onelake.dfs.fabric.microsoft.com/6728f57a-bc2a-469a-ac84-480449a097d5/Tables/managed_delta_table_forks\nSerde Library: org.apache.hadoop.hive.serde2.lazy.LazySimpleSerDe\nInputFormat: org.apache.hadoop.mapred.SequenceFileInputFormat\nOutputFormat: org.apache.hadoop.hive.ql.io.HiveSequenceFileOutputFormat\nPartition Provider: Catalog\n",
+    "type": "MANAGED"
+  },
+  {
+    "namespace": "lh_log",
+    "tableName": "managed_delta_table_log_files",
+    "isTemporary": false,
+    "information": "Catalog: spark_catalog\nDatabase: lh_log\nTable: managed_delta_table_log_files\nOwner: trusted-service-user\nCreated Time: Sat Aug 02 10:38:14 UTC 2025\nLast Access: UNKNOWN\nCreated By: Spark 3.2.1-SNAPSHOT\nType: MANAGED\nProvider: delta\nTable Properties: [trident.autodiscovered.table=true]\nLocation: abfss://4aacd5e0-a895-44be-b26a-fd1da0fe2efc@onelake.dfs.fabric.microsoft.com/6728f57a-bc2a-469a-ac84-480449a097d5/Tables/managed_delta_table_log_files\nSerde Library: org.apache.hadoop.hive.serde2.lazy.LazySimpleSerDe\nInputFormat: org.apache.hadoop.mapred.SequenceFileInputFormat\nOutputFormat: org.apache.hadoop.hive.ql.io.HiveSequenceFileOutputFormat\nPartition Provider: Catalog\n",
+    "type": "MANAGED"
+  },
+  {
+    "namespace": "lh_log",
+    "tableName": "managed_delta_tables",
+    "isTemporary": false,
+    "information": "Catalog: spark_catalog\nDatabase: lh_log\nTable: managed_delta_tables\nOwner: trusted-service-user\nCreated Time: Sat Aug 02 10:38:14 UTC 2025\nLast Access: UNKNOWN\nCreated By: Spark 3.2.1-SNAPSHOT\nType: MANAGED\nProvider: delta\nTable Properties: [trident.autodiscovered.table=true]\nLocation: abfss://4aacd5e0-a895-44be-b26a-fd1da0fe2efc@onelake.dfs.fabric.microsoft.com/6728f57a-bc2a-469a-ac84-480449a097d5/Tables/managed_delta_tables\nSerde Library: org.apache.hadoop.hive.serde2.lazy.LazySimpleSerDe\nInputFormat: org.apache.hadoop.mapred.SequenceFileInputFormat\nOutputFormat: org.apache.hadoop.hive.ql.io.HiveSequenceFileOutputFormat\nPartition Provider: Catalog\n",
+    "type": "MANAGED"
+  },
+  {
+    "namespace": "lh_log",
+    "tableName": "sys_dw_schemas",
+    "isTemporary": false,
+    "information": "Catalog: spark_catalog\nDatabase: lh_log\nTable: sys_dw_schemas\nOwner: trusted-service-user\nCreated Time: Sat Aug 02 10:38:14 UTC 2025\nLast Access: UNKNOWN\nCreated By: Spark 3.2.1-SNAPSHOT\nType: MANAGED\nProvider: delta\nTable Properties: [trident.autodiscovered.table=true]\nLocation: abfss://4aacd5e0-a895-44be-b26a-fd1da0fe2efc@onelake.dfs.fabric.microsoft.com/6728f57a-bc2a-469a-ac84-480449a097d5/Tables/sys_dw_schemas\nSerde Library: org.apache.hadoop.hive.serde2.lazy.LazySimpleSerDe\nInputFormat: org.apache.hadoop.mapred.SequenceFileInputFormat\nOutputFormat: org.apache.hadoop.hive.ql.io.HiveSequenceFileOutputFormat\nPartition Provider: Catalog\n",
+    "type": "MANAGED"
+  },
+  {
+    "namespace": "lh_silver",
+    "tableName": "cities",
+    "isTemporary": false,
+    "information": "Catalog: spark_catalog\nDatabase: lh_silver\nTable: cities\nOwner: trusted-service-user\nCreated Time: Sat Aug 02 10:38:14 UTC 2025\nLast Access: UNKNOWN\nCreated By: Spark 3.2.1-SNAPSHOT\nType: MANAGED\nProvider: delta\nTable Properties: [trident.autodiscovered.table=true]\nLocation: abfss://4aacd5e0-a895-44be-b26a-fd1da0fe2efc@onelake.dfs.fabric.microsoft.com/9d7e1796-56b9-45a3-831a-a3d2f06b055b/Tables/cities\nSerde Library: org.apache.hadoop.hive.serde2.lazy.LazySimpleSerDe\nInputFormat: org.apache.hadoop.mapred.SequenceFileInputFormat\nOutputFormat: org.apache.hadoop.hive.ql.io.HiveSequenceFileOutputFormat\nPartition Provider: Catalog\n",
+    "type": "MANAGED"
+  },
+  {
+    "namespace": "lh_silver",
+    "tableName": "countries",
+    "isTemporary": false,
+    "information": "Catalog: spark_catalog\nDatabase: lh_silver\nTable: countries\nOwner: trusted-service-user\nCreated Time: Sat Aug 02 10:38:14 UTC 2025\nLast Access: UNKNOWN\nCreated By: Spark 3.2.1-SNAPSHOT\nType: MANAGED\nProvider: delta\nTable Properties: [trident.autodiscovered.table=true]\nLocation: abfss://4aacd5e0-a895-44be-b26a-fd1da0fe2efc@onelake.dfs.fabric.microsoft.com/9d7e1796-56b9-45a3-831a-a3d2f06b055b/Tables/countries\nSerde Library: org.apache.hadoop.hive.serde2.lazy.LazySimpleSerDe\nInputFormat: org.apache.hadoop.mapred.SequenceFileInputFormat\nOutputFormat: org.apache.hadoop.hive.ql.io.HiveSequenceFileOutputFormat\nPartition Provider: Catalog\n",
+    "type": "MANAGED"
+  },
+  {
+    "namespace": "lh_silver",
+    "tableName": "ddl_script_executions",
+    "isTemporary": false,
+    "information": "Catalog: spark_catalog\nDatabase: lh_silver\nTable: ddl_script_executions\nOwner: trusted-service-user\nCreated Time: Sat Aug 02 10:38:14 UTC 2025\nLast Access: UNKNOWN\nCreated By: Spark 3.2.1-SNAPSHOT\nType: MANAGED\nProvider: delta\nTable Properties: [trident.autodiscovered.table=true]\nLocation: abfss://4aacd5e0-a895-44be-b26a-fd1da0fe2efc@onelake.dfs.fabric.microsoft.com/9d7e1796-56b9-45a3-831a-a3d2f06b055b/Tables/ddl_script_executions\nSerde Library: org.apache.hadoop.hive.serde2.lazy.LazySimpleSerDe\nInputFormat: org.apache.hadoop.mapred.SequenceFileInputFormat\nOutputFormat: org.apache.hadoop.hive.ql.io.HiveSequenceFileOutputFormat\nPartition Provider: Catalog\n",
+    "type": "MANAGED"
+  },
+  {
+    "namespace": "lh_silver",
+    "tableName": "exec_requests_history",
+    "isTemporary": false,
+    "information": "Catalog: spark_catalog\nDatabase: lh_silver\nTable: exec_requests_history\nOwner: trusted-service-user\nCreated Time: Sat Aug 02 10:38:14 UTC 2025\nLast Access: UNKNOWN\nCreated By: Spark 3.2.1-SNAPSHOT\nType: MANAGED\nProvider: delta\nTable Properties: [trident.autodiscovered.table=true]\nLocation: abfss://4aacd5e0-a895-44be-b26a-fd1da0fe2efc@onelake.dfs.fabric.microsoft.com/9d7e1796-56b9-45a3-831a-a3d2f06b055b/Tables/exec_requests_history\nSerde Library: org.apache.hadoop.hive.serde2.lazy.LazySimpleSerDe\nInputFormat: org.apache.hadoop.mapred.SequenceFileInputFormat\nOutputFormat: org.apache.hadoop.hive.ql.io.HiveSequenceFileOutputFormat\nPartition Provider: Catalog\n",
+    "type": "MANAGED"
+  },
+  {
+    "namespace": "lh_silver",
+    "tableName": "exec_sessions_history",
+    "isTemporary": false,
+    "information": "Catalog: spark_catalog\nDatabase: lh_silver\nTable: exec_sessions_history\nOwner: trusted-service-user\nCreated Time: Sat Aug 02 10:38:14 UTC 2025\nLast Access: UNKNOWN\nCreated By: Spark 3.2.1-SNAPSHOT\nType: MANAGED\nProvider: delta\nTable Properties: [trident.autodiscovered.table=true]\nLocation: abfss://4aacd5e0-a895-44be-b26a-fd1da0fe2efc@onelake.dfs.fabric.microsoft.com/9d7e1796-56b9-45a3-831a-a3d2f06b055b/Tables/exec_sessions_history\nSerde Library: org.apache.hadoop.hive.serde2.lazy.LazySimpleSerDe\nInputFormat: org.apache.hadoop.mapred.SequenceFileInputFormat\nOutputFormat: org.apache.hadoop.hive.ql.io.HiveSequenceFileOutputFormat\nPartition Provider: Catalog\n",
+    "type": "MANAGED"
+  },
+  {
+    "namespace": "lh_silver",
+    "tableName": "frequently_run_queries",
+    "isTemporary": false,
+    "information": "Catalog: spark_catalog\nDatabase: lh_silver\nTable: frequently_run_queries\nOwner: trusted-service-user\nCreated Time: Sat Aug 02 10:38:14 UTC 2025\nLast Access: UNKNOWN\nCreated By: Spark 3.2.1-SNAPSHOT\nType: MANAGED\nProvider: delta\nTable Properties: [trident.autodiscovered.table=true]\nLocation: abfss://4aacd5e0-a895-44be-b26a-fd1da0fe2efc@onelake.dfs.fabric.microsoft.com/9d7e1796-56b9-45a3-831a-a3d2f06b055b/Tables/frequently_run_queries\nSerde Library: org.apache.hadoop.hive.serde2.lazy.LazySimpleSerDe\nInputFormat: org.apache.hadoop.mapred.SequenceFileInputFormat\nOutputFormat: org.apache.hadoop.hive.ql.io.HiveSequenceFileOutputFormat\nPartition Provider: Catalog\n",
+    "type": "MANAGED"
+  },
+  {
+    "namespace": "lh_silver",
+    "tableName": "long_running_queries",
+    "isTemporary": false,
+    "information": "Catalog: spark_catalog\nDatabase: lh_silver\nTable: long_running_queries\nOwner: trusted-service-user\nCreated Time: Sat Aug 02 10:38:14 UTC 2025\nLast Access: UNKNOWN\nCreated By: Spark 3.2.1-SNAPSHOT\nType: MANAGED\nProvider: delta\nTable Properties: [trident.autodiscovered.table=true]\nLocation: abfss://4aacd5e0-a895-44be-b26a-fd1da0fe2efc@onelake.dfs.fabric.microsoft.com/9d7e1796-56b9-45a3-831a-a3d2f06b055b/Tables/long_running_queries\nSerde Library: org.apache.hadoop.hive.serde2.lazy.LazySimpleSerDe\nInputFormat: org.apache.hadoop.mapred.SequenceFileInputFormat\nOutputFormat: org.apache.hadoop.hive.ql.io.HiveSequenceFileOutputFormat\nPartition Provider: Catalog\n",
+    "type": "MANAGED"
+  },
+  {
+    "namespace": "lh_silver",
+    "tableName": "external_delta_tables",
+    "isTemporary": false,
+    "information": "Catalog: spark_catalog\nDatabase: lh_silver\nTable: external_delta_tables\nOwner: trusted-service-user\nCreated Time: Sat Aug 02 10:38:14 UTC 2025\nLast Access: UNKNOWN\nCreated By: Spark 3.2.1-SNAPSHOT\nType: MANAGED\nProvider: delta\nTable Properties: [trident.autodiscovered.table=true]\nLocation: abfss://4aacd5e0-a895-44be-b26a-fd1da0fe2efc@onelake.dfs.fabric.microsoft.com/9d7e1796-56b9-45a3-831a-a3d2f06b055b/Tables/external_delta_tables\nSerde Library: org.apache.hadoop.hive.serde2.lazy.LazySimpleSerDe\nInputFormat: org.apache.hadoop.mapred.SequenceFileInputFormat\nOutputFormat: org.apache.hadoop.hive.ql.io.HiveSequenceFileOutputFormat\nPartition Provider: Catalog\n",
+    "type": "MANAGED"
+  },
+  {
+    "namespace": "lh_silver",
+    "tableName": "managed_delta_table_checkpoints",
+    "isTemporary": false,
+    "information": "Catalog: spark_catalog\nDatabase: lh_silver\nTable: managed_delta_table_checkpoints\nOwner: trusted-service-user\nCreated Time: Sat Aug 02 10:38:14 UTC 2025\nLast Access: UNKNOWN\nCreated By: Spark 3.2.1-SNAPSHOT\nType: MANAGED\nProvider: delta\nTable Properties: [trident.autodiscovered.table=true]\nLocation: abfss://4aacd5e0-a895-44be-b26a-fd1da0fe2efc@onelake.dfs.fabric.microsoft.com/9d7e1796-56b9-45a3-831a-a3d2f06b055b/Tables/managed_delta_table_checkpoints\nSerde Library: org.apache.hadoop.hive.serde2.lazy.LazySimpleSerDe\nInputFormat: org.apache.hadoop.mapred.SequenceFileInputFormat\nOutputFormat: org.apache.hadoop.hive.ql.io.HiveSequenceFileOutputFormat\nPartition Provider: Catalog\n",
+    "type": "MANAGED"
+  },
+  {
+    "namespace": "lh_silver",
+    "tableName": "managed_delta_table_forks",
+    "isTemporary": false,
+    "information": "Catalog: spark_catalog\nDatabase: lh_silver\nTable: managed_delta_table_forks\nOwner: trusted-service-user\nCreated Time: Sat Aug 02 10:38:14 UTC 2025\nLast Access: UNKNOWN\nCreated By: Spark 3.2.1-SNAPSHOT\nType: MANAGED\nProvider: delta\nTable Properties: [trident.autodiscovered.table=true]\nLocation: abfss://4aacd5e0-a895-44be-b26a-fd1da0fe2efc@onelake.dfs.fabric.microsoft.com/9d7e1796-56b9-45a3-831a-a3d2f06b055b/Tables/managed_delta_table_forks\nSerde Library: org.apache.hadoop.hive.serde2.lazy.LazySimpleSerDe\nInputFormat: org.apache.hadoop.mapred.SequenceFileInputFormat\nOutputFormat: org.apache.hadoop.hive.ql.io.HiveSequenceFileOutputFormat\nPartition Provider: Catalog\n",
+    "type": "MANAGED"
+  },
+  {
+    "namespace": "lh_silver",
+    "tableName": "managed_delta_table_log_files",
+    "isTemporary": false,
+    "information": "Catalog: spark_catalog\nDatabase: lh_silver\nTable: managed_delta_table_log_files\nOwner: trusted-service-user\nCreated Time: Sat Aug 02 10:38:14 UTC 2025\nLast Access: UNKNOWN\nCreated By: Spark 3.2.1-SNAPSHOT\nType: MANAGED\nProvider: delta\nTable Properties: [trident.autodiscovered.table=true]\nLocation: abfss://4aacd5e0-a895-44be-b26a-fd1da0fe2efc@onelake.dfs.fabric.microsoft.com/9d7e1796-56b9-45a3-831a-a3d2f06b055b/Tables/managed_delta_table_log_files\nSerde Library: org.apache.hadoop.hive.serde2.lazy.LazySimpleSerDe\nInputFormat: org.apache.hadoop.mapred.SequenceFileInputFormat\nOutputFormat: org.apache.hadoop.hive.ql.io.HiveSequenceFileOutputFormat\nPartition Provider: Catalog\n",
+    "type": "MANAGED"
+  },
+  {
+    "namespace": "lh_silver",
+    "tableName": "managed_delta_tables",
+    "isTemporary": false,
+    "information": "Catalog: spark_catalog\nDatabase: lh_silver\nTable: managed_delta_tables\nOwner: trusted-service-user\nCreated Time: Sat Aug 02 10:38:14 UTC 2025\nLast Access: UNKNOWN\nCreated By: Spark 3.2.1-SNAPSHOT\nType: MANAGED\nProvider: delta\nTable Properties: [trident.autodiscovered.table=true]\nLocation: abfss://4aacd5e0-a895-44be-b26a-fd1da0fe2efc@onelake.dfs.fabric.microsoft.com/9d7e1796-56b9-45a3-831a-a3d2f06b055b/Tables/managed_delta_tables\nSerde Library: org.apache.hadoop.hive.serde2.lazy.LazySimpleSerDe\nInputFormat: org.apache.hadoop.mapred.SequenceFileInputFormat\nOutputFormat: org.apache.hadoop.hive.ql.io.HiveSequenceFileOutputFormat\nPartition Provider: Catalog\n",
+    "type": "MANAGED"
+  },
+  {
+    "namespace": "lh_silver",
+    "tableName": "sys_dw_schemas",
+    "isTemporary": false,
+    "information": "Catalog: spark_catalog\nDatabase: lh_silver\nTable: sys_dw_schemas\nOwner: trusted-service-user\nCreated Time: Sat Aug 02 10:38:14 UTC 2025\nLast Access: UNKNOWN\nCreated By: Spark 3.2.1-SNAPSHOT\nType: MANAGED\nProvider: delta\nTable Properties: [trident.autodiscovered.table=true]\nLocation: abfss://4aacd5e0-a895-44be-b26a-fd1da0fe2efc@onelake.dfs.fabric.microsoft.com/9d7e1796-56b9-45a3-831a-a3d2f06b055b/Tables/sys_dw_schemas\nSerde Library: org.apache.hadoop.hive.serde2.lazy.LazySimpleSerDe\nInputFormat: org.apache.hadoop.mapred.SequenceFileInputFormat\nOutputFormat: org.apache.hadoop.hive.ql.io.HiveSequenceFileOutputFormat\nPartition Provider: Catalog\n",
+    "type": "MANAGED"
+  }
+]

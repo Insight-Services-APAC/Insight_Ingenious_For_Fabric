@@ -619,6 +619,31 @@ class FabricApiUtils:
                 f"Failed to list warehouses: {response.status_code} - {response.text}"
             )
 
+    def list_notebooks(self, workspace_id: str) -> list[dict]:
+        """
+        List all notebooks in a workspace.
+
+        Args:
+            workspace_id: The ID of the workspace
+
+        Returns:
+            List of notebook dictionaries with 'id', 'displayName', and other properties
+        """
+        headers = {
+            "Authorization": f"Bearer {self._get_token()}",
+            "Content-Type": "application/json",
+        }
+
+        url = f"{self.base_url}/{workspace_id}/items?type=Notebook"
+        response = requests.get(url, headers=headers)
+
+        if response.status_code == 200:
+            return response.json().get("value", [])
+        else:
+            raise Exception(
+                f"Failed to list notebooks: {response.status_code} - {response.text}"
+            )
+
     def list_lakehouses_api(self, workspace_id: str) -> list[dict]:
         """List all lakehouses via the Lakehouse-specific API.
 
@@ -655,3 +680,168 @@ class FabricApiUtils:
                 break
 
         return lakehouses
+
+    def get_item_definition(self, workspace_id: str, item_id: str, item_type: str, format: str = "Default") -> Optional[dict]:
+        """
+        Get the complete item definition including content.
+        
+        Args:
+            workspace_id: The workspace ID containing the item
+            item_id: The unique identifier of the item
+            item_type: The type of item (Notebook, Report, etc.)
+            format: The format for the definition (Default, IPYNB for notebooks)
+            
+        Returns:
+            Complete item definition with content, or None if failed
+        """
+        headers = {
+            "Authorization": f"Bearer {self._get_token()}",
+            "Content-Type": "application/json",
+        }
+        
+        # For notebooks, we can specify IPYNB format to get Jupyter notebook format
+        params = {}
+        if format != "Default":
+            params["format"] = format
+            
+        url = f"https://api.fabric.microsoft.com/v1/workspaces/{workspace_id}/items/{item_id}/getDefinition"
+        response = requests.post(url, headers=headers, json=params if params else {})
+        
+        if response.status_code == 200:
+            return response.json()
+        elif response.status_code == 202:
+            # Long running operation - need to poll for completion
+            operation_id = response.headers.get("x-ms-operation-id")
+            location_url = response.headers.get("Location")
+            if operation_id:
+                return self._poll_long_running_operation(workspace_id, item_id, operation_id, location_url)
+        else:
+            # Provide detailed error information
+            error_details = f"Status: {response.status_code}"
+            try:
+                error_json = response.json()
+                if 'error' in error_json:
+                    error_details += f", Error: {error_json['error'].get('message', 'Unknown error')}"
+                    error_details += f", Code: {error_json['error'].get('code', 'Unknown code')}"
+                else:
+                    error_details += f", Response: {error_json}"
+            except:
+                error_details += f", Response text: {response.text}"
+            
+            raise Exception(f"Failed to get definition for item {item_id}. {error_details}")
+        return None
+
+    def _poll_long_running_operation(self, workspace_id: str, item_id: str, operation_id: str, location_url: str = None, max_attempts: int = 30) -> Optional[dict]:
+        """
+        Poll a long-running operation until completion.
+        
+        Args:
+            workspace_id: The workspace ID
+            item_id: The item ID
+            operation_id: The operation ID to poll
+            location_url: Alternative location URL from response headers
+            max_attempts: Maximum number of polling attempts
+            
+        Returns:
+            The operation result when completed, or None if failed/timed out
+        """
+        import time
+        
+        headers = {
+            "Authorization": f"Bearer {self._get_token()}",
+            "Content-Type": "application/json",
+        }
+        
+        # Wait a moment before starting to poll as the operation might need time to be created
+        time.sleep(3)
+        
+        for attempt in range(max_attempts):
+            # Try the standard URL first
+            url = f"https://api.fabric.microsoft.com/v1/workspaces/{workspace_id}/items/{item_id}/operations/{operation_id}"
+            response = requests.get(url, headers=headers)
+            
+            if response.status_code == 200:
+                operation_result = response.json()
+                status = operation_result.get("status", "").lower()
+                
+                if status == "succeeded":
+                    # Get the actual result
+                    result_url = f"https://api.fabric.microsoft.com/v1/workspaces/{workspace_id}/items/{item_id}/operations/{operation_id}/result"
+                    result_response = requests.get(result_url, headers=headers)
+                    if result_response.status_code == 200:
+                        result_data = result_response.json()
+                        return result_data
+                elif status == "failed":
+                    error_details = operation_result.get("error", {})
+                    raise Exception(f"Operation failed: {error_details.get('message', 'Unknown error')}")
+                
+                # Still running, wait and retry
+                time.sleep(5)
+            elif response.status_code == 404:
+                # Try the location URL if we have it
+                if location_url and attempt < 5:
+                    location_response = requests.get(location_url, headers=headers)
+                    if location_response.status_code == 200:
+                        # This might be the actual result or another operation status
+                        location_result = location_response.json()
+                        
+                        # Check if operation succeeded
+                        if location_result.get("status", "").lower() == "succeeded":
+                            # Try to get the result using the location URL pattern
+                            result_url = f"{location_url}/result"
+                            result_response = requests.get(result_url, headers=headers)
+                            if result_response.status_code == 200:
+                                result_data = result_response.json()
+                                if result_data and ("definition" in result_data or "parts" in result_data):
+                                    return result_data
+                            
+                            # If the location result doesn't have an error, this might be a successful empty result
+                            if not location_result.get("error"):
+                                return {"definition": None, "status": "succeeded_empty"}
+                        
+                        # If it looks like a completed result, return it
+                        if "definition" in location_result or "parts" in location_result:
+                            return location_result
+                
+                time.sleep(5)
+            else:
+                time.sleep(5)
+                
+        return None
+
+    def download_item_content(self, workspace_id: str, item_id: str, item_type: str) -> dict:
+        """
+        Download the complete content of a Fabric item.
+        
+        Args:
+            workspace_id: The workspace ID containing the item  
+            item_id: The unique identifier of the item
+            item_type: The type of item
+            
+        Returns:
+            Dictionary containing the item definition and content files
+        """
+        # For notebooks, try IPYNB format first, then fall back to Default
+        if item_type == "Notebook":
+            try:
+                definition = self.get_item_definition(workspace_id, item_id, item_type, format="IPYNB")
+                if definition:
+                    return {
+                        "definition": definition,
+                        "item_type": item_type,
+                        "item_id": item_id,
+                        "format": "IPYNB"
+                    }
+            except Exception:
+                # If IPYNB format fails, try default format
+                pass
+        
+        # Get the item definition first - this will raise an exception with detailed error info if it fails
+        definition = self.get_item_definition(workspace_id, item_id, item_type)
+            
+        return {
+            "definition": definition,
+            "item_type": item_type,
+            "item_id": item_id,
+            "format": "Default"
+        }

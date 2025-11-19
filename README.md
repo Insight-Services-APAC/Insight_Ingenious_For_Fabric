@@ -38,6 +38,9 @@ Install the Ingenious Fabric Accelerator using pip:
 
     # Or install from GitHub
     pip install git+https://github.com/Insight-Services-APAC/Insight_Ingenious_For_Fabric.git
+
+    # Install DBT Fabric Spark wrapper (If using DBT in Fabric)
+    pip install git+https://github.com/Insight-Services-APAC/APAC-Capability-DAI-DbtFabricSparkNB.git
     ```
 
 === "Windows"
@@ -48,6 +51,9 @@ Install the Ingenious Fabric Accelerator using pip:
 
     # Or install from GitHub
     pip install git+https://github.com/Insight-Services-APAC/Insight_Ingenious_For_Fabric.git
+
+    # Install DBT Fabric Spark wrapper (If using DBT in Fabric)
+    pip install git+https://github.com/Insight-Services-APAC/APAC-Capability-DAI-DbtFabricSparkNB.git
     ```
 
 For complete installation instructions, see our [Installation Guide](docs/user_guide/installation.md).
@@ -61,10 +67,10 @@ To contribute or modify the source code:
     ```bash
     # Clone the repository
     git clone https://github.com/Insight-Services-APAC/Insight_Ingenious_For_Fabric.git
-    cd ingen_fab
+    cd Insight_Ingenious_For_Fabric
 
     # Set up development environment
-    uv sync --all-extras  # or: pip install -e .[dev,docs,dbt]
+    uv sync  # or: pip install -e .[dev]
     ```
 
 === "Windows"
@@ -72,10 +78,10 @@ To contribute or modify the source code:
     ```powershell
     # Clone the repository
     git clone https://github.com/Insight-Services-APAC/Insight_Ingenious_For_Fabric.git
-    cd ingen_fab
+    cd Insight_Ingenious_For_Fabric
 
     # Set up development environment
-    uv sync --all-extras  # or: pip install -e .[dev,docs,dbt]
+    uv sync  # or: pip install -e .[dev]
     ```
 
 See the [Developer Guide](docs/developer_guide/index.md) for complete development setup.
@@ -86,7 +92,18 @@ See the [Developer Guide](docs/developer_guide/index.md) for complete developmen
 
 ```bash
 # Create a new Fabric workspace project
-ingen_fab init new --project-name "My Fabric Project"
+ingen_fab init new --project-name "dp"
+```
+
+### Set Environment Variables
+Replace the values below with your specific workspace details:
+
+```bash
+# Set environment (development, UAT, production)
+$env:FABRIC_ENVIRONMENT = "development"
+
+# Set workspace directory 
+$env:FABRIC_WORKSPACE_REPO_DIR = "dp"
 ```
 
 ### Generate DDL Notebooks
@@ -107,9 +124,7 @@ ingen_fab ddl compile \
 
 ```bash
 # Deploy to development environment
-ingen_fab deploy deploy \
-    --fabric-workspace-repo-dir . \
-    --fabric-environment development
+ingen_fab deploy deploy
 ```
 
 ## Command Reference
@@ -141,7 +156,7 @@ ingen_fab init new --project-name "Project Name"
 ingen_fab ddl compile --output-mode fabric_workspace_repo --generation-mode Warehouse
 
 # Deploy to environment
-ingen_fab deploy deploy --fabric-workspace-repo-dir . --fabric-environment development
+ingen_fab deploy deploy 
 
 # Find notebook content files
 ingen_fab notebook find-notebook-content-files --base-dir path/to/workspace
@@ -162,10 +177,22 @@ ingen_fab deploy upload-python-libs
 # Delete all workspace items (use with caution!)
 ingen_fab deploy delete-all --force
 
-# Get metadata for lakehouse/warehouse
-ingen_fab deploy get-metadata --target lakehouse --format csv
-ingen_fab deploy get-metadata --target warehouse --format json
-ingen_fab deploy get-metadata --target both --format table
+# Get metadata for lakehouse
+ingen_fab deploy get-metadata --lakehouse-name MyLakehouse --format csv
+ingen_fab deploy get-metadata --lakehouse-name MyLakehouse --format table --target lakehouse
+
+# Get metadata for warehouse  
+ingen_fab deploy get-metadata --warehouse-name MyWarehouse --format json --target warehouse
+
+# Get metadata for both lakehouse and warehouse
+ingen_fab deploy get-metadata --workspace-name MyWorkspace --format csv --target both
+
+# Generate DDL scripts from metadata CSV
+ingen_fab ddl ddls-from-metadata --lakehouse lh_silver2
+ingen_fab ddl ddls-from-metadata --lakehouse lh_silver2 --table customer_data
+ingen_fab ddl ddls-from-metadata --lakehouse lh_silver2 --no-sequence-numbers
+ingen_fab ddl ddls-from-metadata --lakehouse lh_silver2 --subdirectory custom_scripts
+ingen_fab ddl ddls-from-metadata --lakehouse lh_silver2 --metadata-file custom_metadata.csv
 
 # Compile flat file ingestion package for lakehouse
 ingen_fab package ingest compile --target-datastore lakehouse --include-samples
@@ -208,26 +235,31 @@ The tests run entirely offline. A few end-to-end tests are skipped unless the re
 
 ## Sample project
 
-See [sample_project/README.md](sample_project/README.md) for a tour of the example Fabric workspace used by the CLI.
+See [Sample Project](docs/examples/sample_project.md) for a tour of the example Fabric workspace used by the CLI.
 
 ## Project Structure
 
 ```
 ingen_fab/
-├── cli_utils/            # CLI command implementations
-├── ddl_scripts/          # Jinja templates for DDL notebook generation
-├── notebook_utils/       # Notebook scanning and injection helpers
-├── packages/             # Extension packages (flat file ingestion, synapse sync)
-├── python_libs/          # Shared Python and PySpark libraries
-│   ├── common/          # Common utilities (config, data, workflow)
-│   ├── interfaces/      # Abstract interfaces
-│   ├── python/          # CPython/Fabric runtime libraries
-│   └── pyspark/         # PySpark-specific implementations
+├── az_cli/              # Azure CLI integration
+├── cli.py               # Main CLI entry point
+├── cli_utils/           # CLI command implementations
+├── config_utils/        # Configuration management utilities
+├── ddl_scripts/         # Jinja templates for DDL notebook generation
+├── fabric_api/          # Microsoft Fabric API integration
+├── fabric_cicd/         # CI/CD utilities for Fabric
+├── notebook_utils/      # Notebook scanning and injection helpers
+├── packages/            # Extension packages (flat file ingestion, synapse sync)
+├── project_config.py    # Project configuration management
+├── project_templates/   # Templates for new project initialization
+├── python_libs/         # Shared Python and PySpark libraries
+│   ├── common/         # Common utilities (config, data, workflow)
+│   ├── interfaces/     # Abstract interfaces
+│   ├── python/         # CPython/Fabric runtime libraries
+│   └── pyspark/        # PySpark-specific implementations
 ├── python_libs_tests/   # Test suites for Python libraries
-├── templates/           # Jinja2 templates for testing and generation
-├── utils/               # Core utility modules (path utils, resource manager)
+└── templates/           # Jinja2 templates for testing and generation
 sample_project/          # Example workspace demonstrating project layout
-project_templates/       # Templates for new project initialization
 scripts/                 # Helper scripts (dev container setup, SQL Server, etc.)
 tests/                   # Unit tests for core functionality
 docs/                    # Documentation source files
@@ -242,7 +274,7 @@ export FABRIC_WORKSPACE_REPO_DIR="./sample_project"
 export FABRIC_ENVIRONMENT="development"
 ```
 
-See [Environment Variables](docs/user_guide/environment_variables.md) for the complete list including authentication variables.
+See [Environment Variables](docs/reference/environment-variables.md) for the complete list including authentication variables.
 
 ## Workflow Example
 
@@ -260,24 +292,13 @@ ingen_fab init new --project-name "My Data Platform"
 ingen_fab ddl compile --output-mode fabric_workspace_repo --generation-mode Warehouse
 ingen_fab ddl compile --output-mode fabric_workspace_repo --generation-mode Lakehouse
 
-# 5. Deploy to your environment
-ingen_fab deploy deploy --fabric-workspace-repo-dir . --fabric-environment development
+# 5. Deploy to your environment (ensure environment variables are set)
+ingen_fab deploy deploy
 
 # 6. Generate and run platform tests
 ingen_fab test platform generate
 ```
 
-
-## Documentation
-
-Additional documentation is available in the subdirectories and the complete documentation site:
-
-- **[docs/](docs/)** - Complete documentation source files (build with `mkdocs serve`)
-- **[sample_project/README.md](sample_project/README.md)** - Complete example workspace with step-by-step workflow
-- **[ingen_fab/python_libs/README.md](ingen_fab/python_libs/README.md)** - Reusable Python and PySpark libraries
-- **[ingen_fab/ddl_scripts/README.md](ingen_fab/ddl_scripts/README.md)** - DDL notebook generation templates
-- **[ingen_fab/python_libs/python/README_notebook_utils.md](ingen_fab/python_libs/python/README_notebook_utils.md)** - Notebook utilities abstraction
-- **[ingen_fab/python_libs/python/sql_template_factory/README.md](ingen_fab/python_libs/python/sql_template_factory/README.md)** - SQL template system
 
 ## Documentation
 
@@ -288,8 +309,12 @@ uv sync --group docs  # Install docs dependencies
 mkdocs serve --dev-addr=0.0.0.0:8000
 ```
 
+Additional documentation:
+
+- **[Sample Project](docs/examples/sample_project.md)** - Complete example workspace with step-by-step workflow
+- **[ingen_fab/python_libs/README.md](ingen_fab/python_libs/README.md)** - Reusable Python and PySpark libraries
+- **[ingen_fab/ddl_scripts/README.md](ingen_fab/ddl_scripts/README.md)** - DDL notebook generation templates
+
 ## License
 
 This project is provided for demonstration purposes and has no specific license.
-# Extract metadata for lakehouse/warehouse
-ingen_fab deploy get-metadata --lakehouse-name MyLakehouse --format table --target lakehouse

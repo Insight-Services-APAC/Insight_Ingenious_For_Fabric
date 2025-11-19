@@ -2,6 +2,9 @@
 
 [Home](../index.md) > Developer Guide
 
+!!! warning "Documentation Status"
+    The documentation in this guide needs to be reviewed and updated.
+
 Welcome to the Developer Guide for the Ingenious Fabric Accelerator! This section is designed for developers who want to understand the architecture, extend functionality, or contribute to the project.
 
 ## Architecture Overview
@@ -37,6 +40,15 @@ Jinja-based SQL template system supporting multiple database dialects.
 
 ### [Variable Replacement System](variable_replacement.md)
 Environment-specific configuration management through placeholder replacement and code injection.
+
+### [Packages](packages.md)
+Extension package system for adding custom functionality and reusable components.
+
+### [DBT Profile Manager](dbt_profile_manager.md)
+Automatic dbt profile management and lakehouse integration.
+
+### [Pip Install Testing](pip_install_testing.md)
+Testing the package installation and dependencies in various environments.
 
 ## Development Setup
 
@@ -185,6 +197,14 @@ ingen_fab/
 ├── cli.py                 # Main CLI entry point
 └── project_config.py      # Project configuration
 ```
+
+## API Documentation
+
+### [API Reference](../api/index.md)
+Comprehensive API documentation for Python libraries and utilities.
+
+### [Python APIs](../api/python_apis.md)
+Detailed documentation of Python API interfaces and implementations.
 
 ## Development Workflow
 

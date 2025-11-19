@@ -23,7 +23,7 @@ Set up environment variables to avoid specifying them on each command:
 
     ```powershell
     # Project location
-    $env:FABRIC_WORKSPACE_REPO_DIR = "./sample_project"
+    $env:FABRIC_WORKSPACE_REPO_DIR = "dp"
 
     # Target environment
     $env:FABRIC_ENVIRONMENT = "development"
@@ -38,4 +38,4 @@ Set up environment variables to avoid specifying them on each command:
     $env:AZURE_CLIENT_SECRET = "your-client-secret"
     ```
 
-See [Environment Variables](../user_guide/environment_variables.md) for a complete list.
+See [Environment Variables](../reference/environment-variables.md) for a complete list.

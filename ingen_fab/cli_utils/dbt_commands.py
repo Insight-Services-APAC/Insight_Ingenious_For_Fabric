@@ -374,9 +374,14 @@ def create_schema_yml_from_metadata(
                 table_name = row.get("table_name", "").strip()
                 column_name = row.get("column_name", "").strip()
                 tsql_type = row.get("data_type", "").strip()
+                schema_name = row.get("schema_name", "").strip().lower()
 
                 # Filter by lakehouse parameter
                 if lakehouse_name != lakehouse:
+                    continue
+
+                # Exclude tables with schema_name of 'sys' or 'queryinsights'
+                if schema_name in ['sys', 'queryinsights']:
                     continue
 
                 if not lakehouse_name or not table_name or not column_name:
@@ -447,11 +452,14 @@ def create_schema_yml_from_metadata(
 
 
 def convert_metadata_to_dbt_format(
-    ctx: typer.Context, dbt_project: str, skip_profile_confirmation: bool = False
+    ctx: typer.Context,
+    dbt_project: str,
+    metadata_file: Path | None = None,
+    skip_profile_confirmation: bool = False,
 ) -> None:
     """Convert cached lakehouse metadata CSV to dbt metaextracts JSON format.
 
-    Reads from {workspace}/metadata/lakehouse_metadata_all.csv and creates:
+    Reads from {workspace}/metadata/lakehouse_metadata_all.csv (or custom path) and creates:
     - {workspace}/{dbt_project}/metaextracts/ListRelations.json
     - {workspace}/{dbt_project}/metaextracts/ListSchemas.json
     - {workspace}/{dbt_project}/metaextracts/DescribeRelations.json
@@ -469,8 +477,13 @@ def convert_metadata_to_dbt_format(
 
     workspace_dir = Path(workspace_dir)
 
-    # Source CSV file
-    metadata_csv = workspace_dir / "metadata" / "lakehouse_metadata_all.csv"
+    # Source CSV file - use provided path or default
+    if metadata_file is None:
+        metadata_csv = workspace_dir / "metadata" / "lakehouse_metadata_all.csv"
+    else:
+        # If relative path, resolve relative to workspace_dir
+        metadata_csv = metadata_file if metadata_file.is_absolute() else workspace_dir / metadata_file
+    
     if not metadata_csv.exists():
         console.print(f"[red]Metadata CSV not found:[/red] {metadata_csv}")
         console.print(

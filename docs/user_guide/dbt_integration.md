@@ -54,14 +54,14 @@ Different environments can use different lakehouses:
 
     ```bash
     export FABRIC_ENVIRONMENT="development"
-    ingen_fab dbt run  # Uses development lakehouse selection
+    ingen_fab dbt exec run  # Uses development lakehouse selection
     ```
 
 === "Production"
 
     ```bash
     export FABRIC_ENVIRONMENT="production"
-    ingen_fab dbt run  # Uses production lakehouse selection
+    ingen_fab dbt exec run  # Uses production lakehouse selection
     ```
 
 ## Setting Up DBT Projects
@@ -129,46 +129,78 @@ The system will automatically discover these configurations and present them as 
 
 ### 3. Running DBT Commands
 
-All standard dbt commands are available through the `ingen_fab dbt` proxy:
+The Ingenious Fabric Accelerator provides several dbt commands for different use cases:
+
+#### Generate Notebooks from DBT Models
+
+Convert your dbt models into Fabric-compatible notebooks:
 
 ```bash
-# Run all models
-ingen_fab dbt run
+# Create notebooks for a dbt project
+ingen_fab dbt create-notebooks --dbt-project my_dbt_project
+
+# Skip profile confirmation prompt
+ingen_fab dbt create-notebooks -p data_mart --skip-profile-confirmation
+```
+
+#### Convert Metadata for DBT
+
+Convert cached lakehouse metadata to dbt metaextracts format:
+
+```bash
+# Convert metadata for dbt project (using default metadata file)
+ingen_fab dbt convert-metadata --dbt-project analytics_models
+
+# Use custom metadata file
+ingen_fab dbt convert-metadata --dbt-project analytics_models --metadata-file metadata/custom_data.csv
+
+# Skip profile confirmation
+ingen_fab dbt convert-metadata -p my_dbt_project --skip-profile-confirmation
+
+# Use custom metadata file with short flags
+ingen_fab dbt convert-metadata -p analytics_models -m metadata/warehouse_export.csv
+```
+
+**Prerequisites**: Extract metadata first using `ingen_fab deploy get-metadata --target lakehouse`
+
+**Options**:
+- `--metadata-file` / `-m`: Optional path to CSV metadata file (defaults to `metadata/lakehouse_metadata_all.csv`)
+
+#### Generate Schema YAML Files
+
+Convert cached lakehouse metadata to dbt schema.yml format for specific lakehouse and layer:
+
+```bash
+# Generate schema.yml for staging models in bronze lakehouse
+ingen_fab dbt generate-schema-yml --dbt-project analytics_models --lakehouse lh_bronze --layer staging --dbt-type model
+
+# Generate schema.yml for snapshots
+ingen_fab dbt generate-schema-yml -p data_mart --lakehouse lh_silver --layer marts --dbt-type snapshot
+```
+
+#### Execute DBT Commands (Proxy) (Requires Review)
+
+All standard dbt commands are available through the `ingen_fab dbt exec` proxy:
+
+```bash
+# Build dbt models and snapshots
+ingen_fab dbt exec -- stage run build --project-dir dbt_project
+
+# Build dbt master notebooks
+ingen_fab dbt exec -- stage run post-scripts --project-dir dbt_project
 
 # Run specific models
-ingen_fab dbt run --models staging.customers
+ingen_fab dbt exec -- run --models staging.customers --project-dir dbt_project
 
 # Test models
-ingen_fab dbt test
+ingen_fab dbt exec -- test --project-dir dbt_project
 
 # Generate documentation
-ingen_fab dbt docs generate
+ingen_fab dbt exec -- docs generate --project-dir dbt_project
 
 # Run seeds
-ingen_fab dbt seed
+ingen_fab dbt exec -- seed --project-dir dbt_project
 ```
-
-## Creating Fabric Notebooks from DBT
-
-The `create-notebooks` command converts your dbt models into Fabric-compatible notebooks:
-
-```bash
-# Basic usage
-ingen_fab dbt create-notebooks --dbt-project-name my_dbt_project
-
-# With custom cadences for scheduling
-ingen_fab dbt create-notebooks \
-  --dbt-project-name my_dbt_project \
-  --incremental-models-cadence HOURLY \
-  --seed-refresh-cadence WEEKLY \
-  --master-notebook-cadence DAILY
-```
-
-This generates notebooks in `fabric_workspace_items/my_dbt_project/` with:
-- Individual notebooks for each model
-- Test notebooks for data quality checks
-- Orchestrator notebooks for scheduling
-- Proper dependencies and execution order
 
 ## Advanced Configuration
 

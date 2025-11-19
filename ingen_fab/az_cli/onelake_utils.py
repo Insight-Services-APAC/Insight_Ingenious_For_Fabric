@@ -157,30 +157,187 @@ class OneLakeUtils:
             )
         return lakehouse_name
 
-    def _clean_remote_directory(
+    def _list_remote_directory_files(
         self,
         lakehouse_id: str,
         target_prefix: str,
-        service_client: DataLakeServiceClient,
-        file_system_client: FileSystemClient,
-    ) -> None:
+        *,
+        service_client: Optional[DataLakeServiceClient] = None,
+        file_system_client: Optional[FileSystemClient] = None,
+    ) -> set[str]:
         """
-        Delete remote directory to ensure clean sync state (rsync-like behavior).
+        List all files in a remote directory and return their relative paths.
 
         Args:
             lakehouse_id: ID of the lakehouse
-            target_prefix: Directory path to clean (e.g., 'config_files')
-            service_client: DataLake service client
-            file_system_client: File system client
+            target_prefix: Directory path within the Files section
+            service_client: Optional service client to reuse
+            file_system_client: Optional file system client to reuse
+
+        Returns:
+            Set of relative file paths (relative to target_prefix)
         """
-        lakehouse_name = self._get_lakehouse_name(lakehouse_id)
-        directory_path = f"{lakehouse_name}.Lakehouse/Files/{target_prefix}"
+        try:
+            if service_client is None:
+                service_client = self._get_datalake_service_client()
 
-        directory_client = file_system_client.get_directory_client(directory_path)
+            if file_system_client is None:
+                file_system_client = service_client.get_file_system_client(
+                    self.workspace_name
+                )
 
-        if directory_client.exists():
-            directory_client.delete_directory()
-            self.msg_helper.print_info(f"Syncing: cleared remote directory '{target_prefix}/'")
+            lakehouse_name = self._get_lakehouse_name(lakehouse_id)
+            base_path = f"{lakehouse_name}.Lakehouse/Files/{target_prefix}".replace(
+                "\\", "/"
+            )
+
+            remote_files = set()
+            paths = file_system_client.get_paths(path=base_path, recursive=True)
+
+            for path_item in paths:
+                if not path_item.is_directory:
+                    # Extract relative path from full OneLake path
+                    if "/Files/" in path_item.name:
+                        files_part = path_item.name.split("/Files/", 1)[1]
+                        if target_prefix and files_part.startswith(target_prefix + "/"):
+                            relative_path = files_part[len(target_prefix) + 1 :]
+                            remote_files.add(relative_path)
+
+            return remote_files
+
+        except Exception as e:
+            # If directory doesn't exist, return empty set (expected for first upload)
+            error_msg = str(e).lower()
+            if "not found" in error_msg or "does not exist" in error_msg:
+                return set()
+            # For other errors, log warning but continue
+            if self.console:
+                self.msg_helper.print_warning(
+                    f"Could not list remote directory '{target_prefix}': {str(e)}"
+                )
+            return set()
+
+    def _compute_sync_deletions(
+        self, local_files: set[str], remote_files: set[str]
+    ) -> set[str]:
+        """
+        Compute which remote files should be deleted to match local directory.
+
+        Args:
+            local_files: Set of local file paths (relative to source directory)
+            remote_files: Set of remote file paths (relative to target prefix)
+
+        Returns:
+            Set of file paths that exist remotely but not locally
+        """
+        return remote_files - local_files
+
+    def _delete_remote_files_parallel(
+        self,
+        lakehouse_id: str,
+        files_to_delete: set[str],
+        target_prefix: str,
+        *,
+        service_client: Optional[DataLakeServiceClient] = None,
+        file_system_client: Optional[FileSystemClient] = None,
+        max_workers: int = 8,
+    ) -> dict:
+        """
+        Delete multiple files from lakehouse in parallel with progress tracking.
+
+        Args:
+            lakehouse_id: ID of the lakehouse
+            files_to_delete: Set of relative file paths to delete
+            target_prefix: Directory prefix for the files
+            service_client: Optional service client to reuse
+            file_system_client: Optional file system client to reuse
+            max_workers: Number of parallel deletions
+
+        Returns:
+            Dictionary with deletion results (deleted count, failed count, errors)
+        """
+        from concurrent.futures import ThreadPoolExecutor, as_completed
+
+        if not files_to_delete:
+            return {"deleted": 0, "failed": 0, "errors": []}
+
+        # Create clients once for efficiency
+        if service_client is None:
+            service_client = self._get_datalake_service_client()
+        if file_system_client is None:
+            file_system_client = service_client.get_file_system_client(
+                self.workspace_name
+            )
+
+        deletion_results = {"deleted": 0, "failed": 0, "errors": []}
+
+        self.msg_helper.print_info(
+            f"Removing {len(files_to_delete)} files from remote that don't exist locally"
+        )
+
+        def delete_one(relative_path: str) -> dict:
+            full_path = f"{target_prefix}/{relative_path}".replace("\\", "/")
+            try:
+                if self.delete_lakehouse_file(
+                    lakehouse_id,
+                    full_path,
+                    service_client=service_client,
+                    file_system_client=file_system_client,
+                ):
+                    return {"success": True, "path": relative_path}
+                else:
+                    return {
+                        "success": False,
+                        "path": relative_path,
+                        "error": "Delete returned False",
+                    }
+            except Exception as e:
+                return {"success": False, "path": relative_path, "error": str(e)}
+
+        with self.progress_tracker.create_progress_bar(
+            len(files_to_delete), description="Deleting remote files..."
+        ) as progress:
+            task_id = self.progress_tracker.add_task(
+                "Deleting remote files...", len(files_to_delete)
+            )
+
+            with ThreadPoolExecutor(max_workers=max_workers) as executor:
+                future_to_file = {
+                    executor.submit(delete_one, file_path): file_path
+                    for file_path in files_to_delete
+                }
+
+                for future in as_completed(future_to_file):
+                    result = future.result()
+                    file_name = Path(result["path"]).name
+
+                    if result["success"]:
+                        deletion_results["deleted"] += 1
+                        if progress:
+                            self.progress_tracker.update_task(
+                                task_id,
+                                description=f"[green]✓[/green] {file_name}",
+                            )
+                    else:
+                        deletion_results["failed"] += 1
+                        deletion_results["errors"].append(
+                            result.get("error", "Unknown error")
+                        )
+                        if progress:
+                            self.progress_tracker.update_task(
+                                task_id, description=f"[red]✗[/red] {file_name}"
+                            )
+
+                    if progress:
+                        self.progress_tracker.advance_task(task_id)
+
+        # Only show failures; success will be in the final summary
+        if deletion_results["failed"] > 0:
+            self.msg_helper.print_warning(
+                f"{deletion_results['failed']} files failed to delete"
+            )
+
+        return deletion_results
 
     def download_file_from_lakehouse(
         self,
@@ -368,6 +525,7 @@ class OneLakeUtils:
         max_retries: int = 3,
         backoff_factor: float = 0.5,
         include_extensions: Optional[list[str]] = None,
+        sync_enabled: bool = True,
     ) -> dict:
         """
         Upload all files in a directory to a lakehouse's Files section using parallel uploads.
@@ -377,9 +535,13 @@ class OneLakeUtils:
             directory_path: Local directory path to upload
             target_prefix: Prefix for remote paths (optional)
             max_workers: Number of parallel uploads (default: 8)
+            max_retries: Maximum number of retry attempts for failed uploads (default: 3)
+            backoff_factor: Exponential backoff factor for retries (default: 0.5)
+            include_extensions: Optional list of file extensions to include (e.g., [".py", ".sql"])
+            sync_enabled: If True, delete remote files that don't exist locally (default: True)
 
         Returns:
-            Dictionary with upload results
+            Dictionary with upload and deletion results
         """
         from concurrent.futures import ThreadPoolExecutor, as_completed
 
@@ -387,7 +549,13 @@ class OneLakeUtils:
         if not dir_path.exists() or not dir_path.is_dir():
             raise ValueError(f"Directory not found: {directory_path}")
 
-        upload_results = {"successful": [], "failed": [], "total_files": 0}
+        upload_results = {
+            "successful": [],
+            "failed": [],
+            "total_files": 0,
+            "deleted": 0,
+            "deletion_failed": 0,
+        }
 
         # Find all files recursively, filtering out __ directories and by extension if specified
         all_files = []
@@ -421,11 +589,36 @@ class OneLakeUtils:
             workspace_name = self.workspace_name
             file_system_client = service_client.get_file_system_client(workspace_name)
 
-        # Clean remote directory first for rsync-like behavior
-        if target_prefix:
-            self._clean_remote_directory(
-                lakehouse_id, target_prefix, service_client, file_system_client
+        # Sync logic: delete remote files that don't exist locally
+        deletion_results = {"deleted": 0, "failed": 0, "errors": []}
+        if sync_enabled and target_prefix:
+            # Build set of local file relative paths
+            local_file_paths = set()
+            for file_path in all_files:
+                relative_path = str(file_path.relative_to(dir_path)).replace("\\", "/")
+                local_file_paths.add(relative_path)
+
+            # List remote files
+            remote_file_paths = self._list_remote_directory_files(
+                lakehouse_id,
+                target_prefix,
+                service_client=service_client,
+                file_system_client=file_system_client,
             )
+
+            # Compute and execute deletions
+            files_to_delete = self._compute_sync_deletions(
+                local_file_paths, remote_file_paths
+            )
+            if files_to_delete:
+                deletion_results = self._delete_remote_files_parallel(
+                    lakehouse_id,
+                    files_to_delete,
+                    target_prefix,
+                    service_client=service_client,
+                    file_system_client=file_system_client,
+                    max_workers=max_workers,
+                )
 
         import time
 
@@ -497,30 +690,49 @@ class OneLakeUtils:
                     if progress:
                         self.progress_tracker.advance_task(task_id)
 
+        # Merge deletion results into upload_results
+        upload_results["deleted"] = deletion_results["deleted"]
+        upload_results["deletion_failed"] = deletion_results["failed"]
+
         # Show final results with rich formatting
         successful_count = len(upload_results["successful"])
         failed_count = len(upload_results["failed"])
+        deleted_count = upload_results["deleted"]
+        deletion_failed_count = upload_results["deletion_failed"]
 
-        if failed_count == 0:
-            self.msg_helper.print_success(
-                f"Upload completed: {successful_count} files uploaded successfully"
-            )
+        if failed_count == 0 and deletion_failed_count == 0:
+            # Build success message based on what operations occurred
+            if deleted_count > 0:
+                self.msg_helper.print_success(
+                    f"Sync completed: {successful_count} uploaded, {deleted_count} deleted"
+                )
+            else:
+                self.msg_helper.print_success(
+                    f"Upload completed: {successful_count} files uploaded successfully"
+                )
         else:
             self.msg_helper.print_warning(
-                f"Upload completed: {successful_count} successful, {failed_count} failed"
+                f"Sync completed with errors: {successful_count} uploaded, {failed_count} upload failed"
             )
 
         # Show summary panel
         if self.console:
             from rich.panel import Panel
 
-            summary_content = f"[green]✓ Successful:[/green] {successful_count}\n"
+            summary_content = f"[green]✓ Uploaded:[/green] {successful_count}\n"
             if failed_count > 0:
-                summary_content += f"[red]✗ Failed:[/red] {failed_count}"
+                summary_content += f"[red]✗ Upload failed:[/red] {failed_count}\n"
+            if deleted_count > 0:
+                summary_content += f"[yellow]🗑 Deleted:[/yellow] {deleted_count}\n"
+            if deletion_failed_count > 0:
+                summary_content += f"[red]✗ Deletion failed:[/red] {deletion_failed_count}"
+
+            # Remove trailing newline if present
+            summary_content = summary_content.rstrip("\n")
 
             panel = Panel(
                 summary_content,
-                title="[bold]Upload Summary[/bold]",
+                title="[bold]Directory Sync Summary[/bold]",
                 border_style="blue",
             )
             self.console.print(panel)
@@ -680,61 +892,7 @@ class OneLakeUtils:
             lakehouse_id=config_lakehouse_id,
             directory_path=str(dbt_project_path),
             target_prefix=f"{dbt_project_name}",
-            service_client=self._get_datalake_service_client(),
-            include_extensions=[".sql", ".yml", ".yaml", ".md", ".csv"],
-        )
-
-    def upload_config_files_to_config_lakehouse(
-        self, config_files_path: str = None
-    ) -> dict:
-        """
-        Upload the config_files directory to the config lakehouse's Files section.
-
-        Args:
-            config_files_path: Path to the config_files directory (defaults to workspace_repo/config_files)
-
-        Returns:
-            Dictionary with upload results
-        """
-        if config_files_path is None:
-            # Default to config_files directory in workspace repo
-            config_files_path = self.project_path / "config_files"
-
-        config_files_path = Path(config_files_path)
-
-        if not config_files_path.exists():
-            raise ValueError(f"Config files directory not found: {config_files_path}")
-
-        # Get config lakehouse ID
-        config_lakehouse_id = self.get_config_lakehouse_id()
-
-        # Show upload info with rich formatting
-        self.msg_helper.print_info(
-            f"Uploading config files from: {config_files_path.name}"
-        )
-
-        if self.console:
-            from rich.panel import Panel
-
-            info_content = (
-                f"[cyan]Source:[/cyan] {config_files_path}\n"
-                f"[cyan]Target lakehouse ID:[/cyan] {config_lakehouse_id}\n"
-                f"[cyan]Target path:[/cyan] config_files/"
-            )
-            panel = Panel(
-                info_content,
-                title="[bold]Upload Configuration[/bold]",
-                border_style="cyan",
-            )
-            self.console.print(panel)
-
-        # Upload all config files (JSONC and JSON)
-        return self.upload_directory_to_lakehouse(
-            lakehouse_id=config_lakehouse_id,
-            directory_path=str(config_files_path),
-            target_prefix="config_files",
-            service_client=self._get_datalake_service_client(),
-            include_extensions=[".jsonc", ".json"],
+            service_client=self._get_datalake_service_client()
         )
 
     def list_lakehouse_files(
