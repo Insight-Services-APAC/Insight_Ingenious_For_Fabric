@@ -76,7 +76,6 @@ class ProcessingMetrics:
     target_row_count_after: int = 0
 
     # Validation
-    row_count_reconciliation_status: str = "not_verified"
     corrupt_records_count: int = 0
     validation_errors: List[str] = field(default_factory=list)
 

@@ -417,10 +417,10 @@ class FileSystemExtractionParams:
     sort_by: List[str] = field(default_factory=list)  # List of metadata field names to sort by
     sort_order: str = "asc"  # 'asc' or 'desc'
 
-    # Raw layer Hive partitioning (REQUIRED)
-    # Raw layer is ALWAYS partitioned by process date (when file arrived)
+    # Extract layer Hive partitioning (REQUIRED)
+    # Extract layer is ALWAYS partitioned by process date (when file arrived)
     # Business dates are extracted as columns for querying in bronze
-    raw_partition_columns: List[str] = field(default_factory=lambda: ["date"])
+    extract_partition_columns: List[str] = field(default_factory=lambda: ["date"])
     # Supported patterns (based on list length):
     # - 1 column: ["date"] → date=2025-11-09/
     # - 3 columns: ["year", "month", "day"] → year=2025/month=11/day=09/

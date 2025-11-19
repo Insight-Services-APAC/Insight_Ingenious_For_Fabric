@@ -132,11 +132,11 @@ The `source_extraction_params` field contains source-type specific parameters st
 | `null_value` | String | String to treat as NULL | `""`, `" "` |
 | `control_file_pattern` | String | Control file pattern (`{basename}` supported) | `"{basename}.CTL"` |
 | `duplicate_handling` | String | How to handle duplicates: `fail`, `skip`, `allow` | `"skip"` |
-| `require_files` | Boolean | Alert if no files found (doesn't fail pipeline) | `"true"`, `"false"` |
+| `no_data_handling` | String | Behavior when no data extracted: `allow` (skip silently), `warn` (mark NO_DATA/DUPLICATE), `fail` (fail extraction) | `"allow"`, `"warn"`, `"fail"` |
 | `filename_metadata` | Array | Extract metadata from filenames | `[{"name": "file_date", "regex": "...", "type": "date", "format": "yyyyMMdd"}]` |
 | `sort_by` | Array | Sort files by metadata fields | `["file_date"]` |
 | `sort_order` | String | Sort direction | `"asc"`, `"desc"` |
-| `raw_partition_columns` | Array | Hive partition structure for raw layer | `["ds"]`, `["year", "month", "day"]` |
+| `extract_partition_columns` | Array | Hive partition structure for extract layer | `["ds"]`, `["year", "month", "day"]` |
 
 ## Metadata Columns
 
@@ -416,15 +416,15 @@ results = orchestrator.process_resources(
 print(f"Successful: {results['successful']}")
 print(f"Failed: {results['failed']}")
 print(f"No Data: {results['no_data']}")
-print(f"Missing Required Files: {results['missing_required_files']}")
+print(f"Duplicates: {results['duplicates']}")
 
 # Fail on system errors
 if results['failed'] > 0:
     raise Exception(f"Extraction failed for {results['failed']} resource(s)")
 
-# Alert on missing required files (doesn't fail pipeline)
-if results['missing_required_files'] > 0:
-    send_alert(f"Expected files not found for {results['missing_required_files']} resource(s)")
+# Alert on no data (if using no_data_handling='warn')
+if results['no_data'] > 0:
+    send_alert(f"No data found for {results['no_data']} resource(s)")
 ```
 
 ### Example 2: Loading

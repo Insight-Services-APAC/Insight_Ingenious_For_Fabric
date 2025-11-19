@@ -81,7 +81,6 @@ class ProcessingMetrics:
     target_row_count_after: int = 0         # Target table rows after write
 
     # Validation
-    row_count_reconciliation_status: str = "not_verified"  # 'passed', 'failed', 'not_verified'
     corrupt_records_count: int = 0          # Number of corrupt/invalid records
     validation_errors: List[str] = field(default_factory=list)  # Validation error messages
 

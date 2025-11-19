@@ -934,5 +934,6 @@ class FileLoader:
             source_row_count=read_metrics.source_row_count,
             target_row_count_before=write_metrics.target_row_count_before,
             target_row_count_after=write_metrics.target_row_count_after,
+            corrupt_records_count=read_metrics.corrupt_records_count,
             completed_at=datetime.now(),
         )

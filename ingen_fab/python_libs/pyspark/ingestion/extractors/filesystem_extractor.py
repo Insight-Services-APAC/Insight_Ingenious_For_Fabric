@@ -646,7 +646,7 @@ class FileSystemExtractor:
 
     def _build_hive_partition_path(self) -> str:
         """
-        Build Hive partition path from process date and raw_partition_columns.
+        Build Hive partition path from process date and extract_partition_columns.
 
         Returns:
             Hive partition path like "date=2025-11-09/" or "year=2025/month=11/day=09/"
@@ -654,30 +654,30 @@ class FileSystemExtractor:
         from datetime import datetime
 
         now = datetime.now()
-        num_cols = len(self.params.raw_partition_columns)
+        num_cols = len(self.params.extract_partition_columns)
 
         if num_cols == 1:
             # Single date column: date=2025-11-09/
-            col_name = self.params.raw_partition_columns[0]
+            col_name = self.params.extract_partition_columns[0]
             return f"{col_name}={now.strftime('%Y-%m-%d')}/"
 
         elif num_cols == 3:
             # Hierarchical date: year=2025/month=11/day=09/
-            return (f"{self.params.raw_partition_columns[0]}={now.year}/"
-                    f"{self.params.raw_partition_columns[1]}={now.month:02d}/"
-                    f"{self.params.raw_partition_columns[2]}={now.day:02d}/")
+            return (f"{self.params.extract_partition_columns[0]}={now.year}/"
+                    f"{self.params.extract_partition_columns[1]}={now.month:02d}/"
+                    f"{self.params.extract_partition_columns[2]}={now.day:02d}/")
 
         elif num_cols == 4:
             # Hierarchical datetime: year=2025/month=11/day=09/hour=14/
-            return (f"{self.params.raw_partition_columns[0]}={now.year}/"
-                    f"{self.params.raw_partition_columns[1]}={now.month:02d}/"
-                    f"{self.params.raw_partition_columns[2]}={now.day:02d}/"
-                    f"{self.params.raw_partition_columns[3]}={now.hour:02d}/")
+            return (f"{self.params.extract_partition_columns[0]}={now.year}/"
+                    f"{self.params.extract_partition_columns[1]}={now.month:02d}/"
+                    f"{self.params.extract_partition_columns[2]}={now.day:02d}/"
+                    f"{self.params.extract_partition_columns[3]}={now.hour:02d}/")
 
         else:
             raise ValueError(
-                f"raw_partition_columns must have 1, 3, or 4 items. "
-                f"Got {num_cols}: {self.params.raw_partition_columns}"
+                f"extract_partition_columns must have 1, 3, or 4 items. "
+                f"Got {num_cols}: {self.params.extract_partition_columns}"
             )
 
     def _build_raw_path(self, file_info: FileInfo) -> str:

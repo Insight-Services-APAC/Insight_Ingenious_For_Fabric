@@ -223,7 +223,7 @@ class LoadingLogger:
         try:
             # Extract batch metadata
             extract_batch_id = batch_info.extract_batch_id  # FK to log_resource_extract_batch
-            source_file_path = batch_info.file_paths[0] if batch_info.file_paths else None
+            source_file_paths = batch_info.file_paths or []
             source_file_size_bytes = batch_info.size_bytes
             source_file_modified_time = batch_info.modified_time
 
@@ -235,16 +235,9 @@ class LoadingLogger:
             source_row_count = metrics.source_row_count if metrics else (0 if status != ExecutionStatus.RUNNING else None)
             target_row_count_before = metrics.target_row_count_before if metrics else (0 if status != ExecutionStatus.RUNNING else None)
             target_row_count_after = metrics.target_row_count_after if metrics else (0 if status != ExecutionStatus.RUNNING else None)
-            row_count_reconciliation_status = (
-                metrics.row_count_reconciliation_status if metrics
-                else ("not_verified" if status != ExecutionStatus.RUNNING else None)
-            )
+            corrupt_records_count = metrics.corrupt_records_count if metrics else (0 if status != ExecutionStatus.RUNNING else None)
             data_read_duration_ms = metrics.read_duration_ms if metrics else None
             total_duration_ms = metrics.total_duration_ms if metrics else None
-            execution_duration_seconds = (
-                int(metrics.total_duration_ms / 1000) if metrics and metrics.total_duration_ms
-                else None
-            )
 
             now = datetime.now()
             completed_at = metrics.completed_at if metrics else None
@@ -260,7 +253,7 @@ class LoadingLogger:
                         config.source_name,                   # source_name (denormalized for partitioning)
                         config.resource_name,                 # resource_name (denormalized for partitioning)
                         str(status),                          # Convert enum to string for Spark
-                        source_file_path,
+                        source_file_paths,
                         source_file_size_bytes,
                         source_file_modified_time,
                         config.target_table,
@@ -271,13 +264,10 @@ class LoadingLogger:
                         None,                                 # source_row_count
                         None,                                 # target_row_count_before
                         None,                                 # target_row_count_after
-                        None,                                 # row_count_reconciliation_status
                         0,                                    # corrupt_records_count
                         None,                                 # data_read_duration_ms
                         None,                                 # total_duration_ms
                         None,                                 # error_message
-                        None,                                 # execution_duration_seconds
-                        None,                                 # filename_attributes_json
                         now,                                  # started_at
                         now,                                  # updated_at
                         None,                                 # completed_at (NULL for running)
@@ -304,7 +294,7 @@ class LoadingLogger:
                     "source_row_count": lit(source_row_count if source_row_count is not None else 0),
                     "target_row_count_before": lit(target_row_count_before if target_row_count_before is not None else 0),
                     "target_row_count_after": lit(target_row_count_after if target_row_count_after is not None else 0),
-                    "row_count_reconciliation_status": lit(row_count_reconciliation_status),
+                    "corrupt_records_count": lit(corrupt_records_count if corrupt_records_count is not None else 0),
                     "updated_at": current_timestamp(),
                     "completed_at": current_timestamp(),
                 }
@@ -316,8 +306,6 @@ class LoadingLogger:
                     set_values["total_duration_ms"] = lit(total_duration_ms)
                 if error_message is not None:
                     set_values["error_message"] = lit(error_message)
-                if execution_duration_seconds is not None:
-                    set_values["execution_duration_seconds"] = lit(execution_duration_seconds)
 
                 self.lakehouse.update_table(
                     table_name="log_resource_load_batch",
@@ -616,7 +604,7 @@ class LoadingLogger:
                 config.source_name,
                 config.resource_name,
                 "pending",  # status (recovered)
-                stale_batch_row.source_file_path,
+                list(stale_batch_row.source_file_paths) if hasattr(stale_batch_row, 'source_file_paths') else [],
                 stale_batch_row.source_file_size_bytes if hasattr(stale_batch_row, 'source_file_size_bytes') else None,
                 stale_batch_row.source_file_modified_time if hasattr(stale_batch_row, 'source_file_modified_time') else None,
                 (stale_batch_row.target_table_name if hasattr(stale_batch_row, 'target_table_name') else config.target_table) or "",
@@ -627,13 +615,10 @@ class LoadingLogger:
                 None,  # source_row_count
                 None,  # target_row_count_before
                 None,  # target_row_count_after
-                None,  # row_count_reconciliation_status
                 0,     # corrupt_records_count
                 None,  # data_read_duration_ms
                 None,  # total_duration_ms
                 "Recovered from stale processing state",  # error_message
-                None,  # execution_duration_seconds
-                None,  # filename_attributes_json
                 now,   # started_at
                 now,   # updated_at
                 None,  # completed_at

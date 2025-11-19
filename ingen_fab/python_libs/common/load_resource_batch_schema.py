@@ -2,6 +2,7 @@
 # Batch-level loading tracking - what files were loaded to bronze tables
 
 from pyspark.sql.types import (
+    ArrayType,
     IntegerType,
     LongType,
     StringType,
@@ -35,7 +36,7 @@ def get_load_resource_batch_schema() -> StructType:
                 "load_state", StringType(), nullable=False
             ),  # running, completed, failed, duplicate, skipped
             # Source file information
-            StructField("source_file_path", StringType(), nullable=False),
+            StructField("source_file_paths", ArrayType(StringType()), nullable=False),
             StructField("source_file_size_bytes", LongType(), nullable=True),
             StructField("source_file_modified_time", TimestampType(), nullable=True),
             StructField("target_table_name", StringType(), nullable=False),
@@ -48,19 +49,11 @@ def get_load_resource_batch_schema() -> StructType:
             StructField("source_row_count", LongType(), nullable=True),
             StructField("target_row_count_before", LongType(), nullable=True),
             StructField("target_row_count_after", LongType(), nullable=True),
-            StructField(
-                "row_count_reconciliation_status", StringType(), nullable=True
-            ),  # matched, mismatched, not_verified
             StructField("corrupt_records_count", LongType(), nullable=True),
             StructField("data_read_duration_ms", LongType(), nullable=True),
             StructField("total_duration_ms", LongType(), nullable=True),
             # Error tracking
             StructField("error_message", StringType(), nullable=True),
-            StructField("execution_duration_seconds", IntegerType(), nullable=True),
-            # Metadata
-            StructField(
-                "filename_attributes_json", StringType(), nullable=True
-            ),  # Extracted filename attributes as JSON
             # Timestamp tracking (Airflow-style)
             StructField(
                 "started_at", TimestampType(), nullable=False

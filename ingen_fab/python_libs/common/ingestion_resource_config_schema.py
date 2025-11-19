@@ -154,8 +154,8 @@ def row_to_resource_config(row) -> ResourceConfig:
             source_extraction_params['filename_metadata'] = json.loads(source_extraction_params['filename_metadata'])
         if 'sort_by' in source_extraction_params and isinstance(source_extraction_params['sort_by'], str):
             source_extraction_params['sort_by'] = json.loads(source_extraction_params['sort_by'])
-        if 'raw_partition_columns' in source_extraction_params and isinstance(source_extraction_params['raw_partition_columns'], str):
-            source_extraction_params['raw_partition_columns'] = json.loads(source_extraction_params['raw_partition_columns'])
+        if 'extract_partition_columns' in source_extraction_params and isinstance(source_extraction_params['extract_partition_columns'], str):
+            source_extraction_params['extract_partition_columns'] = json.loads(source_extraction_params['extract_partition_columns'])
 
     # Reconstruct CDCConfig from struct (optional)
     target_cdc_config = None
