@@ -120,14 +120,14 @@ class ExtractionOrchestrator:
 
             # Count statuses
             for result in group_results:
+                # Aggregate batch-level duplicate counts
+                results["duplicates"] += result.batches_duplicate
+
                 if result.status == ExecutionStatus.FAILED:
                     results["failed"] += 1
                 else:
                     results["successful"] += 1
-                    # Also count specific states for detail
-                    if result.status == ExecutionStatus.DUPLICATE:
-                        results["duplicates"] += 1
-                    elif result.status == ExecutionStatus.NO_DATA:
+                    if result.status == ExecutionStatus.NO_DATA:
                         results["no_data"] += 1
 
         logger.info(
@@ -307,6 +307,7 @@ class ExtractionOrchestrator:
             # 5. Update result
             result.batches_processed = metrics["extracted"]
             result.batches_failed = metrics["failed"]
+            result.batches_duplicate = metrics["duplicate"]
             result.total_items_count = metrics["files"]
             result.total_bytes = metrics["bytes"]
             result.completed_at = datetime.now()

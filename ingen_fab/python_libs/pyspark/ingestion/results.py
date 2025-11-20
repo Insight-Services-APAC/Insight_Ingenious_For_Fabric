@@ -104,6 +104,7 @@ class ResourceExtractionResult:
     # Batch tracking
     batches_processed: int = 0              # Successfully extracted batches
     batches_failed: int = 0                 # Failed batches
+    batches_duplicate: int = 0              # Skipped duplicate batches
 
     # Extraction metrics
     total_items_count: int = 0              # Total items (files, etc.) across all batches
