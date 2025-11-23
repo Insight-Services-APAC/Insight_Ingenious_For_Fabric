@@ -564,6 +564,34 @@ class SyncToFabricEnvironment:
                 self.console, "No GraphQL API files needed variable substitution"
             )
 
+        # Process all pipeline-content.json files in the output directory
+        pipeline_updated_count = 0
+        for pipeline_file in output_dir.rglob("pipeline-content.json"):
+            with open(pipeline_file, "r", encoding="utf-8") as f:
+                content = f.read()
+
+            # Perform variable substitution (replace placeholders) and code injection
+            updated_content = output_vlu.perform_code_replacements(
+                content,
+                replace_placeholders=True,  # Replace {{varlib:...}} placeholders during deployment
+                inject_code=True,  # Also inject code between markers
+            )
+
+            if updated_content != content:
+                with open(pipeline_file, "w", encoding="utf-8") as f:
+                    f.write(updated_content)
+                pipeline_updated_count += 1
+
+        if pipeline_updated_count > 0:
+            ConsoleStyles.print_success(
+                self.console,
+                f"Updated {pipeline_updated_count} data pipeline files with variable substitution",
+            )
+        else:
+            ConsoleStyles.print_info(
+                self.console, "No data pipeline files needed variable substitution"
+            )
+
         # 2) Download manifest from remote if configured (PULL remote state)
         manifest_path = Path(
             f"{self.project_path}/platform_manifest_{self.environment}.yml"

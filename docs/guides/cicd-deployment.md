@@ -124,6 +124,9 @@ Create target workspaces before running pipelines (e.g., `dp_dev`, `dp_tst`).
 
 ### Azure DevOps Configuration
 
+!!! info "DevOps Environment Setup"
+    For detailed instructions on setting up the Azure DevOps environment, service principals, and required configurations, see the [DevOps Configuration Guide](devops_configuration.md).
+
 Configure the following in your Azure DevOps project:
 
 | Resource Type | Example Name | Description |
