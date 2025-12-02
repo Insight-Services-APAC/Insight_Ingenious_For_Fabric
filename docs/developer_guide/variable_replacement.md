@@ -180,6 +180,7 @@ Variable substitution is applied to the following artifact types during deployme
 | **Notebooks** | `notebook-content.py` | Python notebook source files |
 | **Semantic Models** | `*.tmdl` | Tabular Model Definition Language files |
 | **GraphQL APIs** | `graphql-definition.json` | GraphQL API definition files |
+| **Data Pipelines** | `pipeline-content.json` | Data pipeline definition files |
 
 These artifact types support both placeholder replacement (`{{varlib:variable_name}}`) and code injection between markers during the deployment process.
 
@@ -216,7 +217,7 @@ ingen_fab deploy deploy
 - **Placeholder replacement**: ✅ Yes (environment-specific values)
 - **Code injection**: ✅ Yes (complete configuration)
 - **Location**: Output directory for deployment
-- **Artifacts**: Notebooks, Semantic Models, and GraphQL APIs
+- **Artifacts**: Notebooks, Semantic Models, GraphQL APIs, and Data Pipelines
 
 ### OneLake Upload
 
@@ -366,6 +367,59 @@ After deployment:
   "schema": {
     "types": [...],
     "queries": [...]
+  }
+}
+```
+
+#### Data Pipelines (pipeline-content.json)
+
+Data pipeline definitions can use placeholders for workspace IDs, lakehouse IDs, and other connection properties:
+
+```json
+{
+  "properties": {
+    "activities": [
+      {
+        "name": "Copy_Data",
+        "type": "Copy",
+        "typeProperties": {
+          "source": {
+            "type": "LakehouseTableSource",
+            "lakehouseId": "{{varlib:config_lakehouse_id}}"
+          },
+          "sink": {
+            "type": "LakehouseTableSink",
+            "lakehouseId": "{{varlib:target_lakehouse_id}}",
+            "workspaceId": "{{varlib:fabric_deployment_workspace_id}}"
+          }
+        }
+      }
+    ]
+  }
+}
+```
+
+After deployment:
+```json
+{
+  "properties": {
+    "activities": [
+      {
+        "name": "Copy_Data",
+        "type": "Copy",
+        "typeProperties": {
+          "source": {
+            "type": "LakehouseTableSource",
+            "lakehouseId": "514ebe8f-2bf9-4a31-88f7-13d84706431c"
+          },
+          "sink": {
+            "type": "LakehouseTableSink",
+            "lakehouseId": "a29c4f1e-5d67-4c89-b123-9e8d74f31a2b",
+            "workspaceId": "544530ea-a8c9-4464-8878-f666d2a8f418"
+          }
+        }
+      }
+    ]
   }
 }
 ```
