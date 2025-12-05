@@ -1,8 +1,8 @@
-# Data Integration Framework (ISOLATED - ALL NEW CODE)
-# Everything in this folder is new and separate from existing flat_file_ingestion code
+# Data Integration Framework
+# Organized into common, extraction, and loading subpackages
 
 # Shared configs (used by both extraction and file loading)
-from ingen_fab.python_libs.pyspark.ingestion.config import (
+from ingen_fab.python_libs.pyspark.ingestion.common.config import (
     APIExtractionParams,
     DatabaseExtractionParams,
     FileSystemExtractionParams,
@@ -11,7 +11,7 @@ from ingen_fab.python_libs.pyspark.ingestion.config import (
 )
 
 # Shared constants
-from ingen_fab.python_libs.pyspark.ingestion.constants import (
+from ingen_fab.python_libs.pyspark.ingestion.common.constants import (
     DatastoreType,
     DuplicateHandling,
     ExecutionStatus,
@@ -20,7 +20,7 @@ from ingen_fab.python_libs.pyspark.ingestion.constants import (
 )
 
 # Shared results
-from ingen_fab.python_libs.pyspark.ingestion.results import (
+from ingen_fab.python_libs.pyspark.ingestion.common.results import (
     BatchExtractionResult,
     BatchInfo,
     ProcessingMetrics,
@@ -28,15 +28,20 @@ from ingen_fab.python_libs.pyspark.ingestion.results import (
     ResourceExecutionResult,
 )
 
+# Config Manager
+from ingen_fab.python_libs.pyspark.ingestion.common.config_manager import ConfigIngestionManager
+
 # Extraction Framework
-from ingen_fab.python_libs.pyspark.ingestion.extractors.filesystem_extractor import (
+from ingen_fab.python_libs.pyspark.ingestion.extraction.extractors.filesystem_extractor import (
     FileSystemExtractor,
 )
+from ingen_fab.python_libs.pyspark.ingestion.extraction.extraction_logger import ExtractionLogger
+from ingen_fab.python_libs.pyspark.ingestion.extraction.extraction_orchestrator import ExtractionOrchestrator
 
-# File Loading Framework (builds on shared configs)
-from ingen_fab.python_libs.pyspark.ingestion.config_manager import ConfigIngestionManager
-from ingen_fab.python_libs.pyspark.ingestion.loader import FileLoader
-from ingen_fab.python_libs.pyspark.ingestion.loading_logger import LoadingLogger
+# Loading Framework
+from ingen_fab.python_libs.pyspark.ingestion.loading.loader import FileLoader
+from ingen_fab.python_libs.pyspark.ingestion.loading.loading_logger import LoadingLogger
+from ingen_fab.python_libs.pyspark.ingestion.loading.loading_orchestrator import LoadingOrchestrator
 
 __all__ = [
     # Configuration
@@ -57,10 +62,14 @@ __all__ = [
     "ProcessingMetrics",
     "ResourceExtractionResult",
     "ResourceExecutionResult",
+    # Config Manager
+    "ConfigIngestionManager",
     # Extraction
     "FileSystemExtractor",
-    # File Loading
-    "ConfigIngestionManager",
+    "ExtractionLogger",
+    "ExtractionOrchestrator",
+    # Loading
     "FileLoader",
     "LoadingLogger",
+    "LoadingOrchestrator",
 ]

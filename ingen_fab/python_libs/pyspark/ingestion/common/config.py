@@ -1,9 +1,11 @@
 # Shared Configuration for Data Integration Frameworks
 # Used by both Extraction Framework (python/extraction) and File Loading Framework (pyspark/file_loading)
 
+from __future__ import annotations
+from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
-from typing import Any, Dict, List, Optional
-
+from datetime import datetime
+from typing import Any, Dict, List, Optional, Union
 from pyspark.sql.types import StructType, StructField, StringType
 
 
@@ -246,18 +248,20 @@ class ResourceConfig:
 
     # Extract layer locations (extraction writes to landing, loading reads from landing)
     extract_path: str               # e.g., "Files/raw/edl/fct_sales/" - files stay here (successful or failed)
-    extract_file_format: str                # 'csv', 'parquet', 'json'
+    extract_file_format_params: FileFormatParams  # File format configuration (format type + options)
     extract_storage_workspace: str          # Workspace where raw files are stored
     extract_storage_lakehouse: str          # Lakehouse where raw files are stored
     extract_error_path: str                 # e.g., "Files/errors/edl/fct_sales/" - rejected files moved here
-    target_schema_columns: SchemaColumns    # REQUIRED - Schema with column names and Spark data types
+    extract_partition_columns: List[str] = field(default_factory=lambda: ["ds"])  # Hive partition structure for extract layer
+    target_schema_columns: Optional[SchemaColumns] = None  # Optional - if None, use schema inference
+    target_schema_drift_enabled: bool = False  # If True, allow new columns from source when inferring schema
 
     # ========================================================================
     # EXTRACTION SETTINGS (Used by Extraction Framework ONLY)
     # ========================================================================
 
     # Source-type specific extraction parameters
-    source_extraction_params: Dict[str, Any] = field(default_factory=dict)
+    source_extraction_params: Union[Dict[str, Any], BaseExtractionParams] = field(default_factory=dict)
 
     # ========================================================================
     # STEP 1: FILES → STAGING TABLE (Used by File Loading Framework ONLY)
@@ -322,6 +326,37 @@ class ResourceConfig:
         if self.target_write_mode == "merge" and not self.target_merge_keys:
             raise ValueError("target_merge_keys required when target_write_mode='merge'")
 
+        # Validate pipeline params for database sources
+        if self.source_config.source_type == "database":
+            required_params = [
+                "pipeline_workspace_name",
+                "pipeline_name",
+                "pipeline_source_connection_id",
+                "pipeline_source_database",
+            ]
+            missing = [p for p in required_params if not self.source_config.source_connection_params.get(p)]
+            if missing:
+                raise ValueError(
+                    f"Database source requires {', '.join(required_params)} in source_connection_params. "
+                    f"Missing: {', '.join(missing)}"
+                )
+
+    @property
+    def extract_full_path(self) -> str:
+        """
+        Build full ABFSS path to extract layer.
+
+        Constructs OneLake path from workspace, lakehouse, and extract_path.
+        Format: abfss://{workspace}@onelake.dfs.fabric.microsoft.com/{lakehouse}.Lakehouse/Files/{path}
+
+        Returns:
+            str: Full ABFSS path to extract layer
+        """
+        return (
+            f"abfss://{self.extract_storage_workspace}@onelake.dfs.fabric.microsoft.com/"
+            f"{self.extract_storage_lakehouse}.Lakehouse/Files/{self.extract_path.strip('/')}"
+        )
+
     @classmethod
     def from_dict(cls, config_dict: Dict[str, Any], source_config: SourceConfig) -> "ResourceConfig":
         """Create ResourceConfig from dictionary"""
@@ -346,10 +381,11 @@ class ResourceConfig:
             source_name=config_dict["source_name"],
             source_config=source_config,
             extract_path=config_dict["extract_path"],
-            extract_file_format=config_dict["extract_file_format"],
+            extract_file_format_params=FileFormatParams.from_dict(config_dict["extract_file_format_params"]),
             extract_storage_workspace=config_dict["extract_storage_workspace"],
             extract_storage_lakehouse=config_dict["extract_storage_lakehouse"],
             extract_error_path=config_dict["extract_error_path"],
+            extract_partition_columns=split_csv(config_dict.get("extract_partition_columns")) or ["ds"],
             source_extraction_params=config_dict.get("source_extraction_params", {}),
             stg_table_workspace=config_dict.get("stg_table_workspace", ""),
             stg_table_lakehouse=config_dict.get("stg_table_lakehouse", ""),
@@ -367,7 +403,8 @@ class ResourceConfig:
             target_soft_delete_enabled=config_dict.get("target_soft_delete_enabled", False),
             target_cdc_config=target_cdc_config,
             target_load_type=config_dict.get("target_load_type", "incremental"),
-            target_schema_columns=SchemaColumns.from_list(config_dict["target_schema_columns"]),
+            target_schema_columns=SchemaColumns.from_list(config_dict["target_schema_columns"]) if config_dict.get("target_schema_columns") else None,
+            target_schema_drift_enabled=config_dict.get("target_schema_drift_enabled", False),
             target_max_corrupt_records=config_dict.get("target_max_corrupt_records", 0),
             target_fail_on_rejection=config_dict.get("target_fail_on_rejection", True),
             execution_group=config_dict.get("execution_group", 1),
@@ -376,12 +413,145 @@ class ResourceConfig:
 
 
 # ============================================================================
+# EXTRACTION PARAMETERS BASE CLASS
+# ============================================================================
+
+class BaseExtractionParams(ABC):
+    """
+    Abstract base class for all source extraction parameters.
+
+    Enforces consistent interface across filesystem, API, database, and future extractors.
+    Each extractor type implements its own params class with source-specific validation.
+    """
+
+    @abstractmethod
+    def to_dict(self) -> Dict[str, Any]:
+        """Convert params to dict for storage in Delta table"""
+        pass
+
+    @classmethod
+    @abstractmethod
+    def from_dict(cls, params: Dict[str, Any]) -> "BaseExtractionParams":
+        """
+        Create params instance from dict (triggers __post_init__ validation).
+
+        This is where validation happens - invalid configs will raise ValueError.
+        """
+        pass
+
+
+# ============================================================================
+# FILE FORMAT PARAMETERS (Used by Loading Framework)
+# ============================================================================
+
+def _coerce_bool(value: Any) -> bool:
+    """Coerce string/bool to bool. Used for config values from Delta (stored as strings)."""
+    if isinstance(value, bool):
+        return value
+    if isinstance(value, str):
+        if value.lower() in ("true", "1", "yes"):
+            return True
+        if value.lower() in ("false", "0", "no"):
+            return False
+        raise ValueError(f"Cannot convert '{value}' to boolean")
+    raise ValueError(f"Expected bool or string, got {type(value).__name__}")
+
+
+# Boolean options that should be coerced from string
+BOOLEAN_FORMAT_OPTIONS = {
+    "has_header",
+    "multi_line",
+    "infer_schema",
+    "enforce_schema",
+    "ignore_leading_white_space",
+    "ignore_trailing_white_space",
+    "primitives_as_string",
+    "allow_comments",
+    "allow_unquoted_field_names",
+    "allow_single_quotes",
+    "allow_numeric_leading_zero",
+    "allow_backslash_escaping_any_character",
+    "drop_field_if_all_null",
+    "ignore_surrounding_spaces",
+    "exclude_attribute",
+}
+
+# Valid file formats
+VALID_FILE_FORMATS = {"csv", "json", "xml", "parquet", "avro", "orc"}
+
+
+@dataclass
+class FileFormatParams:
+    """
+    File format configuration for reading/writing files.
+
+    Supports multiple formats with flexible options:
+    - CSV: has_header, file_delimiter, encoding, quote_character, etc.
+    - JSON: multi_line, primitives_as_string, etc.
+    - XML: row_tag, root_tag, attribute_prefix, etc.
+    - Parquet/Avro/ORC: minimal config (use embedded schema)
+    """
+    file_format: str  # 'csv', 'json', 'parquet', 'xml', 'avro', 'orc'
+    format_options: Dict[str, Any] = field(default_factory=dict)
+
+    def __post_init__(self):
+        """Validate format, required options, and coerce types."""
+        # Validate file_format
+        if not self.file_format:
+            raise ValueError("file_format is required")
+
+        fmt = self.file_format.lower()
+        if fmt not in VALID_FILE_FORMATS:
+            raise ValueError(
+                f"file_format must be one of {sorted(VALID_FILE_FORMATS)}, got '{self.file_format}'"
+            )
+
+        # Coerce boolean options from string to bool
+        for key in BOOLEAN_FORMAT_OPTIONS:
+            if key in self.format_options:
+                try:
+                    self.format_options[key] = _coerce_bool(self.format_options[key])
+                except ValueError as e:
+                    raise ValueError(f"Invalid value for {key}: {e}")
+
+        # CSV requires delimiter
+        if fmt == "csv" and "file_delimiter" not in self.format_options:
+            raise ValueError(
+                "file_delimiter is required for CSV format (e.g., ',' or '|')"
+            )
+
+        # XML requires row_tag
+        if fmt == "xml" and "row_tag" not in self.format_options:
+            raise ValueError(
+                "row_tag is required for XML format (element name to treat as rows)"
+            )
+
+    def to_dict(self) -> Dict[str, Any]:
+        """Flatten to single-level dict for Delta storage"""
+        return {
+            "file_format": self.file_format,
+            **self.format_options
+        }
+
+    @classmethod
+    def from_dict(cls, params: Dict[str, Any]) -> "FileFormatParams":
+        """Parse from Delta table dict"""
+        file_format = params.get("file_format", "csv")
+        format_options = {k: v for k, v in params.items() if k != "file_format"}
+        return cls(file_format=file_format, format_options=format_options)
+
+
+# ============================================================================
 # EXTRACTION PARAMETERS (Used by Extraction Framework)
 # ============================================================================
 
 @dataclass
-class FileSystemExtractionParams:
-    """Parameters for extracting files from inbound to raw layer"""
+class FileSystemExtractionParams(BaseExtractionParams):
+    """
+    Parameters for filesystem extraction (discovery & validation only).
+
+    File format params (CSV delimiters, etc.) are in FileFormatParams.
+    """
 
     # Source location
     inbound_path: str
@@ -391,18 +561,9 @@ class FileSystemExtractionParams:
     recursive: bool = False
     batch_by: str = "file"  # 'file' (individual files), 'folder' (folder batches), or 'all' (entire directory as one batch)
 
-    # File format (CSV-specific)
-    has_header: bool = True
-    file_delimiter: str = ","
-    encoding: str = "utf-8"
-    quote_character: str = '"'
-    escape_character: str = "\\"
-    multiline_values: bool = True
-    null_value: str = ""  # String to treat as NULL when reading CSV
-
     # Validation
     control_file_pattern: Optional[str] = None  # If set, only process files with control files
-    duplicate_handling: str = "skip"  # 'skip', 'allow', 'fail'
+    duplicate_handling: str = "warn"  # 'warn', 'allow', 'fail'
     no_data_handling: str = "allow"  # 'allow', 'warn', 'fail' - when no data extracted
 
     # Metadata extraction from filename/path (NEW)
@@ -417,17 +578,11 @@ class FileSystemExtractionParams:
     sort_by: List[str] = field(default_factory=list)  # List of metadata field names to sort by
     sort_order: str = "asc"  # 'asc' or 'desc'
 
-    # Extract layer Hive partitioning (REQUIRED)
-    # Extract layer is ALWAYS partitioned by process date (when file arrived)
-    # Business dates are extracted as columns for querying in bronze
-    extract_partition_columns: List[str] = field(default_factory=lambda: ["date"])
-    # Supported patterns (based on list length):
-    # - 1 column: ["date"] → date=2025-11-09/
-    # - 3 columns: ["year", "month", "day"] → year=2025/month=11/day=09/
-    # - 4 columns: ["year", "month", "day", "hour"] → year=2025/month=11/day=09/hour=14/
-    # Custom names supported: ["ds"], ["process_date"], ["yr", "mo", "dy"], etc.
-
     partition_depth: Optional[int] = None  # Folder depth for batch_by="folder" (e.g., 3 for YYYY/MM/DD)
+
+    # Watermark-based incremental extraction (NEW)
+    move_source_file: bool = True  # True = move (copy + delete source), False = copy only
+    incremental_column: Optional[str] = None  # "modified_time" for watermark-based extraction
 
     def __post_init__(self):
         """Validate extraction parameters"""
@@ -436,7 +591,7 @@ class FileSystemExtractionParams:
             raise ValueError("inbound_path is required")
 
         # Enum validations
-        valid_duplicate = ["skip", "allow", "fail"]
+        valid_duplicate = ["warn", "allow", "fail"]
         if self.duplicate_handling not in valid_duplicate:
             raise ValueError(f"duplicate_handling must be one of {valid_duplicate}, got '{self.duplicate_handling}'")
 
@@ -452,6 +607,17 @@ class FileSystemExtractionParams:
         if self.sort_order not in valid_sort_order:
             raise ValueError(f"sort_order must be one of {valid_sort_order}, got '{self.sort_order}'")
 
+        # Validate incremental_column
+        # Can be None, "modified_time", or a filename_metadata field name
+        if self.incremental_column is not None and self.incremental_column != "modified_time":
+            # Check if it references a valid filename_metadata field
+            metadata_field_names = [p["name"] for p in self.filename_metadata] if self.filename_metadata else []
+            if self.incremental_column not in metadata_field_names:
+                raise ValueError(
+                    f"incremental_column '{self.incremental_column}' must be 'modified_time' or "
+                    f"a filename_metadata field name. Available metadata fields: {metadata_field_names}"
+                )
+
     def to_dict(self) -> Dict[str, Any]:
         """Convert to dict for storage in ResourceConfig.extraction_params"""
         return {k: v for k, v in self.__dict__.items()}
@@ -463,7 +629,7 @@ class FileSystemExtractionParams:
 
 
 @dataclass
-class APIExtractionParams:
+class APIExtractionParams(BaseExtractionParams):
     """Parameters for extracting data from REST APIs"""
 
     endpoint: str
@@ -481,23 +647,178 @@ class APIExtractionParams:
         return cls(**{k: v for k, v in params.items() if k in cls.__annotations__})
 
 
-@dataclass
-class DatabaseExtractionParams:
-    """Parameters for extracting data from databases"""
+def _validate_incremental_value(value: str, column_type: str) -> None:
+    """
+    Validate incremental_start/end string can be parsed for the given column_type.
 
-    schema_name: Optional[str] = None
-    table_name: Optional[str] = None
+    Args:
+        value: String value (ISO date/datetime or integer string)
+        column_type: "date", "timestamp", or "integer"
+
+    Raises:
+        ValueError: If value cannot be parsed for the given column_type
+    """
+    try:
+        if column_type == "integer":
+            int(value)
+        elif column_type == "date":
+            datetime.strptime(value, "%Y-%m-%d")
+        elif column_type == "timestamp":
+            if "T" in value or " " in value:
+                v = value.replace("T", " ")
+                if "." in v:
+                    datetime.strptime(v, "%Y-%m-%d %H:%M:%S.%f")
+                else:
+                    datetime.strptime(v, "%Y-%m-%d %H:%M:%S")
+            else:
+                datetime.strptime(value, "%Y-%m-%d")
+    except (ValueError, TypeError) as e:
+        raise ValueError(f"Cannot parse '{value}' as {column_type}: {e}")
+
+
+@dataclass
+class DatabaseExtractionParams(BaseExtractionParams):
+    """
+    Parameters for database extraction (JDBC or Pipeline-based).
+
+    Supports three extraction modes:
+    - "table": Generate SELECT from source_schema + source_table with optional filtering
+    - "query": Use provided custom SQL query
+    - "cetas": Wrap SELECT in Synapse CETAS statement (requires db_type="synapse")
+
+    Strategy selection (automatic):
+    - If pipeline_name in source_connection_params → delegate to pipeline
+    - Otherwise → direct JDBC extraction
+    """
+
+    # Database type (dialect for SQL generation)
+    db_type: str = "sqlserver"  # sqlserver, synapse, postgres, oracle
+
+    # Extraction mode
+    extraction_mode: str = "table"  # "table", "query", or "cetas"
+
+    # Table-based extraction
+    source_schema: Optional[str] = None
+    source_table: Optional[str] = None
+
+    # Column selection (optional - if None, extract all columns)
+    columns: Optional[List[str]] = None
+
+    # Filtering (optional)
+    where_clause: Optional[str] = None
+
+    # Query-based extraction (used when extraction_mode="query" or as inner SELECT for "cetas")
     query: Optional[str] = None
-    watermark_column: Optional[str] = None
-    watermark_type: str = "timestamp"
-    partition_by_date: bool = True  # Creates YYYY/MM/DD folders in raw
-    partition_column: Optional[str] = None  # Column to use for date partitioning
+
+    # Incremental extraction (optional)
+    incremental_column: Optional[str] = None
+
+    # Incremental column type - determines how intervals are interpreted
+    # "date", "timestamp", or "integer"
+    incremental_column_type: Optional[str] = None
+
+    # Chunking for backfills - splits large incremental loads into sequential ranges
+    # For date/timestamp: interval in hours (e.g., 24=day, 168=week, 720=month)
+    # For integer: step size (e.g., 100000)
+    incremental_chunk_size: Optional[int] = None
+
+    # Lookback period for late-arriving data - applied to watermark before extraction
+    # For date/timestamp: lookback in hours (e.g., 72 = 3 days)
+    # For integer: offset subtracted from watermark (e.g., 1000)
+    incremental_lookback: Optional[int] = None
+
+    # Explicit bounds for chunked extraction (REQUIRED when incremental_chunk_size is set)
+    # ISO date/datetime string for date/timestamp, integer string for integer
+    incremental_start: Optional[str] = None  # REQUIRED for chunking
+    incremental_end: Optional[str] = None    # Optional for date/timestamp (defaults to now), REQUIRED for integer
+
+    # Performance tuning
+    fetch_size: int = 10000
+
+    # CETAS-specific (only used when extraction_mode="cetas" and db_type="synapse")
+    cetas_data_source: Optional[str] = None  # Synapse external data source name
+    cetas_file_format: str = "ParquetFileFormat"  # Synapse file format name
+    cetas_external_table: str = "exports.temp_extract"  # External table name
+
+    def __post_init__(self):
+        """Validate database extraction parameters"""
+        # Validate db_type
+        valid_db_types = {"sqlserver", "synapse", "postgres", "oracle"}
+        if self.db_type not in valid_db_types:
+            raise ValueError(
+                f"Invalid db_type: '{self.db_type}'. Must be one of: {sorted(valid_db_types)}"
+            )
+
+        # Validate extraction_mode
+        valid_modes = {"table", "query", "cetas"}
+        if self.extraction_mode not in valid_modes:
+            raise ValueError(
+                f"Invalid extraction_mode: '{self.extraction_mode}'. Must be one of: {sorted(valid_modes)}"
+            )
+
+        # CETAS requires synapse
+        if self.extraction_mode == "cetas" and self.db_type != "synapse":
+            raise ValueError(
+                f"extraction_mode='cetas' requires db_type='synapse', got '{self.db_type}'"
+            )
+
+        # CETAS requires data_source
+        if self.extraction_mode == "cetas" and not self.cetas_data_source:
+            raise ValueError(
+                "extraction_mode='cetas' requires cetas_data_source to be specified"
+            )
+
+        # Must have either query or table (for table and cetas modes)
+        if self.extraction_mode in ("table", "cetas") and not self.source_table and not self.query:
+            raise ValueError("Must specify either 'query' or 'source_table'")
+
+        # Query mode requires query field
+        if self.extraction_mode == "query" and not self.query:
+            raise ValueError("extraction_mode='query' requires 'query' field to be specified")
+
+        # Validate incremental_column_type
+        if self.incremental_column_type:
+            valid_column_types = {"date", "timestamp", "integer"}
+            if self.incremental_column_type not in valid_column_types:
+                raise ValueError(
+                    f"Invalid incremental_column_type: '{self.incremental_column_type}'. "
+                    f"Must be one of: {sorted(valid_column_types)}"
+                )
+
+        # Chunking requires explicit bounds (no watermark mixing)
+        if self.incremental_chunk_size:
+            if not self.incremental_column:
+                raise ValueError("incremental_chunk_size requires incremental_column to be specified")
+            if not self.incremental_column_type:
+                raise ValueError("incremental_chunk_size requires incremental_column_type to be specified")
+            if not self.incremental_start:
+                raise ValueError("incremental_chunk_size requires incremental_start to be specified")
+            # NOTE: incremental_end is optional for ALL types
+            # - date/timestamp: defaults to "now"
+            # - integer: uses progressive mode (stops on first empty chunk)
+            if self.incremental_chunk_size < 1:
+                raise ValueError(f"incremental_chunk_size must be >= 1, got {self.incremental_chunk_size}")
+
+        # Lookback requires incremental_column_type
+        if self.incremental_lookback:
+            if not self.incremental_column_type:
+                raise ValueError("incremental_lookback requires incremental_column_type to be specified")
+            if self.incremental_lookback < 0:
+                raise ValueError(f"incremental_lookback must be >= 0, got {self.incremental_lookback}")
+
+        # Validate incremental_start/end can be parsed
+        if self.incremental_start and self.incremental_column_type:
+            _validate_incremental_value(self.incremental_start, self.incremental_column_type)
+        if self.incremental_end and self.incremental_column_type:
+            _validate_incremental_value(self.incremental_end, self.incremental_column_type)
 
     def to_dict(self) -> Dict[str, Any]:
+        """Convert to dict for storage in ResourceConfig.extraction_params"""
         return {k: v for k, v in self.__dict__.items()}
 
     @classmethod
     def from_dict(cls, params: Dict[str, Any]) -> "DatabaseExtractionParams":
+        """Create from dict (triggers __post_init__ validation)"""
         return cls(**{k: v for k, v in params.items() if k in cls.__annotations__})
 
 

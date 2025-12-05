@@ -6,14 +6,14 @@ from enum import StrEnum
 class ExecutionStatus(StrEnum):
     """Status values for resource execution"""
 
+    # Operational states (transient)
     PENDING = "pending"
     RUNNING = "running"
-    COMPLETED = "completed"
-    FAILED = "failed"
-    NO_DATA = "no_data"
-    DUPLICATE = "duplicate"
-    SKIPPED = "skipped"
-    REJECTED = "rejected"
+
+    # Outcome states (final)
+    SUCCESS = "success"
+    WARNING = "warning"
+    ERROR = "error"
 
 
 class ImportPattern(StrEnum):
@@ -35,7 +35,7 @@ class DuplicateHandling(StrEnum):
     """Duplicate file handling modes"""
 
     ALLOW = "allow"
-    SKIP = "skip"
+    WARN = "warn"
     FAIL = "fail"
 
 

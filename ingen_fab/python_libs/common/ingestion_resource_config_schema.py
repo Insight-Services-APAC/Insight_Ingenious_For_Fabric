@@ -14,9 +14,13 @@ from pyspark.sql.types import (
 import json
 from typing import Any, Dict
 
-from ingen_fab.python_libs.pyspark.ingestion.config import (
+from ingen_fab.python_libs.pyspark.ingestion.common.config import (
     ResourceConfig,
     SourceConfig,
+    FileFormatParams,
+    FileSystemExtractionParams,
+    APIExtractionParams,
+    DatabaseExtractionParams,
 )
 
 
@@ -49,10 +53,11 @@ def get_ingestion_resource_config_schema() -> StructType:
             # EXTRACT LAYER (Used by BOTH frameworks)
             # ====================================================================
             StructField("extract_path", StringType(), False),
-            StructField("extract_file_format", StringType(), False),  # 'csv', 'parquet', 'json'
+            StructField("extract_file_format_params", MapType(StringType(), StringType()), False),
             StructField("extract_storage_workspace", StringType(), False),
             StructField("extract_storage_lakehouse", StringType(), False),
             StructField("extract_error_path", StringType(), False),  # Path for rejected files
+            StructField("extract_partition_columns", ArrayType(StringType()), True),  # Hive partition structure
             # ====================================================================
             # STAGING TABLE (Step 1: FILES → STAGING TABLE)
             # ====================================================================
@@ -72,7 +77,8 @@ def get_ingestion_resource_config_schema() -> StructType:
             StructField("target_schema_columns", ArrayType(StructType([
                 StructField("column_name", StringType(), False),
                 StructField("data_type", StringType(), False),
-            ])), False),
+            ])), True),
+            StructField("target_schema_drift_enabled", BooleanType(), True),
             StructField("target_write_mode", StringType(), True),  # 'overwrite', 'append', 'merge'
             StructField("target_merge_keys", ArrayType(StringType()), True),
             StructField("target_partition_columns", ArrayType(StringType()), True),
@@ -113,7 +119,7 @@ def row_to_resource_config(row) -> ResourceConfig:
     Returns:
         ResourceConfig object
     """
-    from ingen_fab.python_libs.pyspark.ingestion.config import SchemaColumns, CDCConfig
+    from ingen_fab.python_libs.pyspark.ingestion.common.config import SchemaColumns, CDCConfig
 
     # Helper to convert MapType back to dict
     def maptype_to_dict(map_col) -> Dict[str, Any]:
@@ -135,15 +141,14 @@ def row_to_resource_config(row) -> ResourceConfig:
         source_connection_params=source_connection_params,
     )
 
-    # Reconstruct SchemaColumns from array of structs
+    # Reconstruct SchemaColumns from array of structs (optional - None means use schema inference)
     target_schema_columns_array = get_field("target_schema_columns")
     if target_schema_columns_array:
         # Convert Spark array of Row objects to list of dicts
         columns_list = [{"column_name": row.column_name, "data_type": row.data_type} for row in target_schema_columns_array]
         target_schema_columns = SchemaColumns.from_list(columns_list)
     else:
-        # Empty schema (should not happen with NOT NULL constraint)
-        target_schema_columns = SchemaColumns.from_list([])
+        target_schema_columns = None
 
     # Reconstruct source_extraction_params
     source_extraction_params = maptype_to_dict(get_field("source_extraction_params"))
@@ -154,8 +159,15 @@ def row_to_resource_config(row) -> ResourceConfig:
             source_extraction_params['filename_metadata'] = json.loads(source_extraction_params['filename_metadata'])
         if 'sort_by' in source_extraction_params and isinstance(source_extraction_params['sort_by'], str):
             source_extraction_params['sort_by'] = json.loads(source_extraction_params['sort_by'])
-        if 'extract_partition_columns' in source_extraction_params and isinstance(source_extraction_params['extract_partition_columns'], str):
-            source_extraction_params['extract_partition_columns'] = json.loads(source_extraction_params['extract_partition_columns'])
+
+        # Convert to typed params based on source_type (triggers __post_init__ validation - FAIL FAST)
+        source_type = get_field("source_type")
+        if source_type == "filesystem":
+            source_extraction_params = FileSystemExtractionParams.from_dict(source_extraction_params)
+        elif source_type == "api":
+            source_extraction_params = APIExtractionParams.from_dict(source_extraction_params)
+        elif source_type == "database":
+            source_extraction_params = DatabaseExtractionParams.from_dict(source_extraction_params)
 
     # Reconstruct CDCConfig from struct (optional)
     target_cdc_config = None
@@ -174,11 +186,13 @@ def row_to_resource_config(row) -> ResourceConfig:
         source_name=get_field("source_name"),
         source_config=source_config,
         extract_path=get_field("extract_path"),
-        extract_file_format=get_field("extract_file_format"),
+        extract_file_format_params=FileFormatParams.from_dict(get_field("extract_file_format_params")),
         extract_storage_workspace=get_field("extract_storage_workspace"),
         extract_storage_lakehouse=get_field("extract_storage_lakehouse"),
         extract_error_path=get_field("extract_error_path"),
+        extract_partition_columns=list(get_field("extract_partition_columns")) if get_field("extract_partition_columns") else ["ds"],
         target_schema_columns=target_schema_columns,
+        target_schema_drift_enabled=get_field("target_schema_drift_enabled") if get_field("target_schema_drift_enabled") is not None else False,
         source_extraction_params=source_extraction_params,
         stg_table_workspace=get_field("stg_table_workspace") or "",
         stg_table_lakehouse=get_field("stg_table_lakehouse") or "",
@@ -218,11 +232,13 @@ def resource_config_to_row(config: ResourceConfig, created_by: str = "system", u
     """
     from datetime import datetime
 
-    # Convert SchemaColumns to array of structs
-    target_schema_columns_array = [
-        {"column_name": col["column_name"], "data_type": col["data_type"]}
-        for col in config.target_schema_columns.columns
-    ]
+    # Convert SchemaColumns to array of structs (None if no schema defined)
+    target_schema_columns_array = None
+    if config.target_schema_columns:
+        target_schema_columns_array = [
+            {"column_name": col["column_name"], "data_type": col["data_type"]}
+            for col in config.target_schema_columns.columns
+        ]
 
     # Convert CDCConfig to struct (if present)
     target_cdc_config_struct = None
@@ -245,11 +261,13 @@ def resource_config_to_row(config: ResourceConfig, created_by: str = "system", u
         "source_extraction_params": config.source_extraction_params,
         # EXTRACT LAYER
         "extract_path": config.extract_path,
-        "extract_file_format": config.extract_file_format,
+        "extract_file_format_params": config.extract_file_format_params.to_dict(),
         "extract_storage_workspace": config.extract_storage_workspace,
         "extract_storage_lakehouse": config.extract_storage_lakehouse,
         "extract_error_path": config.extract_error_path,
+        "extract_partition_columns": config.extract_partition_columns,
         "target_schema_columns": target_schema_columns_array,
+        "target_schema_drift_enabled": config.target_schema_drift_enabled,
         # STAGING TABLE
         "stg_table_workspace": config.stg_table_workspace,
         "stg_table_lakehouse": config.stg_table_lakehouse,

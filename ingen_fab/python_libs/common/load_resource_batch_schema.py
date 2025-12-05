@@ -34,7 +34,7 @@ def get_load_resource_batch_schema() -> StructType:
             StructField("resource_name", StringType(), nullable=False),  # Resource/table name (denormalized for partitioning)
             StructField(
                 "load_state", StringType(), nullable=False
-            ),  # running, completed, failed, duplicate, skipped
+            ),  # pending, running, success, warning, error
             # Source file information
             StructField("source_file_paths", ArrayType(StringType()), nullable=False),
             StructField("source_file_size_bytes", LongType(), nullable=True),
@@ -63,7 +63,7 @@ def get_load_resource_batch_schema() -> StructType:
             ),  # Always updated on merge
             StructField(
                 "completed_at", TimestampType(), nullable=True
-            ),  # Set when status becomes completed/failed
+            ),  # Set when status becomes success/warning/error
             StructField(
                 "attempt_count", IntegerType(), nullable=False
             ),  # Incremented on retries

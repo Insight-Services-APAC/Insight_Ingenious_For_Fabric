@@ -6,7 +6,7 @@ from datetime import datetime
 from typing import Any, Dict, List, Optional
 
 # Import ExecutionStatus for type hints
-from ingen_fab.python_libs.pyspark.ingestion.constants import ExecutionStatus
+from ingen_fab.python_libs.pyspark.ingestion.common.constants import ExecutionStatus
 
 
 @dataclass
@@ -21,9 +21,6 @@ class BatchExtractionResult:
     # Batch metrics
     file_count: int = 1                     # Number of files in this batch
     file_size_bytes: int = 0                # Total size of batch
-    promoted_count: int = 0                 # Successfully promoted files
-    failed_count: int = 0                   # Failed files
-    duplicate_count: int = 0                # Skipped duplicates
     duration_ms: int = 0                    # Extraction duration
 
     # Error tracking
@@ -99,12 +96,12 @@ class ResourceExtractionResult:
     """Result of extraction for a resource"""
 
     resource_name: str
+    source_name: str                        # Source system identifier
     status: ExecutionStatus                 # ExecutionStatus enum (convert to str only when logging to table)
 
     # Batch tracking
     batches_processed: int = 0              # Successfully extracted batches
     batches_failed: int = 0                 # Failed batches
-    batches_duplicate: int = 0              # Skipped duplicate batches
 
     # Extraction metrics
     total_items_count: int = 0              # Total items (files, etc.) across all batches
@@ -117,20 +114,32 @@ class ResourceExtractionResult:
     started_at: Optional[datetime] = None
     completed_at: Optional[datetime] = None
 
+    def to_dict(self) -> Dict[str, Any]:
+        """Convert to dictionary for JSON serialization"""
+        return {
+            "source_name": self.source_name,
+            "resource_name": self.resource_name,
+            "message": self.error_message if self.error_message else "success",
+            "status": self.status.value,  # "success", "warning", or "error"
+            "batches_processed": self.batches_processed,
+            "batches_failed": self.batches_failed,
+            "files": self.total_items_count,
+            "bytes": self.total_bytes,
+        }
+
 
 @dataclass
 class ResourceExecutionResult:
     """Result of loading/processing a resource (file loading framework)"""
 
     resource_name: str
+    source_name: str                        # Source system identifier
     status: ExecutionStatus                 # ExecutionStatus enum (convert to str only when logging to table)
 
     # Batch tracking
-    batches_processed: int = 0
-    batches_failed: int = 0
-    batches_rejected: int = 0
-    batches_discovered: int = 0
-    batches_skipped: int = 0
+    batches_discovered: int = 0             # Total batches found in extraction logs
+    batches_processed: int = 0              # Successfully loaded batches
+    batches_rejected: int = 0               # Rejected batches (data quality)
 
     # Loading-specific metrics (optional, populated after processing)
     metrics: Optional[ProcessingMetrics] = None
@@ -142,3 +151,15 @@ class ResourceExecutionResult:
     # Timing
     started_at: Optional[datetime] = None
     completed_at: Optional[datetime] = None
+
+    def to_dict(self) -> Dict[str, Any]:
+        """Convert to dictionary for JSON serialization"""
+        return {
+            "source_name": self.source_name,
+            "resource_name": self.resource_name,
+            "message": self.error_message if self.error_message else "success",
+            "status": self.status.value,  # "success", "warning", or "error"
+            "batches_discovered": self.batches_discovered,
+            "batches_processed": self.batches_processed,
+            "batches_rejected": self.batches_rejected,
+        }

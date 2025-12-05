@@ -1,9 +1,0 @@
-sale_id,sale_date,customer_id,customer_name,product_id,product_name,quantity,unit_price,total_amount,payment_method,store_location
-S001,2025-01-07,C12345,John Smith,P100,Laptop,1,1299.99,1299.99,Credit Card,New York
-S002,2025-01-07,C12346,Jane Doe,P101,Wireless Mouse,2,29.99,59.98,Cash,Los Angeles
-S003,2025-01-07,C12347,Bob Johnson,P102,USB-C Cable,3,15.99,47.97,Debit Card,Chicago
-S004,2025-01-07,C12348,Alice Williams,P100,Laptop,1,1299.99,1299.99,Credit Card,Houston
-S005,2025-01-07,C12349,Charlie Brown,P103,Keyboard,1,89.99,89.99,PayPal,Phoenix
-S006,2025-01-07,C12350,Diana Prince,P104,Monitor 27",2,349.99,699.98,Credit Card,New York
-S007,2025-01-07,C12351,Eve Anderson,P105,Webcam HD,1,79.99,79.99,Cash,Seattle
-S008,2025-01-07,C12352,Frank Miller,P101,Wireless Mouse,4,29.99,119.96,Debit Card,Boston

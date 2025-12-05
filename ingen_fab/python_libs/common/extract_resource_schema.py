@@ -30,7 +30,7 @@ def get_extract_resource_schema() -> StructType:
             StructField("resource_name", StringType(), nullable=False),  # Resource/table name
             StructField(
                 "extract_state", StringType(), nullable=False
-            ),  # running, completed, failed, no_data
+            ),  # pending, running, success, warning, error
             # Error tracking
             StructField("error_message", StringType(), nullable=True),
             # Timestamp tracking (append-only pattern)

@@ -848,78 +848,18 @@ class lakehouse_utils(DataStoreInterface):
         logging.debug(f"Reading file from: {file_path}")
         reader = self.spark.read.format(file_format.lower())
 
-        # Apply common options based on file format
-        if file_format.lower() == "csv":
-            # Translate human-readable names to Spark option names
-            if "has_header" in options:
-                reader = reader.option("header", str(options["has_header"]).lower())
-            if "file_delimiter" in options:
-                reader = reader.option("sep", options["file_delimiter"])
-            if "encoding" in options:
-                reader = reader.option("encoding", options["encoding"])
-            if "inferSchema" in options:
-                reader = reader.option(
-                    "inferSchema", str(options["inferSchema"]).lower()
-                )
-            if "dateFormat" in options:
-                reader = reader.option("dateFormat", options["dateFormat"])
-            if "timestampFormat" in options:
-                reader = reader.option("timestampFormat", options["timestampFormat"])
-
-            # Apply advanced CSV options for complex scenarios
-            if "quote_character" in options:
-                reader = reader.option("quote", options["quote_character"])
-            if "escape_character" in options:
-                reader = reader.option("escape", options["escape_character"])
-            if "multiline_values" in options:
-                reader = reader.option("multiLine", str(options["multiline_values"]).lower())
-            if "null_value" in options:
-                reader = reader.option("nullValue", options["null_value"])
-            if "ignoreLeadingWhiteSpace" in options:
-                reader = reader.option(
-                    "ignoreLeadingWhiteSpace",
-                    str(options["ignoreLeadingWhiteSpace"]).lower(),
-                )
-            if "ignoreTrailingWhiteSpace" in options:
-                reader = reader.option(
-                    "ignoreTrailingWhiteSpace",
-                    str(options["ignoreTrailingWhiteSpace"]).lower(),
-                )
-            if "nullValue" in options:
-                reader = reader.option("nullValue", options["nullValue"])
-            if "emptyValue" in options:
-                reader = reader.option("emptyValue", options["emptyValue"])
-            if "comment" in options:
-                reader = reader.option("comment", options["comment"])
-            if "maxColumns" in options:
-                reader = reader.option("maxColumns", int(options["maxColumns"]))
-            if "maxCharsPerColumn" in options:
-                reader = reader.option(
-                    "maxCharsPerColumn", int(options["maxCharsPerColumn"])
-                )
-            if "unescapedQuoteHandling" in options:
-                reader = reader.option(
-                    "unescapedQuoteHandling", options["unescapedQuoteHandling"]
-                )
-            if "enforceSchema" in options:
-                reader = reader.option(
-                    "enforceSchema", str(options["enforceSchema"]).lower()
-                )
-            if "columnNameOfCorruptRecord" in options:
-                reader = reader.option(
-                    "columnNameOfCorruptRecord", options["columnNameOfCorruptRecord"]
-                )
-
-        elif file_format.lower() == "json":
-            # Apply JSON-specific options
-            if "dateFormat" in options:
-                reader = reader.option("dateFormat", options["dateFormat"])
-            if "timestampFormat" in options:
-                reader = reader.option("timestampFormat", options["timestampFormat"])
-
-        # Apply custom schema if provided
+        # Apply schema if provided
         if "schema" in options:
             reader = reader.schema(options["schema"])
+
+        # Apply all other options directly (caller handles translation to Spark names)
+        for key, value in options.items():
+            if key == "schema":
+                continue
+            if isinstance(value, bool):
+                reader = reader.option(key, str(value).lower())
+            else:
+                reader = reader.option(key, value)
 
         # Build full file path(s) using the lakehouse files URI
         # Handle both single path (string) and multiple paths (list)

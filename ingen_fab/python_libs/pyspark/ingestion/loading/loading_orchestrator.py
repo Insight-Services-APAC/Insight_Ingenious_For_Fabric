@@ -16,19 +16,19 @@ from pyspark.sql import SparkSession
 from ingen_fab.python_libs.common.flat_file_ingestion_utils import (
     ProcessingMetricsUtils,
 )
-from ingen_fab.python_libs.pyspark.ingestion.config import MetadataColumns, ResourceConfig
-from ingen_fab.python_libs.pyspark.ingestion.constants import ExecutionStatus
-from ingen_fab.python_libs.pyspark.ingestion.exceptions import (
+from ingen_fab.python_libs.pyspark.ingestion.common.config import MetadataColumns, ResourceConfig
+from ingen_fab.python_libs.pyspark.ingestion.common.constants import ExecutionStatus
+from ingen_fab.python_libs.pyspark.ingestion.common.exceptions import (
     DataQualityRejectionError,
     ErrorContext,
     FileReadError,
     SchemaValidationError,
     WriteError,
 )
-from ingen_fab.python_libs.pyspark.ingestion.loader import FileLoader
-from ingen_fab.python_libs.pyspark.ingestion.loading_logger import LoadingLogger
-from ingen_fab.python_libs.pyspark.ingestion.logging_utils import ConfigLoggerAdapter
-from ingen_fab.python_libs.pyspark.ingestion.results import (
+from ingen_fab.python_libs.pyspark.ingestion.loading.loader import FileLoader
+from ingen_fab.python_libs.pyspark.ingestion.loading.loading_logger import LoadingLogger
+from ingen_fab.python_libs.pyspark.ingestion.common.logging_utils import resource_context, ResourceContext
+from ingen_fab.python_libs.pyspark.ingestion.common.results import (
     BatchInfo,
     ProcessingMetrics,
     ResourceExecutionResult,
@@ -46,13 +46,11 @@ class BatchContext:
         execution_id: str,
         load_run_id: str,
         file_loader: 'FileLoader',
-        config_logger: logging.LoggerAdapter,
     ):
         self.config = config
         self.execution_id = execution_id
         self.load_run_id = load_run_id
         self.file_loader = file_loader
-        self.config_logger = config_logger
 
 
 class LoadingOrchestrator:
@@ -117,21 +115,12 @@ class LoadingOrchestrator:
         """
         self.spark = spark
         self.logger_instance = logger_instance
-        self.max_concurrency = max_concurrency
+        self.max_concurrency = max_concurrency if max_concurrency is not None else 4
 
         # Parse metadata column overrides (supports 0, 1, or many overrides)
         self.metadata_columns = MetadataColumns.from_dict(metadata_columns)
 
-        # Configure logging
-        if not logging.getLogger().handlers:
-            logging.basicConfig(
-                level=logging.INFO,
-                format='%(asctime)s | %(levelname)-8s | %(message)s',
-                datefmt='%Y-%m-%d %H:%M:%S',
-                force=True
-            )
-
-    def _discover_batches(self, config: ResourceConfig, config_logger: logging.LoggerAdapter) -> List[BatchInfo]:
+    def _discover_batches(self, config: ResourceConfig) -> List[BatchInfo]:
         """
         Discover batches to process from extraction logs (orchestrator owns this logic).
 
@@ -140,7 +129,6 @@ class LoadingOrchestrator:
 
         Args:
             config: Resource configuration
-            config_logger: Logger with resource context
 
         Returns:
             List of BatchInfo objects ready to process
@@ -186,10 +174,10 @@ class LoadingOrchestrator:
 
             batches.append(batch_info)
 
-        config_logger.info(f"Discovered {len(batches)} batches from extraction logs")
+        logger.info(f"Discovered {len(batches)} batches from extraction logs")
         return batches
 
-    def _recover_stale_batches(self, config: ResourceConfig, config_logger: logging.LoggerAdapter) -> None:
+    def _recover_stale_batches(self, config: ResourceConfig) -> None:
         """
         Recover batches stuck in processing state (crash recovery).
 
@@ -198,7 +186,6 @@ class LoadingOrchestrator:
 
         Args:
             config: Resource configuration
-            config_logger: Logger with resource context
         """
         # Business decision: 1 hour threshold
         stale_df = self.logger_instance.query_stale_batches(config, threshold_hours=1)
@@ -209,18 +196,19 @@ class LoadingOrchestrator:
             return
 
         # Business logic: log warning and recover each batch
-        config_logger.warning(f"Found {len(stale_rows)} stale batches, recovering...")
+        logger.warning(f"Found {len(stale_rows)} stale batches, recovering...")
 
         for row in stale_rows:
             # Call logger to write recovery record (data access)
             self.logger_instance.log_batch_recovery(config, row)
             batch_id = row.load_batch_id if hasattr(row, 'load_batch_id') else row.load_id
-            config_logger.info(f"Recovered batch {batch_id}")
+            logger.info(f"Recovered batch {batch_id}")
 
     def process_resources(
         self,
         configs: List[ResourceConfig],
         execution_id: str,
+        is_retry: bool = False,
     ) -> Dict[str, Any]:
         """
         Process multiple resource configurations.
@@ -228,23 +216,25 @@ class LoadingOrchestrator:
         Args:
             configs: List of ResourceConfig objects to process
             execution_id: Unique execution identifier for this run
+            is_retry: If True, only process configs whose last load failed
 
         Returns:
             Dictionary with execution summary
         """
+        # Filter to failed configs if retry mode
+        if is_retry:
+            failed_keys = self.logger_instance.get_failed_resource_keys(configs)
+            configs = [c for c in configs if (c.source_name, c.resource_name) in failed_keys]
+
         results = {
+            "success": True,
             "execution_id": execution_id,
             "total_resources": len(configs),
-            "successful": 0,
-            "failed": 0,
-            "no_data": 0,
-            "rejected_batches": 0,
-            "resources": [],
-            "execution_groups_processed": [],
+            "results": [],
         }
 
         if not configs:
-            logger.warning("No resources to process")
+            logger.info("No resources to process")
             return results
 
         # Group by execution_group
@@ -269,25 +259,21 @@ class LoadingOrchestrator:
             group_results = self._process_group_parallel(group_configs, execution_id, group_num)
 
             # Aggregate results
-            results["resources"].extend(group_results)
-            results["execution_groups_processed"].append(group_num)
-
-            # Count statuses
             for result in group_results:
-                if result.status == ExecutionStatus.COMPLETED:
-                    results["successful"] += 1
-                elif result.status == ExecutionStatus.FAILED:
-                    results["failed"] += 1
-                else:
-                    results["no_data"] += 1
+                # Convert to dictionary and append
+                results["results"].append(result.to_dict())
 
-                # Sum all rejections across resources
-                results["rejected_batches"] += result.batches_rejected
+        # Count by status and determine overall success
+        success_count = sum(1 for r in results["results"] if r["status"] == "success")
+        warning_count = sum(1 for r in results["results"] if r["status"] == "warning")
+        error_count = sum(1 for r in results["results"] if r["status"] == "error")
+
+        results["success"] = error_count == 0
 
         logger.info(
-            f"Execution complete: {results['successful']} successful, "
-            f"{results['failed']} failed, {results['no_data']} no data, "
-            f"{results['rejected_batches']} rejected batches"
+            f"Loading complete: {success_count} successful, "
+            f"{warning_count} warnings, "
+            f"{error_count} failed"
         )
 
         return results
@@ -327,9 +313,9 @@ class LoadingOrchestrator:
                     except Exception as e:
                         error_result = ResourceExecutionResult(
                             resource_name=config.resource_name,
-                            status=ExecutionStatus.FAILED,
+                            source_name=config.source_name,
+                            status=ExecutionStatus.ERROR,
                             batches_processed=0,
-                            batches_failed=0,
                             error_message=f"Thread execution error: {str(e)}",
                         )
                         results.append(error_result)
@@ -339,33 +325,33 @@ class LoadingOrchestrator:
         end_time = time.time()
         duration = end_time - start_time
 
-        completed = sum(1 for r in results if r.status == ExecutionStatus.COMPLETED)
-        failed = sum(1 for r in results if r.status == ExecutionStatus.FAILED)
-        no_data = sum(1 for r in results if r.status == ExecutionStatus.NO_DATA)
+        success_count = sum(1 for r in results if r.status == ExecutionStatus.SUCCESS)
+        warning_count = sum(1 for r in results if r.status == ExecutionStatus.WARNING)
+        error_count = sum(1 for r in results if r.status == ExecutionStatus.ERROR)
         rejected = sum(1 for r in results if r.batches_rejected > 0)
 
         logger.info(f"Execution group {group_num} completed in {duration:.1f}s")
         logger.info(
-            f"{len(results)} resource(s) - {completed} completed, {failed} failed, {no_data} no data, {rejected} with rejections"
+            f"{len(results)} resource(s) - {success_count} success, {warning_count} warning, {error_count} error, {rejected} with rejections"
         )
 
-        # Sort results: successful/no-data first, then failed
-        successful_results = [r for r in results if r.status != ExecutionStatus.FAILED]
-        failed_results = [r for r in results if r.status == ExecutionStatus.FAILED]
-        sorted_results = successful_results + failed_results
+        # Sort results: success/warning first, then errors
+        successful_results = [r for r in results if r.status != ExecutionStatus.ERROR]
+        error_results = [r for r in results if r.status == ExecutionStatus.ERROR]
+        sorted_results = successful_results + error_results
 
         # Log all results in sorted order
         for result in sorted_results:
-            icon = "✓" if result.status == ExecutionStatus.COMPLETED else "✗" if result.status == ExecutionStatus.FAILED else "○"
+            icon = "✓" if result.status == ExecutionStatus.SUCCESS else "✗" if result.status == ExecutionStatus.ERROR else "⚠"
             batch_summary = f"{result.batches_processed} batches"
             if result.batches_rejected > 0:
                 batch_summary += f", {result.batches_rejected} rejected"
 
-            if result.status == ExecutionStatus.FAILED and result.error_message:
-                # Failed - log summary at INFO level (ERROR already logged when it happened)
-                logger.info(f"{icon} {result.resource_name} (failed) - {result.error_message}")
+            if result.status == ExecutionStatus.ERROR and result.error_message:
+                # Error - log summary at INFO level (ERROR already logged when it happened)
+                logger.info(f"{icon} {result.resource_name} (error) - {result.error_message}")
             else:
-                # Successful or no data - log status
+                # Success or warning - log status
                 logger.info(
                     f"{icon} {result.resource_name} ({result.status}) - {batch_summary}"
                 )
@@ -387,30 +373,30 @@ class LoadingOrchestrator:
         Returns:
             ResourceExecutionResult with processing outcome
         """
-        # Create logger adapter with resource context
-        config_logger = ConfigLoggerAdapter(logger, {
-            'source_name': config.source_name,
-            'config_name': config.resource_name,
-        })
+        # Set logging context (automatically prefixes all log messages)
+        token = resource_context.set(ResourceContext(
+            source_name=config.source_name,
+            resource_name=config.resource_name,
+        ))
 
         start_time = time.time()
         result = ResourceExecutionResult(
             resource_name=config.resource_name,
+            source_name=config.source_name,
             status=ExecutionStatus.PENDING,
             batches_processed=0,
-            batches_failed=0,
         )
 
         # Log resource execution start and capture load_run_id
         load_run_id = self.logger_instance.log_resource_execution_start(config, execution_id)
 
         try:
-            config_logger.info(f"Loading: {config.resource_name}")
+            logger.info(f"Loading: {config.resource_name}")
             # Consolidate metadata into single line
             target_full = f"{config.target_schema}.{config.target_table}" if config.target_schema else config.target_table
-            config_logger.info(
+            logger.info(
                 f"Extract: {config.extract_path} → Target: {target_full} "
-                f"({config.extract_file_format}, {config.target_write_mode})"
+                f"({config.extract_file_format_params.file_format}, {config.target_write_mode})"
             )
 
             # Create FileLoader instance
@@ -421,14 +407,15 @@ class LoadingOrchestrator:
             )
 
             # Step 1: Crash recovery - recover stale batches before discovering new ones
-            self._recover_stale_batches(config, config_logger)
+            self._recover_stale_batches(config)
 
             # Step 2: Discover batches from extraction logs (dlt-style work queue)
-            discovered_batches = self._discover_batches(config, config_logger)
+            discovered_batches = self._discover_batches(config)
+            result.batches_discovered = len(discovered_batches)
 
             if not discovered_batches:
-                config_logger.info("No files to process")
-                result.status = ExecutionStatus.NO_DATA
+                logger.info("No files to process")
+                result.status = ExecutionStatus.SUCCESS
                 self.logger_instance.log_resource_execution_completion(config, execution_id, load_run_id, result)
                 return result
 
@@ -438,7 +425,6 @@ class LoadingOrchestrator:
                 execution_id=execution_id,
                 load_run_id=load_run_id,
                 file_loader=file_loader,
-                config_logger=config_logger,
             )
 
             all_metrics, batches_processed = self._process_batches(
@@ -449,14 +435,14 @@ class LoadingOrchestrator:
             result.batches_processed = batches_processed
 
             # Finalize result with aggregated metrics and status
-            self._finalize_result(result, all_metrics, config, start_time, config_logger)
+            self._finalize_result(result, all_metrics, config, start_time)
 
             # Log resource execution completion
             self.logger_instance.log_resource_execution_completion(config, execution_id, load_run_id, result)
 
         except DataQualityRejectionError as e:
             # Expected data quality rejection - already logged cleanly at INFO level
-            result.status = ExecutionStatus.FAILED
+            result.status = ExecutionStatus.ERROR
             result.error_message = str(e)
             result.batches_rejected = 1  # Rejection caused the exception
             # NO stack trace, NO ERROR log (already logged at INFO in batch handler)
@@ -464,27 +450,31 @@ class LoadingOrchestrator:
 
         except SchemaValidationError as e:
             # Schema validation error - user config issue, already logged cleanly
-            result.status = ExecutionStatus.FAILED
+            result.status = ExecutionStatus.ERROR
             result.error_message = str(e)
             # Log helpful message without stack trace
-            config_logger.info(f"Schema validation failed - check schema_columns configuration")
+            logger.info(f"Schema validation failed - check schema_columns configuration")
             if e.context and e.context.additional_info.get("schema_error"):
-                config_logger.info(f"Details: {e.context.additional_info['schema_error']}")
+                logger.info(f"Details: {e.context.additional_info['schema_error']}")
             self.logger_instance.log_resource_execution_error(config, execution_id, load_run_id, str(e), result)
 
         except (FileReadError, WriteError) as e:
             # Unexpected system errors - log with stack trace
-            result.status = ExecutionStatus.FAILED
+            result.status = ExecutionStatus.ERROR
             result.error_message = str(e)
-            config_logger.exception(f"Loading failed: {e}")
+            logger.exception(f"Loading failed: {e}")
             self.logger_instance.log_resource_execution_error(config, execution_id, load_run_id, str(e), result)
 
         except Exception as e:
             # Unexpected error
-            result.status = ExecutionStatus.FAILED
+            result.status = ExecutionStatus.ERROR
             result.error_message = str(e)
-            config_logger.exception(f"Unexpected error in loading: {e}")
+            logger.exception(f"Unexpected error in loading: {e}")
             self.logger_instance.log_resource_execution_error(config, execution_id, load_run_id, str(e), result)
+
+        finally:
+            # Reset context
+            resource_context.reset(token)
 
         return result
 
@@ -498,7 +488,7 @@ class LoadingOrchestrator:
 
         Args:
             batches: List of BatchInfo objects to process
-            ctx: BatchContext with config, execution_id, load_run_id, file_loader, config_logger
+            ctx: BatchContext with config, execution_id, load_run_id, file_loader, logger
 
         Returns:
             Tuple of (all_metrics, batches_processed)
@@ -527,42 +517,56 @@ class LoadingOrchestrator:
                 completion_message = self._format_batch_completion_message(
                     batch_index, total_batches, combined_metrics, batch_duration
                 )
-                ctx.config_logger.info(completion_message)
+                logger.info(completion_message)
 
-                # Log completion to database
-                self.logger_instance.log_batch_completion(
-                    ctx.config,
-                    ctx.execution_id,
-                    ctx.load_run_id,
-                    batch_info.batch_id,
-                    combined_metrics,
-                    batch_info
-                )
-
-                # Update extraction log (PENDING → COMPLETED)
-                self.logger_instance.update_extraction_batch_load_state(
-                    batch_info.extract_batch_id,
-                    ctx.config.source_name,
-                    ctx.config.resource_name,
-                    ExecutionStatus.COMPLETED
-                )
+                # Log completion to database based on data quality
+                if combined_metrics.corrupt_records_count > 0:
+                    # Data quality issues were filtered - log as warning
+                    self.logger_instance.log_batch_warning(
+                        ctx.config,
+                        ctx.execution_id,
+                        ctx.load_run_id,
+                        batch_info.batch_id,
+                        f"Data quality issues filtered: {combined_metrics.corrupt_records_count} corrupt records",
+                        batch_info,
+                        metrics=combined_metrics
+                    )
+                    # Update extraction log (PENDING → WARNING)
+                    self.logger_instance.update_extraction_batch_load_state(
+                        batch_info.extract_batch_id,
+                        ctx.config.source_name,
+                        ctx.config.resource_name,
+                        ExecutionStatus.WARNING
+                    )
+                else:
+                    # Clean success
+                    self.logger_instance.log_batch_completion(
+                        ctx.config,
+                        ctx.execution_id,
+                        ctx.load_run_id,
+                        batch_info.batch_id,
+                        combined_metrics,
+                        batch_info
+                    )
+                    # Update extraction log (PENDING → SUCCESS)
+                    self.logger_instance.update_extraction_batch_load_state(
+                        batch_info.extract_batch_id,
+                        ctx.config.source_name,
+                        ctx.config.resource_name,
+                        ExecutionStatus.SUCCESS
+                    )
 
                 # Track successful batch
                 all_metrics.append(combined_metrics)
                 batches_processed += 1
 
             except DataQualityRejectionError as error:
-                # Data quality rejection - fail fast to maintain data continuity
-                # File moved to error location, extraction log updated to 'failed'
-
-                # Extract rejection reason from exception
                 if error.context and error.context.additional_info:
                     rejection_reason = error.context.additional_info.get("rejection_reason") or str(error)
                 else:
                     rejection_reason = str(error)
 
-                # Log rejection to database
-                self.logger_instance.log_batch_rejected(
+                self.logger_instance.log_batch_error(
                     ctx.config,
                     ctx.execution_id,
                     ctx.load_run_id,
@@ -598,7 +602,7 @@ class LoadingOrchestrator:
                     error_message,
                     batch_info
                 )
-                self._handle_batch_error(error, batch_info, ctx.config_logger)
+                self._handle_batch_error(error, batch_info)
                 
                 # Stop processing if any batch fails
                 raise
@@ -652,7 +656,7 @@ class LoadingOrchestrator:
 
         Args:
             batch_info: Information about the batch to process
-            ctx: BatchContext with config, execution_id, load_run_id, file_loader, config_logger
+            ctx: BatchContext with config, execution_id, load_run_id, file_loader, logger
 
         Returns:
             ProcessingMetrics with batch processing results
@@ -669,7 +673,7 @@ class LoadingOrchestrator:
 
         if raw_result.status == "failed":
             error_message = raw_result.rejection_reason or "Unknown error"
-            ctx.config_logger.error(f"Failed to load files to staging table: {error_message}")
+            logger.error(f"Failed to load files to staging table: {error_message}")
 
             raise WriteError(
                 message=f"Failed to load files to staging table: {error_message}",
@@ -684,7 +688,7 @@ class LoadingOrchestrator:
 
         # Log Step 1 success
         raw_rows = raw_result.metrics.source_row_count
-        ctx.config_logger.info(f"Step 1/2: Loaded {raw_rows:,} rows to staging table")
+        logger.info(f"Step 1/2: Loaded {raw_rows:,} rows to staging table")
 
         # Step 2: Load from staging table to target with validation and write
         result = ctx.file_loader.load_stg_table_to_target(batch_info)
@@ -694,8 +698,8 @@ class LoadingOrchestrator:
             rejection_reason = result.rejection_reason
             file_name = os.path.basename(batch_info.file_paths[0]) if batch_info.file_paths else "unknown"
 
-            ctx.config_logger.info(f"Step 2/2: Batch rejected: {file_name}")
-            ctx.config_logger.info(f"Reason: {rejection_reason}")
+            logger.info(f"Step 2/2: Batch rejected: {file_name}")
+            logger.info(f"Reason: {rejection_reason}")
 
             # Move rejected batch to error location (data file + control file if present)
             self._move_rejected_batch_to_error(batch_info, ctx)
@@ -705,7 +709,7 @@ class LoadingOrchestrator:
                 batch_info.extract_batch_id,
                 ctx.config.source_name,
                 ctx.config.resource_name,
-                ExecutionStatus.FAILED
+                ExecutionStatus.ERROR
             )
 
             raise DataQualityRejectionError(
@@ -723,7 +727,7 @@ class LoadingOrchestrator:
         # Log Step 2 success
         metrics = result.metrics
         target_rows = metrics.target_row_count_after
-        ctx.config_logger.info(f"Step 2/2: Wrote {target_rows:,} rows to target table")
+        logger.info(f"Step 2/2: Wrote {target_rows:,} rows to target table")
 
         return metrics
 
@@ -795,6 +799,7 @@ class LoadingOrchestrator:
         Handles:
         - Data file movement from extract_path to extract_error_path
         - Control file movement (if control_file_pattern configured)
+        - Multi-file batches (batch_by="all" or batch_by="folder")
 
         Note:
             Extraction batch logs are NOT updated - they remain pointing to landing.
@@ -805,32 +810,44 @@ class LoadingOrchestrator:
             batch_info: Information about the rejected batch
             ctx: Batch processing context
         """
-        # Validate destination_path exists
-        if not batch_info.destination_path:
-            ctx.config_logger.warning("Cannot move rejected batch - destination_path is missing")
+        # Validate we have files to move
+        if not batch_info.file_paths:
+            logger.warning("Cannot move rejected batch - no file_paths in BatchInfo")
             return
 
-        # Build error destination path (preserve folder structure)
-        source_path = batch_info.destination_path
-        relative_path = self._extract_lakehouse_relative_path(
-            file_path=source_path,
-            base_path=ctx.config.extract_path,
-        )
-        error_path = f"{ctx.config.extract_error_path.rstrip('/')}/{relative_path}"
+        # Move all files in the batch (handles batch_by="all" and batch_by="folder")
+        files_moved = 0
+        for source_path in batch_info.file_paths:
+            # Skip folder paths (end with /)
+            if source_path.endswith("/"):
+                continue
 
-        ctx.config_logger.info(f"Moving rejected file: {source_path} → {error_path}")
+            # Build error destination path (preserve folder structure)
+            relative_path = self._extract_lakehouse_relative_path(
+                file_path=source_path,
+                base_path=ctx.config.extract_path,
+            )
+            error_path = f"{ctx.config.extract_error_path.rstrip('/')}/{relative_path}"
 
-        # Move data file to error location
-        data_moved = ctx.file_loader.source_lakehouse_utils.move_file(source_path, error_path)
+            logger.info(f"Moving rejected file: {source_path} → {error_path}")
 
-        if data_moved:
-            ctx.config_logger.info("Data file moved to error location successfully")
+            # Move data file to error location
+            data_moved = ctx.file_loader.source_lakehouse_utils.move_file(source_path, error_path)
 
-            # Move control file if configured (best-effort, don't fail batch if this fails)
-            self._move_control_file_to_error(source_path, error_path, ctx)
+            if data_moved:
+                files_moved += 1
+                logger.debug(f"Data file moved successfully: {os.path.basename(source_path)}")
 
+                # Move control file if configured (best-effort)
+                self._move_control_file_to_error(source_path, error_path, ctx)
+            else:
+                logger.warning(f"Failed to move data file: {os.path.basename(source_path)}")
+
+        # Log summary
+        if files_moved > 0:
+            logger.info(f"Moved {files_moved} file(s) to error location")
         else:
-            ctx.config_logger.warning("Failed to move data file to error location - file remains in landing")
+            logger.warning("No files were moved to error location")
 
     def _move_control_file_to_error(
         self,
@@ -850,7 +867,11 @@ class LoadingOrchestrator:
             ctx: Batch processing context
         """
         # Check if control files are configured for this resource
-        control_pattern = ctx.config.source_extraction_params.get("control_file_pattern")
+        if isinstance(ctx.config.source_extraction_params, dict):
+            control_pattern = ctx.config.source_extraction_params.get("control_file_pattern")
+        else:
+            control_pattern = getattr(ctx.config.source_extraction_params, "control_file_pattern", None)
+
         if not control_pattern:
             # No control file configuration - nothing to do
             return
@@ -861,7 +882,7 @@ class LoadingOrchestrator:
             control_error = self._derive_control_file_path(data_error_path, control_pattern)
 
             if not control_source or not control_error:
-                ctx.config_logger.debug("Could not derive control file paths - skipping control file move")
+                logger.debug("Could not derive control file paths - skipping control file move")
                 return
 
             # Attempt to move control file
@@ -871,14 +892,14 @@ class LoadingOrchestrator:
 
             if control_moved:
                 control_filename = os.path.basename(control_source)
-                ctx.config_logger.debug(f"Control file moved: {control_filename}")
+                logger.debug(f"Control file moved: {control_filename}")
             else:
                 # File might not exist or already moved - log at debug level
-                ctx.config_logger.debug("Control file not found or could not be moved")
+                logger.debug("Control file not found or could not be moved")
 
         except Exception as e:
             # Control file movement is best-effort - log and continue
-            ctx.config_logger.debug(f"Could not move control file: {e}")
+            logger.debug(f"Could not move control file: {e}")
 
     def _derive_control_file_path(
         self,
@@ -924,7 +945,6 @@ class LoadingOrchestrator:
         self,
         error: Exception,
         batch_info: BatchInfo,
-        config_logger: logging.LoggerAdapter,
     ) -> None:
         """
         Handle batch processing error with appropriate logging.
@@ -932,16 +952,15 @@ class LoadingOrchestrator:
         Args:
             error: The exception that occurred
             batch_info: Information about the failed batch
-            config_logger: Configured logger adapter
         """
         load_id = batch_info.batch_id
         error_msg = str(error)
 
         # Log with appropriate level based on error type
         if isinstance(error, WriteError):
-            config_logger.exception(f"Batch {load_id} write failed: {error_msg}")
+            logger.exception(f"Batch {load_id} write failed: {error_msg}")
         else:
-            config_logger.exception(f"Batch {load_id} failed: {error_msg}")
+            logger.exception(f"Batch {load_id} failed: {error_msg}")
 
     def _finalize_result(
         self,
@@ -949,7 +968,6 @@ class LoadingOrchestrator:
         all_metrics: List[ProcessingMetrics],
         config: ResourceConfig,
         start_time: float,
-        config_logger: logging.LoggerAdapter,
     ) -> None:
         """
         Aggregate metrics and update result status.
@@ -959,18 +977,15 @@ class LoadingOrchestrator:
             all_metrics: List of ProcessingMetrics from batch processing
             config: ResourceConfig for this resource
             start_time: Start time of processing (from time.time())
-            config_logger: Configured logger adapter
         """
         # Determine final status based on batch outcomes
-        if result.batches_failed > 0:
-            # System failures = FAILED status
-            result.status = ExecutionStatus.FAILED
-        elif result.batches_processed > 0:
-            # All batches succeeded (rejections don't cause failure) = COMPLETED status
-            result.status = ExecutionStatus.COMPLETED
+        # Note: If we reach here, no exceptions were raised (loading stops on first error)
+        if result.batches_processed > 0:
+            # All batches succeeded (rejections don't cause failure)
+            result.status = ExecutionStatus.SUCCESS
         else:
-            # No batches discovered or all skipped = NO_DATA status
-            result.status = ExecutionStatus.NO_DATA
+            # Defensive case: shouldn't happen since we check for empty discovered_batches earlier
+            result.status = ExecutionStatus.SUCCESS
 
         # Aggregate metrics if we have any
         if all_metrics:
@@ -984,4 +999,4 @@ class LoadingOrchestrator:
             # Consolidated resource summary (detail is in batch logs)
             duration_s = result.metrics.total_duration_ms / 1000
             batch_text = f"{result.batches_processed} batch{'es' if result.batches_processed != 1 else ''}"
-            config_logger.info(f"Completed: {batch_text} in {duration_s:.1f}s")
+            logger.info(f"Completed: {batch_text} in {duration_s:.1f}s")

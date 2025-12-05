@@ -10,7 +10,7 @@ from typing import Any, Dict, List, Optional, Tuple
 from ingen_fab.python_libs.interfaces.flat_file_ingestion_interface import (
     FlatFileIngestionConfig,
 )
-from ingen_fab.python_libs.pyspark.ingestion.results import ProcessingMetrics
+from ingen_fab.python_libs.pyspark.ingestion.common.results import ProcessingMetrics
 
 logger = logging.getLogger(__name__)
 

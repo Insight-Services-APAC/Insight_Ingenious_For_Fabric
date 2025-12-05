@@ -37,10 +37,10 @@ def get_extract_resource_batch_schema() -> StructType:
             StructField("resource_name", StringType(), nullable=False),  # Resource/table name (denormalized for partitioning)
             StructField(
                 "extract_state", StringType(), nullable=False
-            ),  # running, completed, failed, duplicate
+            ),  # pending, running, success, warning, error
             StructField(
                 "load_state", StringType(), nullable=False
-            ),  # pending, loading, completed, failed, skipped - tracks downstream loading status
+            ),  # pending, running, success, warning, error - tracks downstream loading status
             # Path information (CRITICAL for loading)
             StructField(
                 "source_path", StringType(), nullable=True
@@ -51,9 +51,6 @@ def get_extract_resource_batch_schema() -> StructType:
             # Batch metrics
             StructField("file_count", IntegerType(), nullable=True),  # Files in batch
             StructField("file_size_bytes", LongType(), nullable=True),  # Total size
-            StructField("promoted_count", IntegerType(), nullable=True),  # Successfully promoted
-            StructField("failed_count", IntegerType(), nullable=True),  # Failed to promote
-            StructField("duplicate_count", IntegerType(), nullable=True),  # Skipped duplicates
             # Timing
             StructField(
                 "started_at", TimestampType(), nullable=False

@@ -1,5 +1,6 @@
 import os
 import logging
+from dataclasses import dataclass
 from typing import List, Dict, Any, Tuple
 from datetime import datetime
 
@@ -14,6 +15,31 @@ from fsspec.core import url_to_fs
 from ingen_fab.python_libs.pyspark.lakehouse_utils import FileInfo
 
 logger = logging.getLogger(__name__)
+
+
+@dataclass
+class FilesystemConnection:
+    """Filesystem client and base URL bundle for dependency injection."""
+    fs: AbstractFileSystem
+    base_url: str
+
+    @classmethod
+    def from_params(cls, connection_params: Dict[str, Any]) -> "FilesystemConnection":
+        """
+        Create connection from connection params.
+
+        Supports:
+        - {"workspace_name": "...", "lakehouse_name": "..."} (OneLake)
+        - {"bucket_url": "abfss://..."} (full ABFSS URL)
+
+        Args:
+            connection_params: Connection parameters dict
+
+        Returns:
+            FilesystemConnection with fs client and base_url
+        """
+        fs, base_url = _get_filesystem_client(connection_params)
+        return cls(fs=fs, base_url=base_url)
 
 def build_onelake_url(workspace_name: str, lakehouse_name: str, path: str = "") -> str:
     """
@@ -42,7 +68,7 @@ def build_onelake_url(workspace_name: str, lakehouse_name: str, path: str = "") 
     return base_url
 
 
-def get_filesystem_client(connection_params: Dict[str, Any]) -> Tuple[AbstractFileSystem, str]:
+def _get_filesystem_client(connection_params: Dict[str, Any]) -> Tuple[AbstractFileSystem, str]:
     """
     Create fsspec filesystem client for OneLake using notebook user credentials.
 
@@ -159,6 +185,50 @@ def move_file(
 
     except Exception as e:
         logger.error(f"✗ Failed to move {source_path} → {dest_path}: {e}")
+        return False
+
+
+def copy_file(
+    source_fs: AbstractFileSystem,
+    source_path: str,
+    dest_fs: AbstractFileSystem,
+    dest_path: str,
+) -> bool:
+    """
+    Copy file from source to destination without deleting source.
+
+    Same as move_file() but leaves the source file in place.
+    Used for watermark-based extraction where files stay at source.
+
+    Args:
+        source_fs: Source filesystem client
+        source_path: Full path to source file
+        dest_fs: Destination filesystem client
+        dest_path: Full path to destination file
+
+    Returns:
+        True if successful, False otherwise
+    """
+    try:
+        # Create destination directory if needed
+        dest_dir = os.path.dirname(dest_path)
+        if dest_dir and not dest_fs.exists(dest_dir):
+            dest_fs.makedirs(dest_dir, exist_ok=True)
+
+        # Copy file
+        if source_fs == dest_fs:
+            # Same filesystem - use cp
+            source_fs.cp(source_path, dest_path)
+        else:
+            # Different filesystems - use get/put pattern
+            with source_fs.open(source_path, 'rb') as f_src:
+                with dest_fs.open(dest_path, 'wb') as f_dest:
+                    f_dest.write(f_src.read())
+
+        return True
+
+    except Exception as e:
+        logger.error(f"✗ Failed to copy {source_path} → {dest_path}: {e}")
         return False
 
 

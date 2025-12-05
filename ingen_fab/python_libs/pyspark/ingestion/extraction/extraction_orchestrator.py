@@ -10,15 +10,13 @@ from typing import Any, Dict, List
 
 from pyspark.sql import SparkSession
 
-from ingen_fab.python_libs.pyspark.ingestion.config import ResourceConfig, FileSystemExtractionParams
-from ingen_fab.python_libs.pyspark.ingestion.constants import ExecutionStatus, NoDataHandling
-from ingen_fab.python_libs.pyspark.ingestion.exceptions import ExtractionError
-from ingen_fab.python_libs.pyspark.ingestion.extractors.filesystem_extractor import (
-    FileSystemExtractor,
-)
-from ingen_fab.python_libs.pyspark.ingestion.extraction_logger import ExtractionLogger
-from ingen_fab.python_libs.pyspark.ingestion.logging_utils import ConfigLoggerAdapter
-from ingen_fab.python_libs.pyspark.ingestion.results import ResourceExtractionResult
+from ingen_fab.python_libs.pyspark.ingestion.common.config import ResourceConfig
+from ingen_fab.python_libs.pyspark.ingestion.common.constants import ExecutionStatus
+from ingen_fab.python_libs.pyspark.ingestion.common.exceptions import ExtractionError
+from ingen_fab.python_libs.pyspark.ingestion.extraction.extractors.base_extractor import BaseExtractor
+from ingen_fab.python_libs.pyspark.ingestion.extraction.extraction_logger import ExtractionLogger
+from ingen_fab.python_libs.pyspark.ingestion.common.logging_utils import resource_context, ResourceContext
+from ingen_fab.python_libs.pyspark.ingestion.common.results import ResourceExtractionResult
 
 logger = logging.getLogger(__name__)
 
@@ -52,21 +50,13 @@ class ExtractionOrchestrator:
         """
         self.spark = spark
         self.extraction_logger = extraction_logger
-        self.max_concurrency = max_concurrency
-
-        # Configure logging
-        if not logging.getLogger().handlers:
-            logging.basicConfig(
-                level=logging.INFO,
-                format='%(asctime)s | %(levelname)-8s | %(message)s',
-                datefmt='%Y-%m-%d %H:%M:%S',
-                force=True
-            )
+        self.max_concurrency = max_concurrency if max_concurrency is not None else 4
 
     def process_resources(
         self,
         configs: List[ResourceConfig],
         execution_id: str,
+        is_retry: bool = False,
     ) -> Dict[str, Any]:
         """
         Process multiple resource configurations.
@@ -74,23 +64,25 @@ class ExtractionOrchestrator:
         Args:
             configs: List of ResourceConfig objects to process
             execution_id: Unique execution identifier for this run
+            is_retry: If True, only process configs whose last extraction failed
 
         Returns:
             Dictionary with execution summary
         """
+        # Filter to failed configs if retry mode
+        if is_retry:
+            failed_keys = self.extraction_logger.get_failed_resource_keys(configs)
+            configs = [c for c in configs if (c.source_name, c.resource_name) in failed_keys]
+
         results = {
+            "success": True,
             "execution_id": execution_id,
             "total_resources": len(configs),
-            "successful": 0,
-            "failed": 0,
-            "no_data": 0,
-            "duplicates": 0,
-            "resources": [],
-            "execution_groups_processed": [],
+            "results": [],
         }
 
         if not configs:
-            logger.warning("No resources to process")
+            logger.info("No resources to process")
             return results
 
         # Group by execution_group
@@ -115,25 +107,21 @@ class ExtractionOrchestrator:
             group_results = self._process_group_parallel(group_configs, execution_id, group_num)
 
             # Aggregate results
-            results["resources"].extend(group_results)
-            results["execution_groups_processed"].append(group_num)
-
-            # Count statuses
             for result in group_results:
-                # Aggregate batch-level duplicate counts
-                results["duplicates"] += result.batches_duplicate
+                # Convert to dictionary and append
+                results["results"].append(result.to_dict())
 
-                if result.status == ExecutionStatus.FAILED:
-                    results["failed"] += 1
-                else:
-                    results["successful"] += 1
-                    if result.status == ExecutionStatus.NO_DATA:
-                        results["no_data"] += 1
+        # Count by status and determine overall success
+        success_count = sum(1 for r in results["results"] if r["status"] == "success")
+        warning_count = sum(1 for r in results["results"] if r["status"] == "warning")
+        error_count = sum(1 for r in results["results"] if r["status"] == "error")
+
+        results["success"] = error_count == 0
 
         logger.info(
-            f"Extraction complete: {results['successful']} successful, "
-            f"{results['failed']} failed, {results['no_data']} no data, "
-            f"{results['duplicates']} duplicates"
+            f"Extraction complete: {success_count} successful, "
+            f"{warning_count} warnings, "
+            f"{error_count} failed"
         )
 
         return results
@@ -173,7 +161,8 @@ class ExtractionOrchestrator:
                     except Exception as e:
                         error_result = ResourceExtractionResult(
                             resource_name=config.resource_name,
-                            status=ExecutionStatus.FAILED,
+                            source_name=config.source_name,
+                            status=ExecutionStatus.ERROR,
                             batches_processed=0,
                             batches_failed=0,
                             error_message=f"Thread execution error: {str(e)}",
@@ -185,23 +174,23 @@ class ExtractionOrchestrator:
         end_time = time.time()
         duration = end_time - start_time
 
-        completed = sum(1 for r in results if r.status == ExecutionStatus.COMPLETED)
-        failed = sum(1 for r in results if r.status == ExecutionStatus.FAILED)
-        no_data = sum(1 for r in results if r.status == ExecutionStatus.NO_DATA)
+        success_count = sum(1 for r in results if r.status == ExecutionStatus.SUCCESS)
+        warning_count = sum(1 for r in results if r.status == ExecutionStatus.WARNING)
+        error_count = sum(1 for r in results if r.status == ExecutionStatus.ERROR)
 
         logger.info(f"Execution group {group_num} completed in {duration:.1f}s")
         logger.info(
-            f"{len(results)} resource(s) - {completed} completed, {failed} failed, {no_data} no data"
+            f"{len(results)} resource(s) - {success_count} success, {warning_count} warning, {error_count} error"
         )
 
-        # Sort results: successful/no-data first, then failed
-        successful_results = [r for r in results if r.status != ExecutionStatus.FAILED]
-        failed_results = [r for r in results if r.status == ExecutionStatus.FAILED]
-        sorted_results = successful_results + failed_results
+        # Sort results: success/warning first, then errors
+        successful_results = [r for r in results if r.status != ExecutionStatus.ERROR]
+        error_results = [r for r in results if r.status == ExecutionStatus.ERROR]
+        sorted_results = successful_results + error_results
 
         # Log all results in sorted order
         for result in sorted_results:
-            icon = "✓" if result.status == ExecutionStatus.COMPLETED else "✗" if result.status == ExecutionStatus.FAILED else "○"
+            icon = "✓" if result.status == ExecutionStatus.SUCCESS else "✗" if result.status == ExecutionStatus.ERROR else "⚠"
             batches = result.batches_processed
             batch_text = f"{batches} batches"
 
@@ -209,13 +198,18 @@ class ExtractionOrchestrator:
             total_items = result.total_items_count
             file_text = f"{total_items} files"
 
-            if result.status == ExecutionStatus.FAILED and result.error_message:
-                # Failed - log summary at INFO level (ERROR already logged when it happened)
+            if result.status == ExecutionStatus.ERROR and result.error_message:
+                # Error - log summary at INFO level (ERROR already logged when it happened)
                 logger.info(
-                    f"{icon} {result.resource_name} (failed) - {result.error_message}"
+                    f"{icon} {result.resource_name} (error) - {result.error_message}"
+                )
+            elif result.status == ExecutionStatus.WARNING and result.error_message:
+                # Warning - show warning message for context
+                logger.info(
+                    f"{icon} {result.resource_name} (warning) - {result.error_message}"
                 )
             else:
-                # Successful or no data - log status
+                # Success - show metrics
                 logger.info(
                     f"{icon} {result.resource_name} ({result.status}) - {batch_text}, {file_text}"
                 )
@@ -237,41 +231,38 @@ class ExtractionOrchestrator:
         Returns:
             ResourceExtractionResult with extraction outcome
         """
-        # 1. Setup logger and context
-        config_logger = ConfigLoggerAdapter(logger, {
-            'source_name': config.source_name,
-            'config_name': config.resource_name,
-        })
+        # 1. Set logging context (automatically prefixes all log messages)
+        token = resource_context.set(ResourceContext(
+            source_name=config.source_name,
+            resource_name=config.resource_name,
+        ))
 
         # 2. Initialize result
         start_time = time.time()
         result = ResourceExtractionResult(
             resource_name=config.resource_name,
+            source_name=config.source_name,
             status=ExecutionStatus.PENDING,
             started_at=datetime.now(),
         )
 
-        # Extract no_data_handling policy
-        params = config.source_extraction_params
-        if isinstance(params, dict):
-            no_data_handling = params.get("no_data_handling", "allow")
-        else:
-            no_data_handling = getattr(params, 'no_data_handling', 'allow')
-
-        # 3. Log start
+        # Log start
         extract_run_id = self.extraction_logger.log_extraction_config_start(config, execution_id)
 
         try:
-            config_logger.info(f"Extracting: {config.resource_name}")
-            config_logger.info(
-                f"Source: {config.source_config.source_type} ({config.extract_file_format}) → {config.extract_path}"
+            logger.info(f"Extracting: {config.resource_name}")
+            logger.info(
+                f"Source: {config.source_config.source_type} ({config.extract_file_format_params.file_format}) → {config.extract_path}"
             )
 
             # 4. Execute extraction loop
-            extractor = self._get_extractor(config, config_logger)
-            metrics = {"extracted": 0, "failed": 0, "duplicate": 0, "no_data": 0, "files": 0, "bytes": 0}
+            extractor = BaseExtractor.create(config, self.extraction_logger)
+            metrics = {"extracted": 0, "failed": 0, "warning": 0, "files": 0, "bytes": 0}
+            all_batches = []  # Track batches to extract error messages
 
             for batch in extractor.extract():
+                all_batches.append(batch)  # Track for status determination
+
                 # Log batch
                 self.extraction_logger.log_extraction_batch(
                     config=config,
@@ -283,23 +274,18 @@ class ExtractionOrchestrator:
                     status=batch.status,
                     file_count=batch.file_count,
                     file_size_bytes=batch.file_size_bytes,
-                    promoted_count=batch.promoted_count,
-                    failed_count=batch.failed_count,
-                    duplicate_count=batch.duplicate_count,
                     duration_ms=batch.duration_ms,
                     error_message=batch.error_message,
                 )
 
-                # Update metrics
-                if batch.status == ExecutionStatus.COMPLETED:
+                # Update metrics (generic - no knowledge of duplicates, no_data, etc.)
+                if batch.status == ExecutionStatus.SUCCESS:
                     metrics["extracted"] += 1
                     metrics["files"] += batch.file_count
                     metrics["bytes"] += batch.file_size_bytes
-                elif batch.status == ExecutionStatus.DUPLICATE:
-                    metrics["duplicate"] += 1
-                elif batch.status == ExecutionStatus.NO_DATA:
-                    metrics["no_data"] += 1
-                else:
+                elif batch.status == ExecutionStatus.WARNING:
+                    metrics["warning"] += 1
+                elif batch.status == ExecutionStatus.ERROR:
                     metrics["failed"] += 1
                     metrics["files"] += batch.file_count
                     metrics["bytes"] += batch.file_size_bytes
@@ -307,102 +293,71 @@ class ExtractionOrchestrator:
             # 5. Update result
             result.batches_processed = metrics["extracted"]
             result.batches_failed = metrics["failed"]
-            result.batches_duplicate = metrics["duplicate"]
             result.total_items_count = metrics["files"]
             result.total_bytes = metrics["bytes"]
             result.completed_at = datetime.now()
 
-            # 6. Determine final status
+            # 6. Determine final status and collect all unique messages
             if metrics["failed"] > 0:
-                result.status = ExecutionStatus.FAILED
-                result.error_message = f"{metrics['failed']} batch(es) failed"
+                # Any failures = overall failure
+                result.status = ExecutionStatus.ERROR
+                # Collect all unique error messages
+                error_messages = [b.error_message for b in all_batches if b.status == ExecutionStatus.ERROR and b.error_message]
+                result.error_message = "; ".join(dict.fromkeys(error_messages)) if error_messages else "Unknown error"
             elif metrics["extracted"] > 0:
-                result.status = ExecutionStatus.COMPLETED
-            elif no_data_handling == NoDataHandling.ALLOW:
-                result.status = ExecutionStatus.SKIPPED
-            elif no_data_handling == NoDataHandling.FAIL:
-                result.status = ExecutionStatus.FAILED
-                result.error_message = "No data found (no_data_handling=fail)"
-            elif metrics["duplicate"] > 0:
-                result.status = ExecutionStatus.DUPLICATE
+                # At least one success = overall success (warnings ignored)
+                result.status = ExecutionStatus.SUCCESS
+                result.error_message = None
+            elif metrics["warning"] > 0:
+                # Only warnings, no successes
+                result.status = ExecutionStatus.WARNING
+                # Collect all unique warning messages
+                warning_messages = [b.error_message for b in all_batches if b.status == ExecutionStatus.WARNING and b.error_message]
+                result.error_message = "; ".join(dict.fromkeys(warning_messages)) if warning_messages else "Warnings occurred"
             else:
-                result.status = ExecutionStatus.NO_DATA
+                # No batches yielded (shouldn't happen with new design, but safe default)
+                result.status = ExecutionStatus.SUCCESS
+                result.error_message = None
 
             # 7. Log summary
             duration_s = time.time() - start_time
-            self._log_completion_summary(config_logger, result, metrics, duration_s)
+            self._log_completion_summary(result, metrics, duration_s)
 
         except ExtractionError as e:
-            result.status = ExecutionStatus.FAILED
+            result.status = ExecutionStatus.ERROR
             result.error_message = str(e)
             result.completed_at = datetime.now()
-            config_logger.error(f"Extraction failed: {e}")
+            logger.error(f"Extraction failed: {e}")
 
         except Exception as e:
-            result.status = ExecutionStatus.FAILED
+            result.status = ExecutionStatus.ERROR
             result.error_message = str(e)
             result.completed_at = datetime.now()
-            config_logger.exception(f"Unexpected error: {e}")
+            logger.exception(f"Unexpected error: {e}")
 
         finally:
             # 8. Persist final state (guaranteed execution)
             self.extraction_logger.log_extraction_config_end(
                 config, execution_id, extract_run_id, result.status, result.error_message
             )
+            # Reset context
+            resource_context.reset(token)
 
         return result
 
-    def _log_completion_summary(self, config_logger, result, metrics, duration_s):
+    def _log_completion_summary(self, result, metrics, duration_s):
         """Log the final status summary."""
         match result.status:
-            case ExecutionStatus.COMPLETED:
-                batch_text = f"{metrics['extracted']} batch{'es' if metrics['extracted'] != 1 else ''}"
-                file_text = f"{metrics['files']} file{'s' if metrics['files'] != 1 else ''}"
-                config_logger.info(f"Completed: {batch_text}, {file_text} in {duration_s:.1f}s")
-            case ExecutionStatus.FAILED:
-                config_logger.error(f"Extraction failed: {result.error_message}")
-            case ExecutionStatus.DUPLICATE:
-                config_logger.info(f"All files were duplicates ({metrics['duplicate']})")
-            case ExecutionStatus.NO_DATA:
-                config_logger.info(f"No data found for extraction")
-            case ExecutionStatus.SKIPPED:
-                pass  # Already logged by extractor
+            case ExecutionStatus.SUCCESS:
+                if metrics['extracted'] > 0:
+                    batch_text = f"{metrics['extracted']} batch{'es' if metrics['extracted'] != 1 else ''}"
+                    file_text = f"{metrics['files']} file{'s' if metrics['files'] != 1 else ''}"
+                    logger.info(f"Success: {batch_text}, {file_text} in {duration_s:.1f}s")
+                else:
+                    logger.info(f"Success: No data to extract (allowed)")
+            case ExecutionStatus.WARNING:
+                logger.warning(f"Warning: {result.error_message}")
+            case ExecutionStatus.ERROR:
+                logger.error(f"Error: {result.error_message}")
 
-    def _get_extractor(self, config: ResourceConfig, logger_instance=None):
-        """
-        Get appropriate extractor based on source type.
-
-        Args:
-            config: ResourceConfig with source_type
-            logger_instance: Optional context-aware logger
-
-        Returns:
-            Extractor instance (FileSystemExtractor, APIExtractor, DatabaseExtractor)
-
-        Raises:
-            NotImplementedError: If source_type extractor is not implemented
-        """
-        source_type = config.source_config.source_type
-
-        if source_type == "filesystem":
-            return FileSystemExtractor(
-                resource_config=config,
-                extraction_logger=self.extraction_logger,
-                logger_instance=logger_instance,
-            )
-        elif source_type == "api":
-            raise NotImplementedError(
-                f"API extractor not yet implemented. "
-                f"Create APIExtractor in extractors/ directory."
-            )
-        elif source_type == "database":
-            raise NotImplementedError(
-                f"Database extractor not yet implemented. "
-                f"Create DatabaseExtractor in extractors/ directory."
-            )
-        else:
-            raise ValueError(
-                f"Unknown source_type: {source_type}. "
-                f"Supported types: filesystem, api, database"
-            )
 

@@ -4,7 +4,7 @@
 import logging
 import uuid
 from datetime import datetime, timedelta
-from typing import List, Optional
+from typing import List, Optional, Set, Tuple
 
 from pyspark.sql import SparkSession
 from pyspark.sql.functions import col, lit, current_timestamp, row_number
@@ -16,9 +16,9 @@ from ingen_fab.python_libs.common.load_resource_schema import (
 from ingen_fab.python_libs.common.load_resource_batch_schema import (
     get_load_resource_batch_schema,
 )
-from ingen_fab.python_libs.pyspark.ingestion.config import ResourceConfig
-from ingen_fab.python_libs.pyspark.ingestion.constants import ExecutionStatus
-from ingen_fab.python_libs.pyspark.ingestion.results import (
+from ingen_fab.python_libs.pyspark.ingestion.common.config import ResourceConfig
+from ingen_fab.python_libs.pyspark.ingestion.common.constants import ExecutionStatus
+from ingen_fab.python_libs.pyspark.ingestion.common.results import (
     BatchInfo,
     ProcessingMetrics,
     ResourceExecutionResult,
@@ -122,7 +122,7 @@ class LoadingLogger:
             execution_id=execution_id,
             load_run_id=load_run_id,
             load_id=load_id,
-            status=ExecutionStatus.COMPLETED,
+            status=ExecutionStatus.SUCCESS,
             batch_info=batch_info,
             metrics=metrics,
         )
@@ -142,65 +142,31 @@ class LoadingLogger:
             execution_id=execution_id,
             load_run_id=load_run_id,
             load_id=load_id,
-            status=ExecutionStatus.FAILED,
+            status=ExecutionStatus.ERROR,
             batch_info=batch_info,
             error_message=error_message,
         )
 
-    def log_batch_duplicate(
+    def log_batch_warning(
         self,
         config: ResourceConfig,
         execution_id: str,
         load_run_id: str,
         load_id: str,
+        warning_message: str,
         batch_info: BatchInfo,
+        metrics: Optional[ProcessingMetrics] = None,
     ) -> None:
-        """Log a duplicate batch that was skipped"""
+        """Log a batch warning (data quality issues, rejections, etc.)"""
         self._log_batch_event(
             config=config,
             execution_id=execution_id,
             load_run_id=load_run_id,
             load_id=load_id,
-            status=ExecutionStatus.DUPLICATE,
+            status=ExecutionStatus.WARNING,
             batch_info=batch_info,
-        )
-
-    def log_batch_no_data(
-        self,
-        config: ResourceConfig,
-        execution_id: str,
-        load_run_id: str,
-        load_id: str,
-        batch_info: BatchInfo,
-    ) -> None:
-        """Log a batch with no data"""
-        self._log_batch_event(
-            config=config,
-            execution_id=execution_id,
-            load_run_id=load_run_id,
-            load_id=load_id,
-            status=ExecutionStatus.NO_DATA,
-            batch_info=batch_info,
-        )
-
-    def log_batch_rejected(
-        self,
-        config: ResourceConfig,
-        execution_id: str,
-        load_run_id: str,
-        load_id: str,
-        rejection_reason: str,
-        batch_info: BatchInfo,
-    ) -> None:
-        """Log a batch rejected due to data quality issues"""
-        self._log_batch_event(
-            config=config,
-            execution_id=execution_id,
-            load_run_id=load_run_id,
-            load_id=load_id,
-            status=ExecutionStatus.REJECTED,
-            batch_info=batch_info,
-            error_message=rejection_reason,
+            metrics=metrics,
+            error_message=warning_message,
         )
 
     def _log_batch_event(
@@ -296,7 +262,7 @@ class LoadingLogger:
                     "target_row_count_after": lit(target_row_count_after if target_row_count_after is not None else 0),
                     "corrupt_records_count": lit(corrupt_records_count if corrupt_records_count is not None else 0),
                     "updated_at": current_timestamp(),
-                    "completed_at": current_timestamp(),
+                    "completed_at": lit(completed_at) if completed_at is not None else current_timestamp(),
                 }
 
                 # Add optional fields only if they have values
@@ -350,10 +316,10 @@ class LoadingLogger:
     ) -> None:
         """Log the completion of a resource execution"""
         # Count files based on result
-        files_discovered = result.batches_processed + result.batches_failed
+        files_discovered = result.batches_discovered
         files_processed = result.batches_processed
-        files_failed = result.batches_failed
-        files_skipped = 0  # Could track this separately if needed
+        files_failed = 0  # Loading stops on first error
+        files_skipped = 0
 
         self._log_resource_execution_event(
             config=config,
@@ -376,15 +342,15 @@ class LoadingLogger:
         result: ResourceExecutionResult,
     ) -> None:
         """Log a resource execution error"""
-        files_discovered = result.batches_processed + result.batches_failed
+        files_discovered = result.batches_discovered
         files_processed = result.batches_processed
-        files_failed = result.batches_failed
+        files_failed = 0  # Loading stops on first error
 
         self._log_resource_execution_event(
             config=config,
             execution_id=execution_id,
             load_run_id=load_run_id,
-            status=ExecutionStatus.FAILED,
+            status=ExecutionStatus.ERROR,
             files_discovered=files_discovered,
             files_processed=files_processed,
             files_failed=files_failed,
@@ -473,7 +439,7 @@ class LoadingLogger:
                     "records_updated": lit(records_updated if records_updated is not None else 0),
                     "records_deleted": lit(records_deleted if records_deleted is not None else 0),
                     "updated_at": current_timestamp(),
-                    "completed_at": current_timestamp(),
+                    "completed_at": lit(completed_at) if completed_at is not None else current_timestamp(),
                 }
 
                 # Add optional fields only if they have values
@@ -529,7 +495,7 @@ class LoadingLogger:
                 self.lakehouse.read_table("log_resource_extract_batch")
                 .filter(col("source_name") == config.source_name)
                 .filter(col("resource_name") == config.resource_name)
-                .filter(col("extract_state") == str(ExecutionStatus.COMPLETED))
+                .filter(col("extract_state") == str(ExecutionStatus.SUCCESS))
                 .filter(col("load_state") == str(ExecutionStatus.PENDING))
                 .orderBy(col("completed_at").asc())
             )
@@ -670,3 +636,48 @@ class LoadingLogger:
             logger.debug(f"Updated extraction {extract_batch_id} to load_state='{new_state}'")
         except Exception as e:
             logger.warning(f"Could not update load_state for {extract_batch_id}: {e}")
+
+    # ========================================================================
+    # RETRY SUPPORT
+    # ========================================================================
+
+    def get_failed_resource_keys(self, configs: List[ResourceConfig]) -> Set[Tuple[str, str]]:
+        """
+        Get (source_name, resource_name) tuples for configs whose last load failed.
+
+        Uses a single query with window function to efficiently check all configs at once.
+
+        Args:
+            configs: List of ResourceConfig to check
+
+        Returns:
+            Set of (source_name, resource_name) tuples that failed their last load
+        """
+        if not configs:
+            return set()
+
+        try:
+            if not self.lakehouse.check_if_table_exists("log_resource_load"):
+                return set()
+
+            # Build DataFrame of config keys to filter against
+            config_keys = [(c.source_name, c.resource_name) for c in configs]
+            keys_df = self.lakehouse.spark.createDataFrame(config_keys, ["source_name", "resource_name"])
+
+            # Get latest status per resource using window function
+            window = Window.partitionBy("source_name", "resource_name").orderBy(col("completed_at").desc())
+
+            failed_df = (
+                self.lakehouse.read_table("log_resource_load")
+                .join(keys_df, ["source_name", "resource_name"])
+                .withColumn("rn", row_number().over(window))
+                .filter(col("rn") == 1)
+                .filter(col("load_state") == str(ExecutionStatus.ERROR))
+                .select("source_name", "resource_name")
+            )
+
+            return {(row.source_name, row.resource_name) for row in failed_df.collect()}
+
+        except Exception as e:
+            logger.warning(f"Could not query failed resource keys: {e}")
+            return set()

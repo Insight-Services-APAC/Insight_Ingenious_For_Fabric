@@ -1,8 +1,0 @@
-sale_id,sale_date,customer_id,customer_name,product_id,product_name,quantity,unit_price,total_amount,payment_method,store_location
-S015,2025-01-09,C12359,Mike Thompson,P109,Tablet,1,499.99,499.99,Credit Card,Austin
-S016,2025-01-09,C12360,Nancy White,P110,Smart Watch,2,299.99,599.98,Debit Card,Nashville
-S017,2025-01-09,C12361,Oscar Harris,P100,Laptop,1,1299.99,1299.99,Credit Card,Columbus
-S018,2025-01-09,C12362,Patricia Clark,P111,Printer,1,249.99,249.99,PayPal,Indianapolis
-S019,2025-01-09,C12363,Quinn Lewis,P101,Wireless Mouse,3,29.99,89.97,Cash,Charlotte
-S020,2025-01-09,C12364,Rachel Walker,P112,Desk Lamp,2,39.99,79.98,Debit Card,Detroit
-S021,2025-01-09,C12365,Steve Young,P103,Keyboard,2,89.99,179.98,Credit Card,Memphis

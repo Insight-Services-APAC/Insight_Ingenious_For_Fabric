@@ -29,7 +29,7 @@ def get_load_resource_schema() -> StructType:
             StructField("resource_name", StringType(), nullable=False),  # Resource/table name
             StructField(
                 "load_state", StringType(), nullable=False
-            ),  # running, completed, failed, no_data
+            ),  # pending, running, success, warning, error
             # File counts
             StructField("files_discovered", LongType(), nullable=True),
             StructField("files_processed", LongType(), nullable=True),
@@ -52,7 +52,7 @@ def get_load_resource_schema() -> StructType:
             ),  # Always updated on merge
             StructField(
                 "completed_at", TimestampType(), nullable=True
-            ),  # Set when status becomes completed/failed/no_data
+            ),  # Set when status becomes success/warning/error
         ]
     )
 

@@ -12,7 +12,7 @@ from ingen_fab.python_libs.common.ingestion_resource_config_schema import (
     resource_config_to_row,
     row_to_resource_config,
 )
-from ingen_fab.python_libs.pyspark.ingestion.config import ResourceConfig
+from ingen_fab.python_libs.pyspark.ingestion.common.config import ResourceConfig
 from ingen_fab.python_libs.pyspark.lakehouse_utils import lakehouse_utils
 
 logger = logging.getLogger(__name__)

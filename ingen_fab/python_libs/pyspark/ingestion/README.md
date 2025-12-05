@@ -43,8 +43,8 @@ The loading framework uses a two-step approach:
 
 ```
 Step 1: Files → Staging Table
-  - Read raw files (CSV, Parquet)
-  - All columns cast to STRING
+  - Read raw files (CSV, JSON, Parquet, etc.)
+  - Schema inferred from file
   - Structural validation only (PERMISSIVE mode)
   - Add _stg_* metadata columns
   - Write to staging Delta table
@@ -62,8 +62,8 @@ Step 2: Staging → Target Table
 All execution state is tracked in Delta tables:
 
 - **Extraction**: `log_resource_extract_config`, `log_resource_extract_batch`
-- **Loading**: `log_resource_execution`, `log_batch_load`
-- **Load State**: `pending` → `processing` → `completed`/`failed`/`rejected`
+- **Loading**: `log_resource_load`, `log_resource_load_batch`
+- **Load State**: `pending` → `running` → `success`/`warning`/`error`
 
 ## Configuration Table Schema
 
@@ -82,7 +82,7 @@ Central configuration table that drives all ingestion processes. Each row repres
 | `source_extraction_params` | Map<String,String> | ✓ | Source-specific extraction parameters (see [Extraction Params](#extraction-parameters)) | `{"inbound_path": "Files/landing/pe/", "discovery_pattern": "*.dat"}` |
 | `extract_path` | String | ✓ | Where extracted files land | `"Files/raw/pe/pe_prom_codes/"` |
 | `extract_error_path` | String | ✓ | Where rejected files are moved | `"Files/error/pe/pe_prom_codes/"` |
-| `extract_file_format` | String | ✓ | File format in raw layer | `"csv"`, `"parquet"` |
+| `extract_file_format` | String | ✓ | File format in raw layer | `"csv"`, `"json"`, `"xml"`, `"parquet"`, `"avro"`, `"orc"` |
 | `extract_storage_workspace` | String | ✓ | Workspace containing raw files | `"EDAA_INBOUND_DEV_017"` |
 | `extract_storage_lakehouse` | String | ✓ | Lakehouse containing raw files | `"lh_storage"` |
 | `stg_table_workspace` | String | ✓ | Workspace for staging table | `"EDAA_INBOUND_DEV_017"` |
@@ -123,20 +123,138 @@ The `source_extraction_params` field contains source-type specific parameters st
 | `discovery_pattern` | String | File pattern to match | `"*.csv"`, `"*.DAT"` |
 | `recursive` | Boolean | Search subdirectories | `"true"`, `"false"` |
 | `batch_by` | String | Batching strategy: `file` (one batch per file), `folder` (one batch per folder), `all` (one batch for all files) | `"file"` |
-| `has_header` | Boolean | CSV has header row | `"true"` |
-| `file_delimiter` | String | CSV delimiter | `","`, `"\|"` |
-| `encoding` | String | File encoding | `"utf-8"` |
-| `quote_character` | String | CSV quote character | `"\""` |
-| `escape_character` | String | CSV escape character | `"\\\\"` |
-| `multiline_values` | Boolean | Support multiline CSV values | `"true"`, `"false"` |
-| `null_value` | String | String to treat as NULL | `""`, `" "` |
 | `control_file_pattern` | String | Control file pattern (`{basename}` supported) | `"{basename}.CTL"` |
-| `duplicate_handling` | String | How to handle duplicates: `fail`, `skip`, `allow` | `"skip"` |
+| `duplicate_handling` | String | How to handle duplicates: `fail`, `warn`, `allow` | `"warn"` |
 | `no_data_handling` | String | Behavior when no data extracted: `allow` (skip silently), `warn` (mark NO_DATA/DUPLICATE), `fail` (fail extraction) | `"allow"`, `"warn"`, `"fail"` |
 | `filename_metadata` | Array | Extract metadata from filenames | `[{"name": "file_date", "regex": "...", "type": "date", "format": "yyyyMMdd"}]` |
 | `sort_by` | Array | Sort files by metadata fields | `["file_date"]` |
 | `sort_order` | String | Sort direction | `"asc"`, `"desc"` |
 | `extract_partition_columns` | Array | Hive partition structure for extract layer | `["ds"]`, `["year", "month", "day"]` |
+
+#### Database Source
+
+| Parameter | Type | Description | Example |
+|-----------|------|-------------|---------|
+| `db_type` | String | Database dialect: `sqlserver`, `synapse`, `postgres`, `oracle` | `"sqlserver"` |
+| `extraction_mode` | String | `table` (from table), `query` (custom SQL), `cetas` (Synapse CETAS) | `"table"` |
+| `source_schema` | String | Source schema name | `"dbo"` |
+| `source_table` | String | Source table name | `"customers"` |
+| `columns` | Array | Columns to extract (optional, defaults to all) | `["id", "name", "email"]` |
+| `where_clause` | String | Static WHERE filter | `"active = 1"` |
+| `query` | String | Custom SQL (for `extraction_mode="query"`) | `"SELECT * FROM ..."` |
+| `incremental_column` | String | Column for watermark-based incremental | `"modified_date"` |
+| `incremental_column_type` | String | Type: `date`, `timestamp`, `integer` | `"timestamp"` |
+| `incremental_lookback` | Integer | Lookback for late-arriving data (hours for date/timestamp, offset for integer) | `72` |
+| `incremental_chunk_size` | Integer | Split large loads into chunks (hours for date/timestamp, step for integer) | `24` |
+| `incremental_start` | String | Start bound for chunked extraction | `"2024-01-01"` |
+| `incremental_end` | String | End bound for chunked extraction | `"2024-12-31"` |
+| `fetch_size` | Integer | JDBC fetch size | `10000` |
+
+**Connection params** (`source_connection_params`):
+
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `pipeline_name` | String | Fabric Pipeline name for extraction |
+| `pipeline_workspace` | String | Workspace containing the pipeline |
+
+## File Format Options
+
+The `extract_file_format_params` field configures how files are read. All options use **snake_case** naming (translated to Spark camelCase internally).
+
+### Supported Formats
+
+| Format | Description | Schema Handling |
+|--------|-------------|-----------------|
+| `csv` | Comma/delimited text files | Explicit or inferred |
+| `json` | JSON files (single or multi-line) | Explicit or inferred |
+| `xml` | XML files (requires spark-xml) | Explicit or inferred |
+| `parquet` | Columnar binary format | Embedded schema |
+| `avro` | Row-based binary format | Embedded schema |
+| `orc` | Columnar binary format | Embedded schema |
+
+### Common Options (All Text Formats)
+
+| Option | Type | Default | Description |
+|--------|------|---------|-------------|
+| `encoding` | String | `"utf-8"` | Character encoding |
+| `date_format` | String | | Date parsing format (e.g., `"yyyy-MM-dd"`) |
+| `timestamp_format` | String | | Timestamp parsing format |
+
+### CSV Options
+
+| Option | Type | Default | Description |
+|--------|------|---------|-------------|
+| `has_header` | Boolean | `true` | First row contains column names |
+| `file_delimiter` | String | `","` | Field delimiter |
+| `quote_character` | String | `"\""` | Quote character |
+| `escape_character` | String | `"\\"` | Escape character |
+| `multi_line` | Boolean | `true` | Support multi-line values |
+| `null_value` | String | `""` | String to treat as NULL |
+| `empty_value` | String | | String to use for empty values |
+| `ignore_leading_white_space` | Boolean | | Trim leading whitespace |
+| `ignore_trailing_white_space` | Boolean | | Trim trailing whitespace |
+| `max_columns` | Integer | | Maximum number of columns |
+| `max_chars_per_column` | Integer | | Maximum characters per column |
+
+### JSON Options
+
+| Option | Type | Default | Description |
+|--------|------|---------|-------------|
+| `multi_line` | Boolean | `false` | One JSON object spans multiple lines |
+| `primitives_as_string` | Boolean | | Infer all primitives as strings |
+| `allow_comments` | Boolean | | Allow Java/C++ style comments |
+| `allow_unquoted_field_names` | Boolean | | Allow unquoted field names |
+| `allow_single_quotes` | Boolean | | Allow single quotes instead of double |
+| `line_sep` | String | | Line separator |
+| `drop_field_if_all_null` | Boolean | | Drop fields that are null across all records |
+
+### XML Options
+
+| Option | Type | Default | Description |
+|--------|------|---------|-------------|
+| `row_tag` | String | **Required** | XML element to treat as rows |
+| `root_tag` | String | | Root element tag |
+| `attribute_prefix` | String | `"_"` | Prefix for attribute columns |
+| `value_tag` | String | `"_VALUE"` | Tag for text content |
+| `null_value` | String | | String to treat as NULL |
+| `ignore_surrounding_spaces` | Boolean | | Trim whitespace |
+| `exclude_attribute` | Boolean | | Exclude attributes from result |
+
+### Example Configurations
+
+```python
+# CSV with pipe delimiter
+"extract_file_format_params": {
+    "file_format": "csv",
+    "has_header": True,
+    "file_delimiter": "|",
+    "encoding": "utf-8"
+}
+
+# Multi-line JSON
+"extract_file_format_params": {
+    "file_format": "json",
+    "multi_line": True,
+    "date_format": "yyyy-MM-dd"
+}
+
+# XML with row tag
+"extract_file_format_params": {
+    "file_format": "xml",
+    "row_tag": "employee",
+    "encoding": "utf-8"
+}
+
+# Parquet (no options needed - uses embedded schema)
+"extract_file_format_params": {
+    "file_format": "parquet"
+}
+
+# Avro (no options needed - uses embedded schema)
+"extract_file_format_params": {
+    "file_format": "avro"
+}
+```
 
 ## Metadata Columns
 
@@ -183,11 +301,13 @@ Move data from external sources (inbound file systems) to raw storage in OneLake
 
 - **`ExtractionOrchestrator`**: Manages execution groups, parallel processing, state tracking
 - **`FileSystemExtractor`**: Extracts files from ABFSS file systems
+- **`DatabaseExtractor`**: Extracts data from databases via Fabric Pipeline delegation
 - **`ExtractionLogger`**: Logs extraction events to Delta tables
 
 ### Supported Sources
 
 - **filesystem**: ABFSS file systems (OneLake, ADLS)
+- **database**: SQL Server, Synapse, PostgreSQL, Oracle (via Data Gateway)
 
 ### Key Features
 
@@ -200,7 +320,7 @@ Move data from external sources (inbound file systems) to raw storage in OneLake
 
 **`log_resource_extract_config`**: Tracks resource-level extraction runs
 - `extract_run_id`, `execution_id`, `source_name`, `resource_name`
-- Status: `pending`, `running`, `completed`, `failed`, `no_data`
+- Status: `pending`, `running`, `success`, `warning`, `error`
 
 **`log_resource_extract_batch`**: Tracks individual batch extractions
 - `extract_batch_id`, `extract_run_id`, `source_path`, `extract_file_paths`
@@ -226,7 +346,7 @@ Load and validate data from raw storage to Delta tables.
 
 ```python
 # What happens:
-1. Read files from raw storage using config schema (all columns as STRING)
+1. Read files from raw storage with inferred schema
 2. Use Spark PERMISSIVE mode to capture corrupt rows in _stg_corrupt_record
 3. Add staging metadata columns (_stg_created_load_id, _stg_file_path, _stg_created_at)
 4. Write to staging Delta table
@@ -237,13 +357,13 @@ Load and validate data from raw storage to Delta tables.
 
 #### Step 2: Staging → Target Table
 
-**Purpose**: Type casting, business validation, write to target
+**Purpose**: Type casting (if target_schema_columns configured), business validation, write to target
 
 ```python
 # What happens:
 1. Read from staging table (filter by batch_id + partition)
 2. Trim all string columns (removes leading/trailing whitespace for better merge key matching)
-3. Type casting using try_cast() - identifies rows with cast failures
+3. Type casting using try_cast() if target_schema_columns is configured
 4. Validation checks:
    - Structural corruption (from Step 1's _stg_corrupt_record)
    - Type casting errors (columns that failed try_cast)
@@ -272,14 +392,14 @@ Load and validate data from raw storage to Delta tables.
 
 ### State Tracking
 
-**`log_resource_execution`**: Tracks resource-level loading runs
+**`log_resource_load`**: Tracks resource-level loading runs
 - `load_run_id`, `execution_id`, `source_name`, `resource_name`
-- Status: `pending`, `running`, `completed`, `failed`, `no_data`
+- Status: `pending`, `running`, `success`, `warning`, `error`
 - Aggregated metrics
 
-**`log_batch_load`**: Tracks individual batch loads
+**`log_resource_load_batch`**: Tracks individual batch loads
 - `load_batch_id`, `load_run_id`, `extract_batch_id`
-- Status: `pending`, `processing`, `completed`, `failed`, `rejected`
+- Status: `pending`, `running`, `success`, `warning`, `error`
 - Detailed metrics (rows inserted/updated/deleted, duration, etc.)
 
 ## Key Configuration Options
@@ -355,7 +475,7 @@ Handle full/snapshot loads vs incremental loads:
 
 Control behavior when validation fails:
 
-- **`true`** (default): Fail entire resource, file stays in landing for manual fix
+- **`true`** (default): Fail entire resource, file moved to extract_error_path for manual fix
 - **`false`**: Skip rejected batch, filter corrupt records, continue processing
 
 **Use Cases**:
@@ -413,18 +533,23 @@ results = orchestrator.process_resources(
 )
 
 # Check results
-print(f"Successful: {results['successful']}")
-print(f"Failed: {results['failed']}")
-print(f"No Data: {results['no_data']}")
-print(f"Duplicates: {results['duplicates']}")
+success_count = len([r for r in results['results'] if r['status'] == 'success'])
+warning_count = len([r for r in results['results'] if r['status'] == 'warning'])
+error_count = len([r for r in results['results'] if r['status'] == 'error'])
 
-# Fail on system errors
-if results['failed'] > 0:
-    raise Exception(f"Extraction failed for {results['failed']} resource(s)")
+print(f"Success: {success_count}, Warnings: {warning_count}, Errors: {error_count}")
 
-# Alert on no data (if using no_data_handling='warn')
-if results['no_data'] > 0:
-    send_alert(f"No data found for {results['no_data']} resource(s)")
+# Fail on errors
+if not results['success']:
+    for r in results['results']:
+        if r['status'] == 'error':
+            print(f"  ERROR: {r['resource_name']} - {r['message']}")
+    raise Exception(f"Extraction failed for {error_count} resource(s)")
+
+# Alert on warnings
+for r in results['results']:
+    if r['status'] == 'warning':
+        send_alert(f"{r['resource_name']}: {r['message']}")
 ```
 
 ### Example 2: Loading
@@ -461,18 +586,23 @@ results = orchestrator.process_resources(
 )
 
 # Check results
-print(f"Successful: {results['successful']}")
-print(f"Failed: {results['failed']}")
-print(f"No Data: {results['no_data']}")
-print(f"Rejected Batches: {results['rejected_batches']}")
+success_count = len([r for r in results['results'] if r['status'] == 'success'])
+warning_count = len([r for r in results['results'] if r['status'] == 'warning'])
+error_count = len([r for r in results['results'] if r['status'] == 'error'])
 
-# Fail on system errors
-if results['failed'] > 0:
-    raise Exception(f"Loading failed for {results['failed']} resource(s)")
+print(f"Success: {success_count}, Warnings: {warning_count}, Errors: {error_count}")
 
-# Alert on rejected batches (doesn't fail pipeline)
-if results['rejected_batches'] > 0:
-    send_alert(f"{results['rejected_batches']} batches rejected - investigate data quality")
+# Fail on errors
+if not results['success']:
+    for r in results['results']:
+        if r['status'] == 'error':
+            print(f"  ERROR: {r['resource_name']} - {r['message']}")
+    raise Exception(f"Loading failed for {error_count} resource(s)")
+
+# Alert on warnings (includes data quality rejections)
+for r in results['results']:
+    if r['status'] == 'warning':
+        send_alert(f"{r['resource_name']}: {r['message']}")
 ```
 
 ### Example 3: Custom Metadata Column Names
@@ -587,10 +717,10 @@ Extraction:
   extract_batch_id created → load_state = 'pending'
 
 Loading:
-  Batch discovered → load_state = 'processing'
-  Batch completed → load_state = 'completed'
-  Batch failed → load_state = 'failed'
-  Batch rejected → load_state = 'rejected'
+  Batch discovered → load_state = 'running'
+  Batch successful → load_state = 'success'
+  Batch warning (data quality issues) → load_state = 'warning'
+  Batch failed → load_state = 'error'
 ```
 
 ### Crash Recovery
@@ -602,7 +732,7 @@ The loading orchestrator automatically recovers stale batches:
 self._recover_stale_batches(config, config_logger)
 
 # What it does:
-# 1. Query log_batch_load for batches stuck in 'processing' > 1 hour
+# 1. Query log_resource_load_batch for batches stuck in 'running' > 1 hour
 # 2. Reset them to 'pending'
 # 3. Log recovery event
 # 4. They'll be picked up in current execution
@@ -622,18 +752,18 @@ WHERE created_at >= CURRENT_DATE() - INTERVAL 7 DAY
 ORDER BY created_at DESC;
 
 -- Recent loading runs
-SELECT execution_id, load_run_id, source_name, resource_name, status, created_at
-FROM log_resource_execution
-WHERE created_at >= CURRENT_DATE() - INTERVAL 7 DAY
-ORDER BY created_at DESC;
+SELECT execution_id, load_run_id, source_name, resource_name, load_state, started_at
+FROM log_resource_load
+WHERE started_at >= CURRENT_DATE() - INTERVAL 7 DAY
+ORDER BY started_at DESC;
 
 -- Batch-level metrics
-SELECT load_batch_id, extract_batch_id, status,
+SELECT load_batch_id, extract_batch_id, load_state,
        records_processed, records_inserted, records_updated, records_deleted,
-       total_duration_ms, created_at
-FROM log_batch_load
+       total_duration_ms, started_at
+FROM log_resource_load_batch
 WHERE load_run_id = '<your_load_run_id>'
-ORDER BY created_at;
+ORDER BY started_at;
 ```
 
 ## Error Handling
@@ -662,8 +792,8 @@ Controlled by `target_fail_on_rejection`:
 **`target_fail_on_rejection = True`** (default):
 ```
 1. Validation fails (corruption/duplicates exceed tolerance)
-2. Batch marked as 'rejected'
-3. File stays in landing zone
+2. Batch marked as 'error'
+3. File moved to extract_error_path
 4. Resource execution fails
 5. Manual intervention required
 ```
@@ -674,7 +804,7 @@ Controlled by `target_fail_on_rejection`:
 2. Log warning
 3. Filter out bad records
 4. Continue processing with good records
-5. Batch marked as 'completed' (with corrupt_records_count > 0)
+5. Batch marked as 'warning' (with corrupt_records_count > 0)
 ```
 
 ### File Management
@@ -684,11 +814,11 @@ Controlled by `target_fail_on_rejection`:
 **On Rejection**: Files moved to `extract_error_path` (data quality issues require investigation)
 
 **Why the distinction?**
-- **Failures** (system errors, timeouts): Transient issues that may resolve on retry - keep files in landing
+- **Failures** (system errors, timeouts): Transient issues that may resolve on retry - keep files in extract_path
 - **Rejections** (corruption, duplicates): Data quality issues that won't self-resolve - move to error path
 
 **Retry Behavior for Failures**:
-1. Transient error occurs, file stays in landing
+1. Transient error occurs, file stays in extract_path
 2. Next run picks up the file automatically (load_state still 'pending')
 
 **Investigation Pattern for Rejections**:

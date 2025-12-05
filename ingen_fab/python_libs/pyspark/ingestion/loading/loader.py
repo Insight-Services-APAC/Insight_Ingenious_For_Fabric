@@ -11,19 +11,18 @@ from typing import Dict, Optional
 
 from pyspark.sql import DataFrame, SparkSession
 from pyspark.sql.functions import col, lit, current_timestamp, concat_ws, when, expr, to_date, to_timestamp, trim
-from pyspark.sql.types import StructField, StringType
+from pyspark.sql.types import StructField, StructType, StringType
 
 from ingen_fab.python_libs.common.flat_file_ingestion_utils import ProcessingMetricsUtils
-from ingen_fab.python_libs.pyspark.ingestion.config import MetadataColumns, ResourceConfig
-from ingen_fab.python_libs.pyspark.ingestion.constants import WriteMode, LoadType
-from ingen_fab.python_libs.pyspark.ingestion.exceptions import (
+from ingen_fab.python_libs.pyspark.ingestion.common.config import MetadataColumns, ResourceConfig
+from ingen_fab.python_libs.pyspark.ingestion.common.constants import WriteMode, LoadType
+from ingen_fab.python_libs.pyspark.ingestion.common.exceptions import (
     ErrorContext,
     FileReadError,
     SchemaValidationError,
     WriteError,
 )
-from ingen_fab.python_libs.pyspark.ingestion.logging_utils import ConfigLoggerAdapter
-from ingen_fab.python_libs.pyspark.ingestion.results import (
+from ingen_fab.python_libs.pyspark.ingestion.common.results import (
     BatchInfo,
     BatchResult,
     ProcessingMetrics,
@@ -31,6 +30,55 @@ from ingen_fab.python_libs.pyspark.ingestion.results import (
 from ingen_fab.python_libs.pyspark.lakehouse_utils import lakehouse_utils
 
 logger = logging.getLogger(__name__)
+
+# Snake_case → Spark camelCase option translations
+# Users configure with snake_case, we translate to Spark's expected names
+OPTION_TRANSLATIONS = {
+    # Common options (work across multiple formats)
+    "multi_line": "multiLine",
+    "null_value": "nullValue",
+    "date_format": "dateFormat",
+    "timestamp_format": "timestampFormat",
+    "infer_schema": "inferSchema",
+    "column_name_of_corrupt_record": "columnNameOfCorruptRecord",
+
+    # CSV options
+    "has_header": "header",
+    "file_delimiter": "sep",
+    "quote_character": "quote",
+    "escape_character": "escape",
+    "empty_value": "emptyValue",
+    "enforce_schema": "enforceSchema",
+    "ignore_leading_white_space": "ignoreLeadingWhiteSpace",
+    "ignore_trailing_white_space": "ignoreTrailingWhiteSpace",
+    "max_columns": "maxColumns",
+    "max_chars_per_column": "maxCharsPerColumn",
+    "unescaped_quote_handling": "unescapedQuoteHandling",
+
+    # JSON options
+    "primitives_as_string": "primitivesAsString",
+    "allow_comments": "allowComments",
+    "allow_unquoted_field_names": "allowUnquotedFieldNames",
+    "allow_single_quotes": "allowSingleQuotes",
+    "allow_numeric_leading_zero": "allowNumericLeadingZero",
+    "allow_backslash_escaping_any_character": "allowBackslashEscapingAnyCharacter",
+    "line_sep": "lineSep",
+    "drop_field_if_all_null": "dropFieldIfAllNull",
+
+    # XML options
+    "row_tag": "rowTag",
+    "root_tag": "rootTag",
+    "attribute_prefix": "attributePrefix",
+    "value_tag": "valueTag",
+    "ignore_surrounding_spaces": "ignoreSurroundingSpaces",
+    "exclude_attribute": "excludeAttribute",
+}
+
+
+def _translate_options(options: dict) -> dict:
+    """Translate snake_case options to Spark camelCase names."""
+    return {OPTION_TRANSLATIONS.get(k, k): v for k, v in options.items()}
+
 
 class FileLoader:
     """
@@ -67,11 +115,8 @@ class FileLoader:
         self.stg_table_utils = self._create_stg_table_utils()
         self.target_table_utils = self._create_target_utils()
 
-        # Create logger adapter with resource context
-        self.logger = ConfigLoggerAdapter(logger, {
-            'source_name': self.config.source_name,
-            'config_name': self.config.resource_name,
-        })
+        # Use module logger (context added via filter)
+        self.logger = logger
 
     def load_files_to_stg_table(self, batch_info: BatchInfo) -> BatchResult:
         """
@@ -95,16 +140,22 @@ class FileLoader:
         metrics = ProcessingMetrics()
 
         try:
-            if not self.config.extract_file_format:
-                raise ValueError("extract_file_format is required")
+            if not self.config.extract_file_format_params.file_format:
+                raise ValueError("file_format is required")
 
-            # Get complete file read options (includes schema, corruption tracking, format params)
+            # Get base file read options (excludes schema)
             options = self._get_file_read_options()
+            file_format = self.config.extract_file_format_params.file_format.lower()
 
-            # Read files from source (supports single file, multiple files, or folder path)
+            # Resolve schema (handles explicit, table-based, or inferred)
+            schema = self._resolve_schema(file_format, batch_info.file_paths)
+            if schema:
+                options["schema"] = schema
+
+            # Read files from source
             df = self.source_lakehouse_utils.read_file(
-                file_path=batch_info.file_paths if len(batch_info.file_paths) > 1 else batch_info.file_paths[0],
-                file_format=self.config.extract_file_format,
+                file_path=batch_info.file_paths,
+                file_format=file_format,
                 options=options,
             )
 
@@ -128,12 +179,17 @@ class FileLoader:
             excluded_cols = metadata_col_names | set(partition_cols)
             business_cols = [c for c in df.columns if c not in excluded_cols]
 
-            ordered_cols = (
-                business_cols +
-                [self.metadata_cols.stg_corrupt_record, self.metadata_cols.stg_file_path,
-                 self.metadata_cols.stg_created_load_id, self.metadata_cols.stg_created_at] +
-                partition_cols
-            )
+            # Build metadata columns list (only include corrupt_record if it exists)
+            metadata_cols_list = []
+            if self.metadata_cols.stg_corrupt_record in df.columns:
+                metadata_cols_list.append(self.metadata_cols.stg_corrupt_record)
+            metadata_cols_list.extend([
+                self.metadata_cols.stg_file_path,
+                self.metadata_cols.stg_created_load_id,
+                self.metadata_cols.stg_created_at
+            ])
+
+            ordered_cols = business_cols + metadata_cols_list + partition_cols
             df = df.select(ordered_cols)
 
             self.stg_table_utils.write_to_table(
@@ -170,14 +226,6 @@ class FileLoader:
         """
         Read from staging table, apply validation, and write to target table (Step 2 of two-step loading).
 
-        Strategy:
-        - Read from stg_table filtered by partition + _stg_created_load_id
-        - Apply schema validation (cast strings to proper types using try_cast)
-        - Apply corrupt record checks
-        - Apply duplicate checks on merge keys
-        - Add target metadata columns (_raw_created_load_id, _raw_updated_load_id, timestamps)
-        - Write to target table (merge/append/overwrite)
-
         Args:
             batch_info: Batch info with destination_path for partition filtering
 
@@ -188,205 +236,86 @@ class FileLoader:
         metrics = ProcessingMetrics()
 
         try:
-            # Read from staging table using lakehouse_utils
-            df_stg = self.stg_table_utils.read_table(
-                table_name=self.config.stg_table_name,
-                schema_name=self.config.stg_table_schema,
-            )
+            # Read and filter staging data
+            df = self._read_and_filter_staging(batch_info)
 
-            # Parse partition values from destination path
-            if batch_info.destination_path:
-                partition_values = self._parse_partition_values(batch_info.destination_path)
-
-                # Apply partition filters (partition pruning)
-                for col_name, col_value in partition_values.items():
-                    df_stg = df_stg.filter(col(col_name) == col_value)
-
-            # Filter to specific batch
-            df_stg = df_stg.filter(col(self.metadata_cols.stg_created_load_id) == batch_info.batch_id)
-
-            # Drop staging-specific columns (will add target metadata later)
-            df_stg = df_stg.drop(self.metadata_cols.stg_created_load_id, self.metadata_cols.stg_file_path, self.metadata_cols.stg_created_at)
-
-            # Drop partition columns (will be re-added in target if needed)
-            for col_name in self.config.stg_table_partition_columns:
-                if col_name in df_stg.columns:
-                    df_stg = df_stg.drop(col_name)
-
-            # Check corrupt record from Step 1 (structural corruption from CSV)
-            corrupt_count = 0
-            if self.metadata_cols.stg_corrupt_record in df_stg.columns:
-                corrupt_count = df_stg.filter(col(self.metadata_cols.stg_corrupt_record).isNotNull()).count()
-
-                if corrupt_count > self.config.target_max_corrupt_records:
-                    if self.config.target_fail_on_rejection:
-                        # Fail on rejection (current behavior)
-                        end_time = time.time()
-                        metrics.read_duration_ms = int((end_time - start_time) * 1000)
-                        metrics.corrupt_records_count = corrupt_count
-
-                        return BatchResult(
-                            status="rejected",
-                            rejection_reason=f"Structural corruption: {corrupt_count} corrupt rows exceeds tolerance ({self.config.target_max_corrupt_records})",
-                            corrupt_count=corrupt_count,
-                            metrics=metrics,
-                        )
-                    else:
-                        # Skip rejection, filter corrupt records and continue
-                        self.logger.warning(f"Structural corruption: {corrupt_count} corrupt rows exceeds tolerance ({self.config.target_max_corrupt_records}), but target_fail_on_rejection=False, filtering and continuing")
-
-                # Filter out corrupt rows (if within tolerance OR if fail_on_rejection=False)
-                if corrupt_count > 0:
-                    if corrupt_count <= self.config.target_max_corrupt_records:
-                        self.logger.warning(f"Found {corrupt_count} structurally corrupt rows, dropping them")
-                    df_stg = df_stg.filter(col(self.metadata_cols.stg_corrupt_record).isNull())
-
-                # Drop corrupt record column
-                df_stg = df_stg.drop(self.metadata_cols.stg_corrupt_record)
-
-            # Trim all string columns (improves merge key matching and removes source whitespace issues)
-            for column in df_stg.columns:
-                df_stg = df_stg.withColumn(column, trim(col(column)))
-
-            # Apply schema validation with try_cast (identifies problematic rows)
-            target_schema = self.config.target_schema_columns.to_target_schema()
-
-            # Build casted columns using try_cast
-            casted_columns = []
-            for field in target_schema.fields:
-                if field.name in df_stg.columns:
-                    # Use try_cast - returns null on cast failure instead of throwing
-                    casted_columns.append(
-                        expr(f"try_cast({field.name} as {field.dataType.simpleString()})").alias(field.name)
-                    )
-                else:
-                    # Add missing column as null
-                    casted_columns.append(lit(None).cast(field.dataType).alias(field.name))
-
-            # Build error tracking column - concatenates names of columns that failed to cast
-            error_tracking_exprs = []
-            for field in target_schema.fields:
-                if field.name in df_stg.columns:
-                    # If try_cast returns null but original value is not null, cast failed
-                    error_tracking_exprs.append(
-                        when(
-                            expr(f"try_cast({field.name} as {field.dataType.simpleString()})").isNull()
-                            & col(field.name).isNotNull(),
-                            lit(field.name),
-                        )
-                    )
-
-            error_tracking_column = concat_ws(", ", *error_tracking_exprs).alias("_type_cast_error")
-
-            # Select all casted columns + error tracking (staging columns already dropped)
-            df_with_casts = df_stg.select(
-                *casted_columns,
-                error_tracking_column
-            )
-
-            # Count rows with cast errors
-            cast_error_count = df_with_casts.filter(col("_type_cast_error") != "").count()
-
-            # Check if cast errors exceed tolerance
-            if cast_error_count > self.config.target_max_corrupt_records:
+            # Handle corrupt records
+            df, corrupt_count = self._handle_corrupt_records(df)
+            if corrupt_count > self.config.target_max_corrupt_records:
                 if self.config.target_fail_on_rejection:
-                    # Fail on rejection (current behavior)
-                    end_time = time.time()
-                    metrics.read_duration_ms = int((end_time - start_time) * 1000)
-                    metrics.corrupt_records_count = corrupt_count + cast_error_count
-
-                    # Get sample of failed columns for error message
-                    error_samples = (
-                        df_with_casts.filter(col("_type_cast_error") != "")
-                        .select("_type_cast_error")
-                        .limit(5)
-                        .collect()
-                    )
-                    failed_columns = set()
-                    for row in error_samples:
-                        for col_name in row._type_cast_error.split(", "):
-                            if col_name:
-                                failed_columns.add(col_name)
-
+                    metrics.read_duration_ms = int((time.time() - start_time) * 1000)
+                    metrics.corrupt_records_count = corrupt_count
                     return BatchResult(
                         status="rejected",
-                        rejection_reason=f"Type casting errors: {cast_error_count} rows failed to cast (tolerance: {self.config.target_max_corrupt_records}). Failed columns: {', '.join(sorted(failed_columns))}",
+                        rejection_reason=f"Structural corruption: {corrupt_count} corrupt rows exceeds tolerance ({self.config.target_max_corrupt_records})",
+                        corrupt_count=corrupt_count,
+                        metrics=metrics,
+                    )
+                else:
+                    self.logger.warning(f"Structural corruption: {corrupt_count} corrupt rows exceeds tolerance, but target_fail_on_rejection=False")
+
+            # Trim string columns
+            for field in df.schema.fields:
+                if isinstance(field.dataType, StringType):
+                    df = df.withColumn(field.name, trim(col(field.name)))
+
+            # Apply schema validation
+            df, cast_error_count = self._apply_schema_validation(df)
+            if cast_error_count > self.config.target_max_corrupt_records:
+                if self.config.target_fail_on_rejection:
+                    metrics.read_duration_ms = int((time.time() - start_time) * 1000)
+                    metrics.corrupt_records_count = corrupt_count + cast_error_count
+                    return BatchResult(
+                        status="rejected",
+                        rejection_reason=f"Type casting errors: {cast_error_count} rows failed to cast (tolerance: {self.config.target_max_corrupt_records})",
                         corrupt_count=corrupt_count + cast_error_count,
                         metrics=metrics,
                     )
                 else:
-                    # Skip rejection, filter corrupt records and continue
-                    self.logger.warning(f"Type casting errors: {cast_error_count} rows failed to cast (tolerance: {self.config.target_max_corrupt_records}), but target_fail_on_rejection=False, filtering and continuing")
+                    self.logger.warning(f"Type casting errors: {cast_error_count} rows failed, but target_fail_on_rejection=False")
 
-            # Filter out rows with cast errors (if within tolerance)
-            if cast_error_count > 0:
-                self.logger.warning(
-                    f"Found {cast_error_count} rows with type cast errors, filtering them out (within tolerance)"
-                )
-                df_typed = df_with_casts.filter(col("_type_cast_error") == "").drop("_type_cast_error")
-            else:
-                df_typed = df_with_casts.drop("_type_cast_error")
-
-            # Remove full duplicates
-            df_typed = df_typed.distinct()
-
-            # Validate duplicates on merge keys
-            duplicate_count = self._count_duplicates(df_typed)
+            # Remove duplicates and validate
+            df = df.distinct()
+            duplicate_count = self._count_duplicates(df)
             if duplicate_count > 0:
                 if self.config.target_fail_on_rejection:
-                    # Fail on rejection (current behavior)
-                    end_time = time.time()
-                    metrics.read_duration_ms = int((end_time - start_time) * 1000)
-                    metrics.source_row_count = df_typed.count()
-
+                    metrics.read_duration_ms = int((time.time() - start_time) * 1000)
+                    metrics.source_row_count = df.count()
                     return BatchResult(
                         status="rejected",
                         rejection_reason=f"Found {duplicate_count} duplicate records on merge keys {self.config.target_merge_keys}",
                         metrics=metrics,
                     )
                 else:
-                    # Skip rejection, log warning and continue
-                    self.logger.warning(f"Found {duplicate_count} duplicate records on merge keys {self.config.target_merge_keys}, but target_fail_on_rejection=False, continuing (duplicates will remain in data)")
+                    self.logger.warning(f"Found {duplicate_count} duplicates on merge keys, but target_fail_on_rejection=False")
 
-            # Add target metadata columns to DataFrame
-            df_typed = self._add_target_metadata(df_typed, batch_info)
+            # Add metadata and write
+            df = self._add_target_metadata(df, batch_info)
 
-            # Calculate read metrics
-            end_time = time.time()
-            metrics.read_duration_ms = int((end_time - start_time) * 1000)
-            metrics.source_row_count = df_typed.count()
+            metrics.read_duration_ms = int((time.time() - start_time) * 1000)
+            metrics.source_row_count = df.count()
             metrics.records_processed = metrics.source_row_count
             metrics.corrupt_records_count = corrupt_count + cast_error_count
 
-            # Write to target table
-            write_metrics = self._write_to_target(df_typed, self.target_table_utils)
-
-            # Combine read and write metrics
-            combined_metrics = self._combine_metrics(metrics, write_metrics)
+            write_metrics = self._write_to_target(df, self.target_table_utils)
 
             return BatchResult(
                 status="success",
-                df=None,  # No longer returning DataFrame
-                metrics=combined_metrics,
+                metrics=self._combine_metrics(metrics, write_metrics),
                 corrupt_count=corrupt_count + cast_error_count,
             )
 
         except Exception as e:
-            # Schema validation or read errors
-            end_time = time.time()
-            metrics.read_duration_ms = int((end_time - start_time) * 1000)
-
-            # Get file path for context
+            metrics.read_duration_ms = int((time.time() - start_time) * 1000)
             file_path = batch_info.file_paths[0] if batch_info.file_paths else "unknown"
 
-            # Check if schema error
             error_str = str(e).lower()
             is_schema_error = (
                 "schema" in error_str
                 or "decimal scale" in error_str
                 or "decimal precision" in error_str
                 or "parsedatatype" in error_str
-                or ("cannot be greater than precision" in error_str)
+                or "cannot be greater than precision" in error_str
             )
 
             if is_schema_error:
@@ -399,7 +328,7 @@ class FileLoader:
                         file_path=file_path,
                         operation="load_stg_table_to_target",
                         additional_info={
-                            "file_format": self.config.extract_file_format,
+                            "file_format": self.config.extract_file_format_params.file_format,
                             "schema_error": str(e),
                         },
                     ),
@@ -422,13 +351,19 @@ class FileLoader:
     # Private methods
 
     def _create_source_lakehouse_utils(self) -> lakehouse_utils:
-        """Create lakehouse utils for reading source files"""
-        workspace = self.config.source_config.source_connection_params.get("workspace_name")
-        lakehouse = self.config.source_config.source_connection_params.get("lakehouse_name")
+        """
+        Create lakehouse utils for reading extract layer files.
+
+        Loader reads from extract layer (raw files), not the original source.
+        For filesystem sources, extract layer = raw lakehouse.
+        For database sources, extract layer = where JDBC extraction wrote data.
+        """
+        workspace = self.config.extract_storage_workspace
+        lakehouse = self.config.extract_storage_lakehouse
 
         if not workspace or not lakehouse:
             raise ValueError(
-                "source_config.source_connection_params must have workspace_name and lakehouse_name"
+                "extract_storage_workspace and extract_storage_lakehouse must be configured"
             )
 
         return lakehouse_utils(
@@ -464,35 +399,129 @@ class FileLoader:
         )
 
     def _get_file_read_options(self) -> dict:
-        """Build file reading options from configuration"""
-        options = {}
+        """Build file reading options, translated to Spark names."""
+        if not self.config.extract_file_format_params.file_format:
+            return {}
 
-        if not self.config.extract_file_format:
-            return options
+        file_format = self.config.extract_file_format_params.file_format.lower()
 
-        if self.config.extract_file_format.lower() == "csv":
-            # Get CSV format params from source_extraction_params (all source types)
-            params = self.config.source_extraction_params
+        # Start with user-configured options (snake_case)
+        options = dict(self.config.extract_file_format_params.format_options)
 
-            options["has_header"] = params.get("has_header", True)
-            options["file_delimiter"] = params.get("file_delimiter", ",")
-            options["encoding"] = params.get("encoding", "utf-8")
-            options["quote_character"] = params.get("quote_character", '"')
-            options["escape_character"] = params.get("escape_character", "\\")
-            options["multiline_values"] = params.get("multiline_values", True)
-            options["null_value"] = params.get("null_value", "")
+        # Enable corrupt record tracking only for text-based formats
+        # Binary formats (parquet, avro, orc) have strong schemas and can't have corrupt records
+        if file_format in ["csv", "json", "xml"]:
+            options["column_name_of_corrupt_record"] = self.metadata_cols.stg_corrupt_record
+            options["mode"] = "PERMISSIVE"
 
-            schema = self.config.target_schema_columns.to_raw_schema()
+        # Translate snake_case to Spark camelCase
+        return _translate_options(options)
 
-            schema = schema.add(StructField(self.metadata_cols.stg_corrupt_record, StringType(), True))
+    def _resolve_schema(self, file_format: str, file_paths: list) -> Optional[StructType]:
+        """
+        Resolve schema for reading files into staging.
 
-            options["schema"] = schema
+        Always infers schema from the file. Target schema handling (try_cast)
+        is done in load_stg_table_to_target() when target_schema_columns is provided.
 
-        # Enable corrupt record tracking (Spark PERMISSIVE mode - works for all formats)
-        options["columnNameOfCorruptRecord"] = self.metadata_cols.stg_corrupt_record
-        options["mode"] = "PERMISSIVE"
+        Args:
+            file_format: File format (csv, json, parquet, etc.)
+            file_paths: List of file paths to read
 
-        return options
+        Returns:
+            StructType schema or None (for formats that auto-infer)
+        """
+        return self._infer_schema_from_file(file_format, file_paths)
+
+    def _infer_schema_from_file(self, file_format: str, file_paths: list) -> Optional[StructType]:
+        """
+        Infer schema from file.
+
+        CSV requires two-pass (infer then add corrupt record column).
+        JSON/XML auto-infer with columnNameOfCorruptRecord.
+        Parquet/Avro/ORC use embedded schema.
+
+        Args:
+            file_format: File format
+            file_paths: List of file paths
+
+        Returns:
+            Inferred schema with corrupt record column for text formats
+        """
+        if file_format == "csv":
+            # Two-pass for CSV: infer schema without corrupt record options
+            options = self._get_file_read_options()
+            infer_options = {k: v for k, v in options.items() if k not in ["columnNameOfCorruptRecord", "mode"]}
+            infer_options["inferSchema"] = True
+            inferred = self.source_lakehouse_utils.read_file(
+                file_path=file_paths,
+                file_format=file_format,
+                options=infer_options,
+            ).schema
+
+            # For headerless CSVs with target_schema_columns: rename _c0, _c1, etc. to target names
+            has_header = self.config.extract_file_format_params.format_options.get("has_header", True)
+            if self.config.target_schema_columns and not has_header:
+                target_names = [f.name for f in self.config.target_schema_columns.to_spark_schema().fields]
+                renamed_fields = []
+                for i, field in enumerate(inferred.fields):
+                    if i < len(target_names):
+                        renamed_fields.append(StructField(target_names[i], field.dataType, field.nullable))
+                    else:
+                        renamed_fields.append(field)  # Extra columns keep inferred names
+                inferred = StructType(renamed_fields)
+
+            # Add corrupt record column
+            return inferred.add(StructField(self.metadata_cols.stg_corrupt_record, StringType(), True))
+        else:
+            # JSON/XML auto-infer via columnNameOfCorruptRecord option
+            # Parquet/Avro/ORC use embedded schema
+            return None  # Let Spark handle it
+
+    def _filter_metadata_columns(self, schema: StructType) -> StructType:
+        """
+        Remove framework metadata columns from schema.
+
+        Filters out columns starting with _stg_ or _raw_ prefixes.
+
+        Args:
+            schema: Source schema (typically from target table)
+
+        Returns:
+            Schema with only business columns
+        """
+        metadata_prefixes = ("_stg_", "_raw_")
+        return StructType([
+            f for f in schema.fields
+            if not f.name.startswith(metadata_prefixes)
+        ])
+
+    def _merge_schemas(self, inferred: StructType, existing: StructType) -> StructType:
+        """
+        Merge inferred schema with existing table schema.
+
+        - Existing columns: use existing types (for consistency)
+        - New columns: use inferred types (schema drift)
+
+        Args:
+            inferred: Schema inferred from file
+            existing: Schema from existing target table
+
+        Returns:
+            Merged schema with consistent types for existing columns
+        """
+        existing_fields = {f.name: f for f in existing.fields if not f.name.startswith(("_stg_", "_raw_"))}
+
+        merged_fields = []
+        for field in inferred.fields:
+            if field.name in existing_fields:
+                # Use existing table's type for known columns
+                merged_fields.append(existing_fields[field.name])
+            else:
+                # New column - use inferred type
+                merged_fields.append(field)
+
+        return StructType(merged_fields)
 
     def _parse_partition_values(self, path: str) -> Dict[str, str]:
         """
@@ -508,8 +537,6 @@ class FileLoader:
         Returns:
             Dict mapping partition column names to values
         """
-        import re
-
         partition_values = {}
 
         # Extract all key=value pairs from path
@@ -521,6 +548,113 @@ class FileLoader:
             partition_values[col_name] = col_value
 
         return partition_values
+
+    def _read_and_filter_staging(self, batch_info: BatchInfo) -> DataFrame:
+        """
+        Read from staging table filtered by partition and batch_id.
+
+        Args:
+            batch_info: Batch info with destination_path and batch_id
+
+        Returns:
+            DataFrame with staging and partition columns dropped
+        """
+        df = self.stg_table_utils.read_table(
+            table_name=self.config.stg_table_name,
+            schema_name=self.config.stg_table_schema,
+        )
+
+        # Apply partition filters
+        if batch_info.destination_path:
+            for col_name, col_value in self._parse_partition_values(batch_info.destination_path).items():
+                df = df.filter(col(col_name) == col_value)
+
+        # Filter to batch
+        df = df.filter(col(self.metadata_cols.stg_created_load_id) == batch_info.batch_id)
+
+        # Drop staging columns
+        df = df.drop(
+            self.metadata_cols.stg_created_load_id,
+            self.metadata_cols.stg_file_path,
+            self.metadata_cols.stg_created_at
+        )
+
+        # Drop partition columns
+        for col_name in self.config.stg_table_partition_columns:
+            if col_name in df.columns:
+                df = df.drop(col_name)
+
+        return df
+
+    def _handle_corrupt_records(self, df: DataFrame) -> tuple:
+        """
+        Handle corrupt records from Step 1 - filter and return count.
+
+        Args:
+            df: DataFrame potentially containing corrupt records
+
+        Returns:
+            Tuple of (filtered_df, corrupt_count)
+        """
+        if self.metadata_cols.stg_corrupt_record not in df.columns:
+            return df, 0
+
+        corrupt_count = df.filter(col(self.metadata_cols.stg_corrupt_record).isNotNull()).count()
+
+        if corrupt_count > 0:
+            if corrupt_count <= self.config.target_max_corrupt_records:
+                self.logger.warning(f"Found {corrupt_count} structurally corrupt rows, dropping them")
+            df = df.filter(col(self.metadata_cols.stg_corrupt_record).isNull())
+
+        return df.drop(self.metadata_cols.stg_corrupt_record), corrupt_count
+
+    def _apply_schema_validation(self, df: DataFrame) -> tuple:
+        """
+        Apply schema validation with try_cast.
+
+        Args:
+            df: DataFrame to validate
+
+        Returns:
+            Tuple of (typed_df, cast_error_count)
+        """
+        if not self.config.target_schema_columns:
+            return df, 0
+
+        target_schema = self.config.target_schema_columns.to_target_schema()
+
+        # Build casted columns
+        casted_columns = []
+        for field in target_schema.fields:
+            if field.name in df.columns:
+                casted_columns.append(
+                    expr(f"try_cast({field.name} as {field.dataType.simpleString()})").alias(field.name)
+                )
+            else:
+                casted_columns.append(lit(None).cast(field.dataType).alias(field.name))
+
+        # Build error tracking
+        error_exprs = []
+        for field in target_schema.fields:
+            if field.name in df.columns:
+                error_exprs.append(
+                    when(
+                        expr(f"try_cast({field.name} as {field.dataType.simpleString()})").isNull()
+                        & col(field.name).isNotNull(),
+                        lit(field.name)
+                    )
+                )
+
+        error_col = concat_ws(", ", *error_exprs).alias("_type_cast_error")
+        df_casted = df.select(*casted_columns, error_col)
+
+        cast_error_count = df_casted.filter(col("_type_cast_error") != "").count()
+
+        if cast_error_count > 0:
+            self.logger.warning(f"Found {cast_error_count} rows with type cast errors, filtering")
+            df_casted = df_casted.filter(col("_type_cast_error") == "")
+
+        return df_casted.drop("_type_cast_error"), cast_error_count
 
     def _add_filename_metadata_columns(self, df, file_path: str):
         """
@@ -543,11 +677,14 @@ class FileLoader:
         Returns:
             DataFrame with added metadata columns
         """
-        # Get metadata patterns from source_extraction_params
-        if not self.config.source_extraction_params or not isinstance(self.config.source_extraction_params, dict):
+        # Get metadata patterns from source_extraction_params (handle both dict and typed params)
+        if isinstance(self.config.source_extraction_params, dict):
+            metadata_patterns = self.config.source_extraction_params.get("filename_metadata", [])
+        elif self.config.source_extraction_params:
+            metadata_patterns = getattr(self.config.source_extraction_params, "filename_metadata", [])
+        else:
             return df
 
-        metadata_patterns = self.config.source_extraction_params.get("filename_metadata", [])
         if not metadata_patterns:
             return df
 
@@ -745,7 +882,7 @@ class FileLoader:
             merge_keys=self.config.target_merge_keys,
             schema_name=self.config.target_schema,
             immutable_columns=[self.metadata_cols.raw_created_at, self.metadata_cols.raw_created_load_id],
-            enable_schema_evolution=False,
+            enable_schema_evolution=self.config.target_schema_drift_enabled,
             partition_by=self.config.target_partition_columns,
             soft_delete_enabled=self.config.target_soft_delete_enabled,
             cdc_config=self.config.target_cdc_config,
@@ -858,13 +995,18 @@ class FileLoader:
         )
         self.logger.debug(f"Target table row count before write: {metrics.target_row_count_before}")
 
-        # Write data (schema evolution disabled)
+        # Write data
+        write_options = {}
+        if self.config.target_schema_drift_enabled:
+            write_options["mergeSchema"] = "true"
+
         target_utils.write_to_table(
             df=df,
             table_name=self.config.target_table,
             schema_name=self.config.target_schema,
             mode=self.config.target_write_mode,
             partition_by=self.config.target_partition_columns,
+            options=write_options if write_options else None,
         )
 
         # Get after count
