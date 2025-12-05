@@ -465,6 +465,46 @@ class SyncToFabricEnvironment:
             ConsoleStyles.print_success(
                 self.console, f"Copied workspace items to {output_dir}"
             )
+
+            # Filter VariableLibrary valueSets to only include current environment
+            # This ensures only the target environment's values are deployed, preventing
+            # accidental exposure of other environments' configuration (e.g., dev values to prod)
+            var_lib_path = output_dir / "config" / "var_lib.VariableLibrary"
+            if var_lib_path.exists():
+                value_sets_path = var_lib_path / "valueSets"
+                settings_path = var_lib_path / "settings.json"
+                
+                if value_sets_path.exists():
+                    # Remove all valueSet JSON files except the current environment
+                    removed_count = 0
+                    for value_set_file in value_sets_path.glob("*.json"):
+                        if value_set_file.stem != self.environment:
+                            value_set_file.unlink()
+                            removed_count += 1
+                            ConsoleStyles.print_dim(
+                                self.console, f"Removed valueSet: {value_set_file.name}"
+                            )
+                    
+                    if removed_count > 0:
+                        ConsoleStyles.print_success(
+                            self.console, 
+                            f"Filtered valueSets to only include '{self.environment}' environment"
+                        )
+                
+                # Update settings.json to only reference current environment
+                if settings_path.exists():
+                    with open(settings_path, "r", encoding="utf-8") as f:
+                        settings = json.load(f)
+                    
+                    settings["valueSetsOrder"] = [self.environment]
+                    
+                    with open(settings_path, "w", encoding="utf-8") as f:
+                        json.dump(settings, f, indent=2)
+                    
+                    ConsoleStyles.print_success(
+                        self.console, 
+                        f"Updated settings.json to reference only '{self.environment}' environment"
+                    )
         else:
             ConsoleStyles.print_warning(
                 self.console, f"Source directory {source_dir} does not exist"
