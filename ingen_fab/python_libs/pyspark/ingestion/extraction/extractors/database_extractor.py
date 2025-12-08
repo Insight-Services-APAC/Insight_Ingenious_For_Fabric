@@ -3,10 +3,12 @@
 
 import asyncio
 import logging
+import re
 import time
 import uuid
 from datetime import date, datetime, timedelta
-from typing import Any, Dict, Generator, List, Optional, Tuple, Union, cast
+from dataclasses import dataclass
+from typing import Any, Dict, Generator, Iterator, List, Optional, Tuple, Union, cast
 
 import nest_asyncio
 
@@ -30,6 +32,16 @@ from ingen_fab.python_libs.pyspark.lakehouse_utils import lakehouse_utils
 from ingen_fab.python_libs.python.pipeline_utils import PipelineUtils
 
 logger = logging.getLogger(__name__)
+
+
+@dataclass
+class PipelineContext:
+    """Resolved pipeline identifiers for extraction."""
+    pipeline_utils: PipelineUtils
+    workspace_id: str
+    pipeline_id: str
+    source_connection_id: str
+    source_database: str
 
 
 class DatabaseExtractor(BaseExtractor[DatabaseExtractionParams], source_type="database"):
@@ -137,6 +149,7 @@ class DatabaseExtractor(BaseExtractor[DatabaseExtractionParams], source_type="da
         range_start: Optional[Any] = None,
         range_end: Optional[Any] = None,
         range_start_inclusive: bool = False,
+        batch_id: Optional[str] = None,
     ) -> str:
         """
         Build SQL query for extraction based on extraction_mode.
@@ -150,8 +163,9 @@ class DatabaseExtractor(BaseExtractor[DatabaseExtractionParams], source_type="da
             watermark_value: Last watermark value (for incremental extraction)
             output_path: Output path (required for CETAS mode)
             range_start: Range start value (exclusive by default, >= if range_start_inclusive)
-            range_end: Range end value (inclusive, <=)
+            range_end: Range end value (exclusive, <) - pass day AFTER last day to include
             range_start_inclusive: If True, use >= for range_start; if False, use >
+            batch_id: Batch ID for generating unique external table names (required for CETAS mode)
 
         Returns:
             SQL query string (SELECT for table/query modes, CETAS for cetas mode)
@@ -192,15 +206,21 @@ class DatabaseExtractor(BaseExtractor[DatabaseExtractionParams], source_type="da
         if extraction_mode == "cetas":
             if not output_path:
                 raise ValueError("CETAS mode requires output_path")
-            if not self.extraction_params.cetas_data_source:
-                raise ValueError("CETAS mode requires cetas_data_source")
+            if not batch_id:
+                raise ValueError("CETAS mode requires batch_id")
+
+            # Generate unique external table name: {schema}.{resource_name}_{batch_id_short}
+            # Sanitize resource_name for SQL identifier (replace non-alphanumeric with _)
+            safe_resource_name = re.sub(r'[^a-zA-Z0-9_]', '_', self.config.resource_name)
+            batch_id_short = batch_id.replace('-', '')[:8]
+            external_table = f"{self.extraction_params.cetas_external_schema}.{safe_resource_name}_{batch_id_short}"
 
             return build_cetas_wrapper(
                 select_query=select_query,
                 output_path=output_path,
                 data_source=self.extraction_params.cetas_data_source,
                 file_format=self.extraction_params.cetas_file_format,
-                external_table=self.extraction_params.cetas_external_table,
+                external_table=external_table,
             )
 
         return select_query
@@ -301,14 +321,17 @@ class DatabaseExtractor(BaseExtractor[DatabaseExtractionParams], source_type="da
         """
         Generate (start, end) tuples for chunked extraction.
 
+        Both start and end in each tuple are used with < operator (exclusive).
+        The caller passes range_start_inclusive to control >= vs > for start.
+
         Args:
-            start: Start value (inclusive)
-            end: End value (exclusive)
+            start: Start value (watermark or incremental_start)
+            end: End value (exclusive) - day AFTER last day to include
             interval: Chunk size (hours for date/timestamp, step for integer)
             column_type: "date", "timestamp", or "integer"
 
         Returns:
-            List of (range_start, range_end) tuples
+            List of (range_start, range_end) tuples where range_end is exclusive
         """
         ranges: List[Tuple[Any, Any]] = []
 
@@ -407,6 +430,104 @@ class DatabaseExtractor(BaseExtractor[DatabaseExtractionParams], source_type="da
             }
         }
 
+    def _get_pipeline_context(self) -> PipelineContext:
+        """Initialize and resolve pipeline identifiers."""
+        pipeline_utils = PipelineUtils()
+        pipeline_workspace = self.connection_params.get("pipeline_workspace_name")
+        pipeline_name = self.connection_params.get("pipeline_name")
+        source_connection_id = self.connection_params.get("pipeline_source_connection_id")
+        source_database = self.connection_params.get("pipeline_source_database")
+        assert pipeline_workspace and pipeline_name and source_connection_id and source_database
+
+        workspace_id = pipeline_utils.resolve_workspace_id(pipeline_workspace)
+        pipeline_id = pipeline_utils.resolve_pipeline_id(workspace_id, pipeline_name)
+
+        return PipelineContext(
+            pipeline_utils=pipeline_utils,
+            workspace_id=workspace_id,
+            pipeline_id=pipeline_id,
+            source_connection_id=source_connection_id,
+            source_database=source_database,
+        )
+
+    def _make_error_result(
+        self, batch_id: str, error_msg: str, start_time: float, paths: Optional[List[str]] = None
+    ) -> BatchExtractionResult:
+        """Create error result with timing."""
+        return BatchExtractionResult(
+            extraction_id=batch_id,
+            source_path=self.source_path,
+            extract_file_paths=paths or [],
+            status=ExecutionStatus.ERROR,
+            error_message=error_msg,
+            file_count=0,
+            file_size_bytes=0,
+            duration_ms=int((time.time() - start_time) * 1000),
+        )
+
+    def _make_success_result(
+        self, batch_id: str, paths: List[str], start_time: float
+    ) -> BatchExtractionResult:
+        """Create success result with timing."""
+        return BatchExtractionResult(
+            extraction_id=batch_id,
+            source_path=self.source_path,
+            extract_file_paths=paths,
+            status=ExecutionStatus.SUCCESS,
+            error_message=None,
+            file_count=len(paths),
+            file_size_bytes=0,
+            duration_ms=int((time.time() - start_time) * 1000),
+        )
+
+    def _make_warning_result(
+        self, batch_id: str, warning_msg: str, paths: List[str], start_time: float
+    ) -> BatchExtractionResult:
+        """Create warning result with timing."""
+        return BatchExtractionResult(
+            extraction_id=batch_id,
+            source_path=self.source_path,
+            extract_file_paths=paths,
+            status=ExecutionStatus.WARNING,
+            error_message=warning_msg,
+            file_count=0,
+            file_size_bytes=0,
+            duration_ms=int((time.time() - start_time) * 1000),
+        )
+
+    def _invoke_pipeline(
+        self, ctx: PipelineContext, payload: Dict[str, Any], label: str
+    ) -> str:
+        """Invoke pipeline and return result status."""
+        nest_asyncio.apply()
+        return asyncio.run(
+            ctx.pipeline_utils.trigger_pipeline_with_polling(
+                workspace_id=ctx.workspace_id,
+                pipeline_id=ctx.pipeline_id,
+                payload=payload,
+                table_name=label
+            )
+        )
+
+    def _update_watermark_from_df(self, df, batch_id: str) -> Optional[Any]:
+        """Calculate max from dataframe and update watermark."""
+        try:
+            max_val = df.agg(
+                spark_max(col(self.extraction_params.incremental_column))
+            ).collect()[0][0]
+            if max_val is not None:
+                self.extraction_logger.update_watermark(
+                    self.config.source_name,
+                    self.config.resource_name,
+                    self.extraction_params.incremental_column,
+                    max_val,
+                    batch_id
+                )
+            return max_val
+        except Exception as e:
+            self.logger.warning(f"Could not update watermark: {e}")
+            return None
+
     def _extract_via_pipeline(self) -> Generator[BatchExtractionResult, None, None]:
         """
         Pipeline extraction - supports full, incremental, and chunked incremental loads.
@@ -482,60 +603,31 @@ class DatabaseExtractor(BaseExtractor[DatabaseExtractionParams], source_type="da
             relative_path = relative_path.rstrip("/")
             full_path = full_path.rstrip("/")
 
-            # 4. Build query (CETAS needs full path since it writes directly to OneLake)
-            query = self._build_query(effective_watermark, output_path=full_path)
+            # 4. Build query (CETAS uses relative_path - DATA_SOURCE has the storage account/container)
+            query = self._build_query(effective_watermark, output_path=relative_path, batch_id=batch_id)
             self.logger.debug(f"Extraction mode: {self.extraction_params.extraction_mode}")
             self.logger.debug(f"Extracting query: {query[:200]}...")
             self.logger.debug(f"Output path: {relative_path}")
 
             # 5. Initialize pipeline and resolve IDs
-            pipeline_utils = PipelineUtils()
-
-            # Get pipeline workspace, name, connection, and database (validated by config)
-            pipeline_workspace = self.connection_params.get("pipeline_workspace_name")
-            pipeline_name = self.connection_params.get("pipeline_name")
-            source_connection_id = self.connection_params.get("pipeline_source_connection_id")
-            source_database = self.connection_params.get("pipeline_source_database")
-            # Type narrowing - config guarantees these exist for database sources
-            assert pipeline_workspace and pipeline_name and source_connection_id and source_database
-
-            # Resolve names to GUIDs
-            workspace_id = pipeline_utils.resolve_workspace_id(pipeline_workspace)
-            pipeline_id = pipeline_utils.resolve_pipeline_id(workspace_id, pipeline_name)
+            ctx = self._get_pipeline_context()
 
             # 6. Build pipeline payload (use relative path)
             payload = self._build_pipeline_payload(
                 query=query,
                 output_path=relative_path,
-                source_connection_id=source_connection_id,
-                source_database=source_database,
+                source_connection_id=ctx.source_connection_id,
+                source_database=ctx.source_database,
             )
 
             # 7. Invoke pipeline and wait for completion
-            self.logger.debug(f"Invoking pipeline {pipeline_id} in workspace {workspace_id}...")
-            nest_asyncio.apply()
-            result = asyncio.run(
-                pipeline_utils.trigger_pipeline_with_polling(
-                    workspace_id=workspace_id,
-                    pipeline_id=pipeline_id,
-                    payload=payload,
-                    table_name=self.source_path
-                )
-            )
+            self.logger.debug(f"Invoking pipeline {ctx.pipeline_id} in workspace {ctx.workspace_id}...")
+            result = self._invoke_pipeline(ctx, payload, self.source_path)
 
             # 8. Check pipeline status
             if result != "Completed":
                 self.logger.error(f"Pipeline execution failed with status: {result}")
-                yield BatchExtractionResult(
-                    extraction_id=batch_id,
-                    source_path=self.source_path,
-                    extract_file_paths=[],
-                    status=ExecutionStatus.ERROR,
-                    error_message=f"Pipeline execution failed: {result}",
-                    file_count=0,
-                    file_size_bytes=0,
-                    duration_ms=int((time.time() - start_time) * 1000),
-                )
+                yield self._make_error_result(batch_id, f"Pipeline execution failed: {result}", start_time)
                 return
 
             self.logger.debug(f"Pipeline completed successfully: {result}")
@@ -556,16 +648,7 @@ class DatabaseExtractor(BaseExtractor[DatabaseExtractionParams], source_type="da
                         self.logger.warning(
                             f"No new data extracted (0 rows). Watermark remains: {watermark_value}"
                         )
-                        yield BatchExtractionResult(
-                            extraction_id=batch_id,
-                            source_path=self.source_path,
-                            extract_file_paths=[full_path],
-                            status=ExecutionStatus.WARNING,
-                            error_message="No new data extracted (0 rows)",
-                            file_count=0,
-                            file_size_bytes=0,
-                            duration_ms=int((time.time() - start_time) * 1000),
-                        )
+                        yield self._make_warning_result(batch_id, "No new data extracted (0 rows)", [full_path], start_time)
                         return
 
                     # Calculate new watermark as MAX(incremental_column)
@@ -579,15 +662,11 @@ class DatabaseExtractor(BaseExtractor[DatabaseExtractionParams], source_type="da
                             f"All values in incremental_column '{self.extraction_params.incremental_column}' are NULL. "
                             f"Cannot update watermark."
                         )
-                        yield BatchExtractionResult(
-                            extraction_id=batch_id,
-                            source_path=self.source_path,
-                            extract_file_paths=[full_path],
-                            status=ExecutionStatus.ERROR,
-                            error_message=f"Incremental column '{self.extraction_params.incremental_column}' has all NULL values",
-                            file_count=0,
-                            file_size_bytes=0,
-                            duration_ms=int((time.time() - start_time) * 1000),
+                        yield self._make_error_result(
+                            batch_id,
+                            f"Incremental column '{self.extraction_params.incremental_column}' has all NULL values",
+                            start_time,
+                            paths=[full_path]
                         )
                         return
 
@@ -595,16 +674,7 @@ class DatabaseExtractor(BaseExtractor[DatabaseExtractionParams], source_type="da
 
                 except Exception as e:
                     self.logger.error(f"Failed to read back files for watermark calculation: {str(e)}")
-                    yield BatchExtractionResult(
-                        extraction_id=batch_id,
-                        source_path=self.source_path,
-                        extract_file_paths=[],
-                        status=ExecutionStatus.ERROR,
-                        error_message=f"Failed to read back files for watermark: {str(e)}",
-                        file_count=0,
-                        file_size_bytes=0,
-                        duration_ms=int((time.time() - start_time) * 1000),
-                    )
+                    yield self._make_error_result(batch_id, f"Failed to read back files for watermark: {str(e)}", start_time)
                     return
 
             # 10. Update watermark
@@ -618,47 +688,25 @@ class DatabaseExtractor(BaseExtractor[DatabaseExtractionParams], source_type="da
                     batch_id
                 )
 
-            # 10. Calculate metrics
-            # Note: For full loads without incremental_column, we skip file read-back
-            # File count and size will be calculated by orchestrator if needed
-            total_duration_ms = int((time.time() - start_time) * 1000)
-
-            # 11. Yield success
-            yield BatchExtractionResult(
-                extraction_id=batch_id,
-                source_path=self.source_path,
-                extract_file_paths=[full_path],
-                status=ExecutionStatus.SUCCESS,
-                error_message=None,
-                file_count=1,  # One batch folder
-                file_size_bytes=0,  # Not calculated (would require file listing)
-                duration_ms=total_duration_ms,
-            )
+            # 10. Yield success
+            yield self._make_success_result(batch_id, [full_path], start_time)
 
         except Exception as e:
             # Extraction failed
             self.logger.error(f"Pipeline extraction failed: {str(e)}")
-
-            yield BatchExtractionResult(
-                extraction_id=batch_id,
-                source_path=self.source_path,
-                extract_file_paths=[],
-                status=ExecutionStatus.ERROR,
-                error_message=f"Pipeline extraction failed: {str(e)}",
-                file_count=0,
-                file_size_bytes=0,
-                duration_ms=int((time.time() - start_time) * 1000),
-            )
+            yield self._make_error_result(batch_id, f"Pipeline extraction failed: {str(e)}", start_time)
 
     def _extract_chunked(self) -> Generator[BatchExtractionResult, None, None]:
         """
         Chunked extraction - splits large incremental loads into sequential ranges.
 
-        Uses > start AND <= end for all chunks (except first run uses >= start).
+        Query pattern:
+        - First chunk: `col > start AND col < end` (start is watermark or incremental_start)
+        - Subsequent chunks: `col >= start AND col < end` (include boundary excluded by previous <)
 
         Start value priority:
         1. Watermark (if exists) - used for subsequent runs
-        2. incremental_start (if no watermark) - seed for first run
+        2. incremental_start (if no watermark) - seed for first run (treated as "first watermark")
 
         Two modes based on incremental_end:
         - **Pre-calculated mode**: When incremental_end is specified (or defaulted to now for date/timestamp)
@@ -680,10 +728,9 @@ class DatabaseExtractor(BaseExtractor[DatabaseExtractionParams], source_type="da
             self.extraction_params.incremental_column
         )
 
-        # Determine start value and whether this is first run
-        # First run uses >= (inclusive), subsequent runs use > (exclusive)
-        is_first_run = False
-
+        # Determine start value
+        # Watermark takes priority over incremental_start
+        # Both are treated as "last processed" - queries use > (exclusive) for first chunk
         if watermark_value is not None:
             start_value = watermark_value
 
@@ -701,13 +748,13 @@ class DatabaseExtractor(BaseExtractor[DatabaseExtractionParams], source_type="da
             else:
                 self.logger.info(f"Using watermark as start: {start_value}")
         elif self.extraction_params.incremental_start:
-            # First run - use >= to include starting value
-            is_first_run = True
+            # First run - incremental_start is treated as "first watermark" (exclusive)
+            # e.g., incremental_start="2024-12-31" means first value to capture is Jan 1
             start_value = self._parse_incremental_value(
                 self.extraction_params.incremental_start,
                 column_type,
             )
-            self.logger.info(f"First run, using incremental_start: {start_value} (inclusive)")
+            self.logger.info(f"First run, using incremental_start as first watermark: {start_value} (exclusive)")
         else:
             raise ValueError(
                 "Chunked extraction requires either a watermark or incremental_start for first run"
@@ -716,330 +763,166 @@ class DatabaseExtractor(BaseExtractor[DatabaseExtractionParams], source_type="da
         # Determine mode based on whether incremental_end is specified
         if self.extraction_params.incremental_end:
             # Pre-calculated mode: generate all ranges upfront
-            end_value = self._parse_incremental_value(
+            # User specifies inclusive end (last value to include), convert to exclusive for < comparison
+            inclusive_end = self._parse_incremental_value(
                 self.extraction_params.incremental_end,
                 column_type,
             )
-            self.logger.info(f"Chunked extraction (pre-calculated): {start_value} to {end_value} (interval={incremental_chunk_size})")
-            yield from self._extract_chunked_precalculated(start_value, end_value, incremental_chunk_size, column_type, is_first_run)
+            # Convert to exclusive: +1 day for date/timestamp, +1 for integer
+            if column_type == "integer":
+                if not isinstance(inclusive_end, int):
+                    raise ValueError(f"Expected int for integer column_type, got {type(inclusive_end)}")
+                end_value = inclusive_end + 1
+            elif column_type == "date":
+                if isinstance(inclusive_end, datetime):
+                    end_value = (inclusive_end + timedelta(days=1)).date()
+                elif isinstance(inclusive_end, date):
+                    end_value = inclusive_end + timedelta(days=1)
+                else:
+                    raise ValueError(f"Expected date for date column_type, got {type(inclusive_end)}")
+            else:  # timestamp
+                if isinstance(inclusive_end, datetime):
+                    end_value = inclusive_end + timedelta(days=1)
+                elif isinstance(inclusive_end, date):
+                    end_value = datetime.combine(inclusive_end, datetime.min.time()) + timedelta(days=1)
+                else:
+                    raise ValueError(f"Expected datetime for timestamp column_type, got {type(inclusive_end)}")
+            self.logger.info(f"Chunked extraction (pre-calculated): {start_value} to < {end_value} (user specified end: {inclusive_end}, interval={incremental_chunk_size})")
+            ctx = self._get_pipeline_context()
+            ranges = self._generate_ranges(start_value, end_value, incremental_chunk_size, column_type)
+            if not ranges:
+                self.logger.warning("No chunks to extract (start >= end)")
+                return
+            self.logger.info(f"Generated {len(ranges)} chunks with interval {incremental_chunk_size}")
+            yield from self._extract_chunks(iter(ranges), ctx, stop_on_empty=False)
         elif column_type == "integer":
             # Progressive mode: extract chunks until empty (integers only)
             self.logger.info(f"Chunked extraction (progressive): starting from {start_value} (interval={incremental_chunk_size})")
             # start_value is guaranteed to be int when column_type == "integer"
             if not isinstance(start_value, int):
                 raise ValueError(f"Expected int for integer column_type, got {type(start_value)}")
-            yield from self._extract_chunked_progressive(start_value, incremental_chunk_size, is_first_run)
-        else:
-            # Date/timestamp without end: default to now
-            if column_type == "date":
-                end_value = date.today()
-            else:  # timestamp
-                end_value = datetime.now()
-            self.logger.info(f"Chunked extraction (pre-calculated): {start_value} to {end_value} (interval={incremental_chunk_size})")
-            yield from self._extract_chunked_precalculated(start_value, end_value, incremental_chunk_size, column_type, is_first_run)
+            ctx = self._get_pipeline_context()
 
-    def _extract_chunked_precalculated(
+            def progressive_ranges() -> Generator[Tuple[int, int], None, None]:
+                current = start_value
+                while True:
+                    yield (current, current + incremental_chunk_size)
+                    current += incremental_chunk_size
+
+            yield from self._extract_chunks(progressive_ranges(), ctx, stop_on_empty=True)
+        else:
+            # Date/timestamp without end: default to tomorrow (exclusive, captures all of today)
+            if column_type == "date":
+                end_value = date.today() + timedelta(days=1)
+            else:  # timestamp
+                end_value = datetime.now() + timedelta(days=1)
+            self.logger.info(f"Chunked extraction (pre-calculated): {start_value} to < {end_value} (interval={incremental_chunk_size})")
+            ctx = self._get_pipeline_context()
+            ranges = self._generate_ranges(start_value, end_value, incremental_chunk_size, column_type)
+            if not ranges:
+                self.logger.warning("No chunks to extract (start >= end)")
+                return
+            self.logger.info(f"Generated {len(ranges)} chunks with interval {incremental_chunk_size}")
+            yield from self._extract_chunks(iter(ranges), ctx, stop_on_empty=False)
+
+    def _extract_chunks(
         self,
-        start_value: Union[date, datetime, int],
-        end_value: Union[date, datetime, int],
-        incremental_chunk_size: int,
-        column_type: str,
-        is_first_run: bool = False,
+        range_iterator: Iterator[Tuple[Any, Any]],
+        ctx: PipelineContext,
+        stop_on_empty: bool = False,
     ) -> Generator[BatchExtractionResult, None, None]:
         """
-        Pre-calculated chunked extraction - generates all ranges upfront.
+        Extract data in chunks from a range iterator.
 
-        Used when incremental_end is specified (or defaulted to now for date/timestamp).
-        First chunk uses >= (inclusive) if is_first_run, subsequent chunks use > (exclusive).
+        Unified implementation for both pre-calculated and progressive modes.
+
+        Args:
+            range_iterator: Iterator yielding (range_start, range_end) tuples
+            ctx: Pipeline context with resolved IDs
+            stop_on_empty: If True, stop when a chunk returns 0 rows (progressive mode)
+
+        Yields:
+            BatchExtractionResult for each chunk
         """
         overall_start_time = time.time()
+        chunk_num = 0
+        total_rows = 0
 
-        # Generate ranges
-        ranges = self._generate_ranges(start_value, end_value, incremental_chunk_size, column_type)
-        total_chunks = len(ranges)
-
-        if total_chunks == 0:
-            self.logger.warning("No chunks to extract (start >= end)")
-            return
-
-        self.logger.info(f"Generated {total_chunks} chunks with interval {incremental_chunk_size}")
-
-        # 4. Initialize pipeline once (params validated by config)
-        pipeline_utils = PipelineUtils()
-        pipeline_workspace = self.connection_params.get("pipeline_workspace_name")
-        pipeline_name = self.connection_params.get("pipeline_name")
-        source_connection_id = self.connection_params.get("pipeline_source_connection_id")
-        source_database = self.connection_params.get("pipeline_source_database")
-        assert pipeline_workspace and pipeline_name and source_connection_id and source_database
-
-        workspace_id = pipeline_utils.resolve_workspace_id(pipeline_workspace)
-        pipeline_id = pipeline_utils.resolve_pipeline_id(workspace_id, pipeline_name)
-
-        # 5. Process each chunk sequentially
-        for chunk_idx, (range_start, range_end) in enumerate(ranges):
-            chunk_num = chunk_idx + 1
+        for range_start, range_end in range_iterator:
+            chunk_num += 1
             batch_id = str(uuid.uuid4())
             chunk_start_time = time.time()
 
-            # First chunk uses >= if first run, all others use >
-            use_inclusive_start = is_first_run and chunk_idx == 0
-            self.logger.debug(f"Processing chunk {chunk_num}/{total_chunks}: {range_start} to {range_end} (inclusive_start={use_inclusive_start})")
+            # First chunk: > (exclusive), subsequent: >= (inclusive)
+            use_inclusive_start = chunk_num > 1
+            self.logger.debug(
+                f"Processing chunk {chunk_num}: {range_start} to < {range_end} "
+                f"(inclusive_start={use_inclusive_start})"
+            )
 
             try:
-                # Build output paths with Hive partitioning and batch_id
+                # Build paths
                 relative_path, full_path = self._build_batch_path(batch_id)
                 relative_path = relative_path.rstrip("/")
                 full_path = full_path.rstrip("/")
 
-                # Build query with range filters
+                # Build and execute query
                 query = self._build_query(
                     output_path=full_path,
                     range_start=range_start,
                     range_end=range_end,
                     range_start_inclusive=use_inclusive_start,
+                    batch_id=batch_id,
                 )
                 self.logger.debug(f"Chunk {chunk_num} query: {query[:200]}...")
 
-                # Build and invoke pipeline
                 payload = self._build_pipeline_payload(
                     query=query,
                     output_path=relative_path,
-                    source_connection_id=source_connection_id,
-                    source_database=source_database,
+                    source_connection_id=ctx.source_connection_id,
+                    source_database=ctx.source_database,
                 )
 
-                nest_asyncio.apply()
-                result = asyncio.run(
-                    pipeline_utils.trigger_pipeline_with_polling(
-                        workspace_id=workspace_id,
-                        pipeline_id=pipeline_id,
-                        payload=payload,
-                        table_name=f"{self.source_path}_chunk{chunk_num}"
-                    )
-                )
+                result = self._invoke_pipeline(ctx, payload, f"{self.source_path}_chunk{chunk_num}")
 
-                # Check result
                 if result != "Completed":
-                    self.logger.error(f"Chunk {chunk_num} failed with status: {result}")
-                    yield BatchExtractionResult(
-                        extraction_id=batch_id,
-                        source_path=self.source_path,
-                        extract_file_paths=[],
-                        status=ExecutionStatus.ERROR,
-                        error_message=f"Chunk {chunk_num}/{total_chunks} failed: {result}",
-                        file_count=0,
-                        file_size_bytes=0,
-                        duration_ms=int((time.time() - chunk_start_time) * 1000),
-                    )
-                    # Fail fast - stop processing on first failure
+                    self.logger.error(f"Chunk {chunk_num} failed: {result}")
+                    yield self._make_error_result(batch_id, f"Chunk {chunk_num} failed: {result}", chunk_start_time)
                     return
 
-                self.logger.debug(f"Chunk {chunk_num}/{total_chunks}: extracted to {full_path}")
+                # Handle progressive mode: check for empty result
+                if stop_on_empty:
+                    try:
+                        df = self.storage_lakehouse.read_file(full_path, self.config.extract_file_format_params.file_format)
+                        row_count = df.count()
+                    except Exception:
+                        self.logger.info(f"Chunk {chunk_num}: 0 rows - stopping (no files)")
+                        break
 
-                # Yield success for this chunk
-                yield BatchExtractionResult(
-                    extraction_id=batch_id,
-                    source_path=self.source_path,
-                    extract_file_paths=[full_path],
-                    status=ExecutionStatus.SUCCESS,
-                    error_message=None,
-                    file_count=1,
-                    file_size_bytes=0,
-                    duration_ms=int((time.time() - chunk_start_time) * 1000),
-                )
+                    if row_count == 0:
+                        self.logger.info(f"Chunk {chunk_num}: 0 rows - stopping")
+                        break
 
-                # Update watermark after each successful chunk for resumability
-                try:
-                    chunk_df = self.storage_lakehouse.read_file(full_path, self.config.extract_file_format_params.file_format)
-                    chunk_max = chunk_df.agg(spark_max(col(self.extraction_params.incremental_column))).collect()[0][0]
-                    if chunk_max is not None:
-                        self.extraction_logger.update_watermark(
-                            self.config.source_name,
-                            self.config.resource_name,
-                            self.extraction_params.incremental_column,
-                            chunk_max,
-                            batch_id
-                        )
-                except Exception as e:
-                    self.logger.warning(f"Could not update watermark for chunk {chunk_num}: {e}")
+                    total_rows += row_count
+                    self.logger.info(f"Chunk {chunk_num}: {row_count} rows")
+                    self._update_watermark_from_df(df, batch_id)
+                else:
+                    # Pre-calculated mode: update watermark from file
+                    try:
+                        df = self.storage_lakehouse.read_file(full_path, self.config.extract_file_format_params.file_format)
+                        self._update_watermark_from_df(df, batch_id)
+                    except Exception as e:
+                        self.logger.warning(f"Could not update watermark for chunk {chunk_num}: {e}")
+
+                yield self._make_success_result(batch_id, [full_path], chunk_start_time)
 
             except Exception as e:
                 self.logger.error(f"Chunk {chunk_num} failed: {str(e)}")
-                yield BatchExtractionResult(
-                    extraction_id=batch_id,
-                    source_path=self.source_path,
-                    extract_file_paths=[],
-                    status=ExecutionStatus.ERROR,
-                    error_message=f"Chunk {chunk_num}/{total_chunks} failed: {str(e)}",
-                    file_count=0,
-                    file_size_bytes=0,
-                    duration_ms=int((time.time() - chunk_start_time) * 1000),
-                )
-                # Fail fast
+                yield self._make_error_result(batch_id, f"Chunk {chunk_num} failed: {str(e)}", chunk_start_time)
                 return
 
-        # All chunks completed (watermark updated after each chunk)
         total_duration_ms = int((time.time() - overall_start_time) * 1000)
-        self.logger.info(
-            f"Chunked extraction complete: {total_chunks} chunks in {total_duration_ms}ms"
-        )
-
-    def _extract_chunked_progressive(
-        self,
-        start_value: int,
-        incremental_chunk_size: int,
-        is_first_run: bool = False,
-    ) -> Generator[BatchExtractionResult, None, None]:
-        """
-        Progressive chunked extraction - extracts chunks until one returns 0 rows.
-
-        Used for integer columns when incremental_end is NOT specified.
-        Stops on first empty chunk (no max_consecutive_empty_chunks).
-        First chunk uses >= (inclusive) if is_first_run, subsequent chunks use > (exclusive).
-
-        Flow:
-        1. Extract chunk (current, current + interval] or [current, current + interval] for first
-        2. Read back files, count rows
-        3. If rows > 0: yield result, continue to next chunk
-        4. If rows == 0: STOP
-        5. Update watermark to last successful chunk's end value
-        """
-        overall_start_time = time.time()
-
-        # Initialize pipeline once (params validated by config)
-        pipeline_utils = PipelineUtils()
-        pipeline_workspace = self.connection_params.get("pipeline_workspace_name")
-        pipeline_name = self.connection_params.get("pipeline_name")
-        source_connection_id = self.connection_params.get("pipeline_source_connection_id")
-        source_database = self.connection_params.get("pipeline_source_database")
-        assert pipeline_workspace and pipeline_name and source_connection_id and source_database
-
-        workspace_id = pipeline_utils.resolve_workspace_id(pipeline_workspace)
-        pipeline_id = pipeline_utils.resolve_pipeline_id(workspace_id, pipeline_name)
-
-        # Progressive extraction loop
-        current_start = start_value
-        chunk_num = 0
-        total_rows = 0
-
-        while True:
-            chunk_num += 1
-            current_end = current_start + incremental_chunk_size
-            batch_id = str(uuid.uuid4())
-            chunk_start_time = time.time()
-
-            # First chunk uses >= if first run, all others use >
-            use_inclusive_start = is_first_run and chunk_num == 1
-            self.logger.debug(f"Processing chunk {chunk_num}: {current_start} to {current_end} (inclusive_start={use_inclusive_start})")
-
-            try:
-                # Build output paths with Hive partitioning and batch_id
-                relative_path, full_path = self._build_batch_path(batch_id)
-                relative_path = relative_path.rstrip("/")
-                full_path = full_path.rstrip("/")
-
-                # Build query with range filters
-                query = self._build_query(
-                    output_path=full_path,
-                    range_start=current_start,
-                    range_end=current_end,
-                    range_start_inclusive=use_inclusive_start,
-                )
-                self.logger.debug(f"Chunk {chunk_num} query: {query[:200]}...")
-
-                # Build and invoke pipeline
-                payload = self._build_pipeline_payload(
-                    query=query,
-                    output_path=relative_path,
-                    source_connection_id=source_connection_id,
-                    source_database=source_database,
-                )
-
-                nest_asyncio.apply()
-                result = asyncio.run(
-                    pipeline_utils.trigger_pipeline_with_polling(
-                        workspace_id=workspace_id,
-                        pipeline_id=pipeline_id,
-                        payload=payload,
-                        table_name=f"{self.source_path}_chunk{chunk_num}"
-                    )
-                )
-
-                # Check pipeline result
-                if result != "Completed":
-                    self.logger.error(f"Chunk {chunk_num} failed with status: {result}")
-                    yield BatchExtractionResult(
-                        extraction_id=batch_id,
-                        source_path=self.source_path,
-                        extract_file_paths=[],
-                        status=ExecutionStatus.ERROR,
-                        error_message=f"Chunk {chunk_num} failed: {result}",
-                        file_count=0,
-                        file_size_bytes=0,
-                        duration_ms=int((time.time() - chunk_start_time) * 1000),
-                    )
-                    return
-
-                # Read back files to count rows and get MAX for watermark
-                self.logger.debug(f"Chunk {chunk_num} pipeline completed, reading back...")
-                try:
-                    df = self.storage_lakehouse.read_file(full_path, self.config.extract_file_format_params.file_format)
-                    row_count = df.count()
-                except Exception as e:
-                    # No files written (empty result) - STOP
-                    self.logger.info(f"Chunk {chunk_num}: 0 rows - stopping (no files)")
-                    break
-
-                if row_count == 0:
-                    # No more data - STOP
-                    self.logger.info(f"Chunk {chunk_num}: 0 rows - stopping")
-                    break
-
-                # Data found - update watermark immediately for resumability
-                chunk_max = df.agg(spark_max(col(self.extraction_params.incremental_column))).collect()[0][0]
-                if chunk_max is not None:
-                    self.extraction_logger.update_watermark(
-                        self.config.source_name,
-                        self.config.resource_name,
-                        self.extraction_params.incremental_column,
-                        chunk_max,
-                        batch_id
-                    )
-
-                self.logger.info(f"Chunk {chunk_num}: {row_count} rows")
-                total_rows += row_count
-
-                # Yield success for this chunk
-                yield BatchExtractionResult(
-                    extraction_id=batch_id,
-                    source_path=self.source_path,
-                    extract_file_paths=[full_path],
-                    status=ExecutionStatus.SUCCESS,
-                    error_message=None,
-                    file_count=1,
-                    file_size_bytes=0,
-                    duration_ms=int((time.time() - chunk_start_time) * 1000),
-                )
-
-                # Move to next chunk
-                current_start = current_end
-
-            except Exception as e:
-                self.logger.error(f"Chunk {chunk_num} failed: {str(e)}")
-                yield BatchExtractionResult(
-                    extraction_id=batch_id,
-                    source_path=self.source_path,
-                    extract_file_paths=[],
-                    status=ExecutionStatus.ERROR,
-                    error_message=f"Chunk {chunk_num} failed: {str(e)}",
-                    file_count=0,
-                    file_size_bytes=0,
-                    duration_ms=int((time.time() - chunk_start_time) * 1000),
-                )
-                return
-
-        # All chunks completed (watermark updated after each chunk)
-        total_duration_ms = int((time.time() - overall_start_time) * 1000)
-        self.logger.info(
-            f"Progressive extraction complete: {chunk_num} chunks, {total_rows} total rows in {total_duration_ms}ms"
-        )
+        if stop_on_empty:
+            self.logger.info(f"Progressive extraction complete: {chunk_num} chunks, {total_rows} rows in {total_duration_ms}ms")
+        else:
+            self.logger.info(f"Chunked extraction complete: {chunk_num} chunks in {total_duration_ms}ms")

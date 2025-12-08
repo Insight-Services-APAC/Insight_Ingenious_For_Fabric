@@ -73,10 +73,7 @@ def sample_config():
             discovery_pattern="*.csv",
         ),
         extract_path="Files/raw/test/",
-        extract_file_format_params=FileFormatParams(
-            file_format="csv",
-            format_options={"file_delimiter": ","}
-        ),
+        extract_file_format_params=FileFormatParams(file_format="csv"),
         extract_storage_workspace="test_storage_ws",
         extract_storage_lakehouse="test_storage_lh",
         extract_error_path="Files/error/test/",

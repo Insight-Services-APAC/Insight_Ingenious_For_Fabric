@@ -14,7 +14,19 @@
       "Bash(do echo \"=== $f ===\")",
       "Bash(head:*)",
       "Bash(done)",
-      "Bash(sed:*)"
+      "Bash(sed:*)",
+      "WebFetch(domain:github.com)",
+      "WebFetch(domain:raw.githubusercontent.com)",
+      "Bash(uv add:*)",
+      "Bash(uv run pytest:*)",
+      "Bash(export FABRIC_ENVIRONMENT=\"local\")",
+      "Bash(export FABRIC_WORKSPACE_REPO_DIR=\"dp\")",
+      "Bash(tree:*)",
+      "Bash(export FABRIC_WORKSPACE_REPO_DIR=\"sample_project\")",
+      "Bash(ingen_fab package ingestion:*)",
+      "Bash(export FABRIC_WORKSPACE_REPO_DIR=\"/home/aitil/ingen/sample_project\")",
+      "Bash(ingen_fab package export compile:*)",
+      "Bash(export FABRIC_WORKSPACE_REPO_DIR=\"/home/aitil/ingen/test_export\")"
     ],
     "deny": [],
     "ask": []

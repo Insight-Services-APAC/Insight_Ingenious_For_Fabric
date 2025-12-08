@@ -1,0 +1,12 @@
+{
+  "$schema": "https://developer.microsoft.com/json-schemas/fabric/gitIntegration/platformProperties/2.0.0/schema.json",
+  "metadata": {
+    "type": "Notebook",
+    "displayName": "export",
+    "description": "Orchestrates data exports from tables to files in Lakehouse Files."
+  },
+  "config": {
+    "version": "2.0",
+    "logicalId": "801eb314-e064-4e25-b620-35b1f90e1e2d"
+  }
+}

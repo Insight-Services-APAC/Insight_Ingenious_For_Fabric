@@ -118,17 +118,22 @@ def build_select(
         incremental_column: Column for incremental extraction
         watermark_value: Last watermark value (extract rows > this value)
         range_start: Range start value (exclusive by default, use range_start_inclusive=True for >=)
-        range_end: Range end value (inclusive, <=)
+        range_end: Range end value (exclusive, <) - pass the day AFTER the last day to include
         range_start_inclusive: If True, use >= for range_start; if False, use >
 
     Returns:
         SELECT query string
 
     Note:
-        Query pattern: `col > start AND col <= end` (or `col >= start` for first run)
-        - range_start_inclusive=False (default): `col > start` - skip already-processed values
-        - range_start_inclusive=True: `col >= start` - include starting value (first run)
-        - range_end always uses `<=` - include up to this value
+        Query pattern for chunked extraction:
+        - First chunk: `col > start AND col < end` (start is watermark or incremental_start)
+        - Subsequent chunks: `col >= start AND col < end` (include boundary excluded by previous <)
+
+        The < operator for end ensures clean date boundaries:
+        - `< '2025-01-08'` captures all data through 2025-01-07 23:59:59.999...
+        - No need for microsecond calculations
+
+        Standard watermark (non-chunked): `col > watermark` with no end boundary
     """
     # SELECT clause
     if columns:
@@ -159,7 +164,7 @@ def build_select(
             where_parts.append(f"{quoted_col} {op} {formatted_start}")
         if range_end is not None:
             formatted_end = format_value(range_end, dialect)
-            where_parts.append(f"{quoted_col} <= {formatted_end}")
+            where_parts.append(f"{quoted_col} < {formatted_end}")
     # Standard watermark filter (only if range not provided)
     elif watermark_value is not None and incremental_column:
         formatted_value = format_value(watermark_value, dialect)
@@ -179,11 +184,16 @@ def build_cetas_wrapper(
     select_query: str,
     output_path: str,
     data_source: str,
-    file_format: str = "ParquetFileFormat",
-    external_table: str = "exports.temp_extract",
+    file_format: str,
+    external_table: str,
 ) -> str:
     """
     Wrap a SELECT query in Synapse CETAS (Create External Table As Select).
+
+    Generates a complete CETAS script with:
+    1. DROP IF EXISTS - ensures external table doesn't exist before creating
+    2. CREATE EXTERNAL TABLE AS SELECT - writes data to the location
+    3. DROP EXTERNAL TABLE - cleanup after data is written (table not needed)
 
     Args:
         select_query: The SELECT query to wrap
@@ -193,13 +203,18 @@ def build_cetas_wrapper(
         external_table: External table name (default: exports.temp_extract)
 
     Returns:
-        CETAS statement string
+        Complete CETAS script with pre-drop, create, and post-drop statements
     """
-    return f"""CREATE EXTERNAL TABLE {external_table}
+    return f"""IF OBJECT_ID('{external_table}', 'U') IS NOT NULL
+    DROP EXTERNAL TABLE {external_table};
+
+CREATE EXTERNAL TABLE {external_table}
 WITH (
     LOCATION = '{output_path}',
     DATA_SOURCE = [{data_source}],
     FILE_FORMAT = [{file_format}]
 )
 AS
-{select_query}"""
+{select_query};
+
+DROP EXTERNAL TABLE {external_table};"""

@@ -444,42 +444,6 @@ class BaseExtractionParams(ABC):
 # FILE FORMAT PARAMETERS (Used by Loading Framework)
 # ============================================================================
 
-def _coerce_bool(value: Any) -> bool:
-    """Coerce string/bool to bool. Used for config values from Delta (stored as strings)."""
-    if isinstance(value, bool):
-        return value
-    if isinstance(value, str):
-        if value.lower() in ("true", "1", "yes"):
-            return True
-        if value.lower() in ("false", "0", "no"):
-            return False
-        raise ValueError(f"Cannot convert '{value}' to boolean")
-    raise ValueError(f"Expected bool or string, got {type(value).__name__}")
-
-
-# Boolean options that should be coerced from string
-BOOLEAN_FORMAT_OPTIONS = {
-    "has_header",
-    "multi_line",
-    "infer_schema",
-    "enforce_schema",
-    "ignore_leading_white_space",
-    "ignore_trailing_white_space",
-    "primitives_as_string",
-    "allow_comments",
-    "allow_unquoted_field_names",
-    "allow_single_quotes",
-    "allow_numeric_leading_zero",
-    "allow_backslash_escaping_any_character",
-    "drop_field_if_all_null",
-    "ignore_surrounding_spaces",
-    "exclude_attribute",
-}
-
-# Valid file formats
-VALID_FILE_FORMATS = {"csv", "json", "xml", "parquet", "avro", "orc"}
-
-
 @dataclass
 class FileFormatParams:
     """
@@ -487,44 +451,11 @@ class FileFormatParams:
 
     Supports multiple formats with flexible options:
     - CSV: has_header, file_delimiter, encoding, quote_character, etc.
-    - JSON: multi_line, primitives_as_string, etc.
-    - XML: row_tag, root_tag, attribute_prefix, etc.
-    - Parquet/Avro/ORC: minimal config (use embedded schema)
+    - JSON: multiline, json_lines, flatten_depth, etc.
+    - Parquet: compression, merge_schema, etc.
     """
-    file_format: str  # 'csv', 'json', 'parquet', 'xml', 'avro', 'orc'
+    file_format: str  # 'csv', 'json', 'parquet'
     format_options: Dict[str, Any] = field(default_factory=dict)
-
-    def __post_init__(self):
-        """Validate format, required options, and coerce types."""
-        # Validate file_format
-        if not self.file_format:
-            raise ValueError("file_format is required")
-
-        fmt = self.file_format.lower()
-        if fmt not in VALID_FILE_FORMATS:
-            raise ValueError(
-                f"file_format must be one of {sorted(VALID_FILE_FORMATS)}, got '{self.file_format}'"
-            )
-
-        # Coerce boolean options from string to bool
-        for key in BOOLEAN_FORMAT_OPTIONS:
-            if key in self.format_options:
-                try:
-                    self.format_options[key] = _coerce_bool(self.format_options[key])
-                except ValueError as e:
-                    raise ValueError(f"Invalid value for {key}: {e}")
-
-        # CSV requires delimiter
-        if fmt == "csv" and "file_delimiter" not in self.format_options:
-            raise ValueError(
-                "file_delimiter is required for CSV format (e.g., ',' or '|')"
-            )
-
-        # XML requires row_tag
-        if fmt == "xml" and "row_tag" not in self.format_options:
-            raise ValueError(
-                "row_tag is required for XML format (element name to treat as rows)"
-            )
 
     def to_dict(self) -> Dict[str, Any]:
         """Flatten to single-level dict for Delta storage"""
@@ -736,9 +667,9 @@ class DatabaseExtractionParams(BaseExtractionParams):
     fetch_size: int = 10000
 
     # CETAS-specific (only used when extraction_mode="cetas" and db_type="synapse")
-    cetas_data_source: Optional[str] = None  # Synapse external data source name
-    cetas_file_format: str = "ParquetFileFormat"  # Synapse file format name
-    cetas_external_table: str = "exports.temp_extract"  # External table name
+    cetas_data_source: Optional[str] = None  # Synapse external data source name (REQUIRED for CETAS)
+    cetas_file_format: Optional[str] = None  # Synapse file format name (REQUIRED for CETAS)
+    cetas_external_schema: Optional[str] = None  # Schema for external tables (REQUIRED for CETAS)
 
     def __post_init__(self):
         """Validate database extraction parameters"""
@@ -762,11 +693,19 @@ class DatabaseExtractionParams(BaseExtractionParams):
                 f"extraction_mode='cetas' requires db_type='synapse', got '{self.db_type}'"
             )
 
-        # CETAS requires data_source
-        if self.extraction_mode == "cetas" and not self.cetas_data_source:
-            raise ValueError(
-                "extraction_mode='cetas' requires cetas_data_source to be specified"
-            )
+        # CETAS requires data_source, file_format, and external_schema
+        if self.extraction_mode == "cetas":
+            missing = []
+            if not self.cetas_data_source:
+                missing.append("cetas_data_source")
+            if not self.cetas_file_format:
+                missing.append("cetas_file_format")
+            if not self.cetas_external_schema:
+                missing.append("cetas_external_schema")
+            if missing:
+                raise ValueError(
+                    f"extraction_mode='cetas' requires: {', '.join(missing)}"
+                )
 
         # Must have either query or table (for table and cetas modes)
         if self.extraction_mode in ("table", "cetas") and not self.source_table and not self.query:

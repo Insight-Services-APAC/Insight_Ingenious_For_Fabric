@@ -23,8 +23,9 @@ class IngestionCompiler(BaseNotebookCompiler):
         self.pipelines_dir = self.package_dir / "pipelines"
 
         # Set up template directories - include package templates and unified templates
-        root_dir = Path.cwd()
-        unified_templates_dir = root_dir / "ingen_fab" / "templates"
+        # Use package location instead of cwd() so it works when installed as a package
+        ingen_fab_dir = Path(__file__).parent.parent.parent
+        unified_templates_dir = ingen_fab_dir / "templates"
         template_search_paths = [self.templates_dir, unified_templates_dir]
 
         super().__init__(
@@ -172,10 +173,10 @@ class IngestionCompiler(BaseNotebookCompiler):
                             template_content = source_path.read_text()
 
                             # Create a template environment
+                            # Use package location instead of cwd() so it works when installed
                             template_paths = [ddl_source_dir]
-                            unified_templates_dir = (
-                                Path.cwd() / "ingen_fab" / "templates"
-                            )
+                            ingen_fab_dir = Path(__file__).parent.parent.parent
+                            unified_templates_dir = ingen_fab_dir / "templates"
                             template_paths.append(unified_templates_dir)
 
                             env = jinja2.Environment(
@@ -316,6 +317,12 @@ class IngestionCompiler(BaseNotebookCompiler):
                 "pipeline_name": "pl_extract_sql_server",
                 "display_name": "pl_extract_sql_server",
                 "description": "Extracts data from SQL Server to raw lakehouse as Parquet files.",
+            },
+            {
+                "source_file": "pl_extract_synapse_cetas.json",
+                "pipeline_name": "pl_extract_synapse_cetas",
+                "display_name": "pl_extract_synapse_cetas",
+                "description": "Extracts data from Synapse using CETAS writes directly to ADLS.",
             },
         ]
 

@@ -8,6 +8,8 @@ from datetime import datetime
 logging.getLogger("fsspec_wrapper.trident.core").setLevel(logging.WARNING)
 logging.getLogger("fsspec").setLevel(logging.WARNING)
 logging.getLogger("adlfs").setLevel(logging.WARNING)
+# Suppress Azure SDK HTTP request/response logging
+logging.getLogger("azure.core.pipeline.policies.http_logging_policy").setLevel(logging.WARNING)
 
 from fsspec import AbstractFileSystem
 from fsspec.core import url_to_fs

@@ -290,7 +290,7 @@ class lakehouse_utils(DataStoreInterface):
                 - target_row_count_before: Row count before merge
                 - target_row_count_after: Row count after merge
         """
-        from pyspark.sql.functions import col, lit
+        from pyspark.sql.functions import col
 
         table_full_name = table_name
         if schema_name:

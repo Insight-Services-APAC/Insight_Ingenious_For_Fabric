@@ -51,6 +51,7 @@ synapse_app = typer.Typer()
 extract_app = typer.Typer()
 synthetic_data_app = typer.Typer()
 ingestion_app = typer.Typer()
+export_app = typer.Typer()
 libs_app = typer.Typer()
 dbt_app = typer.Typer()
 
@@ -1320,6 +1321,11 @@ package_app.add_typer(
     name="ingestion",
     help="Commands for ingestion framework package (extraction and loading).",
 )
+package_app.add_typer(
+    export_app,
+    name="export",
+    help="Commands for export framework package (exporting tables to files).",
+)
 
 
 # ===== NEW UNIFIED COMMANDS =====
@@ -1784,6 +1790,45 @@ def ingestion_app_compile(
             raise typer.Exit(1)
 
     compile_ingestion_package(
+        fabric_workspace_repo_dir=fabric_workspace_repo_dir,
+        template_vars=parsed_template_vars,
+        include_samples=include_samples,
+    )
+
+
+# Export framework commands
+@export_app.command("compile")
+def export_app_compile(
+    ctx: typer.Context,
+    template_vars: Annotated[
+        Optional[str],
+        typer.Option("--template-vars", "-t", help="JSON string of template variables"),
+    ] = None,
+    include_samples: Annotated[
+        bool,
+        typer.Option(
+            "--include-samples", "-s", help="Include sample data DDL"
+        ),
+    ] = False,
+):
+    """Compile export framework package (export notebook + DDL scripts)."""
+    from ingen_fab.packages.export.export import compile_export_package
+    import json
+
+    fabric_workspace_repo_dir = ctx.obj.get("fabric_workspace_repo_dir")
+
+    # Parse template vars if provided
+    parsed_template_vars = None
+    if template_vars:
+        try:
+            parsed_template_vars = json.loads(template_vars)
+        except json.JSONDecodeError as e:
+            from rich.console import Console
+            console = Console()
+            console.print(f"[red]Error parsing template-vars JSON: {e}[/red]")
+            raise typer.Exit(1)
+
+    compile_export_package(
         fabric_workspace_repo_dir=fabric_workspace_repo_dir,
         template_vars=parsed_template_vars,
         include_samples=include_samples,

@@ -1,0 +1,73 @@
+# Configuration table for export resources - Lakehouse version
+# Stores export configuration for exporting tables to files
+
+from pyspark.sql.types import (
+    BooleanType,
+    IntegerType,
+    MapType,
+    StringType,
+    StructField,
+    StructType,
+    TimestampType,
+)
+
+# Define schema for config_export_resource table
+schema = StructType([
+    # Primary identifiers (composite key)
+    StructField("export_group_name", StringType(), False),
+    StructField("export_name", StringType(), False),
+    StructField("execution_group", IntegerType(), False),
+
+    # Source configuration
+    StructField("source_type", StringType(), False),  # "lakehouse" or "warehouse"
+    StructField("source_workspace", StringType(), False),
+    StructField("source_datastore", StringType(), False),
+    StructField("source_schema", StringType(), True),
+    StructField("source_table", StringType(), True),
+    StructField("source_query", StringType(), True),
+
+    # Target configuration
+    StructField("target_workspace", StringType(), False),
+    StructField("target_lakehouse", StringType(), False),
+    StructField("target_path", StringType(), False),
+    StructField("target_filename_pattern", StringType(), True),
+
+    # File format configuration
+    StructField("file_format", StringType(), False),  # csv, tsv, dat, parquet, json
+    StructField("compression", StringType(), True),  # gzip, zipdeflate, snappy, none
+    StructField("compressed_filename_pattern", StringType(), True),
+    StructField("format_options", MapType(StringType(), StringType()), True),
+
+    # File splitting
+    StructField("max_rows_per_file", IntegerType(), True),
+    StructField("compress_bundle_files", BooleanType(), True),
+
+    # Extract type configuration (for period date calculation)
+    StructField("extract_type", StringType(), True),  # "full", "period", "incremental"
+    StructField("period_length_days", IntegerType(), True),
+    StructField("period_end_day", StringType(), True),  # e.g., "Saturday"
+    StructField("incremental_column", StringType(), True),  # Column for incremental tracking
+
+    # Trigger file configuration
+    StructField("trigger_file_enabled", BooleanType(), True),
+    StructField("trigger_file_pattern", StringType(), True),
+
+    # Metadata
+    StructField("description", StringType(), True),
+    StructField("is_active", BooleanType(), False),
+    StructField("created_at", TimestampType(), True),
+    StructField("updated_at", TimestampType(), True),
+    StructField("created_by", StringType(), True),
+    StructField("updated_by", StringType(), True),
+])
+
+target_lakehouse.create_table(
+    table_name="config_export_resource",
+    schema=schema,
+    mode="overwrite",
+    partition_by=["export_group_name", "export_name"],
+    options={
+        "parquet.vorder.default": "true",
+        "overwriteSchema": "true"
+    }
+)
