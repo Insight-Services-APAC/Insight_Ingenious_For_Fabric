@@ -12,7 +12,7 @@ import asyncio
 import json
 import logging
 import time
-from datetime import datetime, timedelta, timezone
+from datetime import date, datetime, timedelta, timezone
 from typing import Any, Dict, List, Optional, Tuple
 
 import nest_asyncio
@@ -46,6 +46,37 @@ TRANSIENT_HTTP = {429, 500, 503, 504, 408}
 TERMINAL_STATES = {"Completed", "Failed", "Cancelled", "Deduped"}
 EARLY_STATES = {"Failed", "NotStarted", "Unknown"}
 
+
+def _generate_extraction_batches(start_dt: date, end_dt: date) -> List[Tuple[date, date]]:
+    """
+    Generate date batches based on range span.
+    - ≤30 days: daily batches
+    - >30 days: monthly batches
+    """
+    date_span = (end_dt - start_dt).days
+    batches = []
+
+    if date_span > 30:
+        # Monthly batching
+        current = start_dt
+        while current <= end_dt:
+            batch_start = current
+            if current.month == 12:
+                next_month_first = date(current.year + 1, 1, 1)
+            else:
+                next_month_first = date(current.year, current.month + 1, 1)
+            batch_end = min(next_month_first - timedelta(days=1), end_dt)
+
+            batches.append((batch_start, batch_end))
+            current = next_month_first
+    else:
+        # Daily batching
+        current = start_dt
+        while current <= end_dt:
+            batches.append((current, current))
+            current += timedelta(days=1)
+
+    return batches
 
 
 class SynapseOrchestrator(SynapseOrchestratorInterface):
@@ -312,14 +343,15 @@ class SynapseOrchestrator(SynapseOrchestratorInterface):
                             "synapse_connection_name": getattr(work_item, "synapse_connection_name", None),
                             "synapse_datasource_name": getattr(work_item, "synapse_datasource_name", None) or "",
                             "synapse_datasource_location": getattr(work_item, "synapse_datasource_location", None) or "",
+                            "synapse_external_table_schema": getattr(work_item, "synapse_external_table_schema", None) or "",
                             "custom_select_sql": getattr(work_item, "custom_select_sql", None),
                         }
                         pipeline_params = extract_utils.build_pipeline_parameters_from_record(extraction_spec)
-                    except Exception:
-                        pipeline_params = None
+                    except Exception as e:
+                        logger.error(f"Error building pipeline parameters for {table_info}: {e}")
+                        raise e
                 if pipeline_params is None:
                     pipeline_params = self.get_pipeline_parameters(work_item, config)
-                
                 logger.info(f"Processing {table_info} - Triggering pipeline...")
                 
                 # Use pipeline id resolved during work item creation process
@@ -557,6 +589,7 @@ class SynapseOrchestrator(SynapseOrchestratorInterface):
         synapse_sync_fabric_pipeline_id: Optional[str],
         synapse_datasource_name: str,
         synapse_datasource_location: str,
+        synapse_external_table_schema: str,
         *,
         trigger_type: Optional[str] = "Manual",
         master_execution_parameters: Optional[Dict[str, Any]] = None,
@@ -643,6 +676,7 @@ class SynapseOrchestrator(SynapseOrchestratorInterface):
                         synapse_sync_fabric_pipeline_id=resolved_pipeline_id,  # per‑item resolved value
                         synapse_datasource_name=resolved_ds_name,
                         synapse_datasource_location=resolved_ds_loc,
+                        synapse_external_table_schema=synapse_external_table_schema,
                         synapse_connection_name=item.get("synapse_connection_name"),
                         export_base_dir=item.get("export_base_dir"),
                         trigger_type=item.get("trigger_type") or trigger_type,
@@ -664,10 +698,8 @@ class SynapseOrchestrator(SynapseOrchestratorInterface):
                         continue
                     
                     if row.extract_mode == "incremental" and start_dt and end_dt:
-                        # Generate one work item per day (inclusive)
-                        cur = start_dt
-                        while cur <= end_dt:
-                            day_str = cur.strftime("%Y-%m-%d")
+                        # Generate batches based on date range (daily if ≤30 days, monthly if >30 days)
+                        for batch_start, batch_end in _generate_extraction_batches(start_dt, end_dt):
                             # Resolve per‑item overrides; otherwise fall back to immutable defaults
                             resolved_pipeline_id, resolved_ds_name, resolved_ds_loc = _resolve_work_item_config(
                                 row,
@@ -680,8 +712,8 @@ class SynapseOrchestrator(SynapseOrchestratorInterface):
                                 source_table_name=row.source_table_name,
                                 extract_mode=row.extract_mode,
                                 execution_group=row.execution_group or 1,
-                                extract_start_dt=day_str,
-                                extract_end_dt=day_str,
+                                extract_start_dt=batch_start.strftime("%Y-%m-%d"),
+                                extract_end_dt=batch_end.strftime("%Y-%m-%d"),
                                 single_date_filter=getattr(row, "single_date_filter", None),
                                 date_range_filter=getattr(row, "date_range_filter", None),
                                 custom_select_sql=getattr(row, "custom_select_sql", None),
@@ -689,11 +721,11 @@ class SynapseOrchestrator(SynapseOrchestratorInterface):
                                 synapse_connection_name=getattr(row, "synapse_connection_name", None),
                                 synapse_datasource_name=resolved_ds_name,
                                 synapse_datasource_location=resolved_ds_loc,
+                                synapse_external_table_schema=synapse_external_table_schema,
                                 export_base_dir=getattr(row, "export_base_dir", None),
                                 trigger_type=trigger_type,
                                 master_execution_parameters=master_execution_parameters,
                             ))
-                            cur += timedelta(days=1)
                     else:
                         # Snapshot or missing date range -> single item
                         # Resolve per‑item overrides; otherwise fall back to immutable defaults
@@ -717,6 +749,7 @@ class SynapseOrchestrator(SynapseOrchestratorInterface):
                             synapse_connection_name=getattr(row, "synapse_connection_name", None),
                             synapse_datasource_name=resolved_ds_name,
                             synapse_datasource_location=resolved_ds_loc,
+                            synapse_external_table_schema=synapse_external_table_schema,
                             export_base_dir=getattr(row, "export_base_dir", None),
                             trigger_type=trigger_type,
                             master_execution_parameters=master_execution_parameters,
