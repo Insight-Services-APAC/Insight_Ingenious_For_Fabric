@@ -172,6 +172,7 @@ class SynapseOrchestratorInterface(ABC):
         include_snapshots: bool = True,
         extraction_start_date: Optional[str] = None,
         extraction_end_date: Optional[str] = None,
+        batch_id: Optional[int] = 1
     ) -> List[WorkItem]:
         """
         Prepare work items for processing based on configuration and parameters.
