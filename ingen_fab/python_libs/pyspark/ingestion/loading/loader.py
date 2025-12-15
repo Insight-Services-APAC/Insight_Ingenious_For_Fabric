@@ -228,6 +228,7 @@ class FileLoader:
 
         except Exception as e:
             # Step 1 failures are system errors (file read, table write)
+            self.logger.exception(f"Staging table load failed: {e}")  # Log full stack trace
             end_time = time.time()
             metrics.read_duration_ms = int((end_time - start_time) * 1000)
 
@@ -472,7 +473,7 @@ class FileLoader:
                 file_path=file_paths,
                 file_format=file_format,
                 options=infer_options,
-            ).schema
+            ).cache().schema
 
             # For headerless CSVs with target_schema_columns: rename _c0, _c1, etc. to target names
             has_header = self.config.extract_file_format_params.format_options.get("has_header", True)
