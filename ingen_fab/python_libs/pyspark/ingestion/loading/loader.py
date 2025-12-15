@@ -172,7 +172,7 @@ class FileLoader:
                 file_path=batch_info.file_paths,
                 file_format=file_format,
                 options=options,
-            )
+            ).cache()
 
             # Add staging metadata columns
             df = df.withColumn(self.metadata_cols.stg_created_load_id, lit(batch_info.batch_id))
