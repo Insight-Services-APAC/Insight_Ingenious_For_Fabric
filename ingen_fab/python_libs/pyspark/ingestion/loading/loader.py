@@ -614,6 +614,10 @@ class FileLoader:
         if self.metadata_cols.stg_corrupt_record not in df.columns:
             return df, 0
 
+        # Cache the DataFrame before filtering on _corrupt_record column
+        # This is required by Spark 2.3+ for raw CSV/JSON files
+        df = df.cache()
+
         corrupt_count = df.filter(col(self.metadata_cols.stg_corrupt_record).isNotNull()).count()
 
         if corrupt_count > 0:
