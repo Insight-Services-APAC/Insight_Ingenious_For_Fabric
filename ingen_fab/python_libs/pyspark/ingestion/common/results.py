@@ -76,6 +76,9 @@ class ProcessingMetrics:
     corrupt_records_count: int = 0
     validation_errors: List[str] = field(default_factory=list)
 
+    # Performance metrics (calculated by ProcessingMetricsUtils)
+    row_count_reconciliation_status: str = "not_verified"
+
     # Operational metadata
     completed_at: Optional[datetime] = None
 

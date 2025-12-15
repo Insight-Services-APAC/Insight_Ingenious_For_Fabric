@@ -23,7 +23,7 @@ from pyspark.sql.functions import (
 )
 from pyspark.sql.types import StringType, StructField, StructType
 
-from ingen_fab.python_libs.common.flat_file_ingestion_utils import (
+from ingen_fab.python_libs.pyspark.ingestion.common.metrics_utils import (
     ProcessingMetricsUtils,
 )
 from ingen_fab.python_libs.pyspark.ingestion.common.config import (
