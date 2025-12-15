@@ -7,33 +7,25 @@ from datetime import datetime
 from typing import Any, Dict, List, Optional, Tuple
 
 
-class DuplicateFilesError(Exception):
-    """Raised when duplicate files are found and duplicate_file_handling='fail'"""
-    pass
-
-
 @dataclass
 class FlatFileIngestionConfig:
     """Configuration class for flat file ingestion"""
 
     # Core configuration
     config_id: str
+    config_name: str
     source_file_path: str
     source_file_format: str
 
     # Source location fields (optional - defaults applied during processing)
     source_workspace_id: Optional[str] = None
     source_datastore_id: Optional[str] = None
-    source_workspace_name: Optional[str] = None  # Name-based alternative to ID
-    source_datastore_name: Optional[str] = None  # Name-based alternative to ID
     source_datastore_type: Optional[str] = None
     source_file_root_path: Optional[str] = None
 
     # Target location fields
     target_workspace_id: str = ""
     target_datastore_id: str = ""
-    target_workspace_name: str = ""  # Name-based alternative to ID
-    target_datastore_name: str = ""  # Name-based alternative to ID
     target_datastore_type: str = ""
     target_schema_name: str = ""
     target_table_name: str = ""
@@ -61,59 +53,44 @@ class FlatFileIngestionConfig:
 
     # Schema and processing options
     custom_schema_json: Optional[str] = None
-    data_validation_rules: Optional[str] = None
     partition_columns: List[str] = None
     sort_columns: List[str] = None
     write_mode: str = "overwrite"
     merge_keys: List[str] = None
-    enable_schema_evolution: bool = True
-    config_group_id: Optional[str] = None
+    data_validation_rules: Optional[str] = None
+    error_handling_strategy: str = "fail"
     execution_group: int = 1
     active_yn: str = "Y"
 
-    # Discovery and Import Configuration
-    import_pattern: str = "single_file"  # 'single_file', 'incremental_files', 'incremental_folders'
-    discovery_pattern: Optional[str] = None  # Glob pattern: "*.csv", "batch_*", "*/*/*"
-
-    # Date extraction and filtering
-    date_pattern: Optional[str] = None  # 'YYYYMMDD', 'YYYY-MM-DD', 'YYYY/MM/DD', 'DD-MM-YYYY'
+    # Date partitioning and batch processing
+    import_pattern: str = "single_file"
+    date_partition_format: str = "YYYY/MM/DD"
+    table_relationship_group: Optional[str] = None
+    batch_import_enabled: bool = False
+    file_discovery_pattern: Optional[str] = None
+    import_sequence_order: int = 1
     date_range_start: Optional[str] = None
     date_range_end: Optional[str] = None
+    skip_existing_dates: bool = True
+    source_is_folder: bool = False
 
-    # Duplicate handling
-    duplicate_handling: str = "skip"  # 'skip', 'allow', 'fail'
-
-    # Validation
-    require_files: bool = False
-
-    # Control file settings (validation enabled when pattern is set)
-    control_file_pattern: Optional[str] = None  # e.g., "{basename}.CTL", "_SUCCESS"
+    # Hierarchical nested structure support
+    table_subfolder: Optional[str] = (
+        None  # Table name within date partition (e.g., "orders", "customers")
+    )
+    hierarchical_date_structure: bool = (
+        False  # Enable YYYY/MM/DD hierarchical date discovery
+    )
+    nested_path_separator: str = "/"  # Path separator for nested structures
 
     def __post_init__(self):
-        """Post-initialization validation"""
-        # Initialize list fields
+        """Post-initialization processing"""
         if self.partition_columns is None:
             self.partition_columns = []
         if self.sort_columns is None:
             self.sort_columns = []
         if self.merge_keys is None:
             self.merge_keys = []
-
-        # Validate import_pattern
-        valid_patterns = ["single_file", "incremental_files", "incremental_folders"]
-        if self.import_pattern not in valid_patterns:
-            raise ValueError(
-                f"Invalid import_pattern '{self.import_pattern}'. "
-                f"Must be one of: {valid_patterns}"
-            )
-
-        # Validate duplicate_handling
-        valid_duplicate_handling = ["skip", "allow", "fail"]
-        if self.duplicate_handling not in valid_duplicate_handling:
-            raise ValueError(
-                f"Invalid duplicate_handling '{self.duplicate_handling}'. "
-                f"Must be one of: {valid_duplicate_handling}"
-            )
 
     @classmethod
     def from_dict(cls, config_row: Dict[str, Any]) -> "FlatFileIngestionConfig":
@@ -127,20 +104,17 @@ class FlatFileIngestionConfig:
 
         return cls(
             config_id=config_row.get("config_id", ""),
+            config_name=config_row.get("config_name", ""),
             source_file_path=config_row.get("source_file_path", ""),
             source_file_format=config_row.get("source_file_format", "csv"),
             # Source location fields (optional)
             source_workspace_id=config_row.get("source_workspace_id"),
             source_datastore_id=config_row.get("source_datastore_id"),
-            source_workspace_name=config_row.get("source_workspace_name"),
-            source_datastore_name=config_row.get("source_datastore_name"),
             source_datastore_type=config_row.get("source_datastore_type"),
             source_file_root_path=config_row.get("source_file_root_path"),
             # Target location fields
             target_workspace_id=config_row.get("target_workspace_id", ""),
             target_datastore_id=config_row.get("target_datastore_id", ""),
-            target_workspace_name=config_row.get("target_workspace_name", ""),
-            target_datastore_name=config_row.get("target_datastore_name", ""),
             target_datastore_type=config_row.get("target_datastore_type", "lakehouse"),
             target_schema_name=config_row.get("target_schema_name", ""),
             target_table_name=config_row.get("target_table_name", ""),
@@ -166,25 +140,30 @@ class FlatFileIngestionConfig:
             max_columns=config_row.get("max_columns", 20480),
             max_chars_per_column=config_row.get("max_chars_per_column", -1),
             custom_schema_json=config_row.get("custom_schema_json"),
-            data_validation_rules=config_row.get("data_validation_rules"),
             partition_columns=split_csv(config_row.get("partition_columns")),
             sort_columns=split_csv(config_row.get("sort_columns")),
             write_mode=config_row.get("write_mode", "overwrite"),
             merge_keys=split_csv(config_row.get("merge_keys")),
-            enable_schema_evolution=config_row.get("enable_schema_evolution", True),
-            config_group_id=config_row.get("config_group_id"),
+            data_validation_rules=config_row.get("data_validation_rules"),
+            error_handling_strategy=config_row.get("error_handling_strategy", "fail"),
             execution_group=config_row.get("execution_group", 1),
             active_yn=config_row.get("active_yn", "Y"),
-            # Discovery configuration
             import_pattern=config_row.get("import_pattern", "single_file"),
-            discovery_pattern=config_row.get("discovery_pattern"),
-            date_pattern=config_row.get("date_pattern"),
+            date_partition_format=config_row.get("date_partition_format", "YYYY/MM/DD"),
+            table_relationship_group=config_row.get("table_relationship_group"),
+            batch_import_enabled=config_row.get("batch_import_enabled", False),
+            file_discovery_pattern=config_row.get("file_discovery_pattern"),
+            import_sequence_order=config_row.get("import_sequence_order", 1),
             date_range_start=config_row.get("date_range_start"),
             date_range_end=config_row.get("date_range_end"),
-            duplicate_handling=config_row.get("duplicate_handling", "skip"),
-            require_files=config_row.get("require_files", False),
-            # Control file settings (validation enabled when pattern is set)
-            control_file_pattern=config_row.get("control_file_pattern"),
+            skip_existing_dates=config_row.get("skip_existing_dates", True),
+            source_is_folder=config_row.get("source_is_folder", False),
+            # Hierarchical nested structure support
+            table_subfolder=config_row.get("table_subfolder"),
+            hierarchical_date_structure=config_row.get(
+                "hierarchical_date_structure", False
+            ),
+            nested_path_separator=config_row.get("nested_path_separator", "/"),
         )
 
 
@@ -198,8 +177,6 @@ class FileDiscoveryResult:
     size: int = 0
     modified_time: Optional[datetime] = None
     nested_structure: bool = False
-    filename_attributes: Optional[Dict[str, str]] = None
-    control_file_path: Optional[str] = None
 
 
 @dataclass
@@ -213,33 +190,24 @@ class ProcessingMetrics:
     records_inserted: int = 0
     records_updated: int = 0
     records_deleted: int = 0
+    records_failed: int = 0
     source_row_count: int = 0
     target_row_count_before: int = 0
     target_row_count_after: int = 0
     row_count_reconciliation_status: str = "not_verified"
-    corrupt_records_count: int = 0
-
-
-@dataclass
-class ConfigExecutionResult:
-    """Result of configuration execution for summary reporting"""
-    config_id: str
-    config_name: str
-    status: str  # 'pending', 'completed', 'failed', 'no_data_processed'
-    metrics: ProcessingMetrics
-    errors: List[str]
-    files_discovered: int
-    files_processed: int
-    files_failed: int
-    files_skipped: int
+    avg_rows_per_second: float = 0.0
+    data_size_mb: float = 0.0
+    throughput_mb_per_second: float = 0.0
 
 
 class FlatFileDiscoveryInterface(ABC):
     """Interface for file discovery operations"""
 
     @abstractmethod
-    def discover_files(self) -> List[FileDiscoveryResult]:
-        """Discover files based on configuration (uses self.config)"""
+    def discover_files(
+        self, config: FlatFileIngestionConfig
+    ) -> List[FileDiscoveryResult]:
+        """Discover files based on configuration"""
         pass
 
     @abstractmethod
@@ -262,8 +230,10 @@ class FlatFileDiscoveryInterface(ABC):
         pass
 
     @abstractmethod
-    def date_already_processed(self, date_partition: str) -> bool:
-        """Check if a date has already been processed (uses self.config)"""
+    def date_already_processed(
+        self, date_partition: str, config: FlatFileIngestionConfig
+    ) -> bool:
+        """Check if a date has already been processed"""
         pass
 
 
@@ -271,23 +241,31 @@ class FlatFileProcessorInterface(ABC):
     """Interface for flat file processing operations"""
 
     @abstractmethod
-    def read_file(self, file: FileDiscoveryResult) -> Tuple[Any, ProcessingMetrics]:
-        """Read a file based on configuration (uses self.config) and return DataFrame with metrics"""
+    def read_file(
+        self, config: FlatFileIngestionConfig, file: FileDiscoveryResult
+    ) -> Tuple[Any, ProcessingMetrics]:
+        """Read a file based on configuration and return DataFrame with metrics"""
         pass
 
     @abstractmethod
-    def read_folder(self, folder_path: str) -> Tuple[Any, ProcessingMetrics]:
-        """Read all files in a folder based on configuration (uses self.config)"""
+    def read_folder(
+        self, config: FlatFileIngestionConfig, folder_path: str
+    ) -> Tuple[Any, ProcessingMetrics]:
+        """Read all files in a folder based on configuration"""
         pass
 
     @abstractmethod
-    def write_data(self, data: Any) -> ProcessingMetrics:
-        """Write data to target destination (uses self.config)"""
+    def write_data(
+        self, data: Any, config: FlatFileIngestionConfig
+    ) -> ProcessingMetrics:
+        """Write data to target destination"""
         pass
 
     @abstractmethod
-    def validate_data(self, data: Any) -> Dict[str, Any]:
-        """Validate data based on configuration rules (uses self.config)"""
+    def validate_data(
+        self, data: Any, config: FlatFileIngestionConfig
+    ) -> Dict[str, Any]:
+        """Validate data based on configuration rules"""
         pass
 
 
@@ -299,8 +277,7 @@ class FlatFileLoggingInterface(ABC):
         self,
         config: FlatFileIngestionConfig,
         execution_id: str,
-        load_id: str,
-        file_result: Optional[FileDiscoveryResult] = None,
+        partition_info: Optional[Dict[str, str]] = None,
     ) -> None:
         """Log the start of a file processing execution"""
         pass
@@ -310,10 +287,9 @@ class FlatFileLoggingInterface(ABC):
         self,
         config: FlatFileIngestionConfig,
         execution_id: str,
-        load_id: str,
         metrics: ProcessingMetrics,
         status: str,
-        file_result: Optional[FileDiscoveryResult] = None,
+        partition_info: Optional[Dict[str, str]] = None,
     ) -> None:
         """Log the completion of a file processing execution"""
         pass
@@ -323,23 +299,11 @@ class FlatFileLoggingInterface(ABC):
         self,
         config: FlatFileIngestionConfig,
         execution_id: str,
-        load_id: str,
         error_message: str,
         error_details: str,
-        file_result: Optional[FileDiscoveryResult] = None,
+        partition_info: Optional[Dict[str, str]] = None,
     ) -> None:
         """Log an execution error"""
-        pass
-
-    @abstractmethod
-    def log_duplicate_file(
-        self,
-        config: FlatFileIngestionConfig,
-        execution_id: str,
-        load_id: str,
-        file_result: FileDiscoveryResult,
-    ) -> None:
-        """Log a duplicate file that was skipped"""
         pass
 
 
@@ -359,7 +323,7 @@ class FlatFileIngestionOrchestrator(ABC):
     @abstractmethod
     def process_configuration(
         self, config: FlatFileIngestionConfig, execution_id: str
-    ) -> ConfigExecutionResult:
+    ) -> Dict[str, Any]:
         """Process a single configuration"""
         pass
 
