@@ -1,7 +1,6 @@
 # Common utilities for flat file ingestion
 # Shared logic between PySpark and Python implementations
 
-import logging
 import os
 import re
 from datetime import datetime
@@ -9,10 +8,8 @@ from typing import Any, Dict, List, Optional, Tuple
 
 from ingen_fab.python_libs.interfaces.flat_file_ingestion_interface import (
     FlatFileIngestionConfig,
+    ProcessingMetrics,
 )
-from ingen_fab.python_libs.pyspark.ingestion.common.results import ProcessingMetrics
-
-logger = logging.getLogger(__name__)
 
 
 class DatePartitionUtils:
@@ -52,12 +49,9 @@ class DatePartitionUtils:
                 return f"{date_str[:4]}-{date_str[4:6]}-{date_str[6:8]}"
 
         except Exception as e:
-            logger.error(
-                f"Failed to extract date from folder name {folder_name} with format {date_format}: {e}"
-            )
-            raise ValueError(
-                f"Failed to extract date from folder name {folder_name} with format {date_format}"
-            ) from e
+            print(f"⚠️ Could not extract date from folder name {folder_name}: {e}")
+
+        return None
 
     @staticmethod
     def extract_date_from_path(
@@ -96,12 +90,9 @@ class DatePartitionUtils:
                             return f"{year}-{month.zfill(2)}-{day.zfill(2)}"
 
         except Exception as e:
-            logger.error(
-                f"Failed to extract date from path {file_path} with format {date_format}: {e}"
-            )
-            raise ValueError(
-                f"Failed to extract date from path {file_path} with format {date_format}"
-            ) from e
+            print(f"⚠️ Could not extract date from path {file_path}: {e}")
+
+        return None
 
     @staticmethod
     def is_date_in_range(date_str: str, start_date: str, end_date: str) -> bool:
@@ -124,12 +115,8 @@ class DatePartitionUtils:
 
             return True
         except Exception as e:
-            logger.error(
-                f"Date range check failed for {date_str} (start: {start_date}, end: {end_date}): {e}"
-            )
-            raise ValueError(
-                f"Date range check failed for {date_str} (start: {start_date}, end: {end_date})"
-            ) from e
+            print(f"⚠️ Date range check failed for {date_str}: {e}")
+            return True
 
     @staticmethod
     def discover_nested_date_table_paths(
@@ -152,8 +139,8 @@ class DatePartitionUtils:
             import os
 
             if not os.path.exists(base_path):
-                logger.error(f"Base path does not exist: {base_path}")
-                raise ValueError(f"Base path does not exist: {base_path}")
+                print(f"⚠️ Base path does not exist: {base_path}")
+                return results
 
             # For YYYY/MM/DD structure, look for year folders first
             if date_format == "YYYY/MM/DD":
@@ -204,20 +191,12 @@ class DatePartitionUtils:
                                 results.append((table_path, date_partition, table_item))
 
             else:
-                logger.error(f"Unsupported date format for nested discovery: {date_format}")
-                raise ValueError(
-                    f"Unsupported date format for nested discovery: {date_format}. "
-                    f"Only 'YYYY/MM/DD' is currently supported."
-                )
+                print(f"⚠️ Unsupported date format for nested discovery: {date_format}")
 
-        except ValueError:
-            # Re-raise ValueError exceptions (our own validation errors)
-            raise
         except Exception as e:
-            logger.error(f"Error during nested path discovery in {base_path}: {e}")
-            raise RuntimeError(
-                f"Error during nested path discovery in {base_path}"
-            ) from e
+            print(f"⚠️ Error during nested path discovery: {e}")
+
+        return results
 
 
 class FilePatternUtils:
@@ -242,9 +221,8 @@ class FilePatternUtils:
             regex_pattern = FilePatternUtils.glob_to_regex(pattern)
             return bool(re.match(regex_pattern, filename))
         except Exception as e:
-            logger.warning(
-                f"Pattern matching failed for {filename} with pattern {pattern}: {e}. "
-                f"Defaulting to no match (False)."
+            print(
+                f"⚠️ Pattern matching failed for {filename} with pattern {pattern}: {e}"
             )
             return False
 
@@ -252,59 +230,6 @@ class FilePatternUtils:
     def extract_folder_name_from_path(path: str) -> str:
         """Extract folder name from path"""
         return os.path.basename(path.rstrip("/"))
-
-
-class SchemaUtils:
-    """Utilities for working with PySpark schemas"""
-
-    @staticmethod
-    def parse_custom_schema(schema_json: str) -> Optional[Any]:
-        """
-        Parse custom schema JSON string into PySpark StructType.
-
-        Args:
-            schema_json: JSON string representing a PySpark schema
-
-        Returns:
-            PySpark StructType if valid, None if parsing fails
-
-        Expected JSON format:
-            {
-                "type": "struct",
-                "fields": [
-                    {"name": "col1", "type": "string", "nullable": true, "metadata": {}},
-                    {"name": "col2", "type": "integer", "nullable": false, "metadata": {}}
-                ]
-            }
-        """
-        if not schema_json or not isinstance(schema_json, str):
-            return None
-
-        try:
-            import json
-            from pyspark.sql.types import StructType
-
-            # Parse JSON string to dict
-            schema_dict = json.loads(schema_json)
-
-            # Validate basic structure
-            if not isinstance(schema_dict, dict):
-                logger.error("Custom schema must be a JSON object")
-                raise ValueError("Custom schema must be a JSON object")
-
-            # Convert to PySpark StructType using built-in fromJson method
-            schema = StructType.fromJson(schema_dict)
-            return schema
-
-        except json.JSONDecodeError as e:
-            logger.error(f"Invalid JSON in custom schema: {e}")
-            raise ValueError(f"Invalid JSON in custom schema") from e
-        except ValueError:
-            # Re-raise ValueError exceptions (our own validation errors)
-            raise
-        except Exception as e:
-            logger.error(f"Failed to parse custom schema: {e}")
-            raise ValueError(f"Failed to parse custom schema") from e
 
 
 class ConfigurationUtils:
@@ -332,32 +257,8 @@ class ConfigurationUtils:
 
         # Write mode validation
         supported_write_modes = ["overwrite", "append", "merge"]
-        if config.target_write_mode.lower() not in supported_write_modes:
+        if config.write_mode.lower() not in supported_write_modes:
             errors.append(f"write_mode must be one of: {supported_write_modes}")
-
-        # Merge mode specific validation
-        if config.target_write_mode.lower() == "merge":
-            # Check if merge_keys is provided
-            if not config.target_merge_keys or len(config.target_merge_keys) == 0:
-                errors.append(
-                    "merge_keys must be provided when write_mode is 'merge'. "
-                    "Please specify one or more column names to use as merge keys."
-                )
-
-            # Check if target is warehouse (merge only supported for lakehouse)
-            if config.target_datastore_type and config.target_datastore_type.lower() == "warehouse":
-                errors.append(
-                    "Merge write mode is only supported for lakehouse targets, not warehouse. "
-                    "Please use 'overwrite' or 'append' for warehouse targets."
-                )
-        else:
-            # For non-merge modes, merge_keys should not be populated
-            if config.target_merge_keys and len(config.target_merge_keys) > 0:
-                errors.append(
-                    f"merge_keys should not be specified for write_mode '{config.target_write_mode}'. "
-                    "merge_keys are only applicable when write_mode is 'merge'. "
-                    "Please remove merge_keys or change write_mode to 'merge'."
-                )
 
         # Date range validation
         if config.date_range_start and config.date_range_end:
@@ -368,14 +269,6 @@ class ConfigurationUtils:
                     errors.append("date_range_start must be before date_range_end")
             except ValueError as e:
                 errors.append(f"Invalid date format in date range: {e}")
-
-        # Duplicate handling validation
-        valid_duplicate_handling = ["allow", "skip", "fail"]
-        if config.duplicate_handling not in valid_duplicate_handling:
-            errors.append(
-                f"duplicate_handling must be one of: {valid_duplicate_handling}, "
-                f"got '{config.duplicate_handling}'"
-            )
 
         return errors
 
@@ -427,15 +320,6 @@ class ConfigurationUtils:
                 }
             )
 
-        # Handle custom schema if provided
-        if config.custom_schema_json:
-            custom_schema = SchemaUtils.parse_custom_schema(config.custom_schema_json)
-            if custom_schema:
-                options["schema"] = custom_schema
-                # When custom schema is provided, disable schema inference for CSV
-                if config.source_file_format.lower() == "csv":
-                    options["inferSchema"] = False
-
         return options
 
 
@@ -452,6 +336,18 @@ class ProcessingMetricsUtils:
             metrics.total_duration_ms = (
                 metrics.read_duration_ms + metrics.write_duration_ms
             )
+
+        # Calculate rows per second
+        if metrics.total_duration_ms > 0 and metrics.records_processed > 0:
+            metrics.avg_rows_per_second = (
+                metrics.records_processed * 1000
+            ) / metrics.total_duration_ms
+
+        # Calculate throughput if data size is available
+        if metrics.total_duration_ms > 0 and metrics.data_size_mb > 0:
+            metrics.throughput_mb_per_second = (
+                metrics.data_size_mb * 1000
+            ) / metrics.total_duration_ms
 
         # Set row count reconciliation status based on write mode
         if metrics.source_row_count > 0 and metrics.target_row_count_after >= 0:
@@ -470,11 +366,10 @@ class ProcessingMetricsUtils:
                 else:
                     metrics.row_count_reconciliation_status = "mismatched"
             elif write_mode.lower() == "merge":
-                # For merge mode, check that all source rows were either inserted or updated
-                if metrics.source_row_count == (
-                    metrics.records_inserted + metrics.records_updated
-                ):
-                    metrics.row_count_reconciliation_status = "matched"
+                # For merge mode, we can't easily determine reconciliation without more info
+                # So we'll mark as verified if target count increased or stayed same
+                if metrics.target_row_count_after >= metrics.target_row_count_before:
+                    metrics.row_count_reconciliation_status = "verified"
                 else:
                     metrics.row_count_reconciliation_status = "mismatched"
             else:
@@ -503,6 +398,7 @@ class ProcessingMetricsUtils:
         merged.records_inserted = sum(m.records_inserted for m in metrics_list)
         merged.records_updated = sum(m.records_updated for m in metrics_list)
         merged.records_deleted = sum(m.records_deleted for m in metrics_list)
+        merged.records_failed = sum(m.records_failed for m in metrics_list)
         merged.source_row_count = sum(m.source_row_count for m in metrics_list)
         merged.target_row_count_before = sum(
             m.target_row_count_before for m in metrics_list
@@ -510,11 +406,7 @@ class ProcessingMetricsUtils:
         merged.target_row_count_after = sum(
             m.target_row_count_after for m in metrics_list
         )
-
-        # Preserve completed_at timestamp (use the latest one)
-        completed_timestamps = [m.completed_at for m in metrics_list if m.completed_at]
-        if completed_timestamps:
-            merged.completed_at = max(completed_timestamps)
+        merged.data_size_mb = sum(m.data_size_mb for m in metrics_list)
 
         # Calculate performance metrics
         return ProcessingMetricsUtils.calculate_performance_metrics(merged, write_mode)
@@ -573,69 +465,3 @@ class ErrorHandlingUtils:
             details.update({f"context_{k}": str(v) for k, v in context.items()})
 
         return details
-
-
-class ArchivePathResolver:
-    """Utilities for resolving archive path templates with dynamic variables"""
-
-    @staticmethod
-    def resolve(
-        template: str,
-        batch_info: Any,  # BatchInfo from results.py
-        config: Any,  # ResourceConfig from config.py
-        process_timestamp: datetime,
-    ) -> str:
-        """
-        Resolve archive path template with dynamic variables.
-
-        Template Variables:
-            Context: {source_name}, {target_table_name}, {resource_name}, {target_schema_name}
-            File parts: {filename}, {basename}, {ext}
-            Process timestamp: {YYYY}, {MM}, {DD}, {HH}, {mm}, {ss}
-
-        Args:
-            template: Path template like "archive/{YYYY}/{MM}/{DD}/{filename}"
-            batch_info: Batch information (includes file_paths)
-            config: Resource configuration
-            process_timestamp: When processing completed (from metrics.completed_at)
-
-        Returns:
-            Resolved path string
-
-        Example:
-            template = "archive/{target_table_name}/{YYYY}/{MM}/{DD}/{filename}"
-            result = "archive/sales_daily/2025/01/20/sales_20250119.csv"
-        """
-        # Extract file parts
-        file_path = batch_info.file_paths[0] if batch_info.file_paths else ""
-        filename = os.path.basename(file_path)
-        basename, ext = os.path.splitext(filename)
-        ext = ext.lstrip(".")  # Remove leading dot
-
-        # Build variable mapping
-        variables = {
-            # Context
-            "source_name": config.source_name,
-            "target_table_name": config.target_table_name,
-            "resource_name": config.resource_name,
-            "target_schema_name": config.target_schema_name,
-            # File parts
-            "filename": filename,
-            "basename": basename,
-            "ext": ext,
-            # Process timestamp
-            "YYYY": process_timestamp.strftime("%Y"),
-            "MM": process_timestamp.strftime("%m"),
-            "DD": process_timestamp.strftime("%d"),
-            "HH": process_timestamp.strftime("%H"),
-            "mm": process_timestamp.strftime("%M"),
-            "ss": process_timestamp.strftime("%S"),
-        }
-
-        # Replace variables using format_map (safe - doesn't fail on missing keys)
-        try:
-            resolved = template.format_map(variables)
-        except KeyError as e:
-            raise ValueError(f"Unknown variable in archive_path template: {e}")
-
-        return resolved

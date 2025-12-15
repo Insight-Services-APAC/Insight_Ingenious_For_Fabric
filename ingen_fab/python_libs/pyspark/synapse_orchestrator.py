@@ -565,7 +565,8 @@ class SynapseOrchestrator(SynapseOrchestratorInterface):
         work_items_json: Optional[str] = None,
         include_snapshots: bool = True,
         extraction_start_date: Optional[str] = None,
-        extraction_end_date: Optional[str] = None
+        extraction_end_date: Optional[str] = None,
+        batch_size: Optional[int] = 1
     ) -> List[WorkItem]:
         """Prepare work items for processing based on configuration and parameters."""
         work_items = []
@@ -670,7 +671,12 @@ class SynapseOrchestrator(SynapseOrchestratorInterface):
                         # Generate one work item per day (inclusive)
                         cur = start_dt
                         while cur <= end_dt:
-                            day_str = cur.strftime("%Y-%m-%d")
+                            to_date = cur + timedelta(days=batch_size-1)
+                            if to_date > end_dt:
+                                to_date = end_dt
+                            start_date_string = cur.strftime("%Y-%m-%d")
+                            end_date_string = to_date.strftime("%Y-%m-%d")
+
                             # Resolve per‑item overrides; otherwise fall back to immutable defaults
                             resolved_pipeline_id, resolved_ds_name, resolved_ds_loc = _resolve_work_item_config(
                                 row,
@@ -683,8 +689,8 @@ class SynapseOrchestrator(SynapseOrchestratorInterface):
                                 source_table_name=row.source_table_name,
                                 extract_mode=row.extract_mode,
                                 execution_group=row.execution_group or 1,
-                                extract_start_dt=day_str,
-                                extract_end_dt=day_str,
+                                extract_start_dt=start_date_string,
+                                extract_end_dt=end_date_string,
                                 single_date_filter=getattr(row, "single_date_filter", None),
                                 date_range_filter=getattr(row, "date_range_filter", None),
                                 custom_select_sql=getattr(row, "custom_select_sql", None),
@@ -697,7 +703,13 @@ class SynapseOrchestrator(SynapseOrchestratorInterface):
                                 trigger_type=trigger_type,
                                 master_execution_parameters=master_execution_parameters,
                             ))
-                            cur += timedelta(days=1)
+                            delta = timedelta(days=batch_size)
+                            if cur + delta <= end_dt:
+                                cur = cur + delta
+                            elif cur == end_dt or to_date == end_dt:
+                                break
+                            else:
+                                cur = end_dt
                     else:
                         # Snapshot or missing date range -> single item
                         # Resolve per‑item overrides; otherwise fall back to immutable defaults

@@ -1,7 +1,6 @@
 import asyncio
 import importlib.util
 import logging
-import re
 import time
 import uuid
 from typing import Any, Dict, Optional
@@ -120,7 +119,7 @@ class PipelineUtils:
         self.client = self._get_pipeline_client()
 
     def _use_semantic_link(self) -> bool:
-        return importlib.util.find_spec("sempy") is not None
+        return importlib.util.find_spec("semantic-link") is not None
 
     def _get_pipeline_client(self):
         # Check if we should use local testing mode
@@ -175,102 +174,6 @@ class PipelineUtils:
                 base_url="https://api.fabric.microsoft.com", credential=credential
             )
 
-    def _is_guid(self, value: str) -> bool:
-        """Check if a string is a valid GUID format."""
-        pattern = re.compile(
-            r'^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$'
-        )
-        return bool(pattern.match(value))
-
-    def resolve_workspace_id(self, workspace: str) -> str:
-        """
-        Resolve workspace name to GUID if needed.
-
-        Args:
-            workspace: Workspace name or GUID
-
-        Returns:
-            Workspace GUID
-        """
-        if self._is_guid(workspace):
-            return workspace
-
-        if not self._use_semantic_link():
-            raise RuntimeError(
-                f"Cannot resolve workspace name '{workspace}' - sempy not available. "
-                "Please provide workspace GUID instead."
-            )
-
-        import sempy.fabric as fabric
-
-        logger.debug(f"Resolving workspace name: {workspace}")
-        workspaces_df = fabric.list_workspaces()
-
-        # Match by name (case-insensitive)
-        matches = workspaces_df[
-            workspaces_df["Name"].str.casefold() == workspace.casefold()
-        ]
-
-        if matches.empty:
-            raise LookupError(f"Workspace '{workspace}' not found")
-
-        if len(matches) > 1:
-            logger.warning(f"Multiple workspaces match '{workspace}', using first match")
-
-        workspace_id = matches.iloc[0]["Id"]
-        logger.debug(f"Resolved workspace '{workspace}' to ID: {workspace_id}")
-        return workspace_id
-
-    def resolve_pipeline_id(self, workspace_id: str, pipeline: str) -> str:
-        """
-        Resolve pipeline name to GUID if needed.
-
-        Args:
-            workspace_id: Workspace GUID (must already be resolved)
-            pipeline: Pipeline name or GUID
-
-        Returns:
-            Pipeline GUID
-        """
-        if self._is_guid(pipeline):
-            return pipeline
-
-        if not self._use_semantic_link():
-            raise RuntimeError(
-                f"Cannot resolve pipeline name '{pipeline}' - sempy not available. "
-                "Please provide pipeline GUID instead."
-            )
-
-        import sempy.fabric as fabric
-
-        logger.debug(f"Resolving pipeline name: {pipeline} in workspace: {workspace_id}")
-        items_df = fabric.list_items(workspace=workspace_id)
-
-        # Filter to DataPipeline type
-        pipelines_df = items_df[items_df["Type"] == "DataPipeline"]
-
-        if pipelines_df.empty:
-            raise LookupError(f"No pipelines found in workspace '{workspace_id}'")
-
-        # Match by name (case-insensitive)
-        matches = pipelines_df[
-            pipelines_df["Display Name"].str.casefold() == pipeline.casefold()
-        ]
-
-        if matches.empty:
-            available = pipelines_df["Display Name"].tolist()
-            raise LookupError(
-                f"Pipeline '{pipeline}' not found in workspace. "
-                f"Available pipelines: {available}"
-            )
-
-        if len(matches) > 1:
-            logger.warning(f"Multiple pipelines match '{pipeline}', using first match")
-
-        pipeline_id = matches.iloc[0]["Id"]
-        logger.debug(f"Resolved pipeline '{pipeline}' to ID: {pipeline_id}")
-        return pipeline_id
-
     async def trigger_pipeline(
         self, workspace_id: str, pipeline_id: str, payload: Dict[str, Any]
     ) -> str:
@@ -311,7 +214,7 @@ class PipelineUtils:
                 if response.status_code == 202:
                     response_location = response.headers.get("Location", "")
                     job_id = response_location.rstrip("/").split("/")[-1]
-                    logger.debug(f"Pipeline triggered successfully. Job ID: {job_id}")
+                    logger.info(f"Pipeline triggered successfully. Job ID: {job_id}")
                     return job_id
 
                 # Handle HTTP errors using error categorization
@@ -603,7 +506,7 @@ class PipelineUtils:
 
                 # terminal states as per MS Fabric REST API documentation
                 if state in {"Completed", "Failed", "Cancelled", "Deduped"}:
-                    logger.debug(f"Job {table_name} reached terminal state: {state}")
+                    logger.info(f"Job {table_name} reached terminal state: {state}")
                     return state
 
                 # still executing, wait
@@ -651,10 +554,6 @@ class PipelineUtils:
         """
         # Trigger the pipeline
         job_id = await self.trigger_pipeline(workspace_id, pipeline_id, payload)
-
-        # Wait for job to initialize before polling
-        logger.debug(f"Waiting {POLL_INTERVAL}s for job to initialize before polling...")
-        await asyncio.sleep(POLL_INTERVAL)
 
         # Construct the job URL for polling
         job_url = (

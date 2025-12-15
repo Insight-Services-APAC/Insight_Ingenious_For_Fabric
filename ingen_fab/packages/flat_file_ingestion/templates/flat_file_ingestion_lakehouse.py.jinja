@@ -52,14 +52,15 @@ config_df = config_lakehouse.read_table("config_flat_file_ingestion").toPandas()
 {% endblock %}
 
 {% block initialize_services %}
-# Initialize the logging service (shared across all configs)
+# Initialize the modular flat file ingestion services with unified location resolution
+discovery_service = PySparkFlatFileDiscovery(location_resolver, spark)
+processor_service = PySparkFlatFileProcessor(spark, location_resolver)
 logging_service = PySparkFlatFileLogging(config_lakehouse)
 
-# Initialize the orchestrator with dependencies
-# The orchestrator will instantiate discovery and processor services per config
+# Initialize the orchestrator with all services
 orchestrator = PySparkFlatFileIngestionOrchestrator(
-    spark=spark,
-    location_resolver=location_resolver,
+    discovery_service=discovery_service,
+    processor_service=processor_service,
     logging_service=logging_service
 )
 {% endblock %}

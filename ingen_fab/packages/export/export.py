@@ -8,7 +8,7 @@ notebooks and DDL scripts based on templates.
 import json
 import uuid
 from pathlib import Path
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Optional
 
 from ingen_fab.notebook_utils.base_notebook_compiler import BaseNotebookCompiler
 
@@ -235,7 +235,7 @@ class ExportCompiler(BaseNotebookCompiler):
 
 def compile_export_package(
     fabric_workspace_repo_dir: str = None,
-    template_vars: Dict[str, Any] = None,
+    template_vars: Optional[Dict[str, Any]] = None,
     include_samples: bool = False,
 ) -> Dict[str, Any]:
     """Main function to compile the Export package

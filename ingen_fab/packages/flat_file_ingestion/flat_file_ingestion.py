@@ -76,7 +76,7 @@ class FlatFileIngestionCompiler(BaseNotebookCompiler):
 
         # Customize output name and description based on target
         output_name = f"flat_file_ingestion_processor_{target_datastore}"
-        display_name = f"flat_file_ingestion_processor_{target_datastore}"
+        display_name = f"Flat File Ingestion Processor ({target_datastore.title()})"
         description = f"Processes flat files and loads them into {target_datastore} tables based on configuration metadata"
 
         if target_datastore == "warehouse":
@@ -123,7 +123,7 @@ class FlatFileIngestionCompiler(BaseNotebookCompiler):
 
         # Customize output name and description based on target
         output_name = f"flat_file_config_generator_{target_datastore}"
-        display_name = f"flat_file_config_generator_{target_datastore}"
+        display_name = f"Flat File Configuration Generator ({target_datastore.title()})"
         description = f"Scans folders to discover files and auto-generates ingestion configurations for {target_datastore}"
 
         return self.compile_notebook_from_template(

@@ -10,6 +10,5 @@ target_lakehouse.create_table(  # noqa: F821
     table_name="log_flat_file_ingestion",
     schema=schema,
     mode="overwrite",
-    partition_by=["config_id"],
     options={"parquet.vorder.default": "true"},
 )

@@ -84,6 +84,7 @@ if debug_mode:
     debug_configs = [
         {
             "config_id": "debug_test_001",
+            "config_name": "Debug Test - CSV File",
             "source_file_path": "test_data/sample.csv",
             "source_file_format": "csv",
             "target_workspace_id": configs.{% if datastore_type == "lakehouse" %}raw_lh_workspace_id{% else %}raw_wh_workspace_id{% endif %},
@@ -103,6 +104,8 @@ if debug_mode:
             "sort_columns": "",
             "write_mode": "overwrite",
             "merge_keys": "",
+            "data_validation_rules": None,
+            "error_handling_strategy": "log",
             "execution_group": 1,
             "active_yn": "Y",
             "created_date": datetime.now().strftime("%Y-%m-%d"),
@@ -138,7 +141,7 @@ if debug_mode:
     print(f"Debug configurations loaded: {len(config_df)} items")
     
     # Display debug configurations
-    display(config_df[["config_id", "source_file_path", "target_table_name"]])
+    display(config_df[["config_id", "config_name", "source_file_path", "target_table_name"]])
 else:
     print("📋 Using standard database configurations")
 {% endif %}
@@ -226,6 +229,7 @@ if debug_mode:
         debug_configs.append({
             **debug_configs[0],  # Copy all fields from first config
             "config_id": "debug_test_002",
+            "config_name": "Debug Test - JSON File",
             "source_file_path": "test_data/products.json",
             "source_file_format": "json",
             "target_table_name": "debug_products_table",
@@ -263,17 +267,50 @@ for _, config_row in config_df.iterrows():
 results = orchestrator.process_configurations(configurations, execution_id)
 
 {% if datastore_type == "lakehouse" %}
-{{ macros.pyspark_cell_with_heading("## ✅ Exit Notebook") }}
+{{ macros.pyspark_cell_with_heading("## 📈 Execution Summary") }}
 {% else %}
-{{ macros.python_cell_with_heading("## ✅ Exit Notebook") }}
+{{ macros.python_cell_with_heading("## 📈 Execution Summary") }}
 {% endif %}
 
-# Determine exit status based on results
-if results['failed'] > 0:
-    exit_message = f"failed - {results['failed']} configuration(s) failed"
-    {{ macros.exit_notebook("failed") }}
-else:
-    exit_message = "success"
-    {{ macros.exit_notebook("success") }}
+# Print comprehensive summary
+print("\n=== EXECUTION SUMMARY ===")
+print(f"Execution ID: {results['execution_id']}")
+print(f"Total configurations processed: {results['total_configurations']}")
+print(f"Successful: {results['successful']}")
+print(f"Failed: {results['failed']}")
+print(f"No data found: {results['no_data_found']}")
+
+# Display successful configurations
+successful_configs = [r for r in results['configurations'] if r['status'] == 'completed']
+if successful_configs:
+    print("\nSuccessful configurations:")
+    for result in successful_configs:
+        metrics = result['metrics']
+        duration_sec = metrics.total_duration_ms / 1000 if metrics.total_duration_ms > 0 else 0
+        print(f"  - {result['config_name']}: {metrics.records_processed} records in {duration_sec:.2f}s")
+        print(f"    Performance: {metrics.avg_rows_per_second:.0f} rows/sec")
+        print(f"    Read time: {metrics.read_duration_ms}ms, Write time: {metrics.write_duration_ms}ms")
+        print(f"    Row count reconciliation: {metrics.row_count_reconciliation_status}")
+
+# Display failed configurations
+failed_configs = [r for r in results['configurations'] if r['status'] == 'failed']
+if failed_configs:
+    print("\nFailed configurations:")
+    for result in failed_configs:
+        print(f"  - {result['config_name']}: {'; '.join(result['errors'])}")
+
+# Display configurations with no data
+no_data_configs = [r for r in results['configurations'] if r['status'] in ['no_data_found', 'no_data_processed']]
+if no_data_configs:
+    print("\nConfigurations with no data found:")
+    for result in no_data_configs:
+        metrics = result['metrics']
+        print(f"  - {result['config_name']}: No source files discovered")
+        print(f"    Read time: {metrics.read_duration_ms}ms")
+        print(f"    Row count reconciliation: {metrics.row_count_reconciliation_status}")
+
+print(f"\nExecution completed at: {datetime.now()}")
+
+{{ macros.exit_notebook("success") }}
 
 {% include 'shared/notebook/cells/footer.py.jinja' %}
