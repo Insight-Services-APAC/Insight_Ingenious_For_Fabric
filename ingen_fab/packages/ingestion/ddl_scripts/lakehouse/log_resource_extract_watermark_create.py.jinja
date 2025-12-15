@@ -1,0 +1,36 @@
+# Log table for extraction watermark tracking - Lakehouse version
+# Tracks last extracted watermark value for incremental database extraction
+
+from pyspark.sql.types import (
+    StringType,
+    StructField,
+    StructType,
+    TimestampType,
+)
+
+# Define schema for the log_resource_extract_watermark table
+schema = StructType([
+    # Primary key
+    StructField("source_name", StringType(), False),  # PK - source system
+    StructField("resource_name", StringType(), False),  # PK - resource/table name
+    # Watermark configuration
+    StructField("watermark_column", StringType(), False),  # Column used for watermark
+    StructField("watermark_type", StringType(), False),  # 'timestamp', 'date', 'integer', 'string'
+    # Watermark state
+    StructField("watermark_value", StringType(), False),  # Last extracted value (stored as string)
+    StructField("previous_watermark_value", StringType(), True),  # Previous value for rollback
+    # Audit trail
+    StructField("updated_at", TimestampType(), False),  # When watermark was updated
+    StructField("extract_batch_id", StringType(), True),  # FK to log_resource_extract_batch
+])
+
+target_lakehouse.create_table(
+    table_name="log_resource_extract_watermark",
+    schema=schema,
+    mode="overwrite",
+    partition_by=["source_name", "resource_name"],
+    options={
+        "parquet.vorder.default": "true",
+        "overwriteSchema": "true"
+    }
+)

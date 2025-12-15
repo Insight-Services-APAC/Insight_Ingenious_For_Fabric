@@ -1,0 +1,1 @@
+workspace_id,lakehouse_id,lakehouse_name,warehouse_id,warehouse_name,sql_endpoint_id,schema_name,table_name,table_type,column_name,data_type,is_nullable,ordinal_position

@@ -1,0 +1,69 @@
+# Log table for export execution tracking - Lakehouse version
+# Stores export execution history and metrics
+
+from pyspark.sql.types import (
+    ArrayType,
+    BooleanType,
+    IntegerType,
+    LongType,
+    MapType,
+    StringType,
+    StructField,
+    StructType,
+    TimestampType,
+)
+
+# Define schema for log_resource_export table
+schema = StructType([
+    # Primary identifiers
+    StructField("export_run_id", StringType(), False),
+    StructField("master_execution_id", StringType(), False),
+    StructField("export_group_name", StringType(), False),
+    StructField("export_name", StringType(), False),
+
+    # Execution state
+    StructField("export_state", StringType(), False),  # pending, running, success, warning, error
+
+    # Source information
+    StructField("source_type", StringType(), False),
+    StructField("source_workspace", StringType(), True),
+    StructField("source_datastore", StringType(), True),
+    StructField("source_table", StringType(), True),
+
+    # Target information
+    StructField("target_path", StringType(), False),
+    StructField("file_format", StringType(), True),
+    StructField("compression", StringType(), True),
+
+    # Timing
+    StructField("started_at", TimestampType(), False),
+    StructField("completed_at", TimestampType(), True),
+    StructField("duration_ms", LongType(), True),
+
+    # Metrics
+    StructField("rows_exported", LongType(), True),
+    StructField("files_created", IntegerType(), True),
+    StructField("total_bytes", LongType(), True),
+
+    # Output files
+    StructField("file_paths", ArrayType(StringType()), True),
+    StructField("trigger_file_path", StringType(), True),
+
+    # Error handling
+    StructField("error_message", StringType(), True),
+
+    # Audit
+    StructField("log_created_at", TimestampType(), True),
+    StructField("created_by", StringType(), True),
+])
+
+target_lakehouse.create_table(
+    table_name="log_resource_export",
+    schema=schema,
+    mode="overwrite",
+    partition_by=["export_group_name", "export_name"],
+    options={
+        "parquet.vorder.default": "true",
+        "overwriteSchema": "true"
+    }
+)

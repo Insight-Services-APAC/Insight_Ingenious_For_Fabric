@@ -1,0 +1,114 @@
+{
+  "$schema": "https://developer.microsoft.com/json-schemas/fabric/item/variableLibrary/definition/variables/1.0.0/schema.json",
+  "variables": [
+    {
+      "name": "fabric_environment",
+      "note": "The environment name (e.g., development, production). Must match your platform_manifest_[environment].yml file name.",
+      "type": "String",
+      "value": ""
+    },
+    {
+      "name": "fabric_deployment_workspace_id",
+      "note": "The GUID of the Fabric workspace where this solution will be deployed.",
+      "type": "String",
+      "value": ""
+    },
+    {
+      "name": "config_workspace_name",
+      "note": "Name of the workspace containing the configuration lakehouse.",
+      "type": "String",
+      "value": ""
+    },
+    
+    {
+      "name": "config_workspace_id",
+      "note": "GUID of the workspace containing the configuration lakehouse.",
+      "type": "String",
+      "value": ""
+    },
+    {
+      "name": "config_lakehouse_name",
+      "note": "Name of the lakehouse used for configuration tables.",
+      "type": "String",
+      "value": ""
+    },
+    {
+      "name": "config_lakehouse_id",
+      "note": "GUID of the lakehouse used for configuration tables.",
+      "type": "String",
+      "value": ""
+    },
+    {
+      "name": "lh_bronze_workspace_id",
+      "note": "GUID of the workspace containing bronze lakehouse.",
+      "type": "String",
+      "value": ""
+    },
+    {
+      "name": "lh_bronze_lakehouse_name",
+      "note": "Name of the bronze lakehouse.",
+      "type": "String",
+      "value": ""
+    },
+    {
+      "name": "lh_bronze_lakehouse_id",
+      "note": "GUID of the bronze lakehouse.",
+      "type": "String",
+      "value": ""
+    },   
+    {
+      "name": "lh_silver_workspace_id",
+      "note": "GUID of the workspace containing silver1 lakehouse.",
+      "type": "String",
+      "value": ""
+    },
+    {
+      "name": "lh_silver_lakehouse_name",
+      "note": "Name of the silver1 lakehouse.",
+      "type": "String",
+      "value": ""
+    },
+    {
+      "name": "lh_silver_lakehouse_id",
+      "note": "GUID of the silver1 lakehouse.",
+      "type": "String",
+      "value": ""
+    },
+    {
+      "name": "lh_gold_workspace_id",
+      "note": "GUID of the workspace containing gold lakehouse.",
+      "type": "String",
+      "value": ""
+    },
+    {
+      "name": "lh_gold_lakehouse_name",
+      "note": "Name of the gold lakehouse.",
+      "type": "String",
+      "value": ""
+    },
+    {
+      "name": "lh_gold_lakehouse_id",
+      "note": "GUID of the gold lakehouse.",
+      "type": "String",
+      "value": ""
+    },
+    {
+      "name": "wh_gold_workspace_id",
+      "note": "GUID of the workspace containing the configuration warehouse.",
+      "type": "String",
+      "value": ""
+    },
+    {
+      "name": "wh_gold_warehouse_name",
+      "note": "Name of the warehouse used for configuration tables.",
+      "type": "String",
+      "value": ""
+    },
+    {
+      "name": "wh_gold_warehouse_id",
+      "note": "GUID of the warehouse used for configuration tables.",
+      "type": "String",
+      "value": ""
+    }
+  ]
+}
