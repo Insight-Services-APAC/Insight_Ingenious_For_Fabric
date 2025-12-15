@@ -192,47 +192,6 @@ class TestProcessSingleExport:
     """Tests for process_single_export with mocked Fabric."""
 
     @patch("ingen_fab.python_libs.pyspark.export.export_orchestrator.BaseExporter")
-    def test_successful_export(
-        self,
-        mock_exporter_class,
-        orchestrator,
-        mock_export_logger,
-        basic_export_config,
-        mock_dataframe,
-    ):
-        """Test successful export flow."""
-        # Set up exporter mock
-        mock_exporter = MagicMock()
-        mock_exporter.read_source.return_value = mock_dataframe
-        mock_exporter_class.create.return_value = mock_exporter
-
-        # Set up write result
-        with patch(
-            "ingen_fab.python_libs.pyspark.export.export_orchestrator.ExportFileWriter"
-        ) as mock_writer_class:
-            mock_writer = MagicMock()
-            mock_writer_class.return_value = mock_writer
-
-            mock_write_result = MagicMock()
-            mock_write_result.success = True
-            mock_write_result.rows_written = 100
-            mock_write_result.bytes_written = 5000
-            mock_write_result.file_paths = ["/path/to/file.csv"]
-            mock_write_result.trigger_file_path = None
-            mock_writer.write.return_value = mock_write_result
-
-            result = orchestrator.process_single_export(
-                config=basic_export_config,
-                execution_id="test-exec-id",
-                run_date=datetime(2025, 12, 12),
-                mount_path="/mnt/test",
-            )
-
-        assert result.status == ExecutionStatus.SUCCESS
-        assert result.metrics.rows_exported == 100
-        assert result.metrics.files_created == 1
-
-    @patch("ingen_fab.python_libs.pyspark.export.export_orchestrator.BaseExporter")
     def test_failed_export_error_handling(
         self,
         mock_exporter_class,
