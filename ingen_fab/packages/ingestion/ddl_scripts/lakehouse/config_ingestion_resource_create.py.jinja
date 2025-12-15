@@ -1,0 +1,80 @@
+# Configuration table for ingestion resources - Lakehouse version
+# Stores ResourceConfig objects with polymorphic source parameters
+
+from pyspark.sql.types import (
+    ArrayType,
+    BooleanType,
+    IntegerType,
+    MapType,
+    StringType,
+    StructField,
+    StructType,
+    TimestampType,
+)
+
+# Define schema for the config_ingestion_resource table
+schema = StructType([
+    # IDENTITY
+    StructField("resource_name", StringType(), False),  # PK
+    StructField("source_name", StringType(), False),
+    # SOURCE CONFIGURATION
+    StructField("source_type", StringType(), False),  # 'filesystem'
+    StructField("source_connection_params", MapType(StringType(), StringType()), True),
+    StructField("source_extraction_params", MapType(StringType(), StringType()), True),
+    # EXTRACT LAYER
+    StructField("extract_path", StringType(), False),
+    StructField("extract_file_format_params", MapType(StringType(), StringType()), False),
+    StructField("extract_storage_workspace", StringType(), False),
+    StructField("extract_storage_lakehouse", StringType(), False),
+    StructField("extract_error_path", StringType(), False),
+    StructField("extract_partition_columns", ArrayType(StringType()), True),
+    # STAGING TABLE
+    StructField("stg_table_workspace", StringType(), True),
+    StructField("stg_table_lakehouse", StringType(), True),
+    StructField("stg_table_schema", StringType(), True),
+    StructField("stg_table_name", StringType(), True),
+    StructField("stg_table_write_mode", StringType(), True),
+    StructField("stg_table_partition_columns", ArrayType(StringType()), True),
+    # TARGET TABLE
+    StructField("target_workspace", StringType(), True),
+    StructField("target_lakehouse", StringType(), True),
+    StructField("target_schema", StringType(), True),
+    StructField("target_table", StringType(), True),
+    StructField("target_schema_columns", ArrayType(StructType([
+        StructField("column_name", StringType(), False),
+        StructField("data_type", StringType(), False),
+    ])), True),
+    StructField("target_schema_drift_enabled", BooleanType(), True),
+    StructField("target_write_mode", StringType(), True),
+    StructField("target_merge_keys", ArrayType(StringType()), True),
+    StructField("target_partition_columns", ArrayType(StringType()), True),
+    StructField("target_soft_delete_enabled", BooleanType(), True),
+    StructField("target_cdc_config", StructType([
+        StructField("operation_column", StringType(), False),
+        StructField("insert_values", ArrayType(StringType()), False),
+        StructField("update_values", ArrayType(StringType()), False),
+        StructField("delete_values", ArrayType(StringType()), False),
+    ]), True),
+    StructField("target_load_type", StringType(), True),
+    StructField("target_max_corrupt_records", IntegerType(), True),
+    StructField("target_fail_on_rejection", BooleanType(), True),
+    # EXECUTION CONTROL
+    StructField("execution_group", IntegerType(), True),
+    StructField("active", BooleanType(), True),
+    # METADATA
+    StructField("created_at", TimestampType(), True),
+    StructField("updated_at", TimestampType(), True),
+    StructField("created_by", StringType(), True),
+    StructField("updated_by", StringType(), True),
+])
+
+target_lakehouse.create_table(
+    table_name="config_ingestion_resource",
+    schema=schema,
+    mode="overwrite",
+    partition_by=["source_name", "resource_name"],
+    options={
+        "parquet.vorder.default": "true",
+        "overwriteSchema": "true"
+    }
+)

@@ -1,0 +1,35 @@
+# Watermark table for incremental export tracking - Lakehouse version
+# Stores watermark values to track incremental export progress
+
+from pyspark.sql.types import (
+    StringType,
+    StructField,
+    StructType,
+    TimestampType,
+)
+
+# Define schema for log_resource_export_watermark table
+schema = StructType([
+    # Composite key
+    StructField("export_group_name", StringType(), False),
+    StructField("export_name", StringType(), False),
+
+    # Watermark tracking
+    StructField("incremental_column", StringType(), False),
+    StructField("watermark_value", StringType(), False),  # ISO formatted string
+
+    # Audit
+    StructField("updated_at", TimestampType(), False),
+    StructField("export_run_id", StringType(), False),
+])
+
+target_lakehouse.create_table(
+    table_name="log_resource_export_watermark",
+    schema=schema,
+    mode="overwrite",
+    partition_by=["export_group_name", "export_name"],
+    options={
+        "parquet.vorder.default": "true",
+        "overwriteSchema": "true"
+    }
+)
