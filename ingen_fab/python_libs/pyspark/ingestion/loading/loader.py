@@ -473,7 +473,7 @@ class FileLoader:
                 file_path=file_paths,
                 file_format=file_format,
                 options=infer_options,
-            ).cache().schema
+            ).schema
 
             # For headerless CSVs with target_schema_columns: rename _c0, _c1, etc. to target names
             has_header = self.config.extract_file_format_params.format_options.get("has_header", True)
