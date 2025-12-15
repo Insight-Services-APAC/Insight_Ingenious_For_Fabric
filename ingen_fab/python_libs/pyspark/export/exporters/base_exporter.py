@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import logging
 from abc import ABC, abstractmethod
+from datetime import datetime
 from typing import Dict, Optional, Type
 
 from pyspark.sql import DataFrame, SparkSession
@@ -86,18 +87,53 @@ class BaseExporter(ABC):
         ...
 
     @abstractmethod
-    def read_source(self, watermark_value: Optional[str] = None) -> DataFrame:
+    def read_source(
+        self,
+        run_date: Optional[datetime] = None,
+        watermark_value: Optional[str] = None,
+        period_start: Optional[datetime] = None,
+        period_end: Optional[datetime] = None,
+    ) -> DataFrame:
         """
         Read data from source and return DataFrame.
 
+        Supports placeholder substitution in source_query:
+        - {run_date} - Logical date for export (ISO format)
+        - {watermark} - Incremental watermark value
+        - {period_start} - Period start date (ISO format)
+        - {period_end} - Period end date (ISO format)
+
         Args:
+            run_date: Logical date for the export run (for {run_date} placeholder).
             watermark_value: Optional watermark for incremental exports.
                             If provided, only returns rows where incremental_column > watermark_value.
+            period_start: Optional start date for period-based exports.
+            period_end: Optional end date for period-based exports.
+                       If both provided with period_filter_column, filters rows in date range.
 
         Returns:
             DataFrame containing the source data
         """
         ...
+
+    def _get_select_columns(self) -> str:
+        """Get columns for SELECT clause, auto-including incremental_column if needed."""
+        source = self.config.source_config
+
+        if not source.source_columns:
+            return "*"
+
+        columns = list(source.source_columns)
+
+        # Auto-include incremental_column for watermark calculation
+        if (
+            self.config.extract_type == "incremental"
+            and self.config.incremental_column
+            and self.config.incremental_column not in columns
+        ):
+            columns.append(self.config.incremental_column)
+
+        return ", ".join(columns)
 
 
 def get_registered_exporters() -> Dict[str, Type[BaseExporter]]:

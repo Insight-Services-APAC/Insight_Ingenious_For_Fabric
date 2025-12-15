@@ -34,6 +34,7 @@ def get_config_export_resource_schema() -> StructType:
             StructField("source_schema", StringType(), True),
             StructField("source_table", StringType(), True),
             StructField("source_query", StringType(), True),
+            StructField("source_columns", ArrayType(StringType()), True),  # Column list
             # Target configuration
             StructField("target_workspace", StringType(), False),
             StructField("target_lakehouse", StringType(), False),
@@ -41,19 +42,20 @@ def get_config_export_resource_schema() -> StructType:
             StructField("target_filename_pattern", StringType(), True),
             # File format configuration
             StructField("file_format", StringType(), False),  # csv, tsv, dat, parquet, json
+            StructField("file_format_options", MapType(StringType(), StringType()), True),  # Spark write options (header, sep, quote, etc.)
             StructField("compression", StringType(), True),  # gzip, zipdeflate, snappy, none
+            StructField("compression_level", IntegerType(), True),  # Compression level (gzip: 1-9, zip: 0-9, brotli: 0-11)
             StructField("compressed_filename_pattern", StringType(), True),
-            StructField("format_options", MapType(StringType(), StringType()), True),
             # File splitting
             StructField("max_rows_per_file", IntegerType(), True),
-            StructField("compress_bundle_files", BooleanType(), True),
-            # Extract type configuration (for period date calculation)
-            StructField("extract_type", StringType(), True),  # "full", "period", "incremental"
-            StructField("period_length_days", IntegerType(), True),
-            StructField("period_end_day", StringType(), True),  # e.g., "Saturday"
-            StructField("incremental_column", StringType(), True),  # Column for incremental tracking
+            # Extract type configuration
+            StructField("extract_type", StringType(), True),  # "full", "incremental", "period"
+            StructField("incremental_column", StringType(), True),  # Column for incremental/watermark tracking
+            StructField("incremental_initial_watermark", StringType(), True),  # Starting point for first incremental run
+            StructField("period_filter_column", StringType(), True),  # Column for period-based filtering
+            # Period date query - SQL returning start_date, end_date columns
+            StructField("period_date_query", StringType(), True),
             # Trigger file configuration
-            StructField("trigger_file_enabled", BooleanType(), True),
             StructField("trigger_file_pattern", StringType(), True),
             # Metadata
             StructField("description", StringType(), True),
@@ -94,6 +96,10 @@ def get_log_resource_export_schema() -> StructType:
             StructField("target_path", StringType(), False),
             StructField("file_format", StringType(), True),
             StructField("compression", StringType(), True),
+            # Extract parameters used
+            StructField("watermark_value", StringType(), True),
+            StructField("period_start_date", TimestampType(), True),
+            StructField("period_end_date", TimestampType(), True),
             # Timing
             StructField("started_at", TimestampType(), False),
             StructField("completed_at", TimestampType(), True),
@@ -108,7 +114,6 @@ def get_log_resource_export_schema() -> StructType:
             # Error handling
             StructField("error_message", StringType(), True),
             # Audit
-            StructField("created_at", TimestampType(), True),
-            StructField("created_by", StringType(), True),
+            StructField("updated_at", TimestampType(), True),
         ]
     )

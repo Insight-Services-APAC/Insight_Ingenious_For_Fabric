@@ -131,32 +131,6 @@ The `source_extraction_params` field contains source-type specific parameters st
 | `sort_order` | String | Sort direction | `"asc"`, `"desc"` |
 | `extract_partition_columns` | Array | Hive partition structure for extract layer | `["ds"]`, `["year", "month", "day"]` |
 
-#### Database Source
-
-| Parameter | Type | Description | Example |
-|-----------|------|-------------|---------|
-| `db_type` | String | Database dialect: `sqlserver`, `synapse`, `postgres`, `oracle` | `"sqlserver"` |
-| `extraction_mode` | String | `table` (from table), `query` (custom SQL), `cetas` (Synapse CETAS) | `"table"` |
-| `source_schema` | String | Source schema name | `"dbo"` |
-| `source_table` | String | Source table name | `"customers"` |
-| `columns` | Array | Columns to extract (optional, defaults to all) | `["id", "name", "email"]` |
-| `where_clause` | String | Static WHERE filter | `"active = 1"` |
-| `query` | String | Custom SQL (for `extraction_mode="query"`) | `"SELECT * FROM ..."` |
-| `incremental_column` | String | Column for watermark-based incremental | `"modified_date"` |
-| `incremental_column_type` | String | Type: `date`, `timestamp`, `integer` | `"timestamp"` |
-| `incremental_lookback` | Integer | Lookback for late-arriving data (hours for date/timestamp, offset for integer) | `72` |
-| `incremental_chunk_size` | Integer | Split large loads into chunks (hours for date/timestamp, step for integer) | `24` |
-| `incremental_start` | String | Start bound for chunked extraction | `"2024-01-01"` |
-| `incremental_end` | String | End bound for chunked extraction | `"2024-12-31"` |
-| `fetch_size` | Integer | JDBC fetch size | `10000` |
-
-**Connection params** (`source_connection_params`):
-
-| Parameter | Type | Description |
-|-----------|------|-------------|
-| `pipeline_name` | String | Fabric Pipeline name for extraction |
-| `pipeline_workspace` | String | Workspace containing the pipeline |
-
 ## File Format Options
 
 The `extract_file_format_params` field configures how files are read. All options use **snake_case** naming (translated to Spark camelCase internally).
@@ -301,13 +275,11 @@ Move data from external sources (inbound file systems) to raw storage in OneLake
 
 - **`ExtractionOrchestrator`**: Manages execution groups, parallel processing, state tracking
 - **`FileSystemExtractor`**: Extracts files from ABFSS file systems
-- **`DatabaseExtractor`**: Extracts data from databases via Fabric Pipeline delegation
 - **`ExtractionLogger`**: Logs extraction events to Delta tables
 
 ### Supported Sources
 
 - **filesystem**: ABFSS file systems (OneLake, ADLS)
-- **database**: SQL Server, Synapse, PostgreSQL, Oracle (via Data Gateway)
 
 ### Key Features
 

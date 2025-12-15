@@ -6,15 +6,14 @@ import uuid
 from datetime import datetime, timedelta
 from typing import List, Optional, Set, Tuple
 
-from pyspark.sql import SparkSession
-from pyspark.sql.functions import col, lit, current_timestamp, row_number
+from pyspark.sql.functions import col, current_timestamp, lit, row_number
 from pyspark.sql.window import Window
 
-from ingen_fab.python_libs.common.load_resource_schema import (
-    get_load_resource_schema,
-)
 from ingen_fab.python_libs.common.load_resource_batch_schema import (
     get_load_resource_batch_schema,
+)
+from ingen_fab.python_libs.common.load_resource_schema import (
+    get_load_resource_schema,
 )
 from ingen_fab.python_libs.pyspark.ingestion.common.config import ResourceConfig
 from ingen_fab.python_libs.pyspark.ingestion.common.constants import ExecutionStatus

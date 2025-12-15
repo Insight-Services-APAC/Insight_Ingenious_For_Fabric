@@ -39,6 +39,10 @@ class ExportResult:
     error_message: Optional[str] = None
     started_at: Optional[datetime] = None
     completed_at: Optional[datetime] = None
+    # Extract parameters used (for logging/audit)
+    watermark_value: Optional[str] = None
+    period_start_date: Optional[datetime] = None
+    period_end_date: Optional[datetime] = None
 
     def to_dict(self) -> Dict[str, Any]:
         """Convert to dictionary."""
@@ -52,4 +56,7 @@ class ExportResult:
             "error_message": self.error_message,
             "started_at": self.started_at.isoformat() if self.started_at else None,
             "completed_at": self.completed_at.isoformat() if self.completed_at else None,
+            "watermark_value": self.watermark_value,
+            "period_start_date": self.period_start_date.isoformat() if self.period_start_date else None,
+            "period_end_date": self.period_end_date.isoformat() if self.period_end_date else None,
         }

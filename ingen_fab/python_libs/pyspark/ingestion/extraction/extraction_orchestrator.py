@@ -13,10 +13,19 @@ from pyspark.sql import SparkSession
 from ingen_fab.python_libs.pyspark.ingestion.common.config import ResourceConfig
 from ingen_fab.python_libs.pyspark.ingestion.common.constants import ExecutionStatus
 from ingen_fab.python_libs.pyspark.ingestion.common.exceptions import ExtractionError
-from ingen_fab.python_libs.pyspark.ingestion.extraction.extractors.base_extractor import BaseExtractor
-from ingen_fab.python_libs.pyspark.ingestion.extraction.extraction_logger import ExtractionLogger
-from ingen_fab.python_libs.pyspark.ingestion.common.logging_utils import resource_context, ResourceContext
-from ingen_fab.python_libs.pyspark.ingestion.common.results import ResourceExtractionResult
+from ingen_fab.python_libs.pyspark.ingestion.common.logging_utils import (
+    ResourceContext,
+    resource_context,
+)
+from ingen_fab.python_libs.pyspark.ingestion.common.results import (
+    ResourceExtractionResult,
+)
+from ingen_fab.python_libs.pyspark.ingestion.extraction.extraction_logger import (
+    ExtractionLogger,
+)
+from ingen_fab.python_libs.pyspark.ingestion.extraction.extractors.base_extractor import (
+    BaseExtractor,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -24,10 +33,10 @@ class ExtractionOrchestrator:
     """
     Orchestrates data extraction across multiple resources.
 
-    Pattern: External source (inbound files, API, database) → Raw layer
+    Pattern: External source (inbound files) → Raw layer
 
     Handles:
-    - Extraction from filesystem, API, database sources
+    - Extraction from filesystem sources
     - Execution grouping and sequencing
     - Parallel processing within groups
     - State tracking via ExtractionLogger
@@ -354,7 +363,7 @@ class ExtractionOrchestrator:
                     file_text = f"{metrics['files']} file{'s' if metrics['files'] != 1 else ''}"
                     logger.info(f"Success: {batch_text}, {file_text} in {duration_s:.1f}s")
                 else:
-                    logger.info(f"Success: No data to extract (allowed)")
+                    logger.info("Success: No data to extract (allowed)")
             case ExecutionStatus.WARNING:
                 logger.warning(f"Warning: {result.error_message}")
             case ExecutionStatus.ERROR:

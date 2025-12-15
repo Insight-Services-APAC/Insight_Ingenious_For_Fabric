@@ -1,6 +1,9 @@
 # Centralized schema definition for ingestion resource configuration
 # This ensures consistency between DDL creation and ConfigIngestionManager operations
 
+import json
+from typing import Any, Dict
+
 from pyspark.sql.types import (
     ArrayType,
     BooleanType,
@@ -11,16 +14,12 @@ from pyspark.sql.types import (
     StructType,
     TimestampType,
 )
-import json
-from typing import Any, Dict
 
 from ingen_fab.python_libs.pyspark.ingestion.common.config import (
-    ResourceConfig,
-    SourceConfig,
     FileFormatParams,
     FileSystemExtractionParams,
-    APIExtractionParams,
-    DatabaseExtractionParams,
+    ResourceConfig,
+    SourceConfig,
 )
 
 
@@ -29,10 +28,8 @@ def get_ingestion_resource_config_schema() -> StructType:
     Returns the standardized schema for the config_ingestion_resource table.
     This schema stores ResourceConfig objects with polymorphic source parameters.
 
-    Uses MapType for flexible params to support multiple source types:
+    Uses MapType for flexible params to support source types:
     - filesystem (FileSystemExtractionParams)
-    - api (APIExtractionParams)
-    - database (DatabaseExtractionParams)
 
     Primary Key: resource_name
     """
@@ -46,7 +43,7 @@ def get_ingestion_resource_config_schema() -> StructType:
             # ====================================================================
             # SOURCE CONFIGURATION
             # ====================================================================
-            StructField("source_type", StringType(), False),  # 'filesystem', 'api', 'database'
+            StructField("source_type", StringType(), False),  # 'filesystem'
             StructField("source_connection_params", MapType(StringType(), StringType()), True),
             StructField("source_extraction_params", MapType(StringType(), StringType()), True),
             # ====================================================================
@@ -119,7 +116,10 @@ def row_to_resource_config(row) -> ResourceConfig:
     Returns:
         ResourceConfig object
     """
-    from ingen_fab.python_libs.pyspark.ingestion.common.config import SchemaColumns, CDCConfig
+    from ingen_fab.python_libs.pyspark.ingestion.common.config import (
+        CDCConfig,
+        SchemaColumns,
+    )
 
     # Helper to convert MapType back to dict
     def maptype_to_dict(map_col) -> Dict[str, Any]:
@@ -164,10 +164,6 @@ def row_to_resource_config(row) -> ResourceConfig:
         source_type = get_field("source_type")
         if source_type == "filesystem":
             source_extraction_params = FileSystemExtractionParams.from_dict(source_extraction_params)
-        elif source_type == "api":
-            source_extraction_params = APIExtractionParams.from_dict(source_extraction_params)
-        elif source_type == "database":
-            source_extraction_params = DatabaseExtractionParams.from_dict(source_extraction_params)
 
     # Reconstruct CDCConfig from struct (optional)
     target_cdc_config = None

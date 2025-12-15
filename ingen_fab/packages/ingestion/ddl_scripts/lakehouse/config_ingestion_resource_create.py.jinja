@@ -18,7 +18,7 @@ schema = StructType([
     StructField("resource_name", StringType(), False),  # PK
     StructField("source_name", StringType(), False),
     # SOURCE CONFIGURATION
-    StructField("source_type", StringType(), False),  # 'filesystem', 'api', 'database'
+    StructField("source_type", StringType(), False),  # 'filesystem'
     StructField("source_connection_params", MapType(StringType(), StringType()), True),
     StructField("source_extraction_params", MapType(StringType(), StringType()), True),
     # EXTRACT LAYER

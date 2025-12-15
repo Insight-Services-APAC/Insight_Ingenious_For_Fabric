@@ -33,6 +33,11 @@ schema = StructType([
     StructField("file_format", StringType(), True),
     StructField("compression", StringType(), True),
 
+    # Extract parameters used
+    StructField("watermark_value", StringType(), True),
+    StructField("period_start_date", TimestampType(), True),
+    StructField("period_end_date", TimestampType(), True),
+
     # Timing
     StructField("started_at", TimestampType(), False),
     StructField("completed_at", TimestampType(), True),
@@ -51,8 +56,7 @@ schema = StructType([
     StructField("error_message", StringType(), True),
 
     # Audit
-    StructField("created_at", TimestampType(), True),
-    StructField("created_by", StringType(), True),
+    StructField("updated_at", TimestampType(), True),
 ])
 
 target_lakehouse.create_table(

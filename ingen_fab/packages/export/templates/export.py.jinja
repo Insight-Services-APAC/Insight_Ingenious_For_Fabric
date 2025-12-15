@@ -19,13 +19,14 @@
 
 # PARAMETERS CELL ********************
 
-EXPORT_GROUP_NAME = None  # Optional: filter by export group (None = all groups)
-EXPORT_NAME = None  # Optional: filter by export name within group (None = all exports)
+EXPORT_GROUP_NAME = ""  # REQUIRED: specify the export group to process
+EXPORT_NAME = None  # Optional: filter by specific export name within group (None = all exports in group)
 EXECUTION_GROUP = None  # Optional: filter by execution group
-EXECUTION_ID = None  # auto-UUID if None
+EXECUTION_ID = None  # Optional: override execution ID (auto-generated if None)
 IS_RETRY = False  # If True, only reprocess failed exports
 MAX_CONCURRENCY = 4
-EXPORT_DATE = None  # Optional: "YYYY-MM-DD" to override run date (None = today)
+TIMEZONE = "Australia/Sydney"  # Timezone for default run_date (e.g., "Australia/Sydney", "UTC")
+RUN_DATE = None  # Optional: "YYYY-MM-DD" or "YYYY-MM-DD HH:MM:SS" (None = today in TIMEZONE)
 
 # METADATA ********************
 
@@ -241,13 +242,12 @@ for cfg in export_configs:
 
 # CELL ********************
 
-import uuid
-execution_id = EXECUTION_ID if EXECUTION_ID else str(uuid.uuid4())
 results = export_orchestrator.process_exports(
     configs=export_configs,
-    execution_id=execution_id,
+    execution_id=EXECUTION_ID,
     is_retry=IS_RETRY,
-    run_date=EXPORT_DATE
+    run_date=RUN_DATE,
+    timezone=TIMEZONE,
 )
 
 # METADATA ********************
@@ -276,7 +276,7 @@ warnings = [
 # Check if export failed
 if not results.get('success'):
     failed_exports = [r.get('export_name') for r in results.get('results', []) if r.get('status') == 'error']
-    raise Exception(f"Export failed for: {failed_exports}. Execution ID: {execution_id}")
+    raise Exception(f"Export failed for: {failed_exports}. Execution ID: {results['execution_id']}")
 
 print(f"Export completed successfully!")
 print(f"  Total: {results['total_exports']}")
@@ -299,7 +299,7 @@ print(f"  Failed: {results['failed']}")
 import json
 
 summary = {
-    "execution_id": execution_id,
+    "execution_id": results["execution_id"],
     "success": results["success"],
     "total_exports": results["total_exports"],
     "successful": results["successful"],

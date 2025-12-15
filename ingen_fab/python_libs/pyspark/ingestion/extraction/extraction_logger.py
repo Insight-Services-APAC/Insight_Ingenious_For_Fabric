@@ -6,15 +6,14 @@ import uuid
 from datetime import date, datetime
 from typing import Any, List, Optional, Set, Tuple
 
-from pyspark.sql import SparkSession
-from pyspark.sql.functions import col, lit, current_timestamp, exists, row_number
+from pyspark.sql.functions import col, current_timestamp, exists, lit, row_number
 from pyspark.sql.window import Window
 
-from ingen_fab.python_libs.common.extract_resource_schema import (
-    get_extract_resource_schema,
-)
 from ingen_fab.python_libs.common.extract_resource_batch_schema import (
     get_extract_resource_batch_schema,
+)
+from ingen_fab.python_libs.common.extract_resource_schema import (
+    get_extract_resource_schema,
 )
 from ingen_fab.python_libs.common.extract_watermark_schema import (
     get_extract_watermark_schema,

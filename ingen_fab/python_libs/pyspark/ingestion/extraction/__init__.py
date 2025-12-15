@@ -3,7 +3,6 @@ from .extraction_logger import ExtractionLogger
 from .extraction_orchestrator import ExtractionOrchestrator
 from .extractors import (
     BaseExtractor,
-    DatabaseExtractor,
     FileSystemExtractor,
 )
 
@@ -11,6 +10,5 @@ __all__ = [
     "ExtractionLogger",
     "ExtractionOrchestrator",
     "BaseExtractor",
-    "DatabaseExtractor",
     "FileSystemExtractor",
 ]

@@ -23,3 +23,9 @@ class ConfigurationError(ExportError):
     """Error in export configuration."""
 
     pass
+
+
+class ConfigValidationError(ConfigurationError):
+    """Raised when export config validation fails during loading."""
+
+    pass

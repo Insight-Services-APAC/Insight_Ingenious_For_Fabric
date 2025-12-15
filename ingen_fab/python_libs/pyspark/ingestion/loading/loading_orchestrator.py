@@ -7,7 +7,6 @@ import time
 import uuid
 from collections import defaultdict
 from concurrent.futures import ThreadPoolExecutor, as_completed
-from datetime import datetime
 from typing import Any, Dict, List, Optional, Tuple
 from urllib.parse import urlparse
 
@@ -16,7 +15,10 @@ from pyspark.sql import SparkSession
 from ingen_fab.python_libs.common.flat_file_ingestion_utils import (
     ProcessingMetricsUtils,
 )
-from ingen_fab.python_libs.pyspark.ingestion.common.config import MetadataColumns, ResourceConfig
+from ingen_fab.python_libs.pyspark.ingestion.common.config import (
+    MetadataColumns,
+    ResourceConfig,
+)
 from ingen_fab.python_libs.pyspark.ingestion.common.constants import ExecutionStatus
 from ingen_fab.python_libs.pyspark.ingestion.common.exceptions import (
     DataQualityRejectionError,
@@ -25,14 +27,17 @@ from ingen_fab.python_libs.pyspark.ingestion.common.exceptions import (
     SchemaValidationError,
     WriteError,
 )
-from ingen_fab.python_libs.pyspark.ingestion.loading.loader import FileLoader
-from ingen_fab.python_libs.pyspark.ingestion.loading.loading_logger import LoadingLogger
-from ingen_fab.python_libs.pyspark.ingestion.common.logging_utils import resource_context, ResourceContext
+from ingen_fab.python_libs.pyspark.ingestion.common.logging_utils import (
+    ResourceContext,
+    resource_context,
+)
 from ingen_fab.python_libs.pyspark.ingestion.common.results import (
     BatchInfo,
     ProcessingMetrics,
     ResourceExecutionResult,
 )
+from ingen_fab.python_libs.pyspark.ingestion.loading.loader import FileLoader
+from ingen_fab.python_libs.pyspark.ingestion.loading.loading_logger import LoadingLogger
 
 logger = logging.getLogger(__name__)
 
@@ -453,7 +458,7 @@ class LoadingOrchestrator:
             result.status = ExecutionStatus.ERROR
             result.error_message = str(e)
             # Log helpful message without stack trace
-            logger.info(f"Schema validation failed - check schema_columns configuration")
+            logger.info("Schema validation failed - check schema_columns configuration")
             if e.context and e.context.additional_info.get("schema_error"):
                 logger.info(f"Details: {e.context.additional_info['schema_error']}")
             self.logger_instance.log_resource_execution_error(config, execution_id, load_run_id, str(e), result)

@@ -8,8 +8,11 @@ from typing import List, Optional
 from pyspark.sql import SparkSession
 from pyspark.sql import functions as F
 
+from ingen_fab.python_libs.common.export_resource_config_schema import (
+    get_config_export_resource_schema,
+)
 from ingen_fab.python_libs.pyspark.export.common.config import ExportConfig
-from ingen_fab.python_libs.common.export_resource_config_schema import get_config_export_resource_schema
+from ingen_fab.python_libs.pyspark.export.common.exceptions import ConfigValidationError
 from ingen_fab.python_libs.pyspark.lakehouse_utils import lakehouse_utils
 
 logger = logging.getLogger(__name__)
@@ -59,7 +62,7 @@ class ConfigExportManager:
 
     def get_configs(
         self,
-        export_group_name: Optional[str] = None,
+        export_group_name: str,
         export_name: Optional[str] = None,
         execution_group: Optional[int] = None,
         active_only: bool = True,
@@ -68,22 +71,28 @@ class ConfigExportManager:
         Get export configurations from the config table.
 
         Args:
-            export_group_name: Optional filter by export group name
-            export_name: Optional filter by export name
-            execution_group: Optional filter by execution group
-            active_only: If True, only return active configurations
+            export_group_name: Required. Filter by export group name.
+            export_name: Optional filter by export name within group.
+            execution_group: Optional filter by execution group number.
+            active_only: If True, only return active configurations.
 
         Returns:
             List of ExportConfig objects
+
+        Raises:
+            ValueError: If export_group_name is not provided.
+            ConfigValidationError: If any configs fail validation, with details of all failures.
         """
+        if not export_group_name:
+            raise ValueError("export_group_name is required - cannot process all exports at once")
+
         df = self.config_lakehouse.read_table(table_name=self.CONFIG_TABLE_NAME)
 
         # Apply filters
         if active_only:
-            df = df.filter(F.col("is_active") == True)
+            df = df.filter(F.col("is_active") == True)  # noqa: E712 - PySpark requires explicit comparison
 
-        if export_group_name:
-            df = df.filter(F.col("export_group_name") == export_group_name)
+        df = df.filter(F.col("export_group_name") == export_group_name)
 
         if export_name:
             df = df.filter(F.col("export_name") == export_name)
@@ -96,14 +105,21 @@ class ConfigExportManager:
 
         # Convert to list of ExportConfig objects
         configs = []
+        errors = []
+
         for row in df.collect():
             try:
                 config = ExportConfig.from_row(row.asDict())
                 configs.append(config)
             except Exception as e:
-                self.logger.warning(
-                    f"Failed to parse config for export {row.export_name}: {e}"
-                )
+                errors.append(f"  - {row.export_group_name}/{row.export_name}: {e}")
+
+        # Raise if any configs failed validation
+        if errors:
+            error_list = "\n".join(errors)
+            raise ConfigValidationError(
+                f"Failed to load {len(errors)} export config(s):\n{error_list}"
+            )
 
         self.logger.info(f"Loaded {len(configs)} export configurations")
         return configs
@@ -139,10 +155,15 @@ class ConfigExportManager:
             "file_format": config.file_format_params.file_format,
             "compression": config.file_format_params.compression,
             "compressed_filename_pattern": config.compressed_filename_pattern,
-            "format_options": config.file_format_params.format_options,
+            "file_format_options": config.file_format_params.file_format_options,
             "max_rows_per_file": config.max_rows_per_file,
-            "partition_by": ",".join(config.partition_by) if config.partition_by else None,
-            "trigger_file_enabled": config.trigger_file_enabled,
+            "source_columns": config.source_config.source_columns,
+            "compression_level": config.file_format_params.compression_level,
+            "extract_type": config.extract_type,
+            "incremental_column": config.incremental_column,
+            "incremental_initial_watermark": config.incremental_initial_watermark,
+            "period_filter_column": config.period_filter_column,
+            "period_date_query": config.period_date_query,
             "trigger_file_pattern": config.trigger_file_pattern,
             "description": config.description,
             "created_at": now,

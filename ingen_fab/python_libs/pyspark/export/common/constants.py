@@ -27,8 +27,6 @@ class FileFormat(StrEnum):
     """Supported output file formats."""
 
     CSV = "csv"
-    TSV = "tsv"
-    DAT = "dat"
     PARQUET = "parquet"
     JSON = "json"
 

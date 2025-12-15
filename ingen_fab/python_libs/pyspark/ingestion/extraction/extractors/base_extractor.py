@@ -5,14 +5,16 @@ from __future__ import annotations
 import logging
 from abc import ABC, abstractmethod
 from datetime import datetime
-from typing import Generic, TypeVar, Generator, List
+from typing import Generator, Generic, List, TypeVar
 
 from ingen_fab.python_libs.pyspark.ingestion.common.config import (
     BaseExtractionParams,
     ResourceConfig,
 )
-from ingen_fab.python_libs.pyspark.ingestion.extraction.extraction_logger import ExtractionLogger
 from ingen_fab.python_libs.pyspark.ingestion.common.results import BatchExtractionResult
+from ingen_fab.python_libs.pyspark.ingestion.extraction.extraction_logger import (
+    ExtractionLogger,
+)
 
 # Generic type parameter for extraction params (bound to BaseExtractionParams)
 TExtractionParams = TypeVar('TExtractionParams', bound=BaseExtractionParams)
@@ -30,7 +32,7 @@ class BaseExtractor(ABC, Generic[TExtractionParams]):
 
     Type Parameters:
         TExtractionParams: The specific extraction params type for this extractor
-                          (DatabaseExtractionParams, FileSystemExtractionParams, etc.)
+                          (FileSystemExtractionParams, etc.)
     """
 
     # Registry of source_type -> extractor class (populated by __init_subclass__)

@@ -8,7 +8,7 @@ CREATE TABLE config.config_ingestion_resource (
     resource_name NVARCHAR(100) NOT NULL,
     source_name NVARCHAR(100) NOT NULL,
     -- Source configuration
-    source_type NVARCHAR(50) NOT NULL, -- 'filesystem', 'api', 'database'
+    source_type NVARCHAR(50) NOT NULL, -- 'filesystem'
     connection_params NVARCHAR(MAX) NULL, -- JSON map: workspace_name, lakehouse_name, etc.
     -- Authentication
     auth_type NVARCHAR(50) NULL,

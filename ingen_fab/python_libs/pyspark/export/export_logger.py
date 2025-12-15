@@ -9,10 +9,12 @@ from typing import List, Optional
 from pyspark.sql import SparkSession
 from pyspark.sql import functions as F
 
+from ingen_fab.python_libs.common.export_resource_config_schema import (
+    get_log_resource_export_schema,
+)
 from ingen_fab.python_libs.pyspark.export.common.config import ExportConfig
 from ingen_fab.python_libs.pyspark.export.common.constants import ExecutionStatus
 from ingen_fab.python_libs.pyspark.export.common.results import ExportResult
-from ingen_fab.python_libs.common.export_resource_config_schema import get_log_resource_export_schema
 from ingen_fab.python_libs.pyspark.lakehouse_utils import lakehouse_utils
 
 logger = logging.getLogger(__name__)
@@ -93,6 +95,9 @@ class ExportLogger:
             "target_path": config.target_path,
             "file_format": config.file_format_params.file_format,
             "compression": config.file_format_params.compression,
+            "watermark_value": None,
+            "period_start_date": None,
+            "period_end_date": None,
             "started_at": now,
             "completed_at": None,
             "duration_ms": None,
@@ -102,8 +107,7 @@ class ExportLogger:
             "file_paths": None,
             "trigger_file_path": None,
             "error_message": None,
-            "created_at": now,
-            "created_by": "export_framework",
+            "updated_at": now,
         }
 
         self._insert_log_row(log_data)
@@ -138,6 +142,9 @@ class ExportLogger:
             file_paths=result.file_paths,
             trigger_file_path=result.trigger_file_path,
             error_message=None,
+            watermark_value=result.watermark_value,
+            period_start_date=result.period_start_date,
+            period_end_date=result.period_end_date,
         )
         self.logger.info(
             f"Logged export completion: {config.export_name} "
@@ -175,6 +182,9 @@ class ExportLogger:
             file_paths=result.file_paths if result else [],
             trigger_file_path=result.trigger_file_path if result else None,
             error_message=error_message,
+            watermark_value=result.watermark_value if result else None,
+            period_start_date=result.period_start_date if result else None,
+            period_end_date=result.period_end_date if result else None,
         )
         self.logger.error(f"Logged export error: {config.export_name} - {error_message}")
 
@@ -201,6 +211,9 @@ class ExportLogger:
         file_paths: Optional[List[str]],
         trigger_file_path: Optional[str],
         error_message: Optional[str],
+        watermark_value: Optional[str] = None,
+        period_start_date: Optional[datetime] = None,
+        period_end_date: Optional[datetime] = None,
     ):
         """Update an existing log row using lakehouse update_table."""
         # Build update values
@@ -214,6 +227,10 @@ class ExportLogger:
             "file_paths": F.array(*[F.lit(p) for p in (file_paths or [])]) if file_paths else F.lit(None),
             "trigger_file_path": F.lit(trigger_file_path),
             "error_message": F.lit(error_message),
+            "watermark_value": F.lit(watermark_value),
+            "period_start_date": F.lit(period_start_date),
+            "period_end_date": F.lit(period_end_date),
+            "updated_at": F.lit(datetime.utcnow()),
         }
 
         # Use lakehouse_utils update_table (same pattern as ingestion logger)

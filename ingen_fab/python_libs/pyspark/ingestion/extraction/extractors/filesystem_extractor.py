@@ -9,28 +9,35 @@ import uuid
 from datetime import datetime
 from typing import Generator, List
 
+from ingen_fab.python_libs.common.fsspec_utils import (
+    FilesystemConnection,
+    cleanup_empty_directories,
+    copy_file,
+    file_exists,
+    glob,
+    move_file,
+)
 from ingen_fab.python_libs.pyspark.ingestion.common.config import (
     FileSystemExtractionParams,
     ResourceConfig,
 )
-from ingen_fab.python_libs.pyspark.ingestion.common.constants import DuplicateHandling, ExecutionStatus, NoDataHandling
-from ingen_fab.python_libs.pyspark.ingestion.extraction.extractors.base_extractor import BaseExtractor
+from ingen_fab.python_libs.pyspark.ingestion.common.constants import (
+    DuplicateHandling,
+    ExecutionStatus,
+    NoDataHandling,
+)
 from ingen_fab.python_libs.pyspark.ingestion.common.exceptions import (
     DuplicateDataError,
     DuplicateFilesError,
     ErrorContext,
     ExtractionError,
 )
-from ingen_fab.python_libs.pyspark.ingestion.extraction.extraction_logger import ExtractionLogger
 from ingen_fab.python_libs.pyspark.ingestion.common.results import BatchExtractionResult
-from ingen_fab.python_libs.common.fsspec_utils import (
-    FilesystemConnection,
-    move_file,
-    copy_file,
-    glob,
-    file_exists,
-    is_directory_empty,
-    cleanup_empty_directories,
+from ingen_fab.python_libs.pyspark.ingestion.extraction.extraction_logger import (
+    ExtractionLogger,
+)
+from ingen_fab.python_libs.pyspark.ingestion.extraction.extractors.base_extractor import (
+    BaseExtractor,
 )
 from ingen_fab.python_libs.pyspark.lakehouse_utils import FileInfo
 
@@ -234,7 +241,7 @@ class FileSystemExtractor(BaseExtractor[FileSystemExtractionParams], source_type
             # Wrap unexpected errors
             self.logger.exception(f"Unexpected extraction error: {e}")
             raise ExtractionError(
-                message=f"Failed to extract from inbound to raw",
+                message="Failed to extract from inbound to raw",
                 context=ErrorContext(
                     resource_name=self.config.resource_name,
                     source_name=self.config.source_name,

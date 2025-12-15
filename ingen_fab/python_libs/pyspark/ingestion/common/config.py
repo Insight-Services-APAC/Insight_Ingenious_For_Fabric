@@ -2,12 +2,12 @@
 # Used by both Extraction Framework (python/extraction) and File Loading Framework (pyspark/file_loading)
 
 from __future__ import annotations
+
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
-from datetime import datetime
 from typing import Any, Dict, List, Optional, Union
-from pyspark.sql.types import StructType, StructField, StringType
 
+from pyspark.sql.types import StringType, StructField, StructType
 
 # ============================================================================
 # METADATA COLUMN CONFIGURATION
@@ -93,7 +93,7 @@ class SourceConfig:
     Used by Extraction Framework to determine how to connect and extract data.
     """
 
-    source_type: str                        # 'api', 'database', 'filesystem'
+    source_type: str                        # 'filesystem'
 
     # Connection parameters (source-type specific, includes auth if needed)
     source_connection_params: Dict[str, Any] = field(default_factory=dict)
@@ -326,21 +326,6 @@ class ResourceConfig:
         if self.target_write_mode == "merge" and not self.target_merge_keys:
             raise ValueError("target_merge_keys required when target_write_mode='merge'")
 
-        # Validate pipeline params for database sources
-        if self.source_config.source_type == "database":
-            required_params = [
-                "pipeline_workspace_name",
-                "pipeline_name",
-                "pipeline_source_connection_id",
-                "pipeline_source_database",
-            ]
-            missing = [p for p in required_params if not self.source_config.source_connection_params.get(p)]
-            if missing:
-                raise ValueError(
-                    f"Database source requires {', '.join(required_params)} in source_connection_params. "
-                    f"Missing: {', '.join(missing)}"
-                )
-
     @property
     def extract_full_path(self) -> str:
         """
@@ -420,7 +405,7 @@ class BaseExtractionParams(ABC):
     """
     Abstract base class for all source extraction parameters.
 
-    Enforces consistent interface across filesystem, API, database, and future extractors.
+    Enforces consistent interface across filesystem and future extractors.
     Each extractor type implements its own params class with source-specific validation.
     """
 
@@ -556,208 +541,6 @@ class FileSystemExtractionParams(BaseExtractionParams):
     @classmethod
     def from_dict(cls, params: Dict[str, Any]) -> "FileSystemExtractionParams":
         """Create from dict"""
-        return cls(**{k: v for k, v in params.items() if k in cls.__annotations__})
-
-
-@dataclass
-class APIExtractionParams(BaseExtractionParams):
-    """Parameters for extracting data from REST APIs"""
-
-    endpoint: str
-    method: str = "GET"
-    headers: Optional[Dict[str, str]] = None
-    query_params: Optional[Dict[str, Any]] = None
-    pagination_type: str = "none"
-    partition_by_date: bool = True  # Creates YYYY/MM/DD folders in raw
-
-    def to_dict(self) -> Dict[str, Any]:
-        return {k: v for k, v in self.__dict__.items()}
-
-    @classmethod
-    def from_dict(cls, params: Dict[str, Any]) -> "APIExtractionParams":
-        return cls(**{k: v for k, v in params.items() if k in cls.__annotations__})
-
-
-def _validate_incremental_value(value: str, column_type: str) -> None:
-    """
-    Validate incremental_start/end string can be parsed for the given column_type.
-
-    Args:
-        value: String value (ISO date/datetime or integer string)
-        column_type: "date", "timestamp", or "integer"
-
-    Raises:
-        ValueError: If value cannot be parsed for the given column_type
-    """
-    try:
-        if column_type == "integer":
-            int(value)
-        elif column_type == "date":
-            datetime.strptime(value, "%Y-%m-%d")
-        elif column_type == "timestamp":
-            if "T" in value or " " in value:
-                v = value.replace("T", " ")
-                if "." in v:
-                    datetime.strptime(v, "%Y-%m-%d %H:%M:%S.%f")
-                else:
-                    datetime.strptime(v, "%Y-%m-%d %H:%M:%S")
-            else:
-                datetime.strptime(value, "%Y-%m-%d")
-    except (ValueError, TypeError) as e:
-        raise ValueError(f"Cannot parse '{value}' as {column_type}: {e}")
-
-
-@dataclass
-class DatabaseExtractionParams(BaseExtractionParams):
-    """
-    Parameters for database extraction (JDBC or Pipeline-based).
-
-    Supports three extraction modes:
-    - "table": Generate SELECT from source_schema + source_table with optional filtering
-    - "query": Use provided custom SQL query
-    - "cetas": Wrap SELECT in Synapse CETAS statement (requires db_type="synapse")
-
-    Strategy selection (automatic):
-    - If pipeline_name in source_connection_params → delegate to pipeline
-    - Otherwise → direct JDBC extraction
-    """
-
-    # Database type (dialect for SQL generation)
-    db_type: str = "sqlserver"  # sqlserver, synapse, postgres, oracle
-
-    # Extraction mode
-    extraction_mode: str = "table"  # "table", "query", or "cetas"
-
-    # Table-based extraction
-    source_schema: Optional[str] = None
-    source_table: Optional[str] = None
-
-    # Column selection (optional - if None, extract all columns)
-    columns: Optional[List[str]] = None
-
-    # Filtering (optional)
-    where_clause: Optional[str] = None
-
-    # Query-based extraction (used when extraction_mode="query" or as inner SELECT for "cetas")
-    query: Optional[str] = None
-
-    # Incremental extraction (optional)
-    incremental_column: Optional[str] = None
-
-    # Incremental column type - determines how intervals are interpreted
-    # "date", "timestamp", or "integer"
-    incremental_column_type: Optional[str] = None
-
-    # Chunking for backfills - splits large incremental loads into sequential ranges
-    # For date/timestamp: interval in hours (e.g., 24=day, 168=week, 720=month)
-    # For integer: step size (e.g., 100000)
-    incremental_chunk_size: Optional[int] = None
-
-    # Lookback period for late-arriving data - applied to watermark before extraction
-    # For date/timestamp: lookback in hours (e.g., 72 = 3 days)
-    # For integer: offset subtracted from watermark (e.g., 1000)
-    incremental_lookback: Optional[int] = None
-
-    # Explicit bounds for chunked extraction (REQUIRED when incremental_chunk_size is set)
-    # ISO date/datetime string for date/timestamp, integer string for integer
-    incremental_start: Optional[str] = None  # REQUIRED for chunking
-    incremental_end: Optional[str] = None    # Optional for date/timestamp (defaults to now), REQUIRED for integer
-
-    # Performance tuning
-    fetch_size: int = 10000
-
-    # CETAS-specific (only used when extraction_mode="cetas" and db_type="synapse")
-    cetas_data_source: Optional[str] = None  # Synapse external data source name (REQUIRED for CETAS)
-    cetas_file_format: Optional[str] = None  # Synapse file format name (REQUIRED for CETAS)
-    cetas_external_schema: Optional[str] = None  # Schema for external tables (REQUIRED for CETAS)
-
-    def __post_init__(self):
-        """Validate database extraction parameters"""
-        # Validate db_type
-        valid_db_types = {"sqlserver", "synapse", "postgres", "oracle"}
-        if self.db_type not in valid_db_types:
-            raise ValueError(
-                f"Invalid db_type: '{self.db_type}'. Must be one of: {sorted(valid_db_types)}"
-            )
-
-        # Validate extraction_mode
-        valid_modes = {"table", "query", "cetas"}
-        if self.extraction_mode not in valid_modes:
-            raise ValueError(
-                f"Invalid extraction_mode: '{self.extraction_mode}'. Must be one of: {sorted(valid_modes)}"
-            )
-
-        # CETAS requires synapse
-        if self.extraction_mode == "cetas" and self.db_type != "synapse":
-            raise ValueError(
-                f"extraction_mode='cetas' requires db_type='synapse', got '{self.db_type}'"
-            )
-
-        # CETAS requires data_source, file_format, and external_schema
-        if self.extraction_mode == "cetas":
-            missing = []
-            if not self.cetas_data_source:
-                missing.append("cetas_data_source")
-            if not self.cetas_file_format:
-                missing.append("cetas_file_format")
-            if not self.cetas_external_schema:
-                missing.append("cetas_external_schema")
-            if missing:
-                raise ValueError(
-                    f"extraction_mode='cetas' requires: {', '.join(missing)}"
-                )
-
-        # Must have either query or table (for table and cetas modes)
-        if self.extraction_mode in ("table", "cetas") and not self.source_table and not self.query:
-            raise ValueError("Must specify either 'query' or 'source_table'")
-
-        # Query mode requires query field
-        if self.extraction_mode == "query" and not self.query:
-            raise ValueError("extraction_mode='query' requires 'query' field to be specified")
-
-        # Validate incremental_column_type
-        if self.incremental_column_type:
-            valid_column_types = {"date", "timestamp", "integer"}
-            if self.incremental_column_type not in valid_column_types:
-                raise ValueError(
-                    f"Invalid incremental_column_type: '{self.incremental_column_type}'. "
-                    f"Must be one of: {sorted(valid_column_types)}"
-                )
-
-        # Chunking requires explicit bounds (no watermark mixing)
-        if self.incremental_chunk_size:
-            if not self.incremental_column:
-                raise ValueError("incremental_chunk_size requires incremental_column to be specified")
-            if not self.incremental_column_type:
-                raise ValueError("incremental_chunk_size requires incremental_column_type to be specified")
-            if not self.incremental_start:
-                raise ValueError("incremental_chunk_size requires incremental_start to be specified")
-            # NOTE: incremental_end is optional for ALL types
-            # - date/timestamp: defaults to "now"
-            # - integer: uses progressive mode (stops on first empty chunk)
-            if self.incremental_chunk_size < 1:
-                raise ValueError(f"incremental_chunk_size must be >= 1, got {self.incremental_chunk_size}")
-
-        # Lookback requires incremental_column_type
-        if self.incremental_lookback:
-            if not self.incremental_column_type:
-                raise ValueError("incremental_lookback requires incremental_column_type to be specified")
-            if self.incremental_lookback < 0:
-                raise ValueError(f"incremental_lookback must be >= 0, got {self.incremental_lookback}")
-
-        # Validate incremental_start/end can be parsed
-        if self.incremental_start and self.incremental_column_type:
-            _validate_incremental_value(self.incremental_start, self.incremental_column_type)
-        if self.incremental_end and self.incremental_column_type:
-            _validate_incremental_value(self.incremental_end, self.incremental_column_type)
-
-    def to_dict(self) -> Dict[str, Any]:
-        """Convert to dict for storage in ResourceConfig.extraction_params"""
-        return {k: v for k, v in self.__dict__.items()}
-
-    @classmethod
-    def from_dict(cls, params: Dict[str, Any]) -> "DatabaseExtractionParams":
-        """Create from dict (triggers __post_init__ validation)"""
         return cls(**{k: v for k, v in params.items() if k in cls.__annotations__})
 
 
