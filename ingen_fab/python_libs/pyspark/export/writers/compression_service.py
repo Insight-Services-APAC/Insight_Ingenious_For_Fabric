@@ -160,8 +160,8 @@ class CompressionService:
         level_str = f"level {level}" if level is not None else "default level"
         logger.info(f"Compressing (zip {level_str}): {filename_in_archive}")
 
-        with zipfile.ZipFile(output_path, "w", zipfile.ZIP_DEFLATED, compresslevel=level) as zf:
-            with zf.open(filename_in_archive, "w") as dest:
+        with zipfile.ZipFile(output_path, "w", zipfile.ZIP_DEFLATED, compresslevel=level, allowZip64=True) as zf:
+            with zf.open(filename_in_archive, "w", force_zip64=True) as dest:
                 with open(source_path, "rb") as src:
                     shutil.copyfileobj(src, dest)
 
