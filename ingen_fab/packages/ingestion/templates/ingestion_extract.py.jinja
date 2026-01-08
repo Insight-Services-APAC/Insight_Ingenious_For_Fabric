@@ -1,0 +1,298 @@
+# Fabric notebook source
+
+# METADATA ********************
+
+# META {
+# META   "kernel_info": {
+# META     "name": "synapse_pyspark",
+# META     "display_name": "Synapse PySpark"
+# META   },
+# META   "language_info": {
+# META     "name": "python"
+# META   }
+# META }
+
+
+# MARKDOWN ********************
+
+# ## Parameters
+
+# PARAMETERS CELL ********************
+
+SOURCE_NAME = None  # Required: filter by source name
+RESOURCE_NAME = None  # Optional: filter by resource name (None = all resources)
+EXECUTION_ID = None  # auto-UUID if None
+IS_RETRY = False  # If True, only reprocess failed resources
+MAX_CONCURRENCY = 10
+
+# METADATA ********************
+
+# META {
+# META   "language": "python"
+# META }
+
+# MARKDOWN ********************
+
+# ## Load Environment and Python Libraries
+
+# CELL ********************
+
+import logging
+import sys
+import traceback
+
+# Configure logging
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s | %(levelname)-8s | %(message)s",
+    datefmt="%Y-%m-%d %H:%M:%S",
+    force=True
+)
+
+# Check if running in Fabric environment
+if "notebookutils" in sys.modules:
+    notebookutils.fs.mount("abfss://{% raw %}{{varlib:config_workspace_name}}{% endraw %}@onelake.dfs.fabric.microsoft.com/config.Lakehouse/Files/", "/config_files")  # type: ignore # noqa: F821
+    mount_path = notebookutils.fs.getMountPath("/config_files")  # type: ignore # noqa: F821
+    run_mode = "fabric"
+    sys.path.insert(0, mount_path)
+else:
+    print("NotebookUtils not available, assumed running in local mode.")
+    from ingen_fab.python_libs.pyspark.notebook_utils_abstraction import (
+        NotebookUtilsFactory,
+    )
+    notebookutils = NotebookUtilsFactory.create_instance()
+    spark = None
+    mount_path = None
+    run_mode = "local"
+
+
+def load_python_modules_from_path(base_path: str, relative_files: list[str], max_chars: int = 1_000_000_000):
+    """
+    Executes Python files from a Fabric-mounted file path using notebookutils.fs.head.
+
+    Args:
+        base_path (str): The root directory where modules are located.
+        relative_files (list[str]): List of relative paths to Python files (from base_path).
+        max_chars (int): Max characters to read from each file (default: 1,000,000).
+    """
+    success_files = []
+    failed_files = []
+
+    for relative_path in relative_files:
+        if base_path.startswith("file:") or base_path.startswith("abfss:"):
+            full_path = f"{base_path}/{relative_path}"
+        else:
+            full_path = f"file:{base_path}/{relative_path}"
+        try:
+            print(f"🔄 Loading: {full_path}")
+            code = notebookutils.fs.head(full_path, max_chars)
+            exec(code, globals())  # Use globals() to share context across modules
+            success_files.append(relative_path)
+        except Exception as e:
+            failed_files.append(relative_path)
+            print(f"❌ Error loading {relative_path}")
+            print(f"   Error type: {type(e).__name__}")
+            print(f"   Error message: {str(e)}")
+            print(f"   Stack trace:")
+            traceback.print_exc()
+
+    print("\n✅ Successfully loaded:")
+    for f in success_files:
+        print(f" - {f}")
+
+    if failed_files:
+        print("\n⚠️ Failed to load:")
+        for f in failed_files:
+            print(f" - {f}")
+
+def clear_module_cache(prefix: str):
+    """Clear module cache for specified prefix"""
+    for mod in list(sys.modules):
+        if mod.startswith(prefix):
+            print("deleting..." + mod)
+            del sys.modules[mod]
+
+# Clear the module cache only when running in Fabric environment
+# When running locally, module caching conflicts can occur in parallel execution
+if run_mode == "fabric":
+    # Check if ingen_fab modules are present in cache (indicating they need clearing)
+    ingen_fab_modules = [mod for mod in sys.modules.keys() if mod.startswith(('ingen_fab.python_libs', 'ingen_fab'))]
+
+    if ingen_fab_modules:
+        print(f"Found {len(ingen_fab_modules)} ingen_fab modules to clear from cache")
+        clear_module_cache("ingen_fab.python_libs")
+        clear_module_cache("ingen_fab")
+        print("✓ Module cache cleared for ingen_fab libraries")
+    else:
+        print("ℹ No ingen_fab modules found in cache - already cleared or first load")
+
+
+# METADATA ********************
+
+# META {
+# META   "language": "python",
+# META   "language_group": "synapse_pyspark"
+# META }
+
+# MARKDOWN ********************
+
+# ## Load Configuration
+
+# CELL ********************
+
+if run_mode == "local":
+    from ingen_fab.python_libs.common.config_utils import get_configs_as_object, ConfigsObject
+    from ingen_fab.python_libs.pyspark.lakehouse_utils import lakehouse_utils
+
+    from ingen_fab.python_libs.pyspark.notebook_utils_abstraction import NotebookUtilsFactory
+    notebookutils = NotebookUtilsFactory.get_instance()
+else:
+    files_to_load = [
+        "ingen_fab/python_libs/common/config_utils.py",
+        "ingen_fab/python_libs/common/fsspec_utils.py",
+        "ingen_fab/python_libs/pyspark/lakehouse_utils.py",
+        "ingen_fab/python_libs/common/ingestion_resource_config_schema.py",
+        "ingen_fab/python_libs/common/extract_resource_schema.py",
+        "ingen_fab/python_libs/common/extract_resource_batch_schema.py",
+        "ingen_fab/python_libs/common/extract_watermark_schema.py",
+        # Ingestion common
+        "ingen_fab/python_libs/pyspark/ingestion/common/constants.py",
+        "ingen_fab/python_libs/pyspark/ingestion/common/exceptions.py",
+        "ingen_fab/python_libs/pyspark/ingestion/common/config.py",
+        "ingen_fab/python_libs/pyspark/ingestion/common/results.py",
+        "ingen_fab/python_libs/pyspark/ingestion/common/logging_utils.py",
+        "ingen_fab/python_libs/pyspark/ingestion/common/config_manager.py",
+        # Ingestion extraction
+        "ingen_fab/python_libs/pyspark/ingestion/extraction/extraction_logger.py",
+        "ingen_fab/python_libs/pyspark/ingestion/extraction/extractors/base_extractor.py",
+        "ingen_fab/python_libs/pyspark/ingestion/extraction/extractors/filesystem_extractor.py",
+        "ingen_fab/python_libs/pyspark/ingestion/extraction/extraction_orchestrator.py",
+    ]
+    load_python_modules_from_path(mount_path, files_to_load)
+
+
+# Initialize configuration
+configs: ConfigsObject = get_configs_as_object()
+
+# METADATA ********************
+
+# META {
+# META   "language": "python",
+# META   "language_group": "synapse_pyspark"
+# META }
+
+# MARKDOWN ********************
+
+# ## Initialize
+
+# CELL ********************
+
+config_lakehouse = lakehouse_utils(
+    target_workspace_name=configs.fabric_workspace_name,
+    target_lakehouse_name=configs.config_lakehouse_name,
+    spark=spark,
+)
+
+config_mgr = ConfigIngestionManager(
+    lakehouse_utils_instance=config_lakehouse
+)
+
+extraction_logger = ExtractionLogger(config_lakehouse, auto_create_tables=True)
+extraction_orchestrator = ExtractionOrchestrator(
+    spark=spark,
+    extraction_logger=extraction_logger,
+    max_concurrency=MAX_CONCURRENCY
+)
+
+# METADATA ********************
+
+# META {
+# META   "language": "python",
+# META   "language_group": "synapse_pyspark"
+# META }
+
+# MARKDOWN ********************
+
+# ## Load Resource Configs
+
+# CELL ********************
+
+resource_configs = config_mgr.get_configs(source_name=SOURCE_NAME, resource_name=RESOURCE_NAME)
+
+# METADATA ********************
+
+# META {
+# META   "language": "python",
+# META   "language_group": "synapse_pyspark"
+# META }
+
+# MARKDOWN ********************
+
+# ## Extract Resources
+
+# CELL ********************
+
+import uuid
+execution_id = EXECUTION_ID if EXECUTION_ID else str(uuid.uuid4())
+results = extraction_orchestrator.process_resources(
+    configs=resource_configs,
+    execution_id=execution_id,
+    is_retry=IS_RETRY
+)
+
+# METADATA ********************
+
+# META {
+# META   "language": "python",
+# META   "language_group": "synapse_pyspark"
+# META }
+
+# MARKDOWN ********************
+
+# ## Check Results
+
+# CELL ********************
+
+# Extract warnings from results
+warnings = [
+    {
+        "resource_name": r.get('resource_name'),
+        "message": r.get('message')
+    }
+    for r in results.get('results', [])
+    if r.get('status') == 'warning'
+]
+
+# Check if extraction failed
+if not results.get('success'):
+    raise Exception(f"Extraction failed. Execution ID: {execution_id}")
+
+# METADATA ********************
+
+# META {
+# META   "language": "python",
+# META   "language_group": "synapse_pyspark"
+# META }
+
+# MARKDOWN ********************
+
+# ## Exit Notebook
+
+# CELL ********************
+
+import json
+
+summary = {
+    "execution_id": execution_id,
+    "success": results["success"],
+    "warnings": warnings
+}
+
+notebookutils.notebook.exit(json.dumps(summary))
+
+# METADATA ********************
+
+# META {
+# META   "language": "python",
+# META   "language_group": "synapse_pyspark"
+# META }
