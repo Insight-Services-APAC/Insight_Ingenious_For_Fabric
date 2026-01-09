@@ -1,5 +1,6 @@
 import traceback
 from pathlib import Path
+import json
 
 from rich.console import Console
 
@@ -36,6 +37,95 @@ def deploy_to_environment(ctx):
         environment=str(ctx.obj.get("fabric_environment")),
     )
     stf.sync_environment()
+
+
+def cleanup_orphaned_items(ctx, dry_run: bool = False, force: bool = False):
+    """Remove workspace items that are not in fabric_workspace_items."""
+    console = Console()
+    
+    if ctx.obj.get("fabric_workspace_repo_dir") is None:
+        ConsoleStyles.print_error(
+            console, "Fabric workspace repository directory not set."
+        )
+        raise SystemExit(1)
+        
+    project_path = Path(ctx.obj.get("fabric_workspace_repo_dir"))
+    environment = str(ctx.obj.get("fabric_environment"))
+    
+    # Get local items from fabric_workspace_items
+    local_items = []
+    fabric_items_path = project_path / "fabric_workspace_items"
+    
+    if not fabric_items_path.exists():
+        ConsoleStyles.print_error(console, "fabric_workspace_items directory not found")
+        raise SystemExit(1)
+        
+    for platform_file in fabric_items_path.rglob(".platform"):
+        try:
+            with open(platform_file, "r", encoding="utf-8") as f:
+                platform_data = json.load(f)
+                display_name = platform_data.get("metadata", {}).get("displayName")
+                item_type = platform_data.get("metadata", {}).get("type")
+                if display_name and item_type:
+                    local_items.append(f"{display_name}.{item_type}")
+        except (json.JSONDecodeError, FileNotFoundError):
+            continue
+    
+    ConsoleStyles.print_info(console, f"Found {len(local_items)} local items")
+    
+    # Initialize Fabric API
+    from ingen_fab.fabric_api.utils import FabricApiUtils
+    fabric_api = FabricApiUtils(environment=environment, project_path=project_path)
+    
+    if dry_run:
+        # Show what would be deleted
+        workspace_items = fabric_api.list_workspace_items()
+        preserved_types = {"Lakehouse", "Warehouse", "VariableLibrary", "Environment", "SQLEndpoint"}
+        local_items_set = set(local_items)
+        
+        orphaned_items = []
+        for item in workspace_items:
+            item_type = item.get("type")
+            item_name = item.get("displayName", "Unknown")
+            item_key = f"{item_name}.{item_type}"
+            
+            if item_type not in preserved_types and item_key not in local_items_set:
+                orphaned_items.append(f"{item_name} ({item_type})")
+        
+        if orphaned_items:
+            ConsoleStyles.print_warning(console, f"Would delete {len(orphaned_items)} orphaned items:")
+            for item in orphaned_items:
+                ConsoleStyles.print_dim(console, f"  - {item}")
+        else:
+            ConsoleStyles.print_success(console, "No orphaned items found")
+        return
+    
+    # Confirm deletion
+    if not force:
+        import typer
+        if not typer.confirm("Delete orphaned workspace items?"):
+            ConsoleStyles.print_info(console, "Operation cancelled")
+            return
+    
+    # Perform cleanup
+    ConsoleStyles.print_info(console, "Cleaning up orphaned items...")
+    result = fabric_api.delete_orphaned_items(local_items)
+    
+    if result["total_deleted"] > 0:
+        ConsoleStyles.print_success(
+            console, f"Deleted {result['total_deleted']} orphaned items"
+        )
+    else:
+        ConsoleStyles.print_info(console, "No orphaned items to delete")
+    
+    if result["errors"]:
+        ConsoleStyles.print_error(console, f"Encountered {len(result['errors'])} errors:")
+        for error in result["errors"][:5]:  # Show first 5 errors
+            ConsoleStyles.print_dim(
+                console, 
+                f"  - {error['item_name']} ({error['item_type']}): {error['status_code']} - {error['error'][:100]}"
+            )
+
 
 
 def perform_code_replacements(ctx, output_dir=None, preserve_structure=True):
