@@ -1023,13 +1023,10 @@ def _create_artifact_from_template(
             
             # Replace placeholders
             content = content.replace(name_placeholder, artifact_name)
-            content = content.replace(
-                "00000000-0000-0000-0000-000000000000",
-                logical_id,
-            )
+            # content = content.replace("00000000-0000-0000-0000-000000000000",logical_id,)
             
             # Write to destination
-            # dest_file.write_text(content, encoding="utf-8")
+            dest_file.write_text(content, encoding="utf-8")
     
     ConsoleStyles.print_success(
         console,
