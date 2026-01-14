@@ -819,7 +819,9 @@ def init_storage_config():
     
     # Get template directories
     try:
-        templates_base = PathUtils.get_template_path("fabric_config")
+        templates_base = PathUtils.get_package_resource_path(
+            "project_templates/fabric_config"
+        )
         lakehouse_template_dir = templates_base / "template.Lakehouse"
         warehouse_template_dir = templates_base / "template.Warehouse"
     except FileNotFoundError as e:
