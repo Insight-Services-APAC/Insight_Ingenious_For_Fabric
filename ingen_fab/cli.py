@@ -371,6 +371,12 @@ def init_workspace(
     init_commands.init_workspace(ctx, workspace_name, create_if_not_exists)
 
 
+@init_app.command("storage-config")
+def init_storage_config():
+    """Initialize lakehouse artifacts from storage_config.yaml file."""
+    init_commands.init_storage_config()
+
+
 # Deploy commands
 
 

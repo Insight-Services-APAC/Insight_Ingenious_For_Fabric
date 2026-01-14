@@ -5,6 +5,7 @@ Microsoft Fabric workspace project created with InGen Fab.
 ## Structure
 
 - `ddl_scripts/` - Source DDL scripts for creating tables and loading configuration data
+- `fabric_config/` - Fabric workspace config to create the initial data storage for bronze, silver and gold (including warehouse)
 - `fabric_workspace_items/` - Fabric workspace artifacts (notebooks, lakehouses, warehouses, etc.)
 - `platform_manifest_*.yml` - Environment-specific deployment tracking
 
@@ -44,10 +45,11 @@ This starter project includes:
 
 ## Next Steps
 
-1. Create your own DDL scripts in `ddl_scripts/Lakehouses/` or `ddl_scripts/Warehouses/`
-2. Add your notebooks to `fabric_workspace_items/`
-3. Run the compile and deploy commands to sync to Fabric
-4. Execute the generated orchestrator notebooks in your Fabric workspace
+1. Update lakehouse and warehouse name in `fabric_config/storage_config.yaml`
+2. Create your own DDL scripts in `ddl_scripts/Lakehouses/` or `ddl_scripts/Warehouses/`
+3. Add your notebooks to `fabric_workspace_items/`
+4. Run the compile and deploy commands to sync to Fabric
+5. Execute the generated orchestrator notebooks in your Fabric workspace
 
 ## Environment Management
 

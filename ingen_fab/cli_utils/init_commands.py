@@ -5,6 +5,7 @@ import uuid
 from pathlib import Path
 
 import typer
+import yaml
 from rich.console import Console
 
 from ingen_fab.cli_utils.console_styles import ConsoleStyles
@@ -770,3 +771,266 @@ def _check_and_update_artifacts(
 
     except Exception as e:
         ConsoleStyles.print_error(console, f"❌ Failed to check artifacts: {str(e)}")
+
+
+def init_storage_config():
+    """Initialize lakehouse and warehouse artifacts from storage_config.yaml.
+    
+    Reads the storage_config.yaml file and creates Fabric artifact folders
+    under fabric_workspace_items/lakehouses and fabric_workspace_items/warehouses
+    for each lakehouse and warehouse defined.
+    """
+    console = Console()
+    
+    # Get the fabric_workspace_repo_dir from environment
+    fabric_workspace_repo_dir = os.environ.get("FABRIC_WORKSPACE_REPO_DIR")
+    if not fabric_workspace_repo_dir:
+        ConsoleStyles.print_error(
+            console,
+            "❌ FABRIC_WORKSPACE_REPO_DIR environment variable is not set.",
+        )
+        ConsoleStyles.print_info(
+            console,
+            "💡 Please ensure you're in a Fabric workspace project directory.",
+        )
+        raise typer.Exit(code=1)
+    
+    workspace_path = Path(fabric_workspace_repo_dir)
+    storage_config_path = workspace_path / "fabric_config" / "storage_config.yaml"
+    
+    # Check if storage_config.yaml exists
+    if not storage_config_path.exists():
+        ConsoleStyles.print_error(
+            console,
+            f"❌ storage_config.yaml not found at {storage_config_path}",
+        )
+        raise typer.Exit(code=1)
+    
+    # Read storage_config.yaml
+    try:
+        with open(storage_config_path, "r", encoding="utf-8") as f:
+            storage_config = yaml.safe_load(f)
+    except Exception as e:
+        ConsoleStyles.print_error(
+            console,
+            f"❌ Failed to read storage_config.yaml: {str(e)}",
+        )
+        raise typer.Exit(code=1)
+    
+    # Get template directories
+    try:
+        templates_base = PathUtils.get_template_path("fabric_config")
+        lakehouse_template_dir = templates_base / "template.Lakehouse"
+        warehouse_template_dir = templates_base / "template.Warehouse"
+    except FileNotFoundError as e:
+        ConsoleStyles.print_error(
+            console,
+            f"❌ Template directories not found: {e}",
+        )
+        raise typer.Exit(code=1)
+    
+    if not lakehouse_template_dir.exists():
+        ConsoleStyles.print_error(
+            console,
+            f"❌ Lakehouse template not found: {lakehouse_template_dir}",
+        )
+        raise typer.Exit(code=1)
+    
+    # Extract lakehouse and warehouse names from the storage configuration
+    lakehouse_names: list[str] = []
+    warehouse_names: list[str] = []
+    
+    # Values to skip
+    skip_values = {"none", "DO_NOT_CREATE", ""}
+    
+    if "storage" in storage_config:
+        for storage_item in storage_config["storage"]:
+            # Process lakehouses
+            if "lakehouse" in storage_item:
+                for key, value in storage_item.items():
+                    if key != "lakehouse" and value and value not in skip_values:
+                        lakehouse_names.append(value)
+            
+            # Process warehouses
+            if "warehouses" in storage_item:
+                for key, value in storage_item.items():
+                    if key != "warehouses" and value and value not in skip_values:
+                        warehouse_names.append(value)
+    
+    if not lakehouse_names and not warehouse_names:
+        ConsoleStyles.print_warning(
+            console,
+            "⚠️  No lakehouses or warehouses found in storage_config.yaml",
+        )
+        raise typer.Exit(code=0)
+    
+    if lakehouse_names:
+        ConsoleStyles.print_info(
+            console,
+            f"Found {len(lakehouse_names)} lakehouse(s): {', '.join(lakehouse_names)}",
+        )
+    
+    if warehouse_names:
+        ConsoleStyles.print_info(
+            console,
+            f"Found {len(warehouse_names)} warehouse(s): {', '.join(warehouse_names)}",
+        )
+    
+    # Process lakehouses
+    lakehouse_created = 0
+    lakehouse_skipped = 0
+    
+    if lakehouse_names:
+        ConsoleStyles.print_info(console, "\n📦 Processing lakehouses...")
+        lakehouses_dir = workspace_path / "fabric_workspace_items" / "lakehouses"
+        lakehouses_dir.mkdir(parents=True, exist_ok=True)
+        
+        for lakehouse_name in lakehouse_names:
+            result = _create_artifact_from_template(
+                console=console,
+                artifact_name=lakehouse_name,
+                artifact_type="Lakehouse",
+                template_dir=lakehouse_template_dir,
+                output_dir=lakehouses_dir,
+                name_placeholder="REPLACE_WITH_LAKEHOUSE_NAME",
+            )
+            if result:
+                lakehouse_created += 1
+            else:
+                lakehouse_skipped += 1
+    
+    # Process warehouses
+    warehouse_created = 0
+    warehouse_skipped = 0
+    
+    if warehouse_names:
+        if not warehouse_template_dir.exists():
+            ConsoleStyles.print_warning(
+                console,
+                f"⚠️  Warehouse template not found: {warehouse_template_dir}",
+            )
+            ConsoleStyles.print_info(
+                console,
+                "   Skipping warehouse creation.",
+            )
+        else:
+            ConsoleStyles.print_info(console, "\n🏢 Processing warehouses...")
+            warehouses_dir = workspace_path / "fabric_workspace_items" / "warehouses"
+            warehouses_dir.mkdir(parents=True, exist_ok=True)
+            
+            for warehouse_name in warehouse_names:
+                result = _create_artifact_from_template(
+                    console=console,
+                    artifact_name=warehouse_name,
+                    artifact_type="Warehouse",
+                    template_dir=warehouse_template_dir,
+                    output_dir=warehouses_dir,
+                    name_placeholder="REPLACE_WITH_WAREHOUSE_NAME",
+                )
+                if result:
+                    warehouse_created += 1
+                else:
+                    warehouse_skipped += 1
+    
+    # Print summary
+    ConsoleStyles.print_info(console, "\n" + "="*60)
+    
+    total_created = lakehouse_created + warehouse_created
+    total_skipped = lakehouse_skipped + warehouse_skipped
+    
+    if total_created > 0:
+        ConsoleStyles.print_success(
+            console,
+            f"✓ Successfully created {total_created} artifact folder(s)",
+        )
+        if lakehouse_created > 0:
+            ConsoleStyles.print_info(
+                console,
+                f"  • {lakehouse_created} lakehouse(s)",
+            )
+        if warehouse_created > 0:
+            ConsoleStyles.print_info(
+                console,
+                f"  • {warehouse_created} warehouse(s)",
+            )
+    
+    if total_skipped > 0:
+        ConsoleStyles.print_info(
+            console,
+            f"ℹ Skipped {total_skipped} existing artifact folder(s)",
+        )
+    
+    ConsoleStyles.print_info(
+        console,
+        "\n💡 Next steps:",
+    )
+    ConsoleStyles.print_info(
+        console,
+        "   1. Review the generated artifacts in fabric_workspace_items/",
+    )
+    ConsoleStyles.print_info(
+        console,
+        "   2. Deploy to Fabric: ingen_fab deploy deploy",
+    )
+
+
+def _create_artifact_from_template(
+    console: Console,
+    artifact_name: str,
+    artifact_type: str,
+    template_dir: Path,
+    output_dir: Path,
+    name_placeholder: str,
+) -> bool:
+    """Create a Fabric artifact folder from a template.
+    
+    Args:
+        console: Rich console for output
+        artifact_name: Name of the artifact (e.g., "lh_bronze")
+        artifact_type: Type of artifact (e.g., "Lakehouse", "Warehouse")
+        template_dir: Path to the template directory
+        output_dir: Path to the output directory
+        name_placeholder: Placeholder string to replace in templates
+        
+    Returns:
+        True if created, False if skipped
+    """
+    artifact_folder = output_dir / f"{artifact_name}.{artifact_type}"
+    
+    # Check if folder already exists
+    if artifact_folder.exists():
+        ConsoleStyles.print_warning(
+            console,
+            f"  ⚠️  Skipped {artifact_name}: folder already exists",
+        )
+        return False
+    
+    # Create the artifact folder
+    artifact_folder.mkdir(parents=True, exist_ok=True)
+    
+    # Generate a unique logical ID for this artifact
+    logical_id = str(uuid.uuid4())
+    
+    # Copy all template files and process them
+    for template_file in template_dir.iterdir():
+        if template_file.is_file():
+            dest_file = artifact_folder / template_file.name
+            
+            # Read template content
+            content = template_file.read_text(encoding="utf-8")
+            
+            # Replace placeholders
+            content = content.replace(name_placeholder, artifact_name)
+            content = content.replace(
+                "00000000-0000-0000-0000-000000000000",
+                logical_id,
+            )
+            
+            # Write to destination
+            dest_file.write_text(content, encoding="utf-8")
+    
+    ConsoleStyles.print_success(
+        console,
+        f"  ✓ Created {artifact_name}.{artifact_type} (ID: {logical_id[:8]}...)",
+    )
+    return True
