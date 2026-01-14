@@ -1029,7 +1029,7 @@ def _create_artifact_from_template(
             )
             
             # Write to destination
-            dest_file.write_text(content, encoding="utf-8")
+            # dest_file.write_text(content, encoding="utf-8")
     
     ConsoleStyles.print_success(
         console,
