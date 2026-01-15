@@ -934,6 +934,15 @@ def init_storage_config():
                 else:
                     warehouse_skipped += 1
     
+    # Update variables.json with lakehouse and warehouse variable definitions
+    ConsoleStyles.print_info(console, "\n📝 Updating variable library definitions...")
+    updated_variables = _update_variables_json(
+        console=console,
+        workspace_path=workspace_path,
+        lakehouse_names=lakehouse_names,
+        warehouse_names=warehouse_names,
+    )
+    
     # Update valueSet JSON files with lakehouse and warehouse variables
     ConsoleStyles.print_info(console, "\n📝 Updating variable library valueSets...")
     updated_valuesets = _update_valueset_files(
@@ -969,6 +978,12 @@ def init_storage_config():
         ConsoleStyles.print_info(
             console,
             f"ℹ Skipped {total_skipped} existing artifact folder(s)",
+        )
+    
+    if updated_variables:
+        ConsoleStyles.print_success(
+            console,
+            "✓ Updated variables.json with new variable definitions",
         )
     
     if updated_valuesets > 0:
@@ -1055,6 +1070,147 @@ def _create_artifact_from_template(
         f"  ✓ Created {artifact_name}.{artifact_type} (ID: {logical_id[:8]}...)",
     )
     return True
+
+
+def _update_variables_json(
+    console: Console,
+    workspace_path: Path,
+    lakehouse_names: list[str],
+    warehouse_names: list[str],
+) -> bool:
+    """Update the variables.json file with lakehouse and warehouse variable definitions.
+    
+    Args:
+        console: Rich console for output
+        workspace_path: Path to the workspace directory
+        lakehouse_names: List of lakehouse names to add
+        warehouse_names: List of warehouse names to add
+        
+    Returns:
+        True if updated, False otherwise
+    """
+    variables_file = (
+        workspace_path
+        / "fabric_workspace_items"
+        / "config"
+        / "var_lib.VariableLibrary"
+        / "variables.json"
+    )
+    
+    if not variables_file.exists():
+        ConsoleStyles.print_warning(
+            console,
+            f"  ⚠️  variables.json not found: {variables_file}",
+        )
+        return False
+    
+    try:
+        # Read the variables.json file
+        with open(variables_file, "r", encoding="utf-8") as f:
+            variables_data = json.load(f)
+        
+        if "variables" not in variables_data:
+            ConsoleStyles.print_warning(
+                console,
+                "  ⚠️  No 'variables' key found in variables.json",
+            )
+            return False
+        
+        variables = variables_data["variables"]
+        
+        # Get existing variable names to avoid duplicates
+        existing_vars = {var["name"] for var in variables}
+        
+        # Track if we added any variables
+        added_vars = []
+        
+        # Add lakehouse variable definitions
+        for lakehouse_name in lakehouse_names:
+            vars_to_add = [
+                {
+                    "name": f"{lakehouse_name}_workspace_id",
+                    "note": f"GUID of the workspace containing {lakehouse_name} lakehouse.",
+                    "type": "String",
+                    "value": "",
+                },
+                {
+                    "name": f"{lakehouse_name}_lakehouse_name",
+                    "note": f"Name of the {lakehouse_name} lakehouse.",
+                    "type": "String",
+                    "value": "",
+                },
+                {
+                    "name": f"{lakehouse_name}_lakehouse_id",
+                    "note": f"GUID of the {lakehouse_name} lakehouse.",
+                    "type": "String",
+                    "value": "",
+                },
+            ]
+            
+            for var in vars_to_add:
+                if var["name"] not in existing_vars:
+                    variables.append(var)
+                    added_vars.append(var["name"])
+                    existing_vars.add(var["name"])
+        
+        # Add warehouse variable definitions
+        for warehouse_name in warehouse_names:
+            vars_to_add = [
+                {
+                    "name": f"{warehouse_name}_workspace_id",
+                    "note": f"GUID of the workspace containing {warehouse_name} warehouse.",
+                    "type": "String",
+                    "value": "",
+                },
+                {
+                    "name": f"{warehouse_name}_warehouse_name",
+                    "note": f"Name of the {warehouse_name} warehouse.",
+                    "type": "String",
+                    "value": "",
+                },
+                {
+                    "name": f"{warehouse_name}_warehouse_id",
+                    "note": f"GUID of the {warehouse_name} warehouse.",
+                    "type": "String",
+                    "value": "",
+                },
+            ]
+            
+            for var in vars_to_add:
+                if var["name"] not in existing_vars:
+                    variables.append(var)
+                    added_vars.append(var["name"])
+                    existing_vars.add(var["name"])
+        
+        # Only write if we added variables
+        if added_vars:
+            with open(variables_file, "w", encoding="utf-8") as f:
+                json.dump(variables_data, f, indent=2, ensure_ascii=False)
+            
+            ConsoleStyles.print_success(
+                console,
+                f"  ✓ Added {len(added_vars)} variable definition(s) to variables.json",
+            )
+            return True
+        else:
+            ConsoleStyles.print_info(
+                console,
+                "  • variables.json already up to date",
+            )
+            return False
+    
+    except json.JSONDecodeError as e:
+        ConsoleStyles.print_error(
+            console,
+            f"  ❌ Failed to parse variables.json: {str(e)}",
+        )
+        return False
+    except Exception as e:
+        ConsoleStyles.print_error(
+            console,
+            f"  ❌ Failed to update variables.json: {str(e)}",
+        )
+        return False
 
 
 def _update_valueset_files(
