@@ -22,7 +22,7 @@ Complete reference for all Ingenious Fabric Accelerator commands, options, and u
 
 | Group | Purpose | Common example |
 |-------|---------|----------------|
-| `init` | Create projects / configure workspace | `ingen_fab init new --project-name MyProj` |
+| `init` | Create projects / configure workspace / generate storage artifacts | `ingen_fab init new --project-name MyProj`<br>`ingen_fab init storage-config` |
 | `ddl` | Compile notebooks from DDL scripts and assist in creating ddl scripts | `ingen_fab ddl compile -o fabric_workspace_repo -g Warehouse` |
 | `deploy` | Deploy, upload libs, extract/compare metadata and dwonload artefacts | `ingen_fab deploy get-metadata --target both -f csv -o meta.csv` |
 | `dbt` | Generate notebooks from dbt outputs and convert metadata to dbt-adapter format | `ingen_fab dbt create-notebooks -p my_dbt_proj` |
@@ -146,6 +146,178 @@ ingen_fab init workspace --workspace-name "Analytics Workspace"
 # Configure for specific environment
 ingen_fab init workspace --environment production
 ```
+
+#### `init storage-config`
+
+Generate lakehouse and warehouse artifact folders from `storage_config.yaml` configuration file. This command automates the creation of Fabric-compatible artifact structures and updates variable definitions across all environments.
+
+```bash
+ingen_fab init storage-config
+```
+
+**Prerequisites:**
+- Valid `storage_config.yaml` file in `{workspace}/fabric_config/` directory
+- `FABRIC_WORKSPACE_REPO_DIR` environment variable must be set
+
+**What it does:**
+
+1. **Reads Configuration**: Parses `fabric_config/storage_config.yaml` to identify lakehouses and warehouses
+2. **Creates Artifact Folders**: Generates properly structured folders for each resource:
+   - Lakehouses: `fabric_workspace_items/lakehouses/{name}.Lakehouse/`
+   - Warehouses: `fabric_workspace_items/warehouses/{name}.Warehouse/`
+3. **Generates Artifact Files**: Creates required Fabric JSON files:
+   - `.platform` - Contains metadata including type, displayName, and unique logicalId (GUID)
+   - `lakehouse.metadata.json` - Lakehouse metadata (empty object `{}`)
+   - `shortcuts.metadata.json` - Shortcuts configuration (empty array `[]`)
+4. **Updates Variable Definitions**: Adds variable definitions to `variables.json`:
+   - `{name}_workspace_id` - GUID of workspace containing the resource
+   - `{name}_lakehouse_name` / `{name}_warehouse_name` - Name of the resource
+   - `{name}_lakehouse_id` / `{name}_warehouse_id` - GUID of the resource
+5. **Updates All ValueSets**: Updates all environment files (development.json, test.json, production.json) with placeholder GUIDs
+
+**Storage Configuration Format Sample:**
+
+```yaml
+storage:
+  - lakehouse: local
+    lh_bronze: lh_bronze
+    lh_silver: lh_silver
+    lh_gold: lh_gold
+
+  - warehouses: local
+    wh_gold: wh_gold
+    wh_reporting: DO_NOT_CREATE  # Skip this warehouse
+```
+
+**Special Values:**
+- `DO_NOT_CREATE` - Skip creating this resource
+- `none` - Skip creating this resource (alternative syntax)
+- Empty string `""` - Skip creating this resource
+
+**Generated Files Structure:**
+
+For each lakehouse (e.g., `lh_bronze`):
+```
+fabric_workspace_items/lakehouses/lh_bronze.Lakehouse/
+├── .platform                    # Fabric metadata with unique logicalId
+├── lakehouse.metadata.json      # Empty object {}
+└── shortcuts.metadata.json      # Empty array []
+```
+
+For each warehouse (e.g., `wh_gold`):
+```
+fabric_workspace_items/warehouses/wh_gold.Warehouse/
+└── .platform                    # Fabric metadata with unique logicalId
+```
+
+**Logical ID Generation:**
+
+Each artifact's `.platform` file contains a `logicalId` field with a randomly generated GUID (e.g., `a1b2c3d4-e5f6-7890-abcd-ef1234567890`). This GUID uniquely identifies the artifact in Fabric and is generated using `uuid.uuid4()`. The logicalId is purely for Fabric's internal tracking and does not need to match any workspace or resource ID.
+
+!!! note "LogicalId vs Resource IDs"
+    The `logicalId` in the `.platform` file is a random GUID used by Fabric for artifact tracking. It is completely independent from:
+    - Workspace IDs
+    - Lakehouse/Warehouse resource IDs
+    - Any other GUIDs in your configuration
+    
+    These are separate values that serve different purposes in the Fabric platform.
+
+**Variable Updates Example for "lh_bronze":**
+
+After running the command, `variables.json` will include:
+```json
+{
+  "name": "lh_bronze_workspace_id",
+  "note": "GUID of the workspace containing lh_bronze lakehouse.",
+  "type": "String",
+  "value": ""
+},
+{
+  "name": "lh_bronze_lakehouse_name",
+  "note": "Name of the lh_bronze lakehouse.",
+  "type": "String",
+  "value": ""
+},
+{
+  "name": "lh_bronze_lakehouse_id",
+  "note": "GUID of the lh_bronze lakehouse.",
+  "type": "String",
+  "value": ""
+}
+```
+
+And each valueSet file (e.g., `development.json`) will include:
+```json
+{
+  "name": "lh_bronze_workspace_id",
+  "value": "REPLACE_WITH_LH_BRONZE_WORKSPACE_GUID"
+},
+{
+  "name": "lh_bronze_lakehouse_name",
+  "value": "lh_bronze"
+},
+{
+  "name": "lh_bronze_lakehouse_id",
+  "value": "REPLACE_WITH_LH_BRONZE_LAKEHOUSE_GUID"
+}
+```
+
+**Examples:**
+```bash
+# Generate all artifacts from storage_config.yaml
+ingen_fab init storage-config
+
+# After running, you'll see:
+# ✓ Created 3 lakehouse folder(s)
+# ✓ Created 1 warehouse folder(s)
+# ✓ Updated variables.json with new variable definitions
+# ✓ Updated 3 valueSet file(s) with new variables
+```
+
+**Output Example:**
+```
+Found 3 lakehouse(s): lh_bronze, lh_silver, lh_gold
+Found 1 warehouse(s): wh_gold
+
+📦 Processing lakehouses...
+  ✓ Created lh_bronze.Lakehouse (ID: a1b2c3d4...)
+  ✓ Created lh_silver.Lakehouse (ID: e5f6g7h8...)
+  ✓ Created lh_gold.Lakehouse (ID: i9j0k1l2...)
+
+🏢 Processing warehouses...
+  ✓ Created wh_gold.Warehouse (ID: m3n4o5p6...)
+
+📝 Updating variable library definitions...
+  ✓ Added 12 variable definition(s) to variables.json
+
+📝 Updating variable library valueSets...
+  ✓ Updated development.json (added 12 variables)
+  ✓ Updated test.json (added 12 variables)
+  ✓ Updated production.json (added 12 variables)
+
+============================================================
+✓ Successfully created 4 artifact folder(s)
+  • 3 lakehouse(s)
+  • 1 warehouse(s)
+✓ Updated variables.json with new variable definitions
+✓ Updated 3 valueSet file(s) with new variables
+
+💡 Next steps:
+   1. Review the generated artifacts in fabric_workspace_items/
+   2. Review the updated variables in valueSets/
+   3. Deploy to Fabric: ingen_fab deploy deploy
+```
+
+**Behavior:**
+- **Non-destructive**: Skips folders that already exist (won't overwrite)
+- **Idempotent**: Safe to run multiple times
+- **Smart Updates**: Only adds new variables to `variables.json` and valueSet files
+- **Duplicate Prevention**: Checks for existing variables before adding
+
+**Next steps after running:**
+1. Review generated artifact folders and files
+2. Update placeholder GUIDs in valueSet files with actual workspace and resource IDs
+3. Deploy to Fabric using `ingen_fab deploy deploy`
 
 ## ddl {#ddl}
 
@@ -752,30 +924,33 @@ ingen_fab init new --project-name "My Project"
 $env:FABRIC_WORKSPACE_REPO_DIR = "dp"
 $env:FABRIC_ENVIRONMENT = "development"
 
-# 3. Update configuration
+# 3. Generate lakehouse and warehouse artifacts from storage_config.yaml
+ingen_fab init storage-config
+
+# 4. Update configuration
 # Edit fabric_workspace_items/config/var_lib.VariableLibrary/valueSets/development.json
 # Replace placeholder GUIDs with your actual workspace and lakehouse IDs
 
-# 4. Develop and build dbt notebooks, copy them to fabric_workspace_items
+# 5. Develop and build dbt notebooks, copy them to fabric_workspace_items
 
 ingen_fab dbt exec -- stage run build --project-dir dbt_project
 ingen_fab dbt exec -- stage run post-scripts --project-dir dbt_project
 ingen_fab dbt create-notebooks -p my_dbt_project
 
-# 5. Generate ddl notebooks
+# 6. Generate ddl notebooks
 ingen_fab ddl compile --output-mode fabric_workspace_repo --generation-mode Warehouse
 ingen_fab ddl compile --output-mode fabric_workspace_repo --generation-mode Lakehouse
 
-# 6. Test locally
+# 7. Test locally
 $env:FABRIC_ENVIRONMENT = 'local'
 ingen_fab test local python
 ingen_fab test local pyspark
 
-# 7. Deploy to development
+# 8. Deploy to development
 $env:FABRIC_ENVIRONMENT = 'development'
 ingen_fab deploy deploy
 
-# 8S. Generate and run platform tests
+# 9. Generate and run platform tests
 ingen_fab test platform generate
 ```
 

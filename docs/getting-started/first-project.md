@@ -35,6 +35,8 @@ The sample project demonstrates a typical data platform setup with:
 
 ```
 sample_project/
+├── fabric_config/            # Lakehouse and Warehouse planned configuration
+│   ├── storage_config.yaml/  # yaml file used to define the lakehouse and warehouse names that will be created
 ├── ddl_scripts/              # DDL scripts for tables and configuration
 │   ├── Lakehouses/          # Lakehouse DDL scripts
 │   │   └── Config/          # Configuration tables
@@ -82,7 +84,6 @@ Before starting, ensure you have:
 - [x] Microsoft Fabric workspace created
 - [x] Ingenious Fabric Accelerator installed
 - [x] Azure authentication configured
-- [x] Lakehouse and warehouse IDs available
 
 ### Step 2: Environment Configuration
 
