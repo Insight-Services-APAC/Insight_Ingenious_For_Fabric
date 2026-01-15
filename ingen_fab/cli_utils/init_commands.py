@@ -934,6 +934,15 @@ def init_storage_config():
                 else:
                     warehouse_skipped += 1
     
+    # Update valueSet JSON files with lakehouse and warehouse variables
+    ConsoleStyles.print_info(console, "\n📝 Updating variable library valueSets...")
+    updated_valuesets = _update_valueset_files(
+        console=console,
+        workspace_path=workspace_path,
+        lakehouse_names=lakehouse_names,
+        warehouse_names=warehouse_names,
+    )
+    
     # Print summary
     ConsoleStyles.print_info(console, "\n" + "="*60)
     
@@ -962,6 +971,12 @@ def init_storage_config():
             f"ℹ Skipped {total_skipped} existing artifact folder(s)",
         )
     
+    if updated_valuesets > 0:
+        ConsoleStyles.print_success(
+            console,
+            f"✓ Updated {updated_valuesets} valueSet file(s) with new variables",
+        )
+    
     ConsoleStyles.print_info(
         console,
         "\n💡 Next steps:",
@@ -972,7 +987,11 @@ def init_storage_config():
     )
     ConsoleStyles.print_info(
         console,
-        "   2. Deploy to Fabric: ingen_fab deploy deploy",
+        "   2. Review the updated variables in valueSets/",
+    )
+    ConsoleStyles.print_info(
+        console,
+        "   3. Deploy to Fabric: ingen_fab deploy deploy",
     )
 
 
@@ -1023,7 +1042,10 @@ def _create_artifact_from_template(
             
             # Replace placeholders
             content = content.replace(name_placeholder, artifact_name)
-            content = content.replace("00000000-0000-0000-0000-000000000000",logical_id,)
+            content = content.replace(
+                "00000000-0000-0000-0000-000000000000",
+                logical_id,
+            )
             
             # Write to destination
             dest_file.write_text(content, encoding="utf-8")
@@ -1033,3 +1055,144 @@ def _create_artifact_from_template(
         f"  ✓ Created {artifact_name}.{artifact_type} (ID: {logical_id[:8]}...)",
     )
     return True
+
+
+def _update_valueset_files(
+    console: Console,
+    workspace_path: Path,
+    lakehouse_names: list[str],
+    warehouse_names: list[str],
+) -> int:
+    """Update all valueSet JSON files with lakehouse and warehouse variables.
+    
+    Args:
+        console: Rich console for output
+        workspace_path: Path to the workspace directory
+        lakehouse_names: List of lakehouse names to add
+        warehouse_names: List of warehouse names to add
+        
+    Returns:
+        Number of valueSet files updated
+    """
+    valueset_dir = (
+        workspace_path
+        / "fabric_workspace_items"
+        / "config"
+        / "var_lib.VariableLibrary"
+        / "valueSets"
+    )
+    
+    if not valueset_dir.exists():
+        ConsoleStyles.print_warning(
+            console,
+            f"  ⚠️  ValueSet directory not found: {valueset_dir}",
+        )
+        return 0
+    
+    # Find all .json files in the valueSet directory
+    valueset_files = list(valueset_dir.glob("*.json"))
+    
+    if not valueset_files:
+        ConsoleStyles.print_warning(
+            console,
+            "  ⚠️  No valueSet JSON files found",
+        )
+        return 0
+    
+    updated_count = 0
+    
+    for valueset_file in valueset_files:
+        try:
+            # Read the valueSet JSON file
+            with open(valueset_file, "r", encoding="utf-8") as f:
+                valueset_data = json.load(f)
+            
+            if "variableOverrides" not in valueset_data:
+                ConsoleStyles.print_warning(
+                    console,
+                    f"  ⚠️  Skipped {valueset_file.name}: no variableOverrides",
+                )
+                continue
+            
+            variable_overrides = valueset_data["variableOverrides"]
+            
+            # Get existing variable names to avoid duplicates
+            existing_vars = {var["name"] for var in variable_overrides}
+            
+            # Track if we added any variables
+            added_vars = []
+            
+            # Add lakehouse variables
+            for lakehouse_name in lakehouse_names:
+                vars_to_add = [
+                    {
+                        "name": f"{lakehouse_name}_workspace_id",
+                        "value": f"REPLACE_WITH_{lakehouse_name.upper()}_WORKSPACE_GUID",
+                    },
+                    {
+                        "name": f"{lakehouse_name}_lakehouse_name",
+                        "value": lakehouse_name,
+                    },
+                    {
+                        "name": f"{lakehouse_name}_lakehouse_id",
+                        "value": f"REPLACE_WITH_{lakehouse_name.upper()}_LAKEHOUSE_GUID",
+                    },
+                ]
+                
+                for var in vars_to_add:
+                    if var["name"] not in existing_vars:
+                        variable_overrides.append(var)
+                        added_vars.append(var["name"])
+                        existing_vars.add(var["name"])
+            
+            # Add warehouse variables
+            for warehouse_name in warehouse_names:
+                vars_to_add = [
+                    {
+                        "name": f"{warehouse_name}_workspace_id",
+                        "value": f"REPLACE_WITH_{warehouse_name.upper()}_WORKSPACE_GUID",
+                    },
+                    {
+                        "name": f"{warehouse_name}_warehouse_name",
+                        "value": warehouse_name,
+                    },
+                    {
+                        "name": f"{warehouse_name}_warehouse_id",
+                        "value": f"REPLACE_WITH_{warehouse_name.upper()}_WAREHOUSE_GUID",
+                    },
+                ]
+                
+                for var in vars_to_add:
+                    if var["name"] not in existing_vars:
+                        variable_overrides.append(var)
+                        added_vars.append(var["name"])
+                        existing_vars.add(var["name"])
+            
+            # Only write if we added variables
+            if added_vars:
+                with open(valueset_file, "w", encoding="utf-8") as f:
+                    json.dump(valueset_data, f, indent=2, ensure_ascii=False)
+                
+                ConsoleStyles.print_success(
+                    console,
+                    f"  ✓ Updated {valueset_file.name} (added {len(added_vars)} variables)",
+                )
+                updated_count += 1
+            else:
+                ConsoleStyles.print_info(
+                    console,
+                    f"  • {valueset_file.name} already up to date",
+                )
+        
+        except json.JSONDecodeError as e:
+            ConsoleStyles.print_error(
+                console,
+                f"  ❌ Failed to parse {valueset_file.name}: {str(e)}",
+            )
+        except Exception as e:
+            ConsoleStyles.print_error(
+                console,
+                f"  ❌ Failed to update {valueset_file.name}: {str(e)}",
+            )
+    
+    return updated_count
