@@ -181,6 +181,7 @@ Variable substitution is applied to the following artifact types during deployme
 | **Semantic Models** | `*.tmdl` | Tabular Model Definition Language files |
 | **GraphQL APIs** | `graphql-definition.json` | GraphQL API definition files |
 | **Data Pipelines** | `pipeline-content.json` | Data pipeline definition files |
+| **Power BI Reports** | `definition.pbir` | Power BI report definition files |
 
 These artifact types support both placeholder replacement (`{{varlib:variable_name}}`) and code injection between markers during the deployment process.
 
@@ -217,7 +218,7 @@ ingen_fab deploy deploy
 - **Placeholder replacement**: ✅ Yes (environment-specific values)
 - **Code injection**: ✅ Yes (complete configuration)
 - **Location**: Output directory for deployment
-- **Artifacts**: Notebooks, Semantic Models, GraphQL APIs, and Data Pipelines
+- **Artifacts**: Notebooks, Semantic Models, GraphQL APIs, Data Pipelines, and Power BI Reports
 
 ### OneLake Upload
 
@@ -399,7 +400,36 @@ Data pipeline definitions can use placeholders for workspace IDs, lakehouse IDs,
 }
 ```
 
-After deployment:
+#### Power BI Reports (definition.pbir)
+
+Power BI report definition files can use placeholders for dataset connection strings:
+
+```json
+{
+  "$schema": "https://developer.microsoft.com/json-schemas/fabric/item/report/definitionProperties/2.0.0/schema.json",
+  "version": "4.0",
+  "datasetReference": {
+    "byConnection": {
+      "connectionString": "{{varlib:report_connection_string}}"
+    }
+  }
+}
+```
+
+After deployment to production:
+```json
+{
+  "$schema": "https://developer.microsoft.com/json-schemas/fabric/item/report/definitionProperties/2.0.0/schema.json",
+  "version": "4.0",
+  "datasetReference": {
+    "byConnection": {
+      "connectionString": "Data Source=powerbi://api.powerbi.com/v1.0/myorg/Production Workspace;Initial Catalog=sales_semantic_model"
+    }
+  }
+}
+```
+
+### Custom Injection Behavior
 ```json
 {
   "properties": {

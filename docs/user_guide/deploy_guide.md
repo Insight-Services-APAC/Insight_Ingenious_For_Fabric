@@ -28,6 +28,15 @@ Deploy all items under `fabric_workspace_items` to the selected environment.
 ingen_fab deploy deploy
 ```
 
+The deployment process automatically performs variable replacement for environment-specific configuration:
+
+**Artifacts with Variable Replacement:**
+- Notebooks (`notebook-content.py`)
+- Semantic Models (`.tmdl` files)
+- GraphQL APIs (`graphql-definition.json`)
+- Data Pipelines (`pipeline-content.json`)
+- Power BI Reports (`definition.pbir`)
+
 Tips:
 - Use semantic, ordered DDL under `ddl_scripts` and generate notebooks with `ingen_fab ddl compile ...` before deploying.
 - Validate your variable library value set for the target environment.

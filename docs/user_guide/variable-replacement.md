@@ -98,6 +98,35 @@ Spark job configurations can use variables in arguments:
 }
 ```
 
+### Power BI Reports (.Report)
+
+Power BI report definition files can use variable placeholders for dataset references and connection information:
+
+```json
+{
+  "$schema": "https://developer.microsoft.com/json-schemas/fabric/item/report/definitionProperties/2.0.0/schema.json",
+  "version": "4.0",
+  "datasetReference": {
+    "byConnection": {
+      "connectionString": "{{varlib:report_connection_string}}"
+    }
+  }
+}
+```
+
+After deployment to production:
+```json
+{
+  "$schema": "https://developer.microsoft.com/json-schemas/fabric/item/report/definitionProperties/2.0.0/schema.json",
+  "version": "4.0",
+  "datasetReference": {
+    "byConnection": {
+      "connectionString": "Data Source=powerbi://api.powerbi.com/v1.0/myorg/Production Workspace;Initial Catalog=sales_semantic_model"
+    }
+  }
+}
+```
+
 ### SQL Files in DDL Scripts
 
 SQL scripts compiled to notebooks support placeholders:

@@ -632,6 +632,34 @@ class SyncToFabricEnvironment:
                 self.console, "No data pipeline files needed variable substitution"
             )
 
+        # Process all definition.pbir files in the output directory
+        pbir_updated_count = 0
+        for pbir_file in output_dir.rglob("definition.pbir"):
+            with open(pbir_file, "r", encoding="utf-8") as f:
+                content = f.read()
+
+            # Perform variable substitution (replace placeholders) and code injection
+            updated_content = output_vlu.perform_code_replacements(
+                content,
+                replace_placeholders=True,  # Replace {{varlib:...}} placeholders during deployment
+                inject_code=True,  # Also inject code between markers
+            )
+
+            if updated_content != content:
+                with open(pbir_file, "w", encoding="utf-8") as f:
+                    f.write(updated_content)
+                pbir_updated_count += 1
+
+        if pbir_updated_count > 0:
+            ConsoleStyles.print_success(
+                self.console,
+                f"Updated {pbir_updated_count} Power BI report files with variable substitution",
+            )
+        else:
+            ConsoleStyles.print_info(
+                self.console, "No Power BI report files needed variable substitution"
+            )
+
         # 2) Download manifest from remote if configured (PULL remote state)
         manifest_path = Path(
             f"{self.project_path}/platform_manifest_{self.environment}.yml"
