@@ -6,16 +6,17 @@ Practical guide to deploy Fabric artifacts using Azure DevOps CI/CD pipelines.
 
 ## Overview
 
-This guide explains how to use Azure DevOps pipelines to automate deployment of Ingenious projects to Microsoft Fabric workspaces. Two sample YAML pipeline scripts are provided to support different deployment scenarios.
+This guide explains how to use Azure DevOps pipelines to automate deployment of Ingenious projects to Microsoft Fabric workspaces. Three sample YAML pipeline scripts are provided to support different deployment scenarios.
 
 ## Sample Pipeline Scripts
 
-Two sample YAML files are included under `ingen_fab/project_templates/deployment/`:
+Three sample YAML files are included under `ingen_fab/project_templates/deployment/`:
 
 | Script | Purpose | Use Case |
 |--------|---------|----------|
 | `dp_initial.yml` | Initial deployment | First-time setup of lakehouses and variable libraries with limited artifact types |
 | `dp_full.yml` | Full deployment | Complete deployment of all artifact types including notebooks, data pipelines, and semantic models |
+| `dp_combined.yml` | Combined initial and full deployment | Single pipeline that dynamically switches between initial and full deployment modes using the `IS_INITIAL` variable |
 
 ## Key Differences Between Scripts
 
@@ -39,9 +40,49 @@ Two sample YAML files are included under `ingen_fab/project_templates/deployment
   - Promoting changes through environments (DEV → TEST → PROD)
   - Standard CI/CD workflow
 
+### Combined Deployment (`dp_combined.yml`)
+
+- **Purpose**: Single flexible pipeline that handles both initial setup AND ongoing deployments
+- **Key Feature**: Uses `IS_INITIAL` variable to dynamically switch deployment modes
+- **When to Use**:
+  - You want one pipeline for all deployment scenarios
+  - Initial setup of new environments
+  - Regular deployments after initial setup
+  - Promoting changes through environments (DEV → TEST → PROD)
+
+#### Deployment Modes
+
+**Mode 1: Initial Deployment (`IS_INITIAL: true`)**
+
+  - **Artifact Types**: `VariableLibrary`, `Lakehouse` only
+  - **Manifest Location**: `local` (from repository)
+  - **DDL Scripts**: Skipped (not yet available)
+  - **Use Case**: First-time environment setup
+
+**Mode 2: Full Deployment (`IS_INITIAL: false`)**
+
+  - **Artifact Types**: All types (notebooks, warehouses, data pipelines, semantic models, etc.)
+  - **Manifest Location**: `config_lakehouse` (from Fabric lakehouse)
+  - **DDL Scripts**: Runs (optional via `RUN_DDL_SCRIPTS` variable)
+  - **Use Case**: Regular deployments and promotions
+
+#### How It Works
+
+The pipeline uses bash conditional logic to switch modes:
+
+```bash
+if [ "$IS_INITIAL" = "true" ]; then
+  export WORKSPACE_MANIFEST_LOCATION="local"
+  export ITEM_TYPES_TO_DEPLOY="VariableLibrary,Lakehouse"
+else
+  export WORKSPACE_MANIFEST_LOCATION="config_lakehouse"
+  export ITEM_TYPES_TO_DEPLOY=""  # Empty = deploy ALL types
+fi
+```
+
 ## Pipeline Architecture
 
-Both scripts follow a multi-stage deployment pattern:
+All three scripts follow a multi-stage deployment pattern:
 
 ### Stage Structure
 
@@ -95,17 +136,32 @@ git push origin HEAD:$(Build.SourceBranchName)
 ```
 Commits any auto-generated files (e.g., updated variable library configurations) back to the repository.
 
+#### 6. Run DDL Orchestration (dp_combined.yml only)
+**Condition**: Only runs when **BOTH** conditions are met:
+  - `IS_INITIAL: false` (not an initial deployment) **AND**
+  - `RUN_DDL_SCRIPTS: true` (DDL orchestration is enabled)
+
+Automatically executes the `00_all_lakehouses_orchestrator_ddl_scripts` notebook to run data definition language (DDL) scripts:
+- Retrieves Fabric API access token using Azure CLI
+- Fetches workspace ID from environment configuration
+- Locates the orchestrator notebook in the target workspace
+- Executes the notebook via Fabric API to apply DDL changes
+
+This step is **skipped** for initial deployments (`IS_INITIAL: true`) and can be disabled by setting `RUN_DDL_SCRIPTS: false`.
+
 ## Environment Variables
 
 Each deployment task uses environment variables to control behavior:
 
-| Variable | Purpose | Example Values |
-|----------|---------|----------------|
-| `FABRIC_ENVIRONMENT` | Target environment name | `development`, `test`, `production` |
-| `FABRIC_WORKSPACE_REPO_DIR` | Project directory in repository | `dp`, `sample_project` |
-| `WORKSPACE_MANIFEST_LOCATION` | Where manifest file is stored | `local`, `config_lakehouse` |
-| `IS_SINGLE_WORKSPACE` | Enable unattended workspace init | `Y`, `N` |
-| `ITEM_TYPES_TO_DEPLOY` | Filter artifact types (initial only) | `VariableLibrary,Lakehouse` |
+| Variable | Purpose | Example Values | Used By |
+|----------|---------|----------------|----------|
+| `FABRIC_ENVIRONMENT` | Target environment name | `development`, `test`, `production` | All pipelines |
+| `FABRIC_WORKSPACE_REPO_DIR` | Project directory in repository | `dp`, `sample_project` | All pipelines |
+| `WORKSPACE_MANIFEST_LOCATION` | Where manifest file is stored | `local`, `config_lakehouse` | All pipelines |
+| `IS_SINGLE_WORKSPACE` | Enable unattended workspace init | `Y`, `N` | All pipelines |
+| `ITEM_TYPES_TO_DEPLOY` | Filter artifact types for deployment | `VariableLibrary,Lakehouse` (initial) or empty (full) | `dp_initial.yml`, `dp_combined.yml` |
+| `IS_INITIAL` | Switch between initial and full deployment modes | `'true'` (initial), `'false'` (full) | `dp_combined.yml` only |
+| `RUN_DDL_SCRIPTS` | Control DDL orchestration execution | `'true'` (run), `'false'` (skip) | `dp_combined.yml` only |
 
 These are typically configured via Azure DevOps Variable Groups.
 
