@@ -12,6 +12,7 @@ Additional guides and workflow patterns for using the Ingenious Fabric Accelerat
 - **[Deployment](../user_guide/deploy_guide.md)** - Deployment strategies and practices
 - **[Common Tasks](../user_guide/common_tasks.md)** - Quick reference for frequent operations
 - **[CI/CD Deployment](cicd-deployment.md)** - DevOps and continuous integration
+- **[GitHub Actions Setup](github_configuration.md)** - GitHub Actions configuration and deployment
 
 ## Guide Categories
 
@@ -22,6 +23,7 @@ Additional guides and workflow patterns for using the Ingenious Fabric Accelerat
 ### **Deployment & Operations**  
 - [Deployment](../user_guide/deploy_guide.md) - Standard deployment practices
 - [CI/CD Deployment](cicd-deployment.md) - Automated deployment patterns
+- [GitHub Actions Setup](github_configuration.md) - Github actions setup
 
 ### **Solutions & Packages**
 - [Packages](../packages/index.md) - Using and creating solution packages
