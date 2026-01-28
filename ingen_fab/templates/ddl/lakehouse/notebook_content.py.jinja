@@ -15,13 +15,17 @@ if run_mode == "local":
     from ingen_fab.python_libs.pyspark.lakehouse_utils import lakehouse_utils
     from ingen_fab.python_libs.pyspark.ddl_utils import ddl_utils
     from ingen_fab.python_libs.pyspark.notebook_utils_abstraction import NotebookUtilsFactory
-    notebookutils = NotebookUtilsFactory.create_instance() 
+    from ingen_fab.python_libs.python.lakehouse_sql_connection import FabricLakehouseConnection
+    from ingen_fab.python_libs.python.lakehouse_ddl_utils import LakehouseDDLUtils
+    notebookutils = NotebookUtilsFactory.create_instance()
 else:
     files_to_load = [
         "ingen_fab/python_libs/common/config_utils.py",
         "ingen_fab/python_libs/pyspark/lakehouse_utils.py",
         "ingen_fab/python_libs/pyspark/ddl_utils.py",
-        "ingen_fab/python_libs/pyspark/notebook_utils_abstraction.py"
+        "ingen_fab/python_libs/pyspark/notebook_utils_abstraction.py",
+        "ingen_fab/python_libs/python/lakehouse_sql_connection.py",
+        "ingen_fab/python_libs/python/lakehouse_ddl_utils.py"
     ]
 
     load_python_modules_from_path(mount_path, files_to_load)
@@ -56,6 +60,111 @@ from pyspark.sql.types import (
     TimestampType
 )
 
+{{macros.python_cell_with_heading("## 📦 Install PyODBC and Setup Lakehouse SQL Endpoint Connection")}}
+
+# Install pyodbc for lakehouse SQL endpoint connections
+%pip install pyodbc
+
+# Required packages for SQL endpoint connection
+import struct
+from itertools import chain, repeat
+import pyodbc
+import sempy.fabric as fabric
+from notebookutils import mssparkutils
+
+# Set the ODBC Driver Code for AAD Token handling
+SQL_COPT_SS_ACCESS_TOKEN = 1256
+
+print(f"🏢 FABRIC LAKEHOUSE SQL ENDPOINT CONNECTION SETUP")
+print(f"Target Lakehouse ID: {target_lakehouse_id}")
+print(f"Target Workspace ID: {target_workspace_id}")
+print("=" * 60)
+
+# Get workspace information and lakehouse connection details
+workspace_id = spark.conf.get("trident.workspace.id")
+
+# Get lakehouse SQL endpoint connection string
+try:
+    lakehouse_connection_string = fabric.FabricRestClient().get(
+        f"/v1/workspaces/{workspace_id}/lakehouses/{target_lakehouse_id}/connectionString"
+    ).json()
+    sql_endpoint = lakehouse_connection_string['connectionString'].split(':')[0]
+
+    print(f"✅ Found lakehouse SQL endpoint")
+    print(f"📡 SQL Endpoint: {sql_endpoint}")
+
+    # Define the connection string using the retrieved endpoint
+    driver_name = "ODBC Driver 18 for SQL Server"
+    lakehouse_connection_string = (
+        "Driver={" + driver_name + "};"
+        "Server=" + sql_endpoint + ",1433;"
+        "Database=" + target_lakehouse_id + ";"
+        "Encrypt=Yes;TrustServerCertificate=No"
+    )
+
+    # Get and format the authentication token
+    token = mssparkutils.credentials.getToken("pbi")
+    token_as_bytes = bytes(token, "UTF-8")
+    encoded_bytes = bytes(chain.from_iterable(zip(token_as_bytes, repeat(0))))
+    lakehouse_token_bytes = struct.pack("<i", len(encoded_bytes)) + encoded_bytes
+
+    # Test the connection
+    attrs_before = {SQL_COPT_SS_ACCESS_TOKEN: lakehouse_token_bytes}
+    try:
+        lakehouse_conn = pyodbc.connect(
+            lakehouse_connection_string,
+            autocommit=False,
+            attrs_before=attrs_before
+        )
+        lakehouse_conn.close()
+        print("✅ Successfully connected to lakehouse SQL endpoint!")
+        lakehouse_sql_connection_available = True
+    except Exception as e:
+        print(f"❌ Failed to connect to lakehouse SQL endpoint: {str(e)}")
+        lakehouse_sql_connection_available = False
+        lakehouse_conn = None
+
+except Exception as e:
+    print(f"⚠️ Could not retrieve lakehouse SQL endpoint: {str(e)}")
+    print("📋 SQL endpoint connection will not be available")
+    lakehouse_sql_connection_available = False
+    lakehouse_connection_string = None
+    lakehouse_token_bytes = None
+
+print("=" * 60)
+
+{{macros.python_cell_with_heading("## 🔗 Initialize Lakehouse SQL Connection Classes")}}
+
+# Initialize the lakehouse SQL endpoint connection instance
+if lakehouse_sql_connection_available and lakehouse_connection_string and lakehouse_token_bytes:
+    lakehouse_sql_connection = FabricLakehouseConnection(
+        target_lakehouse_id,
+        target_workspace_id,
+        lakehouse_connection_string,
+        lakehouse_token_bytes
+    )
+    print("✅ Lakehouse SQL endpoint connection initialized")
+
+    # Initialize DDL utilities with run-once tracking for SQL endpoint
+    try:
+        ldu = LakehouseDDLUtils(
+            lakehouse_connection=lakehouse_sql_connection,
+            target_lakehouse_id=target_lakehouse_id,
+            target_workspace_id=target_workspace_id
+        )
+        print("✅ Lakehouse SQL DDL execution tracking initialized")
+
+    except Exception as e:
+        print(f"❌ Failed to initialize LakehouseDDLUtils: {str(e)}")
+        print("🔄 Continuing without SQL endpoint run-once tracking...")
+        ldu = None
+
+else:
+    lakehouse_sql_connection = None
+    ldu = None
+    print("⚠️ Lakehouse SQL endpoint connection not available - SQL will be displayed only")
+    print("📋 Spark SQL will still work for .py files")
+
 
 {{ macros.python_cell_with_heading("## 🏃‍♂️‍➡️ Run DDL Cells ")}}
 
@@ -79,13 +188,20 @@ from pyspark.sql.types import (
 
 # MARKDOWN ********************
 
-# ## 📇 Print the execution log
+# ## 📇 Print the execution logs
 
 # CELL ********************
 
+# Print the PySpark DDL execution log
+print("\n🔧 PYSPARK DDL EXECUTION LOG (for .py files)")
+du.print_log()
 
-
-du.print_log() 
+# Print the SQL endpoint DDL execution log
+if ldu:
+    print("\n🗄️ SQL ENDPOINT DDL EXECUTION LOG (for .sql files)")
+    ldu.print_log()
+else:
+    print("\n⚠️ SQL endpoint execution log not available") 
 
 
 

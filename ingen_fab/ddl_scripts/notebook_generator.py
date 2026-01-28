@@ -171,9 +171,21 @@ print(f"Configuration notebook for {self.entities_folder}")
                                 f"[yellow]⚠️  Using fallback spark_sql template for warehouse SQL file: {file_path.name}[/yellow]"
                             )
                 else:
-                    cell_template = self.load_template(
-                        "ddl/execution_cells/spark_sql.py.jinja"
-                    )
+                    # Lakehouse mode - use lakehouse SQL template for PyODBC execution
+                    try:
+                        cell_template = self.load_template(
+                            "ddl/execution_cells/lakehouse_sql.py.jinja"
+                        )
+                    except Exception:
+                        # Fallback to spark_sql template if lakehouse_sql template doesn't exist
+                        cell_template = self.load_template(
+                            "ddl/execution_cells/spark_sql.py.jinja"
+                        )
+                        if self.console:
+                            self.console.print(
+                                f"[yellow]⚠️  Using fallback spark_sql template for "
+                                f"lakehouse SQL file: {file_path.name}[/yellow]"
+                            )
             else:
                 continue  # Skip unsupported file types
 
@@ -197,7 +209,7 @@ print(f"Configuration notebook for {self.entities_folder}")
                 "target_workspace_id": "example-workspace-id",
                 "language_group": self.language_group,
             }
-            
+
             # Add mode-specific variables
             if self.generation_mode == NotebookGenerator.GenerationMode.warehouse:
                 template_vars["target_warehouse_id"] = "example-warehouse-id"
@@ -211,10 +223,13 @@ print(f"Configuration notebook for {self.entities_folder}")
             else:
                 template_vars["target_lakehouse_id"] = "example-lakehouse-id"
                 template_vars["target_warehouse_id"] = None
+                # Add lakehouse-specific variables for SQL execution
                 if file_path.suffix == ".sql":
                     template_vars["use_warehouse_execution"] = False
-                    template_vars["use_run_once_tracking"] = False
-                    
+                    template_vars["use_run_once_tracking"] = True
+                    template_vars["lakehouse_connection_var"] = "ldu"  # Variable name for lakehouse DDL utils
+                    template_vars["sql_file_name"] = file_path.name
+
             rendered_cell = cell_template.render(**template_vars)
 
             # Add cell to the list

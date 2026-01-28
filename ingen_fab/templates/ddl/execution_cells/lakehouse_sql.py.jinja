@@ -1,0 +1,48 @@
+# METADATA ********************
+
+# META {
+# META   "language": "python",
+# META   "language_group": "{{language_group | required}}"
+# META }
+
+# MARKDOWN ********************
+
+# ## 🏢 {{heading_name}}
+
+# CELL ********************
+
+# Script GUID: {{script_guid}}
+# File: {{sql_file_name}}
+
+def work():
+    """Execute lakehouse SQL with run-once tracking"""
+    sql = """
+{{content}}
+    """
+
+    print(f"🔄 Executing SQL from {{sql_file_name}}:")
+    print(f"```sql\n{sql.strip()}\n```")
+
+    # Use lakehouse DDL utilities for execution
+    if {{lakehouse_connection_var}} and {{lakehouse_connection_var}}.lakehouse_connection.can_execute:
+        try:
+            result = {{lakehouse_connection_var}}.lakehouse_connection.execute_ddl(
+                sql.strip(),
+                f"Execute {{sql_file_name}}",
+                max_retries=3
+            )
+            if result:
+                print(f"✅ Successfully executed {{sql_file_name}}")
+                return True
+            else:
+                print(f"❌ Failed to execute {{sql_file_name}}")
+                return False
+        except Exception as e:
+            print(f"❌ Error executing {{sql_file_name}}: {str(e)}")
+            return False
+    else:
+        print("⚠️ Lakehouse SQL endpoint connection not available - SQL displayed only")
+        return True
+
+# Execute with run-once tracking
+{{lakehouse_connection_var}}.run_once(work, "{{script_name}}", "{{script_guid}}")
