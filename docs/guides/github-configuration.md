@@ -1,3 +1,5 @@
+# GitHub Actions Setup
+
 [Home](../index.md) > [User Guide](../user_guide/index.md) > GitHub Actions Setup
 
 ## Overview
