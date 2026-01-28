@@ -964,7 +964,7 @@ def init_storage_config():
             )
         else:
             ConsoleStyles.print_info(console, "\n🗄️  Processing SQL databases...")
-            sqldatabases_dir = workspace_path / "fabric_workspace_items" / "SQLDatabases"
+            sqldatabases_dir = workspace_path / "fabric_workspace_items" / "sql_databases"
             sqldatabases_dir.mkdir(parents=True, exist_ok=True)
             
             for sqldatabase_name in sqldatabase_names:

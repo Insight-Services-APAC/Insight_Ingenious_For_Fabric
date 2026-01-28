@@ -69,6 +69,7 @@ sample_project/
 │   ├── extract/             # Data extraction notebooks
 │   ├── load/                # Data loading notebooks
 │   ├── lakehouses/          # Lakehouse definitions
+│   ├── sql_databases/       # SQL Database definitions
 │   ├── platform_testing/    # Platform testing notebooks
 │   └── warehouses/          # Warehouse definitions
 ├── diagrams/                # Architecture diagrams

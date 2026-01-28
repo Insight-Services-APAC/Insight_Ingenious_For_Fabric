@@ -165,7 +165,7 @@ ingen_fab init storage-config
 2. **Creates Artifact Folders**: Generates properly structured folders for each resource:
    - Lakehouses: `fabric_workspace_items/lakehouses/{name}.Lakehouse/`
    - Warehouses: `fabric_workspace_items/warehouses/{name}.Warehouse/`
-   - SQL Databases: `fabric_workspace_items/SQLDatabases/{name}.SQLDatabase/`
+   - SQL Databases: `fabric_workspace_items/sql_databases/{name}.SQLDatabase/`
 3. **Generates Artifact Files**: Creates required Fabric JSON files:
    - `.platform` - Contains metadata including type, displayName, and unique logicalId (GUID)
    - `lakehouse.metadata.json` - Lakehouse metadata (empty object `{}`)
@@ -216,7 +216,7 @@ fabric_workspace_items/warehouses/wh_gold.Warehouse/
 
 For each SQL database (e.g., `db_analytics`):
 ```
-fabric_workspace_items/sqldatabases/sqldb_analytics.SQLDatabase/
+fabric_workspace_items/sql_databases/sqldb_analytics.SQLDatabase/
 └── .platform                    # Fabric metadata with unique logicalId
 ```
 
