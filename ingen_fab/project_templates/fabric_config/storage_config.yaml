@@ -6,3 +6,6 @@ storage:
 
   - warehouses: local
     wh_gold: DO_NOT_CREATE
+
+  - sqldatabases: local
+    db_config: db_config

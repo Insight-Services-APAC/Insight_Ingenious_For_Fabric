@@ -96,11 +96,11 @@ Note: You can modify lakehouse and warehouse names as needed. To do that, variab
 
 ## Step 3: Configure Storage and Generate Artifacts
 
-Define your lakehouses and warehouses in the storage configuration file, then automatically generate the required Fabric artifacts:
+Define your lakehouses, warehouses, and SQL databases in the storage configuration file, then automatically generate the required Fabric artifacts:
 
 ### 3.1 Review and Edit storage_config.yaml
 
-Open `dp/fabric_config/storage_config.yaml` and configure your lakehouses and warehouses:
+Open `dp/fabric_config/storage_config.yaml` and configure your lakehouses, warehouses, and SQL databases:
 
 ```yaml
 storage:
@@ -111,12 +111,16 @@ storage:
 
   - warehouses: local
     wh_gold: wh_gold
-    # wh_reporting: DO_NOT_CREATE  # Use DO_NOT_CREATE to skip resources
+    wh_reporting: DO_NOT_CREATE  # Use DO_NOT_CREATE to skip resources
+  
+  - sqldatabases: local
+    sqldb_analytics: sqldb_analytics
+    sqldb_staging: none  # Use none or DO_NOT_CREATE to skip resources
 ```
 
 !!! tip "Storage Configuration Tips"
-    - **Add or remove lakehouses** as needed for your project
-    - **Use `DO_NOT_CREATE`** for any lakehouse/warehouse you don't want to create
+    - **Add or remove lakehouses, warehouses, or SQL databases** as needed for your project
+    - **Use `DO_NOT_CREATE` or `none`** for any resource you don't want to create
     - The `local` value indicates these resources belong to the local workspace configuration
 
 ### 3.2 Generate Storage Artifacts
@@ -124,13 +128,14 @@ storage:
 Run the storage configuration command to automatically create all required files:
 
 ```bash
-# Generate lakehouse and warehouse artifacts
+# Generate lakehouse, warehouse, and SQL database artifacts
 ingen_fab init storage-config
 ```
 
 This command will:
 - ✅ Create lakehouse folders (e.g., `lh_bronze.Lakehouse`, `lh_silver.Lakehouse`, `lh_gold.Lakehouse`)
 - ✅ Create warehouse folders (e.g., `wh_gold.Warehouse`)
+- ✅ Create SQL database folders (e.g., `sqldb_analytics.SQLDatabase`) if configured
 - ✅ Generate Fabric artifact files (`.platform`, metadata files, with random GUID for logicalID that will have no impact when deployed to fabric)
 - ✅ Update `variables.json` with variable definitions
 - ✅ Update all environment valueSet files (development.json, test.json, production.json....)

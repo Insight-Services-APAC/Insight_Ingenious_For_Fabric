@@ -149,7 +149,7 @@ ingen_fab init workspace --environment production
 
 #### `init storage-config`
 
-Generate lakehouse and warehouse artifact folders from `storage_config.yaml` configuration file. This command automates the creation of Fabric-compatible artifact structures and updates variable definitions across all environments.
+Generate lakehouse, warehouse, and SQL database artifact folders from `storage_config.yaml` configuration file. This command automates the creation of Fabric-compatible artifact structures and updates variable definitions across all environments.
 
 ```bash
 ingen_fab init storage-config
@@ -161,18 +161,19 @@ ingen_fab init storage-config
 
 **What it does:**
 
-1. **Reads Configuration**: Parses `fabric_config/storage_config.yaml` to identify lakehouses and warehouses
+1. **Reads Configuration**: Parses `fabric_config/storage_config.yaml` to identify lakehouses, warehouses, and SQL databases
 2. **Creates Artifact Folders**: Generates properly structured folders for each resource:
    - Lakehouses: `fabric_workspace_items/lakehouses/{name}.Lakehouse/`
    - Warehouses: `fabric_workspace_items/warehouses/{name}.Warehouse/`
+   - SQL Databases: `fabric_workspace_items/SQLDatabases/{name}.SQLDatabase/`
 3. **Generates Artifact Files**: Creates required Fabric JSON files:
    - `.platform` - Contains metadata including type, displayName, and unique logicalId (GUID)
    - `lakehouse.metadata.json` - Lakehouse metadata (empty object `{}`)
    - `shortcuts.metadata.json` - Shortcuts configuration (empty array `[]`)
 4. **Updates Variable Definitions**: Adds variable definitions to `variables.json`:
    - `{name}_workspace_id` - GUID of workspace containing the resource
-   - `{name}_lakehouse_name` / `{name}_warehouse_name` - Name of the resource
-   - `{name}_lakehouse_id` / `{name}_warehouse_id` - GUID of the resource
+   - `{name}_lakehouse_name` / `{name}_warehouse_name` / `{name}_sqldatabase_name` - Name of the resource
+   - `{name}_lakehouse_id` / `{name}_warehouse_id` / `{name}_sqldatabase_id` - GUID of the resource
 5. **Updates All ValueSets**: Updates all environment files (development.json, test.json, production.json) with placeholder GUIDs
 
 **Storage Configuration Format Sample:**
@@ -187,11 +188,14 @@ storage:
   - warehouses: local
     wh_gold: wh_gold
     wh_reporting: DO_NOT_CREATE  # Skip this warehouse
+  
+  - sqldatabases: local
+    sqldb_analytics: sqldb_analytics
+    sqldb_staging: DO_NOT_CREATE  # Skip this SQL database
 ```
 
 **Special Values:**
 - `DO_NOT_CREATE` - Skip creating this resource
-- `none` - Skip creating this resource (alternative syntax)
 - Empty string `""` - Skip creating this resource
 
 **Generated Files Structure:**
@@ -207,6 +211,12 @@ fabric_workspace_items/lakehouses/lh_bronze.Lakehouse/
 For each warehouse (e.g., `wh_gold`):
 ```
 fabric_workspace_items/warehouses/wh_gold.Warehouse/
+└── .platform                    # Fabric metadata with unique logicalId
+```
+
+For each SQL database (e.g., `db_analytics`):
+```
+fabric_workspace_items/sqldatabases/sqldb_analytics.SQLDatabase/
 └── .platform                    # Fabric metadata with unique logicalId
 ```
 
@@ -270,6 +280,7 @@ ingen_fab init storage-config
 # After running, you'll see:
 # ✓ Created 3 lakehouse folder(s)
 # ✓ Created 1 warehouse folder(s)
+# ✓ Created 2 SQL database folder(s)
 # ✓ Updated variables.json with new variable definitions
 # ✓ Updated 3 valueSet file(s) with new variables
 ```
@@ -278,6 +289,7 @@ ingen_fab init storage-config
 ```
 Found 3 lakehouse(s): lh_bronze, lh_silver, lh_gold
 Found 1 warehouse(s): wh_gold
+Found 2 SQL database(s): sqldb_analytics, sqldb_staging
 
 📦 Processing lakehouses...
   ✓ Created lh_bronze.Lakehouse (ID: a1b2c3d4...)
@@ -287,18 +299,23 @@ Found 1 warehouse(s): wh_gold
 🏢 Processing warehouses...
   ✓ Created wh_gold.Warehouse (ID: m3n4o5p6...)
 
+🗄️  Processing SQL databases...
+  ✓ Created sqldb_analytics.SQLDatabase (ID: q7r8s9t0...)
+  ✓ Created sqldb_staging.SQLDatabase (ID: u1v2w3x4...)
+
 📝 Updating variable library definitions...
-  ✓ Added 12 variable definition(s) to variables.json
+  ✓ Added 18 variable definition(s) to variables.json
 
 📝 Updating variable library valueSets...
-  ✓ Updated development.json (added 12 variables)
-  ✓ Updated test.json (added 12 variables)
-  ✓ Updated production.json (added 12 variables)
+  ✓ Updated development.json (added 18 variables)
+  ✓ Updated test.json (added 18 variables)
+  ✓ Updated production.json (added 18 variables)
 
 ============================================================
-✓ Successfully created 4 artifact folder(s)
+✓ Successfully created 6 artifact folder(s)
   • 3 lakehouse(s)
   • 1 warehouse(s)
+  • 2 SQL database(s)
 ✓ Updated variables.json with new variable definitions
 ✓ Updated 3 valueSet file(s) with new variables
 

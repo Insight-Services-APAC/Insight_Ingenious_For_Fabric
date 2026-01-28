@@ -824,6 +824,7 @@ def init_storage_config():
         )
         lakehouse_template_dir = templates_base / "template.Lakehouse"
         warehouse_template_dir = templates_base / "template.Warehouse"
+        sqldatabase_template_dir = templates_base / "template.SQLDatabase"
     except FileNotFoundError as e:
         ConsoleStyles.print_error(
             console,
@@ -841,6 +842,7 @@ def init_storage_config():
     # Extract lakehouse and warehouse names from the storage configuration
     lakehouse_names: list[str] = []
     warehouse_names: list[str] = []
+    sqldatabase_names: list[str] = []
     
     # Values to skip
     skip_values = {"none", "DO_NOT_CREATE", ""}
@@ -858,11 +860,17 @@ def init_storage_config():
                 for key, value in storage_item.items():
                     if key != "warehouses" and value and value not in skip_values:
                         warehouse_names.append(value)
+            
+            # Process SQL databases
+            if "sqldatabases" in storage_item:
+                for key, value in storage_item.items():
+                    if key != "sqldatabases" and value and value not in skip_values:
+                        sqldatabase_names.append(value)
     
-    if not lakehouse_names and not warehouse_names:
+    if not lakehouse_names and not warehouse_names and not sqldatabase_names:
         ConsoleStyles.print_warning(
             console,
-            "⚠️  No lakehouses or warehouses found in storage_config.yaml",
+            "⚠️  No lakehouses, warehouses, or SQL databases found in storage_config.yaml",
         )
         raise typer.Exit(code=0)
     
@@ -876,6 +884,12 @@ def init_storage_config():
         ConsoleStyles.print_info(
             console,
             f"Found {len(warehouse_names)} warehouse(s): {', '.join(warehouse_names)}",
+        )
+    
+    if sqldatabase_names:
+        ConsoleStyles.print_info(
+            console,
+            f"Found {len(sqldatabase_names)} SQL database(s): {', '.join(sqldatabase_names)}",
         )
     
     # Process lakehouses
@@ -934,6 +948,39 @@ def init_storage_config():
                 else:
                     warehouse_skipped += 1
     
+    # Process SQL databases
+    sqldatabase_created = 0
+    sqldatabase_skipped = 0
+    
+    if sqldatabase_names:
+        if not sqldatabase_template_dir.exists():
+            ConsoleStyles.print_warning(
+                console,
+                f"⚠️  SQL Database template not found: {sqldatabase_template_dir}",
+            )
+            ConsoleStyles.print_info(
+                console,
+                "   Skipping SQL database creation.",
+            )
+        else:
+            ConsoleStyles.print_info(console, "\n🗄️  Processing SQL databases...")
+            sqldatabases_dir = workspace_path / "fabric_workspace_items" / "SQLDatabases"
+            sqldatabases_dir.mkdir(parents=True, exist_ok=True)
+            
+            for sqldatabase_name in sqldatabase_names:
+                result = _create_artifact_from_template(
+                    console=console,
+                    artifact_name=sqldatabase_name,
+                    artifact_type="SQLDatabase",
+                    template_dir=sqldatabase_template_dir,
+                    output_dir=sqldatabases_dir,
+                    name_placeholder="REPLACE_WITH_SQLDATABASE_NAME",
+                )
+                if result:
+                    sqldatabase_created += 1
+                else:
+                    sqldatabase_skipped += 1
+    
     # Update variables.json with lakehouse and warehouse variable definitions
     ConsoleStyles.print_info(console, "\n📝 Updating variable library definitions...")
     updated_variables = _update_variables_json(
@@ -941,6 +988,7 @@ def init_storage_config():
         workspace_path=workspace_path,
         lakehouse_names=lakehouse_names,
         warehouse_names=warehouse_names,
+        sqldatabase_names=sqldatabase_names,
     )
     
     # Update valueSet JSON files with lakehouse and warehouse variables
@@ -950,13 +998,14 @@ def init_storage_config():
         workspace_path=workspace_path,
         lakehouse_names=lakehouse_names,
         warehouse_names=warehouse_names,
+        sqldatabase_names=sqldatabase_names,
     )
     
     # Print summary
     ConsoleStyles.print_info(console, "\n" + "="*60)
     
-    total_created = lakehouse_created + warehouse_created
-    total_skipped = lakehouse_skipped + warehouse_skipped
+    total_created = lakehouse_created + warehouse_created + sqldatabase_created
+    total_skipped = lakehouse_skipped + warehouse_skipped + sqldatabase_skipped
     
     if total_created > 0:
         ConsoleStyles.print_success(
@@ -972,6 +1021,11 @@ def init_storage_config():
             ConsoleStyles.print_info(
                 console,
                 f"  • {warehouse_created} warehouse(s)",
+            )
+        if sqldatabase_created > 0:
+            ConsoleStyles.print_info(
+                console,
+                f"  • {sqldatabase_created} SQL database(s)",
             )
     
     if total_skipped > 0:
@@ -1077,14 +1131,16 @@ def _update_variables_json(
     workspace_path: Path,
     lakehouse_names: list[str],
     warehouse_names: list[str],
+    sqldatabase_names: list[str],
 ) -> bool:
-    """Update the variables.json file with lakehouse and warehouse variable definitions.
+    """Update the variables.json file with lakehouse, warehouse, and SQL database variable definitions.
     
     Args:
         console: Rich console for output
         workspace_path: Path to the workspace directory
         lakehouse_names: List of lakehouse names to add
         warehouse_names: List of warehouse names to add
+        sqldatabase_names: List of SQL database names to add
         
     Returns:
         True if updated, False otherwise
@@ -1182,6 +1238,35 @@ def _update_variables_json(
                     added_vars.append(var["name"])
                     existing_vars.add(var["name"])
         
+        # Add SQL database variable definitions
+        for sqldatabase_name in sqldatabase_names:
+            vars_to_add = [
+                {
+                    "name": f"{sqldatabase_name}_workspace_id",
+                    "note": f"GUID of the workspace containing {sqldatabase_name} SQL database.",
+                    "type": "String",
+                    "value": "",
+                },
+                {
+                    "name": f"{sqldatabase_name}_sqldatabase_name",
+                    "note": f"Name of the {sqldatabase_name} SQL database.",
+                    "type": "String",
+                    "value": "",
+                },
+                {
+                    "name": f"{sqldatabase_name}_sqldatabase_id",
+                    "note": f"GUID of the {sqldatabase_name} SQL database.",
+                    "type": "String",
+                    "value": "",
+                },
+            ]
+            
+            for var in vars_to_add:
+                if var["name"] not in existing_vars:
+                    variables.append(var)
+                    added_vars.append(var["name"])
+                    existing_vars.add(var["name"])
+        
         # Only write if we added variables
         if added_vars:
             with open(variables_file, "w", encoding="utf-8") as f:
@@ -1218,14 +1303,16 @@ def _update_valueset_files(
     workspace_path: Path,
     lakehouse_names: list[str],
     warehouse_names: list[str],
+    sqldatabase_names: list[str],
 ) -> int:
-    """Update all valueSet JSON files with lakehouse and warehouse variables.
+    """Update all valueSet JSON files with lakehouse, warehouse, and SQL database variables.
     
     Args:
         console: Rich console for output
         workspace_path: Path to the workspace directory
         lakehouse_names: List of lakehouse names to add
         warehouse_names: List of warehouse names to add
+        sqldatabase_names: List of SQL database names to add
         
     Returns:
         Number of valueSet files updated
@@ -1315,6 +1402,29 @@ def _update_valueset_files(
                     {
                         "name": f"{warehouse_name}_warehouse_id",
                         "value": f"REPLACE_WITH_{warehouse_name.upper()}_WAREHOUSE_GUID",
+                    },
+                ]
+                
+                for var in vars_to_add:
+                    if var["name"] not in existing_vars:
+                        variable_overrides.append(var)
+                        added_vars.append(var["name"])
+                        existing_vars.add(var["name"])
+            
+            # Add SQL database variables
+            for sqldatabase_name in sqldatabase_names:
+                vars_to_add = [
+                    {
+                        "name": f"{sqldatabase_name}_workspace_id",
+                        "value": f"REPLACE_WITH_{sqldatabase_name.upper()}_WORKSPACE_GUID",
+                    },
+                    {
+                        "name": f"{sqldatabase_name}_sqldatabase_name",
+                        "value": sqldatabase_name,
+                    },
+                    {
+                        "name": f"{sqldatabase_name}_sqldatabase_id",
+                        "value": f"REPLACE_WITH_{sqldatabase_name.upper()}_SQLDATABASE_GUID",
                     },
                 ]
                 
