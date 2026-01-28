@@ -10,6 +10,7 @@ Quick, task-oriented commands with links to deeper docs.
 |----------|-------------|-----------|-----------|
 | Initialize a new project | `ingen_fab init new --project-name "dp"` | Creates workspace repo layout and starter templates. Add `--with-samples` for sample project template | [Quick Start](quick_start.md), [Workspace Layout](workspace_layout.md) |
 | Configure workspace by name | `ingen_fab init workspace --workspace-name "dp_dev"` | Optionally create if missing with `-c` | [CLI Reference → init](cli_reference.md#init) |
+| Generate storage artifacts | `ingen_fab init storage-config` | Generates lakehouse, warehouse, and SQL database artifacts from storage_config.yaml. Creates folders, updates variables | [Quick Start](quick_start.md), [CLI Reference → init storage-config](cli_reference.md#init-storage-config) |
 | Extract lakehouse/warehouse metadata | `ingen_fab deploy get-metadata --target both -f csv -o ./artifacts/meta.csv` | Flexible filters via `--schema`, `--table` | [Deploy Guide](deploy_guide.md), [CLI Reference → deploy](cli_reference.md#deploy) |
 | Convert metadata for dbt project | `ingen_fab dbt convert-metadata --dbt-project dbt_project` | Converts metadata into dbt wrapper format. Add `--metadata-file` for custom CSV path | [DBT Integration](dbt_integration.md) |
 | Generate dbt notebooks | `ingen_fab dbt create-notebooks -p my_dbt_project` | Automatically configures dbt profile, prompts for lakehouse selection | [DBT Integration](dbt_integration.md) |
