@@ -10,7 +10,7 @@ This guide explains how to use Azure DevOps pipelines to automate deployment of 
 
 ## Sample Pipeline Scripts
 
-Three sample YAML files are included under `ingen_fab/project_templates/deployment/`:
+Three sample YAML files are included under `ingen_fab/project_templates/deployment/devops/`:
 
 | Script | Purpose | Use Case |
 |--------|---------|----------|
