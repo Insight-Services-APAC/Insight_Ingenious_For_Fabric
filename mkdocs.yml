@@ -98,6 +98,7 @@ nav:
     - Workspace Layout: user_guide/workspace_layout.md
     - Deploy Guide: user_guide/deploy_guide.md
     - Deploy Guide (CI/CD): guides/cicd-deployment.md
+    - Deploy Guide (GitHub Actions Setup): guides/github_configuration.md
     - CLI Reference: user_guide/cli_reference.md
     - Workflows: user_guide/workflows.md
     - Variable Replacement: user_guide/variable-replacement.md
