@@ -49,6 +49,7 @@ stages:
               FABRIC_WORKSPACE_REPO_DIR: dp
               WORKSPACE_MANIFEST_LOCATION: config_lakehouse
               IS_SINGLE_WORKSPACE: $(IS_SINGLE_WORKSPACE)
+              # AUTO_UPDATE_ITEM_IDS: true  # Optional: Auto-update Item ID variables after deployment
           - task: AzureCLI@2
             displayName: 'Update Workspace variables'
             inputs:
@@ -132,6 +133,7 @@ stages:
               FABRIC_WORKSPACE_REPO_DIR: dp
               WORKSPACE_MANIFEST_LOCATION: config_lakehouse
               IS_SINGLE_WORKSPACE: $(IS_SINGLE_WORKSPACE)
+              # AUTO_UPDATE_ITEM_IDS: true  # Optional: Auto-update Item ID variables after deployment
           - task: AzureCLI@2
             displayName: 'Update Workspace variables'
             inputs:

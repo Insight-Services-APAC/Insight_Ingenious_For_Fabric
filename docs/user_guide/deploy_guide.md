@@ -41,6 +41,37 @@ Tips:
 - Use semantic, ordered DDL under `ddl_scripts` and generate notebooks with `ingen_fab ddl compile ...` before deploying.
 - Validate your variable library value set for the target environment.
 
+### Auto-update Item IDs
+
+Enable automatic Item ID tracking after deployment by setting the `AUTO_UPDATE_ITEM_IDS` environment variable:
+
+```bash
+# Enable auto-update
+export AUTO_UPDATE_ITEM_IDS=true
+ingen_fab deploy deploy
+
+# Or inline
+AUTO_UPDATE_ITEM_IDS=true ingen_fab deploy deploy
+```
+
+**How it works:**
+- After successful deployment, queries the workspace for Item IDs of deployed artifacts
+- Updates variables following convention: `{artifact_name}_{artifact_type}_id`
+  - Example: `config` lakehouse → `config_lakehouse_id`
+  - Example: `wh_gold` warehouse → `wh_gold_warehouse_id`
+  - Example: `my_model` semantic model → `my_model_semanticmodel_id`
+- Supports: Lakehouse, Warehouse, Notebook, SemanticModel, SQLDatabase, Eventhouse
+- Only updates variables that already exist in your valueSet
+- Skips artifacts without corresponding variables
+
+**When to use:**
+- ✅ CI/CD pipelines (automation)
+- ✅ Initial deployments (bootstrap scenarios)
+- ✅ Single workspace deployments
+- ❌ Multi-workspace deployments (use `ingen_fab init workspace` instead)
+
+**Note:** This feature complements but doesn't replace `ingen_fab init workspace`, which discovers all artifacts (not just newly deployed ones) and provides interactive configuration.
+
 ## Upload Python libraries to OneLake
 
 Upload `python_libs` to the config lakehouse with variable injection during upload.

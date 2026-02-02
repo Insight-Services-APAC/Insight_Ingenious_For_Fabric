@@ -106,8 +106,23 @@ Each deployment task uses environment variables to control behavior:
 | `WORKSPACE_MANIFEST_LOCATION` | Where manifest file is stored | `local`, `config_lakehouse` |
 | `IS_SINGLE_WORKSPACE` | Enable unattended workspace init | `Y`, `N` |
 | `ITEM_TYPES_TO_DEPLOY` | Filter artifact types (initial only) | `VariableLibrary,Lakehouse` |
+| `AUTO_UPDATE_ITEM_IDS` | Auto-update Item ID variables after deploy | `true`, `false` (default) |
 
 These are typically configured via Azure DevOps Variable Groups.
+
+### AUTO_UPDATE_ITEM_IDS
+
+When set to `true`, automatically updates Item ID variables in the variable library after successful deployment:
+
+- Queries workspace for Item IDs of deployed artifacts
+- Updates variables using convention: `{artifact_name}_{type}_id`
+- Only updates existing variables (no new variables created)
+- Useful for single workspace deployments and CI/CD automation
+- Complements `ingen_fab init workspace` which discovers all artifacts
+
+**Recommended usage:**
+- Enable for full deployments (`dp_full.yml`)
+- Disable or omit for initial deployments (`dp_initial.yml`) where artifacts don't exist yet
 
 ## Prerequisites
 
