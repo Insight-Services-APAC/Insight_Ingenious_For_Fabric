@@ -451,9 +451,34 @@ class FileFormatParams:
 
     @classmethod
     def from_dict(cls, params: Dict[str, Any]) -> "FileFormatParams":
-        """Parse from Delta table dict"""
+        """
+        Parse from Delta table dict.
+        
+        MapType(StringType(), StringType()) in the schema forces all values to strings.
+        This method coerces known boolean format options back to actual booleans so
+        downstream Python truthiness checks work correctly (e.g., in FileLoader).
+        """
         file_format = params.get("file_format", "csv")
         format_options = {k: v for k, v in params.items() if k != "file_format"}
+        
+        # Boolean format options that need coercion from string back to bool
+        BOOLEAN_FORMAT_OPTIONS = {
+            "has_header",
+            "multiline_values",
+            "infer_schema",
+            "enforce_schema",
+            "ignore_leading_white_space",
+            "ignore_trailing_white_space",
+            "primitives_as_string",
+            "allow_comments",
+            "allow_single_quotes",
+            "drop_field_if_all_null",
+        }
+        
+        for key in BOOLEAN_FORMAT_OPTIONS:
+            if key in format_options and isinstance(format_options[key], str):
+                format_options[key] = format_options[key].lower() == "true"
+        
         return cls(file_format=file_format, format_options=format_options)
 
 
