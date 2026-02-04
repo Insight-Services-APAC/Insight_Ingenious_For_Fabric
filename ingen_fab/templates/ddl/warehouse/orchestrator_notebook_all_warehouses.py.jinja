@@ -5,10 +5,14 @@
 {%- include "shared/notebook/headers/python.py.jinja" %}
 {% endif %}
 
+{{macros.python_cell_with_heading("## � Install Required Packages")}}
+
+# Install pyodbc for warehouse connections (required by all child notebooks)
+%pip install pyodbc
+
 {% include "shared/notebook/environment/library_loader.py.jinja" %}
 
-
-{{macros.python_cell_with_heading("## 🗂️ Now Load the Custom Python Libraries")}}
+{{macros.python_cell_with_heading("## �🗂️ Now Load the Custom Python Libraries")}}
 
 if run_mode == "local":
     from ingen_fab.python_libs.common.config_utils import *
@@ -31,6 +35,7 @@ else:
     ]
 
     load_python_modules_from_path(mount_path, files_to_load)
+
 {{ macros.python_cell_with_heading("## 🆕 Instantiate Required Classes ")}}
 
 

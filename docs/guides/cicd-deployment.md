@@ -162,8 +162,23 @@ Each deployment task uses environment variables to control behavior:
 | `ITEM_TYPES_TO_DEPLOY` | Filter artifact types for deployment | `VariableLibrary,Lakehouse` (initial) or empty (full) | `dp_initial.yml`, `dp_combined.yml` |
 | `IS_INITIAL` | Switch between initial and full deployment modes | `'true'` (initial), `'false'` (full) | `dp_combined.yml` only |
 | `RUN_DDL_SCRIPTS` | Control DDL orchestration execution | `'true'` (run), `'false'` (skip) | `dp_combined.yml` only |
+| `AUTO_UPDATE_ITEM_IDS` | Auto-update Item ID variables after deploy | `true`, `false` (default) |
 
 These are typically configured via Azure DevOps Variable Groups.
+
+### AUTO_UPDATE_ITEM_IDS
+
+When set to `true`, automatically updates Item ID variables in the variable library after successful deployment:
+
+- Queries workspace for Item IDs of deployed artifacts
+- Updates variables using convention: `{artifact_name}_{type}_id`
+- Only updates existing variables (no new variables created)
+- Useful for single workspace deployments and CI/CD automation
+- Complements `ingen_fab init workspace` which discovers all artifacts
+
+**Recommended usage:**
+- Enable for full deployments (`dp_full.yml`)
+- Disable or omit for initial deployments (`dp_initial.yml`) where artifacts don't exist yet
 
 ## Prerequisites
 

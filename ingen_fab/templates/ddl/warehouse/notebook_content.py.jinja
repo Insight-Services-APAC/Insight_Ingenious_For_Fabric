@@ -69,11 +69,9 @@ else:
     from ingen_fab.python_libs.python.pipeline_utils import PipelineUtils
     notebookutils = NotebookUtilsFactory.create_instance()
 
-{{macros.python_cell_with_heading("## 📦 Install Required Packages and Import Libraries")}}
+{{macros.python_cell_with_heading("## 📦 Import Required Libraries")}}
 
-# Install pyodbc for warehouse connections
-%pip install pyodbc
-
+# NOTE: pyodbc must be installed in the parent orchestrator notebook before running this notebook
 # Required packages for Python structures and utilities
 import struct
 from itertools import chain, repeat
@@ -620,4 +618,7 @@ except:
 
 {{macros.python_cell_with_heading("## ✔️ If we make it to the end return a successful result")}}
 
+
 mssparkutils.notebook.exit("success")
+
+{%include "shared/notebook/cells/footer.py.jinja" %}
