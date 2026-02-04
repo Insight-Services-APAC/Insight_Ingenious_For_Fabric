@@ -16,6 +16,7 @@ fabric_cicd.error.log
 /.pre-commit-cache
 /fabric_cicd.error.log
 /.venv_win
+/site
 /site/**/*/
 /tmp/**/*/
 /node_modules/**/*/
