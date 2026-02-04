@@ -440,8 +440,11 @@ class FileLoader:
         """
         Resolve schema for reading files into staging.
 
-        Always infers schema from the file. Target schema handling (try_cast)
-        is done in load_stg_table_to_target() when target_schema_columns is provided.
+        Priority order:
+        1. Explicit schema from target_schema_columns (if provided with infer_schema=False)
+        2. Auto-discovered schema with all strings (if infer_schema=False without target_schema_columns)
+        3. Inferred schema from file with typed columns (default)
+        4. None (let Spark handle - for Parquet/Avro/ORC)
 
         Args:
             file_format: File format (csv, json, parquet, etc.)
@@ -450,6 +453,41 @@ class FileLoader:
         Returns:
             StructType schema or None (for formats that auto-infer)
         """
+        # Check if user disabled inference
+        infer_schema_flag = self.config.extract_file_format_params.format_options.get("infer_schema", True)
+        
+        # If inference disabled, use all-string schema
+        if not infer_schema_flag:
+            if self.config.target_schema_columns:
+                # Explicit schema provided - use it (converted to all strings)
+                self.logger.info(f"Using explicit schema from target_schema_columns as strings (infer_schema=False)")
+                schema = self.config.target_schema_columns.to_raw_schema()
+            else:
+                # No explicit schema - discover column names but force all to strings
+                self.logger.info(f"Auto-discovering column names with all StringType (infer_schema=False)")
+                inferred = self._infer_schema_from_file(file_format, file_paths)
+                
+                if inferred:
+                    # Convert all inferred types to StringType
+                    schema = StructType([
+                        StructField(field.name, StringType(), True)
+                        for field in inferred.fields
+                        if field.name != self.metadata_cols.stg_corrupt_record  # Skip corrupt record if present
+                    ])
+                else:
+                    # Format doesn't support schema inference (e.g., Parquet)
+                    raise ValueError(
+                        f"Resource '{self.config.resource_name}': infer_schema=False requires target_schema_columns "
+                        f"for {file_format} format. Provide explicit schema or enable schema inference."
+                    )
+            
+            # Add corrupt record column for text formats
+            if file_format in ["csv", "json", "xml"]:
+                schema = schema.add(StructField(self.metadata_cols.stg_corrupt_record, StringType(), True))
+            
+            return schema
+        
+        # Default: infer from file with typed columns
         return self._infer_schema_from_file(file_format, file_paths)
 
     def _infer_schema_from_file(self, file_format: str, file_paths: list) -> Optional[StructType]:
