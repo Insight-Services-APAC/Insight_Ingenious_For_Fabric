@@ -24,6 +24,7 @@ from ingen_fab.cli_utils.console_styles import ConsoleStyles
 from ingen_fab.config_utils.variable_lib import VariableLibraryUtils
 
 from ingen_fab.az_cli.onelake_utils import OneLakeUtils
+from ingen_fab.fabric_api.utils import FabricApiUtils
 
 import os
 
@@ -440,6 +441,115 @@ class SyncToFabricEnvironment:
             )
         self.console.print()
 
+    def _update_variables_with_item_ids_after_deployment(
+        self,
+        status_entries: list[PublishLogEntry],
+        workspace_id: str,
+        environment: str,
+    ) -> None:
+        """
+        Update variable library with Item IDs from successfully deployed artifacts.
+        Only updates variables that already exist in the valueSet.
+        Uses convention: {artifact_name}_{artifact_type_lower}_id
+        """
+        # Step 1: Load valueSet
+        valueset_path = (
+            self.project_path
+            / "fabric_workspace_items"
+            / "config"
+            / "var_lib.VariableLibrary"
+            / "valueSets"
+            / f"{environment}.json"
+        )
+
+        if not valueset_path.exists():
+            ConsoleStyles.print_warning(
+                self.console, f"⚠️  ValueSet file not found: {valueset_path}"
+            )
+            return
+
+        try:
+            with open(valueset_path, "r", encoding="utf-8") as f:
+                valueset_data = json.load(f)
+
+            # Build lookup of existing variables for fast checking
+            existing_vars = {
+                var["name"]: var for var in valueset_data.get("variableOverrides", [])
+            }
+
+            # Step 2: Query workspace once for all artifacts
+            fabric_api = FabricApiUtils(
+                environment=environment,
+                project_path=self.project_path,
+                workspace_id=workspace_id,
+            )
+
+            # Get all workspace items once (more efficient than multiple type-specific calls)
+            all_items = fabric_api.list_workspace_items(workspace_id)
+
+            # Build artifact lookups by type and name
+            artifact_lookups = {}
+            for item_type in ["Lakehouse", "Warehouse", "Notebook", "SemanticModel", "SQLDatabase", "Eventhouse"]:
+                artifact_lookups[item_type] = {
+                    item["displayName"]: item["id"]
+                    for item in all_items
+                    if item.get("type") == item_type
+                }
+
+            # Step 3: Process successfully deployed artifacts
+            updated_vars = []
+
+            for entry in status_entries:
+                if not entry.success:
+                    continue
+
+                # Extract artifact name (remove .Extension if present)
+                artifact_name = entry.name.split(".")[0]
+                artifact_type = entry.item_type
+
+                # Convention: {name}_{type_lower}_id
+                var_name = f"{artifact_name}_{artifact_type.lower()}_id"
+
+                # Only proceed if variable exists in valueSet
+                if var_name not in existing_vars:
+                    continue
+
+                # Look up Item ID from workspace
+                lookup = artifact_lookups.get(artifact_type, {})
+                item_id = lookup.get(artifact_name)
+
+                if item_id:
+                    old_value = existing_vars[var_name]["value"]
+                    existing_vars[var_name]["value"] = item_id
+                    updated_vars.append((var_name, old_value, item_id))
+
+            # Step 4: Save if any updates made
+            if updated_vars:
+                with open(valueset_path, "w", encoding="utf-8") as f:
+                    json.dump(valueset_data, f, indent=2, ensure_ascii=False)
+
+                ConsoleStyles.print_success(
+                    self.console, f"\n✓ Updated {len(updated_vars)} Item ID variables"
+                )
+                for var_name, old_val, new_val in updated_vars:
+                    if old_val != new_val:
+                        ConsoleStyles.print_info(
+                            self.console,
+                            f"  {var_name}: {old_val or '(empty)'} → {new_val}",
+                        )
+            else:
+                ConsoleStyles.print_dim(
+                    self.console, "  No Item ID variables to update (none exist in valueSet)"
+                )
+
+        except Exception as e:
+            ConsoleStyles.print_warning(
+                self.console, f"⚠️  Failed to auto-update Item IDs: {str(e)}"
+            )
+            ConsoleStyles.print_info(
+                self.console, "💡 Run 'ingen_fab init workspace' to update manually"
+            )
+
     def sync_environment(self):
         """Synchronize environment variables and platform folders. Upload to Fabric."""
         # 1) Inject variables into template
@@ -632,6 +742,34 @@ class SyncToFabricEnvironment:
                 self.console, "No data pipeline files needed variable substitution"
             )
 
+        # Process all definition.pbir files in the output directory
+        pbir_updated_count = 0
+        for pbir_file in output_dir.rglob("definition.pbir"):
+            with open(pbir_file, "r", encoding="utf-8") as f:
+                content = f.read()
+
+            # Perform variable substitution (replace placeholders) and code injection
+            updated_content = output_vlu.perform_code_replacements(
+                content,
+                replace_placeholders=True,  # Replace {{varlib:...}} placeholders during deployment
+                inject_code=True,  # Also inject code between markers
+            )
+
+            if updated_content != content:
+                with open(pbir_file, "w", encoding="utf-8") as f:
+                    f.write(updated_content)
+                pbir_updated_count += 1
+
+        if pbir_updated_count > 0:
+            ConsoleStyles.print_success(
+                self.console,
+                f"Updated {pbir_updated_count} Power BI report files with variable substitution",
+            )
+        else:
+            ConsoleStyles.print_info(
+                self.console, "No Power BI report files needed variable substitution"
+            )
+
         # 2) Download manifest from remote if configured (PULL remote state)
         manifest_path = Path(
             f"{self.project_path}/platform_manifest_{self.environment}.yml"
@@ -732,6 +870,34 @@ class SyncToFabricEnvironment:
                 except Exception as e:
                     ConsoleStyles.print_error(
                         self.console, f"\nPublishing failed with error: {e}"
+                    )
+
+                # Auto-update Item IDs if enabled
+                auto_update_enabled = (
+                    os.getenv("AUTO_UPDATE_ITEM_IDS", "").lower()
+                    in ["true", "1", "yes", "y"]
+                )
+
+                if auto_update_enabled:
+                    if status_entries:
+                        ConsoleStyles.print_info(
+                            self.console,
+                            "\n[cyan]Auto-updating Item IDs[/cyan] (AUTO_UPDATE_ITEM_IDS=true)",
+                        )
+                        self._update_variables_with_item_ids_after_deployment(
+                            status_entries=status_entries,
+                            workspace_id=self.target_workspace_id,
+                            environment=self.environment,
+                        )
+                    else:
+                        ConsoleStyles.print_info(
+                            self.console,
+                            "\n💡 AUTO_UPDATE_ITEM_IDS enabled but no items were deployed",
+                        )
+                else:
+                    ConsoleStyles.print_dim(
+                        self.console,
+                        "\n💡 Tip: Set AUTO_UPDATE_ITEM_IDS=true to automatically update Item ID variables",
                     )
 
                 results = self._update_manifest_with_results(
