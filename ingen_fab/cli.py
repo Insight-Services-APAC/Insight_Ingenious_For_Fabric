@@ -375,10 +375,25 @@ def init_workspace(
 
 
 @deploy_app.command("deploy")
-def deploy(ctx: typer.Context):
+def deploy(
+    ctx: typer.Context,
+    sync: Annotated[bool, typer.Option("--sync", help="Remove orphaned items after deployment")] = False,
+):
     "Deploy Fabric artefacts to the target environment."
     deploy_commands.deploy_to_environment(ctx)
+    
+    if sync:
+        deploy_commands.cleanup_orphaned_items(ctx, dry_run=False, force=True)
 
+
+@deploy_app.command("cleanup")
+def cleanup(
+    ctx: typer.Context,
+    dry_run: Annotated[bool, typer.Option("--dry-run", help="Show what would be deleted without deleting")] = False,
+    force: Annotated[bool, typer.Option("--force", "-f", help="Skip confirmation prompt")] = False,
+):
+    """Remove workspace items that are not in fabric_workspace_items."""
+    deploy_commands.cleanup_orphaned_items(ctx, dry_run=dry_run, force=force)
 
 @deploy_app.command("delete-all")
 def delete_all(
