@@ -86,10 +86,6 @@ Note: You can modify lakehouse and warehouse names as needed. To do that, variab
     {
       "name": "config_lakehouse_id",
       "value": "your-config-lakehouse-guid"  // ← Replace this once created
-    },
-    {
-      "name": "sample_lakehouse_id",
-      "value": "your-sample-lakehouse-guid"  // ← Replace this once created
     }
   ]
 }
@@ -98,7 +94,95 @@ Note: You can modify lakehouse and warehouse names as needed. To do that, variab
 !!! tip "Finding Your Workspace IDs"
     You can find workspace and lakehouse IDs in the Microsoft Fabric portal URL when you navigate to your workspace or lakehouse.
 
-## Step 3: Explore the Sample DDL Scripts
+## Step 3: Configure Storage and Generate Artifacts
+
+Define your lakehouses, warehouses, and SQL databases in the storage configuration file, then automatically generate the required Fabric artifacts:
+
+### 3.1 Review and Edit storage_config.yaml
+
+Open `dp/fabric_config/storage_config.yaml` and configure your lakehouses, warehouses, and SQL databases:
+
+```yaml
+storage:
+  - lakehouse: local
+    lh_bronze: lh_bronze
+    lh_silver: lh_silver
+    lh_gold: lh_gold
+
+  - warehouses: local
+    wh_gold: wh_gold
+    wh_reporting: DO_NOT_CREATE  # Use DO_NOT_CREATE to skip resources
+  
+  - sqldatabases: local
+    sqldb_analytics: sqldb_analytics
+    sqldb_staging: none  # Use none or DO_NOT_CREATE to skip resources
+```
+
+!!! tip "Storage Configuration Tips"
+    - **Add or remove lakehouses, warehouses, or SQL databases** as needed for your project
+    - **Use `DO_NOT_CREATE` or `none`** for any resource you don't want to create
+    - The `local` value indicates these resources belong to the local workspace configuration
+
+### 3.2 Generate Storage Artifacts
+
+Run the storage configuration command to automatically create all required files:
+
+```bash
+# Generate lakehouse, warehouse, and SQL database artifacts
+ingen_fab init storage-config
+```
+
+This command will:
+- ✅ Create lakehouse folders (e.g., `lh_bronze.Lakehouse`, `lh_silver.Lakehouse`, `lh_gold.Lakehouse`)
+- ✅ Create warehouse folders (e.g., `wh_gold.Warehouse`)
+- ✅ Create SQL database folders (e.g., `sqldb_analytics.SQLDatabase`) if configured
+- ✅ Generate Fabric artifact files (`.platform`, metadata files, with random GUID for logicalID that will have no impact when deployed to fabric)
+- ✅ Update `variables.json` with variable definitions
+- ✅ Update all environment valueSet files (development.json, test.json, production.json....)
+
+**Expected Output:**
+```
+Found 3 lakehouse(s): lh_bronze, lh_silver, lh_gold
+Found 1 warehouse(s): wh_gold
+
+📦 Processing lakehouses...
+  ✓ Created lh_bronze.Lakehouse (ID: a1b2c3d4...)
+  ✓ Created lh_silver.Lakehouse (ID: e5f6g7h8...)
+  ✓ Created lh_gold.Lakehouse (ID: i9j0k1l2...)
+
+🏢 Processing warehouses...
+  ✓ Created wh_gold.Warehouse (ID: m3n4o5p6...)
+
+📝 Updating variable library definitions...
+  ✓ Added 12 variable definition(s) to variables.json
+
+📝 Updating variable library valueSets...
+  ✓ Updated development.json (added 12 variables)
+  ✓ Updated test.json (added 12 variables)
+  ✓ Updated production.json (added 12 variables)
+
+============================================================
+✓ Successfully created 4 artifact folder(s)
+  • 3 lakehouse(s)
+  • 1 warehouse(s)
+✓ Updated variables.json with new variable definitions
+✓ Updated 3 valueSet file(s) with new variables
+```
+
+!!! note "What Gets Created"
+    For each lakehouse, the command creates:
+    - Artifact folder: `fabric_workspace_items/lakehouses/{name}.Lakehouse/`
+    - Variables: `{name}_workspace_id`, `{name}_lakehouse_name`, `{name}_lakehouse_id`
+    
+    For each warehouse, the command creates:
+    - Artifact folder: `fabric_workspace_items/warehouses/{name}.Warehouse/`
+    - Variables: `{name}_workspace_id`, `{name}_warehouse_name`, `{name}_warehouse_id`
+
+### 3.3 Deployment Note
+
+When you run the deployment command later (Step 6), these lakehouses and warehouses will be automatically deployed to your Fabric workspace afterwitch you can run the "ingen_fab init workspace --workspace-name 'dp" command to update the variable valueSet.json files.
+
+## Step 4: Explore the Sample DDL Scripts
 
 The sample project template includes sample DDL scripts to get you started. Take a look at what's included:
 
@@ -124,7 +208,7 @@ The sample scripts create a customer table and insert sample data. You can:
     - Lakehouse scripts use Python with Spark SQL
     - Warehouse scripts use T-SQL syntax
 
-## Step 4: Generate DDL Notebooks
+## Step 5: Generate DDL Notebooks
 
 Transform your DDL scripts into executable notebooks:
 
@@ -143,7 +227,7 @@ This creates orchestrator notebooks in `fabric_workspace_items/ddl_scripts/` tha
 - Track execution state to prevent duplicate runs
 - Provide comprehensive logging and error handling
 
-## Step 5: Deploy to Fabric
+## Step 6: Deploy to Fabric
 
 Deploy your project to your Fabric workspace:
 
@@ -162,7 +246,10 @@ ingen_fab deploy upload-python-libs
 !!! note "Authentication Required"
     Make sure you've set up your Azure credentials before deploying. You can use Azure CLI (`az login`) or environment variables.
 
-## Step 6: Run Your DDL Scripts
+!!! success "Lakehouse & Warehouse Deployment"
+    When you run `ingen_fab deploy deploy`, the lakehouses and warehouses you configured in Step 3 will be automatically created in your Fabric workspace!
+
+## Step 7: Run Your DDL Scripts
 
 1. **Navigate to your Fabric workspace** in the Microsoft Fabric portal
 2. **Find the generated notebooks** in the `ddl_scripts` folder

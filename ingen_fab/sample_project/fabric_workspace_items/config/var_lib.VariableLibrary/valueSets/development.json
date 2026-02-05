@@ -12,7 +12,7 @@
     },
     {
       "name": "config_workspace_name",
-      "value": "dp_dev"
+      "value": "REPLACE_WITH_CONFIG_WORKSPACE_NAME"
     },
 
     {
@@ -76,6 +76,6 @@
     {
       "name": "wh_gold_warehouse_id",
       "value": "REPLACE_WITH_LH_GOLD_LAKEHOUSE_GUID"
-    }  
+    }
   ]
 }
