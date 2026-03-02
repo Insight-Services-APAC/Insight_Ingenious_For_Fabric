@@ -117,6 +117,37 @@ ingen_fab deploy deploy
 ```
 Creates or updates Fabric items (lakehouses, warehouses, notebooks, etc.) based on the project repository structure and environment configuration.
 
+##### Optional: Deploy Workspace Security (Security as Code)
+
+`ingen_fab deploy deploy` also reads an optional file at `fabric_config/security_config.yaml` and applies workspace access role assignments.
+
+Supported roles:
+
+- `admins`
+- `members`
+- `contributors`
+- `viewers`
+
+Each role supports both `users` and `groups` lists.
+
+```yaml
+workspace_access:
+  admins:
+    users: []
+    groups: []
+  members:
+    users: []
+    groups: []
+  contributors:
+    users: []
+    groups: []
+  viewers:
+    users: []
+    groups: []
+```
+
+Use Microsoft Entra object IDs in these lists. Existing role assignments are preserved; only missing assignments are created.
+
 #### 3. Update Workspace Variables
 ```bash
 ingen_fab init workspace --workspace-name <workspace_name>

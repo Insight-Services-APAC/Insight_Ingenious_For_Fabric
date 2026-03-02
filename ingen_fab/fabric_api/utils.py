@@ -581,6 +581,124 @@ class FabricApiUtils:
             return response.json()
         return None
 
+    def list_workspace_role_assignments(
+        self, workspace_id: Optional[str] = None
+    ) -> list[dict]:
+        """List all role assignments in a workspace with pagination support."""
+        wsid = workspace_id or self.workspace_id
+        headers = {
+            "Authorization": f"Bearer {self._get_token()}",
+            "Content-Type": "application/json",
+        }
+
+        assignments: list[dict] = []
+        continuation_token: Optional[str] = None
+
+        while True:
+            url = f"{self.base_url}/{wsid}/roleAssignments"
+            if continuation_token:
+                url += f"?continuationToken={continuation_token}"
+
+            response = requests.get(url, headers=headers)
+            if response.status_code != 200:
+                raise Exception(
+                    f"Failed to list workspace role assignments: {response.status_code} - {response.text}"
+                )
+
+            data = response.json() or {}
+            values = data.get("value", []) if isinstance(data, dict) else []
+            if not isinstance(values, list):
+                values = []
+            assignments.extend(values)
+
+            continuation_token = (
+                data.get("continuationToken") if isinstance(data, dict) else None
+            )
+            if not continuation_token:
+                break
+
+        return assignments
+
+    def create_workspace_role_assignment(
+        self,
+        *,
+        workspace_id: str,
+        principal_id: str,
+        principal_type: str,
+        role: str,
+    ) -> dict:
+        """Create a role assignment in a Fabric workspace."""
+        headers = {
+            "Authorization": f"Bearer {self._get_token()}",
+            "Content-Type": "application/json",
+        }
+
+        payload = {
+            "principal": {
+                "id": principal_id,
+                "type": principal_type,
+            },
+            "role": role,
+        }
+
+        url = f"{self.base_url}/{workspace_id}/roleAssignments"
+        response = requests.post(url, headers=headers, json=payload)
+
+        if response.status_code in (200, 201):
+            if response.text:
+                return response.json()
+            return {}
+
+        raise Exception(
+            f"Failed to create workspace role assignment: {response.status_code} - {response.text}"
+        )
+
+    def ensure_workspace_role_assignment(
+        self,
+        *,
+        workspace_id: str,
+        principal_id: str,
+        principal_type: str,
+        role: str,
+    ) -> dict:
+        """Ensure a workspace role assignment exists; creates it only when missing."""
+        existing_assignments = self.list_workspace_role_assignments(workspace_id)
+
+        for assignment in existing_assignments:
+            existing_principal = assignment.get("principal", {})
+            existing_principal_id = str(
+                existing_principal.get("id")
+                or assignment.get("principalId")
+                or ""
+            ).strip()
+            existing_principal_type = str(
+                existing_principal.get("type")
+                or assignment.get("principalType")
+                or ""
+            ).strip()
+            existing_role = str(assignment.get("role") or "").strip()
+
+            if (
+                existing_principal_id.lower() == principal_id.strip().lower()
+                and existing_principal_type.lower() == principal_type.strip().lower()
+                and existing_role.lower() == role.strip().lower()
+            ):
+                return {
+                    "status": "exists",
+                    "assignment": assignment,
+                }
+
+        created_assignment = self.create_workspace_role_assignment(
+            workspace_id=workspace_id,
+            principal_id=principal_id,
+            principal_type=principal_type,
+            role=role,
+        )
+        return {
+            "status": "created",
+            "assignment": created_assignment,
+        }
+
     def create_workspace(
         self, workspace_name: str, description: Optional[str] = None
     ) -> str:
