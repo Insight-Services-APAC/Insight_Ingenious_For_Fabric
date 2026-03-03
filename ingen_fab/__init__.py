@@ -17,7 +17,7 @@ def _with_v_prefix(raw_version: str) -> str:
 
 
 def _format_non_release() -> str:
-    return "installed from non-release"
+    return "installed from non-release (main)"
 
 
 def _read_direct_url(dist):
