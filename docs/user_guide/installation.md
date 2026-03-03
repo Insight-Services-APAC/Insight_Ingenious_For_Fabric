@@ -154,6 +154,7 @@ Expected output ingen_fab --help:
 Usage: ingen_fab [OPTIONS] COMMAND [ARGS]...
 
 Options:
+  --version                    -v   Show version and exit
   --fabric-workspace-repo-dir  -fwd  Directory containing fabric workspace repository files
   --fabric-environment         -fe   The name of your fabric environment
   --help                            Show this message and exit.
