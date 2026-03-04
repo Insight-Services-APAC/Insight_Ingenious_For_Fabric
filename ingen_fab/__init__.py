@@ -30,6 +30,23 @@ def _read_direct_url(dist):
         return None
 
 
+def _exact_git_tag(repo_root: Path) -> str | None:
+    result = subprocess.run(
+        ["git", "-C", str(repo_root), "describe", "--tags", "--exact-match"],
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    if result.returncode != 0:
+        return None
+
+    tag = result.stdout.strip()
+    if not tag or not _TAG_PATTERN.match(tag):
+        return None
+
+    return _with_v_prefix(tag)
+
+
 def _version_from_distribution() -> str:
     dist = distribution(_DISTRIBUTION_NAME)
     direct_url = _read_direct_url(dist) or {}
@@ -48,6 +65,10 @@ def _version_from_distribution() -> str:
     direct_url_text = direct_url.get("url") or ""
     if direct_url_text.startswith("file://"):
         repo_root = Path(__file__).resolve().parents[1]
+        exact_tag = _exact_git_tag(repo_root)
+        if exact_tag:
+            return exact_tag
+
         result = subprocess.run(
             ["git", "-C", str(repo_root), "rev-parse", "--short=8", "HEAD"],
             capture_output=True,
