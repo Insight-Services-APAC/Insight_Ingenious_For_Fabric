@@ -108,7 +108,7 @@ class SynapseOrchestratorInterface(ABC):
         synapse_sync_fabric_pipeline_id: Optional[str] = None,
         extract_utils: Optional[Any] = None,
         execution_id: Optional[str] = None,
-    ) -> Tuple[bool, Optional[str]]:
+    ) -> Tuple[bool, Optional[str], List[Dict[str, Any]]]:
         """
         Process a single extraction with complete lifecycle management.
 
@@ -123,7 +123,8 @@ class SynapseOrchestratorInterface(ABC):
             execution_id: Optional pre-logged execution_id for log updates
 
         Returns:
-            Tuple of (success_flag, error_message)
+            Tuple of (success_flag, error_message, log_updates) where log_updates is a list
+            of dicts each containing master_execution_id, execution_id, and updates to apply.
         """
         pass
 

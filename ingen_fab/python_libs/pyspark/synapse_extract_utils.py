@@ -303,6 +303,119 @@ class SynapseExtractUtils(SynapseExtractUtilsInterface):
         
         return self.with_retry(_perform_update, max_retries=max_retries)
 
+    def bulk_update_log_records(
+        self,
+        log_updates: List[Dict[str, Any]],
+        max_retries: int = 5,
+    ) -> bool:
+        """Bulk update log records with a single MERGE operation.
+
+        Each entry in log_updates must contain:
+            - master_execution_id: str
+            - execution_id: str
+            - updates: dict[str, Any]  — fields to set, e.g. status, end_timestamp, duration_sec
+
+        Args:
+            log_updates: List of update descriptors collected from process_extract calls.
+            max_retries: Maximum number of retry attempts.
+
+        Returns:
+            True if successful, False otherwise.
+        """
+        if not log_updates:
+            logger.debug("bulk_update_log_records: no updates to apply, skipping.")
+            return True
+
+        def _perform_bulk_update() -> bool:
+            try:
+                spark = SparkSession.getActiveSession()
+                if not spark:
+                    raise RuntimeError("No active Spark session found")
+
+                ts_now = datetime.now(timezone.utc).replace(microsecond=0)
+
+                # Flatten each descriptor into a single row dict
+                rows: list[dict[str, Any]] = []
+                for entry in log_updates:
+                    row: dict[str, Any] = {
+                        "master_execution_id": str(entry["master_execution_id"]),
+                        "execution_id": str(entry["execution_id"]),
+                    }
+                    for k, v in entry.get("updates", {}).items():
+                        if k not in ("master_execution_id", "execution_id"):
+                            row[k] = v
+
+                    # Populate end_timestamp / end_timestamp_int for terminal rows
+                    if row.get("status") in self.TERMINAL_STATUSES:
+                        row.setdefault("end_timestamp", ts_now)
+                        et = row["end_timestamp"]
+                        if isinstance(et, datetime) and "end_timestamp_int" not in row:
+                            row["end_timestamp_int"] = int(
+                                f"{et.strftime('%Y%m%d%H%M%S')}{int(et.microsecond / 1000):03d}"
+                            )
+
+                    rows.append(row)
+
+                # Collect all update column names across every row
+                update_cols: set[str] = set()
+                for row in rows:
+                    update_cols.update(k for k in row if k not in ("master_execution_id", "execution_id"))
+
+                # Build a unified schema: fixed key fields + dynamic update fields
+                schema_fields = [
+                    StructField("master_execution_id", StringType(), True),
+                    StructField("execution_id", StringType(), True),
+                ]
+                for col_name in sorted(update_cols):
+                    if col_name == "execution_group":
+                        schema_fields.append(StructField(col_name, IntegerType(), True))
+                    elif col_name == "duration_sec":
+                        schema_fields.append(StructField(col_name, DoubleType(), True))
+                    elif col_name in ("start_timestamp", "end_timestamp"):
+                        schema_fields.append(StructField(col_name, TimestampType(), True))
+                    elif col_name == "end_timestamp_int":
+                        schema_fields.append(StructField(col_name, LongType(), True))
+                    elif col_name in ("extract_start_dt", "extract_end_dt"):
+                        schema_fields.append(StructField(col_name, DateType(), True))
+                    else:
+                        schema_fields.append(StructField(col_name, StringType(), True))
+
+                # Ensure every row has all columns (None where absent)
+                for row in rows:
+                    for col_name in update_cols:
+                        row.setdefault(col_name, None)
+
+                updates_df = spark.createDataFrame(rows, schema=StructType(schema_fields))
+
+                delta_log_table = DeltaTable.forPath(spark, self.log_table_uri)
+
+                merge_condition = (
+                    "target.master_execution_id = source.master_execution_id AND "
+                    "target.execution_id = source.execution_id"
+                )
+
+                update_expr = {col_name: f"source.{col_name}" for col_name in sorted(update_cols)}
+
+                delta_log_table.alias("target").merge(
+                    updates_df.alias("source"),
+                    merge_condition,
+                ).whenMatchedUpdate(set=update_expr).execute()
+
+                logger.info(
+                    "bulk_update_log_records: successfully merged %d log updates.", len(rows)
+                )
+                return True
+
+            except Exception as e:
+                if self.is_concurrent_write_error(e):
+                    logger.warning(f"Concurrent write error during bulk update, will retry: {e}")
+                    raise
+                else:
+                    logger.error(f"Non-retryable error during bulk update: {e}")
+                    raise
+
+        return self.with_retry(_perform_bulk_update, max_retries=max_retries)
+
     def get_queued_extracts(
         self,
         master_execution_id: str,
