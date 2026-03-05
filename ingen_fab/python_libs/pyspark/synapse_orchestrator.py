@@ -407,16 +407,19 @@ class SynapseOrchestrator(SynapseOrchestratorInterface):
                 error_message = str(exc)
                 logger.error(f"Error processing {table_info} - Duration: {duration_sec:.2f}s", exc_info=True)
                 if extract_utils and execution_id:
-                    log_updates.append({
-                        "master_execution_id": master_execution_id,
-                        "execution_id": execution_id,
-                        "updates": {
-                            "status": "Failed",
-                            "error_messages": error_message,
-                            "end_timestamp": datetime.now(timezone.utc),
-                            "duration_sec": float(duration_sec),
-                        },
-                    })
+                    try:
+                        log_updates.append({
+                            "master_execution_id": master_execution_id,
+                            "execution_id": execution_id,
+                            "updates": {
+                                "status": "Failed",
+                                "error_messages": error_message,
+                                "end_timestamp": datetime.now(timezone.utc),
+                                "duration_sec": float(duration_sec),
+                            },
+                        })
+                    except Exception:
+                        logger.debug("Log update failed when handling unexpected error; continuing")
                 return False, error_message, log_updates
 
     async def run_async_orchestration(
