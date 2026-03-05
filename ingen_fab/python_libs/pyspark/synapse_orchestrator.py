@@ -342,15 +342,18 @@ class SynapseOrchestrator(SynapseOrchestratorInterface):
                 if not trigger_success or not job_id:
                     error_msg = "Failed to trigger pipeline"
                     logger.error(f"Error triggering pipeline for {table_info}")
-                    if execution_id:
-                        log_updates.append({
-                            "master_execution_id": master_execution_id,
-                            "execution_id": execution_id,
-                            "updates": {
-                                "status": "Failed",
-                                "error_messages": error_msg,
-                            },
-                        })
+                    if extract_utils and execution_id:
+                        try:
+                            log_updates.append({
+                                "master_execution_id": master_execution_id,
+                                "execution_id": execution_id,
+                                "updates": {
+                                    "status": "Failed",
+                                    "error_messages": error_msg,
+                                },
+                            })
+                        except Exception:
+                            logger.debug("Log update failed on trigger error; continuing")
                     return False, error_msg, log_updates
                 
                 logger.info(f"Running {table_info} - Job ID: {job_id}")
@@ -368,29 +371,35 @@ class SynapseOrchestrator(SynapseOrchestratorInterface):
                 if poll_success:
                     logger.info(f"{final_state} - {table_info} - Duration: {duration_sec:.2f}s")
                     if extract_utils and execution_id:
-                        log_updates.append({
-                            "master_execution_id": master_execution_id,
-                            "execution_id": execution_id,
-                            "updates": {
-                                "status": "Completed",
-                                "end_timestamp": datetime.now(timezone.utc),
-                                "duration_sec": float(duration_sec),
-                            },
-                        })
+                        try:
+                            log_updates.append({
+                                "master_execution_id": master_execution_id,
+                                "execution_id": execution_id,
+                                "updates": {
+                                    "status": "Completed",
+                                    "end_timestamp": datetime.now(timezone.utc),
+                                    "duration_sec": float(duration_sec),
+                                },
+                            })
+                        except Exception:
+                            logger.debug("Log update failed when marking Completed; continuing")
                     return True, None, log_updates
                 else:
                     logger.warning(f"{final_state} - {table_info} - Duration: {duration_sec:.2f}s")
                     if extract_utils and execution_id:
-                        log_updates.append({
-                            "master_execution_id": master_execution_id,
-                            "execution_id": execution_id,
-                            "updates": {
-                                "status": final_state if final_state else "Failed",
-                                "error_messages": error_msg or "",
-                                "end_timestamp": datetime.now(timezone.utc),
-                                "duration_sec": float(duration_sec),
-                            },
-                        })
+                        try:
+                            log_updates.append({
+                                "master_execution_id": master_execution_id,
+                                "execution_id": execution_id,
+                                "updates": {
+                                    "status": final_state if final_state else "Failed",
+                                    "error_messages": error_msg or "",
+                                    "end_timestamp": datetime.now(timezone.utc),
+                                    "duration_sec": float(duration_sec),
+                                },
+                            })
+                        except Exception:
+                            logger.debug("Log update failed when handling unexpected error; continuing")
                     return False, error_msg, log_updates
                     
             except Exception as exc:
