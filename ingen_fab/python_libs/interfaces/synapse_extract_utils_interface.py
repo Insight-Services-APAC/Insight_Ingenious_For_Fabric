@@ -83,7 +83,7 @@ class SynapseExtractUtilsInterface(ABC):
         pass
 
     @abstractmethod
-    def update_log_records(
+    def bulk_update_log_records(
         self,
         log_updates: List[Dict[str, Any]],
         max_retries: int = 5,

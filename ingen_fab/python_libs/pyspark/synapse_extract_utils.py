@@ -303,7 +303,7 @@ class SynapseExtractUtils(SynapseExtractUtilsInterface):
         
         return self.with_retry(_perform_update, max_retries=max_retries)
 
-    def update_log_records(
+    def bulk_update_log_records(
         self,
         log_updates: List[Dict[str, Any]],
         max_retries: int = 5,
@@ -323,7 +323,7 @@ class SynapseExtractUtils(SynapseExtractUtilsInterface):
             True if successful, False otherwise.
         """
         if not log_updates:
-            logger.debug("update_log_records: no updates to apply, skipping.")
+            logger.debug("bulk_update_log_records: no updates to apply, skipping.")
             return True
 
         def _perform_bulk_update() -> bool:
@@ -402,7 +402,7 @@ class SynapseExtractUtils(SynapseExtractUtilsInterface):
                 ).whenMatchedUpdate(set=update_expr).execute()
 
                 logger.info(
-                    "update_log_records: successfully merged %d log updates.", len(rows)
+                    "bulk_update_log_records: successfully merged %d log updates.", len(rows)
                 )
                 return True
 

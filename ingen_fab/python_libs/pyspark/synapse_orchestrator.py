@@ -520,7 +520,7 @@ class SynapseOrchestrator(SynapseOrchestratorInterface):
         # Bulk flush all log updates in a single MERGE
         if extract_utils is not None and all_log_updates:
             try:
-                extract_utils.update_log_records(all_log_updates)
+                extract_utils.bulk_update_log_records(all_log_updates)
             except Exception as exc:
                 logger.warning(f"Bulk log update failed, continuing: {exc}")
 
