@@ -83,6 +83,29 @@ class SynapseExtractUtilsInterface(ABC):
         pass
 
     @abstractmethod
+    def update_log_records(
+        self,
+        log_updates: List[Dict[str, Any]],
+        max_retries: int = 5,
+    ) -> bool:
+        """
+        Bulk update multiple log records with a single MERGE operation.
+
+        Each entry in log_updates must contain:
+            - master_execution_id: str
+            - execution_id: str
+            - updates: dict[str, Any]  — fields to set, e.g. status, end_timestamp, duration_sec
+
+        Args:
+            log_updates: List of update descriptors collected from process_extract calls.
+            max_retries: Maximum number of retry attempts.
+
+        Returns:
+            True if successful, False otherwise.
+        """
+        pass
+
+    @abstractmethod
     def get_queued_extracts(
         self,
         master_execution_id: str,
