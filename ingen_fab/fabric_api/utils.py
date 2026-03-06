@@ -796,10 +796,10 @@ class FabricApiUtils:
         """Ensure a workspace role assignment exists.
 
         Rules:
-        - If exact role already exists for principal, keep as-is.
-        - If principal already has Admin and requested role is not Admin, preserve Admin.
-        - If principal has a non-Admin role and requested role differs, replace it.
-        - If no role exists for principal, create it.
+        - If exact role already exists for user/group, keep as-is.
+        - If user/group already has Admin and requested role is not Admin, preserve Admin.
+        - If user/group has a non-Admin role and requested role differs, replace it.
+        - People/group not listed in your security config are not touched by this step.
         """
         resolved_principal_id = self.resolve_principal_id(principal_id, principal_type)
         existing_assignments = self.list_workspace_role_assignments(workspace_id)

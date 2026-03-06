@@ -454,10 +454,40 @@ class SyncToFabricEnvironment:
         self.console.print()
 
     def _load_security_config(self) -> dict[str, Any]:
-        """Load optional workspace security configuration from fabric_config."""
-        security_config_path = self.project_path / "fabric_config" / "security_config.yaml"
+        """Load optional workspace security configuration from fabric_config.
+
+        Uses environment-specific files only:
+        - security_config_development.yaml
+        - security_config_test.yaml
+        - security_config_production.yaml
+
+        If environment is missing/empty, defaults to development.
+        """
+        config_dir = self.project_path / "fabric_config"
+        normalized_environment = str(self.environment or "").strip().lower()
+        if not normalized_environment:
+            normalized_environment = "development"
+
+        supported_environments = {"development", "test", "production"}
+        selected_environment = (
+            normalized_environment
+            if normalized_environment in supported_environments
+            else "development"
+        )
+
+        security_config_path = config_dir / f"security_config_{selected_environment}.yaml"
+
         if not security_config_path.exists():
+            ConsoleStyles.print_dim(
+                self.console,
+                f"No workspace security config found for environment '{selected_environment}' at {security_config_path}",
+            )
             return {}
+
+        ConsoleStyles.print_dim(
+            self.console,
+            f"Using workspace security config: {security_config_path}",
+        )
 
         try:
             with open(security_config_path, "r", encoding="utf-8") as f:
@@ -535,7 +565,7 @@ class SyncToFabricEnvironment:
         return assignments
 
     def _apply_workspace_security(self, workspace_id: str) -> dict[str, int]:
-        """Apply workspace role assignments from optional security_config.yaml."""
+        """Apply workspace role assignments from optional security config."""
         security_config = self._load_security_config()
         assignments = self._extract_workspace_security_assignments(security_config)
 
