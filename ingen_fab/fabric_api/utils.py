@@ -2,6 +2,7 @@ import logging
 import re
 from pathlib import Path
 from typing import Optional
+from urllib.parse import quote
 
 import requests
 from azure.identity import DefaultAzureCredential
@@ -46,6 +47,115 @@ class FabricApiUtils:
         scope = "https://api.fabric.microsoft.com/.default"
         token = self.credential.get_token(scope)
         return token.token
+
+    def _get_graph_token(self) -> str:
+        scope = "https://graph.microsoft.com/.default"
+        token = self.credential.get_token(scope)
+        return token.token
+
+    @staticmethod
+    def _is_guid(value: str) -> bool:
+        guid_pattern = re.compile(
+            r"^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$"
+        )
+        return bool(guid_pattern.match(value.strip()))
+
+    @staticmethod
+    def _escape_odata_literal(value: str) -> str:
+        return value.replace("'", "''")
+
+    def _resolve_user_object_id(self, principal_identifier: str) -> str:
+        identifier = principal_identifier.strip()
+        if self._is_guid(identifier):
+            return identifier
+
+        headers = {
+            "Authorization": f"Bearer {self._get_graph_token()}",
+            "Content-Type": "application/json",
+        }
+
+        user_url = f"https://graph.microsoft.com/v1.0/users/{quote(identifier, safe='@.-_')}?$select=id"
+        direct_response = requests.get(user_url, headers=headers)
+        if direct_response.status_code == 200:
+            user_id = (direct_response.json() or {}).get("id")
+            if user_id:
+                return str(user_id)
+
+        escaped_identifier = self._escape_odata_literal(identifier)
+        search_url = "https://graph.microsoft.com/v1.0/users"
+        search_response = requests.get(
+            search_url,
+            headers=headers,
+            params={
+                "$filter": (
+                    f"userPrincipalName eq '{escaped_identifier}' or mail eq '{escaped_identifier}'"
+                ),
+                "$select": "id",
+                "$top": "1",
+            },
+        )
+
+        if search_response.status_code == 200:
+            users = (search_response.json() or {}).get("value", [])
+            if users:
+                user_id = users[0].get("id")
+                if user_id:
+                    return str(user_id)
+
+        raise Exception(
+            f"Could not resolve user identifier '{principal_identifier}' to a Microsoft Entra object ID"
+        )
+
+    def _resolve_group_object_id(self, principal_identifier: str) -> str:
+        identifier = principal_identifier.strip()
+        if self._is_guid(identifier):
+            return identifier
+
+        headers = {
+            "Authorization": f"Bearer {self._get_graph_token()}",
+            "Content-Type": "application/json",
+        }
+
+        group_url = f"https://graph.microsoft.com/v1.0/groups/{quote(identifier, safe='@.-_')}?$select=id"
+        direct_response = requests.get(group_url, headers=headers)
+        if direct_response.status_code == 200:
+            group_id = (direct_response.json() or {}).get("id")
+            if group_id:
+                return str(group_id)
+
+        escaped_identifier = self._escape_odata_literal(identifier)
+        search_url = "https://graph.microsoft.com/v1.0/groups"
+        search_response = requests.get(
+            search_url,
+            headers=headers,
+            params={
+                "$filter": (
+                    f"displayName eq '{escaped_identifier}' or mail eq '{escaped_identifier}'"
+                ),
+                "$select": "id",
+                "$top": "1",
+            },
+        )
+
+        if search_response.status_code == 200:
+            groups = (search_response.json() or {}).get("value", [])
+            if groups:
+                group_id = groups[0].get("id")
+                if group_id:
+                    return str(group_id)
+
+        raise Exception(
+            f"Could not resolve group identifier '{principal_identifier}' to a Microsoft Entra object ID"
+        )
+
+    def resolve_principal_id(self, principal_id: str, principal_type: str) -> str:
+        """Resolve user/group identifiers (email, UPN, display name) to Entra object IDs."""
+        normalized_type = principal_type.strip().lower()
+        if normalized_type == "user":
+            return self._resolve_user_object_id(principal_id)
+        if normalized_type == "group":
+            return self._resolve_group_object_id(principal_id)
+        return principal_id.strip()
 
     def _get_workspace_id(self) -> str:
         """
@@ -691,6 +801,7 @@ class FabricApiUtils:
         - If principal has a non-Admin role and requested role differs, replace it.
         - If no role exists for principal, create it.
         """
+        resolved_principal_id = self.resolve_principal_id(principal_id, principal_type)
         existing_assignments = self.list_workspace_role_assignments(workspace_id)
 
         for assignment in existing_assignments:
@@ -708,7 +819,7 @@ class FabricApiUtils:
             existing_role = str(assignment.get("role") or "").strip()
 
             if not (
-                existing_principal_id.lower() == principal_id.strip().lower()
+                existing_principal_id.lower() == resolved_principal_id.strip().lower()
                 and existing_principal_type.lower() == principal_type.strip().lower()
             ):
                 continue
@@ -738,7 +849,7 @@ class FabricApiUtils:
 
             updated_assignment = self.create_workspace_role_assignment(
                 workspace_id=workspace_id,
-                principal_id=principal_id,
+                principal_id=resolved_principal_id,
                 principal_type=principal_type,
                 role=role,
             )
@@ -750,7 +861,7 @@ class FabricApiUtils:
 
         created_assignment = self.create_workspace_role_assignment(
             workspace_id=workspace_id,
-            principal_id=principal_id,
+            principal_id=resolved_principal_id,
             principal_type=principal_type,
             role=role,
         )
