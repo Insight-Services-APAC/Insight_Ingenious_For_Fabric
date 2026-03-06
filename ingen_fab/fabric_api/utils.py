@@ -653,6 +653,28 @@ class FabricApiUtils:
             f"Failed to create workspace role assignment: {response.status_code} - {response.text}"
         )
 
+    def delete_workspace_role_assignment(
+        self,
+        *,
+        workspace_id: str,
+        assignment_id: str,
+    ) -> None:
+        """Delete an existing role assignment from a Fabric workspace."""
+        headers = {
+            "Authorization": f"Bearer {self._get_token()}",
+            "Content-Type": "application/json",
+        }
+
+        url = f"{self.base_url}/{workspace_id}/roleAssignments/{assignment_id}"
+        response = requests.delete(url, headers=headers)
+
+        if response.status_code in (200, 202, 204):
+            return
+
+        raise Exception(
+            f"Failed to delete workspace role assignment: {response.status_code} - {response.text}"
+        )
+
     def ensure_workspace_role_assignment(
         self,
         *,
@@ -661,7 +683,14 @@ class FabricApiUtils:
         principal_type: str,
         role: str,
     ) -> dict:
-        """Ensure a workspace role assignment exists; creates it only when missing."""
+        """Ensure a workspace role assignment exists.
+
+        Rules:
+        - If exact role already exists for principal, keep as-is.
+        - If principal already has Admin and requested role is not Admin, preserve Admin.
+        - If principal has a non-Admin role and requested role differs, replace it.
+        - If no role exists for principal, create it.
+        """
         existing_assignments = self.list_workspace_role_assignments(workspace_id)
 
         for assignment in existing_assignments:
@@ -678,15 +707,46 @@ class FabricApiUtils:
             ).strip()
             existing_role = str(assignment.get("role") or "").strip()
 
-            if (
+            if not (
                 existing_principal_id.lower() == principal_id.strip().lower()
                 and existing_principal_type.lower() == principal_type.strip().lower()
-                and existing_role.lower() == role.strip().lower()
             ):
+                continue
+
+            if existing_role.lower() == role.strip().lower():
                 return {
                     "status": "exists",
                     "assignment": assignment,
                 }
+
+            if existing_role.lower() == "admin" and role.strip().lower() != "admin":
+                return {
+                    "status": "admin_preserved",
+                    "assignment": assignment,
+                }
+
+            assignment_id = str(assignment.get("id") or existing_principal_id).strip()
+            if not assignment_id:
+                raise Exception(
+                    "Failed to update workspace role assignment: missing assignment id"
+                )
+
+            self.delete_workspace_role_assignment(
+                workspace_id=workspace_id,
+                assignment_id=assignment_id,
+            )
+
+            updated_assignment = self.create_workspace_role_assignment(
+                workspace_id=workspace_id,
+                principal_id=principal_id,
+                principal_type=principal_type,
+                role=role,
+            )
+            return {
+                "status": "updated",
+                "previous_role": existing_role,
+                "assignment": updated_assignment,
+            }
 
         created_assignment = self.create_workspace_role_assignment(
             workspace_id=workspace_id,

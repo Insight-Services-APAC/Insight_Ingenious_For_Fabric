@@ -558,6 +558,8 @@ class SyncToFabricEnvironment:
         )
 
         created = 0
+        updated = 0
+        admin_preserved = 0
         existing = 0
         failed = 0
 
@@ -571,6 +573,10 @@ class SyncToFabricEnvironment:
                 )
                 if result.get("status") == "created":
                     created += 1
+                elif result.get("status") == "updated":
+                    updated += 1
+                elif result.get("status") == "admin_preserved":
+                    admin_preserved += 1
                 else:
                     existing += 1
             except Exception as e:
@@ -582,10 +588,16 @@ class SyncToFabricEnvironment:
 
         ConsoleStyles.print_info(
             self.console,
-            f"Workspace security results: {created} created, {existing} already present, {failed} failed",
+            f"Workspace security results: {created} created, {updated} updated, {admin_preserved} admin preserved, {existing} already present, {failed} failed",
         )
 
-        return {"created": created, "existing": existing, "failed": failed}
+        return {
+            "created": created,
+            "updated": updated,
+            "admin_preserved": admin_preserved,
+            "existing": existing,
+            "failed": failed,
+        }
 
     def _update_variables_with_item_ids_after_deployment(
         self,
