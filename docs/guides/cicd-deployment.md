@@ -119,7 +119,13 @@ Creates or updates Fabric items (lakehouses, warehouses, notebooks, etc.) based 
 
 ##### Optional: Deploy Workspace Security (Security as Code)
 
-`ingen_fab deploy deploy` also reads an optional file at `fabric_config/security_config.yaml` and applies workspace access role assignments.
+`ingen_fab deploy deploy` can apply workspace access role assignments from environment-specific files in `fabric_config/`:
+
+- `security_config_development.yaml`
+- `security_config_test.yaml`
+- `security_config_production.yaml`
+
+The file is selected from `FABRIC_ENVIRONMENT`. If the environment is missing or invalid, it defaults to `development`.
 
 Supported roles:
 
@@ -146,7 +152,22 @@ workspace_access:
     groups: []
 ```
 
-Use Microsoft Entra object IDs in these lists. Existing role assignments are preserved; only missing assignments are created.
+Role assignments are applied idempotently: matching roles are preserved, non-admin role mismatches are updated, and missing assignments are created.
+
+Accepted user/group identifiers:
+
+- Microsoft Entra object IDs (GUIDs)
+- User UPN/email (for `users`)
+- Group display name or mail (for `groups`)
+
+Identifiers are resolved to Entra object IDs before role assignment.
+
+Role handling rules during deploy:
+
+- If exact role already exists for a user/group, no change is made.
+- If a user/group already has `Admin` and requested role is lower, `Admin` is preserved.
+- If a user/group has a different non-admin role, role is updated to match config.
+- If a user/group has no workspace role, assignment is created.
 
 #### 3. Update Workspace Variables
 ```bash

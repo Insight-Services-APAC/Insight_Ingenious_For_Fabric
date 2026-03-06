@@ -799,6 +799,7 @@ class FabricApiUtils:
         - If exact role already exists for user/group, keep as-is.
         - If user/group already has Admin and requested role is not Admin, preserve Admin.
         - If user/group has a non-Admin role and requested role differs, replace it.
+        - If user/group has no role in workspace, create it.
         - People/group not listed in your security config are not touched by this step.
         """
         resolved_principal_id = self.resolve_principal_id(principal_id, principal_type)
