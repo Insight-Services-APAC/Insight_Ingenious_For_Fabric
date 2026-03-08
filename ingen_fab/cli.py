@@ -50,6 +50,8 @@ ingest_app = typer.Typer()
 synapse_app = typer.Typer()
 extract_app = typer.Typer()
 synthetic_data_app = typer.Typer()
+ingestion_app = typer.Typer()
+export_app = typer.Typer()
 libs_app = typer.Typer()
 dbt_app = typer.Typer()
 
@@ -369,14 +371,35 @@ def init_workspace(
     init_commands.init_workspace(ctx, workspace_name, create_if_not_exists)
 
 
+@init_app.command("storage-config")
+def init_storage_config():
+    """Initialize lakehouse artifacts from storage_config.yaml file."""
+    init_commands.init_storage_config()
+
+
 # Deploy commands
 
 
 @deploy_app.command("deploy")
-def deploy(ctx: typer.Context):
+def deploy(
+    ctx: typer.Context,
+    sync: Annotated[bool, typer.Option("--sync", help="Remove orphaned items after deployment")] = False,
+):
     "Deploy Fabric artefacts to the target environment."
     deploy_commands.deploy_to_environment(ctx)
+    
+    if sync:
+        deploy_commands.cleanup_orphaned_items(ctx, dry_run=False, force=True)
 
+
+@deploy_app.command("cleanup")
+def cleanup(
+    ctx: typer.Context,
+    dry_run: Annotated[bool, typer.Option("--dry-run", help="Show what would be deleted without deleting")] = False,
+    force: Annotated[bool, typer.Option("--force", "-f", help="Skip confirmation prompt")] = False,
+):
+    """Remove workspace items that are not in fabric_workspace_items."""
+    deploy_commands.cleanup_orphaned_items(ctx, dry_run=dry_run, force=force)
 
 @deploy_app.command("delete-all")
 def delete_all(
@@ -1314,6 +1337,16 @@ package_app.add_typer(
     name="synthetic-data",
     help="Generate synthetic data for testing and development. Supports predefined datasets, custom templates, and runtime parameterization.",
 )
+package_app.add_typer(
+    ingestion_app,
+    name="ingestion",
+    help="Commands for ingestion framework package (extraction and loading).",
+)
+package_app.add_typer(
+    export_app,
+    name="export",
+    help="Commands for export framework package (exporting tables to files).",
+)
 
 
 # ===== NEW UNIFIED COMMANDS =====
@@ -1742,6 +1775,84 @@ def extract_run(
         execution_group=execution_group,
         environment=environment,
         run_type=run_type,
+    )
+
+
+# Ingestion framework commands
+@ingestion_app.command("compile")
+def ingestion_app_compile(
+    ctx: typer.Context,
+    template_vars: Annotated[
+        Optional[str],
+        typer.Option("--template-vars", "-t", help="JSON string of template variables"),
+    ] = None,
+    include_samples: Annotated[
+        bool,
+        typer.Option(
+            "--include-samples", "-s", help="Include sample data DDL"
+        ),
+    ] = False,
+):
+    """Compile ingestion framework package (extraction and loading notebooks + DDL scripts)."""
+    from ingen_fab.packages.ingestion.ingestion import compile_ingestion_package
+    import json
+
+    fabric_workspace_repo_dir = ctx.obj.get("fabric_workspace_repo_dir")
+
+    # Parse template vars if provided
+    parsed_template_vars = None
+    if template_vars:
+        try:
+            parsed_template_vars = json.loads(template_vars)
+        except json.JSONDecodeError as e:
+            from rich.console import Console
+            console = Console()
+            console.print(f"[red]Error parsing template-vars JSON: {e}[/red]")
+            raise typer.Exit(1)
+
+    compile_ingestion_package(
+        fabric_workspace_repo_dir=fabric_workspace_repo_dir,
+        template_vars=parsed_template_vars,
+        include_samples=include_samples,
+    )
+
+
+# Export framework commands
+@export_app.command("compile")
+def export_app_compile(
+    ctx: typer.Context,
+    template_vars: Annotated[
+        Optional[str],
+        typer.Option("--template-vars", "-t", help="JSON string of template variables"),
+    ] = None,
+    include_samples: Annotated[
+        bool,
+        typer.Option(
+            "--include-samples", "-s", help="Include sample data DDL"
+        ),
+    ] = False,
+):
+    """Compile export framework package (export notebook + DDL scripts)."""
+    from ingen_fab.packages.export.export import compile_export_package
+    import json
+
+    fabric_workspace_repo_dir = ctx.obj.get("fabric_workspace_repo_dir")
+
+    # Parse template vars if provided
+    parsed_template_vars = None
+    if template_vars:
+        try:
+            parsed_template_vars = json.loads(template_vars)
+        except json.JSONDecodeError as e:
+            from rich.console import Console
+            console = Console()
+            console.print(f"[red]Error parsing template-vars JSON: {e}[/red]")
+            raise typer.Exit(1)
+
+    compile_export_package(
+        fabric_workspace_repo_dir=fabric_workspace_repo_dir,
+        template_vars=parsed_template_vars,
+        include_samples=include_samples,
     )
 
 

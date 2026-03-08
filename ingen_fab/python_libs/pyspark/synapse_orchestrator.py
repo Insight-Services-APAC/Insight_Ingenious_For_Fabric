@@ -38,7 +38,7 @@ logger = logging.getLogger(__name__)
 
 # Constants
 DEFAULT_MAX_CONCURRENCY = 10
-POLL_INTERVAL = 60
+POLL_INTERVAL = 10
 FAST_RETRY_SEC = 10
 POLL_TIMEOUT_SEC = 1800  # 30 minutes
 GRACE_WINDOW_SEC = 60    # Grace period for job appearance/early states
@@ -147,7 +147,7 @@ class SynapseOrchestrator(SynapseOrchestratorInterface):
         trigger_url = f"v1/workspaces/{workspace_id}/items/{pipeline_id}/jobs/instances?jobType=Pipeline"
 
         # Initial jitter to spread concurrent requests
-        initial_jitter = np.random.uniform(0, 10.0)
+        initial_jitter = np.random.uniform(0, 3)
         await asyncio.sleep(initial_jitter)
         
         try:
@@ -183,7 +183,7 @@ class SynapseOrchestrator(SynapseOrchestratorInterface):
         pipeline_id: str,
         job_id: str,
         timeout_minutes: int = POLL_TIMEOUT_SEC // 60,
-        polling_interval: int = 60,
+        polling_interval: int = POLL_INTERVAL,
         fast_retry_sec: int = FAST_RETRY_SEC
     ) -> Tuple[str, bool, Optional[str]]:
         """Poll a pipeline job until completion with advanced error handling."""
@@ -269,13 +269,14 @@ class SynapseOrchestrator(SynapseOrchestratorInterface):
         synapse_sync_fabric_pipeline_id: Optional[str] = None,
         extract_utils: Any | None = None,
         execution_id: str | None = None,
-    ) -> Tuple[bool, Optional[str]]:
+    ) -> Tuple[bool, Optional[str], List[Dict[str, Any]]]:
         """Process a single extraction with complete lifecycle management."""
         table_info = f"{work_item.source_schema_name}.{work_item.source_table_name}"
-        
+        log_updates: list[dict[str, Any]] = []
+
         async with semaphore:
             start_time = time.monotonic()
-            
+
             try:
                 # Configuration object is optional; validate only when provided
                 # Pipeline workspace comes from explicit parameter 'pipeline_workspace_id'.
@@ -341,36 +342,20 @@ class SynapseOrchestrator(SynapseOrchestratorInterface):
                 if not trigger_success or not job_id:
                     error_msg = "Failed to trigger pipeline"
                     logger.error(f"Error triggering pipeline for {table_info}")
-                    # Update log record as failed if available
                     if extract_utils and execution_id:
                         try:
-                            extract_utils.update_log_record(
-                                master_execution_id=master_execution_id,
-                                execution_id=execution_id,
-                                updates={
+                            log_updates.append({
+                                "master_execution_id": master_execution_id,
+                                "execution_id": execution_id,
+                                "updates": {
                                     "status": "Failed",
                                     "error_messages": error_msg,
                                 },
-                            )
+                            })
                         except Exception:
                             logger.debug("Log update failed on trigger error; continuing")
-                    return False, error_msg
+                    return False, error_msg, log_updates
                 
-                # Update log: mark as Running and set pipeline_job_id (UTC timestamps)
-                if extract_utils and execution_id:
-                    try:
-                        extract_utils.update_log_record(
-                            master_execution_id=master_execution_id,
-                            execution_id=execution_id,
-                            updates={
-                                "status": "Running",
-                                "pipeline_job_id": job_id,
-                                "start_timestamp": datetime.now(timezone.utc),
-                            },
-                        )
-                    except Exception:
-                        logger.debug("Log update failed when marking Running; continuing")
-
                 logger.info(f"Running {table_info} - Job ID: {job_id}")
 
                 # Poll for completion
@@ -380,43 +365,42 @@ class SynapseOrchestrator(SynapseOrchestratorInterface):
                     job_id=job_id,
                     timeout_minutes=30
                 )
-                
+
                 duration_sec = time.monotonic() - start_time
-                
+
                 if poll_success:
                     logger.info(f"{final_state} - {table_info} - Duration: {duration_sec:.2f}s")
-                    # Update log: Completed
                     if extract_utils and execution_id:
                         try:
-                            extract_utils.update_log_record(
-                                master_execution_id=master_execution_id,
-                                execution_id=execution_id,
-                                updates={
+                            log_updates.append({
+                                "master_execution_id": master_execution_id,
+                                "execution_id": execution_id,
+                                "updates": {
                                     "status": "Completed",
                                     "end_timestamp": datetime.now(timezone.utc),
                                     "duration_sec": float(duration_sec),
                                 },
-                            )
+                            })
                         except Exception:
                             logger.debug("Log update failed when marking Completed; continuing")
-                    return True, None
+                    return True, None, log_updates
                 else:
                     logger.warning(f"{final_state} - {table_info} - Duration: {duration_sec:.2f}s")
                     if extract_utils and execution_id:
                         try:
-                            extract_utils.update_log_record(
-                                master_execution_id=master_execution_id,
-                                execution_id=execution_id,
-                                updates={
+                            log_updates.append({
+                                "master_execution_id": master_execution_id,
+                                "execution_id": execution_id,
+                                "updates": {
                                     "status": final_state if final_state else "Failed",
                                     "error_messages": error_msg or "",
                                     "end_timestamp": datetime.now(timezone.utc),
                                     "duration_sec": float(duration_sec),
                                 },
-                            )
+                            })
                         except Exception:
-                            logger.debug("Log update failed when marking terminal state; continuing")
-                    return False, error_msg
+                            logger.debug("Log update failed when handling unexpected error; continuing")
+                    return False, error_msg, log_updates
                     
             except Exception as exc:
                 duration_sec = time.monotonic() - start_time
@@ -424,19 +408,19 @@ class SynapseOrchestrator(SynapseOrchestratorInterface):
                 logger.error(f"Error processing {table_info} - Duration: {duration_sec:.2f}s", exc_info=True)
                 if extract_utils and execution_id:
                     try:
-                        extract_utils.update_log_record(
-                            master_execution_id=master_execution_id,
-                            execution_id=execution_id,
-                            updates={
+                        log_updates.append({
+                            "master_execution_id": master_execution_id,
+                            "execution_id": execution_id,
+                            "updates": {
                                 "status": "Failed",
                                 "error_messages": error_message,
                                 "end_timestamp": datetime.now(timezone.utc),
                                 "duration_sec": float(duration_sec),
                             },
-                        )
+                        })
                     except Exception:
                         logger.debug("Log update failed when handling unexpected error; continuing")
-                return False, error_message
+                return False, error_message, log_updates
 
     async def run_async_orchestration(
         self,
@@ -480,10 +464,10 @@ class SynapseOrchestrator(SynapseOrchestratorInterface):
             grouped.setdefault(wi.execution_group, []).append(wi)
         execution_groups = sorted(grouped.keys())
 
-        # Pair of (WorkItem, (success, error)) for reliable aggregation
-        all_pairs: List[Tuple[WorkItem, Tuple[bool, Optional[str]]]] = []
+        # Pair of (WorkItem, (success, error, log_updates)) for reliable aggregation
+        all_pairs: List[Tuple[WorkItem, Tuple[bool, Optional[str], List[Dict[str, Any]]]]] = []
 
-        async def run_one(item: WorkItem) -> Tuple[WorkItem, Tuple[bool, Optional[str]]]:
+        async def run_one(item: WorkItem) -> Tuple[WorkItem, Tuple[bool, Optional[str], List[Dict[str, Any]]]]:
             # Build composite key and resolve execution_id
             key = f"{item.source_schema_name}.{item.source_table_name}|{item.extract_start_dt or ''}|{item.extract_end_dt or ''}|{item.extract_mode}"
             ext_table = external_table_map.get(key) if external_table_map else None
@@ -542,6 +526,16 @@ class SynapseOrchestrator(SynapseOrchestratorInterface):
             if not res[0]
         ]
 
+        # Collect all log updates from every extraction
+        all_log_updates: List[Dict[str, Any]] = [update for _, res in all_pairs for update in res[2]]
+
+        # Bulk flush all log updates in a single MERGE
+        if extract_utils is not None and all_log_updates:
+            try:
+                extract_utils.bulk_update_log_records(all_log_updates)
+            except Exception as exc:
+                logger.warning(f"Bulk log update failed, continuing: {exc}")
+
         return {
             "master_execution_id": master_execution_id,
             "total_tables": total,
@@ -551,6 +545,7 @@ class SynapseOrchestrator(SynapseOrchestratorInterface):
             "execution_groups": execution_groups,
             "failed_details": failed_details,
             "completion_time": datetime.now(timezone.utc).isoformat(),
+            "log_updates": all_log_updates,
         }
 
     def prepare_work_items(
@@ -565,7 +560,8 @@ class SynapseOrchestrator(SynapseOrchestratorInterface):
         work_items_json: Optional[str] = None,
         include_snapshots: bool = True,
         extraction_start_date: Optional[str] = None,
-        extraction_end_date: Optional[str] = None
+        extraction_end_date: Optional[str] = None,
+        batch_size: Optional[int] = 1
     ) -> List[WorkItem]:
         """Prepare work items for processing based on configuration and parameters."""
         work_items = []
@@ -670,7 +666,12 @@ class SynapseOrchestrator(SynapseOrchestratorInterface):
                         # Generate one work item per day (inclusive)
                         cur = start_dt
                         while cur <= end_dt:
-                            day_str = cur.strftime("%Y-%m-%d")
+                            to_date = cur + timedelta(days=batch_size-1)
+                            if to_date > end_dt:
+                                to_date = end_dt
+                            start_date_string = cur.strftime("%Y-%m-%d")
+                            end_date_string = to_date.strftime("%Y-%m-%d")
+
                             # Resolve per‑item overrides; otherwise fall back to immutable defaults
                             resolved_pipeline_id, resolved_ds_name, resolved_ds_loc = _resolve_work_item_config(
                                 row,
@@ -683,8 +684,8 @@ class SynapseOrchestrator(SynapseOrchestratorInterface):
                                 source_table_name=row.source_table_name,
                                 extract_mode=row.extract_mode,
                                 execution_group=row.execution_group or 1,
-                                extract_start_dt=day_str,
-                                extract_end_dt=day_str,
+                                extract_start_dt=start_date_string,
+                                extract_end_dt=end_date_string,
                                 single_date_filter=getattr(row, "single_date_filter", None),
                                 date_range_filter=getattr(row, "date_range_filter", None),
                                 custom_select_sql=getattr(row, "custom_select_sql", None),
@@ -697,7 +698,13 @@ class SynapseOrchestrator(SynapseOrchestratorInterface):
                                 trigger_type=trigger_type,
                                 master_execution_parameters=master_execution_parameters,
                             ))
-                            cur += timedelta(days=1)
+                            delta = timedelta(days=batch_size)
+                            if cur + delta <= end_dt:
+                                cur = cur + delta
+                            elif cur == end_dt or to_date == end_dt:
+                                break
+                            else:
+                                cur = end_dt
                     else:
                         # Snapshot or missing date range -> single item
                         # Resolve per‑item overrides; otherwise fall back to immutable defaults

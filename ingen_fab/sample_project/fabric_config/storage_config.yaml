@@ -1,0 +1,11 @@
+storage:
+  - lakehouse: local
+    lh_bronze: lh_bronze
+    lh_silver: lh_silver
+    lh_gold: lh_gold
+
+  - warehouses: local
+    wh_gold: DO_NOT_CREATE
+
+  - sqldatabases: local
+    db_config: db_config

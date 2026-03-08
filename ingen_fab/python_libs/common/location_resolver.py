@@ -37,25 +37,40 @@ class LocationResolver:
         self,
         default_workspace_id: Optional[str] = None,
         default_datastore_id: Optional[str] = None,
+        default_workspace_name: Optional[str] = None,
+        default_datastore_name: Optional[str] = None,
         default_datastore_type: str = "lakehouse",
         default_file_root_path: str = "Files",
         default_schema_name: str = "default",
+        variable_resolver: Optional[Any] = None,
     ):
         """
         Initialize with default fallback values
 
         Args:
-            default_workspace_id: Default workspace ID
-            default_datastore_id: Default datastore ID
+            default_workspace_id: Default workspace ID (legacy)
+            default_datastore_id: Default datastore ID (legacy)
+            default_workspace_name: Default workspace name (preferred)
+            default_datastore_name: Default datastore name (preferred)
             default_datastore_type: Default datastore type ('lakehouse' or 'warehouse')
             default_file_root_path: Default root path ('Files', 'Tables', etc.)
             default_schema_name: Default schema name
+            variable_resolver: Optional VariableResolver instance for ${var_lib.X} resolution
         """
-        self.default_workspace_id = default_workspace_id
-        self.default_datastore_id = default_datastore_id
+        # Prefer names over IDs for defaults
+        self.default_workspace = default_workspace_name or default_workspace_id
+        self.default_datastore = default_datastore_name or default_datastore_id
         self.default_datastore_type = default_datastore_type
         self.default_file_root_path = default_file_root_path
         self.default_schema_name = default_schema_name
+
+        # Variable resolver for ${var_lib.X} references
+        if variable_resolver is None:
+            from ingen_fab.python_libs.common.variable_resolver import VariableResolver
+
+            self.variable_resolver = VariableResolver()
+        else:
+            self.variable_resolver = variable_resolver
 
         # Cache for lakehouse/warehouse utilities to avoid repeated initialization
         self._utils_cache: Dict[str, Any] = {}
@@ -84,26 +99,34 @@ class LocationResolver:
         self, config: FlatFileIngestionConfig
     ) -> LocationConfig:
         """Resolve source location with intelligent defaults"""
-        workspace_id = (
-            config.source_workspace_id
+        # Prefer names over IDs, with fallback chain
+        workspace_raw = (
+            config.source_workspace_name
+            or config.source_workspace_id
+            or config.target_workspace_name
             or config.target_workspace_id
-            or self.default_workspace_id
+            or self.default_workspace
         )
 
-        datastore_id = (
-            config.source_datastore_id
-            or self.default_datastore_id
+        datastore_raw = (
+            config.source_datastore_name
+            or config.source_datastore_id
+            or self.default_datastore
+            or config.target_datastore_name
             or config.target_datastore_id
         )
 
-        datastore_type = config.source_datastore_type or self.default_datastore_type
+        # Resolve variable references (${var_lib.X})
+        workspace_id = self.variable_resolver.resolve(workspace_raw)
+        datastore_id = self.variable_resolver.resolve(datastore_raw)
 
+        datastore_type = config.source_datastore_type or self.default_datastore_type
         file_root_path = config.source_file_root_path or self.default_file_root_path
 
         if not workspace_id or not datastore_id:
             raise ValueError(
                 f"Could not resolve source location for config {config.config_id}: "
-                f"workspace_id={workspace_id}, datastore_id={datastore_id}"
+                f"workspace={workspace_id}, datastore={datastore_id}"
             )
 
         return LocationConfig(
@@ -118,15 +141,29 @@ class LocationResolver:
         self, config: FlatFileIngestionConfig
     ) -> LocationConfig:
         """Resolve target location with intelligent defaults"""
-        workspace_id = config.target_workspace_id or self.default_workspace_id
-        datastore_id = config.target_datastore_id or self.default_datastore_id
+        # Prefer names over IDs
+        workspace_raw = (
+            config.target_workspace_name
+            or config.target_workspace_id
+            or self.default_workspace
+        )
+        datastore_raw = (
+            config.target_datastore_name
+            or config.target_datastore_id
+            or self.default_datastore
+        )
+
+        # Resolve variable references (${var_lib.X})
+        workspace_id = self.variable_resolver.resolve(workspace_raw)
+        datastore_id = self.variable_resolver.resolve(datastore_raw)
+
         datastore_type = config.target_datastore_type or self.default_datastore_type
         schema_name = config.target_schema_name or self.default_schema_name
 
         if not workspace_id or not datastore_id:
             raise ValueError(
                 f"Could not resolve target location for config {config.config_id}: "
-                f"workspace_id={workspace_id}, datastore_id={datastore_id}"
+                f"workspace={workspace_id}, datastore={datastore_id}"
             )
 
         return LocationConfig(
@@ -159,32 +196,42 @@ class LocationResolver:
             return self._utils_cache[cache_key]
 
         if location_config.datastore_type == "lakehouse":
-            # if spark is None:
-            #    raise ValueError("Spark session is required for lakehouse operations")
-
             # Import here to avoid circular dependencies
             from ingen_fab.python_libs.pyspark.lakehouse_utils import lakehouse_utils
 
-            utils_instance = lakehouse_utils(
-                target_workspace_id=location_config.workspace_id,
-                target_lakehouse_id=location_config.datastore_id,
-                spark=spark,
-            )
-
-        elif location_config.datastore_type == "warehouse":
-            if connection is None:
-                raise ValueError(
-                    "Database connection is required for warehouse operations"
+            # Auto-detect if using IDs or names based on hyphen presence
+            if "-" in location_config.datastore_id:
+                # ID-based
+                utils_instance = lakehouse_utils(
+                    target_workspace_id=location_config.workspace_id,
+                    target_lakehouse_id=location_config.datastore_id,
+                    spark=spark,
+                )
+            else:
+                # Name-based
+                utils_instance = lakehouse_utils(
+                    target_workspace_name=location_config.workspace_id,
+                    target_lakehouse_name=location_config.datastore_id,
+                    spark=spark,
                 )
 
+        elif location_config.datastore_type == "warehouse":
             # Import here to avoid circular dependencies
             from ingen_fab.python_libs.python.warehouse_utils import warehouse_utils
 
-            utils_instance = warehouse_utils(
-                target_workspace_id=location_config.workspace_id,
-                target_warehouse_id=location_config.datastore_id,
-                connection=connection,
-            )
+            # Auto-detect if using IDs or names based on hyphen presence
+            if "-" in location_config.datastore_id:
+                # ID-based
+                utils_instance = warehouse_utils(
+                    target_workspace_id=location_config.workspace_id,
+                    target_warehouse_id=location_config.datastore_id,
+                )
+            else:
+                # Name-based
+                utils_instance = warehouse_utils(
+                    target_workspace_name=location_config.workspace_id,
+                    target_warehouse_name=location_config.datastore_id,
+                )
 
         else:
             raise ValueError(
@@ -229,6 +276,14 @@ class LocationResolver:
         """
         source_config = self.resolve_location(config, LocationType.SOURCE)
 
+        # For lakehouse, paths are relative to Files/ (which lakehouse_files_uri already includes)
+        if source_config.datastore_type == "lakehouse":
+            # Strip leading slash if present to ensure relative path
+            if config.source_file_path.startswith("/"):
+                return config.source_file_path.lstrip("/")
+            return config.source_file_path
+
+        # For non-lakehouse datastores, prepend file_root_path
         # Handle absolute paths
         if config.source_file_path.startswith("/"):
             return config.source_file_path

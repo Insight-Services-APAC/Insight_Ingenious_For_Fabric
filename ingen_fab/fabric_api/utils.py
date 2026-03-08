@@ -5,6 +5,8 @@ from typing import Optional
 
 import requests
 from azure.identity import DefaultAzureCredential
+import json
+
 
 from ingen_fab.config_utils.variable_lib_factory import (
     get_workspace_id_from_environment,
@@ -228,6 +230,68 @@ class FabricApiUtils:
             if not continuation_token:
                 break
 
+        return {
+            "deleted_counts": deleted_counts,
+            "errors": errors,
+            "total_deleted": sum(deleted_counts.values()),
+        }
+
+    def delete_orphaned_items(self, local_items: list[str]) -> dict[str, any]:
+        """
+        Delete workspace items that are not present in local fabric_workspace_items.
+        
+        Args:
+            local_items: List of local item names in format "name.type"
+            
+        Returns:
+            Dictionary with counts of deleted items and any errors
+        """
+        headers = {
+            "Authorization": f"Bearer {self._get_token()}",
+            "Content-Type": "application/json",
+        }
+        
+        # Types to preserve (never delete)
+        preserved_types = {"Lakehouse", "Warehouse", "VariableLibrary", "Environment", "SQLEndpoint"}
+        
+        # Get all workspace items
+        workspace_items = self.list_workspace_items()
+        
+        # Create set of local items for fast lookup
+        local_items_set = set(local_items)
+        
+        deleted_counts = {}
+        errors = []
+        
+        for item in workspace_items:
+            item_type = item.get("type")
+            item_name = item.get("displayName", "Unknown")
+            item_id = item.get("id")
+            item_key = f"{item_name}.{item_type}"
+            
+            # Skip preserved types
+            if item_type in preserved_types:
+                continue
+                
+            # Skip if item exists locally
+            if item_key in local_items_set:
+                continue
+                
+            # Delete orphaned item
+            delete_url = f"{self.base_url}/{self.workspace_id}/items/{item_id}"
+            delete_response = requests.delete(delete_url, headers=headers)
+            
+            if delete_response.status_code == 200:
+                deleted_counts[item_type] = deleted_counts.get(item_type, 0) + 1
+            else:
+                errors.append({
+                    "item_name": item_name,
+                    "item_type": item_type,
+                    "item_id": item_id,
+                    "status_code": delete_response.status_code,
+                    "error": delete_response.text,
+                })
+                
         return {
             "deleted_counts": deleted_counts,
             "errors": errors,

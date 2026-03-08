@@ -4,7 +4,7 @@
   "variableOverrides": [
     {
       "name": "fabric_environment",
-      "value": "local"
+      "value": "development"
     },
     {
       "name": "fabric_deployment_workspace_id",
@@ -76,6 +76,6 @@
     {
       "name": "wh_gold_warehouse_id",
       "value": "REPLACE_WITH_LH_GOLD_LAKEHOUSE_GUID"
-    }  
+    }
   ]
 }

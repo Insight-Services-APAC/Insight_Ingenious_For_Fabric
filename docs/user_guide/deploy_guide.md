@@ -222,6 +222,24 @@ ingen_fab deploy delete-all --force
 !!! warning
     `deploy delete-all` removes all items in the resolved workspace for the active environment. Use the `--force` flag only when you are certain.
 
+
+**Remove any orphaned artefacts in Fabric Workspace**
+
+| Action | Command | Common flags |
+|--------|---------|--------------|
+|Dry run to see what would be deleted | ingen_fab deploy cleanup | --dry-run |
+|Delete orphaned items with confirmation|ingen_fab deploy cleanup ||
+|Delete orphaned items without confirmation| ingen_fab deploy cleanup | --force|
+|Deploy and automatically cleanup orphaned items|ingen_fab deploy deploy |--sync |
+
+*Notes:*
+
+- Preserves Lakehouses, Warehouses, VariableLibrary, Environment and SQL endpoints items
+- --dry-run shows what would be deleted without actually deleting
+- Prompts for confirmation unless --force is used
+- --sync flag on deploy command for automatic cleanup
+
+
 ## Troubleshooting
 
 - Ensure `FABRIC_WORKSPACE_REPO_DIR` points to your workspace repo root.

@@ -1,0 +1,36 @@
+# Log table for resource-level extraction tracking - Lakehouse version
+# Tracks extraction runs (one row per resource per execution)
+
+from pyspark.sql.types import (
+    StringType,
+    StructField,
+    StructType,
+    TimestampType,
+)
+
+# Define schema for the log_resource_extract table
+schema = StructType([
+    # Primary key and identifiers
+    StructField("extract_run_id", StringType(), False),  # PK - Resource run
+    StructField("master_execution_id", StringType(), False),  # Orchestrator execution
+    StructField("source_name", StringType(), False),  # Source system
+    StructField("resource_name", StringType(), False),  # Resource/table name
+    StructField("extract_state", StringType(), False),  # pending, running, success, warning, error
+    # Error tracking
+    StructField("error_message", StringType(), True),
+    # Timestamp tracking
+    StructField("started_at", TimestampType(), False),  # When this log entry was created
+    StructField("updated_at", TimestampType(), False),  # Updated on status change
+    StructField("completed_at", TimestampType(), True),  # Set when status is final
+])
+
+target_lakehouse.create_table(
+    table_name="log_resource_extract",
+    schema=schema,
+    mode="overwrite",
+    partition_by=["source_name", "resource_name"],
+    options={
+        "parquet.vorder.default": "true",
+        "overwriteSchema": "true"
+    }
+)

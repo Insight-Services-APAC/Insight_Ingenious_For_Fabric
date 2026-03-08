@@ -1,0 +1,59 @@
+# Log table for batch-level loading tracking - Lakehouse version
+# Tracks individual file loads (one record per batch)
+
+from pyspark.sql.types import (
+    ArrayType,
+    IntegerType,
+    LongType,
+    StringType,
+    StructField,
+    StructType,
+    TimestampType,
+)
+
+# Define schema for the log_resource_load_batch table
+schema = StructType([
+    # Primary key and identifiers
+    StructField("load_batch_id", StringType(), False),  # PK
+    StructField("load_run_id", StringType(), False),  # FK to log_resource_load
+    StructField("master_execution_id", StringType(), False),  # Orchestrator execution
+    StructField("extract_batch_id", StringType(), True),  # FK to log_resource_extract_batch
+    StructField("source_name", StringType(), False),  # Source system
+    StructField("resource_name", StringType(), False),  # Resource/table name
+    StructField("load_state", StringType(), False),  # pending, running, success, warning, error
+    # Source file information
+    StructField("source_file_paths", ArrayType(StringType()), False),
+    StructField("source_file_size_bytes", LongType(), True),
+    StructField("source_file_modified_time", TimestampType(), True),
+    StructField("target_table_name", StringType(), False),
+    # Processing metrics
+    StructField("records_processed", LongType(), True),
+    StructField("records_inserted", LongType(), True),
+    StructField("records_updated", LongType(), True),
+    StructField("records_deleted", LongType(), True),
+    # Performance metrics
+    StructField("source_row_count", LongType(), True),
+    StructField("target_row_count_before", LongType(), True),
+    StructField("target_row_count_after", LongType(), True),
+    StructField("corrupt_records_count", LongType(), True),
+    StructField("data_read_duration_ms", LongType(), True),
+    StructField("total_duration_ms", LongType(), True),
+    # Error tracking
+    StructField("error_message", StringType(), True),
+    # Timestamp tracking
+    StructField("started_at", TimestampType(), False),  # Immutable
+    StructField("updated_at", TimestampType(), False),  # Updated on merge
+    StructField("completed_at", TimestampType(), True),  # Set when status is final
+    StructField("attempt_count", IntegerType(), False),  # Incremented on retries
+])
+
+target_lakehouse.create_table(
+    table_name="log_resource_load_batch",
+    schema=schema,
+    mode="overwrite",
+    partition_by=["source_name", "resource_name"],
+    options={
+        "parquet.vorder.default": "true",
+        "overwriteSchema": "true"
+    }
+)
