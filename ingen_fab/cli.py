@@ -107,10 +107,26 @@ app.add_typer(
     help="Data extraction and package commands (keep compile, extract-run).",
 )
 
+def version_callback(value: bool):
+    """Callback to display version information."""
+    if value:
+        from ingen_fab import __version__
+        typer.echo(f"ingen_fab version {__version__}")
+        raise typer.Exit()
 
 @app.callback()
 def main(
     ctx: typer.Context,
+    version: Annotated[
+        Optional[bool],
+        typer.Option(
+            "--version",
+            "-v",
+            callback=version_callback,
+            is_eager=True,
+            help="Show version and exit",
+        ),
+    ] = None,
     fabric_workspace_repo_dir: Annotated[
         Optional[Path],
         typer.Option(
