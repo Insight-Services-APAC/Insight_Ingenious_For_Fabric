@@ -15,7 +15,6 @@ from fabric_cicd import (
     publish_all_items,
     unpublish_all_orphan_items,
 )
-from fabric_cicd._common._publish_log_entry import PublishLogEntry
 from rich.console import Console
 
 from ingen_fab.cli_utils.console_styles import ConsoleStyles
@@ -29,6 +28,65 @@ from ingen_fab.fabric_api.utils import FabricApiUtils
 import os
 
 append_feature_flag("enable_shortcut_publish")
+
+
+@dataclass
+class PublishLogEntry:
+    """Normalized publish result entry used by ingen_fab regardless of fabric_cicd version."""
+
+    name: str
+    item_type: str
+    success: bool
+    error: str | None = None
+    guid: str | None = None
+
+
+def _split_item_ref(item_ref: str) -> tuple[str, str]:
+    """Split `ItemName.ItemType` while tolerating names containing dots."""
+    if "." not in item_ref:
+        return item_ref, "Unknown"
+    return item_ref.rsplit(".", 1)
+
+
+def _coerce_publish_entries(raw_entries: object) -> list[PublishLogEntry]:
+    """Convert fabric_cicd publish output into local PublishLogEntry instances."""
+    if not isinstance(raw_entries, list):
+        return []
+
+    normalized: list[PublishLogEntry] = []
+    for raw in raw_entries:
+        if isinstance(raw, PublishLogEntry):
+            normalized.append(raw)
+            continue
+
+        # Support both dataclass-like objects and plain dict payloads.
+        name = getattr(raw, "name", None)
+        item_type = getattr(raw, "item_type", None)
+        success = getattr(raw, "success", None)
+        error = getattr(raw, "error", None)
+        guid = getattr(raw, "guid", None)
+
+        if isinstance(raw, dict):
+            name = raw.get("name", name)
+            item_type = raw.get("item_type", item_type)
+            success = raw.get("success", success)
+            error = raw.get("error", error)
+            guid = raw.get("guid", guid)
+
+        if name is None or item_type is None or success is None:
+            continue
+
+        normalized.append(
+            PublishLogEntry(
+                name=str(name),
+                item_type=str(item_type),
+                success=bool(success),
+                error=None if error is None else str(error),
+                guid=None if guid is None else str(guid),
+            )
+        )
+
+    return normalized
 
 class promotion_utils:
     """Utility class for promoting Fabric items between workspaces."""
@@ -59,7 +117,8 @@ class promotion_utils:
         ws = self._workspace()
         append_feature_flag("enable_experimental_features")
         append_feature_flag("enable_items_to_include")
-        return publish_all_items(fabric_workspace_obj=ws, items_to_include=items_to_include)
+        raw_entries = publish_all_items(fabric_workspace_obj=ws, items_to_include=items_to_include)
+        return _coerce_publish_entries(raw_entries)
 
     def unpublish_orphans(self) -> None:
         """Remove items from the workspace that are not present in the repository."""
@@ -550,6 +609,43 @@ class SyncToFabricEnvironment:
                 self.console, "💡 Run 'ingen_fab init workspace' to update manually"
             )
 
+    def _publish_with_status_entries(
+        self,
+        fw: FabricWorkspace,
+        items_to_publish: list[str],
+    ) -> list[PublishLogEntry]:
+        """Publish and return per-item status entries across old/new fabric_cicd APIs."""
+        raw_entries = publish_all_items(fabric_workspace_obj=fw, items_to_include=items_to_publish)
+        normalized = _coerce_publish_entries(raw_entries)
+        if normalized:
+            return normalized
+
+        # Fallback for upstream versions that do not return publish log entries.
+        status_entries: list[PublishLogEntry] = []
+        for item_ref in items_to_publish:
+            item_name, item_type = _split_item_ref(item_ref)
+            try:
+                publish_all_items(fabric_workspace_obj=fw, items_to_include=[item_ref])
+                deployed_item = fw.repository_items.get(item_type, {}).get(item_name)
+                status_entries.append(
+                    PublishLogEntry(
+                        name=item_name,
+                        item_type=item_type,
+                        success=True,
+                        guid=getattr(deployed_item, "guid", None),
+                    )
+                )
+            except Exception as e:
+                status_entries.append(
+                    PublishLogEntry(
+                        name=item_name,
+                        item_type=item_type,
+                        success=False,
+                        error=str(e),
+                    )
+                )
+        return status_entries
+
     def sync_environment(self):
         """Synchronize environment variables and platform folders. Upload to Fabric."""
         # 1) Inject variables into template
@@ -864,8 +960,9 @@ class SyncToFabricEnvironment:
                     )
                     append_feature_flag("enable_experimental_features")
                     append_feature_flag("enable_items_to_include")
-                    status_entries = publish_all_items(
-                        fabric_workspace_obj=fw, items_to_include=items_to_publish
+                    status_entries = self._publish_with_status_entries(
+                        fw=fw,
+                        items_to_publish=items_to_publish,
                     )
                 except Exception as e:
                     ConsoleStyles.print_error(
