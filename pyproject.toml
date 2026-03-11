@@ -13,7 +13,7 @@ dependencies = [
     "deltalake==1.0.2",
     "pyarrow==20.0.0",
     "azure-cli==2.76.0",
-    "fabric_cicd @ git+https://github.com/microsoft/fabric-cicd.git@main",
+    "fabric-cicd",
     "azure-storage-file-datalake==12.21.0",
     "azure-storage-blob>=12.26.0",
     "lazy-import>=0.2.2",
