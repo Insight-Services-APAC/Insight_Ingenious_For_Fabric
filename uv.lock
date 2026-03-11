@@ -2362,7 +2362,7 @@ requires-dist = [
     { name = "azure-storage-file-datalake", specifier = "==12.21.0" },
     { name = "backoff", marker = "extra == 'dataprep'", specifier = "==2.2" },
     { name = "deltalake", specifier = "==1.0.2" },
-    { name = "fabric-cicd" },
+    { name = "fabric-cicd", specifier = "==0.1.25" },
     { name = "faker", specifier = ">=37.4.2" },
     { name = "fsspec", specifier = ">=2025.10.0" },
     { name = "jinja2" },
