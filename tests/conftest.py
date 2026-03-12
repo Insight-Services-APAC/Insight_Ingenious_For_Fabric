@@ -43,23 +43,27 @@ def connect(*args, **kwargs):
 pyodbc.connect = connect
 sys.modules.setdefault("pyodbc", pyodbc)
 
-# Minimal azure.identity substitute
-azure = types.ModuleType("azure")
-identity = types.ModuleType("identity")
+# Minimal azure.identity substitute (only if azure is unavailable)
+try:
+    import azure.identity  # type: ignore # noqa: F401
+except Exception:
+    azure = types.ModuleType("azure")
+    identity = types.ModuleType("identity")
 
+    class DefaultAzureCredential:
+        def get_token(self, _):
+            return types.SimpleNamespace(token="token")
 
-class DefaultAzureCredential:
-    def get_token(self, _):
-        return types.SimpleNamespace(token="token")
-
-
-identity.DefaultAzureCredential = DefaultAzureCredential
-azure.identity = identity
-sys.modules.setdefault("azure", azure)
-sys.modules.setdefault("azure.identity", identity)
+    identity.DefaultAzureCredential = DefaultAzureCredential
+    azure.identity = identity
+    sys.modules.setdefault("azure", azure)
+    sys.modules.setdefault("azure.identity", identity)
 
 # Minimal fabric_cicd substitute
 fabric_cicd = types.ModuleType("fabric_cicd")
+
+
+FEATURE_FLAG = set()
 
 
 class FabricWorkspace:
@@ -67,12 +71,16 @@ class FabricWorkspace:
         pass
 
 
-def publish_all_items(_):
-    pass
+def publish_all_items(*args, **kwargs):
+    return []
 
 
-def unpublish_all_orphan_items(_):
-    pass
+def unpublish_all_orphan_items(*args, **kwargs):
+    return None
+
+
+def append_feature_flag(feature):
+    FEATURE_FLAG.add(feature)
 
 
 class Constants:
@@ -82,6 +90,8 @@ class Constants:
 fabric_cicd.FabricWorkspace = FabricWorkspace
 fabric_cicd.publish_all_items = publish_all_items
 fabric_cicd.unpublish_all_orphan_items = unpublish_all_orphan_items
+fabric_cicd.append_feature_flag = append_feature_flag
 fabric_cicd.constants = Constants
+fabric_cicd.constants.FEATURE_FLAG = FEATURE_FLAG
 
 sys.modules.setdefault("fabric_cicd", fabric_cicd)
