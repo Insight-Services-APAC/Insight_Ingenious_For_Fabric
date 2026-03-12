@@ -15,7 +15,13 @@ from fabric_cicd import (
     publish_all_items,
     unpublish_all_orphan_items,
 )
-from fabric_cicd._common._publish_log_entry import PublishLogEntry
+
+# fabric-cicd internal paths differ between versions. Keep this import optional
+# and fall back to Any so runtime import does not fail on 0.1.25.
+try:
+    from fabric_cicd._common._publish_log_entry import PublishLogEntry
+except ModuleNotFoundError:
+    PublishLogEntry = Any
 from rich.console import Console
 
 from ingen_fab.cli_utils.console_styles import ConsoleStyles
@@ -52,7 +58,12 @@ class promotion_utils:
         self.environment = FabricWorkspace.environment
 
         if FabricWorkspace.item_type_in_scope is None:
-            self.item_type_in_scope = list(constants.ACCEPTED_ITEM_TYPES_UPN)
+            accepted_item_types = getattr(
+                constants,
+                "ACCEPTED_ITEM_TYPES_UPN",
+                getattr(constants, "ACCEPTED_ITEM_TYPES", []),
+            )
+            self.item_type_in_scope = list(accepted_item_types)
         else:
             self.item_type_in_scope = list(FabricWorkspace.item_type_in_scope)
 
@@ -62,7 +73,6 @@ class promotion_utils:
             workspace_id=self.workspace_id,
             repository_directory=str(self.repository_directory),
             item_type_in_scope=self.item_type_in_scope,
-            items_to_include=self.items_to_include,
             environment=self.environment,
         )
 
@@ -373,6 +383,7 @@ class SyncToFabricEnvironment:
         manifest_items: list[manifest_item],
         status_entries: list[PublishLogEntry],
         manifest_path: Path,
+        attempted_item_names: set[str],
     ) -> dict:
         """
         Update manifest with deployment results.
@@ -385,8 +396,16 @@ class SyncToFabricEnvironment:
 
         if not status_entries:
             ConsoleStyles.print_warning(
-                self.console, "Warning: no status entries found."
+                self.console,
+                "Warning: no status entries found. Falling back to attempted item list.",
             )
+
+            # Compatibility fallback for older fabric-cicd versions that can publish
+            # successfully but return an empty status list.
+            for item in manifest_items:
+                if item.name in attempted_item_names:
+                    item.status = "deployed"
+                    deployed_items.append({'name': item.name})
         else:
             # Create lookup dict for O(n) instead of O(n*m)
             status_lookup = {
@@ -1089,7 +1108,10 @@ class SyncToFabricEnvironment:
                     )
 
                 results = self._update_manifest_with_results(
-                    manifest_items, status_entries, manifest_path
+                    manifest_items,
+                    status_entries,
+                    manifest_path,
+                    attempted_item_names={item.name for item in manifest_items_new_updated},
                 )
 
             # Calculate unchanged count

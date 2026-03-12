@@ -264,6 +264,26 @@ def create_additional_notebooks(
                 f"[yellow]Warning: Failed to create notebook for {nb_path.name}: {e}[/yellow]"
             )
 
+    # Copy manifest.json to the masters folder
+    if manifest_path.exists():
+        masters_dir = target_dir / "masters"
+        masters_dir.mkdir(parents=True, exist_ok=True)
+        target_manifest_path = masters_dir / "manifest.json"
+        try:
+            import shutil
+            shutil.copy2(manifest_path, target_manifest_path)
+            console.print(
+                f"[green]✓ Copied manifest.json to {target_manifest_path}[/green]"
+            )
+        except Exception as e:
+            console.print(
+                f"[yellow]Warning: Failed to copy manifest.json: {e}[/yellow]"
+            )
+    else:
+        console.print(
+            f"[yellow]Note: manifest.json not found at {manifest_path}[/yellow]"
+        )
+
     console.print(
         Panel.fit(
             f"[bold green]✓ Created {created} notebook(s) in[/bold green]\n{target_dir}",

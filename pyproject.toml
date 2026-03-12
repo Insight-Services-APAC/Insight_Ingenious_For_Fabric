@@ -13,7 +13,7 @@ dependencies = [
     "deltalake==1.0.2",
     "pyarrow==20.0.0",
     "azure-cli==2.76.0",
-    "fabric_cicd @ git+https://github.com/aitil-insight/fabric-cicd.git@fix-skipped-publish-errors",
+    "fabric-cicd==0.1.25",
     "azure-storage-file-datalake==12.21.0",
     "azure-storage-blob>=12.26.0",
     "lazy-import>=0.2.2",
@@ -44,7 +44,7 @@ dev = [
 ]
 
 dbt = [
-    "dbt-fabricsparknb @ git+https://github.com/Insight-Services-APAC/APAC-Capability-DAI-DbtFabricSparkNb.git@dev-jr-upgrading-to-dbt-v1.9+"
+    "dbt-fabricsparknb @ git+https://github.com/Insight-Services-APAC/APAC-Capability-DAI-DbtFabricSparkNb.git@V1.8.0"
 ]
 
 docs = [

@@ -2103,7 +2103,7 @@ wheels = [
 [[package]]
 name = "fabric-cicd"
 version = "0.1.25"
-source = { git = "https://github.com/aitil-insight/fabric-cicd.git?rev=fix-skipped-publish-errors#e4ae48783c358cd64ca1419f689eabae3926a9ce" }
+source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "azure-identity" },
     { name = "dpath" },
@@ -2112,6 +2112,10 @@ dependencies = [
     { name = "packaging" },
     { name = "pyyaml" },
     { name = "requests" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/d8/dc/0cf59b378e4b64051e89d3046b939760f7aba51b8df539a900edd08a1b6f/fabric_cicd-0.1.25.tar.gz", hash = "sha256:83ee9a8a07cc56c0bed3f95b8578825f9b2f63016ef613fc7ea4128b0d5ee755", size = 84851, upload-time = "2025-08-19T15:21:41.223Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/61/44/04b1e609b8d05e2bd8cb6045e97cd31b7f8a651ce9b4e604b9d024441a08/fabric_cicd-0.1.25-py3-none-any.whl", hash = "sha256:89b67af9497d020bc18281e09ac22993823d6ad528ae232ad9eb61659c5c000e", size = 70897, upload-time = "2025-08-19T15:21:42.211Z" },
 ]
 
 [[package]]
@@ -2358,7 +2362,7 @@ requires-dist = [
     { name = "azure-storage-file-datalake", specifier = "==12.21.0" },
     { name = "backoff", marker = "extra == 'dataprep'", specifier = "==2.2" },
     { name = "deltalake", specifier = "==1.0.2" },
-    { name = "fabric-cicd", git = "https://github.com/aitil-insight/fabric-cicd.git?rev=fix-skipped-publish-errors" },
+    { name = "fabric-cicd", specifier = "==0.1.25" },
     { name = "faker", specifier = ">=37.4.2" },
     { name = "fsspec", specifier = ">=2025.10.0" },
     { name = "jinja2" },
