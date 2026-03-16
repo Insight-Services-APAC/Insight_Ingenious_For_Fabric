@@ -27,8 +27,12 @@ if "notebookutils" in sys.modules:
     {% if language_group == 'synapse_pyspark' %}
     # PySpark environment - spark session should be available
     {% else %}
-    # Python environment - no spark session needed
-    spark = None
+    # Reuse an active Spark session when one exists in Fabric.
+    try:
+        from pyspark.sql import SparkSession
+        spark = SparkSession.getActiveSession()
+    except Exception:
+        spark = None
     {% endif %}
 else:
     print("NotebookUtils not available, assumed running in local mode.")

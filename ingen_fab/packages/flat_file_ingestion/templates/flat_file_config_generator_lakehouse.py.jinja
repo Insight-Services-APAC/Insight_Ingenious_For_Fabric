@@ -21,7 +21,7 @@ else:
 {{macros.python_cell_with_heading("## ⚙️ Configuration Settings")}}
 
 # Configuration for file discovery
-scan_folder_path = "{{scan_folder_path | default('synthetic_data')}}"  # Folder to scan
+scan_folder_path = "{{scan_folder_path | default('Files/hr_seed')}}"  # Folder to scan
 recursive_scan = {{recursive_scan | default('True')}}  # Scan subfolders
 max_files_to_sample = {{max_files_to_sample | default(5)}}  # Max files to sample per pattern
 target_schema = "{{target_schema | default('raw')}}"  # Default target schema
@@ -40,15 +40,29 @@ from typing import Dict, List, Tuple, Optional
 # Get configurations
 configs: ConfigsObject = get_configs_as_object()
 
-# Initialize lakehouse utils
-target_lakehouse_id = get_config_value("config_lakehouse_id")
-target_workspace_id = get_config_value("config_workspace_id")
+# Initialize source lakehouse utils for file discovery (explicitly lh_bronze)
+source_workspace_id = get_config_value("lh_bronze_workspace_id")
+source_lakehouse_id = get_config_value("lh_bronze_lakehouse_id")
 
-lh_utils = lakehouse_utils(
-    target_workspace_id=target_workspace_id,
-    target_lakehouse_id=target_lakehouse_id,
+# Write generated configs to the config lakehouse.
+config_workspace_id = get_config_value("config_workspace_id")
+config_lakehouse_id = get_config_value("config_lakehouse_id")
+
+source_lh_utils = lakehouse_utils(
+    target_workspace_id=source_workspace_id,
+    target_lakehouse_id=source_lakehouse_id,
     spark=spark
 )
+
+config_lh_utils = lakehouse_utils(
+    target_workspace_id=config_workspace_id,
+    target_lakehouse_id=config_lakehouse_id,
+    spark=spark
+)
+
+print(f"Source lakehouse for discovery: workspace={source_workspace_id}, lakehouse={source_lakehouse_id}")
+print(f"Config lakehouse for writes: workspace={config_workspace_id}, lakehouse={config_lakehouse_id}")
+print(f"Source Files URI: {source_lh_utils.lakehouse_files_uri()}")
 
 {{macros.python_cell_with_heading("## 🔍 File Discovery Functions")}}
 
@@ -65,23 +79,46 @@ def discover_files(base_path: str, recursive: bool = True) -> Dict[str, List[str
     
     try:
         # Get all directories and files in the base path using the new list_all method
-        all_items = lh_utils.list_all(full_base_path, recursive=recursive)
+        all_items = source_lh_utils.list_all(full_base_path, recursive=recursive)
+        print(f"ℹ list_all discovered {len(all_items)} filesystem entries under {full_base_path}")
         
         # Process each item to identify file types
         for item_path in all_items:
-            # Extract relative path from full path - handle absolute paths properly
-            # item_path looks like: /workspaces/ingen_fab/tmp/spark/Files/synthetic_data/csv/single/customers.csv
-            # We want: csv/single/customers.csv
-            
-            # Find the part after synthetic_data (or the base path)
-            synthetic_data_marker = f"/tmp/spark/Files/{base_path}/"
-            if synthetic_data_marker in item_path:
-                rel_path = item_path.split(synthetic_data_marker)[1]
+            # Extract path relative to the lakehouse Files root.
+            # Examples:
+            #  - abfss://.../Files/hr_seed/customers.csv -> hr_seed/customers.csv
+            #  - /tmp/spark/Files/hr_seed/customers.csv -> hr_seed/customers.csv
+            if "/Files/" in item_path:
+                rel_path = item_path.split("/Files/", 1)[1]
             else:
-                # Fallback - try other patterns
                 rel_path = item_path.replace(full_base_path + "/", "").replace(full_base_path, "")
                 if rel_path.startswith("/"):
                     rel_path = rel_path[1:]
+
+            lower_item_path = item_path.lower()
+
+            # Fast path: regular files with supported extensions.
+            if lower_item_path.endswith((".csv", ".parquet", ".json", ".avro")):
+                file_ext = Path(rel_path).suffix.lstrip('.').lower()
+                if file_ext in ['csv', 'parquet', 'json', 'avro']:
+                    if file_ext not in file_groups:
+                        file_groups[file_ext] = []
+                    if rel_path not in file_groups[file_ext]:
+                        file_groups[file_ext].append(rel_path)
+                continue
+
+            # Spark output path: detect part files and map them back to the parent folder name.
+            if '/part-' in lower_item_path:
+                parent_rel_path = rel_path.rsplit('/', 1)[0] if '/' in rel_path else ''
+                parent_name = parent_rel_path.split('/')[-1] if parent_rel_path else ''
+                if '.' in parent_name:
+                    file_ext = parent_name.split('.')[-1].lower()
+                    if file_ext in ['csv', 'parquet', 'json', 'avro']:
+                        if file_ext not in file_groups:
+                            file_groups[file_ext] = []
+                        if parent_rel_path and parent_rel_path not in file_groups[file_ext]:
+                            file_groups[file_ext].append(parent_rel_path)
+                continue
             
             # Check if this looks like a file format folder (e.g., customers.csv, data.parquet)
             path_parts = rel_path.split('/')
@@ -110,9 +147,18 @@ def discover_files(base_path: str, recursive: bool = True) -> Dict[str, List[str
                                         file_groups[file_ext] = []
                                     if folder_rel_path not in file_groups[file_ext]:
                                         file_groups[file_ext].append(folder_rel_path)
+                            elif abs_path.exists() and abs_path.is_file():
+                                # Regular file (not a Spark folder with part-* files)
+                                if file_ext not in file_groups:
+                                    file_groups[file_ext] = []
+                                if folder_rel_path not in file_groups[file_ext]:
+                                    file_groups[file_ext].append(folder_rel_path)
                         except:
-                            # If we can't list contents, it might be a regular file
-                            pass
+                            # If path inspection fails, still keep the detected candidate path.
+                            if file_ext not in file_groups:
+                                file_groups[file_ext] = []
+                            if folder_rel_path not in file_groups[file_ext]:
+                                file_groups[file_ext].append(folder_rel_path)
                         break
         
     except Exception as e:
@@ -160,7 +206,7 @@ def analyze_file_structure(file_path: str) -> Dict[str, any]:
         # Check if it's a folder with part files (Spark output)
         full_file_path = f"Files/{file_path}" if not file_path.startswith("Files/") else file_path
         try:
-            folder_contents = lh_utils.list_files(full_file_path)
+            folder_contents = source_lh_utils.list_files(full_file_path)
             part_files = [f for f in folder_contents if 'part-' in f]
             if part_files:
                 file_info['is_folder'] = True
@@ -293,6 +339,18 @@ for file_type, file_list in discovered_files.items():
         
         # Look for meaningful table names in the path, skipping date folders and common prefixes
         table_name_candidates = []
+        leaf_name = path_parts[-1] if path_parts else ""
+
+        # For regular files, use filename stem as the table name (e.g., departments.csv -> departments).
+        if not file_info.get('is_folder', False) and '.' in leaf_name:
+            table_name = Path(leaf_name).stem
+            if 'synthetic_data' in file_path or any('retail_oltp' in part for part in path_parts):
+                table_name = f"synth_data_{table_name}"
+            file_info['inferred_table_name'] = table_name.replace('-', '_').replace(' ', '_').lower()
+            file_info['path_parts'] = path_parts  # Store for date range detection
+            analyzed_files[file_type].append(file_info)
+            continue
+
         for part in path_parts:
             # Skip date patterns (YYYY, MM, DD, or date-like folders)
             if part.isdigit() and (len(part) == 4 or len(part) == 2):
@@ -350,12 +408,12 @@ def generate_ingestion_config(file_info: Dict, config_counter: int) -> Dict:
         "config_name": f"Auto-discovered: {file_info['inferred_table_name']} ({file_info['format']})",
         "source_file_path": file_info['path'],
         "source_file_format": file_info['format'],
-        "source_workspace_id": "{% raw %}{{varlib:config_workspace_id}}{% endraw %}",
-        "source_datastore_id": "{% raw %}{{varlib:config_lakehouse_id}}{% endraw %}",
+        "source_workspace_id": source_workspace_id,
+        "source_datastore_id": source_lakehouse_id,
         "source_datastore_type": "lakehouse",
         "source_file_root_path": "Files",
-        "target_workspace_id": "{% raw %}{{varlib:config_workspace_id}}{% endraw %}",
-        "target_datastore_id": "{% raw %}{{varlib:config_lakehouse_id}}{% endraw %}",
+        "target_workspace_id": source_workspace_id,
+        "target_datastore_id": source_lakehouse_id,
         "target_datastore_type": "lakehouse",
         "target_schema_name": target_schema,
         "target_table_name": file_info['inferred_table_name'],
@@ -409,6 +467,12 @@ grouped_configs = {}
 for file_type, file_infos in analyzed_files.items():
     for file_info in file_infos:
         if 'error' not in file_info:
+            # Final safeguard: for regular files, always derive table name from file name.
+            if not file_info.get('is_folder', False):
+                leaf_name = Path(file_info.get('path', '')).name
+                if '.' in leaf_name:
+                    file_info['inferred_table_name'] = Path(leaf_name).stem.replace('-', '_').replace(' ', '_').lower()
+
             table_name = file_info['inferred_table_name']
             
             if table_name not in grouped_configs:
@@ -555,17 +619,17 @@ for config in all_configs:
     config_rows.append(Row(**row_data))
 
 # Create DataFrame with the schema - use lakehouse_utils
-configs_df = lh_utils.get_connection.createDataFrame(config_rows, schema)
+configs_df = config_lh_utils.get_connection.createDataFrame(config_rows, schema)
 
-# Option 1: Append to existing config table
+# Overwrite generated configurations to the active config table
 print("")
-print("📝 Option 1: Append configurations to existing table")
-print("To append these configurations, uncomment and run:")
-print("# lh_utils.save_dataframe_as_table(configs_df, 'config_flat_file_ingestion', mode='append')")
+print("📝 Overwriting configurations in config_flat_file_ingestion")
+config_lh_utils.write_to_table(configs_df, "config_flat_file_ingestion", mode="overwrite")
+print("✅ Overwrote configurations in config_flat_file_ingestion")
 
-# Option 2: Save to a temporary table for review
+# Save a temporary snapshot for review/debugging
 temp_table_name = f"temp_auto_configs_{datetime.now().strftime('%Y%m%d_%H%M%S')}"
-lh_utils.save_dataframe_as_table(configs_df, temp_table_name, mode="overwrite")
+config_lh_utils.write_to_table(configs_df, temp_table_name, mode="overwrite")
 print("")
 print(f"✅ Saved configurations to temporary table: {temp_table_name}")
 

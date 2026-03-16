@@ -110,7 +110,7 @@ class FlatFileIngestionCompiler(BaseNotebookCompiler):
 
         # Default template variables for config generation
         default_vars = {
-            "scan_folder_path": "synthetic_data",
+            "scan_folder_path": "Files/hr_seed",
             "recursive_scan": True,
             "max_files_to_sample": 5,
             "target_schema": "raw",
