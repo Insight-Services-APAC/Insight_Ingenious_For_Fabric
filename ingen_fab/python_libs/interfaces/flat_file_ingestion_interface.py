@@ -18,13 +18,17 @@ class FlatFileIngestionConfig:
     source_file_format: str
 
     # Source location fields (optional - defaults applied during processing)
+    source_workspace_name: Optional[str] = None
     source_workspace_id: Optional[str] = None
+    source_datastore_name: Optional[str] = None
     source_datastore_id: Optional[str] = None
     source_datastore_type: Optional[str] = None
     source_file_root_path: Optional[str] = None
 
     # Target location fields
+    target_workspace_name: Optional[str] = None
     target_workspace_id: str = ""
+    target_datastore_name: Optional[str] = None
     target_datastore_id: str = ""
     target_datastore_type: str = ""
     target_schema_name: str = ""
@@ -108,12 +112,16 @@ class FlatFileIngestionConfig:
             source_file_path=config_row.get("source_file_path", ""),
             source_file_format=config_row.get("source_file_format", "csv"),
             # Source location fields (optional)
+            source_workspace_name=config_row.get("source_workspace_name"),
             source_workspace_id=config_row.get("source_workspace_id"),
+            source_datastore_name=config_row.get("source_datastore_name"),
             source_datastore_id=config_row.get("source_datastore_id"),
             source_datastore_type=config_row.get("source_datastore_type"),
             source_file_root_path=config_row.get("source_file_root_path"),
             # Target location fields
+            target_workspace_name=config_row.get("target_workspace_name"),
             target_workspace_id=config_row.get("target_workspace_id", ""),
+            target_datastore_name=config_row.get("target_datastore_name"),
             target_datastore_id=config_row.get("target_datastore_id", ""),
             target_datastore_type=config_row.get("target_datastore_type", "lakehouse"),
             target_schema_name=config_row.get("target_schema_name", ""),

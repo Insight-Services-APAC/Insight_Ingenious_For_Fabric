@@ -627,12 +627,6 @@ print("📝 Overwriting configurations in config_flat_file_ingestion")
 config_lh_utils.write_to_table(configs_df, "config_flat_file_ingestion", mode="overwrite")
 print("✅ Overwrote configurations in config_flat_file_ingestion")
 
-# Save a temporary snapshot for review/debugging
-temp_table_name = f"temp_auto_configs_{datetime.now().strftime('%Y%m%d_%H%M%S')}"
-config_lh_utils.write_to_table(configs_df, temp_table_name, mode="overwrite")
-print("")
-print(f"✅ Saved configurations to temporary table: {temp_table_name}")
-
 # Display all configurations
 print("")
 print("📋 All Generated Configurations:")
@@ -647,7 +641,6 @@ print("=" * 80)
 print(f"Scan Path: {scan_folder_path}")
 print(f"Total Files Discovered: {total_files}")
 print(f"Configurations Generated: {len(all_configs)}")
-print(f"Temporary Table: {temp_table_name}")
 print("")
 print("File Types:")
 for file_type, count in [(ft, len(files)) for ft, files in discovered_files.items()]:
@@ -693,8 +686,7 @@ for i, config in enumerate(all_configs, 1):
     print("")
 
 print("✅ Configuration generation complete!")
-print(f"Review the configurations in table: {temp_table_name}")
-print("Once reviewed, append to config_flat_file_ingestion table to activate.")
+print("Configurations are saved directly to config_flat_file_ingestion.")
 
 {{ macros.exit_notebook("success") }}
 

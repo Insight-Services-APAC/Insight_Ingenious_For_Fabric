@@ -261,6 +261,18 @@ if debug_mode:
 configurations = []
 for _, config_row in config_df.iterrows():
     config = FlatFileIngestionConfig.from_dict(config_row.to_dict())
+
+    # Backward compatibility: older uploaded interface libs may not define name-based
+    # location attributes expected by LocationResolver.
+    for missing_attr in [
+        "source_workspace_name",
+        "source_datastore_name",
+        "target_workspace_name",
+        "target_datastore_name",
+    ]:
+        if not hasattr(config, missing_attr):
+            setattr(config, missing_attr, None)
+
     configurations.append(config)
 
 # Process all configurations using the orchestrator

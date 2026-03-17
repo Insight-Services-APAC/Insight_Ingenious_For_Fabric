@@ -39,8 +39,8 @@ config_lakehouse = lakehouse_utils(
 
 # Initialize unified location resolver with defaults for both source and target
 location_resolver = LocationResolver(
-    default_workspace_id=configs.sample_lh_workspace_id,  # Default to target workspace
-    default_datastore_id=configs.sample_lh_lakehouse_id,  # Default to target lakehouse
+    default_workspace_id=configs.lh_bronze_workspace_id,  # Default to target workspace
+    default_datastore_id=configs.lh_bronze_lakehouse_id,  # Default to target lakehouse
     default_datastore_type="lakehouse",
     default_file_root_path=".",
     default_schema_name="default"
