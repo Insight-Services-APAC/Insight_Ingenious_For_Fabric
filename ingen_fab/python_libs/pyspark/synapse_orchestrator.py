@@ -561,7 +561,8 @@ class SynapseOrchestrator(SynapseOrchestratorInterface):
         include_snapshots: bool = True,
         extraction_start_date: Optional[str] = None,
         extraction_end_date: Optional[str] = None,
-        batch_size: Optional[int] = 1
+        batch_size: Optional[int] = 1,
+        group_name: Optional[str] = None
     ) -> List[WorkItem]:
         """Prepare work items for processing based on configuration and parameters."""
         work_items = []
@@ -614,6 +615,25 @@ class SynapseOrchestrator(SynapseOrchestratorInterface):
             
             # Filter active rows only
             active_objects = config_df.filter(F.col("active_yn") == "Y")
+
+            # Apply group name filtering if specified (before collecting rows)
+            if group_name and group_name.strip():
+                logger.info(f"Applying group name filter: {group_name}")
+                active_objects = active_objects.filter(F.col("group_name") == group_name)
+                filtered_count = active_objects.count()
+                
+                if filtered_count == 0:
+                    logger.warning(f"No tables found for group '{group_name}'. Check group_name values in config table.")
+                    # Show available groups
+                    try:
+                        all_groups = config_df.select("group_name").distinct().collect()
+                        available_groups = sorted(set(row.group_name for row in all_groups if row.group_name))
+                        if available_groups:
+                            logger.info(f"Available groups: {', '.join(available_groups)}")
+                    except Exception:
+                        pass
+                else:
+                    logger.info(f"Group name filter applied: {filtered_count} tables match group '{group_name}'")
 
             # Capture defaults once; do not mutate these when rows provide overrides
             default_pipeline_id = synapse_sync_fabric_pipeline_id
