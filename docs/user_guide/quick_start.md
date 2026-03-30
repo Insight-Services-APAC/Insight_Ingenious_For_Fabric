@@ -53,13 +53,23 @@ dp/
 
 Set up environment variables and configure your workspace details:
 
-```bash
-# Set environment (development, UAT, production)
-$env:FABRIC_ENVIRONMENT = "development"
+=== "macOS / Linux"
+    ```bash
+    # Set environment 
+    export FABRIC_ENVIRONMENT="development"
+    
+    # Set workspace directory 
+    export FABRIC_WORKSPACE_REPO_DIR="dp"
+    ```
 
-# Set workspace directory 
-$env:FABRIC_WORKSPACE_REPO_DIR = "dp"
-```
+=== "Windows PowerShell"
+    ```powershell
+    # Set environment (development, UAT, production)
+    $env:FABRIC_ENVIRONMENT = "development"
+    
+    # Set workspace directory 
+    $env:FABRIC_WORKSPACE_REPO_DIR = "dp"
+    ```
 
 Now edit the development environment variables:
 
@@ -234,6 +244,12 @@ Deploy your project to your Fabric workspace:
 ```bash
 # Deploy to whichever environment is set using your environment variables
 ingen_fab deploy deploy
+```
+
+Update Lakehouse and Warehouse guids:
+```bash
+# Overwrite the deffault config values for Warehouses and Lakehouses
+ingen_fab init workspace --workspace-name "<your-workspace-name>"
 ```
 
 Deploy python libraries:
