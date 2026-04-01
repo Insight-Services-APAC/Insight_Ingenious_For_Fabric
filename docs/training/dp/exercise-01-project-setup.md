@@ -107,7 +107,7 @@ ingen_fab ddl compile \
     --generation-mode Warehouse
 ```
 
-This generates individual DDL notebooks and orchestrator notebooks under `fabric_workspace_items/`.
+This generates Fabric notebooks under `fabric_workspace_items/`. Each subfolder of DDL scripts is compiled into a **single bundle notebook** (e.g. all scripts in `001_Initial_Creation/` become cells in one notebook), plus an orchestrator notebook per lakehouse and a top-level orchestrator that runs all lakehouses.
 
 ### 6. Deploy to Fabric
 
@@ -267,15 +267,13 @@ Open your Fabric workspace in the browser and verify all artefacts deployed corr
 ├── ddl_scripts/
 │   ├── Lakehouses/
 │   │   ├── 00_all_lakehouses_orchestrator_ddl_scripts (Notebook)
-│   │   ├── 00_orchestrator_lh_silver_lakehouse_ddl_scripts (Notebook)
-│   │   ├── 00_orchestrator_lh_gold_lakehouse_ddl_scripts (Notebook)
-│   │   └── lh_bronze/
-│   │   |   ├── 00_orchestrator_lh_bronze_lakehouse_ddl_scripts (Notebook)
-│   │   |   ├── 001_application_cities_table_create (Notebook)
-│   │   |   └── 002_application_countries_table_create (Notebook)
-│   │   └── lh_silver/
-│   │   |   ├── 00_orchestrator_lh_silver_lakehouse_ddl_scripts (Notebook)
-│   │   |   └── 001_Initial_Creation_lh_silver_Lakehouses_ddl_scripts (Notebook)
+│   │   ├── lh_bronze/
+│   │   │   ├── 00_orchestrator_lh_bronze_lakehouse_ddl_scripts (Notebook)
+│   │   │   ├── 001_Initial_Creation_lh_bronze_Lakehouses_ddl_scripts (Notebook)
+│   │   │   └── 002_Change_lh_bronze_Lakehouses_ddl_scripts (Notebook)
+│   │   ├── lh_silver/
+│   │   │   ├── 00_orchestrator_lh_silver_lakehouse_ddl_scripts (Notebook)
+│   │   │   └── 001_Initial_Creation_lh_silver_Lakehouses_ddl_scripts (Notebook)
 │   │   └── lh_gold/
 │   │       ├── 00_orchestrator_lh_gold_lakehouse_ddl_scripts (Notebook)
 │   │       └── 001_Initial_Creation_lh_gold_Lakehouses_ddl_scripts (Notebook)
@@ -283,7 +281,7 @@ Open your Fabric workspace in the browser and verify all artefacts deployed corr
 │       ├── 00_all_warehouses_orchestrator_ddl_scripts (Notebook)
 │       └── wh_gold/
 │           ├── 00_orchestrator_wh_gold_warehouse_ddl_scripts (Notebook)
-│           └── 001_DW_vDim_Cities_view_create (Notebook)
+│           └── 001_Initial_Creation_wh_gold_Warehouses_ddl_scripts (Notebook)
 ├── lakehouses/
 │   ├── lh_bronze (Lakehouse)
 │   │   └── lh_bronze (SQL analytics endpoint)
