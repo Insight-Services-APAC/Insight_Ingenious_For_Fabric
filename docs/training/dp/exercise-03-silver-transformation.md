@@ -244,7 +244,7 @@ In a Fabric notebook attached to `lh_silver`:
 display(spark.read.table("state_provinces"))
 ```
 
-You should see 10 rows — the current (non-expired) records from bronze.
+You should see 5 rows — the current (non-expired) records from bronze.
 
 ---
 

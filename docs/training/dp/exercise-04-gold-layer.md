@@ -219,13 +219,34 @@ In a Fabric notebook attached to `lh_gold`:
 display(spark.read.table("dim_city_geography"))
 ```
 
-Each city row should be enriched with `StateProvinceName`, `SalesTerritory`, `CountryName`, `Continent`, and `Region`.
+You should see **10 rows** with all columns fully populated. Every city is enriched with state/province and country information:
+
+| CityID | CityName | StateProvinceCode | StateProvinceName | SalesTerritory | CountryName | Continent | Region |
+|--------|------------|:-:|-----------|:-----------:|-------------|-----------|--------|
+| 1 | Aaronsburg | AZ | Arizona | Southwest | United States | North America | Americas |
+| 3 | Abanda | AL | Alabama | Southeast | United States | North America | Americas |
+| 4 | Abbeville | CA | California | Far West | United States | North America | Americas |
+| 5 | Abbeville | AK | Alaska | Far West | United States | North America | Americas |
+| 6 | Abbeville | AL | Alabama | Southeast | United States | North America | Americas |
+| 7 | Abbeville | AZ | Arizona | Southwest | United States | North America | Americas |
+| 8 | Abbeville | AR | Arkansas | Southeast | United States | North America | Americas |
+| 9 | Abbotsford | CA | California | Far West | United States | North America | Americas |
+| 10 | Abbott | AK | Alaska | Far West | United States | North America | Americas |
+| 11 | Abbott | AR | Arkansas | Southeast | United States | North America | Americas |
+
+If any columns show `NULL`, check that:
+
+1. All three silver tables (`cities`, `state_provinces`, `countries`) have data (Step 0)
+2. The `state_provinces` seed includes StateProvinceIDs matching the cities (1–5)
+3. The `countries` seed includes CountryID 230 (United States)
 
 In `wh_gold`, run:
 
 ```sql
 SELECT TOP 10 * FROM DW.vDim_CityGeography
 ```
+
+The same 10 rows should appear.
 
 ---
 
