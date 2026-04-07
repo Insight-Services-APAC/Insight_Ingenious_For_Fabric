@@ -199,6 +199,8 @@ Now that the resources exist in Fabric, run the following to automatically write
 ingen_fab init workspace --workspace-name "<your-workspace-name>"
 ```
 
+For this example, we're deploying all resources to a single workspace. When prompted by the terminal hit ente.
+
 !!! note "Assumes default resource names"
     This command matches resources by name. It expects Lakehouses and Warehouses named exactly `lh_bronze`, `lh_silver`, `lh_gold`, and `wh_gold`.
 
@@ -213,7 +215,7 @@ ingen_fab init workspace --workspace-name "<your-workspace-name>"
 
     The corresponding `_id` values will also need to be updated to match.
 
-Now redeploy to push the updated variable library (with the real GUIDs) to Fabric:
+Now redeploy to push the updated variable library (with the real GUIDs) to Fabric. The existing manifest will need to be deleted for this.
 
 === "macOS / Linux"
 
@@ -261,8 +263,6 @@ Open your Fabric workspace in the browser and verify all artefacts deployed corr
 ```
 <your-workspace-name>/
 ├── config/
-│   ├── config (Lakehouse)
-│   │   └── config (SQL analytics endpoint)
 │   └── var_lib (VariableLibrary)
 ├── ddl_scripts/
 │   ├── Lakehouses/
@@ -283,6 +283,10 @@ Open your Fabric workspace in the browser and verify all artefacts deployed corr
 │           ├── 00_orchestrator_wh_gold_warehouse_ddl_scripts (Notebook)
 │           └── 001_Initial_Creation_wh_gold_Warehouses_ddl_scripts (Notebook)
 ├── lakehouses/
+│   ├── config (Lakehouse)
+│   │   └── config (SQL analytics endpoint)
+│   ├── lh_log (Lakehouse)
+│   │   └── lh_log (SQL analytics endpoint)
 │   ├── lh_bronze (Lakehouse)
 │   │   └── lh_bronze (SQL analytics endpoint)
 │   ├── lh_silver (Lakehouse)

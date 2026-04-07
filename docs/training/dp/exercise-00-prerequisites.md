@@ -64,10 +64,23 @@ pip install git+https://github.com/Insight-Services-APAC/Insight_Ingenious_For_F
 
 ---
 
-## Step 4: Verify the installation
+## Step 4: Install the dbt adapter
+
+The dbt integration requires the `dbt-fabricsparknb` adapter, which is a separate install:
+
+```bash
+pip install git+https://github.com/Insight-Services-APAC/APAC-Capability-DAI-DbtFabricSparkNB.git
+```
+
+This installs `dbt_wrapper` on your PATH, which `ingen_fab dbt exec` uses to run dbt commands locally against your Fabric workspace.
+
+---
+
+## Step 5: Verify the installation
 
 ```bash
 ingen_fab --help
+dbt_wrapper --help
 ```
 
 Expected output:
@@ -94,7 +107,7 @@ If you see `command not found`, ensure your virtual environment is activated and
 
 ---
 
-## Step 5: Set up Azure authentication
+## Step 6: Set up Azure authentication
 
 The CLI needs Azure credentials to deploy artefacts to Fabric.
 
@@ -125,7 +138,7 @@ az account show
 
 ---
 
-## Step 6: Confirm your Fabric workspace
+## Step 7: Confirm your Fabric workspace
 
 You need a Microsoft Fabric workspace. That's it — **you do not need to create Lakehouses or Warehouses manually.** The deploy step in Exercise 1 will create `lh_bronze`, `lh_silver`, `lh_gold`, and `wh_gold` automatically.
 
@@ -142,6 +155,7 @@ Before moving to Exercise 1, confirm:
 - [ ] Python 3.12+ installed
 - [ ] Virtual environment created and activated
 - [ ] `ingen_fab --help` returns the command list
+- [ ] `dbt_wrapper --version` returns a version number
 - [ ] `az account show` returns your account details
 - [ ] Fabric workspace exists and you have the Workspace ID noted
 

@@ -110,9 +110,16 @@ ingen_fab deploy deploy
 
 ### 5. Run in Fabric
 
-In your Fabric workspace, open `ddl_scripts` → `Lakehouses` → `lh_bronze` and run **`001_Initial_Creation_lh_bronze_Lakehouses_ddl_scripts`**. This notebook contains all `001_Initial_Creation` scripts as cells — including your new `003_application_state_provinces_table_create` cell.
+In your Fabric workspace, run the `lh_bronze` orchestrator notebook:
 
-Alternatively, run the `00_orchestrator_lh_bronze_lakehouse_ddl_scripts` notebook to execute all lh_bronze scripts in order.
+```
+00_orchestrator_lh_bronze_lakehouse_ddl_scripts
+```
+
+This calls `001_Initial_Creation_lh_bronze_Lakehouses_ddl_scripts` (and `002_Change_lh_bronze_Lakehouses_ddl_scripts`) in sequence. Because every script is wrapped in a `run_once` guard, previously executed scripts (`001_application_cities_table_create`, `002_application_countries_table_create`) are **skipped** — only your new `003_application_state_provinces_table_create` cell runs, writing the `state_provinces` table to `lh_bronze`.
+
+!!! tip "Running `001_Initial_Creation` directly also works"
+    If you only want to run the initial creation phase, you can open and run `001_Initial_Creation_lh_bronze_Lakehouses_ddl_scripts` directly. The same `run_once` guard applies — existing scripts are skipped and only the new `003` cell executes. The orchestrator is the recommended default as it mirrors how the full pipeline operates.
 
 ## Verification
 
