@@ -13,7 +13,7 @@ from ingen_fab.fabric_api.utils import FabricApiUtils
 from ingen_fab.python_libs.common.utils.path_utils import PathUtils
 
 
-def init_solution(project_name: str | None, path: Path, with_samples: bool = False):
+def init_solution(project_name: str | None, path: Path, with_samples: bool = False, with_er_samples: bool = False):
     console = Console()
 
     # Determine project name and path
@@ -46,7 +46,12 @@ def init_solution(project_name: str | None, path: Path, with_samples: bool = Fal
 
     # Get the templates directory using the new path utilities
     try:
-        if with_samples:
+        if with_er_samples:
+            templates_dir = PathUtils.get_package_resource_path("er_sample_project")
+            ConsoleStyles.print_info(
+                console, "Using er_sample_project as template (Enterprise Reporting supply chain / logistics)"
+            )
+        elif with_samples:
             # Use sample_project as the template source
             templates_dir = PathUtils.get_package_resource_path("sample_project")
             ConsoleStyles.print_info(
@@ -773,12 +778,17 @@ def _check_and_update_artifacts(
         ConsoleStyles.print_error(console, f"❌ Failed to check artifacts: {str(e)}")
 
 
-def init_storage_config():
+def init_storage_config(remove_orphans: bool = False):
     """Initialize lakehouse and warehouse artifacts from storage_config.yaml.
     
     Reads the storage_config.yaml file and creates Fabric artifact folders
     under fabric_workspace_items/lakehouses and fabric_workspace_items/warehouses
     for each lakehouse and warehouse defined.
+
+    Args:
+        remove_orphans: When True, removes variable overrides from all valueSet files
+            that have no matching definition in variables.json. Use when the valueSets
+            contain stale entries from a previous project template (e.g. --with-samples).
     """
     console = Console()
     
@@ -999,6 +1009,7 @@ def init_storage_config():
         lakehouse_names=lakehouse_names,
         warehouse_names=warehouse_names,
         sqldatabase_names=sqldatabase_names,
+        remove_orphans=remove_orphans,
     )
     
     # Print summary
@@ -1304,16 +1315,20 @@ def _update_valueset_files(
     lakehouse_names: list[str],
     warehouse_names: list[str],
     sqldatabase_names: list[str],
+    remove_orphans: bool = False,
 ) -> int:
     """Update all valueSet JSON files with lakehouse, warehouse, and SQL database variables.
-    
+
     Args:
         console: Rich console for output
         workspace_path: Path to the workspace directory
         lakehouse_names: List of lakehouse names to add
         warehouse_names: List of warehouse names to add
         sqldatabase_names: List of SQL database names to add
-        
+        remove_orphans: When True, removes overrides that have no matching definition in
+            variables.json (stale entries from a previous project template or sample).
+            Only active when passed via ``ingen_fab init storage-config --rv-orphan``.
+
     Returns:
         Number of valueSet files updated
     """
@@ -1331,37 +1346,55 @@ def _update_valueset_files(
             f"  ⚠️  ValueSet directory not found: {valueset_dir}",
         )
         return 0
-    
+
+    # Load variables.json only when orphan removal is requested
+    valid_variable_names: set[str] | None = None
+    if remove_orphans:
+        variables_file = (
+            workspace_path
+            / "fabric_workspace_items"
+            / "config"
+            / "var_lib.VariableLibrary"
+            / "variables.json"
+        )
+        if variables_file.exists():
+            try:
+                with open(variables_file, "r", encoding="utf-8") as f:
+                    variables_data = json.load(f)
+                valid_variable_names = {v["name"] for v in variables_data.get("variables", [])}
+            except Exception:
+                pass  # If we can't read variables.json, skip reconciliation
+
     # Find all .json files in the valueSet directory
     valueset_files = list(valueset_dir.glob("*.json"))
-    
+
     if not valueset_files:
         ConsoleStyles.print_warning(
             console,
             "  ⚠️  No valueSet JSON files found",
         )
         return 0
-    
+
     updated_count = 0
-    
+
     for valueset_file in valueset_files:
         try:
             # Read the valueSet JSON file
             with open(valueset_file, "r", encoding="utf-8") as f:
                 valueset_data = json.load(f)
-            
+
             if "variableOverrides" not in valueset_data:
                 ConsoleStyles.print_warning(
                     console,
                     f"  ⚠️  Skipped {valueset_file.name}: no variableOverrides",
                 )
                 continue
-            
+
             variable_overrides = valueset_data["variableOverrides"]
-            
+
             # Get existing variable names to avoid duplicates
             existing_vars = {var["name"] for var in variable_overrides}
-            
+
             # Track if we added any variables
             added_vars = []
             
@@ -1433,15 +1466,34 @@ def _update_valueset_files(
                         variable_overrides.append(var)
                         added_vars.append(var["name"])
                         existing_vars.add(var["name"])
-            
-            # Only write if we added variables
-            if added_vars:
+
+            # Remove orphaned overrides: entries in the valueSet that have no corresponding
+            # definition in variables.json (e.g. stale sample-project variables).
+            # Only runs when --rv-orphan flag is passed.
+            removed_vars = []
+            if remove_orphans and valid_variable_names is not None:
+                clean_overrides = []
+                for override in variable_overrides:
+                    if override["name"] in valid_variable_names:
+                        clean_overrides.append(override)
+                    else:
+                        removed_vars.append(override["name"])
+                if removed_vars:
+                    valueset_data["variableOverrides"] = clean_overrides
+
+            # Write if we added or removed variables
+            if added_vars or removed_vars:
                 with open(valueset_file, "w", encoding="utf-8") as f:
                     json.dump(valueset_data, f, indent=2, ensure_ascii=False)
-                
+
+                parts = []
+                if added_vars:
+                    parts.append(f"added {len(added_vars)}")
+                if removed_vars:
+                    parts.append(f"removed {len(removed_vars)} orphaned")
                 ConsoleStyles.print_success(
                     console,
-                    f"  ✓ Updated {valueset_file.name} (added {len(added_vars)} variables)",
+                    f"  ✓ Updated {valueset_file.name} ({', '.join(parts)} variable(s))",
                 )
                 updated_count += 1
             else:
