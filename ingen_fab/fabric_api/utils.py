@@ -909,3 +909,305 @@ class FabricApiUtils:
             "item_id": item_id,
             "format": "Default"
         }
+
+    def execute_notebook(
+        self, 
+        workspace_id: str, 
+        notebook_id: str,
+        parameters: dict = None,
+        timeout_seconds: int = 3600
+    ) -> str:
+        """
+        Execute a Fabric notebook via REST API.
+        
+        Args:
+            workspace_id: The ID of the Fabric workspace
+            notebook_id: The ID of the notebook to execute
+            parameters: Optional dictionary of parameters to pass to the notebook
+            timeout_seconds: Timeout for the notebook execution
+            
+        Returns:
+            str: The job/run ID of the notebook execution
+            
+        Raises:
+            Exception: If execution fails
+        """
+        headers = {
+            "Authorization": f"Bearer {self._get_token()}",
+            "Content-Type": "application/json",
+        }
+        
+        url = f"{self.base_url}/{workspace_id}/items/{notebook_id}/jobs/instances?jobType=RunNotebook"
+        
+        # Fabric API expects parameters at the root level, not wrapped in executionData
+        # See: https://learn.microsoft.com/en-us/rest/api/fabric/core/job-scheduler/run-on-demand-item-job
+        payload = {}
+        if parameters:
+            payload["executionData"] = {"parameters": parameters}
+        
+        # Debug logging
+        import logging
+        logger = logging.getLogger(__name__)
+        logger.info(f"Executing notebook {notebook_id} with payload: {payload}")
+        
+        response = requests.post(url, headers=headers, json=payload, timeout=30)
+        
+        if response.status_code == 202:
+            # Extract job ID from Location header
+            location = response.headers.get("Location", "")
+            job_id = location.rstrip("/").split("/")[-1] if location else None
+            
+            if not job_id:
+                # Try to get from response body
+                response_data = response.json() if response.text else {}
+                job_id = response_data.get("id") or response_data.get("jobId")
+            
+            if job_id:
+                return job_id
+            else:
+                raise Exception("Could not extract job ID from response")
+        else:
+            # Enhanced error message with details
+            try:
+                error_details = response.json()
+                error_message = error_details.get("message", response.text)
+                error_code = error_details.get("errorCode", "Unknown")
+                error_msg = f"Failed to execute notebook. Status: {response.status_code}, Error Code: {error_code}, Message: {error_message}"
+            except:
+                error_msg = f"Failed to execute notebook. Status: {response.status_code}, Response: {response.text}"
+            raise Exception(error_msg)
+    
+    def execute_data_pipeline(
+        self,
+        workspace_id: str,
+        pipeline_id: str,
+        parameters: dict = None
+    ) -> str:
+        """
+        Trigger execution of a Fabric data pipeline via REST API.
+        
+        Args:
+            workspace_id: The ID of the Fabric workspace
+            pipeline_id: The ID of the pipeline to execute
+            parameters: Optional dictionary of parameters to pass to the pipeline
+            
+        Returns:
+            str: The job ID of the pipeline execution
+            
+        Raises:
+            Exception: If execution fails
+        """
+        headers = {
+            "Authorization": f"Bearer {self._get_token()}",
+            "Content-Type": "application/json",
+        }
+        
+        url = f"{self.base_url}/{workspace_id}/items/{pipeline_id}/jobs/instances?jobType=Pipeline"
+        
+        payload = {
+            "executionData": parameters or {}
+        }
+        
+        response = requests.post(url, headers=headers, json=payload, timeout=30)
+        
+        if response.status_code == 202:
+            # Extract job ID from Location header
+            location = response.headers.get("Location", "")
+            job_id = location.rstrip("/").split("/")[-1] if location else None
+            
+            if not job_id:
+                # Try to get from response body
+                response_data = response.json() if response.text else {}
+                job_id = response_data.get("id") or response_data.get("jobId")
+            
+            if job_id:
+                return job_id
+            else:
+                raise Exception("Could not extract job ID from response")
+        else:
+            error_msg = f"Failed to execute pipeline. Status: {response.status_code}, Response: {response.text}"
+            raise Exception(error_msg)
+    
+    def monitor_notebook_execution(
+        self,
+        workspace_id: str,
+        notebook_id: str,
+        job_id: str,
+        timeout_seconds: int = 3600,
+        poll_interval: int = 10
+    ) -> str:
+        """
+        Monitor notebook execution status until completion or timeout.
+        
+        Args:
+            workspace_id: The ID of the Fabric workspace
+            notebook_id: The ID of the notebook
+            job_id: The job ID to monitor
+            timeout_seconds: Maximum time to wait
+            poll_interval: Seconds between status checks
+            
+        Returns:
+            str: Final status (Completed, Failed, Cancelled, etc.)
+        """
+        import time
+        from rich.console import Console
+        from rich.live import Live
+        from rich.spinner import Spinner
+        from rich.text import Text
+        
+        console = Console()
+        headers = {
+            "Authorization": f"Bearer {self._get_token()}",
+            "Content-Type": "application/json",
+        }
+        
+        url = f"{self.base_url}/{workspace_id}/items/{notebook_id}/jobs/instances/{job_id}"
+        
+        start_time = time.time()
+        last_status = None
+        check_count = 0
+        
+        with Live(Spinner("dots", text="Starting notebook execution..."), console=console, transient=True) as live:
+            while True:
+                elapsed = time.time() - start_time
+                
+                if elapsed > timeout_seconds:
+                    live.update(Text("⏰ Execution timeout reached", style="bold yellow"))
+                    time.sleep(1)  # Brief pause so user can see the message
+                    return "Timeout"
+                
+                try:
+                    response = requests.get(url, headers=headers, timeout=30)
+                    
+                    if response.status_code == 200:
+                        data = response.json()
+                        status = data.get("status", "Unknown")
+                        
+                        # Update display if status changed
+                        if status != last_status:
+                            elapsed_str = f"{int(elapsed)}s"
+                            status_display = f"📊 Status: {status} | Elapsed: {elapsed_str}"
+                            live.update(Spinner("dots", text=status_display))
+                            last_status = status
+                        else:
+                            # Update elapsed time even if status hasn't changed
+                            check_count += 1
+                            if check_count % 3 == 0:  # Update every 3rd check
+                                elapsed_str = f"{int(elapsed)}s"
+                                status_display = f"📊 Status: {status} | Elapsed: {elapsed_str}"
+                                live.update(Spinner("dots", text=status_display))
+                        
+                        # Terminal states
+                        if status in ["Completed", "Failed", "Cancelled"]:
+                            if status == "Completed":
+                                live.update(Text(f"✅ Notebook completed in {int(elapsed)}s", style="bold green"))
+                            elif status == "Failed":
+                                live.update(Text(f"❌ Notebook failed after {int(elapsed)}s", style="bold red"))
+                            else:
+                                live.update(Text(f"⚠️  Notebook cancelled after {int(elapsed)}s", style="bold yellow"))
+                            time.sleep(1)  # Brief pause so user can see the final message
+                            return status
+                        
+                        # Continue monitoring for running states
+                        time.sleep(poll_interval)
+                    else:
+                        # If we can't get status, wait and retry
+                        live.update(Spinner("dots", text=f"⚠️  Status check failed (HTTP {response.status_code}), retrying..."))
+                        time.sleep(poll_interval)
+                        
+                except Exception as e:
+                    # On error, wait and retry
+                    live.update(Spinner("dots", text=f"⚠️  Connection error, retrying..."))
+                    time.sleep(poll_interval)
+    
+    def monitor_pipeline_execution(
+        self,
+        workspace_id: str,
+        pipeline_id: str,
+        job_id: str,
+        timeout_seconds: int = 3600,
+        poll_interval: int = 10
+    ) -> str:
+        """
+        Monitor pipeline execution status until completion or timeout.
+        
+        Args:
+            workspace_id: The ID of the Fabric workspace
+            pipeline_id: The ID of the pipeline
+            job_id: The job ID to monitor
+            timeout_seconds: Maximum time to wait
+            poll_interval: Seconds between status checks
+            
+        Returns:
+            str: Final status (Completed, Failed, Cancelled, etc.)
+        """
+        import time
+        from rich.console import Console
+        from rich.live import Live
+        from rich.spinner import Spinner
+        from rich.text import Text
+        
+        console = Console()
+        headers = {
+            "Authorization": f"Bearer {self._get_token()}",
+            "Content-Type": "application/json",
+        }
+        
+        url = f"{self.base_url}/{workspace_id}/items/{pipeline_id}/jobs/instances/{job_id}"
+        
+        start_time = time.time()
+        last_status = None
+        check_count = 0
+        
+        with Live(Spinner("dots", text="Starting pipeline execution..."), console=console, transient=True) as live:
+            while True:
+                elapsed = time.time() - start_time
+                
+                if elapsed > timeout_seconds:
+                    live.update(Text("⏰ Execution timeout reached", style="bold yellow"))
+                    time.sleep(1)  # Brief pause so user can see the message
+                    return "Timeout"
+                
+                try:
+                    response = requests.get(url, headers=headers, timeout=30)
+                    
+                    if response.status_code == 200:
+                        data = response.json()
+                        status = data.get("status", "Unknown")
+                        
+                        # Update display if status changed
+                        if status != last_status:
+                            elapsed_str = f"{int(elapsed)}s"
+                            status_display = f"🔄 Status: {status} | Elapsed: {elapsed_str}"
+                            live.update(Spinner("dots", text=status_display))
+                            last_status = status
+                        else:
+                            # Update elapsed time even if status hasn't changed
+                            check_count += 1
+                            if check_count % 3 == 0:  # Update every 3rd check
+                                elapsed_str = f"{int(elapsed)}s"
+                                status_display = f"🔄 Status: {status} | Elapsed: {elapsed_str}"
+                                live.update(Spinner("dots", text=status_display))
+                        
+                        # Terminal states
+                        if status in ["Completed", "Failed", "Cancelled", "Succeeded"]:
+                            if status in ["Completed", "Succeeded"]:
+                                live.update(Text(f"✅ Pipeline completed in {int(elapsed)}s", style="bold green"))
+                            elif status == "Failed":
+                                live.update(Text(f"❌ Pipeline failed after {int(elapsed)}s", style="bold red"))
+                            else:
+                                live.update(Text(f"⚠️  Pipeline cancelled after {int(elapsed)}s", style="bold yellow"))
+                            time.sleep(1)  # Brief pause so user can see the final message
+                            return status
+                        
+                        # Continue monitoring for running states
+                        time.sleep(poll_interval)
+                    else:
+                        # If we can't get status, wait and retry
+                        live.update(Spinner("dots", text=f"⚠️  Status check failed (HTTP {response.status_code}), retrying..."))
+                        time.sleep(poll_interval)
+                        
+                except Exception as e:
+                    # On error, wait and retry
+                    live.update(Spinner("dots", text=f"⚠️  Connection error, retrying..."))
+                    time.sleep(poll_interval)

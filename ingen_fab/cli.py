@@ -757,6 +757,110 @@ def deploy_download_artefact(
     )
 
 
+@deploy_app.command("execute-artefact")
+def deploy_execute_artefact(
+    ctx: typer.Context,
+    artefact_name: Annotated[
+        str,
+        typer.Option(
+            "--artefact-name",
+            "-n",
+            help="Name of the Fabric artefact to execute"
+        ),
+    ],
+    artefact_type: Annotated[
+        str,
+        typer.Option(
+            "--artefact-type",
+            "-t",
+            help="Type of Fabric artefact (Notebook or DataPipeline)"
+        ),
+    ],
+    workspace_id: Annotated[
+        Optional[str],
+        typer.Option(
+            "--workspace-id",
+            "-w",
+            help="Target workspace ID (overrides environment workspace)"
+        ),
+    ] = None,
+    parameters: Annotated[
+        Optional[str],
+        typer.Option(
+            "--parameters",
+            "-p",
+            help="JSON string of execution parameters (e.g. '{\"param1\": \"value1\"}')" 
+        ),
+    ] = None,
+    timeout: Annotated[
+        int,
+        typer.Option(
+            "--timeout",
+            help="Execution timeout in seconds (for Notebook execution)"
+        ),
+    ] = 3600,
+    wait: Annotated[
+        bool,
+        typer.Option(
+            "--wait",
+            help="Wait for execution to complete and show status"
+        ),
+    ] = True,
+):
+    """Execute a specific Fabric artefact (Notebook or DataPipeline) using Fabric API.
+    
+    Triggers execution of Notebooks or DataPipelines in the Fabric workspace.
+    For Notebooks, you can pass parameters and set timeout duration.
+    For DataPipelines, you can pass execution parameters.
+    
+    Supported artefact types:
+      - Notebook: Executes a notebook with optional parameters
+      - DataPipeline: Triggers a data pipeline execution
+    
+    The command returns the execution/job ID and optionally waits for completion.
+    
+    Examples:
+      # Execute a notebook with default settings
+      ingen_fab deploy execute-artefact --artefact-name "My Notebook" --artefact-type Notebook
+      
+      # Execute a notebook with parameters
+      ingen_fab deploy execute-artefact -n "ETL Notebook" -t Notebook -p '{"date": "2024-01-01"}'
+      
+      # Execute a data pipeline
+      ingen_fab deploy execute-artefact -n "Daily ETL" -t DataPipeline
+      
+      # Execute without waiting for completion
+      ingen_fab deploy execute-artefact -n "Long Process" -t DataPipeline --no-wait
+      
+      # Execute in specific workspace
+      ingen_fab deploy execute-artefact -n "Report Refresh" -t Notebook -w abc123-def456
+    """
+    # Validate artefact type
+    supported_types = ["Notebook", "DataPipeline"]
+    
+    if artefact_type not in supported_types:
+        console_styles.print_error(
+            console,
+            f"❌ Unsupported artefact type '{artefact_type}' for execution."
+        )
+        console_styles.print_info(
+            console,
+            f"Supported types: {', '.join(supported_types)}"
+        )
+        raise typer.Exit(code=1)
+    
+    deploy_commands.execute_artefact(
+        ctx=ctx,
+        artefact_name=artefact_name,
+        artefact_type=artefact_type,
+        workspace_id=workspace_id,
+        parameters=parameters,
+        timeout=timeout,
+        wait=wait,
+        console=console,
+    )
+
+
 # Test commands
 @test_app.command()
 def test_python_block():

@@ -687,3 +687,205 @@ def download_artefact(
             f"❌ Error downloading artefact: {e}"
         )
         raise typer.Exit(code=1)
+
+
+def execute_artefact(
+    ctx,
+    artefact_name: str,
+    artefact_type: str,
+    workspace_id: str | None = None,
+    parameters: str | None = None,
+    timeout: int = 3600,
+    wait: bool = True,
+    console: Console | None = None,
+) -> None:
+    """Execute a specific Fabric artefact (Notebook or DataPipeline) using Fabric REST API."""
+    import json
+    import typer
+    import time
+    from ingen_fab.fabric_api.utils import FabricApiUtils
+    from ingen_fab.config_utils.variable_lib import VariableLibraryUtils
+    
+    if console is None:
+        console = Console()
+    
+    project_path = ctx.obj["fabric_workspace_repo_dir"]
+    environment = ctx.obj["fabric_environment"]
+    
+    # Resolve workspace ID if not provided
+    if workspace_id is None:
+        vlu = VariableLibraryUtils(
+            project_path=project_path,
+            environment=environment,
+        )
+        workspace_id = vlu.get_workspace_id()
+        ConsoleStyles.print_info(console, f"Using workspace ID from environment: {workspace_id}")
+    else:
+        ConsoleStyles.print_info(console, f"Using specified workspace ID: {workspace_id}")
+    
+    # Parse parameters if provided
+    parsed_params = None
+    if parameters:
+        try:
+            parsed_params = json.loads(parameters)
+            ConsoleStyles.print_info(console, f"Execution parameters: {json.dumps(parsed_params, indent=2)}")
+        except json.JSONDecodeError as e:
+            ConsoleStyles.print_error(
+                console,
+                f"❌ Invalid JSON in parameters: {e}"
+            )
+            raise typer.Exit(code=1)
+    
+    ConsoleStyles.print_info(
+        console, 
+        f"🔍 Searching for artefact '{artefact_name}' of type '{artefact_type}' in workspace {workspace_id}"
+    )
+    
+    try:
+        # Initialize Fabric API client
+        fabric_api = FabricApiUtils(
+            environment=environment,
+            project_path=Path(project_path),
+            workspace_id=workspace_id
+        )
+        
+        # Get list of items in workspace to find the target artefact
+        items = fabric_api.list_workspace_items(workspace_id)
+        if not items:
+            ConsoleStyles.print_error(console, "❌ Failed to retrieve workspace items")
+            raise typer.Exit(code=1)
+        
+        target_item = None
+        for item in items:
+            if (item.get("displayName") == artefact_name and 
+                item.get("type") == artefact_type):
+                target_item = item
+                break
+        
+        if target_item is None:
+            ConsoleStyles.print_error(
+                console,
+                f"❌ Artefact '{artefact_name}' of type '{artefact_type}' not found in workspace"
+            )
+            # List available items of this type for user reference
+            matching_type_items = [
+                item for item in items
+                if item.get("type") == artefact_type
+            ]
+            if matching_type_items:
+                ConsoleStyles.print_info(console, f"\nAvailable {artefact_type} items:")
+                for item in matching_type_items[:10]:  # Show first 10
+                    ConsoleStyles.print_dim(console, f"  - {item.get('displayName')}")
+                if len(matching_type_items) > 10:
+                    ConsoleStyles.print_dim(console, f"  ... and {len(matching_type_items) - 10} more")
+            raise typer.Exit(code=1)
+        
+        item_id = target_item["id"]
+        ConsoleStyles.print_success(console, f"✅ Found artefact: {artefact_name} (ID: {item_id})")
+        
+        # Execute based on artefact type
+        if artefact_type == "Notebook":
+            ConsoleStyles.print_info(
+                console,
+                f"🚀 Executing notebook '{artefact_name}'..."
+            )
+            
+            if parsed_params:
+                ConsoleStyles.print_dim(console, f"Parameters: {parsed_params}")
+            
+            job_id = fabric_api.execute_notebook(
+                workspace_id=workspace_id,
+                notebook_id=item_id,
+                parameters=parsed_params or {},
+                timeout_seconds=timeout
+            )
+            
+            ConsoleStyles.print_success(
+                console,
+                f"✅ Notebook execution started. Job ID: {job_id}"
+            )
+            
+            if wait:
+                ConsoleStyles.print_info(console, "⏳ Waiting for notebook execution to complete...")
+                status = fabric_api.monitor_notebook_execution(workspace_id, item_id, job_id, timeout)
+                
+                if status == "Completed":
+                    ConsoleStyles.print_success(console, f"✅ Notebook execution completed successfully")
+                elif status == "Failed":
+                    ConsoleStyles.print_error(console, f"❌ Notebook execution failed")
+                    raise typer.Exit(code=1)
+                elif status == "Timeout":
+                    ConsoleStyles.print_error(console, f"❌ Notebook execution timed out after {timeout}s")
+                    raise typer.Exit(code=1)
+                else:
+                    ConsoleStyles.print_warning(console, f"⚠️  Notebook execution ended with status: {status}")
+            else:
+                ConsoleStyles.print_info(
+                    console,
+                    f"💡 Execution started. Use --wait to monitor completion or check Fabric portal for status."
+                )
+            
+        elif artefact_type == "DataPipeline":
+            ConsoleStyles.print_info(
+                console,
+                f"🚀 Triggering data pipeline '{artefact_name}'..."
+            )
+            
+            if parsed_params:
+                ConsoleStyles.print_dim(console, f"Parameters: {parsed_params}")
+            
+            job_id = fabric_api.execute_data_pipeline(
+                workspace_id=workspace_id,
+                pipeline_id=item_id,
+                parameters=parsed_params or {}
+            )
+            
+            ConsoleStyles.print_success(
+                console,
+                f"✅ Data pipeline triggered. Job ID: {job_id}"
+            )
+            
+            if wait:
+                ConsoleStyles.print_info(console, "⏳ Waiting for pipeline execution to complete...")
+                status = fabric_api.monitor_pipeline_execution(workspace_id, item_id, job_id)
+                
+                if status in ["Completed", "Succeeded"]:
+                    ConsoleStyles.print_success(console, f"✅ Pipeline execution completed successfully")
+                elif status == "Failed":
+                    ConsoleStyles.print_error(console, f"❌ Pipeline execution failed")
+                    raise typer.Exit(code=1)
+                elif status == "Timeout":
+                    ConsoleStyles.print_error(console, f"❌ Pipeline execution timed out")
+                    raise typer.Exit(code=1)
+                else:
+                    ConsoleStyles.print_warning(console, f"⚠️  Pipeline execution ended with status: {status}")
+            else:
+                ConsoleStyles.print_info(
+                    console,
+                    f"💡 Execution started. Use --wait to monitor completion or check Fabric portal for status."
+                )
+        
+        # Show relevant tip based on wait mode
+        if wait:
+            ConsoleStyles.print_info(
+                console,
+                f"\n💡 Tip: Check detailed execution logs in the Fabric portal"
+            )
+        else:
+            ConsoleStyles.print_info(
+                console,
+                f"\n💡 Tip: Run with --wait flag to monitor execution until completion"
+            )
+        
+    except typer.Exit:
+        raise  # Re-raise typer.Exit without modification
+    except Exception as e:
+        ConsoleStyles.print_error(
+            console,
+            f"❌ Error executing artefact: {e}"
+        )
+        import traceback
+        ConsoleStyles.print_dim(console, f"\nFull error details:")
+        ConsoleStyles.print_dim(console, traceback.format_exc())
+        raise typer.Exit(code=1)
+        raise typer.Exit(code=1)
