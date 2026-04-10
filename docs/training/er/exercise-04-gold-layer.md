@@ -193,14 +193,28 @@ df_dim_product  = add_surrogate_key(df_products, "product_key",  "product_id")
 df_dim_supplier = add_surrogate_key(df_suppliers, "supplier_key", "supplier_id")
 df_dim_region   = add_surrogate_key(df_regions,   "region_key",   "region_id")
 
+# Transform dim_date to match the gold DDL schema and Fabric T-SQL requirements:
+#   1. Cast full_date to DateType — the synthetic generator writes it as a
+#      TIMESTAMP_NTZ (pandas datetime → PySpark TimestampNtz), which Fabric's
+#      warehouse T-SQL shortcut cannot expose. Casting to DATE fixes this.
+#   2. Rename week_of_year → week — the generator uses week_of_year but the
+#      gold DDL schema and the vDim_Date warehouse view expect the column as week.
+#   3. Select only the columns defined in the gold DDL schema.
+df_date_gold = (
+    df_date
+    .withColumn("full_date", F.col("full_date").cast("date"))
+    .withColumnRenamed("week_of_year", "week")
+    .select("date_key", "full_date", "year", "quarter", "month", "month_name",
+            "week", "day_of_week")
+)
+
 # Write each dimension as a full overwrite. overwriteSchema replaces the empty
 # DDL-created schema with the enriched schema including the new surrogate key column.
-# dim_date is written as-is — it already has date_key from the synthetic data package.
 for df, name in [
     (df_dim_product,  "dim_product"),
     (df_dim_supplier, "dim_supplier"),
     (df_dim_region,   "dim_region"),
-    (df_date,         "dim_date"),
+    (df_date_gold,    "dim_date"),
 ]:
     (df.write.format("delta").mode("overwrite")
        .option("overwriteSchema", "true").saveAsTable(name))
