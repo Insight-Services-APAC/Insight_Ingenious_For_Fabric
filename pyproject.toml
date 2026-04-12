@@ -1,9 +1,9 @@
 [project]
 name = "insight-ingenious-for-fabric"
-version = "0.1.0"
+dynamic = ["version"]
 description = "Accelerator for building Microsoft Fabric Applications"
 readme = "README.md"
-requires-python = ">=3.12"
+requires-python = ">=3.12, <3.14"
 dependencies = [
     "jinja2",
     "typer==0.16.0",
@@ -13,7 +13,7 @@ dependencies = [
     "deltalake==1.0.2",
     "pyarrow==20.0.0",
     "azure-cli==2.76.0",
-    "fabric_cicd @ git+https://github.com/aitil-insight/fabric-cicd.git@fix-skipped-publish-errors",
+    "fabric-cicd==0.1.25",
     "azure-storage-file-datalake==12.21.0",
     "azure-storage-blob>=12.26.0",
     "lazy-import>=0.2.2",
@@ -44,7 +44,7 @@ dev = [
 ]
 
 dbt = [
-    "dbt-fabricsparknb @ git+https://github.com/Insight-Services-APAC/APAC-Capability-DAI-DbtFabricSparkNb.git@dev-jr-upgrading-to-dbt-v1.9+"
+    "dbt-fabricsparknb @ git+https://github.com/Insight-Services-APAC/APAC-Capability-DAI-DbtFabricSparkNb.git@V1.8.0"
 ]
 
 docs = [
@@ -80,8 +80,12 @@ tests = [
 ]
 
 [build-system]
-requires = ["setuptools>=61.0"]
+requires = ["setuptools>=61.0", "setuptools_scm[toml]>=8.0"]
 build-backend = "setuptools.build_meta"
+
+[tool.setuptools_scm]
+tag_regex = "^v(?P<version>\\d+\\.\\d+\\.\\d+.*)$"
+fallback_version = "0.1.0"
 
 [tool.setuptools.packages.find]
 where = ["."]

@@ -154,6 +154,7 @@ Expected output ingen_fab --help:
 Usage: ingen_fab [OPTIONS] COMMAND [ARGS]...
 
 Options:
+  --version                    -v   Show version and exit
   --fabric-workspace-repo-dir  -fwd  Directory containing fabric workspace repository files
   --fabric-environment         -fe   The name of your fabric environment
   --help                            Show this message and exit.
@@ -173,16 +174,13 @@ Expected output pip show insight-ingenious-for-fabric:
 ```
 
 Name: insight-ingenious-for-fabric
-Version: 0.1.0
 Summary: Accelerator for building Microsoft Fabric Applications
 Home-page:
 Author:
 Author-email:
 License:
 Location: C:\source\test\Ingenious_Test\fabric-env\Lib\site-packages
-Requires: azure-cli, azure-identity, azure-storage-blob, azure-storage-file-datalake, deltalake, fabric_cicd, faker, jinja2, lazy-import, pandas, psycopg2-binary, pyarrow, pyodbc, requests, sqlglot, typer
-Required-by:
-```
+Requires: azure-cli, azure-identity, azure-storage-blob, azure-storage-file-datalake, deltalake, fabric_cicd, faker, jinja2, lazy-import, pandas, psycopg2-binary, pyarrow, pyodbc, requests, sqlglot, typer```
 
 ## Getting Started
 

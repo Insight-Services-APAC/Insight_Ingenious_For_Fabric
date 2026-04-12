@@ -1026,6 +1026,14 @@ Common exit codes:
 - **Command help**: `ingen_fab COMMAND --help`
 - **Subcommand help**: `ingen_fab COMMAND SUBCOMMAND --help`
 - **Global help**: `ingen_fab --help`
+- **Version**: `ingen_fab --version`
+
+## Version Output
+
+Use `ingen_fab --version` to verify what type of build is installed:
+
+- **Release install from tag** (for example `@v1.4.2`) prints a version: `ingen_fab version v1.4.2`
+- **Non-release install from git without a tag** prints: `ingen_fab version installed from non-release (main)`
 
 ## Built-in --help (Synced)
 

@@ -1,22 +1,32 @@
 import pathlib
 import sys
 from unittest import mock
+from types import SimpleNamespace
 
 sys.path.insert(0, str(pathlib.Path(__file__).resolve().parents[1]))
 from ingen_fab.fabric_cicd.promotion_utils import promotion_utils
 
 
+def _build_workspace():
+    return SimpleNamespace(
+        workspace_id="ws1",
+        repository_directory="repo",
+        environment="development",
+        item_type_in_scope=None,
+    )
+
+
 def test_promote_calls_publish_only():
-    promoter = promotion_utils("ws1", "repo")
+    promoter = promotion_utils(_build_workspace(), mock.Mock())
     with (
         mock.patch(
-            "ingen_fab.python_libs.python.promotion_utils.FabricWorkspace"
+            "ingen_fab.fabric_cicd.promotion_utils.FabricWorkspace"
         ) as fw_mock,
         mock.patch(
-            "ingen_fab.python_libs.python.promotion_utils.publish_all_items"
+            "ingen_fab.fabric_cicd.promotion_utils.publish_all_items"
         ) as pub_mock,
         mock.patch(
-            "ingen_fab.python_libs.python.promotion_utils.unpublish_all_orphan_items"
+            "ingen_fab.fabric_cicd.promotion_utils.unpublish_all_orphan_items"
         ) as unpub_mock,
     ):
         fw_mock.return_value = object()
@@ -26,16 +36,16 @@ def test_promote_calls_publish_only():
 
 
 def test_promote_with_unpublish():
-    promoter = promotion_utils("ws1", "repo")
+    promoter = promotion_utils(_build_workspace(), mock.Mock())
     with (
         mock.patch(
-            "ingen_fab.python_libs.python.promotion_utils.FabricWorkspace"
+            "ingen_fab.fabric_cicd.promotion_utils.FabricWorkspace"
         ) as fw_mock,
         mock.patch(
-            "ingen_fab.python_libs.python.promotion_utils.publish_all_items"
+            "ingen_fab.fabric_cicd.promotion_utils.publish_all_items"
         ) as pub_mock,
         mock.patch(
-            "ingen_fab.python_libs.python.promotion_utils.unpublish_all_orphan_items"
+            "ingen_fab.fabric_cicd.promotion_utils.unpublish_all_orphan_items"
         ) as unpub_mock,
     ):
         fw_mock.return_value = object()
