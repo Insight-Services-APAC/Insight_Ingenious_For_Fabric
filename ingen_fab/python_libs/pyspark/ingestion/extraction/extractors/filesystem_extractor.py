@@ -9,7 +9,15 @@ import uuid
 from datetime import datetime
 from typing import Generator, List
 
-from ingen_fab.python_libs.common.fsspec_utils import (
+"""from ingen_fab.python_libs.common.fsspec_utils import (
+    FilesystemConnection,
+    cleanup_empty_directories,
+    copy_file,
+    file_exists,
+    glob,
+    move_file,
+)"""
+from ingen_fab.python_libs.common.notebookfs_utils import (
     FilesystemConnection,
     cleanup_empty_directories,
     copy_file,
@@ -554,17 +562,10 @@ class FileSystemExtractor(BaseExtractor[FileSystemExtractionParams], source_type
         """
         try:
             control_path = self._get_control_file_path(file_info)
-            control_info = self.source_fs.info(control_path)
 
-            # Azure returns 'last_modified' or 'LastModified'
-            modified_time = control_info.get("last_modified") or control_info.get("LastModified")
-            if modified_time:
-                if isinstance(modified_time, datetime):
-                    return modified_time
-                else:
-                    from dateutil import parser
-                    return parser.parse(str(modified_time))
-            return None
+            timestamp_ms = self.source_fs.ls(control_path)[0].modifyTime  # Get modified time in milliseconds
+            modified_time = datetime.fromtimestamp(timestamp_ms / 1000)
+            return modified_time
         except Exception as e:
             self.logger.warning(f"Could not get control file modified time for {file_info.path}: {e}")
             return None
@@ -1522,17 +1523,10 @@ Resource: {self.config.resource_name}
         """
         try:
             control_path = f"{folder_info.path.rstrip('/')}/{self.extraction_params.control_file_pattern}"
-            control_info = self.source_fs.info(control_path)
 
-            # Azure returns 'last_modified' or 'LastModified'
-            modified_time = control_info.get("last_modified") or control_info.get("LastModified")
-            if modified_time:
-                if isinstance(modified_time, datetime):
-                    return modified_time
-                else:
-                    from dateutil import parser
-                    return parser.parse(str(modified_time))
-            return None
+            timestamp_ms = self.source_fs.ls(control_path)[0].modifyTime  # Get modified time in milliseconds
+            modified_time = datetime.fromtimestamp(timestamp_ms / 1000)
+            return modified_time
         except Exception as e:
             self.logger.warning(f"Could not get folder control file modified time for {folder_info.path}: {e}")
             return None
