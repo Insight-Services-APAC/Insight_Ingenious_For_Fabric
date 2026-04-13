@@ -37,6 +37,78 @@
       "note": "GUID of the lakehouse used for configuration tables.",
       "type": "String",
       "value": ""
+    },
+    {
+      "name": "lh_bronze_workspace_id",
+      "note": "GUID of the workspace containing lh_bronze lakehouse.",
+      "type": "String",
+      "value": ""
+    },
+    {
+      "name": "lh_bronze_lakehouse_name",
+      "note": "Name of the lh_bronze lakehouse.",
+      "type": "String",
+      "value": ""
+    },
+    {
+      "name": "lh_bronze_lakehouse_id",
+      "note": "GUID of the lh_bronze lakehouse.",
+      "type": "String",
+      "value": ""
+    },
+    {
+      "name": "lh_silver_workspace_id",
+      "note": "GUID of the workspace containing lh_silver lakehouse.",
+      "type": "String",
+      "value": ""
+    },
+    {
+      "name": "lh_silver_lakehouse_name",
+      "note": "Name of the lh_silver lakehouse.",
+      "type": "String",
+      "value": ""
+    },
+    {
+      "name": "lh_silver_lakehouse_id",
+      "note": "GUID of the lh_silver lakehouse.",
+      "type": "String",
+      "value": ""
+    },
+    {
+      "name": "lh_gold_workspace_id",
+      "note": "GUID of the workspace containing lh_gold lakehouse.",
+      "type": "String",
+      "value": ""
+    },
+    {
+      "name": "lh_gold_lakehouse_name",
+      "note": "Name of the lh_gold lakehouse.",
+      "type": "String",
+      "value": ""
+    },
+    {
+      "name": "lh_gold_lakehouse_id",
+      "note": "GUID of the lh_gold lakehouse.",
+      "type": "String",
+      "value": ""
+    },
+    {
+      "name": "wh_gold_workspace_id",
+      "note": "GUID of the workspace containing wh_gold warehouse.",
+      "type": "String",
+      "value": ""
+    },
+    {
+      "name": "wh_gold_warehouse_name",
+      "note": "Name of the wh_gold warehouse.",
+      "type": "String",
+      "value": ""
+    },
+    {
+      "name": "wh_gold_warehouse_id",
+      "note": "GUID of the wh_gold warehouse.",
+      "type": "String",
+      "value": ""
     }
   ]
 }
