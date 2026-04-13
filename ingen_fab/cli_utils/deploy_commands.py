@@ -37,6 +37,7 @@ def deploy_to_environment(ctx):
         environment=str(ctx.obj.get("fabric_environment")),
     )
     stf.sync_environment()
+    upload_manifest_to_lakehouse(ctx)
 
 
 def cleanup_orphaned_items(ctx, dry_run: bool = False, force: bool = False):
