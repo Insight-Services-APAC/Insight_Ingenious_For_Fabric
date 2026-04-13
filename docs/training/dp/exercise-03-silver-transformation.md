@@ -192,10 +192,16 @@ ingen_fab dbt exec -- build-local dbt_project --select state_provinces
 After a successful build, verify the generated notebook has the correct lakehouse (not `sample_lh`):
 
 ```bash
-grep '"name"' dbt_project/target/notebooks/model.dbt_project.state_provinces.ipynb | head -1
+grep -A1 'defaultLakehouse' dbt_project/target/notebooks/model.dbt_project.state_provinces.ipynb | tail -1
 ```
 
-You should see your bronze lakehouse name (e.g. `"name": "lh_bronze"`). If you see `sample_lh`, delete `dbt_project/target/` and re-run `build-local`.
+You should see your bronze lakehouse name (e.g. `"name": "lh_1_bronze"`). Also check that `sample_lh` is **not** present:
+
+```bash
+grep 'sample_lh' dbt_project/target/notebooks/model.dbt_project.state_provinces.ipynb
+```
+
+If this returns any output, the notebook still contains the placeholder — delete `dbt_project/target/` and re-run `build-local`.
 
 !!! warning "Always rebuild after changing `dbt_project.yml`"
     If you change schema names in `dbt_project.yml`, you must re-run `build-local` — the previously compiled notebooks in `target/` will still contain the old names. `deploy deploy` pushes whatever is in `target/`; it does not re-read `dbt_project.yml`.
