@@ -358,9 +358,16 @@ def init_solution(
             help="Use sample_project as template instead of project_templates",
         ),
     ] = False,
+    with_er_samples: Annotated[
+        bool,
+        typer.Option(
+            "--with-er-samples",
+            help="Initialise the project from the Enterprise Reporting sample template (supply chain / logistics star schema).",
+        ),
+    ] = False,
 ):
     """Create a new project."""
-    init_commands.init_solution(project_name, path, with_samples)
+    init_commands.init_solution(project_name, path, with_samples, with_er_samples)
 
 
 @init_app.command("workspace")
@@ -388,9 +395,17 @@ def init_workspace(
 
 
 @init_app.command("storage-config")
-def init_storage_config():
+def init_storage_config(
+    remove_orphans: Annotated[
+        bool,
+        typer.Option(
+            "--rv-orphan",
+            help="Remove variable overrides from valueSets that have no matching definition in variables.json.",
+        ),
+    ] = False,
+):
     """Initialize lakehouse artifacts from storage_config.yaml file."""
-    init_commands.init_storage_config()
+    init_commands.init_storage_config(remove_orphans=remove_orphans)
 
 
 # Deploy commands
