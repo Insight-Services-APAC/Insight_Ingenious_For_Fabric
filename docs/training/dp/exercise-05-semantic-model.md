@@ -113,7 +113,7 @@ ingen_fab deploy download-artefact \
   -t SemanticModel
 ```
 
-This downloads the definition into `fabric_workspace_items/downloaded/SemanticModel/sm_dp_geography/`.
+This downloads the definition into `fabric_workspace_items/downloaded/SemanticModel/sm_dp_geography.SemanticModel/`.
 
 !!! note
     Semantic models are downloaded as **TMDL** (Tabular Model Definition Language) — a human-readable format for editing model metadata, relationships, and measures.
@@ -121,13 +121,13 @@ This downloads the definition into `fabric_workspace_items/downloaded/SemanticMo
 ### 6. Inspect the downloaded files
 
 ```bash
-find fabric_workspace_items/downloaded/SemanticModel/sm_dp_geography -type f
+find fabric_workspace_items/downloaded/SemanticModel/sm_dp_geography.SemanticModel -type f
 ```
 
 You should see:
 
 ```
-fabric_workspace_items/downloaded/SemanticModel/sm_dp_geography/
+fabric_workspace_items/downloaded/SemanticModel/sm_dp_geography.SemanticModel/
 ├── definition/
 │   ├── model.tmdl               ← model-level settings
 │   ├── relationships.tmdl       ← relationship definitions
@@ -156,7 +156,7 @@ Open `.platform` — it contains the item type, display name, and a unique `logi
 !!! warning "Check your logicalId"
     The `logicalId` must be a **unique UUID**. If it shows `00000000-0000-0000-0000-000000000000`, generate a real one before deploying:
     ```bash
-    python3 -c "import uuid; print(uuid.uuid4())"
+    python -c "import uuid; print(uuid.uuid4())"
     ```
     Then replace the zero-GUID in `.platform`.
 
@@ -166,11 +166,11 @@ The `downloaded/` folder is a **staging area** — items left there will cause d
 
 ```bash
 mkdir -p fabric_workspace_items/SemanticModel
-cp -r fabric_workspace_items/downloaded/SemanticModel/sm_dp_geography \
+cp -r fabric_workspace_items/downloaded/SemanticModel/sm_dp_geography.SemanticModel \
       fabric_workspace_items/SemanticModel/
 
 # Remove the staging copy to prevent duplicates during deploy
-rm -rf fabric_workspace_items/downloaded/SemanticModel/sm_dp_geography
+rm -rf fabric_workspace_items/downloaded/SemanticModel/sm_dp_geography.SemanticModel
 ```
 
 !!! warning "Always remove the staging copy"
@@ -182,7 +182,7 @@ Your project structure should now look like:
 your-project/
 ├── fabric_workspace_items/
 │   ├── SemanticModel/
-│   │   └── sm_dp_geography/
+│   │   └── sm_dp_geography.SemanticModel/
 │   │       ├── definition/
 │   │       └── .platform
 │   ├── downloaded/                  ← should be empty for this type
@@ -202,7 +202,7 @@ After deployment, verify `sm_dp_geography` still works in the Fabric UI by openi
 
 ## Verification — Part B (IngenFab) *(Optional)*
 
-- `fabric_workspace_items/SemanticModel/sm_dp_geography/definition/` exists locally with `.tmdl` files
+- `fabric_workspace_items/SemanticModel/sm_dp_geography.SemanticModel/definition/` exists locally with `.tmdl` files
 - The `.platform` file contains a valid non-zero `logicalId`
 - `git log --oneline -1` shows your commit with the semantic model files
 - `ingen_fab deploy deploy` reports the semantic model was published successfully
