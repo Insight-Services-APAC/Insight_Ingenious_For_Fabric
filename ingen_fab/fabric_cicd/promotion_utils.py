@@ -36,6 +36,18 @@ import os
 
 append_feature_flag("enable_shortcut_publish")
 
+WORKSPACE_SECURITY_ROLE_MAP = {
+    "admins": "Admin",
+    "members": "Member",
+    "contributors": "Contributor",
+    "viewers": "Viewer",
+}
+
+SECURITY_PRINCIPAL_TYPE_MAP = {
+    "users": "User",
+    "groups": "Group",
+}
+
 class promotion_utils:
     """Utility class for promoting Fabric items between workspaces."""
 
@@ -459,6 +471,182 @@ class SyncToFabricEnvironment:
                 f"Deploy complete! Items: {len(deployed)} deployed, {len(failed)} failed, {unchanged} unchanged."
             )
         self.console.print()
+
+    def _load_security_config(self) -> dict[str, Any]:
+        """Load optional workspace security configuration from fabric_config.
+
+        Uses environment-specific files only:
+        - security_config_development.yaml
+        - security_config_test.yaml
+        - security_config_production.yaml
+
+        If environment is missing/empty, defaults to development.
+        """
+        config_dir = self.project_path / "fabric_config"
+        normalized_environment = str(self.environment or "").strip().lower()
+        if not normalized_environment:
+            normalized_environment = "development"
+
+        supported_environments = {"development", "test", "production"}
+        selected_environment = (
+            normalized_environment
+            if normalized_environment in supported_environments
+            else "development"
+        )
+
+        security_config_path = config_dir / f"security_config_{selected_environment}.yaml"
+
+        if not security_config_path.exists():
+            ConsoleStyles.print_dim(
+                self.console,
+                f"No workspace security config found for environment '{selected_environment}' at {security_config_path}",
+            )
+            return {}
+
+        ConsoleStyles.print_dim(
+            self.console,
+            f"Using workspace security config: {security_config_path}",
+        )
+
+        try:
+            with open(security_config_path, "r", encoding="utf-8") as f:
+                loaded = yaml.safe_load(f) or {}
+        except yaml.YAMLError as e:
+            raise ValueError(
+                f"Invalid YAML in {security_config_path}: {e}"
+            ) from e
+
+        if not isinstance(loaded, dict):
+            raise ValueError(
+                f"Invalid security configuration in {security_config_path}: expected a YAML mapping"
+            )
+
+        return loaded
+
+    def _extract_workspace_security_assignments(
+        self, security_config: dict[str, Any]
+    ) -> list[dict[str, str]]:
+        """Extract role assignment records from security config."""
+        if not security_config:
+            return []
+
+        role_config = security_config.get("workspace_access")
+        if role_config is None:
+            role_config = security_config
+
+        if not isinstance(role_config, dict):
+            raise ValueError(
+                "Invalid security configuration: 'workspace_access' must be a mapping"
+            )
+
+        assignments: list[dict[str, str]] = []
+
+        for role_key, api_role in WORKSPACE_SECURITY_ROLE_MAP.items():
+            role_entry = role_config.get(role_key, {})
+            if role_entry is None:
+                continue
+            if not isinstance(role_entry, dict):
+                raise ValueError(
+                    f"Invalid security configuration: '{role_key}' must be a mapping with users/groups"
+                )
+
+            for principal_key, principal_type in SECURITY_PRINCIPAL_TYPE_MAP.items():
+                principals = role_entry.get(principal_key, [])
+                if principals is None:
+                    continue
+                if not isinstance(principals, list):
+                    raise ValueError(
+                        f"Invalid security configuration: '{role_key}.{principal_key}' must be a list"
+                    )
+
+                for principal in principals:
+                    principal_id = ""
+                    if isinstance(principal, str):
+                        principal_id = principal.strip()
+                    elif isinstance(principal, dict):
+                        principal_id = str(principal.get("id") or "").strip()
+                    else:
+                        raise ValueError(
+                            f"Invalid principal entry under '{role_key}.{principal_key}': expected string or mapping with id"
+                        )
+
+                    if not principal_id:
+                        continue
+
+                    assignments.append(
+                        {
+                            "role": api_role,
+                            "principal_type": principal_type,
+                            "principal_id": principal_id,
+                        }
+                    )
+
+        return assignments
+
+    def _apply_workspace_security(self, workspace_id: str) -> dict[str, int]:
+        """Apply workspace role assignments from optional security config."""
+        security_config = self._load_security_config()
+        assignments = self._extract_workspace_security_assignments(security_config)
+
+        if not assignments:
+            ConsoleStyles.print_dim(
+                self.console,
+                "No workspace security assignments configured (skipping security deployment)",
+            )
+            return {"created": 0, "existing": 0, "failed": 0}
+
+        ConsoleStyles.print_info(
+            self.console,
+            f"Applying workspace security assignments ({len(assignments)} entries)...",
+        )
+
+        fabric_api = FabricApiUtils(
+            environment=self.environment,
+            project_path=self.project_path,
+            workspace_id=workspace_id,
+        )
+
+        created = 0
+        updated = 0
+        admin_preserved = 0
+        existing = 0
+        failed = 0
+
+        for assignment in assignments:
+            try:
+                result = fabric_api.ensure_workspace_role_assignment(
+                    workspace_id=workspace_id,
+                    principal_id=assignment["principal_id"],
+                    principal_type=assignment["principal_type"],
+                    role=assignment["role"],
+                )
+                if result.get("status") == "created":
+                    created += 1
+                elif result.get("status") == "updated":
+                    updated += 1
+                elif result.get("status") == "admin_preserved":
+                    admin_preserved += 1
+                else:
+                    existing += 1
+            except Exception as e:
+                failed += 1
+                ConsoleStyles.print_error(
+                    self.console,
+                    f"Failed to assign {assignment['principal_type']} {assignment['principal_id']} as {assignment['role']}: {e}",
+                )
+
+        ConsoleStyles.print_info(
+            self.console,
+            f"Workspace security results: {created} created, {updated} updated, {admin_preserved} admin preserved, {existing} already present, {failed} failed",
+        )
+
+        return {
+            "created": created,
+            "updated": updated,
+            "admin_preserved": admin_preserved,
+            "existing": existing,
+            "failed": failed,
+        }
 
     def _update_variables_with_item_ids_after_deployment(
         self,
@@ -934,6 +1122,10 @@ class SyncToFabricEnvironment:
             )
 
             self._print_deployment_summary(results, unchanged_count)
+
+            security_results = self._apply_workspace_security(self.target_workspace_id)
+            if security_results.get("failed", 0) > 0:
+                raise SystemExit(1)
 
             # Upload manifest to remote at the very end (PUSH remote state)
             self._upload_manifest_to_remote(manifest_path)
