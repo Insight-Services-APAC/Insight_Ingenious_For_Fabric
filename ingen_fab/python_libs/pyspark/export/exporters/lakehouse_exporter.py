@@ -76,15 +76,29 @@ class LakehouseExporter(BaseExporter, source_type="lakehouse"):
                     ),
                 )
                 self.logger.info(f"Executing query for export: {self.config.export_name}")
+                print(f"Final query: {query}")
+                
             else:
                 # Generated query with auto-filtering
                 query = self._build_table_query(watermark_value, period_start, period_end)
 
-            return (
+           # 1. Read the data into Spark DataFrame
+            df = (
                 self.spark.read
                 .option(Constants.WorkspaceId, workspace_id)
                 .synapsesql(query)
             )
+
+            # 2. DYNAMIC SORTING LOGIC added here
+            if getattr(self.config, 'order_by_columns', None):
+                self.logger.info(f"Applying Spark-level sort on columns: {self.config.order_by_columns}")
+                df = df.orderBy(*self.config.order_by_columns)
+                
+                # Drop SortOrder from the final output so it doesn't pollute the CSV
+                if "SortOrder" in self.config.order_by_columns:
+                    df = df.drop("SortOrder")
+
+            return df
         except Exception as e:
             raise SourceReadError(
                 f"Failed to read from lakehouse source for export {self.config.export_name}: {e}"
@@ -115,3 +129,4 @@ class LakehouseExporter(BaseExporter, source_type="lakehouse"):
             self.logger.info(f"Reading {full_path} for export: {self.config.export_name}")
 
         return query
+ 

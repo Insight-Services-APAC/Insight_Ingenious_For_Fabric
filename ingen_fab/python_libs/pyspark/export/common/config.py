@@ -154,7 +154,10 @@ class ExportConfig:
 
     # Optional features
     max_rows_per_file: Optional[int] = None  # File splitting
-
+    
+    # Sorting parameter
+    order_by_columns: Optional[List[str]] = None
+    
     # Trigger file configuration (None = disabled)
     trigger_file_pattern: Optional[str] = None
 
@@ -213,6 +216,13 @@ class ExportConfig:
         if self.execution_group <= 0:
             raise ValueError("execution_group must be > 0")
 
+        # Validate order_by_columns
+        if self.order_by_columns is not None:
+            if not isinstance(self.order_by_columns, list):
+                raise ValueError("order_by_columns must be a list of strings")
+            if not all(isinstance(col, str) for col in self.order_by_columns):
+                raise ValueError("All elements in order_by_columns must be strings")
+                
         # Validate filename patterns have valid placeholders
         if self.target_filename_pattern:
             self._validate_filename_pattern(
@@ -284,6 +294,15 @@ class ExportConfig:
             compression_level=row.get("compression_level"),
         )
 
+        # Safely parse order_by_columns if it arrives as a stringified JSON list
+        order_by_columns = row.get("order_by_columns")
+        if isinstance(order_by_columns, str):
+            import json
+            try:
+                order_by_columns = json.loads(order_by_columns)
+            except (json.JSONDecodeError, TypeError):
+                order_by_columns = None
+
         return cls(
             export_group_name=row.get("export_group_name", ""),
             export_name=row.get("export_name", ""),
@@ -301,6 +320,7 @@ class ExportConfig:
             compressed_filename_pattern=row.get("compressed_filename_pattern"),
             file_format_params=file_format_params,
             max_rows_per_file=row.get("max_rows_per_file"),
+            order_by_columns=order_by_columns,
             trigger_file_pattern=row.get("trigger_file_pattern"),
             extract_type=row.get("extract_type"),
             incremental_column=row.get("incremental_column"),
@@ -318,3 +338,4 @@ class ExportRunConfig:
     export_start_time: Optional[datetime] = None
     export_run_date: Optional[str] = None,
     timezone: str = "Australia/Sydney"
+    
