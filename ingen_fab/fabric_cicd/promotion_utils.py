@@ -372,6 +372,7 @@ class SyncToFabricEnvironment:
         status_entries: list[PublishLogEntry],
         manifest_path: Path,
         attempted_item_names: set[str],
+        exception_occurred: bool = False,
     ) -> dict:
         """
         Update manifest with deployment results.
@@ -383,17 +384,27 @@ class SyncToFabricEnvironment:
         failed_items = []
 
         if not status_entries:
-            ConsoleStyles.print_warning(
-                self.console,
-                "Warning: no status entries found. Falling back to attempted item list.",
-            )
+            if exception_occurred:
+                # Deployment threw an exception — mark all attempted items as failed
+                for item in manifest_items:
+                    if item.name in attempted_item_names:
+                        item.status = "failed"
+                        failed_items.append({
+                            'name': item.name,
+                            'error': 'Publishing exception — see error above',
+                        })
+            else:
+                ConsoleStyles.print_warning(
+                    self.console,
+                    "Warning: no status entries found. Falling back to attempted item list.",
+                )
 
-            # Compatibility fallback for older fabric-cicd versions that can publish
-            # successfully but return an empty status list.
-            for item in manifest_items:
-                if item.name in attempted_item_names:
-                    item.status = "deployed"
-                    deployed_items.append({'name': item.name})
+                # Compatibility fallback for older fabric-cicd versions that can publish
+                # successfully but return an empty status list.
+                for item in manifest_items:
+                    if item.name in attempted_item_names:
+                        item.status = "deployed"
+                        deployed_items.append({'name': item.name})
         else:
             # Create lookup dict for O(n) instead of O(n*m)
             status_lookup = {
@@ -873,6 +884,7 @@ class SyncToFabricEnvironment:
 
                 ConsoleStyles.print_info(self.console, "\nPublishing items...")
                 status_entries: list[PublishLogEntry] = []
+                publish_exception = False
 
                 try:
                     fw = FabricWorkspace(
@@ -890,6 +902,7 @@ class SyncToFabricEnvironment:
                     ConsoleStyles.print_error(
                         self.console, f"\nPublishing failed with error: {e}"
                     )
+                    publish_exception = True
 
                 # Auto-update Item IDs if enabled
                 auto_update_enabled = (
@@ -924,6 +937,7 @@ class SyncToFabricEnvironment:
                     status_entries,
                     manifest_path,
                     attempted_item_names={item.name for item in manifest_items_new_updated},
+                    exception_occurred=publish_exception,
                 )
 
             # Calculate unchanged count
