@@ -105,6 +105,7 @@ ignore = ["E402"]
 [tool.ruff]
 exclude = [
     "sample_project",
+    "er_sample_project",
     "project_templates",
     "tbf",
     "test.ipynb",

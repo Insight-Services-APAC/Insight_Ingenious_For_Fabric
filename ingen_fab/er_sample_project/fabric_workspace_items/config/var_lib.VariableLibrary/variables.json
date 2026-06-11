@@ -19,7 +19,6 @@
       "type": "String",
       "value": ""
     },
-    
     {
       "name": "config_workspace_id",
       "note": "GUID of the workspace containing the configuration lakehouse.",
@@ -93,20 +92,20 @@
       "value": ""
     },
     {
-      "name": "wh_gold_workspace_id",
-      "note": "GUID of the workspace containing wh_gold warehouse.",
+      "name": "wh_reporting_workspace_id",
+      "note": "GUID of the workspace containing wh_reporting warehouse.",
       "type": "String",
       "value": ""
     },
     {
-      "name": "wh_gold_warehouse_name",
-      "note": "Name of the wh_gold warehouse.",
+      "name": "wh_reporting_warehouse_name",
+      "note": "Name of the wh_reporting warehouse.",
       "type": "String",
       "value": ""
     },
     {
-      "name": "wh_gold_warehouse_id",
-      "note": "GUID of the wh_gold warehouse.",
+      "name": "wh_reporting_warehouse_id",
+      "note": "GUID of the wh_reporting warehouse.",
       "type": "String",
       "value": ""
     }

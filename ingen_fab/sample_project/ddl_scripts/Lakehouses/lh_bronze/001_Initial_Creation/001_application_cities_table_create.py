@@ -31,7 +31,7 @@ sample_data = [
     Row(
         CityID=1,
         CityName="Aaronsburg",
-        StateProvinceID=39,
+        StateProvinceID=3,
         LatestRecordedPopulation=613,
         LastEditedBy="1",
         ValidFrom=datetime(2013, 1, 1, 0, 0, 0),
@@ -49,7 +49,7 @@ sample_data = [
     Row(
         CityID=4,
         CityName="Abbeville",
-        StateProvinceID=42,
+        StateProvinceID=5,
         LatestRecordedPopulation=5237,
         LastEditedBy="1",
         ValidFrom=datetime(2013, 1, 1, 0, 0, 0),
@@ -58,7 +58,7 @@ sample_data = [
     Row(
         CityID=5,
         CityName="Abbeville",
-        StateProvinceID=11,
+        StateProvinceID=2,
         LatestRecordedPopulation=2908,
         LastEditedBy="1",
         ValidFrom=datetime(2013, 1, 1, 0, 0, 0),
@@ -76,7 +76,7 @@ sample_data = [
     Row(
         CityID=7,
         CityName="Abbeville",
-        StateProvinceID=19,
+        StateProvinceID=3,
         LatestRecordedPopulation=12257,
         LastEditedBy="1",
         ValidFrom=datetime(2013, 1, 1, 0, 0, 0),
@@ -85,7 +85,7 @@ sample_data = [
     Row(
         CityID=8,
         CityName="Abbeville",
-        StateProvinceID=25,
+        StateProvinceID=4,
         LatestRecordedPopulation=419,
         LastEditedBy="1",
         ValidFrom=datetime(2013, 1, 1, 0, 0, 0),
@@ -94,7 +94,7 @@ sample_data = [
     Row(
         CityID=9,
         CityName="Abbotsford",
-        StateProvinceID=52,
+        StateProvinceID=5,
         LatestRecordedPopulation=2310,
         LastEditedBy="1",
         ValidFrom=datetime(2013, 1, 1, 0, 0, 0),
@@ -103,7 +103,7 @@ sample_data = [
     Row(
         CityID=10,
         CityName="Abbott",
-        StateProvinceID=45,
+        StateProvinceID=2,
         LatestRecordedPopulation=356,
         LastEditedBy="1",
         ValidFrom=datetime(2013, 1, 1, 0, 0, 0),

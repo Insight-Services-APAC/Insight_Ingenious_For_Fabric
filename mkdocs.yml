@@ -124,6 +124,33 @@ nav:
     - Extract Generation: packages/extract_generation.md
     - Synthetic Data Generation: packages/synthetic_data_generation.md
     - Synapse Sync: packages/synapse_sync.md
+  - Training:
+    - training/index.md
+    - DP Project:
+      - training/dp/index.md
+      - Exercise 1 - Project Setup: training/dp/exercise-01-project-setup.md
+      - Exercise 2 - New Bronze Table: training/dp/exercise-02-bronze-table.md
+      - Exercise 3 - Silver Transformation: training/dp/exercise-03-silver-transformation.md
+      - Exercise 4 - Gold Layer: training/dp/exercise-04-gold-layer.md
+      - Exercise 5 - Semantic Model: training/dp/exercise-05-semantic-model.md
+      - Exercise 6 - Power BI Report: training/dp/exercise-06-report.md
+      - Exercise 7 - GraphQL APIs: training/dp/exercise-07-graphql.md
+    - Enterprise Reporting (ER):
+      - training/er/index.md
+      - Exercise 0 - Prerequisites: training/er/exercise-00-prerequisites.md
+      - Exercise 1 - Project Setup: training/er/exercise-01-project-setup.md
+      - Exercise 2 - Generate Data: training/er/exercise-02-generate-data.md
+      - Exercise 3 - Silver Layer: training/er/exercise-03-silver-layer.md
+      - Exercise 4 - Gold Layer: training/er/exercise-04-gold-layer.md
+      - Exercise 5 - Warehouse Views: training/er/exercise-05-warehouse-views.md
+      - Exercise 6 - Semantic Model: training/er/exercise-06-semantic-model.md
+      - Exercise 7 - Supply Chain Report: training/er/exercise-07-report.md
+    - Semantic Model (SM):
+      - training/sm/index.md
+      - Exercise 1 - Download and Version Control: training/sm/exercise-01-download-and-version-control.md
+      - Exercise 2 - TMDL Anatomy: training/sm/exercise-02-tmdl-anatomy.md
+      - Exercise 3 - Variable Substitution: training/sm/exercise-03-variable-substitution.md
+      - Exercise 4 - Deploy and Promote: training/sm/exercise-04-deploy-and-promote.md
   - API Reference:
     - api/index.md
     - Python APIs: api/python_apis.md
