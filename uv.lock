@@ -2100,7 +2100,7 @@ wheels = [
 
 [[package]]
 name = "fabric-cicd"
-version = "0.1.25"
+version = "0.2.0"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "azure-identity" },
@@ -2111,9 +2111,8 @@ dependencies = [
     { name = "pyyaml" },
     { name = "requests" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/d8/dc/0cf59b378e4b64051e89d3046b939760f7aba51b8df539a900edd08a1b6f/fabric_cicd-0.1.25.tar.gz", hash = "sha256:83ee9a8a07cc56c0bed3f95b8578825f9b2f63016ef613fc7ea4128b0d5ee755", size = 84851, upload-time = "2025-08-19T15:21:41.223Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/61/44/04b1e609b8d05e2bd8cb6045e97cd31b7f8a651ce9b4e604b9d024441a08/fabric_cicd-0.1.25-py3-none-any.whl", hash = "sha256:89b67af9497d020bc18281e09ac22993823d6ad528ae232ad9eb61659c5c000e", size = 70897, upload-time = "2025-08-19T15:21:42.211Z" },
+    { url = "https://files.pythonhosted.org/packages/a2/4a/db7f1b79da07a035692fe4feb564342e0e07f1eed261412f0db79288e110/fabric_cicd-0.2.0-py3-none-any.whl", hash = "sha256:3540382519ccdcbfa9da21558a7e7c155b8f726424878b35d2b77608ec3ac1e5", size = 106616, upload-time = "2026-02-18T14:06:04.127Z" },
 ]
 
 [[package]]
@@ -2360,7 +2359,7 @@ requires-dist = [
     { name = "azure-storage-file-datalake", specifier = "==12.21.0" },
     { name = "backoff", marker = "extra == 'dataprep'", specifier = "==2.2" },
     { name = "deltalake", specifier = "==1.0.2" },
-    { name = "fabric-cicd", specifier = "==0.1.25" },
+    { name = "fabric-cicd", specifier = "==0.2.0" },
     { name = "faker", specifier = ">=37.4.2" },
     { name = "fsspec", specifier = ">=2025.10.0" },
     { name = "jinja2" },
@@ -2949,7 +2948,7 @@ wheels = [
 
 [package.optional-dependencies]
 broker = [
-    { name = "pymsalruntime", marker = "sys_platform == 'win32'" },
+    { name = "pymsalruntime" },
 ]
 
 [[package]]
