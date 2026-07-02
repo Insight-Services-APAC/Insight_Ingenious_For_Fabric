@@ -314,7 +314,10 @@ class SyncToFabricEnvironment:
                 else:
                     if perform_hash_check:
                         # If hashes are the same, keep existing status
-                        in_mem_item.status = existing_item.status
+                        if existing_item.status == "deleted":
+                            in_mem_item.status = "deployed"
+                        else:
+                            in_mem_item.status = existing_item.status
                     else:
                         pass  # If hash check is not performed, keep the status as is in memory item
 
