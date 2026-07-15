@@ -11,7 +11,7 @@ dependencies = [
     "pyodbc>=5.2.0",
     "pandas>=2.3.0",
     "deltalake==1.0.2",
-    "pyarrow==20.0.0",
+    "pyarrow==23.0.1",
     "azure-cli==2.76.0",
     "fabric-cicd==0.2.0",
     "azure-storage-file-datalake==12.21.0",
