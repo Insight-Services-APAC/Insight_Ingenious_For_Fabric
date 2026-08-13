@@ -2,6 +2,7 @@ import logging
 import re
 from pathlib import Path
 from typing import Optional
+from urllib.parse import quote
 
 import requests
 from azure.identity import DefaultAzureCredential
@@ -46,6 +47,115 @@ class FabricApiUtils:
         scope = "https://api.fabric.microsoft.com/.default"
         token = self.credential.get_token(scope)
         return token.token
+
+    def _get_graph_token(self) -> str:
+        scope = "https://graph.microsoft.com/.default"
+        token = self.credential.get_token(scope)
+        return token.token
+
+    @staticmethod
+    def _is_guid(value: str) -> bool:
+        guid_pattern = re.compile(
+            r"^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$"
+        )
+        return bool(guid_pattern.match(value.strip()))
+
+    @staticmethod
+    def _escape_odata_literal(value: str) -> str:
+        return value.replace("'", "''")
+
+    def _resolve_user_object_id(self, principal_identifier: str) -> str:
+        identifier = principal_identifier.strip()
+        if self._is_guid(identifier):
+            return identifier
+
+        headers = {
+            "Authorization": f"Bearer {self._get_graph_token()}",
+            "Content-Type": "application/json",
+        }
+
+        user_url = f"https://graph.microsoft.com/v1.0/users/{quote(identifier, safe='@.-_')}?$select=id"
+        direct_response = requests.get(user_url, headers=headers)
+        if direct_response.status_code == 200:
+            user_id = (direct_response.json() or {}).get("id")
+            if user_id:
+                return str(user_id)
+
+        escaped_identifier = self._escape_odata_literal(identifier)
+        search_url = "https://graph.microsoft.com/v1.0/users"
+        search_response = requests.get(
+            search_url,
+            headers=headers,
+            params={
+                "$filter": (
+                    f"userPrincipalName eq '{escaped_identifier}' or mail eq '{escaped_identifier}'"
+                ),
+                "$select": "id",
+                "$top": "1",
+            },
+        )
+
+        if search_response.status_code == 200:
+            users = (search_response.json() or {}).get("value", [])
+            if users:
+                user_id = users[0].get("id")
+                if user_id:
+                    return str(user_id)
+
+        raise Exception(
+            f"Could not resolve user identifier '{principal_identifier}' to a Microsoft Entra object ID"
+        )
+
+    def _resolve_group_object_id(self, principal_identifier: str) -> str:
+        identifier = principal_identifier.strip()
+        if self._is_guid(identifier):
+            return identifier
+
+        headers = {
+            "Authorization": f"Bearer {self._get_graph_token()}",
+            "Content-Type": "application/json",
+        }
+
+        group_url = f"https://graph.microsoft.com/v1.0/groups/{quote(identifier, safe='@.-_')}?$select=id"
+        direct_response = requests.get(group_url, headers=headers)
+        if direct_response.status_code == 200:
+            group_id = (direct_response.json() or {}).get("id")
+            if group_id:
+                return str(group_id)
+
+        escaped_identifier = self._escape_odata_literal(identifier)
+        search_url = "https://graph.microsoft.com/v1.0/groups"
+        search_response = requests.get(
+            search_url,
+            headers=headers,
+            params={
+                "$filter": (
+                    f"displayName eq '{escaped_identifier}' or mail eq '{escaped_identifier}'"
+                ),
+                "$select": "id",
+                "$top": "1",
+            },
+        )
+
+        if search_response.status_code == 200:
+            groups = (search_response.json() or {}).get("value", [])
+            if groups:
+                group_id = groups[0].get("id")
+                if group_id:
+                    return str(group_id)
+
+        raise Exception(
+            f"Could not resolve group identifier '{principal_identifier}' to a Microsoft Entra object ID"
+        )
+
+    def resolve_principal_id(self, principal_id: str, principal_type: str) -> str:
+        """Resolve user/group identifiers (email, UPN, display name) to Entra object IDs."""
+        normalized_type = principal_type.strip().lower()
+        if normalized_type == "user":
+            return self._resolve_user_object_id(principal_id)
+        if normalized_type == "group":
+            return self._resolve_group_object_id(principal_id)
+        return principal_id.strip()
 
     def _get_workspace_id(self) -> str:
         """
@@ -580,6 +690,186 @@ class FabricApiUtils:
         if response.status_code == 200:
             return response.json()
         return None
+
+    def list_workspace_role_assignments(
+        self, workspace_id: Optional[str] = None
+    ) -> list[dict]:
+        """List all role assignments in a workspace with pagination support."""
+        wsid = workspace_id or self.workspace_id
+        headers = {
+            "Authorization": f"Bearer {self._get_token()}",
+            "Content-Type": "application/json",
+        }
+
+        assignments: list[dict] = []
+        continuation_token: Optional[str] = None
+
+        while True:
+            url = f"{self.base_url}/{wsid}/roleAssignments"
+            if continuation_token:
+                url += f"?continuationToken={continuation_token}"
+
+            response = requests.get(url, headers=headers)
+            if response.status_code != 200:
+                raise Exception(
+                    f"Failed to list workspace role assignments: {response.status_code} - {response.text}"
+                )
+
+            data = response.json() or {}
+            values = data.get("value", []) if isinstance(data, dict) else []
+            if not isinstance(values, list):
+                values = []
+            assignments.extend(values)
+
+            continuation_token = (
+                data.get("continuationToken") if isinstance(data, dict) else None
+            )
+            if not continuation_token:
+                break
+
+        return assignments
+
+    def create_workspace_role_assignment(
+        self,
+        *,
+        workspace_id: str,
+        principal_id: str,
+        principal_type: str,
+        role: str,
+    ) -> dict:
+        """Create a role assignment in a Fabric workspace."""
+        headers = {
+            "Authorization": f"Bearer {self._get_token()}",
+            "Content-Type": "application/json",
+        }
+
+        payload = {
+            "principal": {
+                "id": principal_id,
+                "type": principal_type,
+            },
+            "role": role,
+        }
+
+        url = f"{self.base_url}/{workspace_id}/roleAssignments"
+        response = requests.post(url, headers=headers, json=payload)
+
+        if response.status_code in (200, 201):
+            if response.text:
+                return response.json()
+            return {}
+
+        raise Exception(
+            f"Failed to create workspace role assignment: {response.status_code} - {response.text}"
+        )
+
+    def delete_workspace_role_assignment(
+        self,
+        *,
+        workspace_id: str,
+        assignment_id: str,
+    ) -> None:
+        """Delete an existing role assignment from a Fabric workspace."""
+        headers = {
+            "Authorization": f"Bearer {self._get_token()}",
+            "Content-Type": "application/json",
+        }
+
+        url = f"{self.base_url}/{workspace_id}/roleAssignments/{assignment_id}"
+        response = requests.delete(url, headers=headers)
+
+        if response.status_code in (200, 202, 204):
+            return
+
+        raise Exception(
+            f"Failed to delete workspace role assignment: {response.status_code} - {response.text}"
+        )
+
+    def ensure_workspace_role_assignment(
+        self,
+        *,
+        workspace_id: str,
+        principal_id: str,
+        principal_type: str,
+        role: str,
+    ) -> dict:
+        """Ensure a workspace role assignment exists.
+
+        Rules:
+        - If exact role already exists for user/group, keep as-is.
+        - If user/group already has Admin and requested role is not Admin, preserve Admin.
+        - If user/group has a non-Admin role and requested role differs, replace it.
+        - If user/group has no role in workspace, create it.
+        - People/group not listed in your security config are not touched by this step.
+        """
+        resolved_principal_id = self.resolve_principal_id(principal_id, principal_type)
+        existing_assignments = self.list_workspace_role_assignments(workspace_id)
+
+        for assignment in existing_assignments:
+            existing_principal = assignment.get("principal", {})
+            existing_principal_id = str(
+                existing_principal.get("id")
+                or assignment.get("principalId")
+                or ""
+            ).strip()
+            existing_principal_type = str(
+                existing_principal.get("type")
+                or assignment.get("principalType")
+                or ""
+            ).strip()
+            existing_role = str(assignment.get("role") or "").strip()
+
+            if not (
+                existing_principal_id.lower() == resolved_principal_id.strip().lower()
+                and existing_principal_type.lower() == principal_type.strip().lower()
+            ):
+                continue
+
+            if existing_role.lower() == role.strip().lower():
+                return {
+                    "status": "exists",
+                    "assignment": assignment,
+                }
+
+            if existing_role.lower() == "admin" and role.strip().lower() != "admin":
+                return {
+                    "status": "admin_preserved",
+                    "assignment": assignment,
+                }
+
+            assignment_id = str(assignment.get("id") or existing_principal_id).strip()
+            if not assignment_id:
+                raise Exception(
+                    "Failed to update workspace role assignment: missing assignment id"
+                )
+
+            self.delete_workspace_role_assignment(
+                workspace_id=workspace_id,
+                assignment_id=assignment_id,
+            )
+
+            updated_assignment = self.create_workspace_role_assignment(
+                workspace_id=workspace_id,
+                principal_id=resolved_principal_id,
+                principal_type=principal_type,
+                role=role,
+            )
+            return {
+                "status": "updated",
+                "previous_role": existing_role,
+                "assignment": updated_assignment,
+            }
+
+        created_assignment = self.create_workspace_role_assignment(
+            workspace_id=workspace_id,
+            principal_id=resolved_principal_id,
+            principal_type=principal_type,
+            role=role,
+        )
+        return {
+            "status": "created",
+            "assignment": created_assignment,
+        }
 
     def create_workspace(
         self, workspace_name: str, description: Optional[str] = None

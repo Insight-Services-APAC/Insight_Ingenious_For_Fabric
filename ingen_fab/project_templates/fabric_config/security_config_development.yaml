@@ -1,0 +1,13 @@
+workspace_access:
+  admins:
+    users: []
+    groups: []
+  members:
+    users: []
+    groups: []
+  contributors:
+    users: []
+    groups: []
+  viewers:
+    users: []
+    groups: []
