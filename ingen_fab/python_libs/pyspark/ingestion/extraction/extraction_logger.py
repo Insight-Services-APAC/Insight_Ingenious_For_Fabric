@@ -6,7 +6,15 @@ import uuid
 from datetime import date, datetime
 from typing import Any, List, Optional, Set, Tuple
 
-from pyspark.sql.functions import col, current_timestamp, exists, lit, row_number
+from pyspark.sql.functions import (
+    col,
+    current_timestamp,
+    exists,
+    explode,
+    lit,
+    regexp_extract,
+    row_number,
+)
 from pyspark.sql.window import Window
 
 from ingen_fab.python_libs.common.extract_resource_batch_schema import (
@@ -350,6 +358,53 @@ class ExtractionLogger:
             logger.warning(f"Could not check extraction logs for duplicates: {e}")
             # On error, return False (allow file through - safer than blocking)
             return False
+
+    def get_extracted_filenames(
+        self,
+        config: ResourceConfig,
+    ) -> Set[str]:
+        """
+        Get the set of all filenames/folder names already successfully extracted
+        for this resource (across all partitions/dates), in a single query.
+
+        Use this instead of calling check_file_already_extracted() once per
+        discovered file/folder - that pattern re-scans the (ever-growing)
+        log_resource_extract_batch table once per file, causing an N+1 query
+        blowup as extraction history accumulates. 
+
+        Args:
+            config: Resource configuration
+
+        Returns:
+            Set of basenames (e.g. {"pe_Item_Ref_20251112.dat", ...}) already
+            extracted for this source_name/resource_name. Empty set if the log
+            table doesn't exist yet or the query fails (fail-open, same as
+            check_file_already_extracted).
+        """
+        try:
+            if not self.lakehouse.check_if_table_exists("log_resource_extract_batch"):
+                logger.debug("Table 'log_resource_extract_batch' not found - cannot check duplicates")
+                return set()
+
+            paths_df = (
+                self.lakehouse.read_table("log_resource_extract_batch")
+                .filter(col("source_name") == config.source_name)
+                .filter(col("resource_name") == config.resource_name)
+                .filter(col("extract_state") == str(ExecutionStatus.SUCCESS))
+                .select(explode(col("extract_file_paths")).alias("file_path"))
+                # Extract the last non-empty path segment so this matches both
+                # file paths ("...ds=.../name.dat") and folder paths that may
+                # have a trailing slash ("...ds=.../folder_name/").
+                .select(regexp_extract(col("file_path"), r"([^/]+)/?$", 1).alias("filename"))
+                .distinct()
+            )
+
+            return {row.filename for row in paths_df.collect()}
+
+        except Exception as e:
+            logger.warning(f"Could not check extraction logs for duplicates: {e}")
+            # On error, return empty set (allow files through - safer than blocking)
+            return set()
 
     # ========================================================================
     # WATERMARK MANAGEMENT (log_resource_extract_watermark table)

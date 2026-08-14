@@ -863,14 +863,17 @@ class FileSystemExtractor(BaseExtractor[FileSystemExtractionParams], source_type
         """
         duplicates = []
 
+        # Fetch the full set of already-extracted filenames for this resource in a
+        # single query, instead of running one Spark job per discovered file (N+1
+        # query pattern that re-scans the extraction log table for every file).
+        extracted_filenames = self.extraction_logger.get_extracted_filenames(
+            config=self.config
+        )
+
         for file_info in files:
             filename = os.path.basename(file_info.path)
 
-            # Query extraction logs (works across all partitions)
-            if self.extraction_logger.check_file_already_extracted(
-                config=self.config,
-                filename=filename
-            ):
+            if filename in extracted_filenames:
                 duplicates.append(file_info)
                 self.logger.debug(
                     f"Duplicate: {filename} already extracted (found in extraction logs)"
