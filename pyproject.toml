@@ -64,7 +64,7 @@ docs = [
 [project.optional-dependencies]
 dataprep = [
     "scrapfly-sdk==0.8.23",
-    "python-dotenv==1.0.1",
+    "python-dotenv==1.2.2",
     "backoff==2.2"
 ]
 
