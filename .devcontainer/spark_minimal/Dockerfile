@@ -20,16 +20,19 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
     PIP_NO_CACHE_DIR=1 \
     ACCEPT_EULA=Y \
-    JAVA_HOME=/usr/lib/jvm/java-17-openjdk-amd64 \
+    JAVA_HOME=/usr/lib/jvm/default-java \
     UV_PROJECT_ENVIRONMENT=/opt/venv \
     UV_LINK_MODE=copy \
     FABRIC_ENVIRONMENT=local \
     PATH=/opt/venv/bin:/root/.local/bin:$PATH
 
 # OS layer: JVM, git, ODBC Driver 18, and the small tools a terminal session expects.
+# default-jre-headless pulls OpenJDK 17 and creates /usr/lib/jvm/default-java, which points at
+# the right JDK directory on every architecture (java-17-openjdk-amd64 on x86_64,
+# java-17-openjdk-arm64 on Apple Silicon and other ARM64 hosts), so JAVA_HOME above is portable.
 RUN apt-get update \
     && apt-get install -y --no-install-recommends \
-        openjdk-17-jre-headless git curl gnupg2 ca-certificates unixodbc procps less \
+        default-jre-headless git curl gnupg2 ca-certificates unixodbc procps less \
     && curl -sSL https://packages.microsoft.com/keys/microsoft.asc \
          | gpg --dearmor -o /usr/share/keyrings/microsoft-prod.gpg \
     && echo "deb [arch=amd64 signed-by=/usr/share/keyrings/microsoft-prod.gpg] https://packages.microsoft.com/debian/12/prod bookworm main" \

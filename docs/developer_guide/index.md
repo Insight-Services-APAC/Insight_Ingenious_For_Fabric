@@ -98,17 +98,34 @@ the SQL Server ODBC driver, with the project's virtual environment created autom
     az login --use-device-code
     ```
 
-4. **SQL Server (optional)**: run it as a separate container rather than inside the dev container:
+4. **SQL Server (optional)**: the dev container has no Docker CLI, so start SQL Server as a
+   separate container **on the host**:
 
     ```bash
-    docker run -e "ACCEPT_EULA=Y" -e "SA_PASSWORD=YourStrong@Passw0rd" \
+    # on the host
+    docker run -e "ACCEPT_EULA=Y" -e "SA_PASSWORD=YourStrong!Passw0rd" \
         -p 1433:1433 --name sql_server \
         -d mcr.microsoft.com/mssql/server:2022-latest
-    export SQL_SERVER_PASSWORD="YourStrong@Passw0rd"
     ```
 
-    The scripts under `scripts/dev_container_scripts/spark_minimal/` (PowerShell, an in-container
-    SQL Server, a PostgreSQL Hive metastore) are optional extras and are no longer required.
+    Inside the dev container the host is `host.docker.internal`, not `localhost`. The library's
+    default SQL Server connection string is hard-coded to `SERVER=localhost,1433` (only the
+    password is configurable, via `SQL_SERVER_PASSWORD`), so pass an explicit connection string:
+
+    ```python
+    from ingen_fab.python_libs.python.warehouse_utils import warehouse_utils
+
+    wh = warehouse_utils(
+        dialect="sql_server",
+        connection_string="DRIVER={ODBC Driver 18 for SQL Server};SERVER=host.docker.internal,1433;"
+                          "UID=sa;PWD=YourStrong!Passw0rd;TrustServerCertificate=yes;",
+    )
+    ```
+
+    With `FABRIC_ENVIRONMENT=local` the warehouse library defaults to the PostgreSQL dialect;
+    SQL Server is used only when a caller asks for `dialect="sql_server"`. The scripts under
+    `scripts/dev_container_scripts/spark_minimal/` (PowerShell, an in-container SQL Server, a
+    PostgreSQL Hive metastore) are optional extras and are no longer required.
 
 !!! note "Base image change"
     The container was based on `bitnami/spark:4.0-debian-12`, which Bitnami withdrew from

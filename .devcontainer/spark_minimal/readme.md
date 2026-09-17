@@ -42,14 +42,48 @@ once the venv is active). Log in inside the container; the token cache persists 
 az login --use-device-code
 ```
 
+## SQL Server (optional)
+
+The dev container has no Docker CLI, so a SQL Server container is started **on the host**,
+not from inside the dev container:
+
+```bash
+# on the host
+docker run -e "ACCEPT_EULA=Y" -e "SA_PASSWORD=YourStrong!Passw0rd" \
+    -p 1433:1433 --name sql_server \
+    -d mcr.microsoft.com/mssql/server:2022-latest
+```
+
+A port published on the host is not `localhost` inside the dev container. From inside, the
+host is reachable as `host.docker.internal` (Docker Desktop provides the name; `runArgs` in
+`devcontainer.json` adds it on Linux hosts too). The library's default SQL Server connection
+string is hard-coded to `SERVER=localhost,1433` and only the password is configurable
+(`SQL_SERVER_PASSWORD`), so point it at the host explicitly:
+
+```python
+from ingen_fab.python_libs.python.warehouse_utils import warehouse_utils
+import os
+
+wh = warehouse_utils(
+    dialect="sql_server",
+    connection_string=(
+        "DRIVER={ODBC Driver 18 for SQL Server};SERVER=host.docker.internal,1433;"
+        f"UID=sa;PWD={os.environ['SQL_SERVER_PASSWORD']};TrustServerCertificate=yes;"
+    ),
+)
+```
+
+Note that with `FABRIC_ENVIRONMENT=local` the warehouse library selects the PostgreSQL dialect
+by default; SQL Server is used only when a caller asks for `dialect="sql_server"`.
+
 ## Optional extras
 
 The scripts under `scripts/dev_container_scripts/spark_minimal/` are no longer required. They
 remain for developers who want them:
 
 - `pwsh_install.sh` and `dev_tools.ps1`: PowerShell, oh-my-posh, GitHub CLI, npm.
-- `sql_install_4_linux.sh`: a local SQL Server inside the container. Running SQL Server as a
-  separate container (`mcr.microsoft.com/mssql/server:2022-latest`) is simpler.
+- `sql_install_4_linux.sh`: a SQL Server installed inside the container itself, which avoids
+  the networking above at the cost of a manual, non-reproducible install.
 - `postgres_metastore_setup.sh`: a PostgreSQL-backed Hive metastore for Spark.
 
 ## Why the base image changed (issue #39)
