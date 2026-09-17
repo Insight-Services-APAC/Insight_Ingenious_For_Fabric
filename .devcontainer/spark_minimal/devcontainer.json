@@ -1,34 +1,35 @@
 {
-  "name": "Bitnami Spark Dev Container",
+  "name": "spark_minimal (Python 3.12 + JDK 17 + uv)",
   "build": {
-    "dockerfile": "spark.dockerfile",
+    "dockerfile": "Dockerfile",
     "context": "."
   },
+  "workspaceMount": "source=${localWorkspaceFolder},target=/workspaces/${localWorkspaceFolderBasename},type=bind",
+  "workspaceFolder": "/workspaces/${localWorkspaceFolderBasename}",
+  "remoteUser": "root",
+  "mounts": [
+    "source=ingen-fab-uv-cache,target=/root/.cache/uv,type=volume",
+    "source=ingen-fab-azure,target=/root/.azure,type=volume"
+  ],
+  "containerEnv": {
+    "FABRIC_ENVIRONMENT": "local",
+    "FABRIC_WORKSPACE_REPO_DIR": "ingen_fab/sample_project"
+  },
+  "postCreateCommand": "git config --global --add safe.directory ${containerWorkspaceFolder} && uv sync --all-extras && python -c \"import ingen_fab, pyspark; print('venv ok, pyspark', pyspark.__version__)\"",
   "customizations": {
     "vscode": {
       "settings": {
-        "terminal.integrated.defaultProfile.linux": "bash",
-        "terminal.integrated.profiles.linux": {
-          "bash": {
-            "path": "/bin/bash"
-          }
-        }
+        "python.defaultInterpreterPath": "/opt/venv/bin/python",
+        "terminal.integrated.defaultProfile.linux": "bash"
       },
       "extensions": [
         "ms-python.python",
         "ms-python.vscode-pylance",
         "ms-python.debugpy",
         "charliermarsh.ruff",
-        "ms-python.vscode-python-envs",
-        "bierner.emojisense",
-        "Oracle.mysql-shell-for-vs-code",
-        "ms-ossdata.vscode-pgsql",
-        "samuelcolvin.jinjahtml"
+        "samuelcolvin.jinjahtml",
+        "ms-azuretools.vscode-containers"
       ]
+    }
   }
-},
-"workspaceMount": "source=${localWorkspaceFolder},target=/workspaces/${localWorkspaceFolderBasename},type=bind",
-"workspaceFolder": "/workspaces/${localWorkspaceFolderBasename}",
-"remoteUser": "root"
-
 }

@@ -1,4 +1,4 @@
-# Developer Guide
+﻿# Developer Guide
 
 [Home](../index.md) > Developer Guide
 
@@ -75,100 +75,46 @@ The project uses several development tools:
 
 ### Container Development Setup
 
-For a consistent development environment with Apache Spark and SQL Server, use the provided dev container:
+For a consistent development environment, use the provided dev container
+(`.devcontainer/spark_minimal/`): Python 3.12, a JVM for local Spark sessions, `uv`, git and
+the SQL Server ODBC driver, with the project's virtual environment created automatically.
 
-1. **Open in Dev Container**: Use VS Code's "Dev Containers" extension and select "Reopen in Container"
+1. **Open in Dev Container**: Use VS Code's "Dev Containers" extension, select "Reopen in
+   Container" and pick `spark_minimal`. On first start `postCreateCommand` runs
+   `uv sync --all-extras`; the venv lives at `/opt/venv` inside the container and is on `PATH`.
 
-2. **Install PowerShell**:
-
-=== "macOS/Linux"
-
-    ```bash
-    source ./scripts/dev_container_scripts/spark_minimal/pwsh_install.sh
-    ```
-
-=== "Windows"
-
-    ```powershell
-    # PowerShell is already installed on Windows
-    # Verify installation:
-    $PSVersionTable.PSVersion
-    ```
-
-3. **Start PowerShell and install development tools**:
-
-=== "macOS/Linux"
+2. **Verify**:
 
     ```bash
-    pwsh
-    ```
-    ```powershell
-    ./scripts/dev_container_scripts/spark_minimal/dev_tools.ps1
-    ```
-
-=== "Windows"
-
-    ```powershell
-    # Start PowerShell (already in PowerShell)
-    ./scripts/dev_container_scripts/spark_minimal/dev_tools.ps1
+    ingen_fab --help
+    pytest tests/test_promotion_utils.py -q
+    ingen_fab test local pyspark lakehouse_utils              # local Spark session with Delta
+    bash .devcontainer/spark_minimal/verify.sh                # all of the above in one go
     ```
 
-4. **Restart PowerShell session**:
-   ```powershell
-   . $PROFILE
-   ```
-
-5. **Install SQL Server (optional)**:
-
-=== "Linux (Container)"
+3. **Azure login** (inside the container; the token cache persists in a named volume):
 
     ```bash
-    bash ./scripts/dev_container_scripts/spark_minimal/sql_install_4_linux.sh
-    bash /opt/mssql/bin/mssql-conf setup
-    ```
-    
-    Note: You'll need to provide an SA password and select "Enterprise (2)" and "English" when prompted.
-
-    Once the setup is complete, you can start SQL Server with. (Press Enter after the command completes and sql server will be started in the background. Note you will need to run this command every time you start the container):
-
-    ```bash
-    /opt/mssql/bin/sqlservr &
+    az login --use-device-code
     ```
 
-=== "macOS"
+4. **SQL Server (optional)**: run it as a separate container rather than inside the dev container:
 
     ```bash
-    # Use Docker to run SQL Server
     docker run -e "ACCEPT_EULA=Y" -e "SA_PASSWORD=YourStrong@Passw0rd" \
         -p 1433:1433 --name sql_server \
         -d mcr.microsoft.com/mssql/server:2022-latest
+    export SQL_SERVER_PASSWORD="YourStrong@Passw0rd"
     ```
 
-=== "Windows"
+    The scripts under `scripts/dev_container_scripts/spark_minimal/` (PowerShell, an in-container
+    SQL Server, a PostgreSQL Hive metastore) are optional extras and are no longer required.
 
-    ```powershell
-    # Download and install SQL Server Express
-    # https://www.microsoft.com/en-us/sql-server/sql-server-downloads
-    
-    # Or use Docker Desktop:
-    docker run -e "ACCEPT_EULA=Y" -e "SA_PASSWORD=YourStrong@Passw0rd" `
-        -p 1433:1433 --name sql_server `
-        -d mcr.microsoft.com/mssql/server:2022-latest
-    ```
-
-   Next set the environment variables for SQL Server connection:
-
-   ```bash
-   export SQL_SERVER_PASSWORD="YourStrong@Passw0rd"
-   ```
-
-   or 
-
-   ``` pwsh 
-   $env:SQL_SERVER_PASSWORD = "YourStrong@Passw0rd"
-   ```
-
-You now have a minimal setup with Apache Spark, SQL Server, and PowerShell support for local development.
+!!! note "Base image change"
+    The container was based on `bitnami/spark:4.0-debian-12`, which Bitnami withdrew from
+    Docker Hub in 2025 (issue #39). It is now `python:3.12-slim-bookworm` plus OpenJDK 17; the
+    `pyspark` wheel in the dev dependency group bundles Spark, so only a JVM is needed. See
+    `.devcontainer/spark_minimal/readme.md` for the details and the tested legacy fallback.
 
 ## Project Structure
 
@@ -271,7 +217,7 @@ mkdocs gh-deploy
    # cli_utils/my_new_commands.py
    import typer
    from typing_extensions import Annotated
-   
+
    def my_new_command(
        param: Annotated[str, typer.Option(help="Description")]
    ):
@@ -283,7 +229,7 @@ mkdocs gh-deploy
    ```python
    # cli.py
    from cli_utils import my_new_commands
-   
+
    # Add command to app
    app.add_typer(
        my_new_commands.app,
@@ -297,7 +243,7 @@ mkdocs gh-deploy
    # tests/test_my_new_commands.py
    from typer.testing import CliRunner
    from ingen_fab.cli import app
-   
+
    def test_my_new_command():
        runner = CliRunner()
        result = runner.invoke(app, ["mynew", "command", "--param", "value"])
@@ -311,11 +257,11 @@ mkdocs gh-deploy
    # python_libs/python/my_new_utils.py
    from typing import Any
    from .notebook_utils_abstraction import get_notebook_utils
-   
+
    class MyNewUtils:
        def __init__(self):
            self.notebook_utils = get_notebook_utils()
-       
+
        def my_function(self) -> Any:
            """New utility function."""
            return "result"
@@ -326,7 +272,7 @@ mkdocs gh-deploy
    # python_libs_tests/python/test_my_new_utils_pytest.py
    import pytest
    from ingen_fab.python_libs.python.my_new_utils import MyNewUtils
-   
+
    def test_my_function():
        utils = MyNewUtils()
        result = utils.my_function()
@@ -346,7 +292,7 @@ mkdocs gh-deploy
    <!-- ddl_scripts/_templates/common/my_new_template.py.jinja -->
    # Generated DDL script for {{ entity_name }}
    from my_new_utils import MyNewUtils
-   
+
    utils = MyNewUtils()
    result = utils.my_function()
    print(f"Result: {result}")
