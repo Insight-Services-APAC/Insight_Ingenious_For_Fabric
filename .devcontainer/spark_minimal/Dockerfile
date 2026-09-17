@@ -46,6 +46,8 @@ RUN apt-get update \
 # uv: the project's package manager (pyproject + uv.lock). Pinned so the image is reproducible.
 RUN pip install uv==0.12.15
 
-WORKDIR /workspaces/Insight_Ingenious_For_Fabric
+# devcontainer.json mounts the repository at /workspaces/<folder name> and sets that as the
+# workspace folder; the image only fixes the stable parent.
+WORKDIR /workspaces
 
 CMD ["bash"]

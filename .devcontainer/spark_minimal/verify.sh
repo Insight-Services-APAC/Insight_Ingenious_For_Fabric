@@ -2,7 +2,8 @@
 # Verifies the spark_minimal dev container from inside it.
 #
 #   bash .devcontainer/spark_minimal/verify.sh          # everything
-#   bash .devcontainer/spark_minimal/verify.sh quick    # skip the Spark-backed library tests
+#   bash .devcontainer/spark_minimal/verify.sh quick    # skip the Spark-backed library tests only;
+#                                                       # the Spark + Delta round trip still runs
 #
 # Exit code is non-zero on the first failure. Needs internet once: the first Spark session
 # fetches the Delta jars from Maven.

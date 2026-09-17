@@ -27,7 +27,8 @@ minutes the first time and seconds afterwards thanks to the cache volume.
 ingen_fab --help
 pytest tests/test_promotion_utils.py -q
 ingen_fab test local pyspark lakehouse_utils              # starts a local Spark session with Delta
-bash .devcontainer/spark_minimal/verify.sh                # all of the above in one go (add "quick" to skip Spark tests)
+bash .devcontainer/spark_minimal/verify.sh                # all of the above in one go
+bash .devcontainer/spark_minimal/verify.sh quick          # same, minus the Spark-backed library tests (the Spark + Delta round trip still runs)
 ```
 
 The first Spark session downloads the Delta jars from Maven, so it needs internet access once.

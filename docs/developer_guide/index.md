@@ -1,4 +1,4 @@
-﻿# Developer Guide
+# Developer Guide
 
 [Home](../index.md) > Developer Guide
 

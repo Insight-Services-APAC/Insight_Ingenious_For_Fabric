@@ -67,3 +67,19 @@ def test_run_pytest_command_without_lib_runs_whole_tree_quietly(tree):
             test_commands.run_pytest_command(str(tree), None, verbose=False)
     assert excinfo.value.exit_code == 3
     main.assert_called_once_with([str(tree)])
+
+
+def test_resolve_escapes_rich_markup_in_messages(tree, capsys):
+    with pytest.raises(typer.Exit):
+        test_commands.resolve_test_file(str(tree), "[bold]nope[/bold]")
+    out = capsys.readouterr().out
+    # The literal brackets are printed, not interpreted as Rich markup.
+    assert "[bold]nope[/bold]" in out
+
+
+def test_run_pytest_command_empty_lib_is_not_the_whole_tree(tree):
+    with mock.patch.object(test_commands.pytest, "main", return_value=0) as main:
+        with pytest.raises(typer.Exit) as excinfo:
+            test_commands.run_pytest_command(str(tree), "", verbose=True)
+    assert excinfo.value.exit_code == 1
+    main.assert_not_called()

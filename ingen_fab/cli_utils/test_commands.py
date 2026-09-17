@@ -11,6 +11,7 @@ from typing import Optional
 import pytest
 import typer
 from rich.console import Console
+from rich.markup import escape
 
 from ingen_fab.cli_utils.console_styles import ConsoleStyles
 
@@ -69,10 +70,12 @@ def resolve_test_file(base_path: str, lib: str) -> str:
         else []
     )
     console.print(
-        f"[red]Error: no test file found for '{lib}' under {base_path}.[/red]"
+        f"[red]Error: no test file found for '{escape(lib)}' under {escape(base_path)}.[/red]"
     )
     if available:
-        console.print("[yellow]Available: " + ", ".join(available) + "[/yellow]")
+        console.print(
+            "[yellow]Available: " + escape(", ".join(available)) + "[/yellow]"
+        )
     raise typer.Exit(code=1)
 
 
@@ -80,7 +83,7 @@ def run_pytest_command(
     base_path: str, lib: Optional[str] = None, verbose: bool = True
 ) -> None:
     """Run pytest with standardized configuration."""
-    target = resolve_test_file(base_path, lib) if lib else base_path
+    target = resolve_test_file(base_path, lib) if lib is not None else base_path
     args = [target, "-v"] if verbose else [target]
     exit_code = pytest.main(args)
 
