@@ -49,26 +49,36 @@ not from inside the dev container:
 
 ```bash
 # on the host
-docker run -e "ACCEPT_EULA=Y" -e "SA_PASSWORD=YourStrong!Passw0rd" \
+docker run -e 'ACCEPT_EULA=Y' -e 'SA_PASSWORD=YourStrong!Passw0rd' \
     -p 1433:1433 --name sql_server \
     -d mcr.microsoft.com/mssql/server:2022-latest
 ```
+
+Single quotes matter: `!` inside double quotes triggers history expansion in an interactive
+Bash shell.
 
 A port published on the host is not `localhost` inside the dev container. From inside, the
 host is reachable as `host.docker.internal` (Docker Desktop provides the name; `runArgs` in
 `devcontainer.json` adds it on Linux hosts too). The library's default SQL Server connection
 string is hard-coded to `SERVER=localhost,1433` and only the password is configurable
-(`SQL_SERVER_PASSWORD`), so point it at the host explicitly:
+(`SQL_SERVER_PASSWORD`), so point it at the host explicitly. The host-side `docker run` does
+not set any variable inside the dev container; export the password there first:
+
+```bash
+# inside the dev container
+export SQL_SERVER_PASSWORD='YourStrong!Passw0rd'
+```
 
 ```python
-from ingen_fab.python_libs.python.warehouse_utils import warehouse_utils
 import os
+from ingen_fab.python_libs.python.warehouse_utils import warehouse_utils
 
+password = os.environ.get("SQL_SERVER_PASSWORD", "YourStrong!Passw0rd")  # the library's default
 wh = warehouse_utils(
     dialect="sql_server",
     connection_string=(
         "DRIVER={ODBC Driver 18 for SQL Server};SERVER=host.docker.internal,1433;"
-        f"UID=sa;PWD={os.environ['SQL_SERVER_PASSWORD']};TrustServerCertificate=yes;"
+        f"UID=sa;PWD={password};TrustServerCertificate=yes;"
     ),
 )
 ```

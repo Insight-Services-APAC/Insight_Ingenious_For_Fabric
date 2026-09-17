@@ -103,22 +103,34 @@ the SQL Server ODBC driver, with the project's virtual environment created autom
 
     ```bash
     # on the host
-    docker run -e "ACCEPT_EULA=Y" -e "SA_PASSWORD=YourStrong!Passw0rd" \
+    docker run -e 'ACCEPT_EULA=Y' -e 'SA_PASSWORD=YourStrong!Passw0rd' \
         -p 1433:1433 --name sql_server \
         -d mcr.microsoft.com/mssql/server:2022-latest
     ```
 
-    Inside the dev container the host is `host.docker.internal`, not `localhost`. The library's
-    default SQL Server connection string is hard-coded to `SERVER=localhost,1433` (only the
-    password is configurable, via `SQL_SERVER_PASSWORD`), so pass an explicit connection string:
+    Use single quotes: `!` inside double quotes triggers history expansion in an interactive
+    Bash shell. Inside the dev container the host is `host.docker.internal`, not `localhost`.
+    The library's default SQL Server connection string is hard-coded to `SERVER=localhost,1433`
+    (only the password is configurable, via `SQL_SERVER_PASSWORD`, which the host-side
+    `docker run` does not set inside the dev container), so export the password there and pass
+    an explicit connection string:
+
+    ```bash
+    # inside the dev container
+    export SQL_SERVER_PASSWORD='YourStrong!Passw0rd'
+    ```
 
     ```python
+    import os
     from ingen_fab.python_libs.python.warehouse_utils import warehouse_utils
 
+    password = os.environ.get("SQL_SERVER_PASSWORD", "YourStrong!Passw0rd")  # the library's default
     wh = warehouse_utils(
         dialect="sql_server",
-        connection_string="DRIVER={ODBC Driver 18 for SQL Server};SERVER=host.docker.internal,1433;"
-                          "UID=sa;PWD=YourStrong!Passw0rd;TrustServerCertificate=yes;",
+        connection_string=(
+            "DRIVER={ODBC Driver 18 for SQL Server};SERVER=host.docker.internal,1433;"
+            f"UID=sa;PWD={password};TrustServerCertificate=yes;"
+        ),
     )
     ```
 

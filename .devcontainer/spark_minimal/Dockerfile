@@ -27,6 +27,8 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
     PATH=/opt/venv/bin:/root/.local/bin:$PATH
 
 # OS layer: JVM, git, ODBC Driver 18, and the small tools a terminal session expects.
+# The Microsoft apt repository line uses the image's own architecture (amd64 or arm64; the
+# repository publishes msodbcsql18 for both), so the image builds natively on ARM64 hosts.
 # default-jre-headless pulls OpenJDK 17 and creates /usr/lib/jvm/default-java, which points at
 # the right JDK directory on every architecture (java-17-openjdk-amd64 on x86_64,
 # java-17-openjdk-arm64 on Apple Silicon and other ARM64 hosts), so JAVA_HOME above is portable.
@@ -35,7 +37,7 @@ RUN apt-get update \
         default-jre-headless git curl gnupg2 ca-certificates unixodbc procps less \
     && curl -sSL https://packages.microsoft.com/keys/microsoft.asc \
          | gpg --dearmor -o /usr/share/keyrings/microsoft-prod.gpg \
-    && echo "deb [arch=amd64 signed-by=/usr/share/keyrings/microsoft-prod.gpg] https://packages.microsoft.com/debian/12/prod bookworm main" \
+    && echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/microsoft-prod.gpg] https://packages.microsoft.com/debian/12/prod bookworm main" \
          > /etc/apt/sources.list.d/mssql-release.list \
     && apt-get update \
     && apt-get install -y --no-install-recommends msodbcsql18 \
