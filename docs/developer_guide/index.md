@@ -108,8 +108,15 @@ the SQL Server ODBC driver, with the project's virtual environment created autom
         -d mcr.microsoft.com/mssql/server:2022-latest
     ```
 
-    Use single quotes: `!` inside double quotes triggers history expansion in an interactive
-    Bash shell. Inside the dev container the host is `host.docker.internal`, not `localhost`.
+    ```powershell
+    # on the host (PowerShell)
+    docker run -e 'ACCEPT_EULA=Y' -e 'SA_PASSWORD=YourStrong!Passw0rd' `
+        -p 1433:1433 --name sql_server `
+        -d mcr.microsoft.com/mssql/server:2022-latest
+    ```
+
+    Use single quotes in Bash: `!` inside double quotes triggers history expansion in an
+    interactive shell. Inside the dev container the host is `host.docker.internal`, not `localhost`.
     The library's default SQL Server connection string is hard-coded to `SERVER=localhost,1433`
     (only the password is configurable, via `SQL_SERVER_PASSWORD`, which the host-side
     `docker run` does not set inside the dev container), so export the password there and pass

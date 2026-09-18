@@ -35,9 +35,12 @@ The first Spark session downloads the Delta jars from Maven, so it needs interne
 
 ## Azure login
 
-The Azure CLI is installed into the venv as a dependency of `ingen_fab` (`az` is on `PATH`
-once the venv is active). Log in inside the container; the token cache persists in the
-`ingen-fab-azure` volume:
+The Azure CLI is installed into the venv as a dependency of `ingen_fab`; `/opt/venv/bin` is on
+the image's `PATH`, so `az` is found by `azure-identity`'s `AzureCliCredential` (it locates
+`az` with `shutil.which` and runs `az account get-access-token`). Issue #40 described the
+opposite situation, a venv `az` that was not on `PATH`, which produced "Failed to invoke the
+Azure CLI". Log in inside the container; the token cache persists in the `ingen-fab-azure`
+volume:
 
 ```bash
 az login --use-device-code
@@ -55,8 +58,15 @@ docker run -e 'ACCEPT_EULA=Y' -e 'SA_PASSWORD=YourStrong!Passw0rd' \
     -d mcr.microsoft.com/mssql/server:2022-latest
 ```
 
-Single quotes matter: `!` inside double quotes triggers history expansion in an interactive
-Bash shell.
+```powershell
+# on the host (PowerShell)
+docker run -e 'ACCEPT_EULA=Y' -e 'SA_PASSWORD=YourStrong!Passw0rd' `
+    -p 1433:1433 --name sql_server `
+    -d mcr.microsoft.com/mssql/server:2022-latest
+```
+
+Single quotes matter in Bash: `!` inside double quotes triggers history expansion in an
+interactive shell.
 
 A port published on the host is not `localhost` inside the dev container. From inside, the
 host is reachable as `host.docker.internal` (Docker Desktop provides the name; `runArgs` in
