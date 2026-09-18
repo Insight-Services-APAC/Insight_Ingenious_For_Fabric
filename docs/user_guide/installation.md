@@ -8,7 +8,7 @@ This guide will help you install the Ingenious Fabric Accelerator using pip.
 
 Before installing, ensure your system meets these requirements:
 
-- **Visual Studio Code**: Latest version 
+- **Visual Studio Code**: Latest version
 - **Python 3.12 or higher**
 - **pip** (comes with Python)
 - **Microsoft Fabric workspace** (for deployment)
@@ -33,7 +33,7 @@ Install the Ingenious Fabric Accelerator directly from pip:
     pip install insight-ingenious-for-fabric
 
     # Or install from GitHub
-    pip install git+https://github.com/Insight-Services-APAC/Insight_Ingenious_For_Fabric.git 
+    pip install git+https://github.com/Insight-Services-APAC/Insight_Ingenious_For_Fabric.git
     ```
 
 === "Windows"
@@ -103,7 +103,7 @@ After installation, configure your environment variables for the CLI:
 # Set environment (development, UAT, production)
 $env:FABRIC_ENVIRONMENT = "development"
 
-# Set workspace directory 
+# Set workspace directory
 $env:FABRIC_WORKSPACE_REPO_DIR = "dp"
 ```
 The above assumes your working in a project "dp" in the development environment.
@@ -218,15 +218,26 @@ Now that you have the CLI installed, create your first project:
 
 ### Set Up Azure Authentication
 
-For deploying to Fabric, set up authentication:
+Deploying to Fabric needs a credential. The CLI and tooling resolve it with
+`DefaultAzureCredential`, which tries, in order, service-principal environment variables,
+a workload or managed identity, and an Azure CLI login.
+
+**Which Azure CLI?** `azure-cli` is a dependency of `ingen_fab`, so every install of the
+package brings its own `az` into the same environment (the venv's `bin` or `Scripts` folder,
+`/opt/venv/bin` in the dev container). It works with `DefaultAzureCredential` as long as it is
+on `PATH`, which is the case whenever the environment is active. A system-wide Azure CLI works
+the same way; you do not need both.
 
 === "macOS/Linux"
 
     ```bash
-    # Option 1: Use Azure CLI (interactive)
+    # Option 1: Azure CLI, interactive (a browser opens)
     az login
 
-    # Option 2: Use Service Principal (automated)
+    # Option 1b: Azure CLI, device code (no browser on this machine: dev containers, SSH, WSL)
+    az login --use-device-code
+
+    # Option 2: Service principal (automation, CI/CD)
     export AZURE_TENANT_ID="your-tenant-id"
     export AZURE_CLIENT_ID="your-client-id"
     export AZURE_CLIENT_SECRET="your-client-secret"
@@ -235,14 +246,31 @@ For deploying to Fabric, set up authentication:
 === "Windows"
 
     ```powershell
-    # Option 1: Use Azure CLI (interactive)
+    # Option 1: Azure CLI, interactive (a browser opens)
     az login
 
-    # Option 2: Use Service Principal (automated)
+    # Option 1b: Azure CLI, device code (no browser on this machine)
+    az login --use-device-code
+
+    # Option 2: Service principal (automation, CI/CD)
     $env:AZURE_TENANT_ID = "your-tenant-id"
     $env:AZURE_CLIENT_ID = "your-client-id"
     $env:AZURE_CLIENT_SECRET = "your-client-secret"
     ```
+
+Add `--tenant <tenant-id>` to `az login` when your account is a guest in the target tenant,
+and `--allow-no-subscriptions` when that tenant has no Azure subscription (Fabric does not
+need one). Verify with:
+
+```bash
+az account show
+az account get-access-token --resource https://api.fabric.microsoft.com --query expiresOn -o tsv
+```
+
+If authentication fails with `AzureCliCredential: Failed to invoke the Azure CLI`, the `az`
+executable is not on `PATH` for the process running `ingen_fab`: activate the environment
+that contains it, or install a system-wide Azure CLI. `Please run 'az login'` means the CLI
+was found but no account is signed in.
 
 ## Troubleshooting
 
@@ -332,7 +360,7 @@ If you revieved a SSL certificate error during installation, try installing usin
 
     # OInstall from GitHub
     pip install git+https://github.com/Insight-Services-APAC/Insight_Ingenious_For_Fabric.git --native-tls
-    
+
 ```
 #### Pre Release Error
 
@@ -342,7 +370,7 @@ If you revieved a an error indicating a package with pre-release marker, error d
 
     # OInstall from GitHub
     pip install git+https://github.com/Insight-Services-APAC/Insight_Ingenious_For_Fabric.git --prerelease=allow
-    
+
 ```
 
 ### Platform-Specific Notes
