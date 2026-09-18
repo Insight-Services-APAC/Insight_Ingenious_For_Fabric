@@ -75,100 +75,34 @@ The project uses several development tools:
 
 ### Container Development Setup
 
-For a consistent development environment with Apache Spark and SQL Server, use the provided dev container:
+The dev container in `.devcontainer/spark_minimal/` gives a consistent environment: Python
+3.12, a JVM for local Spark sessions, `uv`, git and the SQL Server ODBC driver, with the
+project's virtual environment created automatically. Its
+[readme](https://github.com/Insight-Services-APAC/Insight_Ingenious_For_Fabric/blob/main/.devcontainer/spark_minimal/readme.md)
+is the reference for what is inside, the volumes, SQL Server networking and the base-image
+history; this section is the short version.
 
-1. **Open in Dev Container**: Use VS Code's "Dev Containers" extension and select "Reopen in Container"
+1. **Open in Dev Container**: Use VS Code's "Dev Containers" extension, select "Reopen in
+   Container" and pick `spark_minimal`. On first start `postCreateCommand` runs
+   `uv sync --all-extras`; the venv lives at `/opt/uv/venv`, on a named volume inside the
+   container, and is on `PATH`.
 
-2. **Install PowerShell**:
-
-=== "macOS/Linux"
-
-    ```bash
-    source ./scripts/dev_container_scripts/spark_minimal/pwsh_install.sh
-    ```
-
-=== "Windows"
-
-    ```powershell
-    # PowerShell is already installed on Windows
-    # Verify installation:
-    $PSVersionTable.PSVersion
-    ```
-
-3. **Start PowerShell and install development tools**:
-
-=== "macOS/Linux"
+2. **Verify** from the container terminal (`quick` replaces the full Spark test file with one
+   Delta write/read through the library's session factory):
 
     ```bash
-    pwsh
-    ```
-    ```powershell
-    ./scripts/dev_container_scripts/spark_minimal/dev_tools.ps1
+    bash .devcontainer/spark_minimal/verify.sh quick
     ```
 
-=== "Windows"
-
-    ```powershell
-    # Start PowerShell (already in PowerShell)
-    ./scripts/dev_container_scripts/spark_minimal/dev_tools.ps1
-    ```
-
-4. **Restart PowerShell session**:
-   ```powershell
-   . $PROFILE
-   ```
-
-5. **Install SQL Server (optional)**:
-
-=== "Linux (Container)"
+3. **Azure login** (inside the container; the token cache persists in a named volume):
 
     ```bash
-    bash ./scripts/dev_container_scripts/spark_minimal/sql_install_4_linux.sh
-    bash /opt/mssql/bin/mssql-conf setup
-    ```
-    
-    Note: You'll need to provide an SA password and select "Enterprise (2)" and "English" when prompted.
-
-    Once the setup is complete, you can start SQL Server with. (Press Enter after the command completes and sql server will be started in the background. Note you will need to run this command every time you start the container):
-
-    ```bash
-    /opt/mssql/bin/sqlservr &
+    az login --use-device-code
     ```
 
-=== "macOS"
-
-    ```bash
-    # Use Docker to run SQL Server
-    docker run -e "ACCEPT_EULA=Y" -e "SA_PASSWORD=YourStrong@Passw0rd" \
-        -p 1433:1433 --name sql_server \
-        -d mcr.microsoft.com/mssql/server:2022-latest
-    ```
-
-=== "Windows"
-
-    ```powershell
-    # Download and install SQL Server Express
-    # https://www.microsoft.com/en-us/sql-server/sql-server-downloads
-    
-    # Or use Docker Desktop:
-    docker run -e "ACCEPT_EULA=Y" -e "SA_PASSWORD=YourStrong@Passw0rd" `
-        -p 1433:1433 --name sql_server `
-        -d mcr.microsoft.com/mssql/server:2022-latest
-    ```
-
-   Next set the environment variables for SQL Server connection:
-
-   ```bash
-   export SQL_SERVER_PASSWORD="YourStrong@Passw0rd"
-   ```
-
-   or 
-
-   ``` pwsh 
-   $env:SQL_SERVER_PASSWORD = "YourStrong@Passw0rd"
-   ```
-
-You now have a minimal setup with Apache Spark, SQL Server, and PowerShell support for local development.
+4. **SQL Server (optional)**: run it as a separate container on the host and reach it from the
+   dev container as `host.docker.internal`; the readme has the commands and the connection
+   string to pass, since the library's default is hard-coded to `localhost,1433`.
 
 ## Project Structure
 
@@ -271,7 +205,7 @@ mkdocs gh-deploy
    # cli_utils/my_new_commands.py
    import typer
    from typing_extensions import Annotated
-   
+
    def my_new_command(
        param: Annotated[str, typer.Option(help="Description")]
    ):
@@ -283,7 +217,7 @@ mkdocs gh-deploy
    ```python
    # cli.py
    from cli_utils import my_new_commands
-   
+
    # Add command to app
    app.add_typer(
        my_new_commands.app,
@@ -297,7 +231,7 @@ mkdocs gh-deploy
    # tests/test_my_new_commands.py
    from typer.testing import CliRunner
    from ingen_fab.cli import app
-   
+
    def test_my_new_command():
        runner = CliRunner()
        result = runner.invoke(app, ["mynew", "command", "--param", "value"])
@@ -311,11 +245,11 @@ mkdocs gh-deploy
    # python_libs/python/my_new_utils.py
    from typing import Any
    from .notebook_utils_abstraction import get_notebook_utils
-   
+
    class MyNewUtils:
        def __init__(self):
            self.notebook_utils = get_notebook_utils()
-       
+
        def my_function(self) -> Any:
            """New utility function."""
            return "result"
@@ -326,7 +260,7 @@ mkdocs gh-deploy
    # python_libs_tests/python/test_my_new_utils_pytest.py
    import pytest
    from ingen_fab.python_libs.python.my_new_utils import MyNewUtils
-   
+
    def test_my_function():
        utils = MyNewUtils()
        result = utils.my_function()
@@ -346,7 +280,7 @@ mkdocs gh-deploy
    <!-- ddl_scripts/_templates/common/my_new_template.py.jinja -->
    # Generated DDL script for {{ entity_name }}
    from my_new_utils import MyNewUtils
-   
+
    utils = MyNewUtils()
    result = utils.my_function()
    print(f"Result: {result}")
