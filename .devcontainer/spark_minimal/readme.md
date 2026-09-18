@@ -35,12 +35,9 @@ The first Spark session downloads the Delta jars from Maven, so it needs interne
 
 ## Azure login
 
-The Azure CLI is installed into the venv as a dependency of `ingen_fab`; `/opt/venv/bin` is on
-the image's `PATH`, so `az` is found by `azure-identity`'s `AzureCliCredential` (it locates
-`az` with `shutil.which` and runs `az account get-access-token`). Issue #40 described the
-opposite situation, a venv `az` that was not on `PATH`, which produced "Failed to invoke the
-Azure CLI". Log in inside the container; the token cache persists in the `ingen-fab-azure`
-volume:
+The Azure CLI is installed into the venv as a dependency of `ingen_fab` and is on `PATH`, so
+`az login` works with the `DefaultAzureCredential` the project uses. Log in inside the
+container; the token cache persists in the `ingen-fab-azure` volume:
 
 ```bash
 az login --use-device-code
