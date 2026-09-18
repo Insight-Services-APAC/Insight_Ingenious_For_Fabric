@@ -64,11 +64,26 @@ Common issues and solutions when working with the Ingenious Fabric Accelerator.
 2. Or set service principal variables:
    ```bash
    export AZURE_TENANT_ID="your-tenant-id"
-   export AZURE_CLIENT_ID="your-client-id" 
+   export AZURE_CLIENT_ID="your-client-id"
    export AZURE_CLIENT_SECRET="your-client-secret"
    ```
 
-3. Verify workspace access in the Fabric portal.
+3. Verify the login can mint a Fabric token:
+   ```bash
+   az account show
+   az account get-access-token --resource https://api.fabric.microsoft.com --query expiresOn -o tsv
+   ```
+
+4. Read the error text:
+   - `AzureCliCredential: Failed to invoke the Azure CLI`: the `az` executable is not on
+     `PATH` for the process running `ingen_fab`. `azure-cli` is a dependency of `ingen_fab`,
+     so activate the environment that contains it (in the dev container it is already on
+     `PATH`), or install a system-wide Azure CLI.
+   - `Please run 'az login'`: the CLI was found but no account is signed in. Use
+     `az login --use-device-code` where no browser is available, `--tenant <tenant-id>` for a
+     guest account, `--allow-no-subscriptions` for a tenant without an Azure subscription.
+
+5. Verify workspace access in the Fabric portal.
 
 ## Testing Issues
 

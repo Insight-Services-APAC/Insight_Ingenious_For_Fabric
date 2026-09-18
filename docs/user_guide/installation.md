@@ -218,13 +218,14 @@ Now that you have the CLI installed, create your first project:
 
 ### Set Up Azure Authentication
 
-Deploying to Fabric needs a credential. The CLI and tooling resolve it with
-`DefaultAzureCredential`, which tries, in order, service-principal environment variables,
-a workload or managed identity, and an Azure CLI login.
+Deploying to Fabric needs a credential. Deployment resolves it with `DefaultAzureCredential`,
+which tries, in order, service-principal environment variables, a workload or managed
+identity, and an Azure CLI login. The metadata commands (`deploy get-metadata` and the
+`extract` group, which connect over ODBC) currently use the Azure CLI login only (issue #105).
 
 **Which Azure CLI?** `azure-cli` is a dependency of `ingen_fab`, so every install of the
 package brings its own `az` into the same environment (the venv's `bin` or `Scripts` folder,
-`/opt/venv/bin` in the dev container). It works with `DefaultAzureCredential` as long as it is
+`/opt/uv/venv/bin` in the dev container). It works with `DefaultAzureCredential` as long as it is
 on `PATH`, which is the case whenever the environment is active. A system-wide Azure CLI works
 the same way; you do not need both.
 
@@ -260,17 +261,8 @@ the same way; you do not need both.
 
 Add `--tenant <tenant-id>` to `az login` when your account is a guest in the target tenant,
 and `--allow-no-subscriptions` when that tenant has no Azure subscription (Fabric does not
-need one). Verify with:
-
-```bash
-az account show
-az account get-access-token --resource https://api.fabric.microsoft.com --query expiresOn -o tsv
-```
-
-If authentication fails with `AzureCliCredential: Failed to invoke the Azure CLI`, the `az`
-executable is not on `PATH` for the process running `ingen_fab`: activate the environment
-that contains it, or install a system-wide Azure CLI. `Please run 'az login'` means the CLI
-was found but no account is signed in.
+need one). To verify the login or diagnose an authentication error, see
+[Troubleshooting: Deployment failures](../guides/troubleshooting.md#deployment-failures).
 
 ## Troubleshooting
 

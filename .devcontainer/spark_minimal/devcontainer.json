@@ -11,18 +11,18 @@
     "--add-host=host.docker.internal:host-gateway"
   ],
   "mounts": [
-    "source=ingen-fab-uv-cache,target=/root/.cache/uv,type=volume",
+    "source=ingen-fab-uv,target=/opt/uv,type=volume",
+    "source=ingen-fab-ivy,target=/root/.ivy2.5.2,type=volume",
     "source=ingen-fab-azure,target=/root/.azure,type=volume"
   ],
   "containerEnv": {
-    "FABRIC_ENVIRONMENT": "local",
     "FABRIC_WORKSPACE_REPO_DIR": "ingen_fab/sample_project"
   },
   "postCreateCommand": "git config --global --add safe.directory \"${containerWorkspaceFolder}\" && uv sync --all-extras && python -c \"import ingen_fab, pyspark; print('venv ok, pyspark', pyspark.__version__)\"",
   "customizations": {
     "vscode": {
       "settings": {
-        "python.defaultInterpreterPath": "/opt/venv/bin/python",
+        "python.defaultInterpreterPath": "/opt/uv/venv/bin/python",
         "terminal.integrated.defaultProfile.linux": "bash"
       },
       "extensions": [
@@ -31,7 +31,8 @@
         "ms-python.debugpy",
         "charliermarsh.ruff",
         "samuelcolvin.jinjahtml",
-        "ms-azuretools.vscode-containers"
+        "ms-azuretools.vscode-containers",
+        "ms-ossdata.vscode-pgsql"
       ]
     }
   }

@@ -5,6 +5,7 @@ test files are named ``test_<lib>_pytest.py`` and the CLI must accept the bare n
 ``test_`` form, the stem and the file name. No Fabric, no Spark: pytest.main is patched.
 """
 
+import os
 from unittest import mock
 
 import pytest
@@ -47,10 +48,29 @@ def test_resolve_unknown_lib_exits_with_available_list(tree, capsys):
     assert "ddl_utils" in out and "lakehouse_utils" in out
 
 
-def test_resolve_missing_base_path_exits(tmp_path):
+def test_resolve_missing_base_path_exits_and_names_the_directory(tmp_path, capsys):
+    missing = tmp_path / "missing"
     with pytest.raises(typer.Exit) as excinfo:
-        test_commands.resolve_test_file(str(tmp_path / "missing"), "x")
+        test_commands.resolve_test_file(str(missing), "x")
     assert excinfo.value.exit_code == 1
+    assert "test directory not found" in capsys.readouterr().out
+
+
+@pytest.mark.parametrize(
+    "lib", ["../python/test_ddl_utils", "sub/lakehouse_utils", "/abs/x"]
+)
+def test_resolve_rejects_paths(tree, lib, capsys):
+    with pytest.raises(typer.Exit) as excinfo:
+        test_commands.resolve_test_file(str(tree), lib)
+    assert excinfo.value.exit_code == 1
+    assert "not a library name" in capsys.readouterr().out
+
+
+def test_tests_root_is_inside_the_package():
+    import ingen_fab
+
+    assert test_commands._TESTS_ROOT.startswith(os.path.dirname(ingen_fab.__file__))
+    assert os.path.isdir(os.path.join(test_commands._TESTS_ROOT, "pyspark"))
 
 
 def test_run_pytest_command_passes_resolved_file_and_verbosity(tree):
@@ -83,3 +103,13 @@ def test_run_pytest_command_empty_lib_is_not_the_whole_tree(tree):
             test_commands.run_pytest_command(str(tree), "", verbose=True)
     assert excinfo.value.exit_code == 1
     main.assert_not_called()
+
+
+def test_resolve_does_not_accept_non_test_modules(tree):
+    """Only test_<lib>_pytest.py files resolve; __init__.py and stray modules do not."""
+    (tree / "__init__.py").write_text("")
+    (tree / "helper.py").write_text("")
+    for lib in ("__init__", "helper"):
+        with pytest.raises(typer.Exit) as excinfo:
+            test_commands.resolve_test_file(str(tree), lib)
+        assert excinfo.value.exit_code == 1

@@ -12,26 +12,34 @@ Container**, then pick `spark_minimal`.
 | Base image | `python:3.12-slim-bookworm` (Debian 12) |
 | Python | 3.12, the version `ingen_fab` requires (`>=3.12,<3.14`) |
 | Java | OpenJDK 17 (headless). PySpark 4.0.0 from the `dev` dependency group bundles Spark itself, so no separate Spark install is needed |
-| Package manager | `uv` (pinned). The venv lives at `/opt/venv` inside the container, not on the bind mount, and is on `PATH` |
+| Package manager | `uv` (pinned). The venv lives at `/opt/uv/venv`, on a named volume next to the uv cache, not on the bind mount, and is on `PATH` |
 | Tools | git, curl, ODBC Driver 18 for SQL Server (for `pyodbc`) |
-| Volumes | `ingen-fab-uv-cache` (package cache, survives rebuilds) and `ingen-fab-azure` (`az login` state, survives restarts) |
-| Environment | `FABRIC_ENVIRONMENT=local`, `FABRIC_WORKSPACE_REPO_DIR=ingen_fab/sample_project` |
+| Volumes | `ingen-fab-uv` (uv cache and the venv, so a rebuild's re-sync is a no-op), `ingen-fab-ivy` (the Delta jars Spark fetches from Maven), `ingen-fab-azure` (`az login` state) |
+| Environment | `FABRIC_ENVIRONMENT=local` (image) and `FABRIC_WORKSPACE_REPO_DIR=ingen_fab/sample_project` (devcontainer), so the CLI works without flags. `local` is the placeholder value set; pass `--fabric-environment <env>` explicitly to any `deploy` command |
 
 On first start `postCreateCommand` runs `uv sync --all-extras`, which installs the project,
 its dev group (pytest, ruff, pyspark, delta-spark) and the optional extras. It takes a few
-minutes the first time and seconds afterwards thanks to the cache volume.
+minutes the first time; afterwards the venv is already on the volume and the sync is a no-op.
 
 ## Verify
 
+`verify.sh` is the single entry point; its step headings are the list of what is checked
+(toolchain, `ingen_fab --help`, the fabric-cicd wrapper unit tests, Spark with Delta).
+
 ```bash
-ingen_fab --help
-pytest tests/test_promotion_utils.py -q
-ingen_fab test local pyspark lakehouse_utils              # starts a local Spark session with Delta
-bash .devcontainer/spark_minimal/verify.sh                # all of the above in one go
-bash .devcontainer/spark_minimal/verify.sh quick          # same, minus the Spark-backed library tests (the Spark + Delta round trip still runs)
+bash .devcontainer/spark_minimal/verify.sh          # ends with the Spark-backed lakehouse_utils test file
+bash .devcontainer/spark_minimal/verify.sh quick    # ends with one Delta write/read through the library's session factory
 ```
 
-The first Spark session downloads the Delta jars from Maven, so it needs internet access once.
+The first Spark session downloads the Delta jars from Maven into the `ingen-fab-ivy` volume, so
+it needs internet access once.
+
+Two things to know about the test flavours. `ingen_fab test local python` needs a SQL Server
+inside the container (its warehouse tests start `/opt/mssql/bin/sqlservr` and connect to
+`localhost,1433`), which this image does not carry, so that flavour fails here until the
+library takes a configurable host. And the `pyspark` flavour, which `verify.sh` runs in full
+mode, ends with `drop_all_tables()` on the local lakehouse root, `<repo>/tmp/spark/Tables/`
+on the bind mount: any Delta tables you built there are removed.
 
 ## Azure login
 
@@ -94,15 +102,14 @@ wh = warehouse_utils(
 Note that with `FABRIC_ENVIRONMENT=local` the warehouse library selects the PostgreSQL dialect
 by default; SQL Server is used only when a caller asks for `dialect="sql_server"`.
 
-## Optional extras
+## Legacy scripts
 
-The scripts under `scripts/dev_container_scripts/spark_minimal/` are no longer required. They
-remain for developers who want them:
-
-- `pwsh_install.sh` and `dev_tools.ps1`: PowerShell, oh-my-posh, GitHub CLI, npm.
-- `sql_install_4_linux.sh`: a SQL Server installed inside the container itself, which avoids
-  the networking above at the cost of a manual, non-reproducible install.
-- `postgres_metastore_setup.sh`: a PostgreSQL-backed Hive metastore for Spark.
+The scripts under `scripts/dev_container_scripts/spark_minimal/` were written for the former
+Bitnami image and are not compatible with this one: `sql_install_4_linux.sh` registers Ubuntu
+22.04 package sources on a Debian 12 system, and `postgres_metastore_setup.sh` /
+`meta_store_setup.sh` expect `SPARK_HOME` and `sudo`, neither of which exists here (the
+`pyspark` wheel carries Spark inside the venv). They are kept for reference only. For SQL
+Server use the host-side container above; `pwsh_install.sh` still works if you want PowerShell.
 
 ## Why the base image changed (issue #39)
 

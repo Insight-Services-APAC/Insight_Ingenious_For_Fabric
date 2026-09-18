@@ -24,6 +24,8 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 This must be done at the start of every session to ensure proper dependency access and correct CLI operation.
 
+Inside the `spark_minimal` dev container (`.devcontainer/spark_minimal/`) there is no `.venv` to activate: the project venv is `/opt/uv/venv`, already on `PATH`, and `FABRIC_ENVIRONMENT=local` is set by the image. Only `FABRIC_WORKSPACE_REPO_DIR` may need changing (the container sets `ingen_fab/sample_project`).
+
 ## Project Overview
 
 Ingenious Fabric Accelerator (`ingen_fab`) is a CLI tool for creating and managing Microsoft Fabric workspace projects. It automates DDL notebook generation, environment deployment, and testing workflows for Fabric lakehouses and warehouses.
@@ -169,13 +171,10 @@ Python libraries follow interface-based design:
 
 ## Testing Strategy
 
-- Unit tests in `tests/` and `python_libs_tests/` 
+- Unit tests in `tests/` and `python_libs_tests/`
 - Integration tests marked with `@pytest.mark.e2e`
 - Platform tests can run against live Fabric environments
 - Tests are designed to run offline by default
 
 ## Linting and Formatting
 - Uses `ruff` for linting and formatting
-
-
-

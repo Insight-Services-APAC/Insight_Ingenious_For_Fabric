@@ -75,21 +75,23 @@ The project uses several development tools:
 
 ### Container Development Setup
 
-For a consistent development environment, use the provided dev container
-(`.devcontainer/spark_minimal/`): Python 3.12, a JVM for local Spark sessions, `uv`, git and
-the SQL Server ODBC driver, with the project's virtual environment created automatically.
+The dev container in `.devcontainer/spark_minimal/` gives a consistent environment: Python
+3.12, a JVM for local Spark sessions, `uv`, git and the SQL Server ODBC driver, with the
+project's virtual environment created automatically. Its
+[readme](https://github.com/Insight-Services-APAC/Insight_Ingenious_For_Fabric/blob/main/.devcontainer/spark_minimal/readme.md)
+is the reference for what is inside, the volumes, SQL Server networking and the base-image
+history; this section is the short version.
 
 1. **Open in Dev Container**: Use VS Code's "Dev Containers" extension, select "Reopen in
    Container" and pick `spark_minimal`. On first start `postCreateCommand` runs
-   `uv sync --all-extras`; the venv lives at `/opt/venv` inside the container and is on `PATH`.
+   `uv sync --all-extras`; the venv lives at `/opt/uv/venv`, on a named volume inside the
+   container, and is on `PATH`.
 
-2. **Verify**:
+2. **Verify** from the container terminal (`quick` replaces the full Spark test file with one
+   Delta write/read through the library's session factory):
 
     ```bash
-    ingen_fab --help
-    pytest tests/test_promotion_utils.py -q
-    ingen_fab test local pyspark lakehouse_utils              # local Spark session with Delta
-    bash .devcontainer/spark_minimal/verify.sh                # all of the above in one go
+    bash .devcontainer/spark_minimal/verify.sh quick
     ```
 
 3. **Azure login** (inside the container; the token cache persists in a named volume):
@@ -98,59 +100,9 @@ the SQL Server ODBC driver, with the project's virtual environment created autom
     az login --use-device-code
     ```
 
-4. **SQL Server (optional)**: the dev container has no Docker CLI, so start SQL Server as a
-   separate container **on the host**:
-
-    ```bash
-    # on the host
-    docker run -e 'ACCEPT_EULA=Y' -e 'SA_PASSWORD=YourStrong!Passw0rd' \
-        -p 1433:1433 --name sql_server \
-        -d mcr.microsoft.com/mssql/server:2022-latest
-    ```
-
-    ```powershell
-    # on the host (PowerShell)
-    docker run -e 'ACCEPT_EULA=Y' -e 'SA_PASSWORD=YourStrong!Passw0rd' `
-        -p 1433:1433 --name sql_server `
-        -d mcr.microsoft.com/mssql/server:2022-latest
-    ```
-
-    Use single quotes in Bash: `!` inside double quotes triggers history expansion in an
-    interactive shell. Inside the dev container the host is `host.docker.internal`, not `localhost`.
-    The library's default SQL Server connection string is hard-coded to `SERVER=localhost,1433`
-    (only the password is configurable, via `SQL_SERVER_PASSWORD`, which the host-side
-    `docker run` does not set inside the dev container), so export the password there and pass
-    an explicit connection string:
-
-    ```bash
-    # inside the dev container
-    export SQL_SERVER_PASSWORD='YourStrong!Passw0rd'
-    ```
-
-    ```python
-    import os
-    from ingen_fab.python_libs.python.warehouse_utils import warehouse_utils
-
-    password = os.environ.get("SQL_SERVER_PASSWORD", "YourStrong!Passw0rd")  # the library's default
-    wh = warehouse_utils(
-        dialect="sql_server",
-        connection_string=(
-            "DRIVER={ODBC Driver 18 for SQL Server};SERVER=host.docker.internal,1433;"
-            f"UID=sa;PWD={password};TrustServerCertificate=yes;"
-        ),
-    )
-    ```
-
-    With `FABRIC_ENVIRONMENT=local` the warehouse library defaults to the PostgreSQL dialect;
-    SQL Server is used only when a caller asks for `dialect="sql_server"`. The scripts under
-    `scripts/dev_container_scripts/spark_minimal/` (PowerShell, an in-container SQL Server, a
-    PostgreSQL Hive metastore) are optional extras and are no longer required.
-
-!!! note "Base image change"
-    The container was based on `bitnami/spark:4.0-debian-12`, which Bitnami withdrew from
-    Docker Hub in 2025 (issue #39). It is now `python:3.12-slim-bookworm` plus OpenJDK 17; the
-    `pyspark` wheel in the dev dependency group bundles Spark, so only a JVM is needed. See
-    `.devcontainer/spark_minimal/readme.md` for the details and the tested legacy fallback.
+4. **SQL Server (optional)**: run it as a separate container on the host and reach it from the
+   dev container as `host.docker.internal`; the readme has the commands and the connection
+   string to pass, since the library's default is hard-coded to `localhost,1433`.
 
 ## Project Structure
 
