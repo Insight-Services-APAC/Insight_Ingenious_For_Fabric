@@ -137,6 +137,4 @@ class TestWorkflowUtils:
                 mock_sleep.assert_called_once_with(expected_delay)
 
                 # Verify the calculation
-                assert expected_delay == 0.1 + 0.75 * 1.4
-                assert expected_delay == 0.1 + 1.05
-                assert expected_delay == 1.15
+                assert expected_delay == pytest.approx(1.15)

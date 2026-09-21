@@ -5,6 +5,7 @@ from unittest.mock import Mock, patch
 
 import pytest
 
+from ingen_fab.python_libs.interfaces.notebook_utils_interface import NotebookExit
 from ingen_fab.python_libs.pyspark.notebook_utils_abstraction import (
     FabricNotebookUtils,
     LocalNotebookUtils,
@@ -86,8 +87,9 @@ class TestFabricNotebookUtils:
     def test_exit_notebook_unavailable(self):
         """Test exit notebook when unavailable."""
         utils = FabricNotebookUtils()
-        # Should not raise exception
-        utils.exit_notebook("test value")
+        # Without Fabric the exit is signalled by NotebookExit (the runner catches it)
+        with pytest.raises(NotebookExit):
+            utils.exit_notebook("test value")
 
     def test_get_secret_available(self, mock_notebookutils, mock_mssparkutils):
         """Test get secret when available."""
@@ -194,7 +196,8 @@ class TestLocalNotebookUtils:
         """Test exit notebook functionality."""
         utils = LocalNotebookUtils()
         with patch("builtins.print") as mock_print:
-            utils.exit_notebook("test value")
+            with pytest.raises(NotebookExit):
+                utils.exit_notebook("test value")
             mock_print.assert_called_once_with(
                 "Notebook would exit with value: test value"
             )
@@ -202,8 +205,8 @@ class TestLocalNotebookUtils:
     def test_exit_notebook_no_value(self):
         """Test exit notebook without value."""
         utils = LocalNotebookUtils()
-        # Should not raise exception
-        utils.exit_notebook()
+        with pytest.raises(NotebookExit):
+            utils.exit_notebook()
 
     def test_get_secret_from_loaded_secrets(self):
         """Test getting secret from loaded secrets."""
@@ -285,12 +288,13 @@ class TestNotebookUtilsFactory:
 class TestMssparkutilsAbstraction:
     """Test the mssparkutils abstraction classes."""
 
-    def test_mssparkutils_notebook_exit(self):
-        """Test mssparkutils notebook exit functionality."""
+    def test_exit_contract_is_exit_notebook(self):
+        """The interface exposes a single exit contract, exit_notebook; mssparkutils is an
+        implementation detail of the Fabric class (see test_exit_notebook_available)."""
 
-        # Test that the inner classes exist
-        assert hasattr(NotebookUtilsInterface, "mssparkutils")
-        assert hasattr(NotebookUtilsInterface.mssparkutils, "notebook")
+        assert not hasattr(NotebookUtilsInterface, "mssparkutils")
 
-        # These are abstract classes, so we can't instantiate them directly
-        # but we can verify they exist and have the expected structure
+        # Outside Fabric the exit is signalled by NotebookExit carrying the value
+        with pytest.raises(NotebookExit) as exc_info:
+            LocalNotebookUtils().exit_notebook({"rows": 3})
+        assert exc_info.value.exit_value == {"rows": 3}

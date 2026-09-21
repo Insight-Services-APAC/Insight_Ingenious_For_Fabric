@@ -5,11 +5,11 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
+from ingen_fab.python_libs.interfaces.notebook_utils_interface import NotebookExit
 from ingen_fab.python_libs.python.notebook_utils_abstraction import (
     FabricNotebookUtils,
     LocalNotebookUtils,
     NotebookUtilsFactory,
-    get_notebook_utils,
 )
 
 
@@ -87,7 +87,8 @@ class TestLocalNotebookUtils:
         local_utils = LocalNotebookUtils()
 
         with patch("builtins.print") as mock_print:
-            local_utils.exit_notebook("test_value")
+            with pytest.raises(NotebookExit):
+                local_utils.exit_notebook("test_value")
             mock_print.assert_called_once_with(
                 "Notebook would exit with value: test_value"
             )
@@ -129,10 +130,10 @@ class TestNotebookUtilsFactory:
         utils2 = NotebookUtilsFactory.get_instance()
         assert utils1 is not utils2
 
-    def test_get_notebook_utils_convenience_function(self):
-        """Test the convenience function."""
+    def test_get_instance_returns_full_interface(self):
+        """The factory's instance exposes the whole notebook-utils interface."""
         NotebookUtilsFactory.reset_instance()
-        utils = get_notebook_utils()
+        utils = NotebookUtilsFactory.get_instance()
         assert utils is not None
         assert hasattr(utils, "connect_to_artifact")
         assert hasattr(utils, "display")

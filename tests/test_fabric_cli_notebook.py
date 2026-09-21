@@ -1,29 +1,30 @@
 import pathlib
-import sys
+import re
 from unittest import mock
-
-sys.path.insert(0, str(pathlib.Path(__file__).resolve().parents[1]))
 
 from ingen_fab.notebook_utils.fabric_cli_notebook import FabricCLINotebook
 
+JOB_ID = "0bfcc2a7-468d-473f-92e4-9a2a799f2522"
+
 
 def test_cli_notebook_workflow():
-    nb = FabricCLINotebook("Metcash_Test.Workspace")
+    """upload/run/status shell out to the Fabric CLI; run() hands back the raw CLI
+    output and the caller extracts the job id (see notebook_commands.run_simple_notebook)."""
+    nb = FabricCLINotebook("Metcash_Test")
 
     with mock.patch("subprocess.run") as run:
         run.side_effect = [
             mock.Mock(stdout="", returncode=0),
-            mock.Mock(
-                stdout="Started job 0bfcc2a7-468d-473f-92e4-9a2a799f2522", returncode=0
-            ),
+            mock.Mock(stdout=f"Job instance '{JOB_ID}' created", returncode=0),
             mock.Mock(stdout="Completed", returncode=0),
         ]
 
         nb.upload(pathlib.Path("sample.ipynb"), "codex_simple")
-        job_id = nb.run("codex_simple")
+        run_output = nb.run("codex_simple")
+        job_id = re.search(r"Job instance '([a-f0-9-]{36})'", run_output).group(1)
         status = nb.status("codex_simple", job_id)
 
-        assert job_id == "0bfcc2a7-468d-473f-92e4-9a2a799f2522"
+        assert job_id == JOB_ID
         assert status == "Completed"
 
         expected_calls = [
@@ -34,6 +35,9 @@ def test_cli_notebook_workflow():
                     "Metcash_Test.Workspace/codex_simple.Notebook",
                     "-i",
                     "sample.ipynb",
+                    "--format",
+                    ".py",
+                    "-f",
                 ],
                 check=True,
                 capture_output=True,
@@ -43,7 +47,7 @@ def test_cli_notebook_workflow():
                 [
                     "fab",
                     "job",
-                    "run",
+                    "start",
                     "Metcash_Test.Workspace/codex_simple.Notebook",
                 ],
                 check=True,
@@ -57,7 +61,7 @@ def test_cli_notebook_workflow():
                     "run-status",
                     "Metcash_Test.Workspace/codex_simple.Notebook",
                     "--id",
-                    "0bfcc2a7-468d-473f-92e4-9a2a799f2522",
+                    JOB_ID,
                 ],
                 check=True,
                 capture_output=True,
@@ -65,3 +69,9 @@ def test_cli_notebook_workflow():
             ),
         ]
         run.assert_has_calls(expected_calls)
+
+
+def test_run_returns_none_when_cli_prints_nothing():
+    nb = FabricCLINotebook("ws")
+    with mock.patch("subprocess.run", return_value=mock.Mock(stdout="", returncode=0)):
+        assert nb.run("nb") is None

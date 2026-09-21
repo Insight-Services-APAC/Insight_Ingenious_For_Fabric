@@ -8,21 +8,21 @@ Testing approach:
 - Utility functions (glob, move_file, etc.) are patched since they're external dependencies
 """
 
-import pytest
 from unittest.mock import Mock, patch
 
+import pytest
+
+from ingen_fab.python_libs.common.notebookfs_utils import FilesystemConnection
+from ingen_fab.python_libs.pyspark.ingestion.common.config import (
+    FileFormatParams,
+    FileSystemExtractionParams,
+    ResourceConfig,
+    SourceConfig,
+)
 from ingen_fab.python_libs.pyspark.ingestion.extraction.extractors.filesystem_extractor import (
     FileSystemExtractor,
 )
-from ingen_fab.python_libs.pyspark.ingestion.common.config import (
-    ResourceConfig,
-    SourceConfig,
-    FileFormatParams,
-    FileSystemExtractionParams,
-)
-from ingen_fab.python_libs.common.fsspec_utils import FilesystemConnection
 from ingen_fab.python_libs.pyspark.lakehouse_utils import FileInfo
-
 
 # ============================================================================
 # FIXTURES
@@ -42,7 +42,7 @@ def mock_source_conn():
     """Mock source filesystem connection."""
     return FilesystemConnection(
         fs=Mock(),
-        base_url="abfss://source_ws@onelake.dfs.fabric.microsoft.com/source_lh.Lakehouse"
+        base_url="abfss://source_ws@onelake.dfs.fabric.microsoft.com/source_lh.Lakehouse",
     )
 
 
@@ -51,7 +51,7 @@ def mock_dest_conn():
     """Mock destination filesystem connection."""
     return FilesystemConnection(
         fs=Mock(),
-        base_url="abfss://dest_ws@onelake.dfs.fabric.microsoft.com/dest_lh.Lakehouse"
+        base_url="abfss://dest_ws@onelake.dfs.fabric.microsoft.com/dest_lh.Lakehouse",
     )
 
 
@@ -93,7 +93,12 @@ class TestFileSystemExtractor:
         "ingen_fab.python_libs.pyspark.ingestion.extraction.extractors.filesystem_extractor.glob"
     )
     def test_extract_yields_no_data_when_no_files(
-        self, mock_glob, sample_config, mock_extraction_logger, mock_source_conn, mock_dest_conn
+        self,
+        mock_glob,
+        sample_config,
+        mock_extraction_logger,
+        mock_source_conn,
+        mock_dest_conn,
     ):
         """Test extract() yields result when no files found."""
         mock_glob.return_value = []
@@ -210,7 +215,12 @@ class TestFileSystemExtractor:
         "ingen_fab.python_libs.pyspark.ingestion.extraction.extractors.filesystem_extractor.glob"
     )
     def test_extract_skips_duplicate_files(
-        self, mock_glob, sample_config, mock_extraction_logger, mock_source_conn, mock_dest_conn
+        self,
+        mock_glob,
+        sample_config,
+        mock_extraction_logger,
+        mock_source_conn,
+        mock_dest_conn,
     ):
         """Test extract() skips files already extracted."""
         mock_glob.return_value = [
@@ -243,7 +253,13 @@ class TestFileSystemExtractor:
         "ingen_fab.python_libs.pyspark.ingestion.extraction.extractors.filesystem_extractor.glob"
     )
     def test_extract_handles_move_failure(
-        self, mock_glob, mock_move, sample_config, mock_extraction_logger, mock_source_conn, mock_dest_conn
+        self,
+        mock_glob,
+        mock_move,
+        sample_config,
+        mock_extraction_logger,
+        mock_source_conn,
+        mock_dest_conn,
     ):
         """Test extract() handles move operation failure."""
         mock_glob.return_value = [

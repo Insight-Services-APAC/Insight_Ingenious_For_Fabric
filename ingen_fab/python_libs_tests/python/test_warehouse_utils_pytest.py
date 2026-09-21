@@ -7,6 +7,10 @@ import time
 import pandas as pd
 import pytest
 
+pytestmark = (
+    pytest.mark.database
+)  # needs a local database; see [tool.pytest.ini_options] markers
+
 from ingen_fab.python_libs.python.warehouse_utils import warehouse_utils
 
 
