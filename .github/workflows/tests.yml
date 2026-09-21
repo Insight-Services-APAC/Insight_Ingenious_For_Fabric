@@ -37,7 +37,7 @@ jobs:
           python-version: '3.12'
 
       - name: Install dependencies
-        run: uv sync --group dev --prerelease=allow
+        run: uv sync --group dev --locked
 
       # The repository carries pre-existing ruff findings; only the files touched by
       # the change are linted so the check stays meaningful without a bulk reformat.
@@ -67,7 +67,7 @@ jobs:
           python-version: '3.12'
 
       - name: Install dependencies
-        run: uv sync --group dev --prerelease=allow
+        run: uv sync --group dev --locked
 
       - name: Run offline tiers
         run: |
@@ -93,7 +93,7 @@ jobs:
           python-version: '3.12'
 
       - name: Install dependencies
-        run: uv sync --group dev --prerelease=allow
+        run: uv sync --group dev --locked
 
       - name: Cache Spark/Ivy jars
         uses: actions/cache@v4
@@ -133,7 +133,7 @@ jobs:
           python-version: '3.12'
 
       - name: Install dependencies
-        run: uv sync --group dev --prerelease=allow
+        run: uv sync --group dev --locked
 
       - name: Run database tier
         env:

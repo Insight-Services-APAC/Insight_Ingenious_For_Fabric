@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import os
+import sys
 from unittest.mock import Mock, patch
 
 import pytest
@@ -39,6 +40,14 @@ def mock_mssparkutils():
     return mock_utils
 
 
+@pytest.fixture
+def no_fabric_modules():
+    """Make `import notebookutils` fail, whatever other test trees put in sys.modules
+    (tests/conftest.py installs a stand-in), so FabricNotebookUtils() sees no Fabric."""
+    with patch.dict(sys.modules, {"notebookutils": None}):
+        yield
+
+
 class TestFabricNotebookUtils:
     """Test the FabricNotebookUtils implementation."""
 
@@ -49,7 +58,7 @@ class TestFabricNotebookUtils:
         assert utils._mssparkutils == mock_mssparkutils
         assert utils.is_available() is True
 
-    def test_init_without_utils(self):
+    def test_init_without_utils(self, no_fabric_modules):
         """Test initialization without utils."""
         utils = FabricNotebookUtils()
         assert utils.is_available() is False
@@ -62,14 +71,14 @@ class TestFabricNotebookUtils:
         mock_notebookutils.lakehouse.get.assert_called_once_with("test-artifact")
         assert result is not None
 
-    def test_connect_to_artifact_unavailable(self):
+    def test_connect_to_artifact_unavailable(self, no_fabric_modules):
         """Test connecting to artifact when unavailable."""
         utils = FabricNotebookUtils()
 
         with pytest.raises(RuntimeError, match="notebookutils not available"):
             utils.connect_to_artifact("test-artifact", "test-workspace")
 
-    def test_display_unavailable(self):
+    def test_display_unavailable(self, no_fabric_modules):
         """Test display when unavailable falls back to print."""
         utils = FabricNotebookUtils()
 
@@ -84,7 +93,7 @@ class TestFabricNotebookUtils:
 
         mock_mssparkutils.notebook.exit.assert_called_once_with("test value")
 
-    def test_exit_notebook_unavailable(self):
+    def test_exit_notebook_unavailable(self, no_fabric_modules):
         """Test exit notebook when unavailable."""
         utils = FabricNotebookUtils()
         # Without Fabric the exit is signalled by NotebookExit (the runner catches it)
@@ -101,7 +110,7 @@ class TestFabricNotebookUtils:
         )
         assert result == "test_secret_value"
 
-    def test_get_secret_unavailable(self):
+    def test_get_secret_unavailable(self, no_fabric_modules):
         """Test get secret when unavailable."""
         utils = FabricNotebookUtils()
 
