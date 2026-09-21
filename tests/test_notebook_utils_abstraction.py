@@ -140,3 +140,15 @@ class TestNotebookUtilsFactory:
         assert hasattr(utils, "exit_notebook")
         assert hasattr(utils, "get_secret")
         assert hasattr(utils, "is_available")
+
+
+def test_default_connection_string_has_a_password(monkeypatch):
+    """The default local SQL Server string is a valid ODBC string whose PWD comes
+    from SQL_SERVER_PASSWORD (with a documented fallback)."""
+    monkeypatch.delenv("SQL_SERVER_PASSWORD", raising=False)
+    default = LocalNotebookUtils().connection_string
+    assert "DRIVER={ODBC Driver 18 for SQL Server}" in default
+    assert "PWD=YourStrong!Passw0rd;" in default
+
+    monkeypatch.setenv("SQL_SERVER_PASSWORD", "s3cret")
+    assert "PWD=s3cret;" in LocalNotebookUtils().connection_string
