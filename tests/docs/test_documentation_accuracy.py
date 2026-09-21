@@ -40,9 +40,9 @@ class TestDocumentationAccuracy:
 
         # Verify all documented commands exist
         missing_commands = documented_commands - cli_commands
-        assert (
-            not missing_commands
-        ), f"Commands documented but not implemented: {missing_commands}"
+        assert not missing_commands, (
+            f"Commands documented but not implemented: {missing_commands}"
+        )
 
     @pytest.mark.xfail(
         reason="heuristic parser; documentation drift is reported, not gating",
@@ -62,18 +62,18 @@ class TestDocumentationAccuracy:
             - documented_env_vars
             - {"HOME", "PATH", "USER", "PWD", "SHELL", "TERM", "LANG"}
         )
-        assert (
-            not undocumented
-        ), f"Environment variables used but not documented: {undocumented}"
+        assert not undocumented, (
+            f"Environment variables used but not documented: {undocumented}"
+        )
 
     def test_package_commands_accuracy(self):
         """Verify package commands match implementation."""
         cli_source = self.cli_file.read_text(encoding="utf-8")
 
         # Check for package subcommands
-        assert (
-            "package_app.add_typer" in cli_source
-        ), "Package app should have subcommands"
+        assert "package_app.add_typer" in cli_source, (
+            "Package app should have subcommands"
+        )
         assert "ingest_app" in cli_source, "Ingest package should exist"
         assert "synapse_app" in cli_source, "Synapse package should exist"
         assert "extract_app" in cli_source, "Extract package should exist"
@@ -190,12 +190,12 @@ class TestDocumentationAccuracy:
     def test_readme_no_outdated_extract_command(self):
         """Verify README doesn't contain outdated extract lakehouse-metadata command."""
         readme_content = self.readme_file.read_text(encoding="utf-8")
-        assert (
-            "extract lakehouse-metadata" not in readme_content
-        ), "README should not contain outdated 'extract lakehouse-metadata' command"
-        assert (
-            "deploy get-metadata" in readme_content
-        ), "README should document the new 'deploy get-metadata' command"
+        assert "extract lakehouse-metadata" not in readme_content, (
+            "README should not contain outdated 'extract lakehouse-metadata' command"
+        )
+        assert "deploy get-metadata" in readme_content, (
+            "README should document the new 'deploy get-metadata' command"
+        )
 
     # Helper methods for parsing and extraction
 

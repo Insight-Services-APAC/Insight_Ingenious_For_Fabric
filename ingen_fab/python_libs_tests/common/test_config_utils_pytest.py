@@ -149,9 +149,9 @@ def test_configs_object_attributes_match_dict():
 
     for key, value in configs_dict.items():
         assert hasattr(configs_obj, key), f"ConfigsObject missing attribute '{key}'"
-        assert (
-            getattr(configs_obj, key) == value
-        ), f"ConfigsObject.{key} doesn't match configs_dict['{key}']"
+        assert getattr(configs_obj, key) == value, (
+            f"ConfigsObject.{key} doesn't match configs_dict['{key}']"
+        )
 
 
 def test_module_constants():
