@@ -19,9 +19,7 @@ def test_configs_dict_structure():
     assert isinstance(configs, dict)
     assert "fabric_environment" in configs
     assert "fabric_deployment_workspace_id" in configs
-    assert "synapse_source_database_1" in configs
     assert "config_workspace_id" in configs
-    assert "synapse_source_sql_connection" in configs
     assert "config_lakehouse_name" in configs
     assert "edw_warehouse_name" in configs
 
@@ -30,7 +28,6 @@ def test_configs_dict_structure():
     assert configs["config_lakehouse_name"] == "config"
     assert configs["edw_warehouse_name"] == "edw"
     assert configs["edw_lakehouse_name"] == "edw"
-    assert configs["legacy_synapse_connection_name"] == "synapse_connection"
 
 
 def test_configs_object_structure():
@@ -39,9 +36,7 @@ def test_configs_object_structure():
 
     assert hasattr(configs_obj, "fabric_environment")
     assert hasattr(configs_obj, "fabric_deployment_workspace_id")
-    assert hasattr(configs_obj, "synapse_source_database_1")
     assert hasattr(configs_obj, "config_workspace_id")
-    assert hasattr(configs_obj, "synapse_source_sql_connection")
     assert hasattr(configs_obj, "config_lakehouse_name")
     assert hasattr(configs_obj, "edw_warehouse_name")
 
@@ -60,28 +55,21 @@ def test_configs_object_structure():
     )
 
 
-def test_configs_object_get_attribute_success():
-    """Test that get_attribute method returns correct values."""
+def test_configs_object_attribute_access():
+    """ConfigsObject is a plain dataclass: values are read as attributes."""
     configs_obj = config_utils.configs_object
 
-    # Test existing attributes
-    assert configs_obj.get_attribute("fabric_environment") == "local"
-    assert configs_obj.get_attribute("config_lakehouse_name") == "config"
-    assert configs_obj.get_attribute("edw_warehouse_name") == "edw"
-    assert (
-        configs_obj.get_attribute("legacy_synapse_connection_name")
-        == "synapse_connection"
-    )
+    assert configs_obj.fabric_environment == "local"
+    assert configs_obj.config_lakehouse_name == "config"
+    assert configs_obj.edw_warehouse_name == "edw"
 
 
-def test_configs_object_get_attribute_error():
-    """Test that get_attribute method raises error for non-existent attributes."""
+def test_configs_object_unknown_attribute_raises():
+    """A key outside the value set is an AttributeError, not a silent None."""
     configs_obj = config_utils.configs_object
 
-    with pytest.raises(
-        AttributeError, match="ConfigsObject has no attribute 'non_existent_attr'"
-    ):
-        configs_obj.get_attribute("non_existent_attr")
+    with pytest.raises(AttributeError, match="non_existent_attr"):
+        getattr(configs_obj, "non_existent_attr")
 
 
 def test_get_configs_as_dict():
@@ -138,9 +126,7 @@ def test_all_required_config_keys_present():
     required_keys = [
         "fabric_environment",
         "fabric_deployment_workspace_id",
-        "synapse_source_database_1",
         "config_workspace_id",
-        "synapse_source_sql_connection",
         "config_lakehouse_name",
         "edw_warehouse_name",
         "config_lakehouse_id",
@@ -148,8 +134,6 @@ def test_all_required_config_keys_present():
         "edw_warehouse_id",
         "edw_lakehouse_id",
         "edw_lakehouse_name",
-        "legacy_synapse_connection_name",
-        "synapse_export_shortcut_path_in_onelake",
     ]
 
     configs = config_utils.configs_dict

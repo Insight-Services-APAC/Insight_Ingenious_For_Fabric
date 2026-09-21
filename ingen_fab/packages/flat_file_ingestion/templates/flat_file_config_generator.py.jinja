@@ -9,7 +9,7 @@ if run_mode == "local":
     from ingen_fab.python_libs.common.config_utils import *
     from ingen_fab.python_libs.python.lakehouse_utils import lakehouse_utils
     from ingen_fab.python_libs.python.notebook_utils_abstraction import NotebookUtilsFactory
-    notebookutils = NotebookUtilsFactory.create_instance() 
+    notebookutils = NotebookUtilsFactory.create_instance()
 else:
     files_to_load = [
         "ingen_fab/python_libs/common/config_utils.py",
@@ -48,32 +48,31 @@ target_workspace_id = get_config_value("config_workspace_id")
 lh_utils = lakehouse_utils(
     target_workspace_id=target_workspace_id,
     target_lakehouse_id=target_lakehouse_id,
-    spark=spark
 )
 
 {{macros.python_cell_with_heading("## 🔍 File Discovery Functions")}}
 
 def discover_files(base_path: str, recursive: bool = True) -> Dict[str, List[str]]:
     """Discover files in the specified path and group by pattern
-    
+
     This function understands Spark output conventions where files are actually folders
     containing part files (e.g., customers.csv/ contains part-00000-*.csv files)
     """
     file_groups = {}
-    
+
     # Prepare full path for scanning
     full_base_path = f"{base_path}" if not base_path.startswith("Files/") else base_path
-    
+
     try:
         # Get all directories and files in the base path using the new list_all method
         all_items = lh_utils.list_all(full_base_path, recursive=recursive)
-        
+
         # Process each item to identify file types
         for item_path in all_items:
             # Extract relative path from full path - handle absolute paths properly
             # item_path looks like: /workspaces/ingen_fab/tmp/spark/Files/synthetic_data/csv/single/customers.csv
             # We want: csv/single/customers.csv
-            
+
             # Find the part after synthetic_data (or the base path)
             synthetic_data_marker = f"/tmp/spark/Files/{base_path}/"
             if synthetic_data_marker in item_path:
@@ -83,7 +82,7 @@ def discover_files(base_path: str, recursive: bool = True) -> Dict[str, List[str
                 rel_path = item_path.replace(full_base_path + "/", "").replace(full_base_path, "")
                 if rel_path.startswith("/"):
                     rel_path = rel_path[1:]
-            
+
             # Check if this looks like a file format folder (e.g., customers.csv, data.parquet)
             path_parts = rel_path.split('/')
             for part in path_parts:
@@ -94,10 +93,10 @@ def discover_files(base_path: str, recursive: bool = True) -> Dict[str, List[str
                         # Build the relative path to the folder
                         folder_rel_path_parts = path_parts[:path_parts.index(part)+1]
                         folder_rel_path = '/'.join(folder_rel_path_parts)
-                        
+
                         # Convert back to absolute path for checking
                         absolute_folder_path = item_path.replace('/' + '/'.join(path_parts), '/' + folder_rel_path)
-                        
+
                         try:
                             # Check if this absolute path exists and contains part files
                             from pathlib import Path as PathLib
@@ -105,7 +104,7 @@ def discover_files(base_path: str, recursive: bool = True) -> Dict[str, List[str
                             if abs_path.exists() and abs_path.is_dir():
                                 part_files = list(abs_path.glob("part-*"))
                                 has_part_files = len(part_files) > 0
-                                
+
                                 if has_part_files:
                                     if file_ext not in file_groups:
                                         file_groups[file_ext] = []
@@ -115,7 +114,7 @@ def discover_files(base_path: str, recursive: bool = True) -> Dict[str, List[str
                             # If we can't list contents, it might be a regular file
                             pass
                         break
-        
+
     except Exception as e:
         print(f"Warning: Error discovering files in {full_base_path}: {str(e)}")
         # Fallback to glob for local testing
@@ -127,18 +126,18 @@ def discover_files(base_path: str, recursive: bool = True) -> Dict[str, List[str
                 'avro': ['**/*.avro'] if recursive else ['*.avro'],
                 'delta': ['**/*/_delta_log'] if recursive else ['*/_delta_log']
             }
-            
+
             for file_type, patterns in file_patterns.items():
                 found_files = []
                 for pattern in patterns:
                     local_path = Path(base_path) / pattern.replace('**/', '')
                     found_files.extend(glob.glob(str(local_path), recursive=recursive))
-                
+
                 if found_files:
                     # Convert to relative paths
                     rel_files = [str(Path(f).relative_to(base_path)) for f in found_files]
                     file_groups[file_type] = list(set(rel_files))
-    
+
     return file_groups
 
 def analyze_file_structure(file_path: str) -> Dict[str, any]:
@@ -156,7 +155,7 @@ def analyze_file_structure(file_path: str) -> Dict[str, any]:
         'date_pattern': None,
         'is_partitioned': False
     }
-    
+
     try:
         # Check if it's a folder with part files (Spark output)
         full_file_path = f"Files/{file_path}" if not file_path.startswith("Files/") else file_path
@@ -170,7 +169,7 @@ def analyze_file_structure(file_path: str) -> Dict[str, any]:
                 file_info['is_folder'] = False
         except:
             file_info['is_folder'] = False
-        
+
         # Analyze based on file type
         if file_info['format'] in ['csv', 'parquet', 'json', 'avro']:
             try:
@@ -182,13 +181,13 @@ def analyze_file_structure(file_path: str) -> Dict[str, any]:
                     file_info['delimiter'] = ','  # Default delimiter
                 elif file_info['format'] == 'json':
                     read_options = {'multiLine': True}
-                
+
                 df_sample = lh_utils.read_file(
                     file_path=full_file_path,
                     file_format=file_info['format'],
                     options=read_options
                 ).limit(100)
-                
+
                 file_info['columns'] = df_sample.columns
                 # Convert to pandas for sampling
                 try:
@@ -196,12 +195,12 @@ def analyze_file_structure(file_path: str) -> Dict[str, any]:
                     file_info['sample_data'] = sample_pandas.to_dict(orient='records')
                 except:
                     file_info['sample_data'] = None
-                    
+
             except Exception as read_error:
                 file_info['error'] = f"Could not read file: {str(read_error)}"
                 file_info['columns'] = []
                 file_info['sample_data'] = None
-        
+
         # Check for date partitioning patterns
         path_parts = file_path.split('/')
         date_patterns = ['YYYY/MM/DD', 'YYYY-MM-DD', 'YYYYMMDD', 'year=YYYY/month=MM/day=DD']
@@ -210,23 +209,23 @@ def analyze_file_structure(file_path: str) -> Dict[str, any]:
                 file_info['date_pattern'] = pattern
                 file_info['is_partitioned'] = True
                 break
-                
+
     except Exception as e:
         file_info['error'] = str(e)
-    
+
     return file_info
 
 def infer_table_relationships(file_groups: Dict[str, List[Dict]]) -> Dict[str, str]:
     """Infer relationships between tables based on naming patterns"""
     relationships = {}
-    
+
     # Common relationship patterns
     fact_patterns = ['fact_', 'f_', 'sales', 'transactions', 'events', 'orders']
     dimension_patterns = ['dim_', 'd_', 'customer', 'product', 'location', 'date']
-    
+
     for group_name, files in file_groups.items():
         table_names = [f['inferred_table_name'] for f in files]
-        
+
         # Check if it's a fact or dimension table group
         if any(pattern in group_name.lower() for pattern in fact_patterns):
             relationships[group_name] = 'fact_tables'
@@ -234,7 +233,7 @@ def infer_table_relationships(file_groups: Dict[str, List[Dict]]) -> Dict[str, s
             relationships[group_name] = 'dimension_tables'
         else:
             relationships[group_name] = 'general_tables'
-    
+
     return relationships
 
 {{macros.python_cell_with_heading("## 📊 Discover Files in Target Folder")}}
@@ -263,22 +262,22 @@ for file_type, file_list in discovered_files.items():
     print("")
     print(f"📋 Analyzing {file_type.upper()} files...")
     analyzed_files[file_type] = []
-    
+
     # Sample up to max_files_to_sample files
     sample_files = file_list[:max_files_to_sample]
-    
+
     for file_path in sample_files:
         print(f"  - Analyzing: {file_path}")
         file_info = analyze_file_structure(file_path)
-        
+
         # Infer table name from file path
         path_parts = file_path.split('/')
         file_name = path_parts[-1].replace(f'.{file_type}', '')
-        
+
         # Handle folder names (remove part file references)
         if file_info['is_folder']:
             file_name = path_parts[-2] if len(path_parts) > 1 else file_name
-        
+
         file_info['inferred_table_name'] = file_name.replace('-', '_').replace(' ', '_').lower()
         analyzed_files[file_type].append(file_info)
 
@@ -303,7 +302,7 @@ def determine_execution_group(file_info: Dict, base_group: int) -> int:
 
 def generate_ingestion_config(file_info: Dict, config_counter: int) -> Dict:
     """Generate a flat file ingestion configuration from file analysis"""
-    
+
     config = {
         "config_id": generate_config_id(file_info['inferred_table_name'], file_info['format']),
         "config_name": f"Auto-discovered: {file_info['inferred_table_name']} ({file_info['format']})",
@@ -359,7 +358,7 @@ def generate_ingestion_config(file_info: Dict, config_counter: int) -> Dict:
         "skip_existing_dates": True if file_info['is_partitioned'] else None,
         "source_is_folder": file_info['is_folder']
     }
-    
+
     return config
 
 # Generate configurations

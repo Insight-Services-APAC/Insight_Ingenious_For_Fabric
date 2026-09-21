@@ -5,6 +5,7 @@ from unittest.mock import Mock, patch
 
 import pytest
 
+from ingen_fab.python_libs.interfaces.notebook_utils_interface import NotebookExit
 from ingen_fab.python_libs.python.notebook_utils_abstraction import (
     FabricNotebookUtils,
     LocalNotebookUtils,
@@ -271,7 +272,8 @@ class TestLocalNotebookUtils:
         """Test exit notebook functionality."""
         utils = LocalNotebookUtils()
         with patch("builtins.print") as mock_print:
-            utils.exit_notebook("test value")
+            with pytest.raises(NotebookExit):
+                utils.exit_notebook("test value")
             mock_print.assert_called_once_with(
                 "Notebook would exit with value: test value"
             )
@@ -279,8 +281,9 @@ class TestLocalNotebookUtils:
     def test_exit_notebook_no_value(self):
         """Test exit notebook without value."""
         utils = LocalNotebookUtils()
-        # Should not raise exception
-        utils.exit_notebook()
+        # exit_notebook signals the exit by raising NotebookExit; the runner catches it
+        with pytest.raises(NotebookExit):
+            utils.exit_notebook()
 
     def test_get_secret_from_loaded_secrets(self):
         """Test getting secret from loaded secrets."""

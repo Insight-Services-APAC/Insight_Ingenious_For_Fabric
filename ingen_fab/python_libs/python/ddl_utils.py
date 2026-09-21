@@ -20,10 +20,6 @@ class ddl_utils:
         target_warehouse_id: str,
         notebookutils: Optional[Any] = None,
     ) -> None:
-        super().__init__(
-            target_datastore_id=target_warehouse_id,
-            target_workspace_id=target_workspace_id,
-        )
         self.target_workspace_id = target_workspace_id
         self.target_warehouse_id = target_warehouse_id
         self.execution_log_table_schema = "log"

@@ -2,6 +2,10 @@ from __future__ import annotations
 
 import pytest
 
+pytestmark = (
+    pytest.mark.database
+)  # needs a local database; see [tool.pytest.ini_options] markers
+
 from ingen_fab.python_libs.interfaces.ddl_utils_interface import DDLUtilsInterface
 from ingen_fab.python_libs.python.ddl_utils import ddl_utils
 

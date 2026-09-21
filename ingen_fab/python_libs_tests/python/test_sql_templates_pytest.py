@@ -1,9 +1,18 @@
 from __future__ import annotations
 
+import re
+
 import pytest
 from jinja2 import exceptions
 
 from ingen_fab.python_libs.python.sql_templates import SQLTemplates, required_filter
+
+
+def _norm(sql: str) -> str:
+    """Canonical form for comparing SQL: the renderer (sqlglot) pretty-prints, re-cases
+    and re-spaces the templates, so tests compare whitespace- and case-insensitively."""
+    sql = " ".join(sql.split()).lower()
+    return re.sub(r"\s*([(),])\s*", lambda m: m.group(1), sql)
 
 
 class TestRequiredFilter:
@@ -87,21 +96,20 @@ class TestSQLTemplates:
         ):
             sql_templates.get_template("nonexistent", "fabric")
 
-    def test_get_template_wrong_dialect(self):
-        """Test getting template with wrong dialect."""
+    def test_get_template_ignores_requested_dialect(self):
+        """Templates are authored once for Fabric and translated at render time,
+        so the dialect argument does not select a different source."""
         sql_templates = SQLTemplates("fabric")
-        with pytest.raises(
-            FileNotFoundError,
-            match="Template check_schema_exists for dialect nonexistent not found",
-        ):
-            sql_templates.get_template("check_schema_exists", "nonexistent")
+        fabric = sql_templates.get_template("check_schema_exists", "fabric")
+        other = sql_templates.get_template("check_schema_exists", "nonexistent")
+        assert other == fabric
 
     def test_render_check_schema_exists(self):
         """Test rendering check_schema_exists template."""
         sql_templates = SQLTemplates("fabric")
         result = sql_templates.render("check_schema_exists", schema_name="test_schema")
-        assert "FROM INFORMATION_SCHEMA.SCHEMATA" in result
-        assert "WHERE SCHEMA_NAME = 'test_schema'" in result
+        assert _norm("FROM INFORMATION_SCHEMA.SCHEMATA") in _norm(result)
+        assert _norm("WHERE SCHEMA_NAME = 'test_schema'") in _norm(result)
 
     def test_render_check_table_exists(self):
         """Test rendering check_table_exists template."""
@@ -109,9 +117,9 @@ class TestSQLTemplates:
         result = sql_templates.render(
             "check_table_exists", schema_name="test_schema", table_name="test_table"
         )
-        assert "INFORMATION_SCHEMA.TABLES" in result
-        assert "TABLE_SCHEMA = 'test_schema'" in result
-        assert "TABLE_NAME = 'test_table'" in result
+        assert _norm("INFORMATION_SCHEMA.TABLES") in _norm(result)
+        assert _norm("TABLE_SCHEMA = 'test_schema'") in _norm(result)
+        assert _norm("TABLE_NAME = 'test_table'") in _norm(result)
 
     def test_render_create_table(self):
         """Test rendering create_table template."""
@@ -123,10 +131,10 @@ class TestSQLTemplates:
             table_name="test_table",
             schema=schema,
         )
-        assert "CREATE TABLE test_schema.test_table" in result
-        assert "id INT" in result
-        assert "name VARCHAR(255)" in result
-        assert "value DECIMAL(10,2)" in result
+        assert _norm("CREATE TABLE test_schema.test_table") in _norm(result)
+        assert _norm("id INT") in _norm(result)
+        assert _norm("name VARCHAR(255)") in _norm(result)
+        assert _norm("value DECIMAL(10,2)") in _norm(result)
 
     def test_render_create_table_with_options(self):
         """Test rendering create_table template with options."""
@@ -140,9 +148,9 @@ class TestSQLTemplates:
             schema=schema,
             options=options,
         )
-        assert "CREATE TABLE test_schema.test_table" in result
-        assert "LOCATION = '/path/to/table'" in result
-        assert "TBLPROPERTIES = 'test'" in result
+        assert _norm("CREATE TABLE test_schema.test_table") in _norm(result)
+        assert _norm("LOCATION = '/path/to/table'") in _norm(result)
+        assert _norm("TBLPROPERTIES = 'test'") in _norm(result)
 
     def test_render_drop_table(self):
         """Test rendering drop_table template."""
@@ -150,7 +158,7 @@ class TestSQLTemplates:
         result = sql_templates.render(
             "drop_table", schema_name="test_schema", table_name="test_table"
         )
-        assert "DROP TABLE IF EXISTS test_schema.test_table" in result
+        assert _norm("DROP TABLE IF EXISTS test_schema.test_table") in _norm(result)
 
     def test_render_read_table_basic(self):
         """Test rendering read_table template basic."""
@@ -158,8 +166,8 @@ class TestSQLTemplates:
         result = sql_templates.render(
             "read_table", schema_name="test_schema", table_name="test_table"
         )
-        assert "SELECT *" in result
-        assert "FROM test_schema.test_table" in result
+        assert _norm("SELECT *") in _norm(result)
+        assert _norm("FROM test_schema.test_table") in _norm(result)
 
     def test_render_read_table_with_columns(self):
         """Test rendering read_table template with specific columns."""
@@ -170,8 +178,8 @@ class TestSQLTemplates:
             table_name="test_table",
             columns=["id", "name"],
         )
-        assert "SELECT id, name" in result
-        assert "FROM test_schema.test_table" in result
+        assert _norm("SELECT id, name") in _norm(result)
+        assert _norm("FROM test_schema.test_table") in _norm(result)
 
     def test_render_read_table_with_filters(self):
         """Test rendering read_table template with filters."""
@@ -182,11 +190,11 @@ class TestSQLTemplates:
             table_name="test_table",
             filters={"status": "active", "type": "user"},
         )
-        assert "FROM test_schema.test_table" in result
-        assert "WHERE" in result
-        assert "status = 'active'" in result
-        assert "type = 'user'" in result
-        assert "AND" in result
+        assert _norm("FROM test_schema.test_table") in _norm(result)
+        assert _norm("WHERE") in _norm(result)
+        assert _norm("status = 'active'") in _norm(result)
+        assert _norm("type = 'user'") in _norm(result)
+        assert _norm("AND") in _norm(result)
 
     def test_render_read_table_with_limit(self):
         """Test rendering read_table template with limit."""
@@ -194,8 +202,8 @@ class TestSQLTemplates:
         result = sql_templates.render(
             "read_table", schema_name="test_schema", table_name="test_table", limit=100
         )
-        assert "FROM test_schema.test_table" in result
-        assert "LIMIT 100" in result
+        assert _norm("FROM test_schema.test_table") in _norm(result)
+        assert _norm("LIMIT 100") in _norm(result)
 
     def test_render_delete_from_table(self):
         """Test rendering delete_from_table template."""
@@ -206,9 +214,9 @@ class TestSQLTemplates:
             table_name="test_table",
             filters={"id": "123"},
         )
-        assert "DELETE FROM test_schema.test_table" in result
-        assert "WHERE" in result
-        assert "id = '123'" in result
+        assert _norm("DELETE FROM test_schema.test_table") in _norm(result)
+        assert _norm("WHERE") in _norm(result)
+        assert _norm("id = '123'") in _norm(result)
 
     def test_render_insert_row(self):
         """Test rendering insert_row template."""
@@ -219,23 +227,25 @@ class TestSQLTemplates:
             table_name="test_table",
             row_values="1, 'test', 100.50",
         )
-        assert "INSERT INTO test_schema.test_table VALUES (1, 'test', 100.50)" in result
+        assert _norm(
+            "INSERT INTO test_schema.test_table VALUES (1, 'test', 100.50)"
+        ) in _norm(result)
 
     def test_render_list_tables(self):
         """Test rendering list_tables template."""
         sql_templates = SQLTemplates("fabric")
         result = sql_templates.render("list_tables")
-        assert "SELECT" in result
-        assert "TABLE_SCHEMA" in result
-        assert "TABLE_NAME" in result
-        assert "INFORMATION_SCHEMA.TABLES" in result
+        assert _norm("SELECT") in _norm(result)
+        assert _norm("TABLE_SCHEMA") in _norm(result)
+        assert _norm("TABLE_NAME") in _norm(result)
+        assert _norm("INFORMATION_SCHEMA.TABLES") in _norm(result)
 
     def test_render_list_tables_with_prefix(self):
         """Test rendering list_tables template with prefix."""
         sql_templates = SQLTemplates("fabric")
         result = sql_templates.render("list_tables", prefix="test_")
-        assert "WHERE" in result
-        assert "TABLE_NAME LIKE 'test_%'" in result
+        assert _norm("WHERE") in _norm(result)
+        assert _norm("TABLE_NAME LIKE 'test_%'") in _norm(result)
 
     def test_render_get_table_schema(self):
         """Test rendering get_table_schema template."""
@@ -243,10 +253,10 @@ class TestSQLTemplates:
         result = sql_templates.render(
             "get_table_schema", schema_name="test_schema", table_name="test_table"
         )
-        assert "SELECT COLUMN_NAME, DATA_TYPE" in result
-        assert "FROM INFORMATION_SCHEMA.COLUMNS" in result
-        assert "TABLE_SCHEMA = 'test_schema'" in result
-        assert "TABLE_NAME = 'test_table'" in result
+        assert _norm("SELECT COLUMN_NAME, DATA_TYPE") in _norm(result)
+        assert _norm("FROM INFORMATION_SCHEMA.COLUMNS") in _norm(result)
+        assert _norm("TABLE_SCHEMA = 'test_schema'") in _norm(result)
+        assert _norm("TABLE_NAME = 'test_table'") in _norm(result)
 
     def test_render_get_table_row_count(self):
         """Test rendering get_table_row_count template."""
@@ -254,8 +264,8 @@ class TestSQLTemplates:
         result = sql_templates.render(
             "get_table_row_count", schema_name="test_schema", table_name="test_table"
         )
-        assert "SELECT COUNT(*)" in result
-        assert "FROM test_schema.test_table" in result
+        assert _norm("SELECT COUNT(*)") in _norm(result)
+        assert _norm("FROM test_schema.test_table") in _norm(result)
 
     def test_render_get_table_metadata(self):
         """Test rendering get_table_metadata template."""
@@ -263,10 +273,10 @@ class TestSQLTemplates:
         result = sql_templates.render(
             "get_table_metadata", schema_name="test_schema", table_name="test_table"
         )
-        assert "SELECT *" in result
-        assert "INFORMATION_SCHEMA.TABLES" in result
-        assert "TABLE_SCHEMA = 'test_schema'" in result
-        assert "TABLE_NAME = 'test_table'" in result
+        assert _norm("SELECT *") in _norm(result)
+        assert _norm("INFORMATION_SCHEMA.TABLES") in _norm(result)
+        assert _norm("TABLE_SCHEMA = 'test_schema'") in _norm(result)
+        assert _norm("TABLE_NAME = 'test_table'") in _norm(result)
 
     def test_render_rename_table_fabric(self):
         """Test rendering rename_table template for fabric."""
@@ -277,18 +287,25 @@ class TestSQLTemplates:
             old_table_name="old_table",
             new_table_name="new_table",
         )
-        assert "ALTER TABLE test_schema.old_table RENAME TO new_table" in result
+        assert _norm("ALTER TABLE test_schema.old_table RENAME TO new_table") in _norm(
+            result
+        )
 
-    def test_render_rename_table_sql_server(self):
-        """Test rendering rename_table template for SQL Server."""
-        sql_templates = SQLTemplates("sql_server")
+    def test_render_rename_table_translates_for_local_postgres(self):
+        """The Fabric template (EXEC sp_rename) is translated for the target the
+        environment selects; under FABRIC_ENVIRONMENT=local that is PostgreSQL."""
+        sql_templates = SQLTemplates(
+            "sql_server"
+        )  # the ctor dialect does not drive translation
         result = sql_templates.render(
             "rename_table",
             schema_name="test_schema",
             old_table_name="old_table",
             new_table_name="new_table",
         )
-        assert "EXEC sp_rename 'test_schema.old_table', 'new_table'" in result
+        assert _norm("ALTER TABLE test_schema.old_table RENAME TO new_table") in _norm(
+            result
+        )
 
     def test_render_vacuum_table(self):
         """Test rendering vacuum_table template."""
@@ -296,14 +313,14 @@ class TestSQLTemplates:
         result = sql_templates.render(
             "vacuum_table", schema_name="test_schema", table_name="test_table"
         )
-        assert "-- No-op for SQL warehouses" in result
+        assert _norm("SELECT 1 AS no_op_result") in _norm(result)
 
     def test_render_list_schemas(self):
         """Test rendering list_schemas template."""
         sql_templates = SQLTemplates("fabric")
         result = sql_templates.render("list_schemas")
-        assert "SELECT SCHEMA_NAME as schema_name" in result
-        assert "FROM INFORMATION_SCHEMA.SCHEMATA" in result
+        assert _norm("SELECT SCHEMA_NAME as schema_name") in _norm(result)
+        assert _norm("FROM INFORMATION_SCHEMA.SCHEMATA") in _norm(result)
 
     def test_render_create_table_from_values(self):
         """Test rendering create_table_from_values template."""
@@ -315,11 +332,11 @@ class TestSQLTemplates:
             values_clause="(1, 'test'), (2, 'test2')",
             column_names="id, name",
         )
-        assert "SELECT" in result
-        assert "INTO test_schema.test_table" in result
-        assert "VALUES" in result
-        assert "(1, 'test'), (2, 'test2')" in result
-        assert "AS v(" in result and "id, name" in result
+        assert _norm("SELECT") in _norm(result)
+        assert _norm("INTO test_schema.test_table") in _norm(result)
+        assert _norm("VALUES") in _norm(result)
+        assert _norm("(1, 'test'), (2, 'test2')") in _norm(result)
+        assert _norm("AS v(") in _norm(result) and _norm("id, name") in _norm(result)
 
     def test_render_missing_required_parameter(self):
         """Test rendering template with missing required parameter."""
@@ -330,11 +347,16 @@ class TestSQLTemplates:
         ):
             sql_templates.render("check_schema_exists")
 
-    def test_render_sql_server_dialect(self):
-        """Test rendering with SQL Server dialect."""
-        sql_templates = SQLTemplates("sql_server")
-        result = sql_templates.render("check_schema_exists", schema_name="test_schema")
-        assert "LOWER(SCHEMA_NAME) = LOWER('test_schema')" in result
+    def test_render_dialect_argument_does_not_change_output(self):
+        """Translation is driven by the environment, not by the constructor argument."""
+        via_fabric = SQLTemplates("fabric").render(
+            "check_schema_exists", schema_name="test_schema"
+        )
+        via_sql_server = SQLTemplates("sql_server").render(
+            "check_schema_exists", schema_name="test_schema"
+        )
+        assert via_sql_server == via_fabric
+        assert _norm("schema_name = 'test_schema'") in _norm(via_fabric)
 
     def test_templates_list_not_empty(self):
         """Test that TEMPLATES list is not empty."""
@@ -350,9 +372,8 @@ class TestSQLTemplates:
             assert "file_contents" in template
             assert "full_path" in template
 
-    def test_templates_have_both_dialects(self):
-        """Test that templates exist for both dialects."""
+    def test_templates_are_authored_for_fabric_only(self):
+        """Fabric is the single source dialect; others are produced by translation."""
         sql_templates = SQLTemplates()
         dialects = set(t["dialect"] for t in sql_templates.TEMPLATES)
-        assert "fabric" in dialects
-        assert "sql_server" in dialects
+        assert dialects == {"fabric"}

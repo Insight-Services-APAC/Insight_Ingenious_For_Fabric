@@ -2,6 +2,8 @@ import pathlib
 import sys
 from unittest import mock
 
+import pytest
+
 sys.path.insert(0, str(pathlib.Path(__file__).resolve().parents[1]))
 from ingen_fab.python_libs.python.warehouse_utils import warehouse_utils
 
@@ -46,24 +48,31 @@ class DummyFabricConn:
         return [1]
 
 
-def test_get_connection_fabric():
+def test_get_connection_fabric_uses_notebook_utils():
+    """Outside the local environment the warehouse is reached through notebookutils."""
     wu = warehouse_utils("ws", "wh")
     mock_conn = object()
+    wu.notebook_utils = mock.Mock(connect_to_artifact=mock.Mock(return_value=mock_conn))
     with mock.patch(
-        "ingen_fab.python_libs.python.warehouse_utils.notebookutils.data.connect_to_artifact",
-        return_value=mock_conn,
+        "ingen_fab.python_libs.python.warehouse_utils.get_configs_as_object",
+        return_value=mock.Mock(fabric_environment="development"),
     ):
         assert wu.get_connection() is mock_conn
+    wu.notebook_utils.connect_to_artifact.assert_called_once_with("wh", "ws")
 
 
-def test_get_connection_sqlserver():
-    wu = warehouse_utils(None, None, dialect="sqlserver", connection_string="dsn")
+def test_get_connection_local_uses_postgresql():
+    """Under FABRIC_ENVIRONMENT=local the warehouse is a local PostgreSQL."""
+    wu = warehouse_utils("ws", "wh", dialect="sql_server", connection_string="dsn")
     mock_conn = object()
-    with mock.patch(
-        "ingen_fab.python_libs.python.warehouse_utils.pyodbc.connect",
-        return_value=mock_conn,
-    ):
+    with mock.patch.object(wu, "_connect_to_local_postgresql", return_value=mock_conn):
         assert wu.get_connection() is mock_conn
+
+
+def test_unsupported_dialect_is_rejected():
+    """The supported spelling is 'sql_server'; anything else fails fast."""
+    with pytest.raises(ValueError, match="Unsupported dialect: sqlserver"):
+        warehouse_utils("ws", "wh", dialect="sqlserver")
 
 
 def test_execute_query_fabric():

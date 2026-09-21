@@ -8,6 +8,8 @@ import jinja2
 import requests
 from azure.identity import DefaultAzureCredential
 
+from ingen_fab.notebook_utils.notebook_utils import required_filter
+
 
 class FabricCLINotebook:
     """Wrapper around the Fabric CLI for notebook operations."""
@@ -15,24 +17,33 @@ class FabricCLINotebook:
     def __init__(self, workspace_name: str) -> None:
         self.workspace_name = workspace_name
         self.jinja_env = jinja2.Environment(
-            loader=jinja2.FileSystemLoader(Path(__file__).resolve().parent)
+            loader=jinja2.FileSystemLoader(
+                Path(__file__).resolve().parent / "templates" / "platform_testing"
+            )
         )
+        self.jinja_env.filters["required"] = required_filter
         self.platform_file_template = self.jinja_env.get_template(
             "platform_file_template.json.jinja"
         )
         self.notebook_content_template = self.jinja_env.get_template(
-            "notebook-content_template.py.jinja"
+            "notebook-content_template-python.py.jinja"
         )
 
-    def generate_functional_test_notebook(self):
-        """Generate a functional test notebook using the Fabric CLI."""
-        # Render the jinja templates
-        platform_file_content = self.platform_file_template.render(guid=uuid.uuid4())
-        notebook_content = self.notebook_content_template.render(
-            content="print('Hello, Fabric!')",
+    def generate_functional_test_notebook(
+        self,
+        notebook_name: str = "codex_test_notebook",
+        test_scripts: str = "print('Hello, Fabric!')",
+        output_dir: Optional[Path] = None,
+    ) -> Path:
+        """Render the platform-testing notebook (a .platform file and a
+        notebook-content.py) into output_dir/notebook_name and return that folder."""
+        platform_file_content = self.platform_file_template.render(
+            notebook_name=notebook_name, guid=uuid.uuid4()
         )
-        # Create a temporary directory for the notebook
-        temp_dir = Path.cwd() / "output" / Path("codex_test_notebook")
+        notebook_content = self.notebook_content_template.render(
+            test_scripts=test_scripts,
+        )
+        temp_dir = (output_dir or Path.cwd() / "output") / notebook_name
         temp_dir.mkdir(parents=True, exist_ok=True)
         notebook_path = temp_dir / "notebook-content.py"
         # Write the notebook content to a file
@@ -42,6 +53,7 @@ class FabricCLINotebook:
         platform_file_path = temp_dir / ".platform"
         with open(platform_file_path, "w", encoding="utf-8") as f:
             f.write(platform_file_content)
+        return temp_dir
 
     def upload(
         self, notebook_path: Path, notebook_name: str, format: str = ".py"

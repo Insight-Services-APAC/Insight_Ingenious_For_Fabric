@@ -3,7 +3,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
-from ingen_fab import load_project_config
+from ingen_fab.project_config import load_project_config
 
 
 def test_load_current_directory(tmp_path, monkeypatch):

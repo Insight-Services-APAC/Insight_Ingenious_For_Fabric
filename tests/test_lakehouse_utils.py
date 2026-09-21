@@ -17,6 +17,7 @@ import tempfile
 from datetime import datetime
 from pathlib import Path
 
+import pytest
 from pyspark.sql import SparkSession
 from pyspark.sql.types import (
     IntegerType,
@@ -28,6 +29,8 @@ from pyspark.sql.types import (
 
 # Import the class to test
 from ingen_fab.python_libs.pyspark.lakehouse_utils import lakehouse_utils
+
+pytestmark = pytest.mark.spark  # starts a local Spark session; needs a JVM
 
 
 def setup_local_test_environment() -> tuple[str, str, Path]:
@@ -101,32 +104,41 @@ def create_test_dataframes(spark: SparkSession) -> dict:
     return {"customers": customer_df, "orders": orders_df}
 
 
-def test_lakehouse_utils_initialization():
+WORKSPACE_ID = "test-workspace-12345"
+LAKEHOUSE_ID = "test-lakehouse-67890"
+
+
+@pytest.fixture(scope="module")
+def temp_dir():
+    _, _, path = setup_local_test_environment()
+    yield path
+    shutil.rmtree(path, ignore_errors=True)
+
+
+@pytest.fixture(scope="module")
+def utils(temp_dir) -> lakehouse_utils:
+    # One instance (and one Spark session) for the module; starting Spark per test
+    # would dominate the run time.
+    return lakehouse_utils(WORKSPACE_ID, LAKEHOUSE_ID)
+
+
+@pytest.fixture(scope="module")
+def dataframes(utils) -> dict:
+    return create_test_dataframes(utils.spark)
+
+
+def test_lakehouse_utils_initialization(utils: lakehouse_utils):
     """Test lakehouse_utils class initialization."""
     print("\n🧪 Testing lakehouse_utils initialization...")
 
-    workspace_id, lakehouse_id, temp_dir = setup_local_test_environment()
+    assert utils.target_workspace_id == WORKSPACE_ID
+    assert utils.target_store_id == LAKEHOUSE_ID
+    assert utils.spark is not None
 
-    try:
-        # Initialize lakehouse_utils
-        utils = lakehouse_utils(workspace_id, lakehouse_id)
-
-        # Verify attributes
-        assert utils.target_workspace_id == workspace_id
-        assert utils.target_lakehouse_id == lakehouse_id
-        assert utils.spark is not None
-
-        print("✅ lakehouse_utils initialized successfully")
-        print(f"   - Workspace ID: {utils.target_workspace_id}")
-        print(f"   - Lakehouse ID: {utils.target_lakehouse_id}")
-        print(f"   - Spark session: {type(utils.spark).__name__}")
-
-        return utils, temp_dir
-
-    except Exception as e:
-        print(f"❌ Initialization failed: {e}")
-        shutil.rmtree(temp_dir)
-        raise
+    print("✅ lakehouse_utils initialized successfully")
+    print(f"   - Workspace ID: {utils.target_workspace_id}")
+    print(f"   - Lakehouse ID: {utils.target_store_id}")
+    print(f"   - Spark session: {type(utils.spark).__name__}")
 
 
 def test_lakehouse_tables_uri(utils: lakehouse_utils):
@@ -135,7 +147,9 @@ def test_lakehouse_tables_uri(utils: lakehouse_utils):
 
     try:
         uri = utils.lakehouse_tables_uri()
-        expected_pattern = f"abfss://{utils.target_workspace_id}@onelake.dfs.fabric.microsoft.com/{utils.target_lakehouse_id}/Tables/"
+        # Under FABRIC_ENVIRONMENT=local the class targets a local Spark warehouse
+        # folder instead of OneLake; the abfss form is only produced in Fabric.
+        expected_pattern = f"file:///{Path.cwd()}/tmp/spark/Tables/"
 
         assert uri == expected_pattern
         print(f"✅ URI generated correctly: {uri}")
@@ -184,7 +198,7 @@ def test_write_to_lakehouse_table(
         print(f"📝 Writing customers table with {customers_df.count()} rows...")
 
         # Write with default options
-        utils.write_to_lakehouse_table(customers_df, "customers")
+        utils.write_to_table(customers_df, "customers")
         print("✅ Customers table written successfully")
 
         # Test writing with custom options
@@ -192,7 +206,7 @@ def test_write_to_lakehouse_table(
         print(f"📝 Writing orders table with {orders_df.count()} rows...")
 
         custom_options = {"mergeSchema": "true", "overwriteSchema": "true"}
-        utils.write_to_lakehouse_table(orders_df, "orders", options=custom_options)
+        utils.write_to_table(orders_df, "orders", options=custom_options)
         print("✅ Orders table written successfully with custom options")
 
         # Verify files were created
@@ -226,12 +240,10 @@ def test_error_handling(utils: lakehouse_utils):
         assert not exists  # Should handle errors gracefully
         print("✅ Invalid path handled gracefully")
 
-        # Test with None DataFrame (should raise error)
-        try:
-            utils.write_to_lakehouse_table(None, "test_table")
-            print("❌ Should have raised error for None DataFrame")
-        except Exception:
-            print("✅ None DataFrame properly rejected")
+        # A None DataFrame is rejected
+        with pytest.raises(Exception):
+            utils.write_to_table(None, "test_table")
+        print("✅ None DataFrame properly rejected")
 
     except Exception as e:
         print(f"❌ Error handling test failed: {e}")
@@ -276,7 +288,9 @@ def main():
         print(f"✅ Spark session active: {spark.version}")
 
         # Test initialization
-        utils, temp_dir = test_lakehouse_utils_initialization()
+        _, _, temp_dir = setup_local_test_environment()
+        utils = lakehouse_utils(WORKSPACE_ID, LAKEHOUSE_ID)
+        test_lakehouse_utils_initialization(utils)
 
         # Test URI generation
         test_lakehouse_tables_uri(utils)

@@ -110,8 +110,3 @@ exclude = [
     "tbf",
     "test.ipynb",
 ]
-
-[tool.pytest.ini_options]
-markers = [
-    "e2e: live network integration test (requires SCRAPFLY_API_KEY)",
-]

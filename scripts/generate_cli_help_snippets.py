@@ -16,6 +16,7 @@ from __future__ import annotations
 
 import os
 import subprocess
+import sys
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -38,12 +39,18 @@ COMMANDS = {
 
 
 def run_help(args: list[str]) -> str:
-    cmd = ["python", "-m", "ingen_fab.cli", *args, "--help"]
+    # The interpreter running this script has ingen_fab installed; a bare "python"
+    # on PATH may not, and its traceback would be written into the snippet.
+    cmd = [sys.executable, "-m", "ingen_fab.cli", *args, "--help"]
     env = dict(**os.environ)
-    # Ensure validation passes for subcommands that check env
-    env.setdefault("FABRIC_ENVIRONMENT", "development")
-    env.setdefault("FABRIC_WORKSPACE_REPO_DIR", str(ROOT / "sample_project"))
-    result = subprocess.run(cmd, capture_output=True, text=True, check=False, env=env)
+    # Fixed inputs, whatever the caller's shell exports: the snippets are committed,
+    # so a regeneration must be reproducible. The CLI echoes both values, hence the
+    # packaged sample project by its repo-relative path and the `local` environment.
+    env["FABRIC_ENVIRONMENT"] = "local"
+    env["FABRIC_WORKSPACE_REPO_DIR"] = "ingen_fab/sample_project"
+    result = subprocess.run(
+        cmd, capture_output=True, text=True, check=False, env=env, cwd=ROOT
+    )
     out = result.stdout.strip()
     err = result.stderr.strip()
     # Some CLIs print help to stderr; include both to be safe.

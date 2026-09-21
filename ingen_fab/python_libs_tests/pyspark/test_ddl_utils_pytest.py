@@ -26,21 +26,41 @@ def test_check_if_script_has_run_false_initially(
     assert ddl_utility.check_if_script_has_run(script_id) is False
 
 
-def test_run_once_auto_guid(ddl_utility: DDLUtilsInterface) -> None:
-    called: dict[str, bool] = {"ran": False}
+_auto_guid_calls: dict[str, bool] = {"ran": False}
 
-    def create_example_table() -> None:
-        called["ran"] = True
+
+def create_example_table() -> None:
+    # Module-level on purpose: with guid=None, run_once hashes the function's
+    # source (inspect.getsource), which only works for top-level named functions.
+    _auto_guid_calls["ran"] = True
+
+
+def test_run_once_auto_guid(ddl_utility: DDLUtilsInterface) -> None:
+    _auto_guid_calls["ran"] = False
 
     ddl_utility.run_once(
         work_fn=create_example_table, object_name="example_table", guid=None
     )
-    assert called["ran"] is True
+    assert _auto_guid_calls["ran"] is True
     # Should now be marked as run
     assert (
         ddl_utility.check_if_script_has_run("example_table") is True
         or ddl_utility.check_if_script_has_run("example_table") is False
     )  # Accept both if implementation varies
+
+
+def test_run_once_auto_guid_needs_retrievable_source(
+    ddl_utility: DDLUtilsInterface,
+) -> None:
+    # A function whose source inspect.getsource cannot read (built with exec, as in
+    # a notebook cell string) cannot be hashed into a guid and must be rejected.
+    namespace: dict = {}
+    exec("def dynamic() -> None:\n    pass\n", namespace)
+
+    with pytest.raises(ValueError, match="named function defined at top-level"):
+        ddl_utility.run_once(
+            work_fn=namespace["dynamic"], object_name="dynamic_table", guid=None
+        )
 
 
 def test_run_once_explicit_guid(ddl_utility: DDLUtilsInterface) -> None:

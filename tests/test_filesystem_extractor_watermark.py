@@ -8,26 +8,28 @@ Tests the new watermark-based incremental extraction feature including:
 - Watermark updates after extraction
 """
 
-import pytest
 from datetime import datetime
-from unittest.mock import Mock, patch, MagicMock
+from unittest.mock import Mock, patch
 
+import pytest
+
+from ingen_fab.python_libs.common.notebookfs_utils import FilesystemConnection
+from ingen_fab.python_libs.pyspark.ingestion.common.config import (
+    FileFormatParams,
+    FileSystemExtractionParams,
+    ResourceConfig,
+    SourceConfig,
+)
 from ingen_fab.python_libs.pyspark.ingestion.extraction.extractors.filesystem_extractor import (
     FileSystemExtractor,
     FolderInfo,
 )
-from ingen_fab.python_libs.pyspark.ingestion.common.config import (
-    ResourceConfig,
-    SourceConfig,
-    FileFormatParams,
-    FileSystemExtractionParams,
-)
-from ingen_fab.python_libs.common.fsspec_utils import FilesystemConnection
 from ingen_fab.python_libs.pyspark.lakehouse_utils import FileInfo
 
-
 # Module path for patching (correct path with 'extraction.extractors')
-MODULE_PATH = "ingen_fab.python_libs.pyspark.ingestion.extraction.extractors.filesystem_extractor"
+MODULE_PATH = (
+    "ingen_fab.python_libs.pyspark.ingestion.extraction.extractors.filesystem_extractor"
+)
 
 
 # ============================================================================
@@ -52,7 +54,7 @@ def mock_source_conn():
     mock_fs.info.return_value = {"last_modified": datetime(2025, 1, 15, 10, 0, 0)}
     return FilesystemConnection(
         fs=mock_fs,
-        base_url="abfss://source_ws@onelake.dfs.fabric.microsoft.com/source_lh.Lakehouse"
+        base_url="abfss://source_ws@onelake.dfs.fabric.microsoft.com/source_lh.Lakehouse",
     )
 
 
@@ -61,7 +63,7 @@ def mock_dest_conn():
     """Mock destination filesystem connection."""
     return FilesystemConnection(
         fs=Mock(),
-        base_url="abfss://dest_ws@onelake.dfs.fabric.microsoft.com/dest_lh.Lakehouse"
+        base_url="abfss://dest_ws@onelake.dfs.fabric.microsoft.com/dest_lh.Lakehouse",
     )
 
 
@@ -161,8 +163,7 @@ class TestFileSystemExtractionParamsWatermark:
     def test_incremental_column_accepts_modified_time(self):
         """incremental_column='modified_time' is valid."""
         params = FileSystemExtractionParams(
-            inbound_path="/test/",
-            incremental_column="modified_time"
+            inbound_path="/test/", incremental_column="modified_time"
         )
         assert params.incremental_column == "modified_time"
 
@@ -170,16 +171,16 @@ class TestFileSystemExtractionParamsWatermark:
         """incremental_column rejects invalid column names."""
         with pytest.raises(ValueError) as exc_info:
             FileSystemExtractionParams(
-                inbound_path="/test/",
-                incremental_column="invalid_column"
+                inbound_path="/test/", incremental_column="invalid_column"
             )
-        assert "must be 'modified_time' or a filename_metadata field name" in str(exc_info.value)
+        assert "must be 'modified_time' or a filename_metadata field name" in str(
+            exc_info.value
+        )
 
     def test_move_source_file_false_is_valid(self):
         """move_source_file=False is valid (copy mode)."""
         params = FileSystemExtractionParams(
-            inbound_path="/test/",
-            move_source_file=False
+            inbound_path="/test/", move_source_file=False
         )
         assert params.move_source_file is False
 
@@ -193,7 +194,12 @@ class TestFileWatermarkFiltering:
     """Tests for _filter_files_by_watermark method."""
 
     def test_filter_returns_all_files_when_no_incremental_column(
-        self, traditional_config, mock_extraction_logger, mock_source_conn, mock_dest_conn, sample_files
+        self,
+        traditional_config,
+        mock_extraction_logger,
+        mock_source_conn,
+        mock_dest_conn,
+        sample_files,
     ):
         """When incremental_column is None, return all files."""
         extractor = FileSystemExtractor(
@@ -209,7 +215,12 @@ class TestFileWatermarkFiltering:
         mock_extraction_logger.get_watermark.assert_not_called()
 
     def test_filter_returns_all_files_on_first_run(
-        self, watermark_config, mock_extraction_logger, mock_source_conn, mock_dest_conn, sample_files
+        self,
+        watermark_config,
+        mock_extraction_logger,
+        mock_source_conn,
+        mock_dest_conn,
+        sample_files,
     ):
         """When no watermark exists, return all files (first run)."""
         mock_extraction_logger.get_watermark.return_value = None  # No watermark yet
@@ -227,11 +238,18 @@ class TestFileWatermarkFiltering:
         mock_extraction_logger.get_watermark.assert_called_once()
 
     def test_filter_excludes_files_older_than_watermark(
-        self, watermark_config, mock_extraction_logger, mock_source_conn, mock_dest_conn, sample_files
+        self,
+        watermark_config,
+        mock_extraction_logger,
+        mock_source_conn,
+        mock_dest_conn,
+        sample_files,
     ):
         """Files with modified_time <= watermark are filtered out."""
         # Set watermark to 2025-01-10 - old_file should be excluded
-        mock_extraction_logger.get_watermark.return_value = datetime(2025, 1, 10, 0, 0, 0)
+        mock_extraction_logger.get_watermark.return_value = datetime(
+            2025, 1, 10, 0, 0, 0
+        )
 
         extractor = FileSystemExtractor(
             resource_config=watermark_config,
@@ -251,7 +269,9 @@ class TestFileWatermarkFiltering:
     ):
         """Files with modified_time > watermark are included."""
         # Set watermark to 2024-12-01 - both files should be included
-        mock_extraction_logger.get_watermark.return_value = datetime(2024, 12, 1, 0, 0, 0)
+        mock_extraction_logger.get_watermark.return_value = datetime(
+            2024, 12, 1, 0, 0, 0
+        )
 
         files = [
             FileInfo(
@@ -294,8 +314,14 @@ class TestCopyVsMoveExtraction:
     @patch(f"{MODULE_PATH}.move_file")
     @patch(f"{MODULE_PATH}.glob")
     def test_uses_move_file_when_move_source_file_true(
-        self, mock_glob, mock_move, mock_cleanup,
-        traditional_config, mock_extraction_logger, mock_source_conn, mock_dest_conn
+        self,
+        mock_glob,
+        mock_move,
+        mock_cleanup,
+        traditional_config,
+        mock_extraction_logger,
+        mock_source_conn,
+        mock_dest_conn,
     ):
         """Default behavior uses move_file (copy + delete)."""
         mock_glob.return_value = [
@@ -323,8 +349,14 @@ class TestCopyVsMoveExtraction:
     @patch(f"{MODULE_PATH}.copy_file")
     @patch(f"{MODULE_PATH}.glob")
     def test_uses_copy_file_when_move_source_file_false(
-        self, mock_glob, mock_copy, mock_cleanup,
-        watermark_config, mock_extraction_logger, mock_source_conn, mock_dest_conn
+        self,
+        mock_glob,
+        mock_copy,
+        mock_cleanup,
+        watermark_config,
+        mock_extraction_logger,
+        mock_source_conn,
+        mock_dest_conn,
     ):
         """When move_source_file=False, uses copy_file (no delete)."""
         mock_glob.return_value = [
@@ -352,8 +384,14 @@ class TestCopyVsMoveExtraction:
     @patch(f"{MODULE_PATH}.copy_file")
     @patch(f"{MODULE_PATH}.glob")
     def test_no_cleanup_when_copy_mode(
-        self, mock_glob, mock_copy, mock_cleanup,
-        watermark_config, mock_extraction_logger, mock_source_conn, mock_dest_conn
+        self,
+        mock_glob,
+        mock_copy,
+        mock_cleanup,
+        watermark_config,
+        mock_extraction_logger,
+        mock_source_conn,
+        mock_dest_conn,
     ):
         """Skips cleanup_empty_directories when using copy mode."""
         mock_glob.return_value = [
@@ -381,8 +419,14 @@ class TestCopyVsMoveExtraction:
     @patch(f"{MODULE_PATH}.move_file")
     @patch(f"{MODULE_PATH}.glob")
     def test_cleanup_runs_when_move_mode(
-        self, mock_glob, mock_move, mock_cleanup,
-        traditional_config, mock_extraction_logger, mock_source_conn, mock_dest_conn
+        self,
+        mock_glob,
+        mock_move,
+        mock_cleanup,
+        traditional_config,
+        mock_extraction_logger,
+        mock_source_conn,
+        mock_dest_conn,
     ):
         """cleanup_empty_directories runs when using move mode."""
         mock_glob.return_value = [
@@ -417,7 +461,12 @@ class TestWatermarkDuplicateBypass:
 
     @patch(f"{MODULE_PATH}.glob")
     def test_skips_duplicate_check_when_incremental_column_set(
-        self, mock_glob, watermark_config, mock_extraction_logger, mock_source_conn, mock_dest_conn
+        self,
+        mock_glob,
+        watermark_config,
+        mock_extraction_logger,
+        mock_source_conn,
+        mock_dest_conn,
     ):
         """When incremental_column is set, skip batch log duplicate check."""
         mock_glob.return_value = [
@@ -448,7 +497,12 @@ class TestWatermarkDuplicateBypass:
 
     @patch(f"{MODULE_PATH}.glob")
     def test_duplicate_check_still_runs_without_watermark(
-        self, mock_glob, traditional_config, mock_extraction_logger, mock_source_conn, mock_dest_conn
+        self,
+        mock_glob,
+        traditional_config,
+        mock_extraction_logger,
+        mock_source_conn,
+        mock_dest_conn,
     ):
         """Traditional mode still checks for duplicates."""
         mock_glob.return_value = [
@@ -459,7 +513,9 @@ class TestWatermarkDuplicateBypass:
                 modified_ms=1736899200000,
             )
         ]
-        mock_extraction_logger.check_file_already_extracted.return_value = True  # File is duplicate
+        mock_extraction_logger.check_file_already_extracted.return_value = (
+            True  # File is duplicate
+        )
 
         extractor = FileSystemExtractor(
             resource_config=traditional_config,
@@ -487,7 +543,12 @@ class TestWatermarkUpdate:
     """Tests for _update_watermark_for_files method."""
 
     def test_no_update_when_incremental_column_not_set(
-        self, traditional_config, mock_extraction_logger, mock_source_conn, mock_dest_conn, sample_files
+        self,
+        traditional_config,
+        mock_extraction_logger,
+        mock_source_conn,
+        mock_dest_conn,
+        sample_files,
     ):
         """Skip watermark update when not in watermark mode."""
         extractor = FileSystemExtractor(
@@ -497,12 +558,19 @@ class TestWatermarkUpdate:
             dest_conn=mock_dest_conn,
         )
 
-        extractor._update_watermark_for_files(sample_files, extract_batch_id="test-batch-123")
+        extractor._update_watermark_for_files(
+            sample_files, extract_batch_id="test-batch-123"
+        )
 
         mock_extraction_logger.update_watermark.assert_not_called()
 
     def test_updates_watermark_with_max_modified_time(
-        self, watermark_config, mock_extraction_logger, mock_source_conn, mock_dest_conn, sample_files
+        self,
+        watermark_config,
+        mock_extraction_logger,
+        mock_source_conn,
+        mock_dest_conn,
+        sample_files,
     ):
         """Updates watermark with max modified_time from extracted files."""
         extractor = FileSystemExtractor(
@@ -512,7 +580,9 @@ class TestWatermarkUpdate:
             dest_conn=mock_dest_conn,
         )
 
-        extractor._update_watermark_for_files(sample_files, extract_batch_id="test-batch-123")
+        extractor._update_watermark_for_files(
+            sample_files, extract_batch_id="test-batch-123"
+        )
 
         mock_extraction_logger.update_watermark.assert_called_once()
         call_args = mock_extraction_logger.update_watermark.call_args
@@ -556,7 +626,7 @@ class TestFolderWatermarkFiltering:
                         size=100,
                         modified_ms=1704067200000,  # 2024-01-01
                     )
-                ]
+                ],
             ),
             FolderInfo(
                 path="abfss://test/Files/inbound/2025/01/15/",
@@ -567,12 +637,17 @@ class TestFolderWatermarkFiltering:
                         size=200,
                         modified_ms=1736899200000,  # 2025-01-15
                     )
-                ]
+                ],
             ),
         ]
 
     def test_filter_folders_returns_all_when_no_incremental_column(
-        self, traditional_config, mock_extraction_logger, mock_source_conn, mock_dest_conn, sample_folders
+        self,
+        traditional_config,
+        mock_extraction_logger,
+        mock_source_conn,
+        mock_dest_conn,
+        sample_folders,
     ):
         """When incremental_column is None, return all folders."""
         extractor = FileSystemExtractor(
@@ -588,7 +663,12 @@ class TestFolderWatermarkFiltering:
         mock_extraction_logger.get_watermark.assert_not_called()
 
     def test_filter_folders_returns_all_on_first_run(
-        self, watermark_config, mock_extraction_logger, mock_source_conn, mock_dest_conn, sample_folders
+        self,
+        watermark_config,
+        mock_extraction_logger,
+        mock_source_conn,
+        mock_dest_conn,
+        sample_folders,
     ):
         """When no watermark exists, return all folders (first run)."""
         mock_extraction_logger.get_watermark.return_value = None
@@ -605,11 +685,18 @@ class TestFolderWatermarkFiltering:
         assert len(result) == 2
 
     def test_filter_folders_by_latest_file_timestamp(
-        self, watermark_config, mock_extraction_logger, mock_source_conn, mock_dest_conn, sample_folders
+        self,
+        watermark_config,
+        mock_extraction_logger,
+        mock_source_conn,
+        mock_dest_conn,
+        sample_folders,
     ):
         """Filter folders by latest_modified_ms when no control file."""
         # Set watermark to 2025-01-10 - old folder should be excluded
-        mock_extraction_logger.get_watermark.return_value = datetime(2025, 1, 10, 0, 0, 0)
+        mock_extraction_logger.get_watermark.return_value = datetime(
+            2025, 1, 10, 0, 0, 0
+        )
 
         extractor = FileSystemExtractor(
             resource_config=watermark_config,
@@ -659,7 +746,12 @@ class TestFolderControlFileReadiness:
 
     @patch(f"{MODULE_PATH}.file_exists")
     def test_filter_ready_folders_includes_folders_with_control_file(
-        self, mock_file_exists, folder_config_with_control, mock_extraction_logger, mock_source_conn, mock_dest_conn
+        self,
+        mock_file_exists,
+        folder_config_with_control,
+        mock_extraction_logger,
+        mock_source_conn,
+        mock_dest_conn,
     ):
         """_filter_ready_folders includes folders with control files."""
         mock_file_exists.return_value = True  # Control file exists
@@ -674,7 +766,7 @@ class TestFolderControlFileReadiness:
                         size=100,
                         modified_ms=1736899200000,
                     )
-                ]
+                ],
             ),
         ]
 
@@ -692,7 +784,12 @@ class TestFolderControlFileReadiness:
 
     @patch(f"{MODULE_PATH}.file_exists")
     def test_filter_ready_folders_excludes_folders_without_control_file(
-        self, mock_file_exists, folder_config_with_control, mock_extraction_logger, mock_source_conn, mock_dest_conn
+        self,
+        mock_file_exists,
+        folder_config_with_control,
+        mock_extraction_logger,
+        mock_source_conn,
+        mock_dest_conn,
     ):
         """_filter_ready_folders excludes folders without control files."""
         mock_file_exists.return_value = False  # Control file doesn't exist
@@ -707,7 +804,7 @@ class TestFolderControlFileReadiness:
                         size=100,
                         modified_ms=1736899200000,
                     )
-                ]
+                ],
             ),
         ]
 
@@ -734,8 +831,13 @@ class TestWatermarkExtractionFlow:
     @patch(f"{MODULE_PATH}.copy_file")
     @patch(f"{MODULE_PATH}.glob")
     def test_full_watermark_extraction_flow(
-        self, mock_glob, mock_copy,
-        watermark_config, mock_extraction_logger, mock_source_conn, mock_dest_conn
+        self,
+        mock_glob,
+        mock_copy,
+        watermark_config,
+        mock_extraction_logger,
+        mock_source_conn,
+        mock_dest_conn,
     ):
         """Full flow: discover files -> filter by watermark -> copy -> update watermark."""
         # Setup: one old file, one new file
@@ -754,7 +856,9 @@ class TestWatermarkExtractionFlow:
             ),
         ]
         # Watermark at 2025-01-10 - only new.csv should be extracted
-        mock_extraction_logger.get_watermark.return_value = datetime(2025, 1, 10, 0, 0, 0)
+        mock_extraction_logger.get_watermark.return_value = datetime(
+            2025, 1, 10, 0, 0, 0
+        )
         mock_copy.return_value = True
 
         extractor = FileSystemExtractor(
@@ -777,8 +881,13 @@ class TestWatermarkExtractionFlow:
     @patch(f"{MODULE_PATH}.copy_file")
     @patch(f"{MODULE_PATH}.glob")
     def test_first_run_extracts_all_files(
-        self, mock_glob, mock_copy,
-        watermark_config, mock_extraction_logger, mock_source_conn, mock_dest_conn
+        self,
+        mock_glob,
+        mock_copy,
+        watermark_config,
+        mock_extraction_logger,
+        mock_source_conn,
+        mock_dest_conn,
     ):
         """First run (no watermark) extracts all files."""
         mock_glob.return_value = [
@@ -825,7 +934,12 @@ class TestFilenameWatermarkConfig:
         params = FileSystemExtractionParams(
             inbound_path="/test/",
             filename_metadata=[
-                {"name": "file_date", "regex": r"(\d{8})", "type": "date", "format": "yyyyMMdd"}
+                {
+                    "name": "file_date",
+                    "regex": r"(\d{8})",
+                    "type": "date",
+                    "format": "yyyyMMdd",
+                }
             ],
             incremental_column="file_date",  # References filename_metadata field
         )
@@ -841,7 +955,9 @@ class TestFilenameWatermarkConfig:
                 ],
                 incremental_column="file_date",  # Not in filename_metadata
             )
-        assert "must be 'modified_time' or a filename_metadata field name" in str(exc_info.value)
+        assert "must be 'modified_time' or a filename_metadata field name" in str(
+            exc_info.value
+        )
 
     def test_incremental_column_accepts_integer_metadata_field(self):
         """incremental_column can reference an integer type metadata field."""
@@ -875,7 +991,12 @@ class TestFilenameIncrementalValueExtraction:
                 inbound_path="Files/inbound/test/",
                 discovery_pattern="*.csv",
                 filename_metadata=[
-                    {"name": "file_date", "regex": r"sales_(\d{8})\.csv", "type": "date", "format": "yyyyMMdd"}
+                    {
+                        "name": "file_date",
+                        "regex": r"sales_(\d{8})\.csv",
+                        "type": "date",
+                        "format": "yyyyMMdd",
+                    }
                 ],
                 incremental_column="file_date",
                 move_source_file=False,
@@ -919,7 +1040,11 @@ class TestFilenameIncrementalValueExtraction:
         )
 
     def test_extracts_date_from_filename(
-        self, filename_date_config, mock_extraction_logger, mock_source_conn, mock_dest_conn
+        self,
+        filename_date_config,
+        mock_extraction_logger,
+        mock_source_conn,
+        mock_dest_conn,
     ):
         """_get_incremental_value_from_filename extracts date correctly."""
         from datetime import date
@@ -943,7 +1068,11 @@ class TestFilenameIncrementalValueExtraction:
         assert result == date(2025, 1, 15)
 
     def test_extracts_integer_from_filename(
-        self, filename_int_config, mock_extraction_logger, mock_source_conn, mock_dest_conn
+        self,
+        filename_int_config,
+        mock_extraction_logger,
+        mock_source_conn,
+        mock_dest_conn,
     ):
         """_get_incremental_value_from_filename extracts integer correctly."""
         extractor = FileSystemExtractor(
@@ -966,7 +1095,11 @@ class TestFilenameIncrementalValueExtraction:
         assert isinstance(result, int)
 
     def test_returns_none_when_regex_doesnt_match(
-        self, filename_date_config, mock_extraction_logger, mock_source_conn, mock_dest_conn
+        self,
+        filename_date_config,
+        mock_extraction_logger,
+        mock_source_conn,
+        mock_dest_conn,
     ):
         """_get_incremental_value_from_filename returns None when regex doesn't match."""
         extractor = FileSystemExtractor(
@@ -1008,7 +1141,12 @@ class TestFilenameWatermarkFiltering:
                 inbound_path="Files/inbound/test/",
                 discovery_pattern="*.csv",
                 filename_metadata=[
-                    {"name": "file_date", "regex": r"sales_(\d{8})\.csv", "type": "date", "format": "yyyyMMdd"}
+                    {
+                        "name": "file_date",
+                        "regex": r"sales_(\d{8})\.csv",
+                        "type": "date",
+                        "format": "yyyyMMdd",
+                    }
                 ],
                 incremental_column="file_date",
                 move_source_file=False,
@@ -1022,7 +1160,11 @@ class TestFilenameWatermarkFiltering:
         )
 
     def test_filters_files_by_filename_date(
-        self, filename_date_config, mock_extraction_logger, mock_source_conn, mock_dest_conn
+        self,
+        filename_date_config,
+        mock_extraction_logger,
+        mock_source_conn,
+        mock_dest_conn,
     ):
         """Files are filtered by date extracted from filename."""
         from datetime import date
@@ -1059,7 +1201,11 @@ class TestFilenameWatermarkFiltering:
         assert result[0].name == "sales_20250115.csv"
 
     def test_includes_all_files_when_no_watermark(
-        self, filename_date_config, mock_extraction_logger, mock_source_conn, mock_dest_conn
+        self,
+        filename_date_config,
+        mock_extraction_logger,
+        mock_source_conn,
+        mock_dest_conn,
     ):
         """All files included on first run (no watermark)."""
         mock_extraction_logger.get_watermark.return_value = None
@@ -1111,7 +1257,12 @@ class TestFilenameWatermarkUpdate:
                 inbound_path="Files/inbound/test/",
                 discovery_pattern="*.csv",
                 filename_metadata=[
-                    {"name": "file_date", "regex": r"sales_(\d{8})\.csv", "type": "date", "format": "yyyyMMdd"}
+                    {
+                        "name": "file_date",
+                        "regex": r"sales_(\d{8})\.csv",
+                        "type": "date",
+                        "format": "yyyyMMdd",
+                    }
                 ],
                 incremental_column="file_date",
                 move_source_file=False,
@@ -1125,7 +1276,11 @@ class TestFilenameWatermarkUpdate:
         )
 
     def test_updates_watermark_with_max_filename_date(
-        self, filename_date_config, mock_extraction_logger, mock_source_conn, mock_dest_conn
+        self,
+        filename_date_config,
+        mock_extraction_logger,
+        mock_source_conn,
+        mock_dest_conn,
     ):
         """Watermark is updated with max date from extracted files."""
         from datetime import date
@@ -1180,7 +1335,12 @@ class TestFilenameWatermarkExtractionFlow:
                 inbound_path="Files/inbound/test/",
                 discovery_pattern="*.csv",
                 filename_metadata=[
-                    {"name": "file_date", "regex": r"sales_(\d{8})\.csv", "type": "date", "format": "yyyyMMdd"}
+                    {
+                        "name": "file_date",
+                        "regex": r"sales_(\d{8})\.csv",
+                        "type": "date",
+                        "format": "yyyyMMdd",
+                    }
                 ],
                 incremental_column="file_date",
                 move_source_file=False,
@@ -1196,8 +1356,13 @@ class TestFilenameWatermarkExtractionFlow:
     @patch(f"{MODULE_PATH}.copy_file")
     @patch(f"{MODULE_PATH}.glob")
     def test_full_filename_watermark_flow(
-        self, mock_glob, mock_copy,
-        filename_date_config, mock_extraction_logger, mock_source_conn, mock_dest_conn
+        self,
+        mock_glob,
+        mock_copy,
+        filename_date_config,
+        mock_extraction_logger,
+        mock_source_conn,
+        mock_dest_conn,
     ):
         """Full flow: discover -> filter by filename date -> copy -> update watermark."""
         from datetime import date

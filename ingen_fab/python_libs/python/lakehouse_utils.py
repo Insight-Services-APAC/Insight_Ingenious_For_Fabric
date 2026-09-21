@@ -35,6 +35,16 @@ class lakehouse_utils(DataStoreInterface):
         """Get the target lakehouse ID."""
         return self._target_lakehouse_id
 
+    @property
+    def target_workspace_name(self) -> str:
+        """Get the target workspace name (or ID if using ID-based config)."""
+        return self._target_workspace_id
+
+    @property
+    def target_store_name(self) -> str:
+        """Get the target lakehouse name (or ID if using ID-based config)."""
+        return self._target_lakehouse_id
+
     def lakehouse_tables_uri(self) -> str:
         """Get the ABFSS URI for the lakehouse Tables directory."""
         if config_utils._is_local_environment():

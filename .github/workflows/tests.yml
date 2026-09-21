@@ -1,0 +1,162 @@
+name: Tests
+
+# The `test` job at the end is the status check `.github/ruleset.yml` requires, so
+# this workflow runs for every push and pull request (no path filter: a skipped
+# required check is not a passed one).
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+  workflow_dispatch:
+
+concurrency:
+  group: tests-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  FABRIC_ENVIRONMENT: local
+  FABRIC_WORKSPACE_REPO_DIR: ingen_fab/sample_project
+
+jobs:
+  lint:
+    name: Lint changed files
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: astral-sh/setup-uv@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install dependencies
+        run: uv sync --group dev --locked
+
+      # The repository carries pre-existing ruff findings; only the files touched by
+      # the change are linted so the check stays meaningful without a bulk reformat.
+      - name: Ruff (changed Python files)
+        run: |
+          BASE="${{ github.event.pull_request.base.sha || github.event.before }}"
+          if [ -z "$BASE" ] || ! git cat-file -e "$BASE" 2>/dev/null; then
+            BASE=$(git rev-parse HEAD~1)
+          fi
+          FILES=$(git diff --name-only --diff-filter=ACMR "$BASE" HEAD -- '*.py')
+          if [ -z "$FILES" ]; then
+            echo "No Python files changed."
+            exit 0
+          fi
+          echo "$FILES"
+          uv run ruff check $FILES
+          uv run ruff format --check $FILES
+
+  offline:
+    name: Offline tests (tests/, common, python)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: astral-sh/setup-uv@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install dependencies
+        run: uv sync --group dev --locked
+
+      - name: Run offline tiers
+        run: |
+          uv run pytest tests/ \
+            ingen_fab/python_libs_tests/common \
+            ingen_fab/python_libs_tests/python \
+            -m "not spark and not database and not e2e" \
+            -p no:cacheprovider -q
+
+  spark:
+    name: Spark tests (pyspark libs)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - uses: astral-sh/setup-uv@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install dependencies
+        run: uv sync --group dev --locked
+
+      - name: Cache Spark/Ivy jars
+        uses: actions/cache@v4
+        with:
+          path: ~/.ivy2
+          key: ivy-${{ runner.os }}-${{ hashFiles('uv.lock') }}
+
+      - name: Run Spark tier
+        run: |
+          uv run pytest ingen_fab/python_libs_tests/pyspark tests/test_lakehouse_utils.py \
+            -m "spark" -p no:cacheprovider -q
+
+  database:
+    # Opt-in: the CPython warehouse/ddl tests need a live database.
+    name: Database tests (PostgreSQL)
+    if: github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: local
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: astral-sh/setup-uv@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install dependencies
+        run: uv sync --group dev --locked
+
+      - name: Run database tier
+        env:
+          POSTGRES_HOST: localhost
+          POSTGRES_PORT: '5432'
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DATABASE: local
+        run: |
+          uv run pytest ingen_fab/python_libs_tests/python \
+            -m "database" -p no:cacheprovider -q
+
+  test:
+    # Aggregate check with the exact name the ruleset requires. Runs even when a
+    # needed job fails or is cancelled, and fails in that case.
+    name: test
+    if: always()
+    needs: [lint, offline, spark]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check the results of the required jobs
+        run: |
+          echo "lint:    ${{ needs.lint.result }}"
+          echo "offline: ${{ needs.offline.result }}"
+          echo "spark:   ${{ needs.spark.result }}"
+          for r in "${{ needs.lint.result }}" "${{ needs.offline.result }}" "${{ needs.spark.result }}"; do
+            if [ "$r" != "success" ]; then
+              echo "A required job did not succeed."
+              exit 1
+            fi
+          done
