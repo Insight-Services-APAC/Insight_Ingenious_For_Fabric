@@ -242,7 +242,7 @@ class PipelineUtils:
                     # Check if we should retry
                     if attempt == max_retries or not is_retryable:
                         raise RuntimeError(
-                            f"HTTP {response.status_code}: {response.text}"
+                            f"Failed to trigger pipeline: HTTP {response.status_code}: {response.text}"
                         )
 
                     # Calculate delay based on error category

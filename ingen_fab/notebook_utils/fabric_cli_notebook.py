@@ -8,6 +8,8 @@ import jinja2
 import requests
 from azure.identity import DefaultAzureCredential
 
+from ingen_fab.notebook_utils.notebook_utils import required_filter
+
 
 class FabricCLINotebook:
     """Wrapper around the Fabric CLI for notebook operations."""
@@ -15,13 +17,16 @@ class FabricCLINotebook:
     def __init__(self, workspace_name: str) -> None:
         self.workspace_name = workspace_name
         self.jinja_env = jinja2.Environment(
-            loader=jinja2.FileSystemLoader(Path(__file__).resolve().parent)
+            loader=jinja2.FileSystemLoader(
+                Path(__file__).resolve().parent / "templates" / "platform_testing"
+            )
         )
+        self.jinja_env.filters["required"] = required_filter
         self.platform_file_template = self.jinja_env.get_template(
             "platform_file_template.json.jinja"
         )
         self.notebook_content_template = self.jinja_env.get_template(
-            "notebook-content_template.py.jinja"
+            "notebook-content_template-python.py.jinja"
         )
 
     def generate_functional_test_notebook(self):

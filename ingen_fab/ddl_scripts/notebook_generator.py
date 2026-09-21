@@ -36,7 +36,9 @@ class NotebookGenerator(BaseNotebookCompiler):
         fabric_workspace_repo_dir: str | None = None,
     ):
         self.generation_mode = generation_mode
-        self.language_group = "synapse_pyspark"  # Use PySpark for both lakehouse and warehouse
+        self.language_group = (
+            "synapse_pyspark"  # Use PySpark for both lakehouse and warehouse
+        )
         self.output_mode = output_mode
         self.base_dir = Path.cwd()
 
@@ -97,10 +99,10 @@ class NotebookGenerator(BaseNotebookCompiler):
         # TODO: Create configuration templates if needed
         # For now, create a simple placeholder notebook
         rendered_config = f"""# Configuration Notebook for {self.entities_folder}
-        
+
 # This is a placeholder configuration notebook
 # Add configuration logic here as needed
-        
+
 print(f"Configuration notebook for {self.entities_folder}")
 """
 
@@ -197,7 +199,7 @@ print(f"Configuration notebook for {self.entities_folder}")
                 "target_workspace_id": "example-workspace-id",
                 "language_group": self.language_group,
             }
-            
+
             # Add mode-specific variables
             if self.generation_mode == NotebookGenerator.GenerationMode.warehouse:
                 template_vars["target_warehouse_id"] = "example-warehouse-id"
@@ -206,7 +208,9 @@ print(f"Configuration notebook for {self.entities_folder}")
                 if file_path.suffix == ".sql":
                     template_vars["use_warehouse_execution"] = True
                     template_vars["use_run_once_tracking"] = True
-                    template_vars["warehouse_connection_var"] = "du"  # Variable name for warehouse DDL utils
+                    template_vars["warehouse_connection_var"] = (
+                        "du"  # Variable name for warehouse DDL utils
+                    )
                     template_vars["sql_file_name"] = file_path.name
             else:
                 template_vars["target_lakehouse_id"] = "example-lakehouse-id"
@@ -214,7 +218,7 @@ print(f"Configuration notebook for {self.entities_folder}")
                 if file_path.suffix == ".sql":
                     template_vars["use_warehouse_execution"] = False
                     template_vars["use_run_once_tracking"] = False
-                    
+
             rendered_cell = cell_template.render(**template_vars)
 
             # Add cell to the list
@@ -231,12 +235,16 @@ print(f"Configuration notebook for {self.entities_folder}")
             "cells": cells,
             "language_group": self.language_group,
         }
-        
+
         if self.generation_mode == NotebookGenerator.GenerationMode.warehouse:
-            template_vars["target_warehouse_config_prefix"] = target_lakehouse_config_prefix
+            template_vars["target_warehouse_config_prefix"] = (
+                target_lakehouse_config_prefix
+            )
         else:
-            template_vars["target_lakehouse_config_prefix"] = target_lakehouse_config_prefix
-            
+            template_vars["target_lakehouse_config_prefix"] = (
+                target_lakehouse_config_prefix
+            )
+
         rendered_notebook = notebook_template.render(**template_vars)
 
         # Create notebook with platform file
@@ -278,21 +286,25 @@ print(f"Configuration notebook for {self.entities_folder}")
                     "total": len(notebook_names),
                 }
             )  # Render the orchestrator notebook
-        
+
         # Use appropriate variable names and entity name based on generation mode
         template_vars = {
             "notebooks": notebooks,
             "total_notebooks": len(notebook_names),
             "language_group": self.language_group,
         }
-        
+
         if self.generation_mode == NotebookGenerator.GenerationMode.warehouse:
             template_vars["warehouse_name"] = entity_name
-            template_vars["target_warehouse_config_prefix"] = target_lakehouse_config_prefix
+            template_vars["target_warehouse_config_prefix"] = (
+                target_lakehouse_config_prefix
+            )
         else:
             template_vars["lakehouse_name"] = entity_name
-            template_vars["target_lakehouse_config_prefix"] = target_lakehouse_config_prefix
-            
+            template_vars["target_lakehouse_config_prefix"] = (
+                target_lakehouse_config_prefix
+            )
+
         orchestrator_content = orchestrator_template.render(**template_vars)
 
         # Create notebook with platform file
@@ -313,7 +325,7 @@ print(f"Configuration notebook for {self.entities_folder}")
             template_name = f"ddl/{self.generation_mode.lower()}/orchestrator_notebook_all_warehouses.py.jinja"
         else:
             template_name = f"ddl/{self.generation_mode.lower()}/orchestrator_notebook_all_lakehouses.py.jinja"
-        
+
         all_entities_template = self.load_template(template_name)
 
         # Prepare entity data.
@@ -324,8 +336,8 @@ print(f"Configuration notebook for {self.entities_folder}")
                     "name": name,
                     "orchestrator_name": f"00_orchestrator_{name}_{self.generation_mode.lower()}_ddl_scripts",
                 }
-            )  
-        
+            )
+
         # Determine template variables based on generation mode
         if self.generation_mode == NotebookGenerator.GenerationMode.warehouse:
             template_vars = {
@@ -339,7 +351,7 @@ print(f"Configuration notebook for {self.entities_folder}")
                 "total_lakehouses": len(entities),
                 "language_group": self.language_group,
             }
-            
+
         # Render the orchestrator notebook
         orchestrator_content = all_entities_template.render(**template_vars)
 
@@ -378,8 +390,11 @@ print(f"Configuration notebook for {self.entities_folder}")
         combined_content = gpl.gather_files(
             lib_path, libs_to_include
         )  # Call the method to gather and process files
-        # Write to lib.py.jinja template
-        lib_template_path = self.templates_dir / "lib.py.jinja"
+        # Write to the lib.py.jinja template of the current generation mode
+        # (templates/ddl/<lakehouse|warehouse>/lib.py.jinja)
+        lib_template_path = (
+            self.templates_dirs[0] / self.generation_mode.lower() / "lib.py.jinja"
+        )
 
         try:
             with lib_template_path.open("w", encoding="utf-8") as f:

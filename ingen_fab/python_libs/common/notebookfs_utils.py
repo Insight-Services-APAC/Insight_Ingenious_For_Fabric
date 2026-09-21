@@ -1,10 +1,12 @@
-import os
-import logging
-from dataclasses import dataclass
-from typing import List, Dict, Any, Tuple
-from fnmatch import fnmatch
+from __future__ import annotations
 
-from notebookutils import mssparkutils # type: ignore
+import logging
+import os
+from dataclasses import dataclass
+from fnmatch import fnmatch
+from typing import Any, Dict, List, Tuple
+
+from notebookutils import mssparkutils  # type: ignore
 
 from ingen_fab.python_libs.pyspark.lakehouse_utils import FileInfo
 
@@ -14,6 +16,7 @@ logger = logging.getLogger(__name__)
 @dataclass
 class FilesystemConnection:
     """Filesystem client and base URL bundle for dependency injection."""
+
     fs: mssparkutils.fs
     base_url: str
 
@@ -35,6 +38,7 @@ class FilesystemConnection:
         fs, base_url = _get_filesystem_client(connection_params)
         return cls(fs=fs, base_url=base_url)
 
+
 def build_onelake_url(workspace_name: str, lakehouse_name: str, path: str = "") -> str:
     """
     Build OneLake ABFSS URL from workspace and lakehouse names.
@@ -52,7 +56,9 @@ def build_onelake_url(workspace_name: str, lakehouse_name: str, path: str = "") 
         lakehouse_name = f"{lakehouse_name}.Lakehouse"
 
     # Build base URL
-    base_url = f"abfss://{workspace_name}@onelake.dfs.fabric.microsoft.com/{lakehouse_name}"
+    base_url = (
+        f"abfss://{workspace_name}@onelake.dfs.fabric.microsoft.com/{lakehouse_name}"
+    )
 
     # Add path if provided
     if path:
@@ -61,7 +67,10 @@ def build_onelake_url(workspace_name: str, lakehouse_name: str, path: str = "") 
 
     return base_url
 
-def _get_filesystem_client(connection_params: Dict[str, Any]) -> Tuple[mssparkutils.fs, str]:
+
+def _get_filesystem_client(
+    connection_params: Dict[str, Any],
+) -> Tuple[mssparkutils.fs, str]:
     """
     Return mounted mssparkutils filesystem for OneLake using.
 
@@ -103,9 +112,10 @@ def _get_filesystem_client(connection_params: Dict[str, Any]) -> Tuple[mssparkut
             "  2. bucket_url (full ABFSS URL mode)"
         )
 
-    #mssparkutils.fs.mount(bucket_url, "/mnt/temp_mount")  # Mount to a temp location to get fs client
+    # mssparkutils.fs.mount(bucket_url, "/mnt/temp_mount")  # Mount to a temp location to get fs client
 
     return mssparkutils.fs, bucket_url
+
 
 def copy_file(
     source_fs: mssparkutils.fs,
@@ -135,7 +145,7 @@ def copy_file(
     except Exception as e:
         logger.error(f"✗ Invalid destination path {dest_path}: {e}")
         return False
-    
+
     # Only attempt to create directory if dest_dir is not empty (i.e., dest_path is not at root)
     try:
         if dest_dir and not dest_fs.exists(dest_dir):
@@ -143,7 +153,7 @@ def copy_file(
     except Exception as e:
         logger.error(f"✗ Failed to create destination directory {dest_dir}: {e}")
         return False
-    
+
     # Copy file
     try:
         source_fs.cp(source_path, dest_path)
@@ -155,11 +165,12 @@ def copy_file(
         logger.info(f"✓ Successfully copied {source_path} → {dest_path}")
     return True
 
+
 def move_file(
     source_fs: mssparkutils.fs,
     source_path: str,
     dest_fs: mssparkutils.fs,
-    dest_path: str
+    dest_path: str,
 ) -> bool:
     """
     Move file from source to destination using fs.cp() + delete.
@@ -176,7 +187,7 @@ def move_file(
     # Copy file from source to destination
     if not copy_file(source_fs, source_path, dest_fs, dest_path, quietly=True):
         return False
-    
+
     try:
         # Delete source after successful copy
         source_fs.rm(source_path)
@@ -186,6 +197,7 @@ def move_file(
 
     logger.info(f"✓ Successfully moved {source_path} → {dest_path}")
     return True
+
 
 def glob(
     fs: mssparkutils.fs,
@@ -212,7 +224,7 @@ def glob(
     """
     try:
         files = fs.ls(path)
-    except Exception as e:
+    except Exception:
         logger.error(f"Path not found: {path}")
         return []
 
@@ -241,7 +253,16 @@ def glob(
     if pattern != "*":
         files = [f for f in files if fnmatch(os.path.basename(f.name), pattern)]
 
-    return [FileInfo(path=f.path, name=os.path.basename(f.name), size=f.size, modified_ms=f.modifyTime) for f in files]
+    return [
+        FileInfo(
+            path=f.path,
+            name=os.path.basename(f.name),
+            size=f.size,
+            modified_ms=f.modifyTime,
+        )
+        for f in files
+    ]
+
 
 def file_exists(fs: mssparkutils.fs, file_path: str) -> bool:
     """
@@ -260,6 +281,7 @@ def file_exists(fs: mssparkutils.fs, file_path: str) -> bool:
         logger.warning(f"Error checking existence of {file_path}")
         return False
 
+
 def is_directory_empty(fs: mssparkutils.fs, directory_path: str) -> bool:
     """
     Check if directory is empty using fsspec.
@@ -276,6 +298,7 @@ def is_directory_empty(fs: mssparkutils.fs, directory_path: str) -> bool:
         return len(items) == 0
     except (FileNotFoundError, Exception):
         return True  # Directory doesn't exist = empty
+
 
 def cleanup_empty_directories(
     fs: mssparkutils.fs,
