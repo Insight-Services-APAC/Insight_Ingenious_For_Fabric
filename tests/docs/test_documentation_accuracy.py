@@ -179,6 +179,11 @@ class TestDocumentationAccuracy:
                 # (e.g. "ddl_help.md" -> "ddl", "deploy_get_metadata_help.md" -> "deploy");
                 # the CLI file only names the groups.
                 command = snippet_file.stem.replace("_help", "").split("_")[0]
+                snippet = snippet_file.read_text(encoding="utf-8")
+                assert "Usage:" in snippet and "Traceback" not in snippet, (
+                    f"{snippet_file.name} does not contain CLI help output; "
+                    "regenerate it with scripts/refresh_cli_help.sh from the project venv"
+                )
                 if command != "root":
                     # Verify command exists in CLI
                     cli_source = self.cli_file.read_text(encoding="utf-8")

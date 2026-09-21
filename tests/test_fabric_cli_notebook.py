@@ -1,3 +1,4 @@
+import json
 import pathlib
 import re
 from unittest import mock
@@ -75,3 +76,22 @@ def test_run_returns_none_when_cli_prints_nothing():
     nb = FabricCLINotebook("ws")
     with mock.patch("subprocess.run", return_value=mock.Mock(stdout="", returncode=0)):
         assert nb.run("nb") is None
+
+
+def test_generate_functional_test_notebook(tmp_path):
+    """The platform-testing templates need notebook_name, guid and test_scripts; the
+    generator supplies them and writes a .platform file plus notebook-content.py."""
+    nb = FabricCLINotebook("ws")
+
+    folder = nb.generate_functional_test_notebook(
+        notebook_name="smoke", test_scripts="print('hi')", output_dir=tmp_path
+    )
+
+    assert folder == tmp_path / "smoke"
+    platform = json.loads((folder / ".platform").read_text(encoding="utf-8"))
+    assert platform["metadata"]["displayName"] == "smoke"
+    assert len(platform["config"]["logicalId"]) == 36
+    content = (folder / "notebook-content.py").read_text(encoding="utf-8")
+    assert "print('hi')" in content
+    # varlib tokens survive rendering for fabric-cicd to substitute at deploy time
+    assert "{{varlib:config_workspace_id}}" in content

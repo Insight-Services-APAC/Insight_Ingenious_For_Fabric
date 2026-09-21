@@ -1,8 +1,24 @@
 ```text
-Traceback (most recent call last):
-  File "<frozen runpy>", line 198, in _run_module_as_main
-  File "<frozen runpy>", line 88, in _run_code
-  File "C:\GitHub_Repos\Insight_Ingenious_For_Fabric\ingen_fab\cli.py", line 9, in <module>
-    import lazy_import
-ModuleNotFoundError: No module named 'lazy_import'
+Falling back to FABRIC_WORKSPACE_REPO_DIR environment variable.
+Falling back to FABRIC_ENVIRONMENT environment variable.
+Using Fabric workspace repo directory: ingen_fab/sample_project
+Using Fabric environment: local
+
+ Usage: python -m ingen_fab.cli test [OPTIONS] COMMAND [ARGS]...
+
+ Commands for testing notebooks and Python blocks.
+
+
+╭─ Options ────────────────────────────────────────────────────────────────────╮
+│ --help          Show this message and exit.                                  │
+╰──────────────────────────────────────────────────────────────────────────────╯
+╭─ Commands ───────────────────────────────────────────────────────────────────╮
+│ test-python-block                                                            │
+│ run-simple-notebook                                                          │
+│ run-livy-notebook                                                            │
+│ local                 Commands for testing libraries and Python blocks       │
+│                       locally.                                               │
+│ platform              Commands for testing libraries and notebooks in the    │
+│                       Fabric platform.                                       │
+╰──────────────────────────────────────────────────────────────────────────────╯
 ```

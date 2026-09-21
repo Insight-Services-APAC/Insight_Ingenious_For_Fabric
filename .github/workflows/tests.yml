@@ -1,18 +1,13 @@
 name: Tests
 
+# The `test` job at the end is the status check `.github/ruleset.yml` requires, so
+# this workflow runs for every push and pull request (no path filter: a skipped
+# required check is not a passed one).
 on:
   push:
     branches: [ main ]
-    paths-ignore:
-      - 'docs/**'
-      - 'mkdocs.yml'
-      - '**/README.md'
   pull_request:
     branches: [ main ]
-    paths-ignore:
-      - 'docs/**'
-      - 'mkdocs.yml'
-      - '**/README.md'
   workflow_dispatch:
 
 concurrency:
@@ -145,3 +140,23 @@ jobs:
         run: |
           uv run pytest ingen_fab/python_libs_tests/python \
             -m "database" -p no:cacheprovider -q
+
+  test:
+    # Aggregate check with the exact name the ruleset requires. Runs even when a
+    # needed job fails or is cancelled, and fails in that case.
+    name: test
+    if: always()
+    needs: [lint, offline, spark]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check the results of the required jobs
+        run: |
+          echo "lint:    ${{ needs.lint.result }}"
+          echo "offline: ${{ needs.offline.result }}"
+          echo "spark:   ${{ needs.spark.result }}"
+          for r in "${{ needs.lint.result }}" "${{ needs.offline.result }}" "${{ needs.spark.result }}"; do
+            if [ "$r" != "success" ]; then
+              echo "A required job did not succeed."
+              exit 1
+            fi
+          done

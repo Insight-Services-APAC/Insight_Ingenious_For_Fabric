@@ -1,8 +1,25 @@
 ```text
-Traceback (most recent call last):
-  File "<frozen runpy>", line 198, in _run_module_as_main
-  File "<frozen runpy>", line 88, in _run_code
-  File "C:\GitHub_Repos\Insight_Ingenious_For_Fabric\ingen_fab\cli.py", line 9, in <module>
-    import lazy_import
-ModuleNotFoundError: No module named 'lazy_import'
+Falling back to FABRIC_WORKSPACE_REPO_DIR environment variable.
+Falling back to FABRIC_ENVIRONMENT environment variable.
+Using Fabric workspace repo directory: ingen_fab/sample_project
+Using Fabric environment: local
+
+ Usage: python -m ingen_fab.cli dbt [OPTIONS] COMMAND [ARGS]...
+
+ Proxy commands to dbt_wrapper inside the Fabric workspace repo.
+
+
+╭─ Options ────────────────────────────────────────────────────────────────────╮
+│ --help          Show this message and exit.                                  │
+╰──────────────────────────────────────────────────────────────────────────────╯
+╭─ Commands ───────────────────────────────────────────────────────────────────╮
+│ create-notebooks      Create Fabric notebooks from dbt-generated Python      │
+│                       notebooks.                                             │
+│ convert-metadata      Convert cached lakehouse metadata to dbt metaextracts  │
+│                       format.                                                │
+│ generate-schema-yml   Convert cached lakehouse metadata to dbt schema.yml    │
+│                       format for a lakehouse and layer.                      │
+│ exec                  Run dbt_wrapper from within the Fabric workspace repo, │
+│                       then return to the original directory.                 │
+╰──────────────────────────────────────────────────────────────────────────────╯
 ```
