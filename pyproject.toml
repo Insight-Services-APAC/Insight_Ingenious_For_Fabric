@@ -103,6 +103,8 @@ extend-select = ["I"]
 ignore = ["E402"]
 
 [tool.ruff]
+# Explicit paths (pre-commit, the changed-files lint job) respect the exclude list too.
+force-exclude = true
 exclude = [
     "sample_project",
     "er_sample_project",
