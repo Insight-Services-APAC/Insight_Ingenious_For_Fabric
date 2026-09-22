@@ -188,8 +188,22 @@ def test_results_on_exception_mark_missing_attempted_items_failed():
     assert results["lh.lakehouse"].item_type == "Lakehouse"
 
 
-def test_results_without_error_ignore_attempted_list():
-    assert publish_results_from_responses(None, ["a.Notebook"]) == []
+def test_attempted_item_without_response_is_not_published():
+    """Seen live: fabric-cicd 1.3 silently skips an item whose type it does not accept
+    (a misspelt type in .platform), returning no response and no error. The item must
+    not vanish from the summary; it is reported as failed with a clear reason."""
+    results = publish_results_from_responses(
+        {"Notebook": {"a": {"status_code": 200}}}, ["a.Notebook", "b.Notebok"]
+    )
+    by_key = {r.key: r for r in results}
+    assert by_key["a.notebook"].success
+    assert not by_key["b.notebok"].success
+    assert "not published" in by_key["b.notebok"].error
+    assert "Notebok" in by_key["b.notebok"].error
+
+
+def test_no_responses_and_no_attempted_gives_no_results():
+    assert publish_results_from_responses(None) == []
 
 
 def test_publish_items_maps_the_library_return(library):

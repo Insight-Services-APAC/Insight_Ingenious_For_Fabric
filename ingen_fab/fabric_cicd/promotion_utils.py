@@ -48,6 +48,12 @@ class PublishResult:
         return f"{self.name}.{self.item_type}".lower()
 
 
+NOT_PUBLISHED_ERROR = (
+    "not published: fabric-cicd collected no response for this item (item type "
+    "'{item_type}' not accepted by the library, or outside item_type_in_scope)"
+)
+
+
 def _status_code(response: Any) -> Optional[int]:
     """Pull the HTTP status code out of one collected response.
 
@@ -75,9 +81,9 @@ def publish_results_from_responses(
         responses: ``{item_type: {item_name: response}}`` as returned by
             ``publish_all_items`` with ``enable_response_collection``; ``None`` when nothing
             was collected.
-        attempted: The ``items_to_include`` keys (``name.Type``) that were sent. When
-            ``error`` is given, every attempted item without a collected response is
-            reported as failed with that error.
+        attempted: The ``items_to_include`` keys (``name.Type``) that were sent. Every
+            attempted item without a collected response is reported as failed: with
+            ``error`` when publishing raised, otherwise as "not published".
         error: The exception that interrupted publishing, if any.
     """
     results: list[PublishResult] = []
@@ -98,16 +104,23 @@ def publish_results_from_responses(
             results.append(result)
             seen.add(result.key)
 
-    if error is not None and attempted:
-        for key in attempted:
-            if key.lower() in seen or "." not in key:
-                continue
-            name, _, item_type = key.rpartition(".")
-            results.append(
-                PublishResult(
-                    name=name, item_type=item_type, success=False, error=str(error)
-                )
+    # An attempted item with no collected response was not published: either publishing
+    # raised before reaching it, or fabric-cicd skipped it without an error (an item type it
+    # does not accept, or one outside item_type_in_scope). Both are failures for the caller.
+    for key in attempted or []:
+        if key.lower() in seen or "." not in key:
+            continue
+        name, _, item_type = key.rpartition(".")
+        results.append(
+            PublishResult(
+                name=name,
+                item_type=item_type,
+                success=False,
+                error=str(error)
+                if error is not None
+                else NOT_PUBLISHED_ERROR.format(item_type=item_type),
             )
+        )
     return results
 
 
