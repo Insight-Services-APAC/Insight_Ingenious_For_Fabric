@@ -210,9 +210,11 @@ ruleset requires. Running the trees separately matters: `tests/conftest.py` inst
 leak between them shows up there.
 
 The CLI help snippets under `docs/snippets/cli/` are generated files. Regenerate them from the
-project's own interpreter (`scripts/refresh_cli_help.sh`, or `python
-scripts/generate_cli_help_snippets.py`) and check that each file starts with a usage block; the
-documentation tests fail on a snippet that holds a traceback.
+project's own interpreter on Linux, for example inside the dev container
+(`scripts/refresh_cli_help.sh`, or `python scripts/generate_cli_help_snippets.py`): the
+output is byte-for-byte reproducible there, while a Windows console renders the same help
+with backslash paths and different box wrapping. Check that each file starts with a usage
+block; the documentation tests fail on a snippet that holds a traceback.
 
 ### 3. Documentation
 
