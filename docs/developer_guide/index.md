@@ -166,22 +166,53 @@ git commit -m "Add new feature: description"
 
 ### 2. Testing
 
+The suite is split into tiers by pytest marker (registered in `pytest.ini`, which takes
+precedence over `pyproject.toml`), so the part that needs no infrastructure runs anywhere and
+the rest is opted into:
+
+| Tier | Marker | Needs | Where it runs in CI |
+| --- | --- | --- | --- |
+| Offline | (none) | nothing beyond the `dev` dependency group | `offline` job, every push and PR |
+| Spark | `spark` | a JVM (JDK 17): the dev container, or `actions/setup-java` | `spark` job, every push and PR |
+| Database | `database` | a PostgreSQL (the `local` environment's warehouse dialect) | `database` job, `workflow_dispatch` only |
+| Documentation | `docs` | nothing; heuristic checks of docs against code, two are `xfail` | inside the offline tier |
+| End to end | `e2e` | live network access | not in CI |
+
 ```bash
-# Run all tests
-pytest
-
-# Run specific test modules
-pytest ./tests/test_cli.py -v
-pytest ./ingen_fab/python_libs_tests/python/test_warehouse_utils_pytest.py -v
-
-# Run with coverage
-pytest --cov=ingen_fab --cov-report=html
-
-# Test Python libraries locally (requires FABRIC_ENVIRONMENT=local)
 export FABRIC_ENVIRONMENT=local
-ingen_fab test local python
-ingen_fab test local pyspark
+export FABRIC_WORKSPACE_REPO_DIR=ingen_fab/sample_project
+
+# Offline tier: what CI runs on every change (about ten seconds)
+pytest tests/ ingen_fab/python_libs_tests/common ingen_fab/python_libs_tests/python \
+  -m "not spark and not database and not e2e"
+
+# Spark tier, from inside the dev container (or anywhere with a JDK 17 on PATH)
+pytest ingen_fab/python_libs_tests/pyspark tests/test_lakehouse_utils.py -m spark
+
+# Database tier: start a PostgreSQL first, then point the library at it
+docker run -e POSTGRES_PASSWORD=postgres -e POSTGRES_DB=local -p 5432:5432 -d postgres:16
+export POSTGRES_HOST=localhost POSTGRES_PORT=5432 POSTGRES_USER=postgres \
+       POSTGRES_PASSWORD=postgres POSTGRES_DATABASE=local
+pytest ingen_fab/python_libs_tests/python -m database
+
+# One library's tests through the CLI (resolves test_<lib>_pytest.py)
+ingen_fab test local python warehouse_utils
+ingen_fab test local pyspark lakehouse_utils
+
+# Coverage
+pytest --cov=ingen_fab --cov-report=html
 ```
+
+`.github/workflows/tests.yml` runs the `lint` (ruff on changed files), `offline` and `spark`
+jobs on every push and pull request and folds them into the `test` status check the branch
+ruleset requires. Running the trees separately matters: `tests/conftest.py` installs a
+`notebookutils` stand-in, and the CI Spark job runs both Spark paths in one session so any
+leak between them shows up there.
+
+The CLI help snippets under `docs/snippets/cli/` are generated files. Regenerate them from the
+project's own interpreter (`scripts/refresh_cli_help.sh`, or `python
+scripts/generate_cli_help_snippets.py`) and check that each file starts with a usage block; the
+documentation tests fail on a snippet that holds a traceback.
 
 ### 3. Documentation
 

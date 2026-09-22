@@ -20,13 +20,17 @@ Reference for environment variables used by the CLI and deploy workflows.
 | `POSTGRES_USER` | Local testing | PostgreSQL user (default: postgres) | `postgres` |
 | `POSTGRES_DATABASE` | Local testing | PostgreSQL database name (default: local) | `local` |
 | `WORKSPACE_MANIFEST_LOCATION` | Remote manifest file | Used to allow manifest file to be stored in config lakehouse | `config_lakehouse`, `local` |
-| `ITEM_TYPES_TO_DEPLOY` | Deploy | Used to control which type of artefacts are deployed | `VariableLibrary,Lakehouse`, '' |
+| `ITEM_TYPES_TO_DEPLOY` | Deploy | Used to control which type of artefacts are deployed; empty means every type fabric-cicd accepts | `VariableLibrary,Lakehouse`, '' |
+| `AUTO_UPDATE_ITEM_IDS` | Deploy (optional) | After a deploy, set `<name>_<type>_id` variables in the value set from the live item ids | `true` |
 | `IS_SINGLE_WORKSPACE` | Deploy | Used to allow unattended execution of ingen_fab init workspace | `Y` |
+| `FABRIC_CICD_FILE_LOGGING_ENABLED` | Deploy (optional) | Ask fabric-cicd to also write its log to `fabric_cicd.error.log` in the working directory (off by default since fabric-cicd 1.2) | `true` |
+| `FABRIC_CICD_RETRY_API_MAX_DURATION_SECONDS` | Deploy (optional) | Upper bound fabric-cicd applies to one API call including long-running-operation polling and retries (default 300) | `600` |
 
 Notes:
 - The CLI falls back to `FABRIC_WORKSPACE_REPO_DIR` and `FABRIC_ENVIRONMENT` if not provided by flags.
 - For local development and tests, set `FABRIC_ENVIRONMENT=local`.
-- When deploying to Fabric or extracting metadata, authenticate via browser or provide service principal credentials above.
+- When deploying to Fabric or extracting metadata, authenticate with `az login` or provide the service principal credentials above; the three `AZURE_*` variables are used together and take precedence over the Azure CLI login (see [Installation: Set Up Azure Authentication](../user_guide/installation.md#set-up-azure-authentication)).
+- `FABRIC_CICD_*` variables are read by the fabric-cicd library itself; the full list is in its [documentation](https://microsoft.github.io/fabric-cicd/latest/).
 
 Quick setup:
 
@@ -51,4 +55,3 @@ Quick setup:
     $env:AZURE_CLIENT_ID = "<client-id>"
     $env:AZURE_CLIENT_SECRET = "<secret>"
     ```
-

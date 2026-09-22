@@ -218,10 +218,19 @@ Now that you have the CLI installed, create your first project:
 
 ### Set Up Azure Authentication
 
-Deploying to Fabric needs a credential. Deployment resolves it with `DefaultAzureCredential`,
-which tries, in order, service-principal environment variables, a workload or managed
-identity, and an Azure CLI login. The metadata commands (`deploy get-metadata` and the
-`extract` group, which connect over ODBC) currently use the Azure CLI login only (issue #105).
+Deploying to Fabric needs a credential. Every Fabric and OneLake call resolves it the same
+way (`ingen_fab.az_cli.credentials`), in this order:
+
+1. A service principal, when `AZURE_TENANT_ID`, `AZURE_CLIENT_ID` and `AZURE_CLIENT_SECRET`
+   are all set.
+2. Otherwise `DefaultAzureCredential` without its interactive-browser step: a workload or
+   managed identity, then an Azure CLI login (`az login`, or the login an `azure/login` or
+   `AzureCLI@2` pipeline task performed).
+
+fabric-cicd, which performs the publish, requires this explicit credential since its 1.0
+release; there is no silent fallback, so an unauthenticated session fails before anything is
+published. The metadata commands (`deploy get-metadata` and the `extract` group, which
+connect over ODBC) still use the Azure CLI login only (issue #105).
 
 **Which Azure CLI?** `azure-cli` is a dependency of `ingen_fab`, so every install of the
 package brings its own `az` into the same environment (the venv's `bin` or `Scripts` folder,
