@@ -254,15 +254,23 @@ def test_manifest_updated_from_results(tmp_path):
     save.assert_called_once()
 
 
-def test_manifest_fallback_when_nothing_was_collected(tmp_path):
+def test_manifest_with_no_results_marks_attempted_items_failed(tmp_path):
+    """With response collection on, a published item always has a response; an empty
+    result set means nothing was published, never a silent success."""
     sync = _sync(tmp_path)
-    items = _manifest_items("a.Notebook")
+    items = _manifest_items("a.Notebook", "b.Notebook")
     with mock.patch.object(sync, "save_platform_manifest"):
         out = sync._update_manifest_with_results(
             items, [], tmp_path / "m.yml", attempted_item_names={"a.Notebook"}
         )
-    assert out["deployed"] == [{"name": "a.Notebook"}]
-    assert items[0].status == "deployed"
+    assert out["deployed"] == []
+    assert out["failed"] == [
+        {"name": "a.Notebook", "error": "not published: no result recorded"}
+    ]
+    assert {i.name: i.status for i in items} == {
+        "a.Notebook": "failed",
+        "b.Notebook": "updated",
+    }
 
 
 def test_manifest_exception_without_results_marks_attempted_failed(tmp_path):

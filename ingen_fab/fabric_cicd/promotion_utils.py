@@ -523,29 +523,24 @@ class SyncToFabricEnvironment:
         failed_items = []
 
         if not status_entries:
-            if exception_occurred:
-                # Deployment threw an exception — mark all attempted items as failed
-                for item in manifest_items:
-                    if item.name in attempted_item_names:
-                        item.status = "failed"
-                        failed_items.append(
-                            {
-                                "name": item.name,
-                                "error": "Publishing exception — see error above",
-                            }
-                        )
-            else:
+            # Nothing came back for the attempted items. With response collection on,
+            # a published item always has a response, so this means nothing was
+            # published: because publishing raised, or because the library skipped
+            # every item. Either way the attempted items are not deployed.
+            reason = (
+                "Publishing exception — see error above"
+                if exception_occurred
+                else "not published: no result recorded"
+            )
+            if not exception_occurred and attempted_item_names:
                 ConsoleStyles.print_warning(
                     self.console,
-                    "Warning: no status entries found. Falling back to attempted item list.",
+                    "Warning: no publish responses were collected for the attempted items.",
                 )
-
-                # Compatibility fallback for older fabric-cicd versions that can publish
-                # successfully but return an empty status list.
-                for item in manifest_items:
-                    if item.name in attempted_item_names:
-                        item.status = "deployed"
-                        deployed_items.append({"name": item.name})
+            for item in manifest_items:
+                if item.name in attempted_item_names:
+                    item.status = "failed"
+                    failed_items.append({"name": item.name, "error": reason})
         else:
             # Create lookup dict for O(n) instead of O(n*m)
             status_lookup = {entry.key: entry for entry in status_entries}
