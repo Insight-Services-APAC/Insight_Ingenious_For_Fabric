@@ -395,3 +395,20 @@ def test_sync_default_scope_is_the_library_accepted_types(tmp_path, monkeypatch)
     src = inspect.getsource(SyncToFabricEnvironment.sync_environment)
     assert "list(constants.ACCEPTED_ITEM_TYPES)" in src
     assert '"GraphQLApi",' not in src, "the hard-coded allowlist should be gone"
+
+
+def test_config_lakehouse_manifest_reads_and_writes_reuse_the_sync_credential(tmp_path):
+    """The manifest download/upload through OneLake use the same credential the sync
+    hands to fabric-cicd and the API helper; no second credential chain."""
+    sync = _sync(tmp_path)
+    sync.workspace_manifest_location = "config_lakehouse"
+    ol = mock.Mock()
+    ol.download_manifest_file_from_config_lakehouse.return_value = None
+    with (
+        mock.patch(f"{MODULE}.OneLakeUtils", return_value=ol) as ol_cls,
+        mock.patch(f"{MODULE}.get_token_credential", return_value="cred"),
+    ):
+        sync.read_platform_manifest(tmp_path / "missing.yml")
+        sync._upload_manifest_to_remote(tmp_path / "m.yml")
+    assert ol_cls.call_count == 2
+    assert all(c.kwargs["credential"] == "cred" for c in ol_cls.call_args_list)

@@ -362,6 +362,7 @@ class SyncToFabricEnvironment:
                 environment=self.environment,
                 project_path=Path(self.project_path),
                 console=self.console,
+                credential=self._get_credential(),
             )
             try:
                 config_lakehouse_id = onelake_utils.get_config_lakehouse_id()
@@ -496,6 +497,7 @@ class SyncToFabricEnvironment:
                 environment=self.environment,
                 project_path=Path(self.project_path),
                 console=self.console,
+                credential=self._get_credential(),
             )
             onelake_utils.upload_manifest_file_to_config_lakehouse(manifest_path)
 
