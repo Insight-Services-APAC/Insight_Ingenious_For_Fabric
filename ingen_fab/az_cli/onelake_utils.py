@@ -363,7 +363,7 @@ class OneLakeUtils:
         """
         file_path_obj = Path(file_path)
 
-        #if not file_path_obj.exists():
+        # if not file_path_obj.exists():
         #    raise FileNotFoundError(f"File not found: {file_path}")
 
         if source_path is None:
@@ -394,7 +394,7 @@ class OneLakeUtils:
                 )
 
             download = file_client.download_file()
-            
+
             with open(file_path_obj, "wb") as my_file:
                 download.readinto(my_file)
 
@@ -725,7 +725,9 @@ class OneLakeUtils:
             if deleted_count > 0:
                 summary_content += f"[yellow]🗑 Deleted:[/yellow] {deleted_count}\n"
             if deletion_failed_count > 0:
-                summary_content += f"[red]✗ Deletion failed:[/red] {deletion_failed_count}"
+                summary_content += (
+                    f"[red]✗ Deletion failed:[/red] {deletion_failed_count}"
+                )
 
             # Remove trailing newline if present
             summary_content = summary_content.rstrip("\n")
@@ -749,10 +751,10 @@ class OneLakeUtils:
         root_path = str(Path.cwd())
 
         manifest_file_path_full = os.path.join(root_path, directory_path, file_name)
-        
-        target_path = "ingen_fab/manifest/"+file_name
-        
-        service_client=self._get_datalake_service_client()
+
+        target_path = "ingen_fab/manifest/" + file_name
+
+        service_client = self._get_datalake_service_client()
         file_system_client = service_client.get_file_system_client(self.workspace_name)
         lakehouse_id = self.get_config_lakehouse_id()
 
@@ -762,7 +764,7 @@ class OneLakeUtils:
             target_path,
             service_client=service_client,
             file_system_client=file_system_client,
-            verbose=False, 
+            verbose=False,
         )
 
     def download_manifest_file_from_config_lakehouse(
@@ -774,8 +776,8 @@ class OneLakeUtils:
         manifest_file_path_full = str(manifest_path_obj)
 
         target_path = f"ingen_fab/manifest/{file_name}"
-        
-        service_client=self._get_datalake_service_client()
+
+        service_client = self._get_datalake_service_client()
         file_system_client = service_client.get_file_system_client(self.workspace_name)
         lakehouse_id = self.get_config_lakehouse_id()
 
@@ -785,7 +787,7 @@ class OneLakeUtils:
             target_path,
             service_client=service_client,
             file_system_client=file_system_client,
-            verbose=False, 
+            verbose=False,
         )
 
     def upload_python_libs_to_config_lakehouse(
@@ -841,7 +843,7 @@ class OneLakeUtils:
             service_client=self._get_datalake_service_client(),
             include_extensions=[".py"],
         )
-    
+
     def upload_dbt_project_to_config_lakehouse(
         self, dbt_project_name: str, dbt_project_path: str = None
     ) -> dict:
@@ -892,7 +894,7 @@ class OneLakeUtils:
             lakehouse_id=config_lakehouse_id,
             directory_path=str(dbt_project_path),
             target_prefix=f"{dbt_project_name}",
-            service_client=self._get_datalake_service_client()
+            service_client=self._get_datalake_service_client(),
         )
 
     def list_lakehouse_files(
