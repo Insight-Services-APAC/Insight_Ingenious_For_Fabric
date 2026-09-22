@@ -3,12 +3,14 @@ OneLake utilities for interacting with Microsoft Fabric OneLake storage using Az
 """
 
 import logging
+import os
 from pathlib import Path
 from typing import Optional
 
-from azure.identity import DefaultAzureCredential
+from azure.core.credentials import TokenCredential
 from azure.storage.filedatalake import DataLakeServiceClient, FileSystemClient
 
+from ingen_fab.az_cli.credentials import get_token_credential
 from ingen_fab.cli_utils.console_styles import MessageHelpers
 from ingen_fab.cli_utils.progress_utils import ProgressTracker
 from ingen_fab.config_utils.variable_lib_factory import (
@@ -17,8 +19,6 @@ from ingen_fab.config_utils.variable_lib_factory import (
     get_workspace_id_from_environment,
 )
 from ingen_fab.fabric_api.utils import FabricApiUtils
-
-import os
 
 try:
     from rich.console import Console
@@ -45,7 +45,7 @@ class OneLakeUtils:
         environment: str,
         project_path: Path,
         *,
-        credential: Optional[DefaultAzureCredential] = None,
+        credential: Optional[TokenCredential] = None,
         console: Optional[Console] = None,
     ) -> None:
         """
@@ -54,12 +54,12 @@ class OneLakeUtils:
         Args:
             environment: Environment name (e.g., 'development', 'production')
             project_path: Path to the project directory
-            credential: Azure credential (defaults to DefaultAzureCredential)
+            credential: Azure credential (defaults to ingen_fab.az_cli.credentials.get_token_credential())
             console: Rich console instance for formatted output
         """
         self.environment = environment
         self.project_path = project_path
-        self.credential = credential or DefaultAzureCredential()
+        self.credential = get_token_credential(credential)
         self.onelake_base_url = "https://onelake.dfs.fabric.microsoft.com"
 
         # Initialize console utilities
@@ -396,7 +396,7 @@ class OneLakeUtils:
             download = file_client.download_file()
             
             with open(file_path_obj, "wb") as my_file:
-                downloaded_bytes = download.readinto(my_file)
+                download.readinto(my_file)
 
             if verbose:
                 self.msg_helper.print_success(f"Downloaded {full_source_path}")

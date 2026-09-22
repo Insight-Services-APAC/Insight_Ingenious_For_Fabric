@@ -4,10 +4,9 @@ from pathlib import Path
 from typing import Optional
 
 import requests
-from azure.identity import DefaultAzureCredential
-import json
+from azure.core.credentials import TokenCredential
 
-
+from ingen_fab.az_cli.credentials import get_token_credential
 from ingen_fab.config_utils.variable_lib_factory import (
     get_workspace_id_from_environment,
 )
@@ -29,12 +28,12 @@ class FabricApiUtils:
         environment: str,
         project_path: Path,
         *,
-        credential: Optional[DefaultAzureCredential] = None,
+        credential: Optional[TokenCredential] = None,
         workspace_id: Optional[str] = None,
     ) -> None:
         self.environment = environment
         self.project_path = project_path
-        self.credential = credential or DefaultAzureCredential()
+        self.credential = get_token_credential(credential)
         self.base_url = "https://api.fabric.microsoft.com/v1/workspaces"
         # Only get workspace_id from variable library if not provided
         if workspace_id:
@@ -789,7 +788,7 @@ class FabricApiUtils:
                     error_details += f", Code: {error_json['error'].get('code', 'Unknown code')}"
                 else:
                     error_details += f", Response: {error_json}"
-            except:
+            except Exception:
                 error_details += f", Response text: {response.text}"
             
             raise Exception(f"Failed to get definition for item {item_id}. {error_details}")
