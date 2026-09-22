@@ -356,3 +356,34 @@ def test_valueset_item_ids_updated_from_results(tmp_path):
     data = json.loads(vs.read_text(encoding="utf-8"))
     values = {v["name"]: v["value"] for v in data["variableOverrides"]}
     assert values == {"lh_lakehouse_id": "new-id", "untouched": "x"}
+
+
+def test_manifest_marks_attempted_item_without_result_failed(tmp_path):
+    """Belt to the results mapping: an attempted item with no entry at all is failed."""
+    sync = _sync(tmp_path)
+    items = _manifest_items("a.Notebook", "b.Notebook")
+    with mock.patch.object(sync, "save_platform_manifest"):
+        out = sync._update_manifest_with_results(
+            items,
+            [PublishResult("a", "Notebook", True)],
+            tmp_path / "m.yml",
+            attempted_item_names={"a.Notebook", "b.Notebook"},
+        )
+    assert [i["name"] for i in out["deployed"]] == ["a.Notebook"]
+    assert out["failed"] == [
+        {"name": "b.Notebook", "error": "not published: no result recorded"}
+    ]
+    assert {i.name: i.status for i in items} == {
+        "a.Notebook": "deployed",
+        "b.Notebook": "failed",
+    }
+
+
+def test_sync_default_scope_is_the_library_accepted_types(tmp_path, monkeypatch):
+    """With ITEM_TYPES_TO_DEPLOY unset, sync_environment scopes the workspace to every
+    type the installed fabric-cicd accepts; the variable remains the override."""
+    import inspect
+
+    src = inspect.getsource(SyncToFabricEnvironment.sync_environment)
+    assert "list(constants.ACCEPTED_ITEM_TYPES)" in src
+    assert '"GraphQLApi",' not in src, "the hard-coded allowlist should be gone"

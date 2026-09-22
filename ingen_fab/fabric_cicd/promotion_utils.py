@@ -550,7 +550,9 @@ class SyncToFabricEnvironment:
             # Create lookup dict for O(n) instead of O(n*m)
             status_lookup = {entry.key: entry for entry in status_entries}
 
-            # Update manifest items silently
+            # Update manifest items silently. An attempted item with no result at all
+            # was not published either (publish_results_from_responses already reports
+            # these; this keeps the manifest honest whatever produced the entries).
             for item in manifest_items:
                 entry = status_lookup.get(item.name.lower())
                 if entry:
@@ -566,6 +568,14 @@ class SyncToFabricEnvironment:
                             or "Unknown error"
                         )
                         failed_items.append({"name": item.name, "error": error_msg})
+                elif item.name in attempted_item_names:
+                    item.status = "failed"
+                    failed_items.append(
+                        {
+                            "name": item.name,
+                            "error": "not published: no result recorded",
+                        }
+                    )
 
         # Save updated manifest
         self.save_platform_manifest(
@@ -1019,23 +1029,9 @@ class SyncToFabricEnvironment:
 
                 _item_type_in_scope = os.getenv("ITEM_TYPES_TO_DEPLOY", "")
                 if _item_type_in_scope == "":
-                    item_type_in_scope = [
-                        "VariableLibrary",
-                        "DataPipeline",
-                        "Environment",
-                        "Notebook",
-                        "Report",
-                        "SemanticModel",
-                        "Lakehouse",
-                        "MirroredDatabase",
-                        "CopyJob",
-                        "Eventhouse",
-                        "Reflex",
-                        "Eventstream",
-                        "Warehouse",
-                        "SQLDatabase",
-                        "GraphQLApi",
-                    ]
+                    # Every type the installed fabric-cicd accepts; the manifest's include
+                    # list still decides what is published.
+                    item_type_in_scope = list(constants.ACCEPTED_ITEM_TYPES)
                     ConsoleStyles.print_info(
                         self.console, "Items to be published filter: None"
                     )
