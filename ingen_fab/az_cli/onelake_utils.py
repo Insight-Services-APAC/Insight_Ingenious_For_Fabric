@@ -3,12 +3,14 @@ OneLake utilities for interacting with Microsoft Fabric OneLake storage using Az
 """
 
 import logging
+import os
 from pathlib import Path
 from typing import Optional
 
-from azure.identity import DefaultAzureCredential
+from azure.core.credentials import TokenCredential
 from azure.storage.filedatalake import DataLakeServiceClient, FileSystemClient
 
+from ingen_fab.az_cli.credentials import get_token_credential
 from ingen_fab.cli_utils.console_styles import MessageHelpers
 from ingen_fab.cli_utils.progress_utils import ProgressTracker
 from ingen_fab.config_utils.variable_lib_factory import (
@@ -17,8 +19,6 @@ from ingen_fab.config_utils.variable_lib_factory import (
     get_workspace_id_from_environment,
 )
 from ingen_fab.fabric_api.utils import FabricApiUtils
-
-import os
 
 try:
     from rich.console import Console
@@ -45,7 +45,7 @@ class OneLakeUtils:
         environment: str,
         project_path: Path,
         *,
-        credential: Optional[DefaultAzureCredential] = None,
+        credential: Optional[TokenCredential] = None,
         console: Optional[Console] = None,
     ) -> None:
         """
@@ -54,12 +54,12 @@ class OneLakeUtils:
         Args:
             environment: Environment name (e.g., 'development', 'production')
             project_path: Path to the project directory
-            credential: Azure credential (defaults to DefaultAzureCredential)
+            credential: Azure credential (defaults to ingen_fab.az_cli.credentials.get_token_credential())
             console: Rich console instance for formatted output
         """
         self.environment = environment
         self.project_path = project_path
-        self.credential = credential or DefaultAzureCredential()
+        self.credential = get_token_credential(credential)
         self.onelake_base_url = "https://onelake.dfs.fabric.microsoft.com"
 
         # Initialize console utilities
@@ -363,7 +363,7 @@ class OneLakeUtils:
         """
         file_path_obj = Path(file_path)
 
-        #if not file_path_obj.exists():
+        # if not file_path_obj.exists():
         #    raise FileNotFoundError(f"File not found: {file_path}")
 
         if source_path is None:
@@ -394,9 +394,9 @@ class OneLakeUtils:
                 )
 
             download = file_client.download_file()
-            
+
             with open(file_path_obj, "wb") as my_file:
-                downloaded_bytes = download.readinto(my_file)
+                download.readinto(my_file)
 
             if verbose:
                 self.msg_helper.print_success(f"Downloaded {full_source_path}")
@@ -725,7 +725,9 @@ class OneLakeUtils:
             if deleted_count > 0:
                 summary_content += f"[yellow]🗑 Deleted:[/yellow] {deleted_count}\n"
             if deletion_failed_count > 0:
-                summary_content += f"[red]✗ Deletion failed:[/red] {deletion_failed_count}"
+                summary_content += (
+                    f"[red]✗ Deletion failed:[/red] {deletion_failed_count}"
+                )
 
             # Remove trailing newline if present
             summary_content = summary_content.rstrip("\n")
@@ -749,10 +751,10 @@ class OneLakeUtils:
         root_path = str(Path.cwd())
 
         manifest_file_path_full = os.path.join(root_path, directory_path, file_name)
-        
-        target_path = "ingen_fab/manifest/"+file_name
-        
-        service_client=self._get_datalake_service_client()
+
+        target_path = "ingen_fab/manifest/" + file_name
+
+        service_client = self._get_datalake_service_client()
         file_system_client = service_client.get_file_system_client(self.workspace_name)
         lakehouse_id = self.get_config_lakehouse_id()
 
@@ -762,7 +764,7 @@ class OneLakeUtils:
             target_path,
             service_client=service_client,
             file_system_client=file_system_client,
-            verbose=False, 
+            verbose=False,
         )
 
     def download_manifest_file_from_config_lakehouse(
@@ -774,8 +776,8 @@ class OneLakeUtils:
         manifest_file_path_full = str(manifest_path_obj)
 
         target_path = f"ingen_fab/manifest/{file_name}"
-        
-        service_client=self._get_datalake_service_client()
+
+        service_client = self._get_datalake_service_client()
         file_system_client = service_client.get_file_system_client(self.workspace_name)
         lakehouse_id = self.get_config_lakehouse_id()
 
@@ -785,7 +787,7 @@ class OneLakeUtils:
             target_path,
             service_client=service_client,
             file_system_client=file_system_client,
-            verbose=False, 
+            verbose=False,
         )
 
     def upload_python_libs_to_config_lakehouse(
@@ -841,7 +843,7 @@ class OneLakeUtils:
             service_client=self._get_datalake_service_client(),
             include_extensions=[".py"],
         )
-    
+
     def upload_dbt_project_to_config_lakehouse(
         self, dbt_project_name: str, dbt_project_path: str = None
     ) -> dict:
@@ -892,7 +894,7 @@ class OneLakeUtils:
             lakehouse_id=config_lakehouse_id,
             directory_path=str(dbt_project_path),
             target_prefix=f"{dbt_project_name}",
-            service_client=self._get_datalake_service_client()
+            service_client=self._get_datalake_service_client(),
         )
 
     def list_lakehouse_files(

@@ -25,7 +25,7 @@ Three sample YAML files are included under `ingen_fab/project_templates/deployme
 - **Purpose**: Bootstrap new environments with foundational infrastructure
 - **Artifact Types**: Limited to `VariableLibrary` and `Lakehouse` (via `ITEM_TYPES_TO_DEPLOY`)
 - **Manifest Location**: Uses `local` (manifest stored in repository)
-- **When to Use**: 
+- **When to Use**:
   - First deployment to a new environment
   - Setting up core infrastructure before full deployment
   - Testing workspace connectivity and permissions
@@ -94,7 +94,7 @@ stages:
   displayName: 'DEV'
   variables:
   - group: DP-Development-Lib
-  
+
 - stage: 'TST'
   displayName: 'TST'
   variables:
@@ -149,6 +149,32 @@ Automatically executes the `00_all_lakehouses_orchestrator_ddl_scripts` notebook
 
 This step is **skipped** for initial deployments (`IS_INITIAL: true`) and can be disabled by setting `RUN_DDL_SCRIPTS: false`.
 
+## Authentication
+
+`ingen_fab deploy deploy` publishes through the fabric-cicd library, which requires an
+explicit credential. ingen_fab resolves one credential for the whole run and passes it to
+fabric-cicd, the Fabric REST API and OneLake alike:
+
+1. A service principal when `AZURE_TENANT_ID`, `AZURE_CLIENT_ID` and `AZURE_CLIENT_SECRET`
+   are set (Azure DevOps variable groups, GitHub secrets).
+2. Otherwise the identity of the pipeline task: the `AzureCLI@2` task in the sample Azure
+   DevOps pipelines and the `azure/login` step in the GitHub workflow both sign the Azure CLI
+   in, and `DefaultAzureCredential` picks that login up. A managed or workload identity works
+   the same way.
+
+Interactive browser sign-in is never attempted, so a pipeline that has neither fails fast
+with a credential error rather than hanging.
+
+## Deployment results
+
+Each `deploy deploy` records, per item in `platform_manifest_<environment>.yml`, whether the
+publish succeeded (`deployed`) or not (`failed`), taken from the API responses fabric-cicd
+collects during the publish. When the library aborts part-way, the items published before the
+failure stay `deployed` and the rest are marked `failed`; the command exits non-zero either way.
+fabric-cicd's own log file is opt-in: set `FABRIC_CICD_FILE_LOGGING_ENABLED=true` to get
+`fabric_cicd.error.log` next to the working directory (publish it as a pipeline artifact when
+diagnosing a run).
+
 ## Environment Variables
 
 Each deployment task uses environment variables to control behavior:
@@ -162,7 +188,9 @@ Each deployment task uses environment variables to control behavior:
 | `ITEM_TYPES_TO_DEPLOY` | Filter artifact types for deployment | `VariableLibrary,Lakehouse` (initial) or empty (full) | `dp_initial.yml`, `dp_combined.yml` |
 | `IS_INITIAL` | Switch between initial and full deployment modes | `'true'` (initial), `'false'` (full) | `dp_combined.yml` only |
 | `RUN_DDL_SCRIPTS` | Control DDL orchestration execution | `'true'` (run), `'false'` (skip) | `dp_combined.yml` only |
-| `AUTO_UPDATE_ITEM_IDS` | Auto-update Item ID variables after deploy | `true`, `false` (default) |
+| `AUTO_UPDATE_ITEM_IDS` | Auto-update Item ID variables after deploy | `true`, `false` (default) | All pipelines |
+| `AZURE_TENANT_ID`, `AZURE_CLIENT_ID`, `AZURE_CLIENT_SECRET` | Service principal for the whole run (optional, see Authentication) | GUIDs and a secret | All pipelines |
+| `FABRIC_CICD_FILE_LOGGING_ENABLED` | Write fabric-cicd's log file as well as console output | `true`, unset (default) | All pipelines |
 
 These are typically configured via Azure DevOps Variable Groups.
 

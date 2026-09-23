@@ -7,7 +7,7 @@ from pathlib import Path
 import yaml
 
 from ingen_fab.config_utils.variable_lib import VariableLibraryUtils
-from ingen_fab.fabric_cicd.promotion_utils import promotion_utils
+from ingen_fab.fabric_cicd.promotion_utils import WorkspaceSettings, promotion_utils
 
 project_path = "./sample_project"
 environment = "development"
@@ -139,7 +139,7 @@ def main():
 
     print("\nInitializing promotion utilities...")
     temp_publish_path = Path("./temp-publish")
-    pu = promotion_utils(
+    pu = promotion_utils(WorkspaceSettings(
         workspace_id=workspace_id,
         repository_directory=temp_publish_path,
         item_type_in_scope=[
@@ -159,7 +159,7 @@ def main():
             "SQLDatabase",
         ],
         environment="development",
-    )
+    ))
 
     # 3) Load platform manifest and copy updated/new folders
     manifest_path = Path(f"{project_path}/platform_manifest.yml")
