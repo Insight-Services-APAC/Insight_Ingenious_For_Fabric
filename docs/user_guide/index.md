@@ -38,6 +38,12 @@ This guide covers everything you need to know to get started and become proficie
 - Creating notebooks from dbt
 - Best practices
 
+### [Semantic Models and Reports](semantic-models-and-reports.md)
+- Model data source from the value set
+- Report bound to its model by path, per environment
+- Deploying, rebinding, id writeback
+- Conditions, limitations and troubleshooting
+
 ### [Common Tasks](common_tasks.md)
 - Quick reference for frequently used commands
 - Step-by-step guides for common operations

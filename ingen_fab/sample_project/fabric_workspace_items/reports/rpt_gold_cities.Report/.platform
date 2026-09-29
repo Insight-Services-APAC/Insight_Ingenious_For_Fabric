@@ -1,0 +1,11 @@
+{
+  "$schema": "https://developer.microsoft.com/json-schemas/fabric/gitIntegration/platformProperties/2.0.0/schema.json",
+  "metadata": {
+    "type": "Report",
+    "displayName": "rpt_gold_cities"
+  },
+  "config": {
+    "version": "2.0",
+    "logicalId": "7759ecec-e73c-478f-ad6b-a2778db3f1d6"
+  }
+}

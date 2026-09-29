@@ -71,6 +71,7 @@ If you have `vDim_CityGeography` in the model:
 
 - Reports saved in Fabric can be shared via link, embedded in apps, or set up for email subscriptions
 - The report definition can be downloaded for source control via `ingen_fab deploy download-artefact -n "rpt_dp_city_geography" -t Report`
+- To deploy the report with `ingen_fab deploy deploy` and keep it bound to its model in every environment, give it a `byPath` reference to the model folder, as described in the user guide [Semantic Models and Reports](../../user_guide/semantic-models-and-reports.md)
 
 ---
 
