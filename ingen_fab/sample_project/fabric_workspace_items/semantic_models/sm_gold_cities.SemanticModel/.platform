@@ -1,0 +1,11 @@
+{
+  "$schema": "https://developer.microsoft.com/json-schemas/fabric/gitIntegration/platformProperties/2.0.0/schema.json",
+  "metadata": {
+    "type": "SemanticModel",
+    "displayName": "sm_gold_cities"
+  },
+  "config": {
+    "version": "2.0",
+    "logicalId": "24d82279-38ca-4d8e-9f00-49b75d3e8ca6"
+  }
+}

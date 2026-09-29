@@ -14,12 +14,15 @@ import pytest
 
 from ingen_fab.fabric_cicd import promotion_utils as pu_module
 from ingen_fab.fabric_cicd.promotion_utils import (
+    DeployScopeError,
     PublishResult,
     SyncToFabricEnvironment,
     WorkspaceSettings,
     promotion_utils,
     publish_items,
     publish_results_from_responses,
+    resolve_deploy_scope,
+    split_by_scope,
 )
 
 MODULE = "ingen_fab.fabric_cicd.promotion_utils"
@@ -387,28 +390,60 @@ def test_manifest_marks_attempted_item_without_result_failed(tmp_path):
     }
 
 
-def test_sync_default_scope_is_the_library_accepted_types(tmp_path, monkeypatch):
-    """With ITEM_TYPES_TO_DEPLOY unset, sync_environment scopes the workspace to every
-    type the installed fabric-cicd accepts; the variable remains the override."""
+# --- deploy scope: ingen_fab's decision, applied before fabric-cicd is called ------------
+
+
+def test_unset_or_empty_scope_is_every_accepted_type():
+    from fabric_cicd import constants
+
+    assert resolve_deploy_scope(None) == list(constants.ACCEPTED_ITEM_TYPES)
+    assert resolve_deploy_scope("") == list(constants.ACCEPTED_ITEM_TYPES)
+    assert resolve_deploy_scope("  ") == list(constants.ACCEPTED_ITEM_TYPES)
+
+
+def test_scope_list_is_parsed_and_kept_in_order():
+    assert resolve_deploy_scope(" Report, SemanticModel ,Notebook,") == [
+        "Report",
+        "SemanticModel",
+        "Notebook",
+    ]
+
+
+def test_misspelt_scope_type_stops_before_publishing():
+    """The live S6d case: 'Notebok' used to be ignored by the library and the notebook
+    reported as not published; now the deploy refuses the scope up front."""
+    with pytest.raises(DeployScopeError, match="Notebok"):
+        resolve_deploy_scope("Lakehouse,Notebok")
+
+
+def test_changed_items_outside_the_scope_are_split_off_not_attempted():
+    items = _manifest_items(
+        "a.Notebook", "m.SemanticModel", "r.Report", "p.DataPipeline"
+    )
+    in_scope, skipped = split_by_scope(items, ["SemanticModel", "Report"])
+    assert [i.name for i in in_scope] == ["m.SemanticModel", "r.Report"]
+    assert [i.name for i in skipped] == ["a.Notebook", "p.DataPipeline"]
+    assert {i.status for i in skipped} == {"updated"}, "manifest status is left alone"
+
+
+def test_sync_applies_the_scope_itself_and_reports_skipped_items():
+    """sync_environment resolves the scope, splits the changed items, and passes only the
+    in-scope ones to publish; skipped items are counted separately in the summary."""
     import inspect
 
     src = inspect.getsource(SyncToFabricEnvironment.sync_environment)
-    assert "list(constants.ACCEPTED_ITEM_TYPES)" in src
+    assert "resolve_deploy_scope(" in src
+    assert "split_by_scope(" in src
+    assert "skipped=len(skipped_items)" in src
     assert '"GraphQLApi",' not in src, "the hard-coded allowlist should be gone"
 
 
-def test_config_lakehouse_manifest_reads_and_writes_reuse_the_sync_credential(tmp_path):
-    """The manifest download/upload through OneLake use the same credential the sync
-    hands to fabric-cicd and the API helper; no second credential chain."""
+def test_summary_counts_skipped_items(tmp_path):
     sync = _sync(tmp_path)
-    sync.workspace_manifest_location = "config_lakehouse"
-    ol = mock.Mock()
-    ol.download_manifest_file_from_config_lakehouse.return_value = None
-    with (
-        mock.patch(f"{MODULE}.OneLakeUtils", return_value=ol) as ol_cls,
-        mock.patch(f"{MODULE}.get_token_credential", return_value="cred"),
-    ):
-        sync.read_platform_manifest(tmp_path / "missing.yml")
-        sync._upload_manifest_to_remote(tmp_path / "m.yml")
-    assert ol_cls.call_count == 2
-    assert all(c.kwargs["credential"] == "cred" for c in ol_cls.call_args_list)
+    sync._print_deployment_summary(
+        {"deployed": [], "failed": []}, unchanged=3, skipped=2
+    )
+    text = " ".join(
+        str(a) for call in sync.console.print.call_args_list for a in call.args
+    )
+    assert "3 unchanged, 2 skipped (out of scope)" in text

@@ -1,0 +1,36 @@
+{
+  "$schema": "https://developer.microsoft.com/json-schemas/fabric/item/report/definition/visualContainer/2.7.0/schema.json",
+  "name": "8b72f3038e8047a6907c",
+  "position": {
+    "x": 40,
+    "y": 40,
+    "z": 0,
+    "height": 200,
+    "width": 400
+  },
+  "visual": {
+    "visualType": "card",
+    "query": {
+      "queryState": {
+        "Values": {
+          "projections": [
+            {
+              "field": {
+                "Measure": {
+                  "Expression": {
+                    "SourceRef": {
+                      "Entity": "vDim_Cities"
+                    }
+                  },
+                  "Property": "City Count"
+                }
+              },
+              "queryRef": "vDim_Cities.City Count"
+            }
+          ]
+        }
+      }
+    },
+    "drillFilterOtherVisuals": true
+  }
+}

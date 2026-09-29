@@ -80,6 +80,12 @@ else
 fi
 ```
 
+ingen_fab applies the scope itself before calling fabric-cicd: changed items whose type is
+outside `ITEM_TYPES_TO_DEPLOY` are reported as skipped and keep their manifest status (`new`
+or `updated`), so the next deploy with a wider scope picks them up; they do not count as
+failures. A type name fabric-cicd does not know (a typo) stops the deploy before anything is
+published.
+
 ## Pipeline Architecture
 
 All three scripts follow a multi-stage deployment pattern:

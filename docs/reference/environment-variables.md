@@ -20,7 +20,7 @@ Reference for environment variables used by the CLI and deploy workflows.
 | `POSTGRES_USER` | Local testing | PostgreSQL user (default: postgres) | `postgres` |
 | `POSTGRES_DATABASE` | Local testing | PostgreSQL database name (default: local) | `local` |
 | `WORKSPACE_MANIFEST_LOCATION` | Remote manifest file | Used to allow manifest file to be stored in config lakehouse | `config_lakehouse`, `local` |
-| `ITEM_TYPES_TO_DEPLOY` | Deploy | Used to control which type of artefacts are deployed; empty means every type fabric-cicd accepts | `VariableLibrary,Lakehouse`, '' |
+| `ITEM_TYPES_TO_DEPLOY` | Deploy | Which item types this deploy may publish; empty means every type fabric-cicd accepts. Changed items of other types are skipped and keep their manifest status; an unknown type name stops the deploy before anything is published | `VariableLibrary,Lakehouse`, '' |
 | `AUTO_UPDATE_ITEM_IDS` | Deploy (optional) | After a deploy, set `<name>_<type>_id` variables in the value set from the live item ids | `true` |
 | `IS_SINGLE_WORKSPACE` | Deploy | Used to allow unattended execution of ingen_fab init workspace | `Y` |
 | `FABRIC_CICD_FILE_LOGGING_ENABLED` | Deploy (optional) | Ask fabric-cicd to also write its log to `fabric_cicd.error.log` in the working directory (off by default since fabric-cicd 1.2) | `true` |

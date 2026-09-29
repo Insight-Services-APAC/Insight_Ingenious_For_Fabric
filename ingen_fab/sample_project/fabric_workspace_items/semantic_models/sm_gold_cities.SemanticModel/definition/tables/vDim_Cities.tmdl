@@ -1,0 +1,55 @@
+table vDim_Cities
+	lineageTag: 73ae178a-7970-40aa-a479-0c5c51fb9f94
+	sourceLineageTag: [DW].[vDim_Cities]
+
+	measure 'City Count' = COUNTROWS('vDim_Cities')
+		formatString: #,0
+		lineageTag: 23f1d068-0e52-4dfb-8ee6-1c8ea7ea3ddf
+
+	column CityID
+		dataType: int64
+		formatString: 0
+		lineageTag: 673ceb2f-d945-4a3d-ace0-d99e8f9ea99e
+		sourceLineageTag: CityID
+		summarizeBy: none
+		sourceColumn: CityID
+
+		annotation SummarizationSetBy = User
+
+	column CityName
+		dataType: string
+		lineageTag: cf7ddc57-cebf-4642-8bc8-1f67552d05fb
+		sourceLineageTag: CityName
+		summarizeBy: none
+		sourceColumn: CityName
+
+		annotation SummarizationSetBy = User
+
+	column StateProvinceID
+		dataType: int64
+		formatString: 0
+		lineageTag: bd80b741-1dd8-4ce5-a0dd-a6b14fd7cd9b
+		sourceLineageTag: StateProvinceID
+		summarizeBy: none
+		sourceColumn: StateProvinceID
+
+		annotation SummarizationSetBy = User
+
+	column LatestRecordedPopulation
+		dataType: int64
+		formatString: 0
+		lineageTag: eac44924-31e4-4404-9fff-4d7cd6479613
+		sourceLineageTag: LatestRecordedPopulation
+		summarizeBy: none
+		sourceColumn: LatestRecordedPopulation
+
+		annotation SummarizationSetBy = User
+
+	partition vDim_Cities = entity
+		mode: directLake
+		source
+			entityName: vDim_Cities
+			schemaName: DW
+			expressionSource: DatabaseQuery
+
+	annotation PBI_ResultType = Table

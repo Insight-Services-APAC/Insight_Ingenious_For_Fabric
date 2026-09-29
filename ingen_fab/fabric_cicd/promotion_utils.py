@@ -143,6 +143,39 @@ def publish_items(
     return publish_results_from_responses(responses, include)
 
 
+class DeployScopeError(ValueError):
+    """``ITEM_TYPES_TO_DEPLOY`` names a type the installed fabric-cicd does not accept."""
+
+
+def resolve_deploy_scope(raw: Optional[str]) -> list[str]:
+    """Turn ``ITEM_TYPES_TO_DEPLOY`` into the list of item types this deploy may publish.
+
+    Empty or unset means every type the installed fabric-cicd accepts. Each named type must
+    be one of those; an unknown name (a typo such as ``Notebok``) stops the deploy before
+    anything is published instead of being silently ignored by the library.
+    """
+    accepted = list(constants.ACCEPTED_ITEM_TYPES)
+    if not raw or not raw.strip():
+        return accepted
+    wanted = [part.strip() for part in raw.split(",") if part.strip()]
+    unknown = [t for t in wanted if t not in accepted]
+    if unknown:
+        raise DeployScopeError(
+            f"ITEM_TYPES_TO_DEPLOY names unknown item type(s) {unknown}; "
+            f"accepted: {', '.join(accepted)}"
+        )
+    return wanted
+
+
+def split_by_scope(items, scope: list[str]) -> tuple[list, list]:
+    """Split manifest items into (in scope, out of scope) by the type in their ``name.Type``."""
+    in_scope, out_of_scope = [], []
+    for item in items:
+        _, _, item_type = item.name.rpartition(".")
+        (in_scope if item_type in scope else out_of_scope).append(item)
+    return in_scope, out_of_scope
+
+
 @dataclass
 class WorkspaceSettings:
     """What is needed to open a Fabric workspace for publishing."""
@@ -240,6 +273,11 @@ class SyncToFabricEnvironment:
         generated_at: str
         version: str
 
+    # Folders inside an item that never reach Fabric and must not change its manifest hash:
+    # Power BI Desktop's local cache (``.pbi/``, which fabric-cicd also excludes on publish)
+    # and Python byte-code.
+    HASH_IGNORED_DIRS = frozenset({".pbi", "__pycache__"})
+
     def calculate_folder_hash(self, folder_path: Path) -> str:
         """Calculate SHA256 hash of all files in a folder."""
         hasher = hashlib.sha256()
@@ -249,6 +287,8 @@ class SyncToFabricEnvironment:
             if file_path.is_file():
                 # Include relative path in hash for structure changes
                 relative_path = file_path.relative_to(folder_path)
+                if self.HASH_IGNORED_DIRS.intersection(relative_path.parts[:-1]):
+                    continue
                 hasher.update(str(relative_path).encode())
 
                 # Include file content
@@ -581,10 +621,13 @@ class SyncToFabricEnvironment:
 
         return {"deployed": deployed_items, "failed": failed_items}
 
-    def _print_deployment_summary(self, results: dict, unchanged: int) -> None:
+    def _print_deployment_summary(
+        self, results: dict, unchanged: int, skipped: int = 0
+    ) -> None:
         """Print deployment summary."""
         deployed = results["deployed"]
         failed = results["failed"]
+        tail = f", {skipped} skipped (out of scope)" if skipped else ""
 
         if deployed:
             self.console.print()
@@ -601,12 +644,12 @@ class SyncToFabricEnvironment:
         if failed:
             ConsoleStyles.print_error(
                 self.console,
-                f"Deploy failed! Items: {len(deployed)} deployed, {len(failed)} failed, {unchanged} unchanged.",
+                f"Deploy failed! Items: {len(deployed)} deployed, {len(failed)} failed, {unchanged} unchanged{tail}.",
             )
         else:
             ConsoleStyles.print_success(
                 self.console,
-                f"Deploy complete! Items: {len(deployed)} deployed, {len(failed)} failed, {unchanged} unchanged.",
+                f"Deploy complete! Items: {len(deployed)} deployed, {len(failed)} failed, {unchanged} unchanged{tail}.",
             )
         self.console.print()
 
@@ -664,6 +707,7 @@ class SyncToFabricEnvironment:
                 "Warehouse",
                 "Notebook",
                 "SemanticModel",
+                "Report",
                 "SQLDatabase",
                 "Eventhouse",
             ]:
@@ -1004,9 +1048,37 @@ class SyncToFabricEnvironment:
         if manifest:
             manifest_items = manifest.platform_folders
 
-            manifest_items_new_updated: list[SyncToFabricEnvironment.manifest_item] = [
+            # The deploy scope is ingen_fab's decision: validate it, apply it to the changed
+            # items here, and hand fabric-cicd a list that is already consistent with it.
+            try:
+                item_type_in_scope = resolve_deploy_scope(
+                    os.getenv("ITEM_TYPES_TO_DEPLOY")
+                )
+            except DeployScopeError as e:
+                ConsoleStyles.print_error(self.console, f"\n{e}")
+                raise SystemExit(1) from e
+            ConsoleStyles.print_info(
+                self.console,
+                "Item types in scope: "
+                + (os.getenv("ITEM_TYPES_TO_DEPLOY") or "all accepted by fabric-cicd"),
+            )
+
+            changed_items = [
                 f for f in manifest_items if f.status in ["new", "updated", "failed"]
             ]
+            manifest_items_new_updated, skipped_items = split_by_scope(
+                changed_items, item_type_in_scope
+            )
+            if skipped_items:
+                # Out of scope for this deploy: nothing is sent for them and their manifest
+                # status is left as it is, so a later deploy with the right scope picks
+                # them up. They are neither deployed, failed nor unchanged.
+                ConsoleStyles.print_warning(
+                    self.console,
+                    f"Skipped {len(skipped_items)} changed item(s) whose type is outside "
+                    f"ITEM_TYPES_TO_DEPLOY (manifest status kept): "
+                    f"{[item.name for item in skipped_items]}",
+                )
 
             # Initialize deployment results
             results = {"deployed": [], "failed": []}
@@ -1023,23 +1095,6 @@ class SyncToFabricEnvironment:
                 ConsoleStyles.print_info(
                     self.console, f"Items to publish: {items_to_publish}"
                 )
-
-                _item_type_in_scope = os.getenv("ITEM_TYPES_TO_DEPLOY", "")
-                if _item_type_in_scope == "":
-                    # Every type the installed fabric-cicd accepts; the manifest's include
-                    # list still decides what is published.
-                    item_type_in_scope = list(constants.ACCEPTED_ITEM_TYPES)
-                    ConsoleStyles.print_info(
-                        self.console, "Items to be published filter: None"
-                    )
-                else:
-                    ConsoleStyles.print_info(
-                        self.console,
-                        "Items to be published filter: " + _item_type_in_scope,
-                    )
-                    item_type_in_scope = [
-                        item.strip() for item in _item_type_in_scope.split(",")
-                    ]
 
                 ConsoleStyles.print_info(self.console, "\nPublishing items...")
                 status_entries: list[PublishResult] = []
@@ -1108,13 +1163,18 @@ class SyncToFabricEnvironment:
 
             # Calculate unchanged count
             attempted_item_names = {item.name for item in manifest_items_new_updated}
+            skipped_item_names = {item.name for item in skipped_items}
             unchanged_count = sum(
                 1
                 for item in manifest_items
-                if item.name not in attempted_item_names and item.status != "deleted"
+                if item.name not in attempted_item_names
+                and item.name not in skipped_item_names
+                and item.status != "deleted"
             )
 
-            self._print_deployment_summary(results, unchanged_count)
+            self._print_deployment_summary(
+                results, unchanged_count, skipped=len(skipped_items)
+            )
 
             # Upload manifest to remote at the very end (PUSH remote state)
             self._upload_manifest_to_remote(manifest_path)
