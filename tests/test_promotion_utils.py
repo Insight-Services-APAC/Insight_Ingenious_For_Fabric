@@ -474,17 +474,142 @@ def test_unsupported_item_is_marked_failed_in_the_manifest(tmp_path):
     assert items[1].status == "failed"
 
 
-def test_sync_applies_the_scope_itself_and_reports_skipped_items():
-    """sync_environment resolves the scope, splits the changed items, and passes only the
-    in-scope ones to publish; skipped items are counted separately in the summary."""
-    import inspect
+def _project(tmp_path, items, environment="development"):
+    """A minimal project: one value set and one folder per ``name.Type`` with a .platform
+    file and a notebook-content.py, so sync_environment can copy, substitute, hash and
+    (with publishing mocked) publish it."""
+    root = tmp_path / "fabric_workspace_items"
+    vs_dir = root / "config" / "var_lib.VariableLibrary" / "valueSets"
+    vs_dir.mkdir(parents=True)
+    (vs_dir / f"{environment}.json").write_text(
+        json.dumps(
+            {
+                "variableOverrides": [
+                    {"name": "fabric_deployment_workspace_id", "value": "ws1"}
+                ]
+            }
+        ),
+        encoding="utf-8",
+    )
+    for i, full_name in enumerate(items):
+        name, _, item_type = full_name.rpartition(".")
+        folder = root / full_name
+        folder.mkdir()
+        (folder / ".platform").write_text(
+            json.dumps(
+                {
+                    "metadata": {"type": item_type, "displayName": name},
+                    "config": {
+                        "version": "2.0",
+                        "logicalId": f"0000000{i}-0000-0000-0000-000000000000",
+                    },
+                }
+            ),
+            encoding="utf-8",
+        )
+        (folder / "notebook-content.py").write_text(f"# {name}\n", encoding="utf-8")
+    return tmp_path
 
-    src = inspect.getsource(SyncToFabricEnvironment.sync_environment)
-    assert "resolve_deploy_scope(" in src
-    assert "split_by_scope(" in src
-    assert "unsupported_results(" in src, "unsupported types must be reported as failed"
-    assert "skipped=len(skipped_items)" in src
-    assert '"GraphQLApi",' not in src, "the hard-coded allowlist should be gone"
+
+def _manifest_statuses(tmp_path, environment="development"):
+    import yaml
+
+    data = yaml.safe_load(
+        (tmp_path / f"platform_manifest_{environment}.yml").read_text(encoding="utf-8")
+    )
+    return {i["name"]: i["status"] for i in data["platform_folders"]}
+
+
+def _run_sync(tmp_path, monkeypatch, responses):
+    """Run sync_environment against the project in tmp_path with the library mocked.
+    Returns (sync, FabricWorkspace mock, publish mock)."""
+    monkeypatch.chdir(tmp_path)
+    sync = _sync(tmp_path)
+    with (
+        mock.patch(f"{MODULE}.FabricWorkspace") as fw,
+        mock.patch(f"{MODULE}.publish_all_items", return_value=responses) as pub,
+        mock.patch(f"{MODULE}.get_token_credential", return_value="cred"),
+    ):
+        fw.return_value = mock.Mock(name="workspace", responses=responses)
+        sync.sync_environment()
+    return sync, fw, pub
+
+
+def test_sync_publishes_only_in_scope_items_and_fails_on_unsupported_types(
+    tmp_path, monkeypatch
+):
+    """End to end with publishing mocked: a manifest with an in-scope item, an accepted
+    type outside the scope, and a type fabric-cicd does not accept. Only the in-scope
+    item reaches the library; the skipped one keeps its status; the unsupported one is
+    failed and the deploy exits 1."""
+    _project(tmp_path, ["a.Notebook", "p.DataPipeline", "b.Notebok"])
+    monkeypatch.setenv("ITEM_TYPES_TO_DEPLOY", "Notebook")
+
+    with pytest.raises(SystemExit) as exc:
+        sync, fw, pub = _run_sync(
+            tmp_path, monkeypatch, {"Notebook": {"a": {"status_code": 200}}}
+        )
+    assert exc.value.code == 1
+
+    statuses = _manifest_statuses(tmp_path)
+    assert statuses == {
+        "a.Notebook": "deployed",
+        "p.DataPipeline": "new",  # skipped: status kept for a later, wider deploy
+        "b.Notebok": "failed",  # unsupported type: never silently skipped
+    }
+
+
+def test_sync_call_arguments_and_summary_for_a_scoped_deploy(tmp_path, monkeypatch):
+    """Same scenario without the unsupported item, so the run completes: the library gets
+    the in-scope include list and the parsed scope, and the summary counts the skip."""
+    _project(tmp_path, ["a.Notebook", "p.DataPipeline"])
+    monkeypatch.setenv("ITEM_TYPES_TO_DEPLOY", "Notebook")
+
+    sync, fw, pub = _run_sync(
+        tmp_path, monkeypatch, {"Notebook": {"a": {"status_code": 200}}}
+    )
+
+    assert fw.call_args.kwargs["item_type_in_scope"] == ["Notebook"]
+    assert pub.call_args.kwargs["items_to_include"] == ["a.Notebook"]
+    assert _manifest_statuses(tmp_path) == {
+        "a.Notebook": "deployed",
+        "p.DataPipeline": "new",
+    }
+    printed = " ".join(
+        str(a) for call in sync.console.print.call_args_list for a in call.args
+    )
+    assert "1 deployed, 0 failed, 0 unchanged, 1 skipped (out of scope)" in printed
+
+
+def test_sync_with_only_unsupported_changes_builds_no_workspace(tmp_path, monkeypatch):
+    """Nothing publishable: the library is not even constructed, the item is failed."""
+    _project(tmp_path, ["b.Notebok"])
+    monkeypatch.delenv("ITEM_TYPES_TO_DEPLOY", raising=False)
+
+    with pytest.raises(SystemExit):
+        _run_sync(tmp_path, monkeypatch, None)
+
+    assert _manifest_statuses(tmp_path) == {"b.Notebok": "failed"}
+
+
+def test_sync_rejects_an_unknown_scope_name_before_publishing(tmp_path, monkeypatch):
+    """A typo in ITEM_TYPES_TO_DEPLOY stops the deploy: no workspace is built, nothing is
+    published, and the manifest still shows the item as new."""
+    _project(tmp_path, ["a.Notebook"])
+    monkeypatch.setenv("ITEM_TYPES_TO_DEPLOY", "Notebok")
+    monkeypatch.chdir(tmp_path)
+    sync = _sync(tmp_path)
+    with (
+        mock.patch(f"{MODULE}.FabricWorkspace") as fw,
+        mock.patch(f"{MODULE}.publish_all_items") as pub,
+        mock.patch(f"{MODULE}.get_token_credential", return_value="cred"),
+        pytest.raises(SystemExit) as exc,
+    ):
+        sync.sync_environment()
+    assert exc.value.code == 1
+    fw.assert_not_called()
+    pub.assert_not_called()
+    assert _manifest_statuses(tmp_path) == {"a.Notebook": "new"}
 
 
 def test_summary_counts_skipped_items(tmp_path):
