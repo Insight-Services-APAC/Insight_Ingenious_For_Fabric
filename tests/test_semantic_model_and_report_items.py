@@ -209,14 +209,38 @@ def _report_file(item_path: Path):
     )
 
 
+def _repository_with_model(guid: str):
+    """A workspace stand-in whose repository index holds the sample model, as fabric-cicd's
+    scan builds it: the logical id from .platform, the guid from the deployed-items index
+    (empty when the model is not in the workspace yet)."""
+    from fabric_cicd._common._item import Item
+
+    model_path = (ITEMS / "semantic_models" / "sm_gold_cities.SemanticModel").resolve()
+    model = Item(
+        type="SemanticModel",
+        name="sm_gold_cities",
+        description="",
+        guid=guid,
+        logical_id=_platform(MODEL)["config"]["logicalId"],
+        path=model_path,
+    )
+    workspace = mock.Mock()
+    workspace.repository_items = {"SemanticModel": {"sm_gold_cities": model}}
+    workspace._convert_path_to_id.return_value = model.logical_id
+    return workspace
+
+
 def test_fabric_cicd_rewrites_by_path_to_the_deployed_model_id(tmp_path):
-    """The behaviour the convention relies on, pinned against the installed library."""
+    """The two steps the convention relies on, pinned against the installed library: the
+    report processor turns byPath into byConnection carrying the model's *logical* id, and
+    the logical-id pass then swaps it for the model's workspace guid from the repository
+    index (filled from the deployed items, whether published in this run or already there)."""
+    from fabric_cicd import FabricWorkspace
     from fabric_cicd._items._report import func_process_file
 
     item, file = _report_file(tmp_path / "reports" / "rpt.Report")
-    workspace = mock.Mock()
-    workspace._convert_path_to_id.return_value = "model-logical-id"
-    out = json.loads(func_process_file(workspace, item, file))
+    workspace = _repository_with_model(guid="deployed-model-guid")
+    after_report_step = func_process_file(workspace, item, file)
 
     item_type, resolved = workspace._convert_path_to_id.call_args.args
     assert item_type == "SemanticModel"
@@ -224,11 +248,32 @@ def test_fabric_cicd_rewrites_by_path_to_the_deployed_model_id(tmp_path):
         Path(resolved)
         == (tmp_path / "semantic_models" / "sm_gold_cities.SemanticModel").resolve()
     )
-    assert "byPath" not in out["datasetReference"]
+    ref = json.loads(after_report_step)["datasetReference"]
+    assert "byPath" not in ref
     assert (
-        out["datasetReference"]["byConnection"]["pbiModelDatabaseName"]
-        == "model-logical-id"
+        ref["byConnection"]["pbiModelDatabaseName"]
+        == _platform(MODEL)["config"]["logicalId"]
     )
+
+    final = FabricWorkspace._replace_logical_ids(workspace, after_report_step)
+    assert (
+        json.loads(final)["datasetReference"]["byConnection"]["pbiModelDatabaseName"]
+        == "deployed-model-guid"
+    )
+
+
+def test_fabric_cicd_refuses_a_report_whose_model_is_not_deployed_yet(tmp_path):
+    """Model in the repository but not in the workspace and not published in this run (for
+    example out of scope on a first deploy): the logical id cannot be resolved."""
+    from fabric_cicd import FabricWorkspace
+    from fabric_cicd._common._exceptions import ParsingError
+    from fabric_cicd._items._report import func_process_file
+
+    item, file = _report_file(tmp_path / "reports" / "rpt.Report")
+    workspace = _repository_with_model(guid="")
+    rewritten = func_process_file(workspace, item, file)
+    with pytest.raises(ParsingError, match="not yet deployed"):
+        FabricWorkspace._replace_logical_ids(workspace, rewritten)
 
 
 def test_fabric_cicd_refuses_a_report_whose_model_is_not_in_the_repository(tmp_path):

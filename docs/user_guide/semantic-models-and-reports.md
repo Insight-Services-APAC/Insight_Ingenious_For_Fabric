@@ -14,7 +14,7 @@ resolved differently:
 | Link | How it is resolved | Who does it |
 | --- | --- | --- |
 | Model to warehouse | `{{varlib:...}}` placeholders in the model's `expressions.tmdl`, replaced from the value set of the target environment | ingen_fab, at deploy time (same substitution as notebooks and pipelines) |
-| Report to model | a relative path (`byPath`) in the report's `definition.pbir`, rewritten to the id of the model just published in the target workspace | fabric-cicd, at publish time, automatically |
+| Report to model | a relative path (`byPath`) in the report's `definition.pbir`, resolved to the item id of that model in the target workspace, whether published in the same run or already there | fabric-cicd, at publish time, automatically |
 
 The sample project ships one of each: `sm_gold_cities.SemanticModel` and
 `rpt_gold_cities.Report`, used as the worked example below.
@@ -25,10 +25,12 @@ The report-to-model binding works when all three hold:
 
 1. **Same repository.** The report and its model are both under `fabric_workspace_items/`, so
    the relative path in the report resolves to the model's folder.
-2. **Same workspace, both in scope.** Both deploy to the project's workspace, and `SemanticModel`
-   and `Report` are both in the deploy scope (`ITEM_TYPES_TO_DEPLOY` unset, or listing both).
-   fabric-cicd resolves the path through its index of the repository, so the model must be in
-   scope even when it already exists in the workspace.
+2. **Same workspace, model deployed.** Both items belong to the project's workspace. fabric-cicd
+   resolves the path through its index of the repository and takes the model's id from the
+   workspace, so the model must either exist there already or be published in the same run,
+   which means `SemanticModel` has to be in the deploy scope whenever the model is new or
+   changed (`ITEM_TYPES_TO_DEPLOY` unset, or listing both types). A report-only deploy against
+   a model that is already in the workspace works with `Report` alone in scope.
 3. **The report keeps the `byPath` form.** This is what Power BI Desktop writes when a report is
    saved as a PBIP project next to its model, and what the sample report carries.
 
@@ -119,9 +121,9 @@ environment-specific:
 }
 ```
 
-At publish time fabric-cicd looks the path up in the repository, finds the model it has just
-published in the target workspace, and rewrites the reference to that model's id before
-sending the definition. The workspace stores the result as a connection string naming the
+At publish time fabric-cicd looks the path up in its index of the repository, takes that
+model's item id in the target workspace (the id it was just given if published in this run,
+its existing id otherwise), and rewrites the reference to it before sending the definition. The workspace stores the result as a connection string naming the
 model, and the report's dataset is the deployed model. This is what makes the same source bind
 correctly in development, test and production.
 
@@ -172,7 +174,7 @@ rpt_gold_cities.Report: Deployed
 Deploy complete! Items: 1 deployed, 0 failed, ...
 ```
 
-The other model must be in the repository and in scope, like the first.
+The other model must be in the repository and already deployed, or published in the same run with `SemanticModel` in scope, like the first.
 
 ### Item ids in the value set
 
@@ -205,7 +207,8 @@ after a successful deploy, the same convention as lakehouses, warehouses and not
 
 | Symptom | Cause | Fix |
 | --- | --- | --- |
-| `Semantic model not found in the repository. Cannot deploy a report with a relative path without deploying the model.` | the model is not in the repository, or `SemanticModel` is not in the deploy scope | add the model, or include `SemanticModel` in `ITEM_TYPES_TO_DEPLOY` |
+| `Semantic model not found in the repository. Cannot deploy a report with a relative path without deploying the model.` | the `byPath` value does not resolve to a model folder in the repository (wrong relative path, model folder missing or renamed) | fix the path in `definition.pbir` so it points at the `<name>.SemanticModel` folder |
+| `Cannot replace logical ID '...' as referenced item is not yet deployed.` | the model is in the repository but not in the workspace, and it was not published in this run (for example `SemanticModel` left out of the scope on a first deploy) | include `SemanticModel` in `ITEM_TYPES_TO_DEPLOY`, or deploy the model first |
 | `Report_Import_FailedToImportReport ... Required properties are missing from object: reportVersionAtImport` | `report.json` base theme lacks `reportVersionAtImport` (reports written by hand or by older tools) | add `"reportVersionAtImport": {"visual": "...", "report": "...", "page": "..."}` under `themeCollection.baseTheme`, as in the sample report |
 | Model or report shows as `updated` on every deploy without changes | Desktop's `.pbi/` cache is not the cause (it is ignored); check line endings or a generated file inside the item | commit the item as Fabric or Desktop wrote it |
 | Report opens but visuals show a data error | the model's warehouse table or view is missing or empty in that environment | the binding is fine; run the warehouse DDL / dbt build first |

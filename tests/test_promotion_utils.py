@@ -401,6 +401,14 @@ def test_unset_or_empty_scope_is_every_accepted_type():
     assert resolve_deploy_scope("  ") == list(constants.ACCEPTED_ITEM_TYPES)
 
 
+def test_separator_only_scope_is_every_accepted_type_not_nothing():
+    """`ITEM_TYPES_TO_DEPLOY=","` must not become "skip everything, exit 0"."""
+    from fabric_cicd import constants
+
+    assert resolve_deploy_scope(",") == list(constants.ACCEPTED_ITEM_TYPES)
+    assert resolve_deploy_scope(" , ,") == list(constants.ACCEPTED_ITEM_TYPES)
+
+
 def test_scope_list_is_parsed_and_kept_in_order():
     assert resolve_deploy_scope(" Report, SemanticModel ,Notebook,") == [
         "Report",
@@ -447,3 +455,20 @@ def test_summary_counts_skipped_items(tmp_path):
         str(a) for call in sync.console.print.call_args_list for a in call.args
     )
     assert "3 unchanged, 2 skipped (out of scope)" in text
+
+
+def test_config_lakehouse_manifest_reads_and_writes_reuse_the_sync_credential(tmp_path):
+    """The manifest download/upload through OneLake use the same credential the sync
+    hands to fabric-cicd and the API helper; no second credential chain."""
+    sync = _sync(tmp_path)
+    sync.workspace_manifest_location = "config_lakehouse"
+    ol = mock.Mock()
+    ol.download_manifest_file_from_config_lakehouse.return_value = None
+    with (
+        mock.patch(f"{MODULE}.OneLakeUtils", return_value=ol) as ol_cls,
+        mock.patch(f"{MODULE}.get_token_credential", return_value="cred"),
+    ):
+        sync.read_platform_manifest(tmp_path / "missing.yml")
+        sync._upload_manifest_to_remote(tmp_path / "m.yml")
+    assert ol_cls.call_count == 2
+    assert all(c.kwargs["credential"] == "cred" for c in ol_cls.call_args_list)

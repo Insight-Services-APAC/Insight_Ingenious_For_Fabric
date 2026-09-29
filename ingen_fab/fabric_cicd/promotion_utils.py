@@ -155,9 +155,10 @@ def resolve_deploy_scope(raw: Optional[str]) -> list[str]:
     anything is published instead of being silently ignored by the library.
     """
     accepted = list(constants.ACCEPTED_ITEM_TYPES)
-    if not raw or not raw.strip():
+    wanted = [part.strip() for part in (raw or "").split(",") if part.strip()]
+    if not wanted:
+        # Unset, empty, whitespace or separators only: every accepted type, never "nothing".
         return accepted
-    wanted = [part.strip() for part in raw.split(",") if part.strip()]
     unknown = [t for t in wanted if t not in accepted]
     if unknown:
         raise DeployScopeError(

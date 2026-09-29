@@ -143,8 +143,10 @@ PBIP project. Nothing environment-specific goes into the report, so no placehold
 
 At publish time fabric-cicd resolves that path to the model it has just deployed in the target
 workspace and rewrites the reference to the model's id (`byConnection`), so the report is bound
-to the right model in every environment. The model must be in the same repository and in the
-deployment scope, or the publish fails with an item-dependency error. `definition.pbir` is
+to the right model in every environment. The model must be in the same repository, or the
+publish fails with an item-dependency error, and it must already exist in the workspace or be
+published in the same run (`SemanticModel` in the deployment scope when the model is new or
+changed). `definition.pbir` is
 still substituted, so `{{varlib:...}}` placeholders keep working for reports exported with a
 `byConnection` reference (for example a report bound to a model in another workspace). A
 `<report>_report_id` variable, when present, is filled in after deployment like the model id.
