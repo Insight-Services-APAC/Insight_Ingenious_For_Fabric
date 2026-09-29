@@ -197,6 +197,45 @@ def test_report_ids_are_written_back_by_convention(tmp_path):
     assert values == {"sm_semanticmodel_id": "sm-id", "rpt_report_id": "rpt-id"}
 
 
+def test_writeback_keeps_a_period_inside_an_item_name(tmp_path):
+    """A report called ``sales.v2`` maps to ``sales.v2_report_id`` and is looked up under
+    its full display name; the ``.Type`` suffix was split off when the result was built."""
+    vs_dir = (
+        tmp_path
+        / "fabric_workspace_items"
+        / "config"
+        / "var_lib.VariableLibrary"
+        / "valueSets"
+    )
+    vs_dir.mkdir(parents=True)
+    vs = vs_dir / "development.json"
+    vs.write_text(
+        json.dumps(
+            {"variableOverrides": [{"name": "sales.v2_report_id", "value": ""}]}
+        ),
+        encoding="utf-8",
+    )
+    api = mock.Mock()
+    api.list_workspace_items.return_value = [
+        {"displayName": "sales.v2", "type": "Report", "id": "rpt-id"},
+        {"displayName": "sales", "type": "Report", "id": "other-id"},
+    ]
+    with (
+        mock.patch(f"{MODULE}.FabricApiUtils", return_value=api),
+        mock.patch(f"{MODULE}.get_token_credential", return_value="cred"),
+    ):
+        _sync(tmp_path)._update_variables_with_item_ids_after_deployment(
+            [PublishResult("sales.v2", "Report", True)],
+            workspace_id="ws1",
+            environment="development",
+        )
+    values = {
+        v["name"]: v["value"]
+        for v in json.loads(vs.read_text(encoding="utf-8"))["variableOverrides"]
+    }
+    assert values == {"sales.v2_report_id": "rpt-id"}
+
+
 # --- what fabric-cicd does with the report ------------------------------------------------
 
 

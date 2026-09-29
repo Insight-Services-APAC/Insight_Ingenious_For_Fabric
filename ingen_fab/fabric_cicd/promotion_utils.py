@@ -754,8 +754,9 @@ class SyncToFabricEnvironment:
                 if not entry.success:
                     continue
 
-                # Extract artifact name (remove .Extension if present)
-                artifact_name = entry.name.split(".")[0]
+                # entry.name is already the display name (the ".Type" suffix was split
+                # off when the result was built); a period inside a name is part of it.
+                artifact_name = entry.name
                 artifact_type = entry.item_type
 
                 # Convention: {name}_{type_lower}_id
