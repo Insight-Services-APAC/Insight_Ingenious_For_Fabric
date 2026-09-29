@@ -23,6 +23,7 @@ from ingen_fab.fabric_cicd.promotion_utils import (
     publish_results_from_responses,
     resolve_deploy_scope,
     split_by_scope,
+    unsupported_results,
 )
 
 MODULE = "ingen_fab.fabric_cicd.promotion_utils"
@@ -428,10 +429,49 @@ def test_changed_items_outside_the_scope_are_split_off_not_attempted():
     items = _manifest_items(
         "a.Notebook", "m.SemanticModel", "r.Report", "p.DataPipeline"
     )
-    in_scope, skipped = split_by_scope(items, ["SemanticModel", "Report"])
+    in_scope, skipped, unsupported = split_by_scope(
+        items,
+        ["SemanticModel", "Report"],
+        ["Notebook", "SemanticModel", "Report", "DataPipeline"],
+    )
     assert [i.name for i in in_scope] == ["m.SemanticModel", "r.Report"]
     assert [i.name for i in skipped] == ["a.Notebook", "p.DataPipeline"]
+    assert unsupported == []
     assert {i.status for i in skipped} == {"updated"}, "manifest status is left alone"
+
+
+def test_unsupported_item_type_is_never_merely_out_of_scope():
+    """A typo in a .platform type ('Notebok') must not hide behind the scope filter and let
+    the deploy exit 0; it is split off as unsupported and reported as a failed item."""
+    from fabric_cicd import constants
+
+    items = _manifest_items("a.Notebook", "b.Notebok")
+    in_scope, skipped, unsupported = split_by_scope(
+        items, list(constants.ACCEPTED_ITEM_TYPES), list(constants.ACCEPTED_ITEM_TYPES)
+    )
+    assert [i.name for i in in_scope] == ["a.Notebook"]
+    assert skipped == []
+    assert [i.name for i in unsupported] == ["b.Notebok"]
+
+    (result,) = unsupported_results(unsupported)
+    assert result.key == "b.notebok" and not result.success
+    assert "not published" in result.error and "Notebok" in result.error
+
+
+def test_unsupported_item_is_marked_failed_in_the_manifest(tmp_path):
+    sync = _sync(tmp_path)
+    items = _manifest_items("a.Notebook", "b.Notebok")
+    entries = [PublishResult("a", "Notebook", True)] + unsupported_results(items[1:])
+    with mock.patch.object(sync, "save_platform_manifest"):
+        out = sync._update_manifest_with_results(
+            items,
+            entries,
+            tmp_path / "m.yml",
+            attempted_item_names={i.name for i in items},
+        )
+    assert [i["name"] for i in out["deployed"]] == ["a.Notebook"]
+    assert [i["name"] for i in out["failed"]] == ["b.Notebok"]
+    assert items[1].status == "failed"
 
 
 def test_sync_applies_the_scope_itself_and_reports_skipped_items():
@@ -442,6 +482,7 @@ def test_sync_applies_the_scope_itself_and_reports_skipped_items():
     src = inspect.getsource(SyncToFabricEnvironment.sync_environment)
     assert "resolve_deploy_scope(" in src
     assert "split_by_scope(" in src
+    assert "unsupported_results(" in src, "unsupported types must be reported as failed"
     assert "skipped=len(skipped_items)" in src
     assert '"GraphQLApi",' not in src, "the hard-coded allowlist should be gone"
 

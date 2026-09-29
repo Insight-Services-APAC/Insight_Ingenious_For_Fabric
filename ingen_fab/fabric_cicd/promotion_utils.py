@@ -168,13 +168,42 @@ def resolve_deploy_scope(raw: Optional[str]) -> list[str]:
     return wanted
 
 
-def split_by_scope(items, scope: list[str]) -> tuple[list, list]:
-    """Split manifest items into (in scope, out of scope) by the type in their ``name.Type``."""
-    in_scope, out_of_scope = [], []
+def split_by_scope(
+    items, scope: list[str], accepted: Optional[list[str]] = None
+) -> tuple[list, list, list]:
+    """Split manifest items by the type in their ``name.Type`` into three lists:
+    in scope, out of scope (an accepted type this deploy does not cover), and unsupported
+    (a type the installed fabric-cicd does not accept at all, e.g. a typo in ``.platform``).
+
+    Unsupported items are never "merely out of scope": the caller reports them as failed.
+    When ``accepted`` is omitted every type outside ``scope`` counts as out of scope.
+    """
+    in_scope, out_of_scope, unsupported = [], [], []
     for item in items:
         _, _, item_type = item.name.rpartition(".")
-        (in_scope if item_type in scope else out_of_scope).append(item)
-    return in_scope, out_of_scope
+        if item_type in scope:
+            in_scope.append(item)
+        elif accepted is not None and item_type not in accepted:
+            unsupported.append(item)
+        else:
+            out_of_scope.append(item)
+    return in_scope, out_of_scope, unsupported
+
+
+def unsupported_results(items) -> list[PublishResult]:
+    """Failed results for manifest items whose type fabric-cicd does not accept."""
+    out = []
+    for item in items:
+        name, _, item_type = item.name.rpartition(".")
+        out.append(
+            PublishResult(
+                name,
+                item_type,
+                False,
+                error=NOT_PUBLISHED_ERROR.format(item_type=item_type),
+            )
+        )
+    return out
 
 
 @dataclass
@@ -1067,9 +1096,24 @@ class SyncToFabricEnvironment:
             changed_items = [
                 f for f in manifest_items if f.status in ["new", "updated", "failed"]
             ]
-            manifest_items_new_updated, skipped_items = split_by_scope(
-                changed_items, item_type_in_scope
+            manifest_items_new_updated, skipped_items, unsupported_items = (
+                split_by_scope(
+                    changed_items,
+                    item_type_in_scope,
+                    list(constants.ACCEPTED_ITEM_TYPES),
+                )
             )
+            if unsupported_items:
+                # A type fabric-cicd does not know (typo or unsupported item kind in
+                # .platform). Nothing can be sent for these; they are reported as failed,
+                # never silently skipped, so the deploy exits non-zero.
+                ConsoleStyles.print_error(
+                    self.console,
+                    f"{len(unsupported_items)} changed item(s) have a type the installed "
+                    f"fabric-cicd does not accept and will be reported as failed: "
+                    f"{[item.name for item in unsupported_items]}",
+                )
+            attempted_items = manifest_items_new_updated + unsupported_items
             if skipped_items:
                 # Out of scope for this deploy: nothing is sent for them and their manifest
                 # status is left as it is, so a later deploy with the right scope picks
@@ -1084,7 +1128,7 @@ class SyncToFabricEnvironment:
             # Initialize deployment results
             results = {"deployed": [], "failed": []}
 
-            if manifest_items_new_updated:
+            if attempted_items:
                 ConsoleStyles.print_success(
                     self.console,
                     f"Found {len(manifest_items_new_updated)} folders to publish",
@@ -1097,30 +1141,33 @@ class SyncToFabricEnvironment:
                     self.console, f"Items to publish: {items_to_publish}"
                 )
 
-                ConsoleStyles.print_info(self.console, "\nPublishing items...")
-                status_entries: list[PublishResult] = []
+                status_entries: list[PublishResult] = unsupported_results(
+                    unsupported_items
+                )
                 publish_exception = False
 
-                fw = None
-                try:
-                    fw = FabricWorkspace(
-                        workspace_id=self.target_workspace_id,
-                        repository_directory=str(output_dir),
-                        item_type_in_scope=item_type_in_scope,
-                        environment=self.environment,
-                        token_credential=self._get_credential(),
-                    )
-                    status_entries = publish_items(fw, items_to_publish)
-                except Exception as e:
-                    ConsoleStyles.print_error(
-                        self.console, f"\nPublishing failed with error: {e}"
-                    )
-                    publish_exception = True
-                    # Items published before the failure are still reported as deployed;
-                    # the attempted ones without a response as failed.
-                    status_entries = publish_results_from_responses(
-                        getattr(fw, "responses", None), items_to_publish, error=e
-                    )
+                if items_to_publish:
+                    ConsoleStyles.print_info(self.console, "\nPublishing items...")
+                    fw = None
+                    try:
+                        fw = FabricWorkspace(
+                            workspace_id=self.target_workspace_id,
+                            repository_directory=str(output_dir),
+                            item_type_in_scope=item_type_in_scope,
+                            environment=self.environment,
+                            token_credential=self._get_credential(),
+                        )
+                        status_entries += publish_items(fw, items_to_publish)
+                    except Exception as e:
+                        ConsoleStyles.print_error(
+                            self.console, f"\nPublishing failed with error: {e}"
+                        )
+                        publish_exception = True
+                        # Items published before the failure are still reported as
+                        # deployed; the attempted ones without a response as failed.
+                        status_entries += publish_results_from_responses(
+                            getattr(fw, "responses", None), items_to_publish, error=e
+                        )
 
                 # Auto-update Item IDs if enabled
                 auto_update_enabled = os.getenv("AUTO_UPDATE_ITEM_IDS", "").lower() in [
@@ -1156,14 +1203,12 @@ class SyncToFabricEnvironment:
                     manifest_items,
                     status_entries,
                     manifest_path,
-                    attempted_item_names={
-                        item.name for item in manifest_items_new_updated
-                    },
+                    attempted_item_names={item.name for item in attempted_items},
                     exception_occurred=publish_exception,
                 )
 
             # Calculate unchanged count
-            attempted_item_names = {item.name for item in manifest_items_new_updated}
+            attempted_item_names = {item.name for item in attempted_items}
             skipped_item_names = {item.name for item in skipped_items}
             unchanged_count = sum(
                 1
