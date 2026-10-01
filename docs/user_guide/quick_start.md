@@ -34,7 +34,7 @@ This creates the following structure with complete starter files:
 dp/
 ├── dbt_project/                    # dbt project folder      
 │   ├── macros/                    # dbt macros
-│   ├── metaextracts/              # dbt metadata extracts
+│   ├── profiles/                  # generated dbt profile (ingen_fab dbt profile)
 │   ├── models/                    # dbt models
 │   ├── dbt_project.yml             # dbt project configuration
 │   └── README.md                   # initial README file

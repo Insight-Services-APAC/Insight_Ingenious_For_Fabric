@@ -166,7 +166,7 @@ ingen_fab ddl compile \
 ingen_fab deploy deploy
 ```
 
-### 5. Create the silver table, build the dbt notebook, and run
+### 5. Create the silver table, build it with dbt, and schedule it
 
 **5a. Create the empty silver table in Fabric**
 
@@ -178,69 +178,42 @@ Step 4 deployed your DDL notebooks to Fabric. Now run them. In your Fabric works
 
 This creates the empty `state_provinces` table in `lh_silver`.
 
-**5b. Build the dbt notebook locally**
+**5b. Build the model with dbt**
 
-!!! warning "Check your dbt profile before building"
-    The `%%configure` cell in the generated notebook gets its lakehouse name directly from `~/.dbt/profiles.yml`. If this is your first time running `build-local`, the profile may still contain the placeholder value `sample_lh`. The CLI will prompt you to select a lakehouse — **choose your bronze lakehouse**. If you've run this before and need to reset, delete `~/.dbt/profiles.yml` and re-run.
+The profile is generated from your value set (`dbt_default_lakehouse` names the lakehouse the
+Livy session starts in; the sample sets it to `lh_silver`):
 
 ```bash
-ingen_fab dbt exec -- build-local dbt_project --select state_provinces
+ingen_fab dbt build -- --select state_provinces
 ```
 
-`dbt_wrapper build-local` reads `dbt_project.yml` **at compile time** and generates a Fabric-native Python notebook into `dbt_project/target/notebooks_fabric_py/`. The schema names (`lh_1_bronze`, `lh_1_silver`) are baked into the compiled SQL at this point. You should see `PASS=1` in the output.
+dbt compiles against the live catalog, starts a Livy session (the first run takes a minute),
+reads `lh_bronze.state_provinces` and merges into `lh_silver.state_provinces`. You should see
+`PASS=1`.
 
-After a successful build, verify the generated notebook has the correct lakehouse (not `sample_lh`):
+!!! note "Where models land"
+    The `schema:` set per folder in `dbt_project.yml` is the lakehouse a folder's models write
+    to (on plain lakehouses the lakehouse is the schema of a two-part name). To check without a
+    connection: `ingen_fab dbt ls -- --output json --output-keys name relation_name`. See the
+    [dbt integration guide](../../user_guide/dbt_integration.md#lakehouses-with-and-without-schemas).
 
-```bash
-grep -A1 'defaultLakehouse' dbt_project/target/notebooks/model.dbt_project.state_provinces.ipynb | tail -1
-```
+**5c. Make it schedulable**
 
-You should see your bronze lakehouse name (e.g. `"name": "lh_1_bronze"`). Also check that `sample_lh` is **not** present:
-
-```bash
-grep 'sample_lh' dbt_project/target/notebooks/model.dbt_project.state_provinces.ipynb
-```
-
-If this returns any output, the notebook still contains the placeholder — delete `dbt_project/target/` and re-run `build-local`.
-
-!!! warning "Always rebuild after changing `dbt_project.yml`"
-    If you change schema names in `dbt_project.yml`, you must re-run `build-local` — the previously compiled notebooks in `target/` will still contain the old names. `deploy deploy` pushes whatever is in `target/`; it does not re-read `dbt_project.yml`.
-
-!!! warning "Profile must be configured before building"
-    `ingen_fab dbt exec` reads the dbt profile from `~/.dbt/profiles.yml` (key `fabric-spark-testnb`). Two things must be correct before running `build-local`:
-
-    1. **Profile name in `dbt_project.yml`** — must be `profile: 'fabric-spark-testnb'` (not `if_demo`)
-    2. **Lakehouse name in the profile** — the `%%configure` cell in the generated notebook is populated directly from the profile's `lakehouse:` value. This should be your **bronze** lakehouse name (e.g. `lh_1_bronze`), consistent with how the existing silver models (`cities`, `countries`) were built.
-
-    When running `ingen_fab dbt exec -- build-local dbt_project --select state_provinces` you will be prompted in the terminal to select a lakehouse — choose your bronze lakehouse. On subsequent runs it uses the saved preference.
-
-**5c. Stage and deploy the generated notebook to Fabric**
-
-`build-local` writes notebooks to `target/` only. You must first copy them into `fabric_workspace_items/` before deploying:
+Upload the project to the config lakehouse and create the orchestrator notebook that runs the
+same command inside Fabric, then deploy it:
 
 ```bash
-# Copy generated notebooks from target/ into fabric_workspace_items/
-ingen_fab dbt create-notebooks --dbt-project dbt_project
-
-# Deploy everything in fabric_workspace_items/ to Fabric
+ingen_fab dbt profile
+ingen_fab deploy upload-dbt-project --dbt-project dbt_project
+ingen_fab dbt orchestrator --name dbtload_silver --select "silver"
 ingen_fab deploy deploy
 ```
 
-!!! warning "Stale notebooks in Fabric"
-    `deploy deploy` pushes whatever is in `fabric_workspace_items/` without validating notebook content. If a previous failed build left a stale notebook (e.g. with `sample_lh`), and you then fixed the issue and re-ran `build-local` + `create-notebooks`, the new deploy will overwrite it. Always verify the build output (Step 5b verification) before deploying.
+**5d. Run the orchestrator notebook in Fabric**
 
-**5d. Run the dbt notebook in Fabric**
-
-In your Fabric workspace, run the generated notebook:
-
-```
-model.dbt_project.state_provinces
-```
-
-This executes the incremental merge from `lh_bronze.state_provinces` into `lh_silver.state_provinces`. Alternatively, run the master orchestrator notebook `master_dbt_project_notebook` to execute all dbt models.
-
-!!! note "`dbt_wrapper` is not standard dbt"
-    `dbt_wrapper` is a workflow system — it does not accept `dbt run --select`. The `build-local` command generates Fabric notebooks from dbt models locally. Those notebooks are then deployed and executed in Fabric. For a full build + upload + execute pipeline in one command, use `ingen_fab dbt exec -- run-all dbt_project`.
+In your Fabric workspace, run `dbtload_silver`. It installs the adapter from the uploaded
+`requirements.txt`, selects the `<environment>-notebook` profile target from the Variable
+Library, and runs `dbt build --select silver` with the notebook's own identity.
 
 ## Verification
 

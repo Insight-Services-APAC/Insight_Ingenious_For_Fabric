@@ -44,7 +44,7 @@ dev = [
 ]
 
 dbt = [
-    "dbt-fabricsparknb @ git+https://github.com/Insight-Services-APAC/APAC-Capability-DAI-DbtFabricSparkNb.git@V1.8.0"
+    "dbt-fabricspark>=1.13,<2",
 ]
 
 docs = [

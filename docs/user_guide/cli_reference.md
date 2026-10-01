@@ -25,7 +25,7 @@ Complete reference for all Ingenious Fabric Accelerator commands, options, and u
 | `init` | Create projects / configure workspace / generate storage artifacts | `ingen_fab init new --project-name MyProj`<br>`ingen_fab init storage-config` |
 | `ddl` | Compile notebooks from DDL scripts and assist in creating ddl scripts | `ingen_fab ddl compile -o fabric_workspace_repo -g Warehouse` |
 | `deploy` | Deploy, upload libs, extract/compare metadata and dwonload artefacts | `ingen_fab deploy get-metadata --target both -f csv -o meta.csv` |
-| `dbt` | Generate notebooks from dbt outputs and convert metadata to dbt-adapter format | `ingen_fab dbt create-notebooks -p my_dbt_proj` |
+| `dbt` | dbt on Fabric Spark: profile from the value set, dbt commands over Livy, orchestrator notebook | `ingen_fab dbt build -- --select tag:silver` |
 
 ## Global Options
 
@@ -740,164 +740,72 @@ ingen_fab deploy upload-dbt-project \
 
 ## dbt {#dbt}
 
-Generate notebooks from dbt outputs and proxy commands to dbt_wrapper. The dbt integration includes automatic profile management that helps you select and configure the appropriate lakehouse for your dbt models.
+dbt on Fabric lakehouses with the native `dbt-fabricspark` adapter. The profile is generated
+from the Variable Library value sets into `<dbt_project>/profiles/profiles.yml` (profile name
+from `dbt_project.yml`, one `<environment>` and one `<environment>-notebook` target per
+environment); every dbt verb runs with it; an orchestrator notebook runs the same command
+inside Fabric. See the [DBT Integration Guide](dbt_integration.md).
 
-### Automatic Profile Management
+Common options on every command:
 
-When running dbt commands through `ingen_fab`, the system automatically manages your dbt profile:
+- `--dbt-project` / `-p`: dbt project directory under the workspace repo (default `dbt_project`)
+- `--lakehouse` / `-l`: default lakehouse prefix for the profile (else `dbt_default_lakehouse` in the value set, else the only lakehouse)
 
-1. **Discovers Available Lakehouses**: Scans your environment configuration for all configured lakehouses
-2. **Interactive Selection**: Prompts you to choose which lakehouse to use (if multiple are available)
-3. **Saves Preferences**: Remembers your selection for future use in the same environment
-4. **Environment-Specific**: Maintains different selections for different environments (development, test, production)
+#### `dbt profile`
 
-The dbt profile is automatically created or updated at `~/.dbt/profiles.yml` with the name `fabric-spark-testnb`.
-
-#### `dbt create-notebooks`
-
-Generate Fabric notebooks from dbt models and tests. This command will prompt you to select a lakehouse if multiple options are available.
+Write (or rewrite) the profile and print it.
 
 ```bash
-ingen_fab dbt create-notebooks --dbt-project my_dbt_project
+ingen_fab dbt profile
+ingen_fab dbt profile -p analytics_models -l lh_silver
+```
+
+#### `dbt build` / `run` / `test` / `seed` / `snapshot` / `compile` / `parse` / `debug` / `docs` / `ls` / `clean` / `deps` / `show`
+
+Regenerate the profile, then run `dbt <verb> --project-dir <project> --profiles-dir <project>/profiles --target <environment>`; everything after `--` is passed to dbt unchanged.
+
+```bash
+ingen_fab dbt build -- --select tag:silver
+ingen_fab dbt run -- --select state_provinces --full-refresh
+ingen_fab dbt test
+ingen_fab dbt build -l lh_gold -- --select tag:gold
+```
+
+#### `dbt orchestrator`
+
+Create `fabric_workspace_items/notebooks/<name>.Notebook`, a notebook that runs dbt inside
+Fabric against the project uploaded with `ingen_fab deploy upload-dbt-project`.
+
+```bash
+ingen_fab dbt orchestrator --name dbtload_silver --select "silver"
+ingen_fab dbt orchestrator -p analytics_models -n dbtload_gold -s "+tag:gold" -c build --threads 8
 ```
 
 **Options:**
 
-- `--dbt-project` / `-p`: Name of the dbt project directory under the workspace repo
-
-- `--skip-profile-confirmation`: Skip confirmation prompt when updating dbt profile
-
-**Examples:**
-```bash
-# Create notebooks for a dbt project
-ingen_fab dbt create-notebooks --dbt-project analytics_models
-
-# Skip profile confirmation prompt
-ingen_fab dbt create-notebooks -p data_mart --skip-profile-confirmation
-```
-
-#### `dbt convert-metadata`
-
-Convert cached lakehouse metadata to dbt metaextracts format.
-
-```bash
-ingen_fab dbt convert-metadata --dbt-project _dbt_project
-```
-
-**Options:**
-
-- `--dbt-project` / `-p`: Name of the dbt project directory under the workspace repo
-
-- `--metadata-file` / `-m`: Path to CSV metadata file (default: `metadata/lakehouse_metadata_all.csv`)
-  - Can be absolute or relative to workspace root
-  - Use this if you generated metadata with a custom filename
-
-- `--skip-profile-confirmation`: Skip confirmation prompt when updating dbt profile
-
-**Prerequisites:**
-The metadata must first be extracted using:
-```bash
-ingen_fab deploy get-metadata --target lakehouse
-```
-
-This creates the required `metadata/lakehouse_metadata_all.csv` file (or custom path if specified).
-
-**What it does:**
-- Reads from `{workspace}/metadata/lakehouse_metadata_all.csv` (or specified custom path)
-- Creates JSON files in `{workspace}/{dbt_project}/metaextracts/` for dbt_wrapper to use
-
-**Examples:**
-```bash
-# Convert metadata for dbt project (using default metadata file)
-ingen_fab dbt convert-metadata --dbt-project analytics_models
-
-# Use custom metadata file (relative path)
-ingen_fab dbt convert-metadata --dbt-project analytics_models --metadata-file metadata/custom_lakehouse_data.csv
-
-# Use custom metadata file (absolute path)
-ingen_fab dbt convert-metadata -p analytics_models -m C:\data\lakehouse_export.csv
-
-# Skip profile confirmation
-ingen_fab dbt convert-metadata -p my_dbt_project --skip-profile-confirmation
-```
+- `--name` / `-n`: notebook name
+- `--select` / `-s`: dbt selector the notebook runs
+- `--command` / `-c`: `build` (default), `run`, `test`, `seed`, `snapshot`
+- `--config-lakehouse`: lakehouse holding the uploaded project (default: `config_lakehouse_name` from the value set)
+- `--threads`: dbt threads (default 4)
 
 #### `dbt generate-schema-yml`
 
-Convert cached lakehouse metadata to dbt schema.yml format for a specific lakehouse and layer.
+Convert cached lakehouse metadata to a dbt `schema.yml` for one lakehouse and layer.
 
 ```bash
 ingen_fab dbt generate-schema-yml --dbt-project my_dbt_project --lakehouse lh_bronze --layer staging --dbt-type model
+ingen_fab dbt generate-schema-yml -p data_mart --lakehouse lh_silver --layer marts --dbt-type snapshot
 ```
 
 **Options:**
 
-- `--dbt-project` / `-p`: Name of the dbt project directory under the workspace repo
+- `--dbt-project` / `-p`: dbt project directory under the workspace repo
+- `--lakehouse`: lakehouse to include
+- `--layer`: output folder under `<dbt_project>/schema_yml/`
+- `--dbt-type`: `source`, `model` or `snapshot`
 
-- `--lakehouse`: Name of the lakehouse to use as a filter for the csv
-
-- `--layer`: Name of the dbt layer
-
-- `--dbt-type`: Is this for a model or a snapshot?
-
-- `--skip-profile-confirmation`: Skip confirmation prompt when updating dbt profile
-
-**Prerequisites:**
-The metadata must first be extracted using:
-```bash
-ingen_fab deploy get-metadata --target lakehouse
-```
-
-This creates the required `metadata/lakehouse_metadata_all.csv` file.
-
-**What it does:**
-- Reads from `{workspace}/metadata/lakehouse_metadata_all.csv`
-- Creates schema.yml file in the appropriate dbt project directory
-- Filters metadata for the specified lakehouse and layer
-- Generates dbt-compatible schema definitions
-
-**Examples:**
-```bash
-# Generate schema.yml for staging models in bronze lakehouse
-ingen_fab dbt generate-schema-yml --dbt-project analytics_models --lakehouse lh_bronze --layer staging --dbt-type model
-
-# Generate schema.yml for snapshots with short flags
-ingen_fab dbt generate-schema-yml -p data_mart --lakehouse lh_silver --layer marts --dbt-type snapshot
-
-# Skip profile confirmation
-ingen_fab dbt generate-schema-yml -p my_dbt_project --lakehouse lh_gold --layer reporting --dbt-type model --skip-profile-confirmation
-```
-
-#### `dbt exec` (proxy command)
-
-Proxy any dbt command to dbt_wrapper inside the Fabric workspace repo. The `exec` command provides intelligent lakehouse selection:
-
-- **With saved preference**: Notifies user of chosen lakehouse and continues
-- **Without saved preference**: Always prompts for interactive selection
-- **Never fails silently**: Ensures user knows which lakehouse is being used
-
-```bash
-ingen_fab dbt [DBT_COMMAND] [DBT_OPTIONS]
-```
-
-**Examples:**
-```bash
-# build dbt models and snapshots
-Ingen_fab dbt exec -- stage run build --project-dir dbt_project
-
-# build dbt master notebooks
-Ingen_fab dbt exec -- stage run post-scripts --project-dir dbt_project
-
-```
-
-**Typical Output:**
-```
-# With saved preference:
-Using saved lakehouse preference: Bronze Layer (Environment: development)
-
-# Without saved preference:
-No valid lakehouse preference found for environment 'development'. Please select a lakehouse:
-[Interactive selection table appears]
-```
+**Prerequisites:** `ingen_fab deploy get-metadata --target lakehouse` first.
 
 ## Configuration
 
@@ -948,11 +856,11 @@ ingen_fab init storage-config
 # Edit fabric_workspace_items/config/var_lib.VariableLibrary/valueSets/development.json
 # Replace placeholder GUIDs with your actual workspace and lakehouse IDs
 
-# 5. Develop and build dbt notebooks, copy them to fabric_workspace_items
-
-ingen_fab dbt exec -- stage run build --project-dir dbt_project
-ingen_fab dbt exec -- stage run post-scripts --project-dir dbt_project
-ingen_fab dbt create-notebooks -p my_dbt_project
+# 5. Develop dbt models; build over Livy, then make the run schedulable in Fabric
+ingen_fab dbt build -- --select tag:silver
+ingen_fab dbt profile
+ingen_fab deploy upload-dbt-project --dbt-project dbt_project
+ingen_fab dbt orchestrator --name dbtload_silver --select +tag:silver
 
 # 6. Generate ddl notebooks
 ingen_fab ddl compile --output-mode fabric_workspace_repo --generation-mode Warehouse

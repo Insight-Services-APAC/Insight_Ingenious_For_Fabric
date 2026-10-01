@@ -19,7 +19,6 @@
       "type": "String",
       "value": ""
     },
-    
     {
       "name": "config_workspace_id",
       "note": "GUID of the workspace containing the configuration lakehouse.",
@@ -115,6 +114,12 @@
       "note": "SQL analytics endpoint of the wh_gold warehouse (host name only); semantic models read it at deploy time.",
       "type": "String",
       "value": ""
+    },
+    {
+      "name": "dbt_default_lakehouse",
+      "note": "Prefix of the lakehouse the dbt profile targets by default; models route to other lakehouses by folder (schema: on plain lakehouses, +database on schema-enabled ones).",
+      "type": "String",
+      "value": "lh_silver"
     }
   ]
 }

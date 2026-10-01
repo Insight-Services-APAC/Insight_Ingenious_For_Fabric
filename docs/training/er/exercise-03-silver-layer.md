@@ -230,7 +230,7 @@ write_silver(df_regions.dropDuplicates(["region_id"]), "regions")
 Click **Run all** and verify all four cells complete without errors.
 
 !!! tip "Production approach: dbt integration"
-    In a production project, you would write these transformations as **dbt models** rather than manual notebooks. IngenFab supports this workflow with `ingen_fab dbt create-notebooks` — which converts dbt output into deployable Fabric notebooks. See the [dbt integration guide](../../user_guide/dbt_integration.md) for details.
+    In a production project, you would write these transformations as **dbt models** rather than manual notebooks. IngenFab supports this workflow with `ingen_fab dbt build` (dbt over the Fabric Livy API) and `ingen_fab dbt orchestrator` (the same run as a deployable Fabric notebook). See the [dbt integration guide](../../user_guide/dbt_integration.md) for details.
 
 ## Verification
 

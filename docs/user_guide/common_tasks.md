@@ -12,12 +12,10 @@ Quick, task-oriented commands with links to deeper docs.
 | Configure workspace by name | `ingen_fab init workspace --workspace-name "dp_dev"` | Optionally create if missing with `-c` | [CLI Reference → init](cli_reference.md#init) |
 | Generate storage artifacts | `ingen_fab init storage-config` | Generates lakehouse, warehouse, and SQL database artifacts from storage_config.yaml. Creates folders, updates variables | [Quick Start](quick_start.md), [CLI Reference → init storage-config](cli_reference.md#init-storage-config) |
 | Extract lakehouse/warehouse metadata | `ingen_fab deploy get-metadata --target both -f csv -o ./artifacts/meta.csv` | Flexible filters via `--schema`, `--table` | [Deploy Guide](deploy_guide.md), [CLI Reference → deploy](cli_reference.md#deploy) |
-| Convert metadata for dbt project | `ingen_fab dbt convert-metadata --dbt-project dbt_project` | Converts metadata into dbt wrapper format. Add `--metadata-file` for custom CSV path | [DBT Integration](dbt_integration.md) |
-| Generate dbt notebooks | `ingen_fab dbt create-notebooks -p my_dbt_project` | Automatically configures dbt profile, prompts for lakehouse selection | [DBT Integration](dbt_integration.md) |
+| Write the dbt profile | `ingen_fab dbt profile -p my_dbt_project` | `profiles/profiles.yml` from the value sets; `-l <prefix>` picks the default lakehouse | [DBT Integration](dbt_integration.md) |
 | Generate dbt schema.yml | `ingen_fab dbt generate-schema-yml -p my_dbt_project --lakehouse lh_bronze --layer staging --dbt-type model` | Converts metadata to dbt schema.yml format for specific lakehouse and layer | [DBT Integration](dbt_integration.md) |
-| Build dbt models and snapshots | `ingen_fab dbt exec -- stage run build --project-dir dbt_project` | Proxy command to build dbt models and snapshots with automatic profile management | [DBT Integration](dbt_integration.md) |
-| Build dbt master notebooks | `ingen_fab dbt exec -- stage run post-scripts --project-dir dbt_project` | Proxy command to build dbt master notebooks with automatic profile management | [DBT Integration](dbt_integration.md) |
-| Set up dbt profile | Run any `ingen_fab dbt` command | Interactive lakehouse selection on first run, saves preference | [DBT Integration](dbt_integration.md) |
+| Build dbt models | `ingen_fab dbt build -- --select tag:silver` | Runs `dbt build` over Livy with the generated profile; any dbt verb works the same way | [DBT Integration](dbt_integration.md) |
+| Create a dbt orchestrator notebook | `ingen_fab dbt orchestrator --name dbtload_silver --select +tag:silver` | Notebook that runs dbt inside Fabric against the uploaded project (`deploy upload-dbt-project`) | [DBT Integration](dbt_integration.md) |
 | Generate DDL scripts from metadata | `ingen_fab ddl ddls-from-metadata --lakehouse lh_silver` | Generates DDL scripts from metadata (optional helper functionality) | [CLI Reference → ddl](cli_reference.md#ddl) |
 | Generate DDL notebooks (Warehouse) | `ingen_fab ddl compile -o fabric_workspace_repo -g Warehouse` | Generates notebooks from DDL scripts | [CLI Reference → ddl](cli_reference.md#ddl) |
 | Generate DDL notebooks (Lakehouse) | `ingen_fab ddl compile -o fabric_workspace_repo -g Lakehouse` | Uses PySpark notebooks | [CLI Reference → ddl](cli_reference.md#ddl) |
@@ -28,38 +26,8 @@ Quick, task-oriented commands with links to deeper docs.
 
 ## DBT Profile Setup
 
-The first time you run any dbt command, you'll be prompted to select a target lakehouse:
-
-=== "Multiple Lakehouses Available"
-
-    ```bash
-    # First run - shows interactive selection
-    ingen_fab dbt create-notebooks -p my_project
-    
-    # Output:
-    # Available Lakehouse Configurations:
-    # 
-    # ┏━━━┳━━━━━━━━━━━┳━━━━━━━━━━━━━━━━━━━━━━┳━━━━━━━━━━━━━━━━━━━┓
-    # ┃ # ┃ Prefix    ┃ Lakehouse Name       ┃ Workspace Name    ┃
-    # ┡━━━╇━━━━━━━━━━━╇━━━━━━━━━━━━━━━━━━━━━━╇━━━━━━━━━━━━━━━━━━━┩
-    # │ 1 │ bronze    │ Bronze Layer         │ Analytics         │
-    # │ 2 │ silver    │ Silver Layer         │ Analytics         │
-    # │ 3 │ gold      │ Gold Layer           │ Analytics         │
-    # └───┴───────────┴──────────────────────┴───────────────────┘
-    # 
-    # Select a lakehouse configuration by number [1]: 2
-    ```
-
-=== "Single Lakehouse Available"
-
-    ```bash
-    # Automatically uses the only available lakehouse
-    ingen_fab dbt create-notebooks -p my_project
-    
-    # Output:
-    # Using the only available lakehouse: Sample Lakehouse
-    ```
-
-Your selection is saved and reused automatically for future commands in the same environment.
-
-
+The dbt profile is generated from the value set, never prompted for: `ingen_fab dbt profile`
+writes `<dbt_project>/profiles/profiles.yml`, and every `ingen_fab dbt <verb>` regenerates it
+first. With one lakehouse in the value set it is the default; with several, pass
+`--lakehouse <prefix>` or set the `dbt_default_lakehouse` variable. See
+[DBT Integration](dbt_integration.md).

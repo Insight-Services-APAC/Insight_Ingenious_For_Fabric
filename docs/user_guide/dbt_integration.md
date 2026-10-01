@@ -2,295 +2,215 @@
 
 [Home](../index.md) > [User Guide](index.md) > DBT Integration
 
-The Ingenious Fabric Accelerator provides seamless integration with dbt (data build tool) for Microsoft Fabric environments, allowing you to develop, test, and deploy dbt models directly to Fabric lakehouses and warehouses.
+Run dbt against Fabric lakehouses with Microsoft's `dbt-fabricspark` adapter: from your
+machine or a CI runner over the Fabric Livy API, and inside Fabric from an orchestrator
+notebook. ingen_fab generates the dbt profile from your Variable Library, wraps the `dbt`
+commands, and creates the notebook. Nothing is generated from your models: the dbt project
+is the artefact, and dbt executes the SQL.
 
 ## Overview
 
-The dbt integration enables you to:
-- Generate Fabric notebooks from dbt models and tests
-- Automatically manage dbt profiles for Fabric connections
-- Select target lakehouses interactively
-- Run dbt commands within your Fabric workspace context
-- Convert dbt metadata to Fabric-compatible formats
+| Step | Command | What it does |
+| --- | --- | --- |
+| Write the profile | `ingen_fab dbt profile` | `<dbt_project>/profiles/profiles.yml` from the value sets, one target per environment |
+| Develop | `ingen_fab dbt build -- --select tag:silver` | runs `dbt build` with that profile, over Livy, as you |
+| Schedule | `ingen_fab dbt orchestrator -n dbtload_silver -s +tag:silver` then `ingen_fab deploy upload-dbt-project` and `ingen_fab deploy deploy` | a notebook item that runs the same command inside Fabric against the uploaded project |
+| Describe sources | `ingen_fab dbt generate-schema-yml` | `schema.yml` from lakehouse metadata |
 
-## Automatic Profile Management
+Warehouses (T-SQL) use the `dbt-fabric` adapter with the same orchestrator shape; this page
+is about lakehouses.
 
-One of the key features is automatic dbt profile management. When you run any dbt command through `ingen_fab`, the system automatically handles your connection configuration.
+## Prerequisites
 
-### How It Works
+- The `dbt` dependency group: `uv sync --group dbt` (installs `dbt-fabricspark` and
+  `dbt-core`). The `dbt` executable must be on `PATH` in the environment you run from.
+- An Azure identity that can call the Fabric API: `az login` on a workstation, the
+  service-principal environment variables in CI (`AZURE_TENANT_ID`, `AZURE_CLIENT_ID`,
+  `AZURE_CLIENT_SECRET`), or a managed identity. The profile uses
+  `azure.identity.DefaultAzureCredential`, the same resolution order as the rest of ingen_fab.
+- Lakehouse ids in the value set (`ingen_fab init workspace` fills them).
 
-1. **Environment Detection**: The system reads your current `FABRIC_ENVIRONMENT` setting
-2. **Lakehouse Discovery**: Scans the environment configuration for all available lakehouses
-3. **Interactive Selection**: If multiple lakehouses are found, you'll be prompted to choose
-4. **Preference Persistence**: Your selection is saved and reused for future commands
-5. **Profile Generation**: Creates or updates `~/.dbt/profiles.yml` with the correct settings
+## The profile
 
-### Lakehouse Selection
-
-When you first run a dbt command in a new environment, you'll see:
-
-```
-Available Lakehouse Configurations:
-
-┏━━━┳━━━━━━━━━━━┳━━━━━━━━━━━━━━━━━━━━━━┳━━━━━━━━━━━━━━━━━━━┳━━━━━━━━━━━━┓
-┃ # ┃ Prefix    ┃ Lakehouse Name       ┃ Workspace Name    ┃ Lakehouse… ┃
-┡━━━╇━━━━━━━━━━━╇━━━━━━━━━━━━━━━━━━━━━━╇━━━━━━━━━━━━━━━━━━━╇━━━━━━━━━━━━┩
-│ 1 │ bronze    │ Bronze Layer         │ Analytics         │ abc123...  │
-│ 2 │ silver    │ Silver Layer         │ Analytics         │ def456...  │
-│ 3 │ gold      │ Gold Layer           │ Analytics         │ ghi789...  │
-│ 4 │ sample_lh │ Sample Lakehouse     │ Development       │ jkl012...  │
-└───┴───────────┴──────────────────────┴───────────────────┴────────────┘
-
-Select a lakehouse configuration by number [1]: 
-```
-
-Your selection is saved and will be used automatically for subsequent commands in the same environment.
-
-### Environment-Specific Profiles
-
-Different environments can use different lakehouses:
-
-=== "Development"
-
-    ```bash
-    export FABRIC_ENVIRONMENT="development"
-    ingen_fab dbt exec run  # Uses development lakehouse selection
-    ```
-
-=== "Production"
-
-    ```bash
-    export FABRIC_ENVIRONMENT="production"
-    ingen_fab dbt exec run  # Uses production lakehouse selection
-    ```
-
-## Setting Up DBT Projects
-
-### 1. Project Structure
-
-Organize your dbt project within your Fabric workspace repository:
-
-```
-my_fabric_project/
-├── fabric_workspace_items/
-│   └── config/
-│       └── var_lib.VariableLibrary/
-│           └── valueSets/
-│               ├── development.json
-│               ├── test.json
-│               └── production.json
-├── my_dbt_project/
-│   ├── dbt_project.yml
-│   ├── models/
-│   │   ├── staging/
-│   │   ├── intermediate/
-│   │   └── marts/
-│   ├── tests/
-│   └── macros/
-└── platform_manifest_*.yml
-```
-
-### 2. Configuring Lakehouses
-
-In your environment configuration files (`valueSets/*.json`), define your lakehouses:
-
-```json
-{
-  "variableOverrides": [
-    {
-      "name": "bronze_workspace_id",
-      "value": "aaaa-bbbb-cccc-dddd"
-    },
-    {
-      "name": "bronze_lakehouse_id",
-      "value": "1111-2222-3333-4444"
-    },
-    {
-      "name": "bronze_lakehouse_name",
-      "value": "Bronze Layer"
-    },
-    {
-      "name": "silver_workspace_id",
-      "value": "eeee-ffff-gggg-hhhh"
-    },
-    {
-      "name": "silver_lakehouse_id",
-      "value": "5555-6666-7777-8888"
-    },
-    {
-      "name": "silver_lakehouse_name",
-      "value": "Silver Layer"
-    }
-  ]
-}
-```
-
-The system will automatically discover these configurations and present them as options.
-
-### 3. Running DBT Commands
-
-The Ingenious Fabric Accelerator provides several dbt commands for different use cases:
-
-#### Generate Notebooks from DBT Models
-
-Convert your dbt models into Fabric-compatible notebooks:
-
-```bash
-# Create notebooks for a dbt project
-ingen_fab dbt create-notebooks --dbt-project my_dbt_project
-
-# Skip profile confirmation prompt
-ingen_fab dbt create-notebooks -p data_mart --skip-profile-confirmation
-```
-
-#### Convert Metadata for DBT
-
-Convert cached lakehouse metadata to dbt metaextracts format:
-
-```bash
-# Convert metadata for dbt project (using default metadata file)
-ingen_fab dbt convert-metadata --dbt-project analytics_models
-
-# Use custom metadata file
-ingen_fab dbt convert-metadata --dbt-project analytics_models --metadata-file metadata/custom_data.csv
-
-# Skip profile confirmation
-ingen_fab dbt convert-metadata -p my_dbt_project --skip-profile-confirmation
-
-# Use custom metadata file with short flags
-ingen_fab dbt convert-metadata -p analytics_models -m metadata/warehouse_export.csv
-```
-
-**Prerequisites**: Extract metadata first using `ingen_fab deploy get-metadata --target lakehouse`
-
-**Options**:
-- `--metadata-file` / `-m`: Optional path to CSV metadata file (defaults to `metadata/lakehouse_metadata_all.csv`)
-
-#### Generate Schema YAML Files
-
-Convert cached lakehouse metadata to dbt schema.yml format for specific lakehouse and layer:
-
-```bash
-# Generate schema.yml for staging models in bronze lakehouse
-ingen_fab dbt generate-schema-yml --dbt-project analytics_models --lakehouse lh_bronze --layer staging --dbt-type model
-
-# Generate schema.yml for snapshots
-ingen_fab dbt generate-schema-yml -p data_mart --lakehouse lh_silver --layer marts --dbt-type snapshot
-```
-
-#### Execute DBT Commands (Proxy) (Requires Review)
-
-All standard dbt commands are available through the `ingen_fab dbt exec` proxy:
-
-```bash
-# Build dbt models and snapshots
-ingen_fab dbt exec -- stage run build --project-dir dbt_project
-
-# Build dbt master notebooks
-ingen_fab dbt exec -- stage run post-scripts --project-dir dbt_project
-
-# Run specific models
-ingen_fab dbt exec -- run --models staging.customers --project-dir dbt_project
-
-# Test models
-ingen_fab dbt exec -- test --project-dir dbt_project
-
-# Generate documentation
-ingen_fab dbt exec -- docs generate --project-dir dbt_project
-
-# Run seeds
-ingen_fab dbt exec -- seed --project-dir dbt_project
-```
-
-## Advanced Configuration
-
-### Smart Behavior for Automated Workflows
-
-The `dbt exec` command provides intelligent behavior for both interactive and automated use:
-
-**With Valid Saved Preference:**
-```bash
-# Shows notification and continues automatically
-ingen_fab dbt exec run
-
-# Output:
-# Using saved lakehouse preference: Bronze Layer (Environment: development)
-# Running dbt command...
-```
-
-**Without Saved Preference:**
-```bash
-# Always prompts for selection to ensure correct configuration
-ingen_fab dbt exec run
-
-# Output:
-# No valid lakehouse preference found for environment 'development'. Please select a lakehouse:
-# [Interactive table appears]
-```
-
-This ensures that `dbt exec` never fails silently due to missing configuration, while still being efficient when preferences are already established.
-
-### Manual Profile Configuration
-
-If needed, you can manually edit `~/.dbt/profiles.yml`:
+`ingen_fab dbt profile --dbt-project dbt_project` writes `dbt_project/profiles/profiles.yml`:
 
 ```yaml
-fabric-spark-testnb:
+# Generated by `ingen_fab dbt profile` from the project's Variable Library value sets.
+if_demo:                       # the `profile:` of dbt_project.yml
+  target: development          # the current FABRIC_ENVIRONMENT
   outputs:
-    my_project_target:
-      type: fabricsparknb
-      authentication: CLI
+    development:               # laptop or CI runner, over Livy, Azure identity
+      type: fabricspark
+      method: livy
       endpoint: https://api.fabric.microsoft.com/v1
-      lakehouse: Bronze Layer
-      lakehouseid: 1111-2222-3333-4444
-      workspaceid: aaaa-bbbb-cccc-dddd
-      workspacename: Analytics
-      _lakehouse_prefix: bronze  # Saved selection
-  target: my_project_target
+      workspaceid: <workspace id>
+      lakehouseid: <lakehouse id>
+      lakehouse: lh_bronze
+      schema: lh_bronze        # or dbo for a schema-enabled lakehouse
+      threads: 4
+      connect_retries: 2
+      connect_timeout: 30
+      reuse_session: false      # dbt_reuse_session=true keeps the Livy session alive between runs
+      spark_config:
+        name: dbt-if_demo-development   # the run's Spark session in the Monitor hub
+      authentication: token_credential
+      credential_class: azure.identity.DefaultAzureCredential
+      credential_kwargs:
+        exclude_interactive_browser_credential: true
+    development-notebook:      # the orchestrator notebook inside Fabric
+      ...                      # same, with the raw-token mode: authentication: int_tests,
+                               # accessToken: "{{ env_var('DBT_FABRIC_TOKEN') }}"
+    test:
+      ...
 ```
 
-The `_lakehouse_prefix` field stores your selection preference.
+Where the values come from:
 
-### Multiple DBT Projects
+| Profile field | Source |
+| --- | --- |
+| profile name | `profile:` in `dbt_project.yml` |
+| target names | one `<environment>` and one `<environment>-notebook` per value set |
+| `workspaceid`, `lakehouseid`, `lakehouse` | the default lakehouse: `<prefix>_workspace_id`, `<prefix>_lakehouse_id`, `<prefix>_lakehouse_name` |
+| default lakehouse | `--lakehouse <prefix>` on the command, else the `dbt_default_lakehouse` variable (a prefix or a lakehouse name), else the only lakehouse declared; with several and no choice the command stops and lists the prefixes |
+| `schema` | the `dbt_schema` variable, else the lakehouse name |
+| `threads` | the `dbt_threads` variable, else 4 |
+| `reuse_session` | the `dbt_reuse_session` variable, else `false`: with reuse on, the adapter leaves the Livy session running after dbt exits so a later run can pick it up, which holds capacity between runs |
+| `endpoint` | the `fabric_api_endpoint` variable, else the public Fabric API |
 
-Each dbt project can use different lakehouses. The selection is based on:
-1. Current `FABRIC_ENVIRONMENT` 
-2. Available lakehouses in that environment
-3. Your saved preference (if any)
+The file is validated with the installed adapter before it is written, and it is regenerated
+by every `ingen_fab dbt <command>` run, so the value set stays the single source. It holds
+ids, not secrets; it can be committed or ignored as you prefer.
+
+## Lakehouses with and without schemas
+
+The adapter tells the two kinds apart by the profile: `schema` equal to the lakehouse name
+means a plain lakehouse and two-part names (`lakehouse.table`); `schema` different from it
+(`dbo`) means a schema-enabled lakehouse and three-part names (`lakehouse.schema.table`).
+Set `dbt_schema` to `dbo` in the value set of a project whose default lakehouse is
+schema-enabled.
+
+**Routing models to several lakehouses.** A folder in `dbt_project.yml` names the lakehouse
+its models write to; the form depends on the lakehouse kind, and one run covers every layer.
+
+With plain lakehouses the lakehouse *is* the schema (two-part names), so the sample project's
+routing is:
+
+```yaml
+models:
+  dbt_project:
+    silver:
+      schema: lh_silver     # renders `lh_silver`.cities
+    gold:
+      schema: lh_gold       # renders `lh_gold`.dim_cities
+```
+
+With schema-enabled lakehouses a folder sets `database` to the lakehouse and `schema` to the
+schema inside it (three-part names):
+
+```yaml
+models:
+  dbt_project:
+    silver:
+      +database: lh_silver
+      +schema: dbo          # renders `lh_silver`.`dbo`.stg_product
+    gold:
+      +database: lh_gold
+      +schema: dbo
+```
+
+Sources work the same way: `schema: lh_bronze` (plain) or `database: lh_bronze_schema` with
+`schema: saleslt` (schema-enabled) in the source definition. The profile's default lakehouse
+is where the Livy session starts and where models without a folder rule land;
+`ingen_fab dbt ls -- --output json --output-keys name relation_name` shows, without a
+connection, where every model resolves.
+
+## Running dbt
+
+Every dbt verb is available as `ingen_fab dbt <verb>`; everything after `--` goes to dbt
+unchanged:
+
+```bash
+ingen_fab dbt build -- --select tag:silver
+ingen_fab dbt run -- --select state_provinces --full-refresh
+ingen_fab dbt test
+ingen_fab dbt debug
+ingen_fab dbt build -p analytics_models -l lh_gold -- --select tag:gold
+```
+
+The command regenerates the profile, passes `--project-dir`, `--profiles-dir` and
+`--target <environment>`, and runs `dbt`. The first statement of a run starts a Livy session
+(about a minute) and the session is closed when dbt exits. `dbt_reuse_session=true` keeps it
+alive for later runs, at the cost of holding capacity between them. Plain `dbt`
+works too once `DBT_PROFILES_DIR` points at `<dbt_project>/profiles`.
+
+## Scheduled runs in Fabric
+
+The scheduled path is the same one warehouse projects use: the dbt project lives in the
+config lakehouse and a notebook runs dbt against it.
+
+1. `ingen_fab dbt profile` (the `profiles/` folder must be current before the upload).
+2. `ingen_fab deploy upload-dbt-project --dbt-project dbt_project` uploads the project,
+   including `profiles/` and `requirements.txt`, to the config lakehouse's Files.
+3. `ingen_fab dbt orchestrator --name dbtload_silver --select "+tag:silver"` writes
+   `fabric_workspace_items/notebooks/dbtload_silver.Notebook`.
+4. `ingen_fab deploy deploy` publishes it. A pipeline activity, or a schedule, runs it.
+
+The notebook attaches the config lakehouse, installs the adapter from the uploaded
+`requirements.txt`, reads the environment name from the Variable Library so it picks the
+`<environment>-notebook` target, fetches a Fabric token in the kernel
+(`notebookutils.credentials.getToken("pbi")`) and passes it to dbt as `DBT_FABRIC_TOKEN`
+(`notebookutils` is not available to the dbt child process, so the adapter's
+`fabric_notebook` mode cannot be used there), and runs
+`dbt <command> --select <selector> --target <environment>-notebook`. `dbt_command` and
+`dbt_select` are notebook parameters, so one notebook can serve several pipeline activities.
+Install and run go through Python with a failure check, so a failed install or a failed dbt
+run fails the notebook job, and the full pip and dbt output (plus dbt's `target/` and logs)
+is written to `Files/dbt_runs/<dbt_project>/<notebook>/<timestamp>/` of the config lakehouse,
+outside the project folder so a later upload never deletes it. Re-upload the project after
+changing models; the notebook itself only changes when the selector or command does.
+
+## Sources from metadata
+
+```bash
+ingen_fab deploy get-metadata --target lakehouse
+ingen_fab dbt generate-schema-yml --dbt-project dbt_project --lakehouse lh_bronze --layer bronze --dbt-type source
+```
+
+writes `dbt_project/schema_yml/bronze/schema.yml`; copy it over `models/bronze/schema.yml`.
+`--dbt-type model` and `snapshot` produce the other two shapes.
+
+## Migrating from the notebook-generating flow
+
+Projects that used `dbt exec`, `create-notebooks` and `convert-metadata` (the
+`dbt-fabricsparknb` adapter) keep their models and `dbt_project.yml`. What changes:
+
+- delete `metaextracts/` and the generated notebooks under `fabric_workspace_items/<dbt_project>/`
+  (their workspace items are removed by `deploy cleanup` once the folder is gone);
+- add `requirements.txt` with `dbt-fabricspark>=1.13,<2` to the dbt project;
+- set `profile:` in `dbt_project.yml` to the name you want (the profile is no longer
+  `fabric-spark-testnb`) and run `ingen_fab dbt profile`;
+- keep the folder routing you have: `schema: <lakehouse>` per folder on plain lakehouses,
+  `+database: <lakehouse>` plus `+schema: dbo` on schema-enabled ones;
+- replace the master notebook with one orchestrator notebook per selector.
+
+Incremental models, snapshots and seeds run as standard dbt materializations; the
+`merge`, `append`, `insert_overwrite`, `microbatch` and `delete+insert` strategies are
+supported by the adapter.
 
 ## Troubleshooting
 
-### No Lakehouses Found
-
-If no lakehouses are discovered:
-1. Check your environment configuration file exists
-2. Verify lakehouse IDs don't contain "REPLACE_WITH" placeholders
-3. Ensure both `*_lakehouse_id` and `*_workspace_id` are defined
-
-### Profile Not Updating
-
-If the profile doesn't update:
-1. Check write permissions for `~/.dbt/profiles.yml`
-2. Verify the environment configuration is valid JSON
-3. Try deleting the profile to force recreation
-
-### Selection Not Saved
-
-If your selection isn't remembered:
-1. Ensure the profile was written successfully
-2. Check that `_lakehouse_prefix` is in the profile
-3. Verify you're using the same `FABRIC_ENVIRONMENT`
-
-## Best Practices
-
-1. **Consistent Naming**: Use clear prefixes for your lakehouses (bronze, silver, gold)
-2. **Environment Separation**: Keep development and production lakehouses separate
-3. **Documentation**: Document which lakehouse should be used for which dbt project
-4. **Version Control**: Don't commit `~/.dbt/profiles.yml` - it's user-specific
-5. **CI/CD**: Use service principals and automated selection for pipelines
+| Symptom | Cause | Fix |
+| --- | --- | --- |
+| `several lakehouses declared; choose one with --lakehouse` | more than one `<prefix>_lakehouse_id` with a real id | pass `-l <prefix>` or set `dbt_default_lakehouse` |
+| `no lakehouse with a real id in the value set` | ids still `REPLACE_WITH_...` | `ingen_fab init workspace`, or fill the ids |
+| `target ... rejected by dbt-fabricspark: ...` | an id is not a GUID, or the endpoint is not the Fabric API | fix the value set |
+| `Lakehouse '...' has schemas enabled. Please set schema ...` (at run time) | the default lakehouse is schema-enabled but `schema` equals its name | set `dbt_schema` to `dbo` |
+| models land in the wrong lakehouse | folder rule uses the form of the other lakehouse kind (`schema:` is the lakehouse on plain ones, `+database` plus `+schema` on schema-enabled ones) | check `ingen_fab dbt ls -- --output json --output-keys name relation_name` and fix the folder rule |
+| `'dbt' is not on PATH` | dependency group not installed in this environment | `uv sync --group dbt` |
+| the orchestrator notebook cannot find the project | `upload-dbt-project` not run, or a different config lakehouse | upload, or pass `--config-lakehouse` |
 
 ## Next Steps
 
-- [CLI Reference](cli_reference.md#dbt) - Complete dbt command reference
-- [Deploy Guide](deploy_guide.md) - Deploying dbt models to Fabric
-- [Workflows](workflows.md) - Integrating dbt into your development workflow
+- [CLI Reference](cli_reference.md#dbt)
+- [Deploy Guide](deploy_guide.md)
+- [Workflows](workflows.md)

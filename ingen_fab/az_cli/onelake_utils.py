@@ -5,7 +5,7 @@ OneLake utilities for interacting with Microsoft Fabric OneLake storage using Az
 import logging
 import os
 from pathlib import Path
-from typing import Optional
+from typing import Iterable, Optional
 
 from azure.core.credentials import TokenCredential
 from azure.storage.filedatalake import DataLakeServiceClient, FileSystemClient
@@ -33,6 +33,34 @@ logging.getLogger("azure.core.pipeline.policies.http_logging_policy").setLevel(
 )
 logging.getLogger("azure.identity").setLevel(logging.WARNING)
 logging.getLogger("azure.storage").setLevel(logging.WARNING)
+
+
+# Folders dbt writes at run time; never part of a project upload (they also hold binary
+# files such as partial_parse.msgpack that the text uploader cannot read).
+DBT_GENERATED_DIRS = ("target", "logs", "dbt_packages", ".git")
+
+
+def collect_upload_files(
+    dir_path: Path,
+    include_extensions: Optional[Iterable[str]] = None,
+    exclude_dirs: Iterable[str] = (),
+) -> list[Path]:
+    """Files under ``dir_path`` to upload: no ``__*`` folder, no excluded folder name at any
+    depth, and, when ``include_extensions`` is given, only those extensions."""
+    excluded = set(exclude_dirs)
+    files: list[Path] = []
+    for file_path in sorted(dir_path.rglob("*")):
+        if not file_path.is_file():
+            continue
+        parts = file_path.relative_to(dir_path).parts[:-1]
+        if any(part.startswith("__") or part in excluded for part in parts):
+            continue
+        if include_extensions is not None and not any(
+            str(file_path).lower().endswith(ext.lower()) for ext in include_extensions
+        ):
+            continue
+        files.append(file_path)
+    return files
 
 
 class OneLakeUtils:
@@ -519,6 +547,7 @@ class OneLakeUtils:
         directory_path: str,
         target_prefix: str = "",
         *,
+        exclude_dirs: Iterable[str] = (),
         service_client: Optional[DataLakeServiceClient] = None,
         file_system_client: Optional[FileSystemClient] = None,
         max_workers: int = 8,
@@ -557,20 +586,7 @@ class OneLakeUtils:
             "deletion_failed": 0,
         }
 
-        # Find all files recursively, filtering out __ directories and by extension if specified
-        all_files = []
-        for file_path in dir_path.rglob("*"):
-            if file_path.is_file():
-                path_parts = file_path.relative_to(dir_path).parts
-                if any(part.startswith("__") for part in path_parts):
-                    continue
-                if include_extensions is not None:
-                    if not any(
-                        str(file_path).lower().endswith(ext.lower())
-                        for ext in include_extensions
-                    ):
-                        continue
-                all_files.append(file_path)
+        all_files = collect_upload_files(dir_path, include_extensions, exclude_dirs)
 
         upload_results["total_files"] = len(all_files)
 
@@ -895,6 +911,7 @@ class OneLakeUtils:
             directory_path=str(dbt_project_path),
             target_prefix=f"{dbt_project_name}",
             service_client=self._get_datalake_service_client(),
+            exclude_dirs=DBT_GENERATED_DIRS,
         )
 
     def list_lakehouse_files(

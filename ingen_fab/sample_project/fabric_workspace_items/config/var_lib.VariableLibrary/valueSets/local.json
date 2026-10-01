@@ -14,7 +14,6 @@
       "name": "config_workspace_name",
       "value": "REPLACE_WITH_CONFIG_WORKSPACE_NAME"
     },
-
     {
       "name": "config_workspace_id",
       "value": "REPLACE_WITH_CONFIG_WORKSPACE_GUID"
@@ -39,7 +38,6 @@
       "name": "lh_bronze_lakehouse_id",
       "value": "REPLACE_WITH_LH_BRONZE_LAKEHOUSE_GUID"
     },
-
     {
       "name": "lh_silver_workspace_id",
       "value": "REPLACE_WITH_LH_SILVER_WORKSPACE_GUID"
@@ -52,7 +50,6 @@
       "name": "lh_silver_lakehouse_id",
       "value": "REPLACE_WITH_LH_SILVER_LAKEHOUSE_GUID"
     },
-
     {
       "name": "lh_gold_workspace_id",
       "value": "REPLACE_WITH_LH_GOLD_WORKSPACE_GUID"
@@ -80,6 +77,10 @@
     {
       "name": "wh_gold_warehouse_endpoint",
       "value": "REPLACE_WITH_WH_GOLD_SQL_ENDPOINT"
+    },
+    {
+      "name": "dbt_default_lakehouse",
+      "value": "lh_silver"
     }
   ]
 }

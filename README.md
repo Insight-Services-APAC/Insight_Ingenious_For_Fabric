@@ -144,7 +144,7 @@ ingen_fab --help
 - **`test`** - Test notebooks and Python blocks (local and platform)
 - **`package`** - Compile and run extension packages (e.g., flat file ingestion, synapse sync, extract generation)
 - **`libs`** - Compile and manage Python libraries with variable injection
-- **`dbt`** - Proxy commands to dbt_wrapper and generate notebooks from dbt outputs
+- **`dbt`** - dbt on Fabric Spark: profile from the value set, `dbt build`/`run`/`test` over Livy, orchestrator notebook
 
 ### Common Commands
 
@@ -218,9 +218,10 @@ ingen_fab package extract extract-run --extract-name EXTRACT_NAME --run-type FUL
 # Compile Python libraries with variable injection
 ingen_fab libs compile --target-file path/to/file.py
 
-# Generate notebooks from dbt outputs
-ingen_fab dbt create-notebooks --dbt-project-name my_dbt_project
-ingen_fab dbt convert-metadata --dbt-project-dir ./dbt_project
+# dbt: write the profile from the value set, build the silver layer, create the orchestrator notebook
+ingen_fab dbt profile --dbt-project my_dbt_project
+ingen_fab dbt build -p my_dbt_project -- --select tag:silver
+ingen_fab dbt orchestrator -p my_dbt_project --name dbtload_silver --select +tag:silver
 ```
 
 ## Running the tests

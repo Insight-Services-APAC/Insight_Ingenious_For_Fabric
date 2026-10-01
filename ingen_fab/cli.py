@@ -1,8 +1,6 @@
 from __future__ import annotations
 
 import os
-import shutil
-import subprocess
 from pathlib import Path
 from typing import Optional
 
@@ -97,7 +95,7 @@ app.add_typer(
 app.add_typer(
     dbt_app,
     name="dbt",
-    help="Proxy commands to dbt_wrapper inside the Fabric workspace repo.",
+    help="dbt on Fabric Spark: profile from the value set, dbt commands, orchestrator notebook.",
 )
 
 # New: extract commands
@@ -1221,74 +1219,144 @@ def extract_warehouse_summary(
     )
 
 
-# DBT commands
-@dbt_app.command("create-notebooks")
-def dbt_create_notebooks(
+# DBT commands (native dbt-fabricspark adapter)
+@dbt_app.command("profile")
+def dbt_profile(
     ctx: typer.Context,
     dbt_project: Annotated[
         str,
+        typer.Option("--dbt-project", "-p", help="dbt project directory under the workspace repo"),
+    ] = "dbt_project",
+    lakehouse: Annotated[
+        Optional[str],
         typer.Option(
-            "--dbt-project",
-            "-p",
-            help="Name of the dbt project directory under the workspace repo",
-        ),
-    ],
-    skip_profile_confirmation: Annotated[
-        bool,
-        typer.Option(
-            "--skip-profile-confirmation",
-            help="Skip confirmation prompt when updating dbt profile",
-        ),
-    ] = False,
-):
-    """Create Fabric notebooks from dbt-generated Python notebooks.
-
-    Scans {workspace}/{dbt_project}/target/notebooks_fabric_py and creates notebooks under
-    {workspace}/fabric_workspace_items/{dbt_project}/.
-    """
-    dbt_commands.create_additional_notebooks(
-        ctx, dbt_project, skip_profile_confirmation
-    )
-
-
-@dbt_app.command("convert-metadata")
-def dbt_convert_metadata(
-    ctx: typer.Context,
-    dbt_project: Annotated[
-        str,
-        typer.Option(
-            "--dbt-project",
-            "-p",
-            help="Name of the dbt project directory under the workspace repo",
-        ),
-    ],
-    metadata_file: Annotated[
-        Optional[Path],
-        typer.Option(
-            "--metadata-file",
-            "-m",
-            help="Path to CSV metadata file (default: metadata/lakehouse_metadata_all.csv)",
+            "--lakehouse",
+            "-l",
+            help="Default lakehouse prefix (e.g. lh_bronze); overrides dbt_default_lakehouse",
         ),
     ] = None,
-    skip_profile_confirmation: Annotated[
-        bool,
-        typer.Option(
-            "--skip-profile-confirmation",
-            help="Skip confirmation prompt when updating dbt profile",
-        ),
-    ] = False,
 ):
-    """Convert cached lakehouse metadata to dbt metaextracts format.
+    """Generate <dbt_project>/profiles/profiles.yml from the Variable Library value sets.
 
-    Reads from {workspace}/metadata/lakehouse_metadata_all.csv and creates JSON files
-    in {workspace}/{dbt_project}/metaextracts/ for dbt_wrapper to use.
-
-    The metadata must first be extracted using:
-    ingen_fab deploy get-metadata --target lakehouse
+    Profile name from dbt_project.yml; one target per environment (Livy, Azure identity) plus
+    an <environment>-notebook target for the orchestrator notebook (notebook identity). The
+    file is validated with the installed dbt-fabricspark adapter and travels with
+    `ingen_fab deploy upload-dbt-project`.
     """
-    dbt_commands.convert_metadata_to_dbt_format(
-        ctx, dbt_project, metadata_file, skip_profile_confirmation
+    dbt_commands.write_profile(ctx, dbt_project, lakehouse=lakehouse)
+
+
+def _dbt_proxy(verb: str):
+    def command(
+        ctx: typer.Context,
+        dbt_project: Annotated[
+            str,
+            typer.Option("--dbt-project", "-p", help="dbt project directory under the workspace repo"),
+        ] = "dbt_project",
+        lakehouse: Annotated[
+            Optional[str],
+            typer.Option("--lakehouse", "-l", help="Default lakehouse prefix for this run"),
+        ] = None,
+    ):
+        rc = dbt_commands.run_dbt(ctx, verb, dbt_project, list(ctx.args), lakehouse=lakehouse)
+        if rc != 0:
+            raise typer.Exit(code=rc)
+
+    command.__name__ = f"dbt_{verb}"
+    command.__doc__ = (
+        f"Run `dbt {verb}` for the project with the generated profile and the current "
+        f"environment as target. Extra arguments are passed to dbt unchanged, e.g. "
+        f"`ingen_fab dbt {verb} -- --select tag:silver`."
     )
+    return command
+
+
+for _verb in (
+    "build", "run", "test", "seed", "snapshot", "compile", "parse", "debug", "docs", "ls", "clean", "deps", "show",
+):
+    dbt_app.command(
+        _verb, context_settings={"allow_extra_args": True, "ignore_unknown_options": True}
+    )(_dbt_proxy(_verb))
+
+
+def _parse_env_options(pairs: Optional[list[str]]) -> dict[str, str]:
+    """``--env NAME=variable`` options as a mapping; a malformed one is a usage error."""
+    out: dict[str, str] = {}
+    for pair in pairs or []:
+        name, sep, variable = pair.partition("=")
+        if not sep or not name.strip() or not variable.strip():
+            raise typer.BadParameter(f"--env expects NAME=variable, got {pair!r}")
+        out[name.strip()] = variable.strip()
+    return out
+
+
+@dbt_app.command("orchestrator")
+def dbt_orchestrator(
+    ctx: typer.Context,
+    name: Annotated[
+        str, typer.Option("--name", "-n", help="Notebook name, e.g. dbtload_sales")
+    ],
+    select: Annotated[
+        str, typer.Option("--select", "-s", help="dbt selector, e.g. +tag:sales")
+    ],
+    dbt_project: Annotated[
+        str,
+        typer.Option("--dbt-project", "-p", help="dbt project directory under the workspace repo"),
+    ] = "dbt_project",
+    command: Annotated[
+        str, typer.Option("--command", "-c", help="dbt command: build, run, test, seed, snapshot")
+    ] = "build",
+    config_lakehouse: Annotated[
+        Optional[str],
+        typer.Option(
+            "--config-lakehouse",
+            help="Lakehouse holding the uploaded project (default: config_lakehouse_name from the value set)",
+        ),
+    ] = None,
+    threads: Annotated[int, typer.Option("--threads", help="dbt threads")] = 4,
+    log_lakehouse: Annotated[
+        Optional[str],
+        typer.Option(
+            "--log-lakehouse",
+            help="Lakehouse that receives the run folder (default: the `log_lakehouse` variable, else lh_log)",
+        ),
+    ] = None,
+    dbt_vars: Annotated[
+        str,
+        typer.Option("--vars", help="Value for dbt --vars, e.g. '{silver_lakehouse: lh_silver_nb}'"),
+    ] = "",
+    target: Annotated[
+        str,
+        typer.Option("--target", help="Profile target (default: <environment>-notebook, as written by `dbt profile`)"),
+    ] = "",
+    env: Annotated[
+        Optional[list[str]],
+        typer.Option(
+            "--env",
+            help="NAME=variable: export a Variable Library variable to the dbt process as NAME (repeatable)",
+        ),
+    ] = None,
+):
+    """Create an orchestrator notebook that runs dbt inside Fabric against the uploaded project.
+
+    The notebook lands in fabric_workspace_items/notebooks/<name>.Notebook and deploys with
+    `ingen_fab deploy deploy`; pipelines call it. Upload the project first with
+    `ingen_fab deploy upload-dbt-project --dbt-project <dbt_project>`.
+    """
+    dbt_commands.write_orchestrator_notebook(
+        ctx,
+        dbt_project=dbt_project,
+        notebook_name=name,
+        select=select,
+        command=command,
+        config_lakehouse=config_lakehouse,
+        threads=threads,
+        log_lakehouse=log_lakehouse,
+        dbt_vars=dbt_vars,
+        target=target,
+        env_variables=_parse_env_options(env),
+    )
+
 
 @dbt_app.command("generate-schema-yml")
 def dbt_generate_schema_yml(
@@ -1465,64 +1533,6 @@ def synthetic_data_unified_generate(
         target_environment=target_environment,
         no_execute=no_execute,
     )
-
-
-# ===== DBT WRAPPER COMMANDS =====
-@dbt_app.command(
-    "exec",
-    context_settings={"allow_extra_args": True, "ignore_unknown_options": True}
-)
-def dbt_exec(
-    ctx: typer.Context,
-    skip_profile_confirmation: Annotated[
-        bool,
-        typer.Option(
-            "--skip-profile-confirmation",
-            help="Skip confirmation prompt when updating dbt profile",
-        ),
-    ] = False,
-):
-    """Run dbt_wrapper from within the Fabric workspace repo, then return to the original directory."""
-    from ingen_fab.cli_utils.dbt_profile_manager import ensure_dbt_profile_for_exec
-
-    workspace_dir = Path(ctx.obj["fabric_workspace_repo_dir"]).resolve()
-    if not workspace_dir.exists():
-        console_styles.print_error(
-            console, f"❌ Fabric workspace repo not found: {workspace_dir}"
-        )
-        raise typer.Exit(code=1)
-
-    # Check and update dbt profile with exec-specific behavior
-    # Always prompts if saved info is missing/invalid, notifies if using saved preference
-    if not skip_profile_confirmation and not ensure_dbt_profile_for_exec(ctx):
-        raise typer.Exit(code=1)
-
-    # Locate the wrapper executable
-    exe = shutil.which("dbt_wrapper") or shutil.which("dbt-wrapper")
-    if not exe:
-        console_styles.print_error(
-            console,
-            "❌ Could not find 'dbt_wrapper' on PATH. Ensure the wrapper is installed.",
-        )
-        raise typer.Exit(code=1)
-
-    # Always return to the original directory, even on failure
-    original_cwd = Path.cwd()
-    try:
-        os.chdir(workspace_dir)
-        passthrough_args = list(ctx.args)
-        console_styles.print_info(
-            console,
-            f"Running dbt_wrapper in: {workspace_dir} -> {' '.join(passthrough_args) or '--help'}",
-        )
-        result = subprocess.run([exe, *passthrough_args], check=False)
-        rc = result.returncode
-    finally:
-        os.chdir(original_cwd)
-        console_styles.print_info(console, f"Returned to: {original_cwd}")
-
-    if rc != 0:
-        raise typer.Exit(code=rc)
 
 
 @synthetic_data_app.command("list")
