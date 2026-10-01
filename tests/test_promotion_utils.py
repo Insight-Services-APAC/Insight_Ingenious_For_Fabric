@@ -638,3 +638,77 @@ def test_config_lakehouse_manifest_reads_and_writes_reuse_the_sync_credential(tm
         sync._upload_manifest_to_remote(tmp_path / "m.yml")
     assert ol_cls.call_count == 2
     assert all(c.kwargs["credential"] == "cred" for c in ol_cls.call_args_list)
+
+
+# --- deploy-time variable substitution in dbt job and Ontology items ------------------------
+
+
+def _write(path, text):
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(text, encoding="utf-8")
+    return path
+
+
+def test_environment_specific_json_files_finds_dbt_jobs_and_ontologies(tmp_path):
+    job = _write(tmp_path / "dbt_jobs/j.DataBuildToolJob/dbt-content.json", "{}")
+    binding = _write(tmp_path / "ontologies/o.Ontology/EntityTypes/1/DataBindings/b.json", "{}")
+    entity = _write(tmp_path / "ontologies/o.Ontology/EntityTypes/1/definition.json", "{}")
+    _write(tmp_path / "notebooks/n.Notebook/other.json", "{}")  # not an environment-specific kind
+    found = pu_module.environment_specific_json_files(tmp_path)
+    assert found["dbt job"] == [job]
+    assert found["ontology"] == sorted([binding, entity])
+
+
+def test_substitute_variables_in_files_rewrites_only_what_changes(tmp_path):
+    with_token = _write(tmp_path / "a.json", '{"itemId": "{{varlib:lh_gold_lakehouse_id}}"}')
+    without = _write(tmp_path / "b.json", '{"name": "City"}')
+    before = without.stat().st_mtime_ns
+    changed = pu_module.substitute_variables_in_files(
+        [with_token, without], lambda text: text.replace("{{varlib:lh_gold_lakehouse_id}}", "abc")
+    )
+    assert changed == 1
+    assert with_token.read_text(encoding="utf-8") == '{"itemId": "abc"}'
+    assert without.stat().st_mtime_ns == before
+
+
+def test_ontology_binding_tokens_resolve_from_the_value_set(tmp_path):
+    """End to end with the real VariableLibraryUtils: a data binding's lakehouse reference."""
+    from ingen_fab.config_utils.variable_lib import VariableLibraryUtils
+
+    vs = tmp_path / "fabric_workspace_items/config/var_lib.VariableLibrary/valueSets/development.json"
+    _write(
+        vs,
+        json.dumps(
+            {
+                "variableOverrides": [
+                    {"name": "fabric_environment", "value": "development"},
+                    {"name": "lh_gold_workspace_id", "value": "11111111-1111-1111-1111-111111111111"},
+                    {"name": "lh_gold_lakehouse_id", "value": "22222222-2222-2222-2222-222222222222"},
+                ]
+            }
+        ),
+    )
+    out = tmp_path / "output"
+    binding = _write(
+        out / "ontologies/o.Ontology/EntityTypes/1/DataBindings/b.json",
+        json.dumps(
+            {
+                "sourceTableProperties": {
+                    "sourceType": "LakehouseTable",
+                    "workspaceId": "{{varlib:lh_gold_workspace_id}}",
+                    "itemId": "{{varlib:lh_gold_lakehouse_id}}",
+                    "sourceTableName": "dim_cities",
+                }
+            }
+        ),
+    )
+    vlu = VariableLibraryUtils(project_path=tmp_path, environment="development")
+    changed = pu_module.substitute_variables_in_files(
+        pu_module.environment_specific_json_files(out)["ontology"],
+        lambda content: vlu.perform_code_replacements(content, replace_placeholders=True, inject_code=True),
+    )
+    props = json.loads(binding.read_text(encoding="utf-8"))["sourceTableProperties"]
+    assert changed == 1
+    assert props["workspaceId"] == "11111111-1111-1111-1111-111111111111"
+    assert props["itemId"] == "22222222-2222-2222-2222-222222222222"
+

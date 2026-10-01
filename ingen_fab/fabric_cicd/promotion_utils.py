@@ -206,6 +206,32 @@ def unsupported_results(items) -> list[PublishResult]:
     return out
 
 
+def environment_specific_json_files(output_dir: Path) -> dict[str, list[Path]]:
+    """JSON definition files, per item kind, whose connections are environment specific and
+    carry ``{{varlib:...}}`` tokens: a dbt job item's ``dbt-content.json`` (warehouse workspace
+    id, item id, SQL endpoint) and every JSON file of an Ontology item (data bindings and
+    relationship contextualizations name a lakehouse by workspace id and item id)."""
+    ontology_files = sorted(
+        f for item in output_dir.rglob("*.Ontology") if item.is_dir() for f in item.rglob("*.json")
+    )
+    return {
+        "dbt job": sorted(output_dir.rglob("dbt-content.json")),
+        "ontology": ontology_files,
+    }
+
+
+def substitute_variables_in_files(files: Iterable[Path], replace) -> int:
+    """Apply ``replace`` to each file's text and rewrite the files it changes; return how many."""
+    changed = 0
+    for path in files:
+        content = path.read_text(encoding="utf-8")
+        updated = replace(content)
+        if updated != content:
+            path.write_text(updated, encoding="utf-8")
+            changed += 1
+    return changed
+
+
 @dataclass
 class WorkspaceSettings:
     """What is needed to open a Fabric workspace for publishing."""
@@ -994,6 +1020,21 @@ class SyncToFabricEnvironment:
             ConsoleStyles.print_info(
                 self.console, "No data pipeline files needed variable substitution"
             )
+
+        # dbt job items and Ontology items: their connections (workspace id, item id, SQL
+        # endpoint) differ per environment and come from the value set like everything else
+        for kind, files in environment_specific_json_files(output_dir).items():
+            updated = substitute_variables_in_files(
+                files,
+                lambda content: output_vlu.perform_code_replacements(
+                    content, replace_placeholders=True, inject_code=True
+                ),
+            )
+            if updated > 0:
+                ConsoleStyles.print_success(
+                    self.console,
+                    f"Updated {updated} {kind} files with variable substitution",
+                )
 
         # Process all definition.pbir files in the output directory
         pbir_updated_count = 0
