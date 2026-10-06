@@ -225,14 +225,6 @@ If any columns show `NULL`, check that:
 2. The `state_provinces` seed includes StateProvinceIDs matching the cities (1–5)
 3. The `countries` seed includes CountryID 230 (United States)
 
-In `wh_gold`, run:
-
-```sql
-SELECT TOP 10 * FROM DW.vDim_CityGeography
-```
-
-The same 10 rows should appear.
-
 ---
 
 ← [Exercise 3 — Silver Transformation](exercise-03-silver-transformation.md) | **Next:** [Exercise 5 — Semantic Model →](exercise-05-semantic-model.md)

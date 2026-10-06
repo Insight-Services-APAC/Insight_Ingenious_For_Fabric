@@ -47,13 +47,47 @@ def dbt_executable() -> Optional[str]:
 
     Looked up next to the running interpreter first (the venv's Scripts/bin folder, which is
     not on PATH when the interpreter is invoked without activating the venv), then on PATH.
+    The interpreter path is taken as is: in a Linux or macOS venv ``sys.executable`` is a
+    symlink to the base interpreter, and resolving it would look next to the wrong python.
     """
-    scripts = Path(sys.executable).resolve().parent
-    for name in ("dbt.exe", "dbt"):
-        candidate = scripts / name
-        if candidate.is_file():
-            return str(candidate)
+    for scripts in (Path(sys.executable).parent, Path(sys.executable).resolve().parent):
+        for name in ("dbt.exe", "dbt"):
+            candidate = scripts / name
+            if candidate.is_file():
+                return str(candidate)
     return shutil.which("dbt")
+
+
+def dbt_command_line(
+    exe: str,
+    verb: str,
+    dbt_project_dir: Path,
+    profiles_dir: Path,
+    environment: str,
+    args: list[str],
+) -> list[str]:
+    """The ``dbt`` command for a verb: explicit project and profiles directories, the
+    environment as target where dbt takes one, then the pass-through arguments. ``dbt docs``
+    is a command group whose subcommand (``generate``, ``serve``) must come before any option,
+    so a leading positional argument is placed right after the verb."""
+    args = list(args)
+    command = [exe, verb]
+    if verb == "docs" and args and not args[0].startswith("-"):
+        command.append(args.pop(0))
+    command += [
+        "--project-dir",
+        str(dbt_project_dir),
+        "--profiles-dir",
+        str(profiles_dir),
+    ]
+    if verb not in ("clean", "deps", "docs"):
+        command += ["--target", environment]
+    return command + args
+
+
+# What the orchestrator notebook may run: the verbs that transform or check data. The
+# template carries the same set, rendered from here, and refuses anything else at run time.
+ORCHESTRATOR_COMMANDS = ("build", "run", "test", "seed", "snapshot", "compile", "parse")
 
 
 def _project_context(ctx: typer.Context) -> tuple[Path, str]:
@@ -136,17 +170,9 @@ def run_dbt(
         )
         raise typer.Exit(code=1)
 
-    command = [
-        exe,
-        verb,
-        "--project-dir",
-        str(dbt_project_dir),
-        "--profiles-dir",
-        str(profiles_dir),
-    ]
-    if verb not in ("clean", "deps", "docs"):
-        command += ["--target", environment]
-    command += list(args)
+    command = dbt_command_line(
+        exe, verb, dbt_project_dir, profiles_dir, environment, args
+    )
     console.print(f"[dim]{' '.join(command)}[/dim]")
     env = {**os.environ, "DBT_PROFILES_DIR": str(profiles_dir)}
     result = subprocess.run(command, check=False, env=env)
@@ -179,11 +205,18 @@ def write_orchestrator_notebook(
     ``ingen_fab dbt profile`` writes). ``env_variables`` maps an environment variable for the
     dbt process to a Variable Library variable, read at run time: a hand-written profile for
     another adapter can then use ``env_var()``, for example for a warehouse SQL endpoint."""
+    if command not in ORCHESTRATOR_COMMANDS:
+        raise profiles.ProfileError(
+            f"--command {command!r} is not one the orchestrator runs; choose one of "
+            f"{', '.join(ORCHESTRATOR_COMMANDS)}"
+        )
     project_path, environment = _project_context(ctx)
     values = profiles.read_value_set(project_path, environment)
     if config_lakehouse is None:
         config_lakehouse = values.get("config_lakehouse_name") or "config"
-    log_lakehouse = log_lakehouse or values.get("log_lakehouse") or DEFAULT_LOG_LAKEHOUSE
+    log_lakehouse = (
+        log_lakehouse or values.get("log_lakehouse") or DEFAULT_LOG_LAKEHOUSE
+    )
     missing = [
         name
         for name in (f"{log_lakehouse}_workspace_id", f"{log_lakehouse}_lakehouse_id")
@@ -213,6 +246,7 @@ def write_orchestrator_notebook(
         notebook_name=notebook_name,
         dbt_project=dbt_project,
         dbt_command=command,
+        allowed_commands=sorted(ORCHESTRATOR_COMMANDS),
         dbt_select=select,
         dbt_threads=threads,
         config_lakehouse_name=config_lakehouse,
@@ -293,7 +327,6 @@ def create_schema_yml_from_metadata(
     lakehouse: str,
     layer: str,
     dbt_type: str,
-    skip_profile_confirmation: bool = False,
 ) -> None:
     """Convert cached lakehouse metadata CSV to dbt schema.yml format.
 

@@ -36,6 +36,8 @@ The deployment process automatically performs variable replacement for environme
 - GraphQL APIs (`graphql-definition.json`)
 - Data Pipelines (`pipeline-content.json`)
 - Power BI Reports (`definition.pbir`)
+- dbt jobs (`dbt-content.json`: the connection's workspace, warehouse and endpoint)
+- Ontologies (`.tmdl` files and any `.json` parts)
 
 Tips:
 - Use semantic, ordered DDL under `ddl_scripts` and generate notebooks with `ingen_fab ddl compile ...` before deploying.

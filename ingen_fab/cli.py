@@ -95,7 +95,7 @@ app.add_typer(
 app.add_typer(
     dbt_app,
     name="dbt",
-    help="dbt on Fabric Spark: profile from the value set, dbt commands, orchestrator notebook.",
+    help="dbt on Fabric (lakehouses and warehouses): profile from the value set, dbt commands, orchestrator notebook.",
 )
 
 # New: extract commands
@@ -105,12 +105,15 @@ app.add_typer(
     help="Data extraction and package commands (keep compile, extract-run).",
 )
 
+
 def version_callback(value: bool):
     """Callback to display version information."""
     if value:
         from ingen_fab import __version__
+
         typer.echo(f"ingen_fab version {__version__}")
         raise typer.Exit()
+
 
 @app.callback()
 def main(
@@ -236,6 +239,7 @@ def main(
 
 # ddl commands
 
+
 @ddl_app.command("compile")
 def compile(
     ctx: typer.Context,
@@ -291,10 +295,10 @@ def compile(
 
     notebook_commands.compile_ddl_notebooks(ctx, output_mode, generation_mode, verbose)
 
+
 @ddl_app.command("ddls-from-metadata")
 def ddls_from_metadata(
     ctx: typer.Context,
-
     lakehouse: Annotated[
         Optional[str],
         typer.Option(
@@ -304,19 +308,25 @@ def ddls_from_metadata(
     table: Annotated[
         Optional[str],
         typer.Option(
-            "--table", "-t", help="Name of specific table to generate DDL for (optional)"
+            "--table",
+            "-t",
+            help="Name of specific table to generate DDL for (optional)",
         ),
     ] = None,
     metadata_file: Annotated[
         Optional[Path],
         typer.Option(
-            "--metadata-file", "-m", help="Path to CSV metadata file (default: metadata/lakehouse_metadata_all.csv)"
+            "--metadata-file",
+            "-m",
+            help="Path to CSV metadata file (default: metadata/lakehouse_metadata_all.csv)",
         ),
     ] = None,
     subdirectory: Annotated[
         str,
         typer.Option(
-            "--subdirectory", "-d", help="Subdirectory name for output files (default: generated)"
+            "--subdirectory",
+            "-d",
+            help="Subdirectory name for output files (default: generated)",
         ),
     ] = "generated",
     sequence_numbers: Annotated[
@@ -324,7 +334,7 @@ def ddls_from_metadata(
         typer.Option(
             "--sequence-numbers/--no-sequence-numbers",
             "-s/-ns",
-            help="Include sequence numbers in filenames (default: True)"
+            help="Include sequence numbers in filenames (default: True)",
         ),
     ] = True,
     verbose: Annotated[bool, typer.Option("--verbose", "-v")] = False,
@@ -334,8 +344,10 @@ def ddls_from_metadata(
     # Convert string parameters to enums with proper error handling
     # notebook_generator module is already lazy imported at the top of the file
 
+    ddl_commands.generate_ddl_scripts(
+        ctx, lakehouse, sequence_numbers, table, subdirectory, metadata_file
+    )
 
-    ddl_commands.generate_ddl_scripts(ctx, lakehouse, sequence_numbers, table, subdirectory, metadata_file)
 
 # Initialize commands
 
@@ -412,7 +424,9 @@ def init_storage_config(
 @deploy_app.command("deploy")
 def deploy(
     ctx: typer.Context,
-    sync: Annotated[bool, typer.Option("--sync", help="Remove orphaned items after deployment")] = False,
+    sync: Annotated[
+        bool, typer.Option("--sync", help="Remove orphaned items after deployment")
+    ] = False,
 ):
     "Deploy Fabric artefacts to the target environment."
     deploy_commands.deploy_to_environment(ctx)
@@ -424,11 +438,17 @@ def deploy(
 @deploy_app.command("cleanup")
 def cleanup(
     ctx: typer.Context,
-    dry_run: Annotated[bool, typer.Option("--dry-run", help="Show what would be deleted without deleting")] = False,
-    force: Annotated[bool, typer.Option("--force", "-f", help="Skip confirmation prompt")] = False,
+    dry_run: Annotated[
+        bool,
+        typer.Option("--dry-run", help="Show what would be deleted without deleting"),
+    ] = False,
+    force: Annotated[
+        bool, typer.Option("--force", "-f", help="Skip confirmation prompt")
+    ] = False,
 ):
     """Remove workspace items that are not in fabric_workspace_items."""
     deploy_commands.cleanup_orphaned_items(ctx, dry_run=dry_run, force=force)
+
 
 @deploy_app.command("delete-all")
 def delete_all(
@@ -452,6 +472,7 @@ def upload_python_libs(ctx: typer.Context):
         console=console,
     )
 
+
 @deploy_app.command("upload-dbt-project")
 def upload_dbt_project(
     ctx: typer.Context,
@@ -461,9 +482,9 @@ def upload_dbt_project(
             "--dbt-project",
             "-p",
             prompt="dbt project directory",
-            help="Name of the dbt project subdirectory (appended to the base project path)"
-        )
-    ]
+            help="Name of the dbt project subdirectory (appended to the base project path)",
+        ),
+    ],
 ):
     """Sync a dbt project's files to the Fabric config lakehouse."""
     deploy_commands.upload_dbt_project_to_config_lakehouse(
@@ -472,6 +493,7 @@ def upload_dbt_project(
         project_path=ctx.obj["fabric_workspace_repo_dir"],
         console=console,
     )
+
 
 @deploy_app.command("get-metadata")
 def deploy_get_metadata(
@@ -601,34 +623,22 @@ def deploy_compare_metadata(
     ctx: typer.Context,
     file1: Annotated[
         Path,
-        typer.Option(
-            "--file1",
-            "-f1",
-            help="First CSV metadata file for comparison"
-        ),
+        typer.Option("--file1", "-f1", help="First CSV metadata file for comparison"),
     ],
     file2: Annotated[
         Path,
-        typer.Option(
-            "--file2",
-            "-f2",
-            help="Second CSV metadata file for comparison"
-        ),
+        typer.Option("--file2", "-f2", help="Second CSV metadata file for comparison"),
     ],
     output: Annotated[
         Optional[Path],
         typer.Option(
-            "--output",
-            "-o",
-            help="Write comparison report to file (optional)"
+            "--output", "-o", help="Write comparison report to file (optional)"
         ),
     ] = None,
     output_format: Annotated[
         str,
         typer.Option(
-            "--format",
-            "-fmt",
-            help="Output format: table (default), json, or csv"
+            "--format", "-fmt", help="Output format: table (default), json, or csv"
         ),
     ] = "table",
 ):
@@ -669,9 +679,7 @@ def deploy_download_artefact(
     artefact_name: Annotated[
         str,
         typer.Option(
-            "--artefact-name",
-            "-n",
-            help="Name of the Fabric artefact to download"
+            "--artefact-name", "-n", help="Name of the Fabric artefact to download"
         ),
     ],
     artefact_type: Annotated[
@@ -679,7 +687,7 @@ def deploy_download_artefact(
         typer.Option(
             "--artefact-type",
             "-t",
-            help="Type of Fabric artefact (e.g., Notebook, Report, SemanticModel, Lakehouse, DataPipeline, etc.)"
+            help="Type of Fabric artefact (e.g., Notebook, Report, SemanticModel, Lakehouse, DataPipeline, etc.)",
         ),
     ],
     workspace_id: Annotated[
@@ -687,7 +695,7 @@ def deploy_download_artefact(
         typer.Option(
             "--workspace-id",
             "-w",
-            help="Target workspace ID (overrides environment workspace)"
+            help="Target workspace ID (overrides environment workspace)",
         ),
     ] = None,
     output_path: Annotated[
@@ -695,15 +703,13 @@ def deploy_download_artefact(
         typer.Option(
             "--output-path",
             "-o",
-            help="Directory to save the downloaded artefact (defaults to fabric_workspace_items)"
+            help="Directory to save the downloaded artefact (defaults to fabric_workspace_items)",
         ),
     ] = None,
     force: Annotated[
         bool,
         typer.Option(
-            "--force",
-            "-f",
-            help="Overwrite existing files without confirmation"
+            "--force", "-f", help="Overwrite existing files without confirmation"
         ),
     ] = False,
 ):
@@ -740,22 +746,27 @@ def deploy_download_artefact(
     """
     # Validate artefact type
     supported_types = [
-        "Notebook", "Report", "SemanticModel", "DataPipeline", "GraphQLApi",
-        "DataflowGen2", "SparkJobDefinition", "DataWarehouse", "KQLDatabase"
+        "Notebook",
+        "Report",
+        "SemanticModel",
+        "DataPipeline",
+        "GraphQLApi",
+        "DataflowGen2",
+        "SparkJobDefinition",
+        "DataWarehouse",
+        "KQLDatabase",
     ]
 
     if artefact_type not in supported_types:
         console_styles.print_error(
-            console,
-            f"❌ Unsupported artefact type '{artefact_type}'."
+            console, f"❌ Unsupported artefact type '{artefact_type}'."
+        )
+        console_styles.print_info(
+            console, f"Supported types: {', '.join(supported_types)}"
         )
         console_styles.print_info(
             console,
-            f"Supported types: {', '.join(supported_types)}"
-        )
-        console_styles.print_info(
-            console,
-            f"\nNote: The artefact type '{artefact_type}' exists in Fabric but cannot be downloaded using the REST API."
+            f"\nNote: The artefact type '{artefact_type}' exists in Fabric but cannot be downloaded using the REST API.",
         )
         raise typer.Exit(code=1)
 
@@ -851,10 +862,14 @@ def find_notebook_content_files(
     ),
 ):
     from rich.console import Console
+
     console = Console()
     console.print("[yellow]⚠️  This functionality is not yet implemented.[/yellow]")
-    console.print("[dim]The find-notebook-content-files command is currently under development.[/dim]")
+    console.print(
+        "[dim]The find-notebook-content-files command is currently under development.[/dim]"
+    )
     # notebook_commands.find_notebook_content_files(base_dir)
+
 
 @notebook_app.command()
 def scan_notebook_blocks(
@@ -1225,7 +1240,9 @@ def dbt_profile(
     ctx: typer.Context,
     dbt_project: Annotated[
         str,
-        typer.Option("--dbt-project", "-p", help="dbt project directory under the workspace repo"),
+        typer.Option(
+            "--dbt-project", "-p", help="dbt project directory under the workspace repo"
+        ),
     ] = "dbt_project",
     lakehouse: Annotated[
         Optional[str],
@@ -1251,14 +1268,22 @@ def _dbt_proxy(verb: str):
         ctx: typer.Context,
         dbt_project: Annotated[
             str,
-            typer.Option("--dbt-project", "-p", help="dbt project directory under the workspace repo"),
+            typer.Option(
+                "--dbt-project",
+                "-p",
+                help="dbt project directory under the workspace repo",
+            ),
         ] = "dbt_project",
         lakehouse: Annotated[
             Optional[str],
-            typer.Option("--lakehouse", "-l", help="Default lakehouse prefix for this run"),
+            typer.Option(
+                "--lakehouse", "-l", help="Default lakehouse prefix for this run"
+            ),
         ] = None,
     ):
-        rc = dbt_commands.run_dbt(ctx, verb, dbt_project, list(ctx.args), lakehouse=lakehouse)
+        rc = dbt_commands.run_dbt(
+            ctx, verb, dbt_project, list(ctx.args), lakehouse=lakehouse
+        )
         if rc != 0:
             raise typer.Exit(code=rc)
 
@@ -1271,11 +1296,27 @@ def _dbt_proxy(verb: str):
     return command
 
 
+# Kept literal (dbt_commands is a lazy module): tests/test_dbt_commands.py asserts it equals
+# dbt_commands.DBT_VERBS.
 for _verb in (
-    "build", "run", "test", "seed", "snapshot", "compile", "parse", "debug", "docs", "ls", "clean", "deps", "show",
+    "build",
+    "run",
+    "test",
+    "seed",
+    "snapshot",
+    "compile",
+    "parse",
+    "debug",
+    "docs",
+    "ls",
+    "list",
+    "clean",
+    "deps",
+    "show",
 ):
     dbt_app.command(
-        _verb, context_settings={"allow_extra_args": True, "ignore_unknown_options": True}
+        _verb,
+        context_settings={"allow_extra_args": True, "ignore_unknown_options": True},
     )(_dbt_proxy(_verb))
 
 
@@ -1301,10 +1342,15 @@ def dbt_orchestrator(
     ],
     dbt_project: Annotated[
         str,
-        typer.Option("--dbt-project", "-p", help="dbt project directory under the workspace repo"),
+        typer.Option(
+            "--dbt-project", "-p", help="dbt project directory under the workspace repo"
+        ),
     ] = "dbt_project",
     command: Annotated[
-        str, typer.Option("--command", "-c", help="dbt command: build, run, test, seed, snapshot")
+        str,
+        typer.Option(
+            "--command", "-c", help="dbt command: build, run, test, seed, snapshot"
+        ),
     ] = "build",
     config_lakehouse: Annotated[
         Optional[str],
@@ -1323,11 +1369,17 @@ def dbt_orchestrator(
     ] = None,
     dbt_vars: Annotated[
         str,
-        typer.Option("--vars", help="Value for dbt --vars, e.g. '{silver_lakehouse: lh_silver_nb}'"),
+        typer.Option(
+            "--vars",
+            help="Value for dbt --vars, e.g. '{silver_lakehouse: lh_silver_nb}'",
+        ),
     ] = "",
     target: Annotated[
         str,
-        typer.Option("--target", help="Profile target (default: <environment>-notebook, as written by `dbt profile`)"),
+        typer.Option(
+            "--target",
+            help="Profile target (default: <environment>-notebook, as written by `dbt profile`)",
+        ),
     ] = "",
     env: Annotated[
         Optional[list[str]],
@@ -1369,7 +1421,6 @@ def dbt_generate_schema_yml(
             help="Name of the dbt project directory under the workspace repo",
         ),
     ],
-
     lakehouse: Annotated[
         str,
         typer.Option(
@@ -1377,7 +1428,6 @@ def dbt_generate_schema_yml(
             help="Name of the lakehouse to use as a filter for the csv",
         ),
     ],
-
     layer: Annotated[
         str,
         typer.Option(
@@ -1385,7 +1435,6 @@ def dbt_generate_schema_yml(
             help="Name of the dbt layer",
         ),
     ],
-
     dbt_type: Annotated[
         str,
         typer.Option(
@@ -1393,14 +1442,6 @@ def dbt_generate_schema_yml(
             help="Is this for a model or a snapshot?",
         ),
     ],
-
-    skip_profile_confirmation: Annotated[
-        bool,
-        typer.Option(
-            "--skip-profile-confirmation",
-            help="Skip confirmation prompt when updating dbt profile",
-        ),
-    ] = False,
 ):
     """Convert cached lakehouse metadata to dbt schema.yml format for a lakehouse and layer.
 
@@ -1410,8 +1451,9 @@ def dbt_generate_schema_yml(
     ingen_fab deploy get-metadata --target lakehouse
     """
     dbt_commands.create_schema_yml_from_metadata(
-        ctx, dbt_project, lakehouse, layer, dbt_type, skip_profile_confirmation
+        ctx, dbt_project, lakehouse, layer, dbt_type
     )
+
 
 # Package commands
 package_app.add_typer(
@@ -1829,9 +1871,7 @@ def ingestion_app_compile(
     ] = None,
     include_samples: Annotated[
         bool,
-        typer.Option(
-            "--include-samples", "-s", help="Include sample data DDL"
-        ),
+        typer.Option("--include-samples", "-s", help="Include sample data DDL"),
     ] = False,
 ):
     """Compile ingestion framework package (extraction and loading notebooks + DDL scripts)."""
@@ -1848,6 +1888,7 @@ def ingestion_app_compile(
             parsed_template_vars = json.loads(template_vars)
         except json.JSONDecodeError as e:
             from rich.console import Console
+
             console = Console()
             console.print(f"[red]Error parsing template-vars JSON: {e}[/red]")
             raise typer.Exit(1)
@@ -1869,9 +1910,7 @@ def export_app_compile(
     ] = None,
     include_samples: Annotated[
         bool,
-        typer.Option(
-            "--include-samples", "-s", help="Include sample data DDL"
-        ),
+        typer.Option("--include-samples", "-s", help="Include sample data DDL"),
     ] = False,
 ):
     """Compile export framework package (export notebook + DDL scripts)."""
@@ -1888,6 +1927,7 @@ def export_app_compile(
             parsed_template_vars = json.loads(template_vars)
         except json.JSONDecodeError as e:
             from rich.console import Console
+
             console = Console()
             console.print(f"[red]Error parsing template-vars JSON: {e}[/red]")
             raise typer.Exit(1)
@@ -1914,6 +1954,7 @@ def libs_app_compile(
 ):
     """Compile Python libraries by injecting variables from the variable library."""
     from rich.console import Console
+
     console = Console()
     console.print("[yellow]⚠️  This functionality is not yet implemented.[/yellow]")
     console.print("[dim]The libs compile command is currently under development.[/dim]")

@@ -688,54 +688,26 @@ ingen_fab deploy download-artefact -n "My Notebook" -t Notebook -o ./downloads
 
 #### `deploy upload-dbt-project` {#deploy-upload-dbt-project}
 
-Upload a dbt project to the Fabric workspace for execution.
+Upload a dbt project (its files, including `profiles/` and `requirements.txt`, without
+`target/`, `logs/`, `dbt_packages/` and `__pycache__/`) to the config lakehouse's Files, where
+an orchestrator notebook runs it.
 
 ```bash
-ingen_fab deploy upload-dbt-project [OPTIONS]
+ingen_fab deploy upload-dbt-project --dbt-project <folder>
 ```
 
 **Options:**
 
-- `--project-path` / `-p`: Path to dbt project directory (default: current directory)
+- `--dbt-project` / `-p`: the dbt project folder under the workspace repository (prompted
+  when omitted)
 
-- `--target-lakehouse` / `-l`: Target lakehouse name for dbt execution
-
-- `--target-workspace` / `-w`: Target workspace name (uses environment config if not specified)
-
-
-- `--models` / `-m`: Specific dbt models to include (comma-separated)
-
-- `--exclude` / `-e`: Models to exclude from upload (comma-separated)
-
-- `--include-profiles`: Include dbt profiles.yml file (default: false)
-
-- `--overwrite`: Overwrite existing dbt project files (default: false)
-
-Uses the global options `--fabric-workspace-repo-dir` and `--fabric-environment`.
+Uses the global options `--fabric-workspace-repo-dir` and `--fabric-environment`; the config
+lakehouse comes from the environment's value set.
 
 **Examples:**
 ```bash
-# Upload entire dbt project to default lakehouse
-ingen_fab deploy upload-dbt-project --project-path ./my_dbt_project
-
-# Upload specific models to named lakehouse
-ingen_fab deploy upload-dbt-project \
-  --project-path ./analytics_dbt \
-  --target-lakehouse "Analytics Lakehouse" \
-  --models "staging.customers,marts.customer_summary"
-
-# Upload project excluding test models
-ingen_fab deploy upload-dbt-project \
-  --project-path ./dbt_project \
-  --exclude "tests.*,staging.test_*" \
-  --overwrite
-
-# Upload with profiles and specific workspace
-ingen_fab deploy upload-dbt-project \
-  --project-path ./enterprise_dbt \
-  --target-workspace "Production Analytics" \
-  --target-lakehouse "Gold Layer" \
-  --include-profiles
+ingen_fab deploy upload-dbt-project --dbt-project dbt_project
+ingen_fab deploy upload-dbt-project --dbt-project dbt_warehouse
 ```
 
 ## dbt {#dbt}
@@ -785,9 +757,15 @@ ingen_fab dbt orchestrator -p analytics_models -n dbtload_gold -s "+tag:gold" -c
 
 - `--name` / `-n`: notebook name
 - `--select` / `-s`: dbt selector the notebook runs
-- `--command` / `-c`: `build` (default), `run`, `test`, `seed`, `snapshot`
+- `--command` / `-c`: `build` (default), `run`, `test`, `seed`, `snapshot`, `compile`, `parse`
 - `--config-lakehouse`: lakehouse holding the uploaded project (default: `config_lakehouse_name` from the value set)
 - `--threads`: dbt threads (default 4)
+- `--log-lakehouse`: lakehouse that receives the run folder (default: the `log_lakehouse` variable, else `lh_log`)
+- `--vars`: value for dbt `--vars`, e.g. `"{silver_lakehouse: lh_silver_nb}"`
+- `--target`: profile target (default `<environment>-notebook`, as `dbt profile` writes it)
+- `--env NAME=variable`: export a Variable Library variable to the dbt process as `NAME` (repeatable)
+
+The options are described in [dbt integration](dbt_integration.md#scheduled-runs-in-fabric).
 
 #### `dbt generate-schema-yml`
 

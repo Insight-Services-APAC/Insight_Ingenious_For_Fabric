@@ -69,7 +69,7 @@ import traceback
 from datetime import datetime, timezone
 from pathlib import Path
 
-ALLOWED = {"build", "run", "test", "seed", "snapshot", "compile", "parse"}
+ALLOWED = set({{ allowed_commands | tojson }})
 if dbt_command not in ALLOWED:
     raise ValueError(f"Invalid dbt_command {dbt_command!r}. Allowed: {sorted(ALLOWED)}")
 
@@ -114,7 +114,7 @@ def publish_run_folder(status, error=None):
     (LOCAL_RUN / "run_summary.json").write_text(json.dumps(summary, indent=2), encoding="utf-8")
     published = 0
     for path in sorted(LOCAL_RUN.rglob("*")):
-        if not path.is_file() or path.suffix in {".msgpack", ".pyc"}:
+        if not path.is_file() or path.suffix in {".msgpack", ".pyc", ".gpickle"}:
             continue
         try:
             text = path.read_text(encoding="utf-8", errors="replace")
