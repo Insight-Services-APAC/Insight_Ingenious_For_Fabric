@@ -563,3 +563,18 @@ def test_missing_adapter_is_a_clear_profile_error(tmp_path, monkeypatch):
     monkeypatch.setattr(builtins, "__import__", fake_import)
     with pytest.raises(pm.ProfileError, match="uv sync --group dbt"):
         pm.validate_with_adapter({"p": {"outputs": {"t": {"type": "fabricspark"}}}})
+
+
+def test_placeholder_workspace_id_falls_back_to_the_deployment_workspace():
+    """A per-lakehouse workspace id left at its placeholder means "the deployment workspace":
+    the sample's value sets carry one per item and only the deployment id is typed by hand."""
+    values = {
+        "fabric_deployment_workspace_id": "11111111-1111-1111-1111-111111111111",
+        "lh_x_lakehouse_id": "22222222-2222-2222-2222-222222222222",
+        "lh_x_workspace_id": "REPLACE_WITH_LH_X_WORKSPACE_ID",
+        "lh_y_lakehouse_id": "33333333-3333-3333-3333-333333333333",
+        "lh_y_workspace_id": "44444444-4444-4444-4444-444444444444",
+    }
+    found = pm.discover_lakehouses(values)
+    assert found["lh_x"].workspace_id == "11111111-1111-1111-1111-111111111111"
+    assert found["lh_y"].workspace_id == "44444444-4444-4444-4444-444444444444"

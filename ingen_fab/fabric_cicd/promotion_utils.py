@@ -803,6 +803,15 @@ class SyncToFabricEnvironment:
                     old_value = existing_vars[var_name]["value"]
                     existing_vars[var_name]["value"] = item_id
                     updated_vars.append((var_name, old_value, item_id))
+                    # The item's workspace variable ({name}_workspace_id), when it exists and
+                    # still holds a placeholder or nothing, is the workspace deployed to
+                    ws_var = f"{artifact_name}_workspace_id"
+                    ws_value = str(existing_vars.get(ws_var, {}).get("value") or "")
+                    if ws_var in existing_vars and (
+                        not ws_value or "REPLACE_WITH" in ws_value
+                    ):
+                        existing_vars[ws_var]["value"] = workspace_id
+                        updated_vars.append((ws_var, ws_value, workspace_id))
 
             # Step 4: Save if any updates made
             if updated_vars:

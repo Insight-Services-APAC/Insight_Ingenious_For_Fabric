@@ -731,3 +731,62 @@ def test_ontology_binding_tokens_resolve_from_the_value_set(tmp_path):
     assert changed == 1
     assert props["workspaceId"] == "11111111-1111-1111-1111-111111111111"
     assert props["itemId"] == "22222222-2222-2222-2222-222222222222"
+
+
+def test_valueset_item_workspace_ids_filled_from_the_deployment_workspace(tmp_path):
+    """AUTO_UPDATE_ITEM_IDS also fills <name>_workspace_id when it exists and still holds a
+    placeholder (or nothing); a real value there is left alone."""
+    sync = _sync(tmp_path)
+    vs_dir = (
+        tmp_path
+        / "fabric_workspace_items"
+        / "config"
+        / "var_lib.VariableLibrary"
+        / "valueSets"
+    )
+    vs_dir.mkdir(parents=True)
+    vs = vs_dir / "development.json"
+    vs.write_text(
+        json.dumps(
+            {
+                "variableOverrides": [
+                    {
+                        "name": "lh_lakehouse_id",
+                        "value": "REPLACE_WITH_LH_LAKEHOUSE_ID",
+                    },
+                    {
+                        "name": "lh_workspace_id",
+                        "value": "REPLACE_WITH_LH_WORKSPACE_ID",
+                    },
+                    {"name": "wh_warehouse_id", "value": ""},
+                    {"name": "wh_workspace_id", "value": "other-ws"},
+                ]
+            }
+        ),
+        encoding="utf-8",
+    )
+    api = mock.Mock()
+    api.list_workspace_items.return_value = [
+        {"displayName": "lh", "type": "Lakehouse", "id": "lh-id"},
+        {"displayName": "wh", "type": "Warehouse", "id": "wh-id"},
+    ]
+    with (
+        mock.patch(f"{MODULE}.FabricApiUtils", return_value=api),
+        mock.patch(f"{MODULE}.get_token_credential", return_value="cred"),
+    ):
+        sync._update_variables_with_item_ids_after_deployment(
+            [
+                PublishResult("lh", "Lakehouse", True),
+                PublishResult("wh", "Warehouse", True),
+            ],
+            workspace_id="ws1",
+            environment="development",
+        )
+    data = json.loads(vs.read_text(encoding="utf-8"))
+    values = {v["name"]: v["value"] for v in data["variableOverrides"]}
+    assert values == {
+        "lh_lakehouse_id": "lh-id",
+        "lh_workspace_id": "ws1",
+        "wh_warehouse_id": "wh-id",
+        "wh_workspace_id": "other-ws",
+    }

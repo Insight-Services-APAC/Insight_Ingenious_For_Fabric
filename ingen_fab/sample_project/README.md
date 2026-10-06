@@ -24,8 +24,8 @@ inside the dbt job item (`Code/dbt`) are kept identical to it; edit the models u
 1. Fill the value set for your environment,
    `fabric_workspace_items/config/var_lib.VariableLibrary/valueSets/development.json`: the
    workspace id and the config lakehouse id are the values you must type first. With
-   `AUTO_UPDATE_ITEM_IDS=true` the deploy writes every item id (`REPLACE_WITH_..._ID`) back
-   into the value set once the item exists. The two warehouse SQL endpoints
+   `AUTO_UPDATE_ITEM_IDS=true` the deploy writes every item id (`REPLACE_WITH_..._ID`) and
+   each item's workspace id back into the value set once the item exists. The two warehouse SQL endpoints
    (`wh_silver_warehouse_endpoint`, `wh_gold_warehouse_endpoint`) are not written back: copy
    each from the warehouse's settings (SQL connection string, the host name without a port)
    after the first deploy. Ways 3 and 4 below connect through them.

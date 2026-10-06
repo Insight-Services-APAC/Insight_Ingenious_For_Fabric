@@ -106,9 +106,11 @@ def discover_lakehouses(values: dict[str, str]) -> dict[str, LakehouseRef]:
         if not key.endswith("_lakehouse_id"):
             continue
         prefix = key[: -len("_lakehouse_id")]
-        workspace_id = values.get(f"{prefix}_workspace_id") or values.get(
-            "fabric_deployment_workspace_id", ""
-        )
+        # a per-lakehouse workspace id that is still a placeholder counts as absent: the
+        # lakehouse lives in the deployment workspace unless the value set says otherwise
+        workspace_id = values.get(f"{prefix}_workspace_id", "")
+        if _is_placeholder(workspace_id):
+            workspace_id = values.get("fabric_deployment_workspace_id", "")
         if _is_placeholder(lakehouse_id) or _is_placeholder(workspace_id):
             continue
         found[prefix] = LakehouseRef(
