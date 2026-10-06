@@ -68,6 +68,7 @@ import subprocess
 import sys
 import time
 import traceback
+import uuid
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -76,7 +77,9 @@ if dbt_command not in ALLOWED:
     raise ValueError(f"Invalid dbt_command {dbt_command!r}. Allowed: {sorted(ALLOWED)}")
 
 PROJECT_DIR = Path("/lakehouse/default/Files/dbt_warehouse")
-STAMP = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
+# one folder per run: the UTC stamp orders them, the short id keeps two runs that start in
+# the same second apart
+STAMP = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ") + "_" + uuid.uuid4().hex[:8]
 LOCAL_RUN = Path("/tmp/dbt_runs/dbtload_warehouse") / STAMP
 LOCAL_RUN.mkdir(parents=True, exist_ok=True)
 STARTED = time.time()

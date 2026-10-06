@@ -168,7 +168,7 @@ The notebook attaches the config lakehouse, installs the adapter from the upload
 Install and run go through Python with a failure check, so a failed install or a failed dbt
 run fails the notebook job. Every run publishes its run folder (the pip and dbt output, dbt's
 `target/` and logs, and a `run_summary.json` with the outcome and timings) to
-`Files/dbt_runs/<dbt_project>/<notebook>/<UTC timestamp>/` of the **log lakehouse**: the
+`Files/dbt_runs/<dbt_project>/<notebook>/<UTC timestamp>_<run id>/` of the **log lakehouse**: the
 `--log-lakehouse` option, else the `log_lakehouse` variable, else `lh_log`. Logs never land in
 a data lakehouse. Re-upload the project after changing models; the notebook itself only
 changes when the selector, command or options do.

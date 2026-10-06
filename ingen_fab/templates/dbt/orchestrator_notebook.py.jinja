@@ -51,8 +51,8 @@
 
 # PARAMETERS CELL ********************
 
-dbt_command = "{{ dbt_command }}"
-dbt_select = "{{ dbt_select }}"
+dbt_command = {{ dbt_command | tojson }}
+dbt_select = {{ dbt_select | tojson }}
 dbt_threads = {{ dbt_threads }}
 dbt_vars = {{ dbt_vars | tojson }}
 dbt_target = {{ dbt_target | tojson }}  # empty: <environment>-notebook
@@ -72,6 +72,7 @@ import subprocess
 import sys
 import time
 import traceback
+import uuid
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -80,7 +81,9 @@ if dbt_command not in ALLOWED:
     raise ValueError(f"Invalid dbt_command {dbt_command!r}. Allowed: {sorted(ALLOWED)}")
 
 PROJECT_DIR = Path("/lakehouse/default/Files/{{ dbt_project }}")
-STAMP = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
+# one folder per run: the UTC stamp orders them, the short id keeps two runs that start in
+# the same second apart
+STAMP = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ") + "_" + uuid.uuid4().hex[:8]
 LOCAL_RUN = Path("/tmp/dbt_runs/{{ notebook_name }}") / STAMP
 LOCAL_RUN.mkdir(parents=True, exist_ok=True)
 STARTED = time.time()

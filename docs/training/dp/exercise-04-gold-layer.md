@@ -187,7 +187,7 @@ dbt reads the three silver tables and writes `lh_gold.dim_city_geography` (the `
 **5c. Make it schedulable**
 
 ```bash
-ingen_fab dbt orchestrator --name dbtload_gold --select "gold"
+ingen_fab dbt orchestrator --name dbtload_gold --select "path:models/gold"
 ingen_fab deploy upload-dbt-project --dbt-project dbt_project
 ingen_fab deploy deploy
 ```

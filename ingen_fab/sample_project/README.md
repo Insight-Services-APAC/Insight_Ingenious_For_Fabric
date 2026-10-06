@@ -77,7 +77,7 @@ Library value to the dbt process, which is how the warehouse profile gets the SQ
 the right environment without storing it.
 
 Logs: every notebook run publishes its run folder (dbt logs, `run_results.json`, a
-`run_summary.json`) to `lh_log/Files/dbt_runs/<dbt project>/<notebook>/<UTC stamp>/`. The dbt
+`run_summary.json`) to `lh_log/Files/dbt_runs/<dbt project>/<notebook>/<UTC stamp>_<run id>/`. The dbt
 job item keeps its own output inside the item, as Fabric's item works. Way 1 logs on the
 machine that runs it.
 
