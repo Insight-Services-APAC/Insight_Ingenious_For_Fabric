@@ -1,0 +1,34 @@
+# The same transformation as dbt_project (bronze cities and countries -> silver -> gold
+# dim_cities), written for the Fabric Warehouse (T-SQL) adapter `dbt-fabric`.
+# Used by two examples:
+#   - notebook dbtload_warehouse: a Python notebook runs dbt against this project (uploaded to
+#     the config lakehouse), profile target `notebook`, schema dbt_notebook
+#   - dbt job item dbtjob_warehouse: Fabric runs dbt itself on a copy of this project that lives
+#     inside the item (tools/sync_dbt_job.py keeps the copy in step), schema dbt_job
+name: 'dbt_warehouse'
+version: '1.0.0'
+config-version: 2
+
+profile: '{project_name}_warehouse'
+
+model-paths: ["models"]
+macro-paths: ["macros"]
+
+clean-targets:
+  - "target"
+  - "dbt_packages"
+
+# The profile (or the dbt job item) connects to the silver warehouse; the gold folder is routed
+# to the gold warehouse with +database, and ref() resolves across warehouses. The schema is the
+# target's schema, so each example writes to its own schema in both warehouses.
+#
+# Same workspace only. One connection reaches wh_silver, wh_gold and lh_bronze because Fabric
+# resolves three-part names across the warehouses and SQL endpoints of ONE workspace. Nothing
+# here works across workspaces. Ideas to test later (none tested, see README "Cross-workspace"):
+#   - read from another workspace through a OneLake shortcut in a local lakehouse
+#   - write to another workspace with one dbt run (or one dbt job) per target warehouse
+models:
+  dbt_warehouse:
+    +materialized: table
+    gold:
+      +database: wh_gold

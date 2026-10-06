@@ -1,0 +1,12 @@
+{
+  "$schema": "https://developer.microsoft.com/json-schemas/fabric/gitIntegration/platformProperties/2.0.0/schema.json",
+  "metadata": {
+    "type": "Notebook",
+    "displayName": "dbtload_warehouse",
+    "description": "dbt build --select path:models for dbt_warehouse"
+  },
+  "config": {
+    "version": "2.0",
+    "logicalId": "dfadbc13-458e-454a-8270-4cd93fc8c5e8"
+  }
+}

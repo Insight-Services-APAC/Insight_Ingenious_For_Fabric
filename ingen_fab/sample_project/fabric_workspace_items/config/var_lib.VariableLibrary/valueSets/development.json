@@ -81,6 +81,70 @@
     {
       "name": "dbt_default_lakehouse",
       "value": "lh_silver"
+    },
+    {
+      "name": "lh_silver_nb_workspace_id",
+      "value": "REPLACE_WITH_LH_SILVER_NB_WORKSPACE_ID"
+    },
+    {
+      "name": "lh_silver_nb_lakehouse_name",
+      "value": "lh_silver_nb"
+    },
+    {
+      "name": "lh_silver_nb_lakehouse_id",
+      "value": "REPLACE_WITH_LH_SILVER_NB_LAKEHOUSE_ID"
+    },
+    {
+      "name": "lh_gold_nb_workspace_id",
+      "value": "REPLACE_WITH_LH_GOLD_NB_WORKSPACE_ID"
+    },
+    {
+      "name": "lh_gold_nb_lakehouse_name",
+      "value": "lh_gold_nb"
+    },
+    {
+      "name": "lh_gold_nb_lakehouse_id",
+      "value": "REPLACE_WITH_LH_GOLD_NB_LAKEHOUSE_ID"
+    },
+    {
+      "name": "lh_log_workspace_id",
+      "value": "REPLACE_WITH_LH_LOG_WORKSPACE_ID"
+    },
+    {
+      "name": "lh_log_lakehouse_name",
+      "value": "lh_log"
+    },
+    {
+      "name": "lh_log_lakehouse_id",
+      "value": "REPLACE_WITH_LH_LOG_LAKEHOUSE_ID"
+    },
+    {
+      "name": "wh_silver_workspace_id",
+      "value": "REPLACE_WITH_WH_SILVER_WORKSPACE_ID"
+    },
+    {
+      "name": "wh_silver_warehouse_name",
+      "value": "wh_silver"
+    },
+    {
+      "name": "wh_silver_warehouse_id",
+      "value": "REPLACE_WITH_WH_SILVER_WAREHOUSE_ID"
+    },
+    {
+      "name": "wh_silver_warehouse_endpoint",
+      "value": "REPLACE_WITH_WH_SILVER_WAREHOUSE_ENDPOINT"
+    },
+    {
+      "name": "wh_gold_warehouse_endpoint",
+      "value": "REPLACE_WITH_WH_GOLD_WAREHOUSE_ENDPOINT"
+    },
+    {
+      "name": "lh_gold_lakehouse_sql_endpoint",
+      "value": "REPLACE_WITH_LH_GOLD_LAKEHOUSE_SQL_ENDPOINT"
+    },
+    {
+      "name": "lh_silver_lakehouse_sql_endpoint",
+      "value": "REPLACE_WITH_LH_SILVER_LAKEHOUSE_SQL_ENDPOINT"
     }
   ]
 }
