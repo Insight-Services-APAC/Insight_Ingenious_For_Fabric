@@ -585,11 +585,11 @@ def test_orchestrator_notebook_renders_an_awkward_selector_as_valid_python(tmp_p
     selector cannot break the generated notebook, and the run folder carries a short id after
     the UTC stamp so two runs starting in the same second stay apart."""
     _project(tmp_path, extra={"dbt_default_lakehouse": "lh_bronze", **LOG_VARS})
+    selector = (
+        'config.materialized:"table" path:models\\silver'  # a quote and a backslash
+    )
     path = dbt_commands.write_orchestrator_notebook(
-        _ctx(tmp_path),
-        "dbt_project",
-        "dbtload_odd",
-        'config.materialized:"table" path:models\silver',
+        _ctx(tmp_path), "dbt_project", "dbtload_odd", selector
     )
     content = (path / "notebook-content.py").read_text(encoding="utf-8")
     code = "\n".join(
@@ -598,7 +598,5 @@ def test_orchestrator_notebook_renders_an_awkward_selector_as_valid_python(tmp_p
         if not line.startswith("# ") and line != "#"
     )
     compile(code, "notebook-content.py", "exec")
-    assert (
-        'dbt_select = "config.materialized:\\"table\\" path:models\\silver"' in content
-    )
+    assert f"dbt_select = {json.dumps(selector)}" in content
     assert 'strftime("%Y%m%dT%H%M%SZ") + "_" + uuid.uuid4().hex[:8]' in content
