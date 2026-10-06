@@ -133,3 +133,34 @@ def test_upload_keeps_package_files_and_skips_generated_folders(tmp_path: Path) 
         for p in collect_upload_files(tmp_path, exclude_dirs=DBT_GENERATED_DIRS)
     }
     assert files == {"pkg/__init__.py", "models/a.sql"}
+
+
+def test_cli_reports_an_orchestrator_validation_error_without_a_traceback(
+    tmp_path: Path,
+) -> None:
+    from typer.testing import CliRunner
+
+    from ingen_fab.cli import app
+
+    project = tmp_path / "p"
+    (project / "fabric_workspace_items" / "config").mkdir(parents=True)
+    result = CliRunner().invoke(
+        app,
+        [
+            "--fabric-workspace-repo-dir",
+            str(project),
+            "--fabric-environment",
+            "development",
+            "dbt",
+            "orchestrator",
+            "--name",
+            "nb",
+            "--select",
+            "x",
+            "--command",
+            "docs",
+        ],
+    )
+    assert result.exit_code == 1
+    assert "not one the orchestrator runs" in result.output
+    assert "Traceback" not in result.output

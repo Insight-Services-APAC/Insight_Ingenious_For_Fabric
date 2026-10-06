@@ -749,7 +749,7 @@ Create `fabric_workspace_items/notebooks/<name>.Notebook`, a notebook that runs 
 Fabric against the project uploaded with `ingen_fab deploy upload-dbt-project`.
 
 ```bash
-ingen_fab dbt orchestrator --name dbtload_silver --select "silver"
+ingen_fab dbt orchestrator --name dbtload_silver --select "path:models/silver"
 ingen_fab dbt orchestrator -p analytics_models -n dbtload_gold -s "+tag:gold" -c build --threads 8
 ```
 

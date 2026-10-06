@@ -66,13 +66,16 @@ pip install git+https://github.com/Insight-Services-APAC/Insight_Ingenious_For_F
 
 ## Step 4: Install the dbt adapter
 
-The dbt integration uses Microsoft's `dbt-fabricspark` adapter, installed with the `dbt` dependency group:
+The dbt integration uses Microsoft's `dbt-fabricspark` adapter for lakehouses. Install it into
+the same virtual environment as `ingen_fab` (for warehouses, add `dbt-fabric`):
 
 ```bash
-uv sync --group dbt
+pip install "dbt-fabricspark>=1.13,<2"
 ```
 
-This puts `dbt` on your PATH; `ingen_fab dbt build` (and the other dbt verbs) run it with a profile generated from your value set.
+This puts `dbt` next to the interpreter; `ingen_fab dbt build` (and the other dbt verbs) find
+it there and run it with a profile generated from your value set. (In a checkout of the
+ingen_fab repository, `uv sync --group dbt` installs the same packages.)
 
 ---
 

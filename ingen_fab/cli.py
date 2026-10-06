@@ -1395,19 +1395,25 @@ def dbt_orchestrator(
     `ingen_fab deploy deploy`; pipelines call it. Upload the project first with
     `ingen_fab deploy upload-dbt-project --dbt-project <dbt_project>`.
     """
-    dbt_commands.write_orchestrator_notebook(
-        ctx,
-        dbt_project=dbt_project,
-        notebook_name=name,
-        select=select,
-        command=command,
-        config_lakehouse=config_lakehouse,
-        threads=threads,
-        log_lakehouse=log_lakehouse,
-        dbt_vars=dbt_vars,
-        target=target,
-        env_variables=_parse_env_options(env),
-    )
+    try:
+        dbt_commands.write_orchestrator_notebook(
+            ctx,
+            dbt_project=dbt_project,
+            notebook_name=name,
+            select=select,
+            command=command,
+            config_lakehouse=config_lakehouse,
+            threads=threads,
+            log_lakehouse=log_lakehouse,
+            dbt_vars=dbt_vars,
+            target=target,
+            env_variables=_parse_env_options(env),
+        )
+    except dbt_commands.profiles.ProfileError as e:
+        # a wrong --command, an undeclared log lakehouse, an unknown --env variable: the
+        # message is the answer, not a traceback
+        console.print(f"[red]{e}[/red]")
+        raise typer.Exit(code=1)
 
 
 @dbt_app.command("generate-schema-yml")

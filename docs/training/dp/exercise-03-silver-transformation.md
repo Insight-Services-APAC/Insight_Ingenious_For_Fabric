@@ -205,15 +205,18 @@ same command inside Fabric, then deploy it:
 ```bash
 ingen_fab dbt profile
 ingen_fab deploy upload-dbt-project --dbt-project dbt_project
-ingen_fab dbt orchestrator --name dbtload_silver --select "silver"
+ingen_fab dbt orchestrator --name dbtload_silver --select "path:models/silver"
 ingen_fab deploy deploy
 ```
+
+(`path:models/silver` selects every model in that folder; a bare `silver` would select a
+model named silver.)
 
 **5d. Run the orchestrator notebook in Fabric**
 
 In your Fabric workspace, run `dbtload_silver`. It installs the adapter from the uploaded
 `requirements.txt`, selects the `<environment>-notebook` profile target from the Variable
-Library, and runs `dbt build --select silver` with the notebook's own identity.
+Library, and runs `dbt build --select path:models/silver` with the notebook's own identity.
 
 ## Verification
 
