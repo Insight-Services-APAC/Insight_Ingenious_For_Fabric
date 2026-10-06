@@ -85,9 +85,10 @@ def dbt_command_line(
     return command + args
 
 
-# What the orchestrator notebook may run: the verbs that transform or check data. The
-# template carries the same set, rendered from here, and refuses anything else at run time.
-ORCHESTRATOR_COMMANDS = ("build", "run", "test", "seed", "snapshot", "compile", "parse")
+# What the orchestrator notebook may run: the verbs that take a selector (the notebook always
+# passes --select; `dbt parse` does not accept one). The template carries the same set,
+# rendered from here, and refuses anything else at run time.
+ORCHESTRATOR_COMMANDS = ("build", "run", "test", "seed", "snapshot", "compile")
 
 
 def _project_context(ctx: typer.Context) -> tuple[Path, str]:

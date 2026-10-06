@@ -757,7 +757,7 @@ ingen_fab dbt orchestrator -p analytics_models -n dbtload_gold -s "+tag:gold" -c
 
 - `--name` / `-n`: notebook name
 - `--select` / `-s`: dbt selector the notebook runs
-- `--command` / `-c`: `build` (default), `run`, `test`, `seed`, `snapshot`, `compile`, `parse`
+- `--command` / `-c`: `build` (default), `run`, `test`, `seed`, `snapshot`, `compile` (the verbs that take a selector)
 - `--config-lakehouse`: lakehouse holding the uploaded project (default: `config_lakehouse_name` from the value set)
 - `--threads`: dbt threads (default 4)
 - `--log-lakehouse`: lakehouse that receives the run folder (default: the `log_lakehouse` variable, else `lh_log`)

@@ -23,22 +23,31 @@ inside the dbt job item (`Code/dbt`) are kept identical to it; edit the models u
 
 1. Fill the value set for your environment,
    `fabric_workspace_items/config/var_lib.VariableLibrary/valueSets/development.json`: the
-   workspace id and the config lakehouse id are the only values you must type; every
-   `REPLACE_WITH_...` item id and SQL endpoint is written back by the deploy once the item
-   exists (`ingen_fab deploy deploy` twice: create, then write ids back).
-2. Compile the DDL notebooks and deploy:
+   workspace id and the config lakehouse id are the values you must type first. With
+   `AUTO_UPDATE_ITEM_IDS=true` the deploy writes every item id (`REPLACE_WITH_..._ID`) back
+   into the value set once the item exists. The two warehouse SQL endpoints
+   (`wh_silver_warehouse_endpoint`, `wh_gold_warehouse_endpoint`) are not written back: copy
+   each from the warehouse's settings (SQL connection string, the host name without a port)
+   after the first deploy. Ways 3 and 4 below connect through them.
+2. Compile the DDL notebooks, deploy, write the profile, upload:
 
    ```
    export FABRIC_WORKSPACE_REPO_DIR="./{project_name}"
    export FABRIC_ENVIRONMENT="development"
+   export AUTO_UPDATE_ITEM_IDS=true
    ingen_fab ddl compile --output-mode fabric_workspace_repo --generation-mode Lakehouse
    ingen_fab ddl compile --output-mode fabric_workspace_repo --generation-mode Warehouse
-   ingen_fab deploy deploy --environment development
-   ingen_fab deploy deploy --environment development      # second pass: ids and endpoints into the value set
-   ingen_fab deploy upload-python-libs                    # the runtime libraries, to the config lakehouse
+   ingen_fab deploy deploy --environment development       # creates the items, writes their ids back
+   # fill the two warehouse endpoints in the value set, then
+   ingen_fab deploy deploy --environment development       # items now carry the ids and endpoints
+   ingen_fab dbt profile --dbt-project dbt_project         # before the upload: the notebook needs the profile
+   ingen_fab deploy upload-python-libs                     # the runtime libraries, to the config lakehouse
    ingen_fab deploy upload-dbt-project --dbt-project dbt_project
    ingen_fab deploy upload-dbt-project --dbt-project dbt_warehouse
    ```
+
+   `upload-dbt-project` copies the files as they are at that moment: after changing models or
+   regenerating the profile, upload again.
 
 3. Run the lakehouse DDL orchestrator notebook once (it creates the bronze tables and the demo
    data), then run the transformation any of the four ways below.

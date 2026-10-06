@@ -324,7 +324,7 @@ settings and are shared with the warehouse project.
 | `Lakehouse '...' has schemas enabled. Please set schema ...` (at run time) | the default lakehouse is schema-enabled but `schema` equals its name | set `dbt_schema` to `dbo` |
 | models land in the wrong lakehouse | folder rule uses the form of the other lakehouse kind (`schema:` is the lakehouse on plain ones, `+database` plus `+schema` on schema-enabled ones) | check `ingen_fab dbt ls -- --output json --output-keys name relation_name` and fix the folder rule |
 | `'dbt' was not found next to this Python interpreter nor on PATH` | dependency group not installed in this environment | `uv sync --group dbt` |
-| `--command '...' is not one the orchestrator runs` | the orchestrator runs `build`, `run`, `test`, `seed`, `snapshot`, `compile` or `parse` | use one of those; other verbs run from your machine with `ingen_fab dbt <verb>` |
+| `--command '...' is not one the orchestrator runs` | the orchestrator runs the verbs that take a selector: `build`, `run`, `test`, `seed`, `snapshot`, `compile` | use one of those; other verbs (`parse`, `docs`, ...) run from your machine with `ingen_fab dbt <verb>` |
 | the orchestrator notebook cannot find the project | `upload-dbt-project` not run, or a different config lakehouse | upload, or pass `--config-lakehouse` |
 
 ## Next Steps
