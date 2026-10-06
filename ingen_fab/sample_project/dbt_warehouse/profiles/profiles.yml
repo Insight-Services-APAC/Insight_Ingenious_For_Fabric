@@ -1,7 +1,7 @@
 # Hand-written (ingen_fab generates profiles for the Spark adapter only). The SQL endpoint is
 # not stored here: the notebook reads `wh_silver_warehouse_endpoint` from the Variable Library
 # and exports it as DBT_WAREHOUSE_ENDPOINT, so the same file works in every environment.
-{project_name}_warehouse:
+'{project_name}_warehouse':
   target: notebook
   outputs:
     # inside a Fabric Python notebook (dbtload_warehouse)

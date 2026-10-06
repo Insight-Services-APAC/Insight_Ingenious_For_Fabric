@@ -600,3 +600,27 @@ def test_orchestrator_notebook_renders_an_awkward_selector_as_valid_python(tmp_p
     compile(code, "notebook-content.py", "exec")
     assert f"dbt_select = {json.dumps(selector)}" in content
     assert 'strftime("%Y%m%dT%H%M%SZ") + "_" + uuid.uuid4().hex[:8]' in content
+
+
+def test_run_dbt_offline_verbs_run_without_a_profile(tmp_path):
+    """`dbt deps` and `dbt clean` touch no lakehouse: a value set that cannot yet yield a
+    profile (placeholders) is a warning for them, still an error for `build`."""
+    import typer
+
+    _project(tmp_path, extra={"dbt_default_lakehouse": "lh_bronze"})
+    with (
+        mock.patch.object(
+            pm,
+            "ensure_profile",
+            side_effect=pm.ProfileError("no lakehouse with a real id"),
+        ),
+        mock.patch.object(dbt_commands, "dbt_executable", return_value="/venv/bin/dbt"),
+        mock.patch.object(
+            dbt_commands.subprocess, "run", return_value=mock.Mock(returncode=0)
+        ) as run,
+    ):
+        assert dbt_commands.run_dbt(_ctx(tmp_path), "deps", "dbt_project", []) == 0
+        assert run.call_args.args[0][:2] == ["/venv/bin/dbt", "deps"]
+        assert "--target" not in run.call_args.args[0]
+        with pytest.raises(typer.Exit):
+            dbt_commands.run_dbt(_ctx(tmp_path), "build", "dbt_project", [])

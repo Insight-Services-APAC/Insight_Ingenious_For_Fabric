@@ -85,6 +85,10 @@ def dbt_command_line(
     return command + args
 
 
+# Verbs that touch no lakehouse: they run even when the value set cannot yet yield a profile
+# (ids still placeholders), for example to fetch packages before any workspace exists.
+OFFLINE_VERBS = ("clean", "deps")
+
 # What the orchestrator notebook may run: the verbs that take a selector (the notebook always
 # passes --select; `dbt parse` does not accept one). The template carries the same set,
 # rendered from here, and refuses anything else at run time.
@@ -159,8 +163,15 @@ def run_dbt(
             project_path, dbt_project, environment, lakehouse=lakehouse, skipped=skipped
         )
     except profiles.ProfileError as e:
-        console.print(f"[red]{e}[/red]")
-        raise typer.Exit(code=1)
+        if verb not in OFFLINE_VERBS:
+            console.print(f"[red]{e}[/red]")
+            raise typer.Exit(code=1)
+        # clean and deps touch no lakehouse: run them with whatever profiles folder exists
+        console.print(
+            f"[yellow]profile not generated ({e}); `dbt {verb}` needs none[/yellow]"
+        )
+        profiles_dir = dbt_project_dir / "profiles"
+        profiles_dir.mkdir(parents=True, exist_ok=True)
     _report_skipped(skipped)
 
     exe = dbt_executable()

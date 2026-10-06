@@ -140,7 +140,9 @@ ingen_fab dbt build -p analytics_models -l lh_gold -- --select tag:gold
 ```
 
 The command regenerates the profile, passes `--project-dir`, `--profiles-dir` and
-`--target <environment>`, and runs `dbt`. The first statement of a run starts a Livy session
+`--target <environment>`, and runs `dbt`. `clean` and `deps` touch no lakehouse, so they run
+even while the value set still holds placeholders (the profile is then not generated, with a
+warning). The first statement of a run starts a Livy session
 (about a minute) and the session is closed when dbt exits. `dbt_reuse_session=true` keeps it
 alive for later runs, at the cost of holding capacity between them. Plain `dbt`
 works too once `DBT_PROFILES_DIR` points at `<dbt_project>/profiles`.
