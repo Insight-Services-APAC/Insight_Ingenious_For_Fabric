@@ -177,6 +177,11 @@ try:
     arguments = [dbt_command, "--select", dbt_select, "--target", target, "--threads", str(dbt_threads), "--indirect-selection", "cautious"]
     if dbt_vars:
         arguments += ["--vars", dbt_vars]
+    # Packages are not part of the upload: a project that declares them gets `dbt deps` first,
+    # installed into this run's scratch folder so the uploaded project stays untouched
+    if any((PROJECT_DIR / name).is_file() for name in ("packages.yml", "dependencies.yml")):
+        env["DBT_PACKAGES_INSTALL_PATH"] = str(LOCAL_RUN / "dbt_packages")
+        step("dbt_deps", dbt + ["deps"], env=env)
     print("dbt " + " ".join(arguments))
     step("dbt_" + dbt_command, dbt + arguments, env=env)
 except BaseException as e:

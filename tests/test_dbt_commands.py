@@ -117,6 +117,12 @@ def test_orchestrator_template_carries_the_same_allowed_commands() -> None:
     )
     assert "ALLOWED = set({{ allowed_commands | tojson }})" in template
     assert '".gpickle"' in template
+    # packages are not uploaded: a project that declares them gets `dbt deps` into scratch
+    assert '("packages.yml", "dependencies.yml")' in template
+    assert (
+        'env["DBT_PACKAGES_INSTALL_PATH"] = str(LOCAL_RUN / "dbt_packages")' in template
+    )
+    assert 'step("dbt_deps", dbt + ["deps"], env=env)' in template
 
 
 def test_upload_keeps_package_files_and_skips_generated_folders(tmp_path: Path) -> None:
@@ -128,11 +134,16 @@ def test_upload_keeps_package_files_and_skips_generated_folders(tmp_path: Path) 
     (tmp_path / "target" / "manifest.json").write_text("{}", encoding="utf-8")
     (tmp_path / "models").mkdir()
     (tmp_path / "models" / "a.sql").write_text("select 1", encoding="utf-8")
+    # a generated-folder name below the root is a source folder, not generated output
+    (tmp_path / "models" / "logs").mkdir()
+    (tmp_path / "models" / "logs" / "b.sql").write_text("select 2", encoding="utf-8")
+    (tmp_path / "logs").mkdir()
+    (tmp_path / "logs" / "dbt.log").write_text("", encoding="utf-8")
     files = {
         p.relative_to(tmp_path).as_posix()
         for p in collect_upload_files(tmp_path, exclude_dirs=DBT_GENERATED_DIRS)
     }
-    assert files == {"pkg/__init__.py", "models/a.sql"}
+    assert files == {"pkg/__init__.py", "models/a.sql", "models/logs/b.sql"}
 
 
 def test_cli_reports_an_orchestrator_validation_error_without_a_traceback(

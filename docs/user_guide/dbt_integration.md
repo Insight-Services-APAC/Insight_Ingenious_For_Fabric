@@ -165,7 +165,10 @@ The notebook attaches the config lakehouse, installs the adapter from the upload
 (`notebookutils.credentials.getToken("pbi")`) and passes it to dbt as `DBT_FABRIC_TOKEN`
 (`notebookutils` is not available to the dbt child process, so the adapter's
 `fabric_notebook` mode cannot be used there), and runs
-`dbt <command> --select <selector> --target <environment>-notebook`. `dbt_command` and
+`dbt <command> --select <selector> --target <environment>-notebook`. A project that declares
+packages (`packages.yml` or `dependencies.yml`) gets `dbt deps` first, installed into the
+run's scratch folder: the upload carries no `dbt_packages/`, `target/` or `logs/`, only those
+names at the project root are left out. `dbt_command` and
 `dbt_select` are notebook parameters, so one notebook can serve several pipeline activities.
 Install and run go through Python with a failure check, so a failed install or a failed dbt
 run fails the notebook job. Every run publishes its run folder (the pip and dbt output, dbt's
