@@ -17,7 +17,10 @@ from ingen_fab.cli_utils import dbt_profile_manager as pm
 WS = "11111111-1111-1111-1111-111111111111"
 LH_BRONZE = "22222222-2222-2222-2222-222222222222"
 LH_SILVER = "33333333-3333-3333-3333-333333333333"
-LOG_VARS = {"lh_log_workspace_id": WS, "lh_log_lakehouse_id": "55555555-5555-5555-5555-555555555555"}
+LOG_VARS = {
+    "lh_log_workspace_id": WS,
+    "lh_log_lakehouse_id": "55555555-5555-5555-5555-555555555555",
+}
 
 
 def _project(tmp_path, environments=("development",), extra=None, profile="if_demo"):
@@ -338,7 +341,10 @@ def test_orchestrator_notebook_is_written_as_a_deployable_item(tmp_path):
     }
     content = (path / "notebook-content.py").read_text(encoding="utf-8")
     # a Python notebook: it hosts the dbt process and holds no Spark session of its own
-    assert '"name": "jupyter"' in content and '"jupyter_kernel_name": "python3.11"' in content
+    assert (
+        '"name": "jupyter"' in content
+        and '"jupyter_kernel_name": "python3.11"' in content
+    )
     assert "synapse_pyspark" not in content
     assert '"defaultLakehouse": {' in content and '"name": "config"' in content
     assert (
@@ -347,13 +353,19 @@ def test_orchestrator_notebook_is_written_as_a_deployable_item(tmp_path):
     assert 'dbt_vars = ""' in content and 'dbt_target = ""' in content
     assert "ENV_FROM_VARIABLES = {}" in content
     assert 'variable("fabric_environment")' in content
-    assert "variableLibrary.get(f\"$(/**/var_lib/{name})\")" in content
+    assert 'variableLibrary.get(f"$(/**/var_lib/{name})")' in content
     assert 'target = dbt_target or f"{environment}-notebook"' in content
     # install and run go through subprocess with a failure check
-    assert 'step("pip_install", [sys.executable, "-m", "pip", "install", "-q", "-r"' in content
+    assert (
+        'step("pip_install", [sys.executable, "-m", "pip", "install", "-q", "-r"'
+        in content
+    )
     assert "raise RuntimeError(" in content
     # logs go to the log lakehouse (lh_log by default), not to the config or a data lakehouse
-    assert "variable('lh_log_workspace_id')" in content and "variable('lh_log_lakehouse_id')" in content
+    assert (
+        "variable('lh_log_workspace_id')" in content
+        and "variable('lh_log_lakehouse_id')" in content
+    )
     assert "/Files/dbt_runs/dbt_project/dbtload_silver/{STAMP}" in content
     assert "/lakehouse/default/Files/dbt_runs" not in content
     # dbt writes to local scratch; the run folder is published even on failure
@@ -371,8 +383,18 @@ def test_orchestrator_notebook_is_written_as_a_deployable_item(tmp_path):
 
 def test_orchestrator_notebook_log_lakehouse_and_vars(tmp_path):
     """`log_lakehouse` from the value set, or the option, replaces lh_log; --vars reaches dbt."""
-    other = {"lh_audit_workspace_id": WS, "lh_audit_lakehouse_id": "66666666-6666-6666-6666-666666666666"}
-    _project(tmp_path, extra={"dbt_default_lakehouse": "lh_bronze", "log_lakehouse": "lh_audit", **other})
+    other = {
+        "lh_audit_workspace_id": WS,
+        "lh_audit_lakehouse_id": "66666666-6666-6666-6666-666666666666",
+    }
+    _project(
+        tmp_path,
+        extra={
+            "dbt_default_lakehouse": "lh_bronze",
+            "log_lakehouse": "lh_audit",
+            **other,
+        },
+    )
     path = dbt_commands.write_orchestrator_notebook(
         _ctx(tmp_path),
         "dbt_project",
@@ -391,7 +413,11 @@ def test_orchestrator_notebook_target_and_env_for_another_adapter(tmp_path):
     the notebook reads from the Variable Library and exports to the dbt process."""
     _project(
         tmp_path,
-        extra={"dbt_default_lakehouse": "lh_bronze", "wh_silver_warehouse_endpoint": "x.datawarehouse.fabric.microsoft.com", **LOG_VARS},
+        extra={
+            "dbt_default_lakehouse": "lh_bronze",
+            "wh_silver_warehouse_endpoint": "x.datawarehouse.fabric.microsoft.com",
+            **LOG_VARS,
+        },
     )
     path = dbt_commands.write_orchestrator_notebook(
         _ctx(tmp_path),
@@ -404,13 +430,23 @@ def test_orchestrator_notebook_target_and_env_for_another_adapter(tmp_path):
     content = (path / "notebook-content.py").read_text(encoding="utf-8")
     assert 'dbt_target = "notebook"' in content
     assert 'target = dbt_target or f"{environment}-notebook"' in content
-    assert 'ENV_FROM_VARIABLES = {"DBT_WAREHOUSE_ENDPOINT": "wh_silver_warehouse_endpoint"}' in content
-    assert "**{name: variable(source) for name, source in ENV_FROM_VARIABLES.items()}" in content
+    assert (
+        'ENV_FROM_VARIABLES = {"DBT_WAREHOUSE_ENDPOINT": "wh_silver_warehouse_endpoint"}'
+        in content
+    )
+    assert (
+        "**{name: variable(source) for name, source in ENV_FROM_VARIABLES.items()}"
+        in content
+    )
     assert "/lakehouse/default/Files/dbt_warehouse" in content
 
     with pytest.raises(pm.ProfileError, match="does_not_exist"):
         dbt_commands.write_orchestrator_notebook(
-            _ctx(tmp_path), "dbt_warehouse", "dbtload_x", "path:models", env_variables={"X": "does_not_exist"}
+            _ctx(tmp_path),
+            "dbt_warehouse",
+            "dbtload_x",
+            "path:models",
+            env_variables={"X": "does_not_exist"},
         )
 
 
@@ -418,7 +454,9 @@ def test_orchestrator_notebook_needs_a_declared_log_lakehouse(tmp_path):
     """No lh_log in the Variable Library and nothing defined: fail at generation, with the fix."""
     _project(tmp_path, extra={"dbt_default_lakehouse": "lh_bronze"})
     with pytest.raises(pm.ProfileError, match="log lakehouse 'lh_log' is not declared"):
-        dbt_commands.write_orchestrator_notebook(_ctx(tmp_path), "dbt_project", "dbtload_x", "silver")
+        dbt_commands.write_orchestrator_notebook(
+            _ctx(tmp_path), "dbt_project", "dbtload_x", "silver"
+        )
 
 
 def test_dbt_executable_is_found_next_to_the_interpreter(tmp_path, monkeypatch):

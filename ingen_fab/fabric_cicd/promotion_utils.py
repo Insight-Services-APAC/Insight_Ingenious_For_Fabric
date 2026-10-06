@@ -212,7 +212,10 @@ def environment_specific_json_files(output_dir: Path) -> dict[str, list[Path]]:
     id, item id, SQL endpoint) and every JSON file of an Ontology item (data bindings and
     relationship contextualizations name a lakehouse by workspace id and item id)."""
     ontology_files = sorted(
-        f for item in output_dir.rglob("*.Ontology") if item.is_dir() for f in item.rglob("*.json")
+        f
+        for item in output_dir.rglob("*.Ontology")
+        if item.is_dir()
+        for f in item.rglob("*.json")
     )
     return {
         "dbt job": sorted(output_dir.rglob("dbt-content.json")),

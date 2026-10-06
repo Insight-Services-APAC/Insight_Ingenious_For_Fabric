@@ -211,7 +211,9 @@ def build_target(
         # The Spark (Livy) session of a dbt run shows under this name in the Fabric Monitor
         # hub: say what it is, for which profile and environment.
         "spark_config": {
-            "name": session_name(profile_name, f"{environment}-notebook" if notebook else environment)
+            "name": session_name(
+                profile_name, f"{environment}-notebook" if notebook else environment
+            )
         },
     }
     if notebook:
