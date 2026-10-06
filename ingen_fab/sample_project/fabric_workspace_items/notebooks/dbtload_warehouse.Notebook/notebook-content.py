@@ -76,11 +76,16 @@ ALLOWED = set(["build", "compile", "run", "seed", "snapshot", "test"])
 if dbt_command not in ALLOWED:
     raise ValueError(f"Invalid dbt_command {dbt_command!r}. Allowed: {sorted(ALLOWED)}")
 
-PROJECT_DIR = Path("/lakehouse/default/Files/dbt_warehouse")
+# Names rendered as JSON strings and joined as path parts: a quote or backslash in a project,
+# notebook or lakehouse name cannot break this code
+DBT_PROJECT = "dbt_warehouse"
+NOTEBOOK_NAME = "dbtload_warehouse"
+LOG_LAKEHOUSE = "lh_log"
+PROJECT_DIR = Path("/lakehouse/default/Files") / DBT_PROJECT
 # one folder per run: the UTC stamp orders them, the short id keeps two runs that start in
 # the same second apart
 STAMP = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ") + "_" + uuid.uuid4().hex[:8]
-LOCAL_RUN = Path("/tmp/dbt_runs/dbtload_warehouse") / STAMP
+LOCAL_RUN = Path("/tmp/dbt_runs") / NOTEBOOK_NAME / STAMP
 LOCAL_RUN.mkdir(parents=True, exist_ok=True)
 STARTED = time.time()
 STEPS = []
@@ -96,16 +101,16 @@ def variable(name):
 
 # Logs go to the log lakehouse, never to a data lakehouse or the config lakehouse.
 LOG_RUN = (
-    f"abfss://{variable('lh_log_workspace_id')}@onelake.dfs.fabric.microsoft.com/"
-    f"{variable('lh_log_lakehouse_id')}/Files/dbt_runs/dbt_warehouse/dbtload_warehouse/{STAMP}"
+    f"abfss://{variable(LOG_LAKEHOUSE + '_workspace_id')}@onelake.dfs.fabric.microsoft.com/"
+    f"{variable(LOG_LAKEHOUSE + '_lakehouse_id')}/Files/dbt_runs/{DBT_PROJECT}/{NOTEBOOK_NAME}/{STAMP}"
 )
 
 
 def publish_run_folder(status, error=None):
     """Write run_summary.json and copy the local run folder to the log lakehouse."""
     summary = {
-        "notebook": "dbtload_warehouse",
-        "dbt_project": "dbt_warehouse",
+        "notebook": NOTEBOOK_NAME,
+        "dbt_project": DBT_PROJECT,
         "command": dbt_command,
         "select": dbt_select,
         "vars": dbt_vars,

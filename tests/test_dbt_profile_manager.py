@@ -363,10 +363,16 @@ def test_orchestrator_notebook_is_written_as_a_deployable_item(tmp_path):
     assert "raise RuntimeError(" in content
     # logs go to the log lakehouse (lh_log by default), not to the config or a data lakehouse
     assert (
-        "variable('lh_log_workspace_id')" in content
-        and "variable('lh_log_lakehouse_id')" in content
+        'LOG_LAKEHOUSE = "lh_log"' in content
+        and "variable(LOG_LAKEHOUSE + '_workspace_id')" in content
+        and "variable(LOG_LAKEHOUSE + '_lakehouse_id')" in content
     )
-    assert "/Files/dbt_runs/dbt_project/dbtload_silver/{STAMP}" in content
+    # names are JSON constants joined as path parts, never spliced into string literals
+    assert (
+        'DBT_PROJECT = "dbt_project"' in content
+        and 'NOTEBOOK_NAME = "dbtload_silver"' in content
+    )
+    assert "/Files/dbt_runs/{DBT_PROJECT}/{NOTEBOOK_NAME}/{STAMP}" in content
     assert "/lakehouse/default/Files/dbt_runs" not in content
     # dbt writes to local scratch; the run folder is published even on failure
     assert '"DBT_LOG_PATH": str(LOCAL_RUN / "dbt_logs")' in content
@@ -403,7 +409,7 @@ def test_orchestrator_notebook_log_lakehouse_and_vars(tmp_path):
         dbt_vars="{silver_lakehouse: lh_silver_nb}",
     )
     content = (path / "notebook-content.py").read_text(encoding="utf-8")
-    assert "variable('lh_audit_lakehouse_id')" in content and "lh_log" not in content
+    assert 'LOG_LAKEHOUSE = "lh_audit"' in content and "lh_log" not in content
     assert 'dbt_vars = "{silver_lakehouse: lh_silver_nb}"' in content
     assert 'arguments += ["--vars", dbt_vars]' in content
 
@@ -438,7 +444,7 @@ def test_orchestrator_notebook_target_and_env_for_another_adapter(tmp_path):
         "**{name: variable(source) for name, source in ENV_FROM_VARIABLES.items()}"
         in content
     )
-    assert "/lakehouse/default/Files/dbt_warehouse" in content
+    assert 'DBT_PROJECT = "dbt_warehouse"' in content
 
     with pytest.raises(pm.ProfileError, match="does_not_exist"):
         dbt_commands.write_orchestrator_notebook(
