@@ -25,7 +25,7 @@ Complete reference for all Ingenious Fabric Accelerator commands, options, and u
 | `init` | Create projects / configure workspace / generate storage artifacts | `ingen_fab init new --project-name MyProj`<br>`ingen_fab init storage-config` |
 | `ddl` | Compile notebooks from DDL scripts and assist in creating ddl scripts | `ingen_fab ddl compile -o fabric_workspace_repo -g Warehouse` |
 | `deploy` | Deploy, upload libs, extract/compare metadata and dwonload artefacts | `ingen_fab deploy get-metadata --target both -f csv -o meta.csv` |
-| `dbt` | dbt on Fabric Spark: profile from the value set, dbt commands over Livy, orchestrator notebook | `ingen_fab dbt build -- --select tag:silver` |
+| `dbt` | dbt on Fabric with Microsoft's adapters: `dbt-fabricspark` for lakehouses (profile from the value set, runs over Livy) and `dbt-fabric` for warehouses (the project's own profile); dbt commands, orchestrator notebook, run log | `ingen_fab dbt build -- --select tag:silver` |
 
 ## Global Options
 
@@ -712,11 +712,13 @@ ingen_fab deploy upload-dbt-project --dbt-project dbt_warehouse
 
 ## dbt {#dbt}
 
-dbt on Fabric lakehouses with the native `dbt-fabricspark` adapter. The profile is generated
-from the Variable Library value sets into `<dbt_project>/profiles/profiles.yml` (profile name
-from `dbt_project.yml`, one `<environment>` and one `<environment>-notebook` target per
-environment); every dbt verb runs with it; an orchestrator notebook runs the same command
-inside Fabric. See the [DBT Integration Guide](dbt_integration.md).
+dbt on Fabric with Microsoft's adapters: `dbt-fabricspark` for lakehouses and `dbt-fabric`
+for warehouses. For a lakehouse project the profile is generated from the Variable Library
+value sets into `<dbt_project>/profiles/profiles.yml` (profile name from `dbt_project.yml`,
+one `<environment>` and one `<environment>-notebook` target per environment); a warehouse
+project keeps its own hand-written profile, which is never touched. Every dbt verb runs
+through the same commands; an orchestrator notebook runs the same command inside Fabric; every
+run is logged into the log store. See the [DBT Integration Guide](dbt_integration.md).
 
 Common options on every command:
 
@@ -732,9 +734,13 @@ ingen_fab dbt profile
 ingen_fab dbt profile -p analytics_models -l lh_silver
 ```
 
-#### `dbt build` / `run` / `test` / `seed` / `snapshot` / `compile` / `parse` / `debug` / `docs` / `ls` / `clean` / `deps` / `show`
+#### `dbt build` / `run` / `test` / `seed` / `snapshot` / `compile` / `parse` / `debug` / `docs` / `ls` / `list` / `clean` / `deps` / `show`
 
-Regenerate the profile, then run `dbt <verb> --project-dir <project> --profiles-dir <project>/profiles --target <environment>`; everything after `--` is passed to dbt unchanged.
+Run `dbt <verb> --project-dir <project> --profiles-dir <project>/profiles`, regenerating the
+profile first when it is a generated one, and passing `--target <environment>` for a generated
+profile unless the caller gives a target (a hand-written profile uses its own default);
+`clean`, `deps` and `docs` take no target, and `clean` and `deps` run even without a usable
+profile. Everything after `--` is passed to dbt unchanged.
 
 ```bash
 ingen_fab dbt build -- --select tag:silver

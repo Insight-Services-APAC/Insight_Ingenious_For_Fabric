@@ -367,3 +367,111 @@ def test_logging_macro_renders_safe_values_for_both_dialects() -> None:
     # dbt runs the hook only after build/run/test/seed/snapshot with at least one node
     macro = dbt_commands.LOGGING_MACRO.read_text(encoding="utf-8")
     assert "{% if execute %}" in macro
+
+
+def test_log_store_macros_pick_the_store_or_fall_back(monkeypatch) -> None:
+    """The store macros are executed with a stub dbt context: a store the workspace has is
+    used; a missing one falls back to the project's own lakehouse or warehouse, with a log
+    line; the lookup literal escapes a quote."""
+    import jinja2
+
+    class Found:
+        def __init__(self, names):
+            self.rows = [(n,) for n in names]
+
+    class Return(Exception):
+        def __init__(self, value):
+            self.value = value
+
+    def run(macro_name, *, present, wanted, target, queries, logs):
+        env = jinja2.Environment(extensions=["jinja2.ext.do"])
+
+        def run_query(sql):
+            queries.append(sql)
+            return Found([n for n in present if n in sql])
+
+        def _return(value):
+            raise Return(value)
+
+        env.globals.update(
+            run_query=run_query,
+            var=lambda name, default=None: wanted if wanted is not None else default,
+            target=target,
+            log=lambda msg, info=False: logs.append(msg),
+            return_=_return,
+        )
+        env.globals["return"] = _return
+        module = env.from_string(
+            dbt_commands.LOGGING_MACRO.read_text(encoding="utf-8")
+        ).module
+        try:
+            getattr(module, macro_name)()
+        except Return as r:
+            return r.value
+        raise AssertionError("the macro did not return")
+
+    spark_target = {"lakehouse": "lh_silver", "schema": "lh_silver", "database": None}
+    q, logs = [], []
+    assert (
+        run(
+            "ingen_fab_log_store_spark",
+            present=["lh_log"],
+            wanted=None,
+            target=spark_target,
+            queries=q,
+            logs=logs,
+        )
+        == "lh_log"
+    )
+    assert q == ["SHOW DATABASES LIKE 'lh_log'"] and logs == []
+    q, logs = [], []
+    assert (
+        run(
+            "ingen_fab_log_store_spark",
+            present=[],
+            wanted="nope",
+            target=spark_target,
+            queries=q,
+            logs=logs,
+        )
+        == "lh_silver"
+    )
+    assert "nope not found" in logs[0] and "lh_silver" in logs[0]
+    q, logs = [], []
+    run(
+        "ingen_fab_log_store_spark",
+        present=[],
+        wanted="it's",
+        target=spark_target,
+        queries=q,
+        logs=logs,
+    )
+    assert q == ["SHOW DATABASES LIKE 'it''s'"]
+
+    wh_target = {"database": "wh_silver", "schema": "dbo"}
+    q, logs = [], []
+    assert (
+        run(
+            "ingen_fab_log_store_warehouse",
+            present=["wh_log"],
+            wanted=None,
+            target=wh_target,
+            queries=q,
+            logs=logs,
+        )
+        == "wh_log"
+    )
+    assert q == ["SELECT name FROM sys.databases WHERE name = 'wh_log'"]
+    q, logs = [], []
+    assert (
+        run(
+            "ingen_fab_log_store_warehouse",
+            present=[],
+            wanted=None,
+            target=wh_target,
+            queries=q,
+            logs=logs,
+        )
+        == "wh_silver"
+    )
+    assert "wh_log not found" in logs[0]

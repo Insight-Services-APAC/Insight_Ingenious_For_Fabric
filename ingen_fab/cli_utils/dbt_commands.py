@@ -320,16 +320,20 @@ def write_orchestrator_notebook(
     """``ingen_fab dbt orchestrator``: a Python notebook item that runs ``dbt <command> --select
     <select>`` inside Fabric against the uploaded project, deployable with ``deploy deploy``.
 
-    The run folder (logs, dbt target, run summary) is published to the log lakehouse:
-    ``log_lakehouse`` if given, else the value set's ``log_lakehouse`` variable, else
-    ``lh_log``. That lakehouse must be declared in the project (``<name>_workspace_id`` and
-    ``<name>_lakehouse_id`` in the Variable Library), because the notebook resolves it there.
+    The run is logged by dbt's on-run-end hook into the log store (``dbt_batch`` and
+    ``dbt_execution_log``); the log lakehouse is ``log_lakehouse`` if given, else the value
+    set's ``log_lakehouse`` variable, else ``lh_log``, and a failed run's log files are kept
+    there under ``Files/dbt_failures/``. That lakehouse must be declared in the project
+    (``<name>_workspace_id`` and ``<name>_lakehouse_id`` in the Variable Library), because the
+    notebook resolves it there. ``log_warehouse`` names the log store of a dbt-fabric project.
 
     ``target`` overrides the profile target (default ``<environment>-notebook``, the one
     ``ingen_fab dbt profile`` writes). ``env_variables`` maps an environment variable for the
     dbt process to a Variable Library variable, read at run time: a hand-written profile for
     another adapter can then use ``env_var()``, for example for a warehouse SQL endpoint."""
     check_name(notebook_name, "notebook name", ITEM_NAME)
+    if log_warehouse:
+        check_name(log_warehouse, "log warehouse", PROJECT_NAME)
     if command not in ORCHESTRATOR_COMMANDS:
         raise profiles.ProfileError(
             f"--command {command!r} is not one the orchestrator runs; choose one of "

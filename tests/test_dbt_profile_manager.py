@@ -378,7 +378,7 @@ def test_orchestrator_notebook_is_written_as_a_deployable_item(tmp_path):
     assert 'run_vars.setdefault("log_lakehouse", LOG_LAKEHOUSE)' in content
     assert 'run_vars["ingen_fab_runner"] = "notebook/" + NOTEBOOK_NAME' in content
     assert "--indirect-selection" in content and '"cautious"' not in content
-    # dbt writes to local scratch; the run folder is published even on failure
+    # dbt writes to local scratch; its log files are kept only when the run failed
     assert '"DBT_LOG_PATH": str(LOCAL_RUN / "dbt_logs")' in content
     assert "notebook_error.log" in content and "keep_failure(" in content
     assert 'print_summary("succeeded")' in content and "run_summary.json" not in content
@@ -605,8 +605,8 @@ def test_placeholder_workspace_id_falls_back_to_the_deployment_workspace():
 
 def test_orchestrator_notebook_renders_an_awkward_selector_as_valid_python(tmp_path):
     """The selector and command are rendered as JSON strings: a quote or a backslash in a
-    selector cannot break the generated notebook, and the run folder carries a short id after
-    the UTC stamp so two runs starting in the same second stay apart."""
+    selector cannot break the generated notebook, and the failure folder carries a short id
+    after the UTC stamp so two runs starting in the same second stay apart."""
     _project(tmp_path, extra={"dbt_default_lakehouse": "lh_bronze", **LOG_VARS})
     selector = (
         'config.materialized:"table" path:models\\silver'  # a quote and a backslash

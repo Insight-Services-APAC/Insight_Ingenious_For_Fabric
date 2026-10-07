@@ -1364,7 +1364,7 @@ def dbt_orchestrator(
         Optional[str],
         typer.Option(
             "--log-lakehouse",
-            help="Lakehouse that receives the run folder (default: the `log_lakehouse` variable, else lh_log)",
+            help="Log lakehouse: the `log_lakehouse` var the logging macro reads and where a failed run's log files go (default: the `log_lakehouse` variable, else lh_log; a store the workspace lacks falls back to the project's own lakehouse)",
         ),
     ] = None,
     dbt_vars: Annotated[
@@ -1399,7 +1399,7 @@ def dbt_orchestrator(
         str,
         typer.Option(
             "--log-warehouse",
-            help="Log warehouse for a dbt-fabric project (the `log_warehouse` var the logging macro reads; default wh_log, or the project's own var)",
+            help="Log warehouse for a dbt-fabric project: the `log_warehouse` var the logging macro reads (default wh_log, or the project's own var; a store the workspace lacks falls back to the project's own warehouse)",
         ),
     ] = "",
 ):

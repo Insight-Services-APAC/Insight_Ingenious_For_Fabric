@@ -173,7 +173,8 @@ names at the project root are left out. `dbt_command` and
 Install and run go through Python with a failure check, so a failed install or a failed dbt
 run fails the notebook job. The run itself is logged by dbt, through the hook described in
 [The run log](#the-run-log); the notebook writes no log of its own. When a run fails, the
-notebook keeps dbt's log file and its own error under
+notebook keeps the step logs (`pip_install.log`, `dbt_<command>.log`), dbt's own log files
+and its own `notebook_error.log` under
 `Files/dbt_failures/<dbt_project>/<notebook>/<UTC timestamp>_<run id>/` of the **log lakehouse**
 (the `--log-lakehouse` option, else the `log_lakehouse` variable, else `lh_log`), so the cause
 is at hand. Re-upload the project after changing models; the notebook itself only changes when
@@ -214,7 +215,8 @@ warehouse instead, and dbt's output says so; a dedicated log store is the defaul
 project's own storage the fallback. The tables are created on first use.
 
 The macro is `macros/ingen_fab_logging.sql` in the dbt project, maintained by ingen_fab:
-every `ingen_fab dbt` command refreshes it, and warns when `dbt_project.yml` does not call it.
+`ingen_fab dbt profile`, every `ingen_fab dbt <verb>` and `ingen_fab dbt orchestrator`
+refresh it, and warn when `dbt_project.yml` does not call it.
 A project enables the log with:
 
 ```yaml
@@ -227,8 +229,8 @@ vars:
 From a machine, `ingen_fab dbt build` logs as runner `cli`; the orchestrator notebook logs as
 `notebook/<name>` and passes the log store it was generated with. The Fabric dbt job item
 runs the same project copy, so it logs too, through its own connection. A failed run keeps
-nothing else than the tables; the orchestrator adds dbt's log file under `Files/dbt_failures/`
-of the log lakehouse.
+nothing else than the tables; the orchestrator adds its step logs, dbt's own log files and
+its error file under `Files/dbt_failures/` of the log lakehouse.
 
 To read the log: `ingen_fab dbt show -- --inline "select * from lh_log.dbt_batch order by started_at desc" --limit 20`
 (or the warehouse's `wh_log.dbo.dbt_batch` through a `dbt-fabric` project), the SQL endpoint,

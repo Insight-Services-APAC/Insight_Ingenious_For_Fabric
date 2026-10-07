@@ -26,7 +26,8 @@ The sample project demonstrates a typical data platform setup with:
   `dbt-fabricspark` and `dbt-fabric` adapters (see [dbt on the sample](#dbt-the-same-transformation-four-ways))
 - **Monitoring**: every dbt run logged by dbt itself into `dbt_batch` and `dbt_execution_log`,
   in the log lakehouse `lh_log` for the lakehouse project and the log warehouse `wh_log` for
-  the warehouse project; a failed orchestrator run also keeps dbt's log file in `lh_log`
+  the warehouse project; a failed orchestrator run also keeps its step logs, dbt's log files
+  and its error file in `lh_log`
 
 ## Project Structure
 

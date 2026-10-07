@@ -80,8 +80,10 @@ Logs: every run, all four ways, is logged by dbt itself through the `on-run-end`
 each project's `dbt_project.yml` (`macros/ingen_fab_logging.sql`, maintained by ingen_fab):
 one row per run in `dbt_batch`, one row per model and test in `dbt_execution_log`. The
 lakehouse project writes them in `lh_log`; the warehouse project, from the notebook and from
-the dbt job item alike, writes them in `wh_log`. A failed notebook run also keeps dbt's log
-file under `lh_log/Files/dbt_failures/`.
+the dbt job item alike, writes them in `wh_log`. If a store of that name does not exist in
+the workspace, the run is logged into the project's own lakehouse or warehouse instead. A
+failed notebook run also keeps its step logs, dbt's log files and its error file under
+`lh_log/Files/dbt_failures/`.
 
 ## Things to know
 

@@ -123,7 +123,7 @@
     {#- the log lakehouse (var log_lakehouse, default lh_log) when the workspace has it, else the
         project's own lakehouse, as the Spark adapter's generated notebooks did -#}
     {%- set wanted = var('log_lakehouse', 'lh_log') -%}
-    {%- set found = run_query("SHOW DATABASES LIKE '" ~ wanted ~ "'") -%}
+    {%- set found = run_query("SHOW DATABASES LIKE '" ~ (wanted | replace("'", "''")) ~ "'") -%}
     {%- if found is not none and found.rows | length > 0 -%}
         {{ return(wanted) }}
     {%- endif -%}
@@ -155,7 +155,7 @@
     {#- the log warehouse (var log_warehouse, default wh_log) when the workspace has it, else
         the project's own warehouse (target.database) -#}
     {%- set wanted = var('log_warehouse', 'wh_log') -%}
-    {%- set found = run_query("SELECT name FROM sys.databases WHERE name = '" ~ wanted ~ "'") -%}
+    {%- set found = run_query("SELECT name FROM sys.databases WHERE name = '" ~ (wanted | replace("'", "''")) ~ "'") -%}
     {%- if found is not none and found.rows | length > 0 -%}
         {{ return(wanted) }}
     {%- endif -%}

@@ -87,11 +87,12 @@ pip install "insight-ingenious-for-fabric[dbt,dataprep]"
 
 ### Installing dbt adapter
 
-If you are going to develop dbt models, you will need to install Insight's dbt adapter:
+If you are going to develop dbt models, install Microsoft's adapters into the same
+environment: `dbt-fabricspark` for lakehouses, `dbt-fabric` for warehouses (in a checkout of
+this repository, `uv sync --group dbt` installs the lakehouse one):
 
 ```bash
-# Install with dbt support
-pip install git+https://github.com/Insight-Services-APAC/APAC-Capability-DAI-DbtFabricSparkNB.git
+pip install "dbt-fabricspark>=1.13,<2" "dbt-fabric>=1.9,<2"
 ```
 
 ## Environment Setup

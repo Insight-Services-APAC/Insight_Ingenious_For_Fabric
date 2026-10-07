@@ -30,8 +30,9 @@
 # fails the notebook job. dbt writes its `target/` and logs to local scratch space. The run is
 # logged by dbt's on-run-end hook (`macros/ingen_fab_logging.sql`): one row in `dbt_batch` and
 # one per model and test in `dbt_execution_log`, in the log lakehouse (`{{ log_lakehouse }}`)
-# for a dbt-fabricspark project or the log warehouse for a dbt-fabric one. On failure only,
-# dbt's log file and the notebook's error are kept under
+# for a dbt-fabricspark project or the log warehouse for a dbt-fabric one; a store the
+# workspace lacks falls back to the project's own lakehouse or warehouse. On failure only,
+# the step logs, dbt's own log files and the notebook's error are kept under
 # `Files/dbt_failures/{{ dbt_project }}/{{ notebook_name }}/<timestamp>/` of the log lakehouse.
 
 # CELL ********************
@@ -109,8 +110,9 @@ def variable(name):
 # The run's record is written by dbt itself: the on-run-end hook (macros/ingen_fab_logging.sql,
 # maintained by ingen_fab) appends one row to dbt_batch and one row per model and test to
 # dbt_execution_log in the log store (the log lakehouse for a dbt-fabricspark project, the log
-# warehouse for a dbt-fabric project). This notebook writes no log of its own; on a failure it
-# keeps dbt's log file and the error in the log lakehouse so the cause is at hand.
+# warehouse for a dbt-fabric project, or the project's own storage when that store does not
+# exist). This notebook writes no log of its own; on a failure it keeps the step logs, dbt's
+# own log files and the error in the log lakehouse so the cause is at hand.
 FAILURE_FOLDER = (
     f"abfss://{variable(LOG_LAKEHOUSE + '_workspace_id')}@onelake.dfs.fabric.microsoft.com/"
     f"{variable(LOG_LAKEHOUSE + '_lakehouse_id')}/Files/dbt_failures/{DBT_PROJECT}/{NOTEBOOK_NAME}/{STAMP}"
