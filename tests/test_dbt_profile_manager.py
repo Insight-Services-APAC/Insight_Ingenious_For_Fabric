@@ -712,3 +712,20 @@ def test_orchestrator_refuses_a_missing_project_and_bad_vars(tmp_path):
         dbt_commands.write_orchestrator_notebook(
             _ctx(tmp_path), "dbt_project", "nb", "x", dbt_vars="just text"
         )
+
+
+def test_compile_notebook_does_not_claim_to_be_logged(tmp_path):
+    """dbt runs no on-run-end hook for compile, so a compile notebook's header says it leaves
+    no row; a build notebook's header describes the log."""
+    _project(tmp_path, extra={"dbt_default_lakehouse": "lh_bronze", **LOG_VARS})
+    compile_nb = dbt_commands.write_orchestrator_notebook(
+        _ctx(tmp_path), "dbt_project", "dbtcompile", "path:models", command="compile"
+    )
+    text = (compile_nb / "notebook-content.py").read_text(encoding="utf-8")
+    assert "runs no on-run-end hook, so this notebook leaves no row" in text
+    assert "logged by dbt's on-run-end hook" not in text
+    build_nb = dbt_commands.write_orchestrator_notebook(
+        _ctx(tmp_path), "dbt_project", "dbtbuild", "path:models"
+    )
+    text = (build_nb / "notebook-content.py").read_text(encoding="utf-8")
+    assert "logged by dbt's on-run-end hook" in text and "leaves no row" not in text

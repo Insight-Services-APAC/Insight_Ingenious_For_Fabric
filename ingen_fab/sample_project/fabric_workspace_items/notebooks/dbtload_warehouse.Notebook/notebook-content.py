@@ -23,11 +23,12 @@
 # The profile target is `notebook`, from the project's own profiles.yml.
 #
 # Every step runs through Python with a failure check, so a failed install or a failed dbt run
-# fails the notebook job. dbt writes its `target/` and logs to local scratch space. The run is
-# logged by dbt's on-run-end hook (`macros/ingen_fab_logging.sql`): one row in `dbt_batch` and
-# one per model and test in `dbt_execution_log`, in the log lakehouse (`lh_log`)
-# for a dbt-fabricspark project or the log warehouse for a dbt-fabric one; a store the
-# workspace lacks falls back to the project's own lakehouse or warehouse. On failure only,
+# fails the notebook job. dbt writes its `target/` and logs to local scratch space.
+# The run is logged by dbt's on-run-end hook (`macros/ingen_fab_logging.sql`): one row in
+# `dbt_batch` and one per model and test in `dbt_execution_log`, in the log lakehouse
+# (`lh_log`) for a dbt-fabricspark project or the log warehouse for a dbt-fabric
+# one; a store the workspace lacks falls back to the project's own lakehouse or warehouse.
+# On failure only,
 # the step logs, dbt's own log files and the notebook's error are kept under
 # `Files/dbt_failures/dbt_warehouse/dbtload_warehouse/<timestamp>/` of the log lakehouse.
 
