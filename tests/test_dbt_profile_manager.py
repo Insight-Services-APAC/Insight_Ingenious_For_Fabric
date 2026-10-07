@@ -643,3 +643,51 @@ def test_run_dbt_offline_verbs_run_without_a_profile(tmp_path):
         assert "--target" not in run.call_args.args[0]
         with pytest.raises(typer.Exit):
             dbt_commands.run_dbt(_ctx(tmp_path), "build", "dbt_project", [])
+
+
+def test_orchestrator_notebook_failure_path_reports_the_real_error(tmp_path):
+    """A failing step must raise its own message, not a NameError from the message itself:
+    the failure path is executed with the notebook's Fabric-only pieces stubbed out."""
+    import sys
+
+    _project(tmp_path, extra={"dbt_default_lakehouse": "lh_bronze", **LOG_VARS})
+    path = dbt_commands.write_orchestrator_notebook(
+        _ctx(tmp_path), "dbt_project", "dbtload_fail", "path:models"
+    )
+    content = (path / "notebook-content.py").read_text(encoding="utf-8")
+    code = "\n".join(
+        line
+        for line in content.splitlines()
+        if not line.startswith("# ") and line != "#"
+    )
+    # everything up to the step() definition, then a failing step
+    head = code.split("\ntry:\n")[0]
+    stubs = {
+        "notebookutils": type(
+            "NB",
+            (),
+            {
+                "variableLibrary": type(
+                    "VL", (), {"get": staticmethod(lambda name: "x")}
+                )()
+            },
+        )(),
+    }
+    # one dict for globals and locals: the notebook's functions look names up as globals
+    namespace = {**stubs, "__name__": "nb"}
+    exec(
+        head.replace('Path("/tmp/dbt_runs")', f'Path(r"{tmp_path}")').replace(
+            'Path("/lakehouse/default/Files")', f'Path(r"{tmp_path}")'
+        ),
+        namespace,
+    )
+    namespace["PROJECT_DIR"].mkdir(parents=True, exist_ok=True)
+    with pytest.raises(
+        RuntimeError, match=r"boom failed with exit code 1; see boom.log under"
+    ):
+        namespace["step"](
+            "boom", [sys.executable, "-c", "import sys; print('no'); sys.exit(1)"]
+        )
+    assert (namespace["LOCAL_RUN"] / "boom.log").read_text(
+        encoding="utf-8"
+    ).strip() == "no"

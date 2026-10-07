@@ -114,9 +114,10 @@ FAILURE_FOLDER = (
 
 
 def keep_failure(error):
-    """dbt.log and the notebook's error to the log lakehouse, for a failed run only."""
+    """The step logs (pip_install.log, dbt_<command>.log), dbt's own log and the notebook's
+    error to the log lakehouse, for a failed run only."""
     kept = 0
-    for path in [LOCAL_RUN / "notebook_error.log", *sorted((LOCAL_RUN / "dbt_logs").glob("*.log"))]:
+    for path in [*sorted(LOCAL_RUN.glob("*.log")), *sorted((LOCAL_RUN / "dbt_logs").glob("*.log"))]:
         if not path.is_file():
             continue
         try:
@@ -152,7 +153,7 @@ def step(name, command, env=None):
     print(f"--- {name}: exit {proc.returncode}")
     print("\n".join(tail))
     if proc.returncode != 0:
-        raise RuntimeError(f"{name} failed with exit code {proc.returncode}; see {LOG_RUN}/{name}.log")
+        raise RuntimeError(f"{name} failed with exit code {proc.returncode}; see {name}.log under {FAILURE_FOLDER}")
 
 
 try:
