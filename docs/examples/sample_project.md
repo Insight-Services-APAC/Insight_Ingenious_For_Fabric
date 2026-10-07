@@ -322,8 +322,9 @@ compare (the outputs hold identical rows):
 | 4 | Fabric dbt job item | run the item `dbtjob_warehouse` | `wh_silver.dbt_job`, `wh_gold.dbt_job` |
 
 The model SQL exists once, under `dbt_project/models`; `dbt_warehouse/models` and the copy
-inside the dbt job item are kept identical to it. Ways 2 and 3 publish their run folders to
-`lh_log`. The numbers measured on an F8 capacity, what each way needs and what to know about
+inside the dbt job item are kept identical to it. Every way logs its run through dbt's
+`on-run-end` hook: the lakehouse project into `lh_log`, the warehouse project into `wh_log`
+(`dbt_batch`, `dbt_execution_log`). The numbers measured on an F8 capacity, what each way needs and what to know about
 the dbt job item are in the [dbt integration guide](../user_guide/dbt_integration.md#the-same-transformation-four-ways).
 
 ## Key Features Demonstrated

@@ -1388,6 +1388,20 @@ def dbt_orchestrator(
             help="NAME=variable: export a Variable Library variable to the dbt process as NAME (repeatable)",
         ),
     ] = None,
+    indirect_selection: Annotated[
+        str,
+        typer.Option(
+            "--indirect-selection",
+            help="dbt --indirect-selection for the run (eager, cautious, buildable, empty); not passed when omitted, so dbt's default and the project's flags apply",
+        ),
+    ] = "",
+    log_warehouse: Annotated[
+        str,
+        typer.Option(
+            "--log-warehouse",
+            help="Log warehouse for a dbt-fabric project (the `log_warehouse` var the logging macro reads; default wh_log, or the project's own var)",
+        ),
+    ] = "",
 ):
     """Create an orchestrator notebook that runs dbt inside Fabric against the uploaded project.
 
@@ -1408,6 +1422,8 @@ def dbt_orchestrator(
             dbt_vars=dbt_vars,
             target=target,
             env_variables=_parse_env_options(env),
+            indirect_selection=indirect_selection,
+            log_warehouse=log_warehouse,
         )
     except dbt_commands.profiles.ProfileError as e:
         # a wrong --command, an undeclared log lakehouse, an unknown --env variable: the

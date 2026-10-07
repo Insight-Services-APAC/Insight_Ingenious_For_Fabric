@@ -145,6 +145,22 @@
     {
       "name": "lh_silver_lakehouse_sql_endpoint",
       "value": "REPLACE_WITH_LH_SILVER_LAKEHOUSE_SQL_ENDPOINT"
+    },
+    {
+      "name": "wh_log_workspace_id",
+      "value": "REPLACE_WITH_WH_LOG_WORKSPACE_ID"
+    },
+    {
+      "name": "wh_log_warehouse_name",
+      "value": "wh_log"
+    },
+    {
+      "name": "wh_log_warehouse_id",
+      "value": "REPLACE_WITH_WH_LOG_WAREHOUSE_ID"
+    },
+    {
+      "name": "wh_log_warehouse_endpoint",
+      "value": "REPLACE_WITH_WH_LOG_WAREHOUSE_ENDPOINT"
     }
   ]
 }

@@ -12,6 +12,8 @@ storage:
   - warehouses: local
     wh_silver: wh_silver
     wh_gold: wh_gold
+    # the log warehouse: dbt's run log for the warehouse projects (dbt_batch, dbt_execution_log)
+    wh_log: wh_log
 
   - sqldatabases: local
     db_config: db_config

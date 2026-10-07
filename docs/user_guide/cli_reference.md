@@ -760,7 +760,9 @@ ingen_fab dbt orchestrator -p analytics_models -n dbtload_gold -s "+tag:gold" -c
 - `--command` / `-c`: `build` (default), `run`, `test`, `seed`, `snapshot`, `compile` (the verbs that take a selector)
 - `--config-lakehouse`: lakehouse holding the uploaded project (default: `config_lakehouse_name` from the value set)
 - `--threads`: dbt threads (default 4)
-- `--log-lakehouse`: lakehouse that receives the run folder (default: the `log_lakehouse` variable, else `lh_log`)
+- `--log-lakehouse`: the log lakehouse, the `log_lakehouse` var the logging macro reads and where a failed run's files go (default: the `log_lakehouse` variable, else `lh_log`)
+- `--log-warehouse`: for a `dbt-fabric` project, the `log_warehouse` var the logging macro reads (default: the project's own var, else `wh_log`)
+- `--indirect-selection`: dbt's selection mode for tests, passed only when given
 - `--vars`: value for dbt `--vars`, e.g. `"{silver_lakehouse: lh_silver_nb}"`
 - `--target`: profile target (default `<environment>-notebook`, as `dbt profile` writes it)
 - `--env NAME=variable`: export a Variable Library variable to the dbt process as `NAME` (repeatable)

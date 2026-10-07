@@ -27,11 +27,12 @@
 {%- endif %}
 #
 # Every step runs through Python with a failure check, so a failed install or a failed dbt run
-# fails the notebook job. dbt writes its `target/` and logs to local scratch space. At the end,
-# and on failure, the run folder is published to the log lakehouse (`{{ log_lakehouse }}`):
-# `Files/dbt_runs/{{ dbt_project }}/{{ notebook_name }}/<timestamp>/` with `pip_install.log`,
-# `dbt_<command>.log`, dbt's own logs and `target/`, a `run_summary.json`, and
-# `notebook_error.log` if the notebook itself failed.
+# fails the notebook job. dbt writes its `target/` and logs to local scratch space. The run is
+# logged by dbt's on-run-end hook (`macros/ingen_fab_logging.sql`): one row in `dbt_batch` and
+# one per model and test in `dbt_execution_log`, in the log lakehouse (`{{ log_lakehouse }}`)
+# for a dbt-fabricspark project or the log warehouse for a dbt-fabric one. On failure only,
+# dbt's log file and the notebook's error are kept under
+# `Files/dbt_failures/{{ dbt_project }}/{{ notebook_name }}/<timestamp>/` of the log lakehouse.
 
 # CELL ********************
 
@@ -56,6 +57,7 @@ dbt_select = {{ dbt_select | tojson }}
 dbt_threads = {{ dbt_threads }}
 dbt_vars = {{ dbt_vars | tojson }}
 dbt_target = {{ dbt_target | tojson }}  # empty: <environment>-notebook
+dbt_indirect_selection = {{ dbt_indirect_selection | tojson }}  # empty: dbt's default and the project's flags
 
 # METADATA ********************
 
@@ -85,6 +87,7 @@ if dbt_command not in ALLOWED:
 DBT_PROJECT = {{ dbt_project | tojson }}
 NOTEBOOK_NAME = {{ notebook_name | tojson }}
 LOG_LAKEHOUSE = {{ log_lakehouse | tojson }}
+LOG_WAREHOUSE = {{ log_warehouse | tojson }}  # empty: the project's own `log_warehouse` var, else wh_log
 PROJECT_DIR = Path("/lakehouse/default/Files") / DBT_PROJECT
 # one folder per run: the UTC stamp orders them, the short id keeps two runs that start in
 # the same second apart
@@ -103,40 +106,43 @@ def variable(name):
     return notebookutils.variableLibrary.get(f"$(/**/{{ variable_library }}/{name})")  # noqa: F821
 
 
-# Logs go to the log lakehouse, never to a data lakehouse or the config lakehouse.
-LOG_RUN = (
+# The run's record is written by dbt itself: the on-run-end hook (macros/ingen_fab_logging.sql,
+# maintained by ingen_fab) appends one row to dbt_batch and one row per model and test to
+# dbt_execution_log in the log store (the log lakehouse for a dbt-fabricspark project, the log
+# warehouse for a dbt-fabric project). This notebook writes no log of its own; on a failure it
+# keeps dbt's log file and the error in the log lakehouse so the cause is at hand.
+FAILURE_FOLDER = (
     f"abfss://{variable(LOG_LAKEHOUSE + '_workspace_id')}@onelake.dfs.fabric.microsoft.com/"
-    f"{variable(LOG_LAKEHOUSE + '_lakehouse_id')}/Files/dbt_runs/{DBT_PROJECT}/{NOTEBOOK_NAME}/{STAMP}"
+    f"{variable(LOG_LAKEHOUSE + '_lakehouse_id')}/Files/dbt_failures/{DBT_PROJECT}/{NOTEBOOK_NAME}/{STAMP}"
 )
 
 
-def publish_run_folder(status, error=None):
-    """Write run_summary.json and copy the local run folder to the log lakehouse."""
-    summary = {
+def keep_failure(error):
+    """dbt.log and the notebook's error to the log lakehouse, for a failed run only."""
+    kept = 0
+    for path in [LOCAL_RUN / "notebook_error.log", *sorted((LOCAL_RUN / "dbt_logs").glob("*.log"))]:
+        if not path.is_file():
+            continue
+        try:
+            notebookutils.fs.put(f"{FAILURE_FOLDER}/{path.name}", path.read_text(encoding="utf-8", errors="replace"), True)  # noqa: F821
+            kept += 1
+        except Exception as e:  # one unreadable file must not hide the run's real outcome
+            print(f"could not keep {path.name}: {type(e).__name__}: {e}")
+    print(f"failed: {error}; {kept} file(s) kept under {FAILURE_FOLDER}")
+
+
+def print_summary(status):
+    print(json.dumps({
         "notebook": NOTEBOOK_NAME,
         "dbt_project": DBT_PROJECT,
         "command": dbt_command,
         "select": dbt_select,
-        "vars": dbt_vars,
         "target": dbt_target,
         "status": status,
-        "error": error,
         "started_utc": STAMP,
         "seconds": round(time.time() - STARTED, 1),
         "steps": STEPS,
-    }
-    (LOCAL_RUN / "run_summary.json").write_text(json.dumps(summary, indent=2), encoding="utf-8")
-    published = 0
-    for path in sorted(LOCAL_RUN.rglob("*")):
-        if not path.is_file() or path.suffix in {".msgpack", ".pyc", ".gpickle"}:
-            continue
-        try:
-            text = path.read_text(encoding="utf-8", errors="replace")
-            notebookutils.fs.put(f"{LOG_RUN}/{path.relative_to(LOCAL_RUN).as_posix()}", text, True)  # noqa: F821
-            published += 1
-        except Exception as e:  # one unreadable file must not hide the run's real outcome
-            print(f"could not publish {path.name}: {type(e).__name__}: {e}")
-    print(f"{published} file(s) published to {LOG_RUN}")
+    }, indent=2))
 
 
 def step(name, command, env=None):
@@ -178,9 +184,18 @@ try:
         "PATH": f"{Path(sys.executable).parent}{os.pathsep}{os.environ.get('PATH', '')}",
         **{name: variable(source) for name, source in ENV_FROM_VARIABLES.items()},
     }
-    arguments = [dbt_command, "--select", dbt_select, "--target", target, "--threads", str(dbt_threads), "--indirect-selection", "cautious"]
-    if dbt_vars:
-        arguments += ["--vars", dbt_vars]
+    arguments = [dbt_command, "--select", dbt_select, "--target", target, "--threads", str(dbt_threads)]
+    if dbt_indirect_selection:
+        arguments += ["--indirect-selection", dbt_indirect_selection]
+    # dbt vars: the caller's, plus what the logging macro needs (the log store, who ran dbt);
+    # a value the caller gave wins
+    import yaml  # installed with dbt
+    run_vars = dict(yaml.safe_load(dbt_vars) or {}) if dbt_vars else {}
+    run_vars.setdefault("log_lakehouse", LOG_LAKEHOUSE)
+    if LOG_WAREHOUSE:
+        run_vars.setdefault("log_warehouse", LOG_WAREHOUSE)
+    run_vars["ingen_fab_runner"] = "notebook/" + NOTEBOOK_NAME
+    arguments += ["--vars", json.dumps(run_vars)]
     # Packages are not part of the upload: a project that declares them gets `dbt deps` first,
     # installed into this run's scratch folder so the uploaded project stays untouched
     if any((PROJECT_DIR / name).is_file() for name in ("packages.yml", "dependencies.yml")):
@@ -190,10 +205,11 @@ try:
     step("dbt_" + dbt_command, dbt + arguments, env=env)
 except BaseException as e:
     (LOCAL_RUN / "notebook_error.log").write_text(traceback.format_exc(), encoding="utf-8")
-    publish_run_folder("failed", f"{type(e).__name__}: {e}")
+    print_summary("failed")
+    keep_failure(f"{type(e).__name__}: {e}")
     raise
 else:
-    publish_run_folder("succeeded")
+    print_summary("succeeded")
 
 # METADATA ********************
 

@@ -216,6 +216,30 @@
       "note": "SQL analytics endpoint (host) of the lh_silver lakehouse.",
       "type": "String",
       "value": ""
+    },
+    {
+      "name": "wh_log_workspace_id",
+      "note": "GUID of the workspace containing wh_log warehouse.",
+      "type": "String",
+      "value": ""
+    },
+    {
+      "name": "wh_log_warehouse_name",
+      "note": "Name of the wh_log warehouse.",
+      "type": "String",
+      "value": ""
+    },
+    {
+      "name": "wh_log_warehouse_id",
+      "note": "GUID of the wh_log warehouse.",
+      "type": "String",
+      "value": ""
+    },
+    {
+      "name": "wh_log_warehouse_endpoint",
+      "note": "SQL connection endpoint (host) of the wh_log warehouse.",
+      "type": "String",
+      "value": ""
     }
   ]
 }

@@ -76,10 +76,12 @@ ingen_fab dbt orchestrator --name dbtload_warehouse --select path:models --dbt-p
 Library value to the dbt process, which is how the warehouse profile gets the SQL endpoint of
 the right environment without storing it.
 
-Logs: every notebook run publishes its run folder (dbt logs, `run_results.json`, a
-`run_summary.json`) to `lh_log/Files/dbt_runs/<dbt project>/<notebook>/<UTC stamp>_<run id>/`. The dbt
-job item keeps its own output inside the item, as Fabric's item works. Way 1 logs on the
-machine that runs it.
+Logs: every run, all four ways, is logged by dbt itself through the `on-run-end` hook in
+each project's `dbt_project.yml` (`macros/ingen_fab_logging.sql`, maintained by ingen_fab):
+one row per run in `dbt_batch`, one row per model and test in `dbt_execution_log`. The
+lakehouse project writes them in `lh_log`; the warehouse project, from the notebook and from
+the dbt job item alike, writes them in `wh_log`. A failed notebook run also keeps dbt's log
+file under `lh_log/Files/dbt_failures/`.
 
 ## Things to know
 

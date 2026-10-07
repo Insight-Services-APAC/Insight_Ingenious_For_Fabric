@@ -171,12 +171,13 @@ run's scratch folder: the upload carries no `dbt_packages/`, `target/` or `logs/
 names at the project root are left out. `dbt_command` and
 `dbt_select` are notebook parameters, so one notebook can serve several pipeline activities.
 Install and run go through Python with a failure check, so a failed install or a failed dbt
-run fails the notebook job. Every run publishes its run folder (the pip and dbt output, dbt's
-`target/` and logs, and a `run_summary.json` with the outcome and timings) to
-`Files/dbt_runs/<dbt_project>/<notebook>/<UTC timestamp>_<run id>/` of the **log lakehouse**: the
-`--log-lakehouse` option, else the `log_lakehouse` variable, else `lh_log`. Logs never land in
-a data lakehouse. Re-upload the project after changing models; the notebook itself only
-changes when the selector, command or options do.
+run fails the notebook job. The run itself is logged by dbt, through the hook described in
+[The run log](#the-run-log); the notebook writes no log of its own. When a run fails, the
+notebook keeps dbt's log file and its own error under
+`Files/dbt_failures/<dbt_project>/<notebook>/<UTC timestamp>_<run id>/` of the **log lakehouse**
+(the `--log-lakehouse` option, else the `log_lakehouse` variable, else `lh_log`), so the cause
+is at hand. Re-upload the project after changing models; the notebook itself only changes when
+the selector, command or options do.
 
 Options of `ingen_fab dbt orchestrator` beyond the selector:
 
@@ -186,12 +187,48 @@ Options of `ingen_fab dbt orchestrator` beyond the selector:
 | `--vars` | passed to dbt as `--vars`; the way to point one project at other targets without a second copy of the models | `--vars "{silver_lakehouse: lh_silver_nb, gold_lakehouse: lh_gold_nb}"` with `+schema: "{{ var('silver_lakehouse', 'lh_silver') }}"` in `dbt_project.yml` |
 | `--target` | the profile target to use (default `<environment>-notebook`, as `dbt profile` writes it); how a hand-written warehouse profile is selected | `--target notebook` |
 | `--env NAME=variable` | exports a Variable Library value to the dbt process as `NAME` (repeatable); how a profile gets an environment-specific value, such as a SQL endpoint, without storing it | `--env DBT_WAREHOUSE_ENDPOINT=wh_silver_warehouse_endpoint` |
-| `--log-lakehouse` | where the run folder goes | `--log-lakehouse lh_log` |
+| `--log-lakehouse` | the log lakehouse: the `log_lakehouse` var the logging macro reads, and where a failed run's files go | `--log-lakehouse lh_log` |
+| `--log-warehouse` | for a `dbt-fabric` project, the `log_warehouse` var the logging macro reads (default: the project's own var, else `wh_log`) | `--log-warehouse wh_log` |
+| `--indirect-selection` | passed to dbt as given; not passed when omitted, so dbt's default (`eager`) and the project's flags apply | `--indirect-selection cautious` |
 | `--config-lakehouse` | the lakehouse holding the uploaded project (default: the config lakehouse of the value set) | |
 | `--threads` | dbt threads (4); the notebook always passes it, so it overrides the profile's `dbt_threads` | |
 
-The notebook also passes `--indirect-selection cautious`, so a selector runs only the tests
-whose every parent is selected; widen the selector rather than the selection mode.
+## The run log
+
+Every run is logged by dbt itself, from an `on-run-end` hook, into two tables of the log
+store. They are the tables the Spark adapter's projects have always had:
+
+| Table | One row per | Columns |
+| --- | --- | --- |
+| `dbt_batch` | dbt invocation | `batch_id` (dbt's invocation id), `project_name`, `target_name`, `target_type`, `command`, `selector`, `runner` (`cli`, or `notebook/<name>`), `started_at`, `ended_at`, `status`, `total_nodes`, `success_count`, `error_count`, `fail_count`, `skipped_count`, `warn_count` |
+| `dbt_execution_log` | model, test, seed or snapshot of that invocation | `batch_id`, `unique_id`, `resource_type`, `name`, `status`, `message`, `execution_time`, `started_at`, `ended_at`, `failures` |
+
+Where they live follows the engine: a `dbt-fabricspark` project writes Delta tables in the
+**log lakehouse** (var `log_lakehouse`, default `lh_log`); a `dbt-fabric` project writes
+tables in the **log warehouse** (var `log_warehouse`, default `wh_log`; schema var
+`log_schema`, default `dbo`), reached by three-part name within the workspace. The tables are
+created on first use. Nothing is written into a data lakehouse or warehouse.
+
+The macro is `macros/ingen_fab_logging.sql` in the dbt project, maintained by ingen_fab:
+every `ingen_fab dbt` command refreshes it, and warns when `dbt_project.yml` does not call it.
+A project enables the log with:
+
+```yaml
+on-run-end:
+  - "{{ ingen_fab_log_run(results) }}"
+vars:
+  log_lakehouse: lh_log      # or log_warehouse: wh_log for a dbt-fabric project
+```
+
+From a machine, `ingen_fab dbt build` logs as runner `cli`; the orchestrator notebook logs as
+`notebook/<name>` and passes the log store it was generated with. The Fabric dbt job item
+runs the same project copy, so it logs too, through its own connection. A failed run keeps
+nothing else than the tables; the orchestrator adds dbt's log file under `Files/dbt_failures/`
+of the log lakehouse.
+
+To read the log: `ingen_fab dbt show -- --inline "select * from lh_log.dbt_batch order by started_at desc" --limit 20`
+(or the warehouse's `wh_log.dbo.dbt_batch` through a `dbt-fabric` project), the SQL endpoint,
+or a report.
 
 ## Warehouses: `dbt-fabric`
 
@@ -285,7 +322,7 @@ Projects that used `dbt exec`, `create-notebooks` and `convert-metadata` (the In
 | Profile | `fabric-spark-testnb`, by the fork's conventions | `ingen_fab dbt profile`: `<dbt_project>/profiles/profiles.yml` from the value sets, one target per environment plus one for the notebook, `DefaultAzureCredential` |
 | How a model runs on Spark | one generated notebook per model plus a master notebook, from `metaextracts/` | dbt itself, over Livy from your machine, or inside one orchestrator notebook per selector |
 | Commands | `dbt exec`, `dbt create-notebooks`, `dbt convert-metadata` | `ingen_fab dbt <any dbt verb>`, `ingen_fab dbt orchestrator` |
-| Logs | notebook output | a run folder per run in the log lakehouse (`lh_log`) |
+| Logs | `dbt_batch` and `dbt_execution_log` in the log lakehouse, written by the generated master notebook | the same two tables, written by dbt's `on-run-end` hook, in the log lakehouse or the log warehouse ([The run log](#the-run-log)) |
 | Sessions | long-lived | one per run, named `dbt-<profile>-<target>`, closed when dbt exits (`dbt_reuse_session` keeps it) |
 | Warehouses | not covered | `dbt-fabric` project, orchestrator notebook, or the Fabric dbt job item |
 

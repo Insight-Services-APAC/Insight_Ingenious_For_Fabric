@@ -14,6 +14,14 @@ profile: '{project_name}_warehouse'
 model-paths: ["models"]
 macro-paths: ["macros"]
 
+# Every run is logged by dbt itself: one row per run in dbt_batch and one per model and test in
+# dbt_execution_log, in the log warehouse (the connection reaches it by three-part name within
+# the workspace). The macro lives in macros/ingen_fab_logging.sql, maintained by ingen_fab.
+on-run-end:
+  - "{{ ingen_fab_log_run(results) }}"
+vars:
+  log_warehouse: wh_log
+
 clean-targets:
   - "target"
   - "dbt_packages"

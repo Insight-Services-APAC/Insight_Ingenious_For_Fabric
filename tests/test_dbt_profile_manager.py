@@ -372,12 +372,21 @@ def test_orchestrator_notebook_is_written_as_a_deployable_item(tmp_path):
         'DBT_PROJECT = "dbt_project"' in content
         and 'NOTEBOOK_NAME = "dbtload_silver"' in content
     )
-    assert "/Files/dbt_runs/{DBT_PROJECT}/{NOTEBOOK_NAME}/{STAMP}" in content
-    assert "/lakehouse/default/Files/dbt_runs" not in content
+    # dbt logs the run through the hook; the notebook keeps files only when the run failed
+    assert "/Files/dbt_failures/{DBT_PROJECT}/{NOTEBOOK_NAME}/{STAMP}" in content
+    assert "/Files/dbt_runs" not in content and "publish_run_folder" not in content
+    assert 'run_vars.setdefault("log_lakehouse", LOG_LAKEHOUSE)' in content
+    assert 'run_vars["ingen_fab_runner"] = "notebook/" + NOTEBOOK_NAME' in content
+    assert "--indirect-selection" in content and '"cautious"' not in content
     # dbt writes to local scratch; the run folder is published even on failure
     assert '"DBT_LOG_PATH": str(LOCAL_RUN / "dbt_logs")' in content
-    assert "notebook_error.log" in content and 'publish_run_folder("failed"' in content
-    assert "run_summary.json" in content
+    assert "notebook_error.log" in content and "keep_failure(" in content
+    assert 'print_summary("succeeded")' in content and "run_summary.json" not in content
+    # the logging macro is refreshed into the project every time a notebook is generated
+    macro = tmp_path / "dbt_project" / "macros" / "ingen_fab_logging.sql"
+    assert macro.is_file() and "macro ingen_fab_log_run(results)" in macro.read_text(
+        encoding="utf-8"
+    )
     assert 'notebookutils.credentials.getToken("pbi")' in content
     assert (
         '"DBT_FABRIC_TOKEN": fabric_token' in content
@@ -411,7 +420,11 @@ def test_orchestrator_notebook_log_lakehouse_and_vars(tmp_path):
     content = (path / "notebook-content.py").read_text(encoding="utf-8")
     assert 'LOG_LAKEHOUSE = "lh_audit"' in content and "lh_log" not in content
     assert 'dbt_vars = "{silver_lakehouse: lh_silver_nb}"' in content
-    assert 'arguments += ["--vars", dbt_vars]' in content
+    # the caller's vars are merged with the logging macro's (the caller's win), then passed once
+    assert (
+        "run_vars = dict(yaml.safe_load(dbt_vars) or {}) if dbt_vars else {}" in content
+    )
+    assert 'arguments += ["--vars", json.dumps(run_vars)]' in content
 
 
 def test_orchestrator_notebook_target_and_env_for_another_adapter(tmp_path):
