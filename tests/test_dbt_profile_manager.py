@@ -438,6 +438,10 @@ def test_orchestrator_notebook_target_and_env_for_another_adapter(tmp_path):
             **LOG_VARS,
         },
     )
+    (tmp_path / "dbt_warehouse").mkdir()
+    (tmp_path / "dbt_warehouse" / "dbt_project.yml").write_text(
+        "name: dbt_warehouse\nprofile: p_warehouse\n", encoding="utf-8"
+    )
     path = dbt_commands.write_orchestrator_notebook(
         _ctx(tmp_path),
         "dbt_warehouse",
@@ -691,3 +695,20 @@ def test_orchestrator_notebook_failure_path_reports_the_real_error(tmp_path):
     assert (namespace["LOCAL_RUN"] / "boom.log").read_text(
         encoding="utf-8"
     ).strip() == "no"
+
+
+def test_orchestrator_refuses_a_missing_project_and_bad_vars(tmp_path):
+    _project(tmp_path, extra={"dbt_default_lakehouse": "lh_bronze", **LOG_VARS})
+    with pytest.raises(pm.ProfileError, match="dbt project not found"):
+        dbt_commands.write_orchestrator_notebook(_ctx(tmp_path), "no_such", "nb", "x")
+    assert not (tmp_path / "no_such").exists(), (
+        "nothing is created for a missing project"
+    )
+    with pytest.raises(pm.ProfileError, match="not valid YAML"):
+        dbt_commands.write_orchestrator_notebook(
+            _ctx(tmp_path), "dbt_project", "nb", "x", dbt_vars="{silver_lakehouse: [}"
+        )
+    with pytest.raises(pm.ProfileError, match="must be a mapping"):
+        dbt_commands.write_orchestrator_notebook(
+            _ctx(tmp_path), "dbt_project", "nb", "x", dbt_vars="just text"
+        )

@@ -195,8 +195,10 @@ Options of `ingen_fab dbt orchestrator` beyond the selector:
 
 ## The run log
 
-Every run is logged by dbt itself, from an `on-run-end` hook, into two tables of the log
-store. They are the tables the Spark adapter's projects have always had:
+Every run that executes nodes is logged by dbt itself, from an `on-run-end` hook, into two
+tables of the log store (dbt runs that hook after `build`, `run`, `test`, `seed` and
+`snapshot`; a selection that matches nothing, `compile` and `parse` run no hook and leave no
+row). They are the tables the Spark adapter's projects have always had:
 
 | Table | One row per | Columns |
 | --- | --- | --- |

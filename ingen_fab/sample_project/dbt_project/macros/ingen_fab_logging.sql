@@ -20,7 +20,9 @@
 #}
 
 {% macro ingen_fab_log_run(results) %}
-    {% if execute and results | length > 0 %}
+    {# dbt runs this hook after build, run, test, seed and snapshot when at least one node was
+       selected; a selection of nothing, compile and parse run no hook, so they leave no row #}
+    {% if execute %}
         {% if target.type == 'fabricspark' %}
             {{ ingen_fab_log_run_spark(results) }}
         {% elif target.type == 'fabric' %}
@@ -35,8 +37,14 @@
 {# ---------------------------------------------------------------------------------------- #}
 {# the rows, adapter-neutral                                                                   #}
 
-{% macro ingen_fab_sql_string(value, max_length=4000) %}
-    {%- if value is none -%}NULL{%- else -%}'{{ (value | string)[:max_length] | replace("'", "''") }}'{%- endif -%}
+{% macro ingen_fab_sql_string(value, backslashes=false, max_length=4000) %}
+    {#- Spark SQL reads a backslash in a string literal as an escape (a message ending in `\`
+        before the closing quote breaks the statement), T-SQL does not: double it for Spark -#}
+    {%- if value is none -%}NULL{%- else -%}
+        {%- set text = (value | string)[:max_length] -%}
+        {%- if backslashes -%}{%- set text = text | replace("\\", "\\\\") -%}{%- endif -%}
+        '{{ text | replace("'", "''") }}'
+    {%- endif -%}
 {% endmacro %}
 
 {% macro ingen_fab_timestamp(value, sql_type) %}
@@ -94,14 +102,14 @@
     }) }}
 {% endmacro %}
 
-{% macro ingen_fab_node_values(rows, batch_id, ts_type) %}
+{% macro ingen_fab_node_values(rows, batch_id, ts_type, bs=false) %}
     {%- for r in rows -%}
-        ({{ ingen_fab_sql_string(batch_id) }}, {{ ingen_fab_sql_string(r.unique_id) }}, {{ ingen_fab_sql_string(r.resource_type) }}, {{ ingen_fab_sql_string(r.name) }}, {{ ingen_fab_sql_string(r.status) }}, {{ ingen_fab_sql_string(r.message) }}, {{ r.execution_time }}, {{ ingen_fab_timestamp(r.started_at, ts_type) }}, {{ ingen_fab_timestamp(r.ended_at, ts_type) }}, {{ r.failures }}){{ ", " if not loop.last }}
+        ({{ ingen_fab_sql_string(batch_id, bs) }}, {{ ingen_fab_sql_string(r.unique_id, bs) }}, {{ ingen_fab_sql_string(r.resource_type, bs) }}, {{ ingen_fab_sql_string(r.name, bs) }}, {{ ingen_fab_sql_string(r.status, bs) }}, {{ ingen_fab_sql_string(r.message, bs) }}, {{ r.execution_time }}, {{ ingen_fab_timestamp(r.started_at, ts_type) }}, {{ ingen_fab_timestamp(r.ended_at, ts_type) }}, {{ r.failures }}){{ ", " if not loop.last }}
     {%- endfor -%}
 {% endmacro %}
 
-{% macro ingen_fab_batch_values(b, ts_type) %}
-    ({{ ingen_fab_sql_string(b.batch_id) }}, {{ ingen_fab_sql_string(b.project_name) }}, {{ ingen_fab_sql_string(b.target_name) }}, {{ ingen_fab_sql_string(b.target_type) }}, {{ ingen_fab_sql_string(b.command) }}, {{ ingen_fab_sql_string(b.selector) }}, {{ ingen_fab_sql_string(b.runner) }}, {{ ingen_fab_timestamp(b.started_at, ts_type) }}, {{ ingen_fab_timestamp(b.ended_at, ts_type) }}, {{ ingen_fab_sql_string(b.status) }}, {{ b.total_nodes }}, {{ b.success_count }}, {{ b.error_count }}, {{ b.fail_count }}, {{ b.skipped_count }}, {{ b.warn_count }})
+{% macro ingen_fab_batch_values(b, ts_type, bs=false) %}
+    ({{ ingen_fab_sql_string(b.batch_id, bs) }}, {{ ingen_fab_sql_string(b.project_name, bs) }}, {{ ingen_fab_sql_string(b.target_name, bs) }}, {{ ingen_fab_sql_string(b.target_type, bs) }}, {{ ingen_fab_sql_string(b.command, bs) }}, {{ ingen_fab_sql_string(b.selector, bs) }}, {{ ingen_fab_sql_string(b.runner, bs) }}, {{ ingen_fab_timestamp(b.started_at, ts_type) }}, {{ ingen_fab_timestamp(b.ended_at, ts_type) }}, {{ ingen_fab_sql_string(b.status, bs) }}, {{ b.total_nodes }}, {{ b.success_count }}, {{ b.error_count }}, {{ b.fail_count }}, {{ b.skipped_count }}, {{ b.warn_count }})
 {% endmacro %}
 
 
@@ -117,9 +125,9 @@
     {%- set rows = ingen_fab_node_rows(results) -%}
     {%- set b = ingen_fab_batch_row(results) -%}
     {%- for chunk in rows | batch(200) -%}
-        {% do run_query("INSERT INTO " ~ log_table ~ " VALUES " ~ ingen_fab_node_values(chunk, b.batch_id, 'TIMESTAMP')) %}
+        {% do run_query("INSERT INTO " ~ log_table ~ " VALUES " ~ ingen_fab_node_values(chunk, b.batch_id, 'TIMESTAMP', true)) %}
     {%- endfor -%}
-    {% do run_query("INSERT INTO " ~ batch ~ " VALUES " ~ ingen_fab_batch_values(b, 'TIMESTAMP')) %}
+    {% do run_query("INSERT INTO " ~ batch ~ " VALUES " ~ ingen_fab_batch_values(b, 'TIMESTAMP', true)) %}
     {{ log("ingen_fab logging: " ~ rows | length ~ " node row(s) and the batch row written to " ~ db, info=True) }}
 {% endmacro %}
 
@@ -132,8 +140,10 @@
     {%- set schema = var('log_schema', 'dbo') -%}
     {%- set batch = db ~ '.' ~ schema ~ '.dbt_batch' -%}
     {%- set log_table = db ~ '.' ~ schema ~ '.dbt_execution_log' -%}
-    {% do run_query("IF OBJECT_ID('" ~ batch ~ "') IS NULL CREATE TABLE " ~ batch ~ " (batch_id VARCHAR(64), project_name VARCHAR(256), target_name VARCHAR(256), target_type VARCHAR(64), command VARCHAR(64), selector VARCHAR(4000), runner VARCHAR(256), started_at DATETIME2(3), ended_at DATETIME2(3), status VARCHAR(32), total_nodes INT, success_count INT, error_count INT, fail_count INT, skipped_count INT, warn_count INT)") %}
-    {% do run_query("IF OBJECT_ID('" ~ log_table ~ "') IS NULL CREATE TABLE " ~ log_table ~ " (batch_id VARCHAR(64), unique_id VARCHAR(1024), resource_type VARCHAR(64), name VARCHAR(512), status VARCHAR(32), message VARCHAR(4000), execution_time FLOAT, started_at DATETIME2(3), ended_at DATETIME2(3), failures INT)") %}
+    {#- VARCHAR(n) counts bytes under the warehouse's UTF-8 collation, so the free-text columns
+        are VARCHAR(MAX) and the macro's 4000-character cut cannot overflow them -#}
+    {% do run_query("IF OBJECT_ID('" ~ batch ~ "') IS NULL CREATE TABLE " ~ batch ~ " (batch_id VARCHAR(64), project_name VARCHAR(256), target_name VARCHAR(256), target_type VARCHAR(64), command VARCHAR(64), selector VARCHAR(MAX), runner VARCHAR(256), started_at DATETIME2(3), ended_at DATETIME2(3), status VARCHAR(32), total_nodes INT, success_count INT, error_count INT, fail_count INT, skipped_count INT, warn_count INT)") %}
+    {% do run_query("IF OBJECT_ID('" ~ log_table ~ "') IS NULL CREATE TABLE " ~ log_table ~ " (batch_id VARCHAR(64), unique_id VARCHAR(MAX), resource_type VARCHAR(64), name VARCHAR(MAX), status VARCHAR(32), message VARCHAR(MAX), execution_time FLOAT, started_at DATETIME2(3), ended_at DATETIME2(3), failures INT)") %}
     {%- set rows = ingen_fab_node_rows(results) -%}
     {%- set b = ingen_fab_batch_row(results) -%}
     {%- for chunk in rows | batch(200) -%}

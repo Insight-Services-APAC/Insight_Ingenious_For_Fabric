@@ -293,3 +293,69 @@ def test_command_line_injects_no_target_for_a_hand_written_profile(
         generated_profile=True,
     )
     assert line[line.index("--target") + 1] == "development"
+
+
+def test_names_that_could_leave_their_folder_are_refused() -> None:
+    import typer
+
+    for bad in ("../outside", "a/b", "a\b", ".hidden", "", "x..y/"):
+        with pytest.raises(typer.Exit):
+            dbt_commands.check_name(bad, "notebook name", dbt_commands.ITEM_NAME)
+    assert (
+        dbt_commands.check_name(
+            "dbtload_silver", "notebook name", dbt_commands.ITEM_NAME
+        )
+        == "dbtload_silver"
+    )
+    assert (
+        dbt_commands.check_name(
+            "dbt load silver", "notebook name", dbt_commands.ITEM_NAME
+        )
+        == "dbt load silver"
+    )
+    with pytest.raises(typer.Exit):
+        dbt_commands.check_name("dbt project", "dbt project", dbt_commands.PROJECT_NAME)
+    assert (
+        dbt_commands.check_name(
+            "dbt_warehouse", "dbt project", dbt_commands.PROJECT_NAME
+        )
+        == "dbt_warehouse"
+    )
+
+
+def test_logging_macro_renders_safe_values_for_both_dialects() -> None:
+    """The VALUES rows are rendered with plain Jinja (no dbt context needed for these macros):
+    quotes are doubled in both dialects, backslashes only for Spark SQL, which reads them as
+    escapes; NULL for a missing value; timestamps cast to the dialect's type."""
+    import datetime as dt
+
+    import jinja2
+
+    module = (
+        jinja2.Environment(extensions=["jinja2.ext.do"])
+        .from_string(dbt_commands.LOGGING_MACRO.read_text(encoding="utf-8"))
+        .module
+    )
+    rows = [
+        {
+            "unique_id": "model.p.m",
+            "resource_type": "model",
+            "name": "m",
+            "status": "error",
+            "message": "It's broken: path C:\\temp\\",
+            "execution_time": 1.5,
+            "started_at": dt.datetime(2026, 10, 7, 3, 26, 46),
+            "ended_at": None,
+            "failures": 0,
+        }
+    ]
+    spark = module.ingen_fab_node_values(rows, "b1", "TIMESTAMP", True)
+    assert "'It''s broken: path C:\\\\temp\\\\'" in spark
+    assert "CAST('2026-10-07 03:26:46' AS TIMESTAMP), NULL, 0)" in spark
+    tsql = module.ingen_fab_node_values(rows, "b1", "DATETIME2(3)", False)
+    assert "'It''s broken: path C:\\temp\\'" in tsql
+    assert "CAST('2026-10-07 03:26:46' AS DATETIME2(3)), NULL, 0)" in tsql
+    assert module.ingen_fab_sql_string(None) == "NULL"
+    # dbt runs the hook only after build/run/test/seed/snapshot with at least one node
+    macro = dbt_commands.LOGGING_MACRO.read_text(encoding="utf-8")
+    assert "{% if execute %}" in macro
