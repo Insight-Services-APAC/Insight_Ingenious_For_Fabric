@@ -256,3 +256,40 @@ def test_a_hand_written_profile_is_recognised_and_left_alone(tmp_path: Path) -> 
         encoding="utf-8",
     )
     assert not dbt_commands.hand_written_profile(project)
+
+
+def test_command_line_injects_no_target_for_a_hand_written_profile(
+    tmp_path: Path,
+) -> None:
+    """A dbt-fabric profile names its own targets and default: `ingen_fab dbt build` must not
+    pass the Fabric environment as the target (the sample's has notebook and laptop only)."""
+    line = dbt_commands.dbt_command_line(
+        "dbt",
+        "build",
+        tmp_path,
+        tmp_path / "profiles",
+        "development",
+        [],
+        generated_profile=False,
+    )
+    assert "--target" not in line
+    line = dbt_commands.dbt_command_line(
+        "dbt",
+        "build",
+        tmp_path,
+        tmp_path / "profiles",
+        "development",
+        ["--target", "laptop"],
+        generated_profile=False,
+    )
+    assert line[line.index("--target") + 1] == "laptop"
+    line = dbt_commands.dbt_command_line(
+        "dbt",
+        "build",
+        tmp_path,
+        tmp_path / "profiles",
+        "development",
+        [],
+        generated_profile=True,
+    )
+    assert line[line.index("--target") + 1] == "development"

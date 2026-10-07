@@ -65,6 +65,7 @@ def dbt_command_line(
     profiles_dir: Path,
     environment: str,
     args: list[str],
+    generated_profile: bool = True,
 ) -> list[str]:
     """The ``dbt`` command for a verb: explicit project and profiles directories, the
     environment as target where dbt takes one, then the pass-through arguments. ``dbt docs``
@@ -80,11 +81,17 @@ def dbt_command_line(
         "--profiles-dir",
         str(profiles_dir),
     ]
-    # the environment is the target unless the caller chose one (`-- --target laptop`)
+    # A generated profile has one target per environment, so the environment is the target
+    # unless the caller chose one (`-- --target laptop`). A hand-written profile names its own
+    # targets and its own default: nothing is injected.
     caller_chose_target = any(
         a in ("--target", "-t") or a.startswith("--target=") for a in args
     )
-    if verb not in ("clean", "deps", "docs") and not caller_chose_target:
+    if (
+        generated_profile
+        and verb not in ("clean", "deps", "docs")
+        and not caller_chose_target
+    ):
         command += ["--target", environment]
     return command + args
 
@@ -256,7 +263,13 @@ def run_dbt(
         raise typer.Exit(code=1)
 
     command = dbt_command_line(
-        exe, verb, dbt_project_dir, profiles_dir, environment, args
+        exe,
+        verb,
+        dbt_project_dir,
+        profiles_dir,
+        environment,
+        args,
+        generated_profile=not hand_written_profile(dbt_project_dir),
     )
     console.print(f"[dim]{' '.join(command)}[/dim]")
     env = {**os.environ, "DBT_PROFILES_DIR": str(profiles_dir)}
