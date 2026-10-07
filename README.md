@@ -144,7 +144,7 @@ ingen_fab --help
 - **`test`** - Test notebooks and Python blocks (local and platform)
 - **`package`** - Compile and run extension packages (e.g., flat file ingestion, synapse sync, extract generation)
 - **`libs`** - Compile and manage Python libraries with variable injection
-- **`dbt`** - dbt on Fabric Spark: profile from the value set, `dbt build`/`run`/`test` over Livy, orchestrator notebook
+- **`dbt`** - dbt on Fabric with Microsoft's adapters: `dbt-fabricspark` for lakehouses (profile generated from the value set, runs over Livy) and `dbt-fabric` for warehouses (the project's own profile); `dbt build`/`run`/`test` from a machine, an orchestrator notebook for runs inside Fabric, run log in the log lakehouse or log warehouse
 
 ### Common Commands
 

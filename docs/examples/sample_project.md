@@ -24,7 +24,9 @@ The sample project demonstrates a typical data platform setup with:
 - **Demo data**: seven bronze tables generated deterministically by DDL scripts
 - **dbt transformations**: the same silver and gold models run four ways with Microsoft's
   `dbt-fabricspark` and `dbt-fabric` adapters (see [dbt on the sample](#dbt-the-same-transformation-four-ways))
-- **Monitoring**: a log lakehouse that receives every dbt run folder
+- **Monitoring**: every dbt run logged by dbt itself into `dbt_batch` and `dbt_execution_log`,
+  in the log lakehouse `lh_log` for the lakehouse project and the log warehouse `wh_log` for
+  the warehouse project; a failed orchestrator run also keeps dbt's log file in `lh_log`
 
 ## Project Structure
 
