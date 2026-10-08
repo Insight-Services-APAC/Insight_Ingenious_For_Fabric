@@ -33,10 +33,9 @@ This guide covers everything you need to know to get started and become proficie
 - Troubleshooting
 
 ### [DBT Integration](dbt_integration.md)
-- Automatic profile management
-- Lakehouse selection
-- Creating notebooks from dbt
-- Best practices
+- How the tool runs dbt on Fabric: the generated profile, the `ingen_fab dbt` verbs, the orchestrator notebook, the run log, warehouses and the dbt job item
+- Inside the tool, for maintainers
+- To run dbt on the sample, see [Step 9: dbt in Fabric](../examples/sample_project.md#step-9-dbt-in-fabric)
 
 ### [Semantic Models and Reports](semantic-models-and-reports.md)
 - Model data source from the value set

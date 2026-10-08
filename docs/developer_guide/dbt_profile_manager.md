@@ -34,23 +34,51 @@ valueSets/<env>.json ─ lakehouse ids ────┼─> build_profile() ─> 
 - `dbt_default_lakehouse`: prefix or lakehouse name of the default target.
 - `dbt_schema`: `dbo` for a schema-enabled default lakehouse; unset means the lakehouse name,
   which is how the adapter recognises a plain lakehouse at parse time.
-- `dbt_threads`, `fabric_api_endpoint`: optional.
+- `dbt_threads`, `fabric_api_endpoint`: optional. A `dbt_threads` that is not an integer is a
+  `ProfileError`.
+- `dbt_reuse_session`: parsed by `_flag` (`true/1/yes/y`, `false/0/no/n`; anything else is a
+  `ProfileError`); default off.
+- A value is a placeholder when it is empty or contains `REPLACE_WITH`; `<prefix>_lakehouse_name`
+  falls back to the prefix.
+- The value set path is fixed: `fabric_workspace_items/config/var_lib.VariableLibrary/valueSets/<env>.json`.
+
+## Details that matter when changing it
+
+- `build_target` takes `profile_name`, `environment` and `notebook` keyword-only, and also
+  writes `reuse_session`, `connect_retries`, `connect_timeout` and
+  `spark_config.name = dbt-<profile>-<env>` (`-notebook` for the notebook target), from
+  `session_name`.
+- `build_profile` must resolve the default environment, or it raises; other environments that
+  fail are collected into `skipped` when a dict is passed (as `ensure_profile` always does), or
+  raise when it is `None`. `--lakehouse` applies the same prefix to every environment. Every
+  environment found in `valueSets/` is written to the one file.
+- `choose_default_lakehouse` has a separate error for a lakehouse that is declared but whose
+  id is still a placeholder ("declared but has no id yet").
+- `GENERATED_HEADER`'s first line is what `dbt_commands.hand_written_profile` looks for in
+  the first 400 characters of an existing `profiles.yml`. Change the header and every
+  generated profile is taken for hand-written and never regenerated.
 
 ## Callers
 
-- `dbt_commands.write_profile` (`ingen_fab dbt profile`): generate, show.
-- `dbt_commands.run_dbt` (`ingen_fab dbt <verb>`): regenerate, then run `dbt` with
+- `dbt_commands.write_profile` (`ingen_fab dbt profile`): skips a hand-written profile,
+  otherwise generates and shows; refreshes the logging macro in both cases.
+- `dbt_commands.run_dbt` (`ingen_fab dbt <verb>`): regenerate (hand-written profiles are
+  left alone; for `clean` and `deps` a `ProfileError` is only a warning), then run `dbt` with
   `--project-dir`, `--profiles-dir`, `--target <environment>` and the pass-through arguments.
-- `dbt_commands.write_orchestrator_notebook` (`ingen_fab dbt orchestrator`): reads the value
-  set for the config lakehouse name; the notebook selects `<environment>-notebook` at run time
-  from the Variable Library's `fabric_environment`.
+- `dbt_commands.write_orchestrator_notebook` (`ingen_fab dbt orchestrator`): does not
+  regenerate the profile; reads the value set for the config lakehouse name, resolves and
+  validates the log lakehouse and the `--env` variables; the notebook selects
+  `<environment>-notebook` at run time from the Variable Library's `fabric_environment`,
+  unless `--target` was given.
 
 ## Tests
 
 `tests/test_dbt_profile_manager.py`: profile name from the project file, discovery and
 placeholder skipping, the selection rules, the two targets per environment, adapter
 validation accepting a good target and rejecting a bad one, the golden file, the CLI proxy's
-command line, and the rendered orchestrator notebook.
+command line, the rendered orchestrator notebook and its failure path, offline verbs, skipped
+environments, the missing adapter, the placeholder workspace-id fallback, the compile header
+and selector rendering.
 
 ## Extending
 

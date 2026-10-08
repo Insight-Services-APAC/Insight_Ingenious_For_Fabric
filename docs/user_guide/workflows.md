@@ -232,15 +232,30 @@ Note that deploy deploy can be used from Visual Studio Code to deploy to any env
 ### Common Issues and Solutions
 
 1. **Authentication Failures**
-   ```bash
-   # Check Azure CLI authentication
-   az account show
-   
-   # Or use environment variables
-   export AZURE_TENANT_ID="your-tenant-id"
-   export AZURE_CLIENT_ID="your-client-id"
-   export AZURE_CLIENT_SECRET="your-client-secret"
-   ```
+
+    === "macOS/Linux"
+
+        ```bash
+        # Check Azure CLI authentication
+        az account show
+
+        # Or use environment variables
+        export AZURE_TENANT_ID="your-tenant-id"
+        export AZURE_CLIENT_ID="your-client-id"
+        export AZURE_CLIENT_SECRET="your-client-secret"
+        ```
+
+    === "Windows"
+
+        ```powershell
+        # Check Azure CLI authentication
+        az account show
+
+        # Or use environment variables
+        $env:AZURE_TENANT_ID = "your-tenant-id"
+        $env:AZURE_CLIENT_ID = "your-client-id"
+        $env:AZURE_CLIENT_SECRET = "your-client-secret"
+        ```
 
 2. **DDL Script Failures**
 

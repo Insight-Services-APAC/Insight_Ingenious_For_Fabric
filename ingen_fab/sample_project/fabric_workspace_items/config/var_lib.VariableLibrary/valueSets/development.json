@@ -64,7 +64,7 @@
     },
     {
       "name": "wh_gold_workspace_id",
-      "value": "REPLACE_WITH_LH_GOLD_WORKSPACE_GUID"
+      "value": "REPLACE_WITH_WH_GOLD_WORKSPACE_ID"
     },
     {
       "name": "wh_gold_warehouse_name",
@@ -72,7 +72,7 @@
     },
     {
       "name": "wh_gold_warehouse_id",
-      "value": "REPLACE_WITH_LH_GOLD_LAKEHOUSE_GUID"
+      "value": "REPLACE_WITH_WH_GOLD_WAREHOUSE_ID"
     },
     {
       "name": "wh_gold_warehouse_endpoint",

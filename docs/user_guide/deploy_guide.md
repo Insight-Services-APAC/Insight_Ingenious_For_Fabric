@@ -22,11 +22,13 @@ Practical guide to deploy changes, upload Python libraries with variable injecti
 
 ## Deploy artifacts
 
-Deploy all items under `fabric_workspace_items` to the selected environment.
+Deploy all items under `fabric_workspace_items` to the selected environment. The workspace's capacity must be Active: on a paused capacity Fabric rejects the first item with `CapacityNotActive` and nothing is deployed.
 
 ```bash
 ingen_fab deploy deploy
 ```
+
+The first deployment of an environment writes `platform_manifest_<environment>.yml` in the project folder (the record of the deployed items' ids); `Manifest file not found` on that first run is expected.
 
 The deployment process automatically performs variable replacement for environment-specific configuration:
 
@@ -47,14 +49,24 @@ Tips:
 
 Enable automatic Item ID tracking after deployment by setting the `AUTO_UPDATE_ITEM_IDS` environment variable:
 
-```bash
-# Enable auto-update
-export AUTO_UPDATE_ITEM_IDS=true
-ingen_fab deploy deploy
+=== "macOS/Linux"
 
-# Or inline
-AUTO_UPDATE_ITEM_IDS=true ingen_fab deploy deploy
-```
+    ```bash
+    # Enable auto-update
+    export AUTO_UPDATE_ITEM_IDS=true
+    ingen_fab deploy deploy
+
+    # Or inline
+    AUTO_UPDATE_ITEM_IDS=true ingen_fab deploy deploy
+    ```
+
+=== "Windows"
+
+    ```powershell
+    # Enable auto-update
+    $env:AUTO_UPDATE_ITEM_IDS = "true"
+    ingen_fab deploy deploy
+    ```
 
 **How it works:**
 - After successful deployment, queries the workspace for Item IDs of deployed artifacts

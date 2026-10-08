@@ -227,13 +227,25 @@ factory = SqlTemplateFactory(
 
 ### Environment Variables
 
-```bash
-# Set default dialect
-export SQL_TEMPLATE_DIALECT=fabric
+=== "macOS/Linux"
 
-# Set custom template directory
-export SQL_TEMPLATE_PATH=/path/to/templates
-```
+    ```bash
+    # Set default dialect
+    export SQL_TEMPLATE_DIALECT=fabric
+
+    # Set custom template directory
+    export SQL_TEMPLATE_PATH=/path/to/templates
+    ```
+
+=== "Windows"
+
+    ```powershell
+    # Set default dialect
+    $env:SQL_TEMPLATE_DIALECT = "fabric"
+
+    # Set custom template directory
+    $env:SQL_TEMPLATE_PATH = "/path/to/templates"
+    ```
 
 ## Advanced Features
 

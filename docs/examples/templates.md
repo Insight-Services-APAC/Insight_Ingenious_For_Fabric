@@ -74,16 +74,31 @@ ingen_fab init --template data-warehouse --name analytics_project
 
 ### Custom Template Creation
 
-```bash
-# Create custom template
-mkdir my_custom_template
-cd my_custom_template
+=== "macOS/Linux"
 
-# Set up template structure
-mkdir -p ddl_scripts/Warehouses/MyWarehouse/001_Initial_Creation
-mkdir -p fabric_workspace_items/warehouses
-mkdir -p config
-```
+    ```bash
+    # Create custom template
+    mkdir my_custom_template
+    cd my_custom_template
+
+    # Set up template structure
+    mkdir -p ddl_scripts/Warehouses/MyWarehouse/001_Initial_Creation
+    mkdir -p fabric_workspace_items/warehouses
+    mkdir -p config
+    ```
+
+=== "Windows"
+
+    ```powershell
+    # Create custom template
+    New-Item -ItemType Directory my_custom_template
+    cd my_custom_template
+
+    # Set up template structure
+    New-Item -ItemType Directory -Force ddl_scripts\Warehouses\MyWarehouse\001_Initial_Creation
+    New-Item -ItemType Directory -Force fabric_workspace_items\warehouses
+    New-Item -ItemType Directory -Force config
+    ```
 
 ## Template Structure
 

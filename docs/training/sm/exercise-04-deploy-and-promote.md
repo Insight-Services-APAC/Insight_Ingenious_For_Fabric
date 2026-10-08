@@ -22,11 +22,21 @@ By the end of this exercise you will be able to:
 
 Ensure you are in your project root with the correct environment:
 
-```bash
-cd your-project
-export FABRIC_WORKSPACE_REPO_DIR="$(pwd)"
-export FABRIC_ENVIRONMENT="development"
-```
+=== "macOS/Linux"
+
+    ```bash
+    cd your-project
+    export FABRIC_WORKSPACE_REPO_DIR="$(pwd)"
+    export FABRIC_ENVIRONMENT="development"
+    ```
+
+=== "Windows"
+
+    ```powershell
+    cd your-project
+    $env:FABRIC_WORKSPACE_REPO_DIR = (Get-Location).Path
+    $env:FABRIC_ENVIRONMENT = "development"
+    ```
 
 ### 2. Deploy the semantic model
 
@@ -147,10 +157,19 @@ Open `uat-test.json` and change the `"name"` field from `"development"` to `"uat
 
 Point IngenFab at the UAT workspace and let it discover the artefact IDs:
 
-```bash
-export FABRIC_ENVIRONMENT="uat-test"
-ingen_fab init workspace --workspace-name "Your-UAT-Workspace-Name"
-```
+=== "macOS/Linux"
+
+    ```bash
+    export FABRIC_ENVIRONMENT="uat-test"
+    ingen_fab init workspace --workspace-name "Your-UAT-Workspace-Name"
+    ```
+
+=== "Windows"
+
+    ```powershell
+    $env:FABRIC_ENVIRONMENT = "uat-test"
+    ingen_fab init workspace --workspace-name "Your-UAT-Workspace-Name"
+    ```
 
 The command will prompt you about deployment topology:
 
@@ -206,10 +225,19 @@ git commit -m "feat: add uat-test environment valueSet"
 
 Now deploy the **same** semantic model to a different environment. If you created `uat-test` in Step 8, use that; otherwise substitute your own environment name (`test`, `production`, etc.):
 
-```bash
-export FABRIC_ENVIRONMENT="uat-test"   # or "test", "production", etc.
-ingen_fab deploy deploy
-```
+=== "macOS/Linux"
+
+    ```bash
+    export FABRIC_ENVIRONMENT="uat-test"   # or "test", "production", etc.
+    ingen_fab deploy deploy
+    ```
+
+=== "Windows"
+
+    ```powershell
+    $env:FABRIC_ENVIRONMENT = "uat-test"   # or "test", "production", etc.
+    ingen_fab deploy deploy
+    ```
 
 IngenFab reads the `uat-test.json` Variable Library and substitutes the UAT workspace/lakehouse IDs into the same TMDL files. The model is deployed to the UAT workspace with the correct data source bindings.
 

@@ -7,16 +7,29 @@ Complete reference for all Ingenious Fabric Accelerator commands, options, and u
 !!! tip "Before you begin"
     Activate your environment and set defaults to simplify commands.
 
-    ```powershell
-    .\.venv\Scripts\Activate.ps1
-    ```
-    ```powershell
-    # Set environment (development, UAT, production)
-    $env:FABRIC_ENVIRONMENT = "development"
+    === "macOS/Linux"
 
-    # Set workspace directory 
-    $env:FABRIC_WORKSPACE_REPO_DIR = "dp"
-    ```
+        ```bash
+        source .venv/bin/activate
+
+        # Set environment (development, UAT, production)
+        export FABRIC_ENVIRONMENT="development"
+
+        # Set workspace directory
+        export FABRIC_WORKSPACE_REPO_DIR="dp"
+        ```
+
+    === "Windows"
+
+        ```powershell
+        .\.venv\Scripts\Activate.ps1
+
+        # Set environment (development, UAT, production)
+        $env:FABRIC_ENVIRONMENT = "development"
+
+        # Set workspace directory
+        $env:FABRIC_WORKSPACE_REPO_DIR = "dp"
+        ```
 
 ## Command Groups at a Glance
 
@@ -458,12 +471,24 @@ ingen_fab deploy deploy
 Requires the global options `--fabric-workspace-repo-dir` and `--fabric-environment` to be set either via command line or environment variables.
 
 **Examples:**
-```bash
-# Using environment variables (recommended)
-$env:FABRIC_WORKSPACE_REPO_DIR = "dp"
-$env:FABRIC_ENVIRONMENT = "development"
-ingen_fab deploy deploy
-```
+
+=== "macOS/Linux"
+
+    ```bash
+    # Using environment variables (recommended)
+    export FABRIC_WORKSPACE_REPO_DIR="dp"
+    export FABRIC_ENVIRONMENT="development"
+    ingen_fab deploy deploy
+    ```
+
+=== "Windows"
+
+    ```powershell
+    # Using environment variables (recommended)
+    $env:FABRIC_WORKSPACE_REPO_DIR = "dp"
+    $env:FABRIC_ENVIRONMENT = "development"
+    ingen_fab deploy deploy
+    ```
 
 #### `deploy delete-all` {#deploy-delete-all}
 
@@ -481,11 +506,13 @@ Uses the global options `--fabric-workspace-repo-dir` and `--fabric-environment`
 **Examples:**
 ```bash
 # Delete all items in development environment (will prompt for confirmation)
-ingen_fab deploy delete-all --fabric-environment development
+ingen_fab --fabric-environment development deploy delete-all
 
 # Force delete without confirmation
-ingen_fab deploy delete-all --fabric-environment test --force
+ingen_fab --fabric-environment test deploy delete-all --force
 ```
+
+The global options go before the command group; `ingen_fab deploy delete-all --fabric-environment ...` is rejected with `No such option`.
 
 #### `deploy upload-python-libs` {#deploy-upload-python-libs}
 
@@ -799,19 +826,37 @@ ingen_fab dbt generate-schema-yml -p data_mart --lakehouse lh_silver --layer mar
 
 Set these to avoid specifying options repeatedly:
 
-```bash
-# Core configuration
-$env:FABRIC_WORKSPACE_REPO_DIR = "dp"
-$env:FABRIC_ENVIRONMENT = "development"
+=== "macOS/Linux"
 
-# For local testing
-$env:FABRIC_ENVIRONMENT = "local"  # Required for test local commands
+    ```bash
+    # Core configuration
+    export FABRIC_WORKSPACE_REPO_DIR="dp"
+    export FABRIC_ENVIRONMENT="development"
 
-# Authentication (for deployment)
-$env:AZURE_TENANT_ID = "your-tenant-id"
-$env:AZURE_CLIENT_ID = "your-client-id"
-$env:AZURE_CLIENT_SECRET = "your-client-secret"
-```
+    # For local testing
+    export FABRIC_ENVIRONMENT="local"  # Required for test local commands
+
+    # Authentication (for deployment)
+    export AZURE_TENANT_ID="your-tenant-id"
+    export AZURE_CLIENT_ID="your-client-id"
+    export AZURE_CLIENT_SECRET="your-client-secret"
+    ```
+
+=== "Windows"
+
+    ```powershell
+    # Core configuration
+    $env:FABRIC_WORKSPACE_REPO_DIR = "dp"
+    $env:FABRIC_ENVIRONMENT = "development"
+
+    # For local testing
+    $env:FABRIC_ENVIRONMENT = "local"  # Required for test local commands
+
+    # Authentication (for deployment)
+    $env:AZURE_TENANT_ID = "your-tenant-id"
+    $env:AZURE_CLIENT_ID = "your-client-id"
+    $env:AZURE_CLIENT_SECRET = "your-client-secret"
+    ```
 
 ### Configuration Files
 
@@ -827,54 +872,108 @@ The tool uses the following configurations:
 
 ### Development Workflow
 
-```bash
-# 1. Create project
-ingen_fab init new --project-name "My Project"
+=== "macOS/Linux"
 
-# 2. Configure environment variables
-$env:FABRIC_WORKSPACE_REPO_DIR = "dp"
-$env:FABRIC_ENVIRONMENT = "development"
+    ```bash
+    # 1. Create project
+    ingen_fab init new --project-name "dp"
 
-# 3. Generate lakehouse and warehouse artifacts from storage_config.yaml
-ingen_fab init storage-config
+    # 2. Configure environment variables
+    export FABRIC_WORKSPACE_REPO_DIR="dp"
+    export FABRIC_ENVIRONMENT="development"
 
-# 4. Update configuration
-# Edit fabric_workspace_items/config/var_lib.VariableLibrary/valueSets/development.json
-# Replace placeholder GUIDs with your actual workspace and lakehouse IDs
+    # 3. Generate lakehouse and warehouse artifacts from storage_config.yaml
+    ingen_fab init storage-config
 
-# 5. Develop dbt models; build over Livy, then make the run schedulable in Fabric
-ingen_fab dbt build -- --select tag:silver
-ingen_fab dbt profile
-ingen_fab deploy upload-dbt-project --dbt-project dbt_project
-ingen_fab dbt orchestrator --name dbtload_silver --select +tag:silver
+    # 4. Update configuration
+    # Edit fabric_workspace_items/config/var_lib.VariableLibrary/valueSets/development.json
+    # Replace placeholder GUIDs with your actual workspace and lakehouse IDs
 
-# 6. Generate ddl notebooks
-ingen_fab ddl compile --output-mode fabric_workspace_repo --generation-mode Warehouse
-ingen_fab ddl compile --output-mode fabric_workspace_repo --generation-mode Lakehouse
+    # 5. Develop dbt models; build over Livy, then make the run schedulable in Fabric
+    ingen_fab dbt build -- --select tag:silver
+    ingen_fab dbt profile
+    ingen_fab deploy upload-dbt-project --dbt-project dbt_project
+    ingen_fab dbt orchestrator --name dbtload_silver --select +tag:silver
 
-# 7. Test locally
-$env:FABRIC_ENVIRONMENT = 'local'
-ingen_fab test local python
-ingen_fab test local pyspark
+    # 6. Generate ddl notebooks
+    ingen_fab ddl compile --output-mode fabric_workspace_repo --generation-mode Warehouse
+    ingen_fab ddl compile --output-mode fabric_workspace_repo --generation-mode Lakehouse
 
-# 8. Deploy to development
-$env:FABRIC_ENVIRONMENT = 'development'
-ingen_fab deploy deploy
+    # 7. Test locally
+    export FABRIC_ENVIRONMENT="local"
+    ingen_fab test local python
+    ingen_fab test local pyspark
 
-# 9. Generate and run platform tests
-ingen_fab test platform generate
-```
+    # 8. Deploy to development (the workspace's capacity must be Active)
+    export FABRIC_ENVIRONMENT="development"
+    ingen_fab deploy deploy
+
+    # 9. Generate and run platform tests
+    ingen_fab test platform generate
+    ```
+
+=== "Windows"
+
+    ```powershell
+    # 1. Create project
+    ingen_fab init new --project-name "dp"
+
+    # 2. Configure environment variables
+    $env:FABRIC_WORKSPACE_REPO_DIR = "dp"
+    $env:FABRIC_ENVIRONMENT = "development"
+
+    # 3. Generate lakehouse and warehouse artifacts from storage_config.yaml
+    ingen_fab init storage-config
+
+    # 4. Update configuration
+    # Edit fabric_workspace_items/config/var_lib.VariableLibrary/valueSets/development.json
+    # Replace placeholder GUIDs with your actual workspace and lakehouse IDs
+
+    # 5. Develop dbt models; build over Livy, then make the run schedulable in Fabric
+    ingen_fab dbt build -- --select tag:silver
+    ingen_fab dbt profile
+    ingen_fab deploy upload-dbt-project --dbt-project dbt_project
+    ingen_fab dbt orchestrator --name dbtload_silver --select +tag:silver
+
+    # 6. Generate ddl notebooks
+    ingen_fab ddl compile --output-mode fabric_workspace_repo --generation-mode Warehouse
+    ingen_fab ddl compile --output-mode fabric_workspace_repo --generation-mode Lakehouse
+
+    # 7. Test locally
+    $env:FABRIC_ENVIRONMENT = 'local'
+    ingen_fab test local python
+    ingen_fab test local pyspark
+
+    # 8. Deploy to development (the workspace's capacity must be Active)
+    $env:FABRIC_ENVIRONMENT = 'development'
+    ingen_fab deploy deploy
+
+    # 9. Generate and run platform tests
+    ingen_fab test platform generate
+    ```
 
 ### Multi-Environment Deployment
 
-```powershell
-# Deploy to different environments using environment variables
-@('development', 'test', 'production') | ForEach-Object {
-    $env:FABRIC_ENVIRONMENT = $_
-    $env:FABRIC_WORKSPACE_REPO_DIR = "dp"
-    ingen_fab deploy deploy
-}
-```
+=== "macOS/Linux"
+
+    ```bash
+    # Deploy to different environments using environment variables
+    export FABRIC_WORKSPACE_REPO_DIR="dp"
+    for env in development test production; do
+        FABRIC_ENVIRONMENT=$env ingen_fab deploy deploy
+    done
+    ```
+
+=== "Windows"
+
+    ```powershell
+    # Deploy to different environments using environment variables
+    @('development', 'test', 'production') | ForEach-Object {
+        $env:FABRIC_ENVIRONMENT = $_
+        $env:FABRIC_WORKSPACE_REPO_DIR = "dp"
+        ingen_fab deploy deploy
+    }
+    ```
 
 ### Working with Packages
 

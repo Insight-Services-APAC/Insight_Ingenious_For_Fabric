@@ -10,11 +10,21 @@ Common issues and solutions when working with the Ingenious Fabric Accelerator.
 **Problem**: After installation, the command `ingen_fab` is not recognized.
 
 **Solutions**:
-1. Activate your virtual environment:
-   ```bash
-   source .venv/bin/activate  # Linux/Mac
-   .venv\Scripts\activate     # Windows
-   ```
+1. Activate the virtual environment the package was installed in. `ingen_fab` is only on `PATH` while that environment is active, and a different active environment (another project's `.venv`) gives the same error:
+
+    === "macOS/Linux"
+
+        ```bash
+        source .venv/bin/activate
+        ```
+
+    === "Windows"
+
+        ```powershell
+        .venv\Scripts\Activate.ps1
+        ```
+
+    In PowerShell the activation script is `Activate.ps1`; the file named `activate` without an extension is the bash script and does nothing in PowerShell. The prompt shows the environment's name in parentheses once it is active.
 
 2. Install in development mode:
    ```bash
@@ -22,10 +32,20 @@ Common issues and solutions when working with the Ingenious Fabric Accelerator.
    ```
 
 3. Check PATH (for global installs):
-   ```bash
-   echo $PATH
-   pip show insight-ingenious-for-fabric
-   ```
+
+    === "macOS/Linux"
+
+        ```bash
+        echo $PATH
+        pip show insight-ingenious-for-fabric
+        ```
+
+    === "Windows"
+
+        ```powershell
+        $env:PATH
+        pip show insight-ingenious-for-fabric
+        ```
 
 ### Environment variable errors
 **Problem**: Commands fail with "FABRIC_WORKSPACE_REPO_DIR must be set" or similar.
@@ -62,11 +82,22 @@ Common issues and solutions when working with the Ingenious Fabric Accelerator.
    ```
 
 2. Or set service principal variables:
-   ```bash
-   export AZURE_TENANT_ID="your-tenant-id"
-   export AZURE_CLIENT_ID="your-client-id"
-   export AZURE_CLIENT_SECRET="your-client-secret"
-   ```
+
+    === "macOS/Linux"
+
+        ```bash
+        export AZURE_TENANT_ID="your-tenant-id"
+        export AZURE_CLIENT_ID="your-client-id"
+        export AZURE_CLIENT_SECRET="your-client-secret"
+        ```
+
+    === "Windows"
+
+        ```powershell
+        $env:AZURE_TENANT_ID = "your-tenant-id"
+        $env:AZURE_CLIENT_ID = "your-client-id"
+        $env:AZURE_CLIENT_SECRET = "your-client-secret"
+        ```
 
 3. Verify the login can mint a Fabric token:
    ```bash
@@ -85,6 +116,16 @@ Common issues and solutions when working with the Ingenious Fabric Accelerator.
 
 5. Verify workspace access in the Fabric portal.
 
+### Deployment fails with `CapacityNotActive`
+**Problem**: `ingen_fab deploy deploy` reports `Internal error CapacityNotActive. Capacity ... is not active` on the first item and every item is listed as failed.
+
+**Solution**: The workspace's capacity is paused. Resume it (Azure portal for an F SKU, or the Fabric admin portal) and run the deployment again; nothing was deployed, so there is nothing to clean up.
+
+### `No such option: --fabric-workspace-repo-dir`
+**Problem**: A command such as `ingen_fab ddl compile --fabric-workspace-repo-dir dp ...` is rejected.
+
+**Solution**: `--fabric-workspace-repo-dir` and `--fabric-environment` are options of `ingen_fab` itself, so they go before the command group: `ingen_fab --fabric-workspace-repo-dir dp --fabric-environment development ddl compile ...`. Or set `FABRIC_WORKSPACE_REPO_DIR` and `FABRIC_ENVIRONMENT` once and leave both out.
+
 ## Testing Issues
 
 ### Local tests fail
@@ -92,9 +133,18 @@ Common issues and solutions when working with the Ingenious Fabric Accelerator.
 
 **Solutions**:
 1. Set environment to local:
-   ```bash
-   export FABRIC_ENVIRONMENT=local
-   ```
+
+    === "macOS/Linux"
+
+        ```bash
+        export FABRIC_ENVIRONMENT=local
+        ```
+
+    === "Windows"
+
+        ```powershell
+        $env:FABRIC_ENVIRONMENT = "local"
+        ```
 
 2. Install dev dependencies:
    ```bash
@@ -124,9 +174,18 @@ Common issues and solutions when working with the Ingenious Fabric Accelerator.
 
 **Solutions**:
 1. Verify your value set file exists:
-   ```bash
-   cat fabric_workspace_items/config/var_lib.VariableLibrary/valueSets/development.json
-   ```
+
+    === "macOS/Linux"
+
+        ```bash
+        cat fabric_workspace_items/config/var_lib.VariableLibrary/valueSets/development.json
+        ```
+
+    === "Windows"
+
+        ```powershell
+        Get-Content fabric_workspace_items/config/var_lib.VariableLibrary/valueSets/development.json
+        ```
 
 2. Check variable names match exactly (case-sensitive).
 

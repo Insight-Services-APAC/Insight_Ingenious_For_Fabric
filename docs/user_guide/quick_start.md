@@ -8,13 +8,15 @@ Get up and running with the Ingenious Fabric Accelerator in just a few minutes! 
 
 Before starting, ensure you have:
 
-- [x] Installed the Ingenious Fabric Accelerator ([Installation Guide](installation.md))
-- [x] Access to a Microsoft Fabric workspace
+- [x] Installed the Ingenious Fabric Accelerator ([Installation Guide](installation.md)), with the virtual environment it was installed in activated in your terminal
+- [x] Access to a Microsoft Fabric workspace, on a capacity that is **Active** (a paused capacity rejects every deployment with `CapacityNotActive`)
 - [x] Basic understanding of SQL and Python
+
+The commands on this page are the same in bash and PowerShell. Where a command differs between shells, this documentation shows two tabs, macOS/Linux and Windows.
 
 ## Step 1: Initialize Your First Project
 
-Create a new project with the complete starter template:
+Create a new project with the complete starter template. Run this from the folder that will hold the project; it creates the folder `dp` inside it, and every later command runs from this same parent folder:
 
 ```bash
 # Initialize the project with complete template
@@ -23,11 +25,11 @@ ingen_fab init new --project-name "dp"
 ```
 
 !!! tip "Using Sample Project Template"
-    For a more comprehensive starting point with platform manifests and example configurations, add the `--with-samples` flag:
+    For a more comprehensive starting point with example data, dbt projects and example configurations, add the `--with-samples` flag:
     ```bash
     ingen_fab init new --project-name "dp" --with-samples
     ```
-    This uses the `sample_project` template which includes pre-configured platform manifests for multiple environments.
+    This uses the `sample_project` template; its own `README.md` walks through setting it up. See [Sample Project](../examples/sample_project.md).
 
 This creates the following structure with complete starter files:
 ```
@@ -45,9 +47,10 @@ dp/
 │   ├── config/                    # Pre-configured variable library
 │   ├── lakehouses/                # Sample lakehouse definitions
 │   └── warehouses/                # Sample warehouse definitions
-├── platform_manifest_*.yml       # Environment deployment tracking
 └── README.md                      # Complete setup instructions
 ```
+
+A `platform_manifest_<environment>.yml` file is added to this folder by the first deployment (Step 6); it records the ids of the deployed items and is not part of the template.
 
 ## Step 2: Configure Your Environment
 
@@ -222,7 +225,7 @@ The sample scripts create a customer table and insert sample data. You can:
 
 Transform your DDL scripts into executable notebooks:
 
-💡Remember to set your environment variables first.
+💡Remember to set your environment variables first, and run from the parent folder of `dp` (the folder `FABRIC_WORKSPACE_REPO_DIR` is relative to), as in Step 1.
 
 ```bash
 # Generate notebooks for lakehouses
@@ -239,12 +242,14 @@ This creates orchestrator notebooks in `fabric_workspace_items/ddl_scripts/` tha
 
 ## Step 6: Deploy to Fabric
 
-Deploy your project to your Fabric workspace:
+Deploy your project to your Fabric workspace. The workspace's capacity must be Active: on a paused capacity Fabric rejects the first item with `CapacityNotActive` and nothing is deployed.
 
 ```bash
 # Deploy to whichever environment is set using your environment variables
 ingen_fab deploy deploy
 ```
+
+The first deployment also writes `dp/platform_manifest_development.yml`, the record of the deployed items' ids. The message `Manifest file not found` on that first run is expected.
 
 Update Lakehouse and Warehouse guids:
 ```bash
@@ -290,14 +295,34 @@ Now that you have a working project, you can:
 ### Common Issues
 
 **Deployment fails with authentication error:**
-```bash
-# Set up Azure authentication
-az login
-# Or set environment variables
-export AZURE_TENANT_ID="your-tenant-id"
-export AZURE_CLIENT_ID="your-client-id"
-export AZURE_CLIENT_SECRET="your-client-secret"
-```
+
+=== "macOS/Linux"
+
+    ```bash
+    # Set up Azure authentication
+    az login
+    # Or set environment variables
+    export AZURE_TENANT_ID="your-tenant-id"
+    export AZURE_CLIENT_ID="your-client-id"
+    export AZURE_CLIENT_SECRET="your-client-secret"
+    ```
+
+=== "Windows"
+
+    ```powershell
+    # Set up Azure authentication
+    az login
+    # Or set environment variables
+    $env:AZURE_TENANT_ID = "your-tenant-id"
+    $env:AZURE_CLIENT_ID = "your-client-id"
+    $env:AZURE_CLIENT_SECRET = "your-client-secret"
+    ```
+
+**Deployment fails with `CapacityNotActive`:**
+- The workspace's capacity is paused. Resume it (Azure portal or the Fabric admin portal) and run the deployment again; nothing was deployed.
+
+**`ingen_fab` is not recognized:**
+- The command is installed inside a virtual environment and is only on `PATH` while that environment is active. Activate it (`source .venv/bin/activate` on macOS/Linux, `.venv\Scripts\Activate.ps1` in PowerShell) and check that the prompt shows its name.
 
 **DDL scripts fail to execute:**
 - Check that your workspace and lakehouse IDs are correct

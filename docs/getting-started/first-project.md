@@ -210,24 +210,29 @@ CREATE TABLE IF NOT EXISTS config.parquet_loads (
 
 Transform the DDL scripts into executable notebooks:
 
-```bash
-# Navigate to the project root
-cd sample_project
+Run these from the parent folder of the project (the folder you ran `ingen_fab init new` in). `--fabric-workspace-repo-dir` and `--fabric-environment` are options of `ingen_fab` itself, so they go before the command group; after `ddl compile` they are rejected with `No such option`. Setting `FABRIC_WORKSPACE_REPO_DIR` and `FABRIC_ENVIRONMENT` instead (see [Environment Variables](../reference/environment-variables.md)) lets you leave both out.
 
-# Generate DDL notebooks for warehouses
-ingen_fab ddl compile \
-    --fabric-workspace-repo-dir . \
-    --fabric-environment development \
-    --output-mode fabric_workspace_repo \
-    --generation-mode Warehouse
+=== "macOS/Linux"
 
-# Generate DDL notebooks for lakehouses
-ingen_fab ddl compile \
-    --fabric-workspace-repo-dir . \
-    --fabric-environment development \
-    --output-mode fabric_workspace_repo \
-    --generation-mode Lakehouse
-```
+    ```bash
+    # Generate DDL notebooks for warehouses
+    ingen_fab --fabric-workspace-repo-dir sample_project --fabric-environment development \
+        ddl compile --output-mode fabric_workspace_repo --generation-mode Warehouse
+
+    # Generate DDL notebooks for lakehouses
+    ingen_fab --fabric-workspace-repo-dir sample_project --fabric-environment development \
+        ddl compile --output-mode fabric_workspace_repo --generation-mode Lakehouse
+    ```
+
+=== "Windows"
+
+    ```powershell
+    # Generate DDL notebooks for warehouses
+    ingen_fab --fabric-workspace-repo-dir sample_project --fabric-environment development ddl compile --output-mode fabric_workspace_repo --generation-mode Warehouse
+
+    # Generate DDL notebooks for lakehouses
+    ingen_fab --fabric-workspace-repo-dir sample_project --fabric-environment development ddl compile --output-mode fabric_workspace_repo --generation-mode Lakehouse
+    ```
 
 This generates several types of notebooks:
 
@@ -244,14 +249,23 @@ This generates several types of notebooks:
 
 ### Step 5: Deploy to Fabric
 
-Deploy the complete solution to your Fabric workspace:
+Deploy the complete solution to your Fabric workspace. The workspace's capacity must be Active: on a paused capacity Fabric rejects the first item with `CapacityNotActive` and nothing is deployed.
 
-```bash
-# Deploy all artifacts to development environment
-ingen_fab deploy deploy \
-    --fabric-workspace-repo-dir . \
-    --fabric-environment development
-```
+=== "macOS/Linux"
+
+    ```bash
+    # Deploy all artifacts to development environment
+    ingen_fab --fabric-workspace-repo-dir sample_project --fabric-environment development deploy deploy
+    ```
+
+=== "Windows"
+
+    ```powershell
+    # Deploy all artifacts to development environment
+    ingen_fab --fabric-workspace-repo-dir sample_project --fabric-environment development deploy deploy
+    ```
+
+The first deployment writes `sample_project/platform_manifest_development.yml`, the record of the deployed items' ids; `Manifest file not found` on that first run is expected.
 
 This deployment includes:
 - Variable library with environment-specific configurations
@@ -282,9 +296,7 @@ Test that everything is working correctly:
 
 ```bash
 # Test the deployment using CLI
-ingen_fab test platform generate \
-    --fabric-workspace-repo-dir . \
-    --fabric-environment development
+ingen_fab --fabric-workspace-repo-dir sample_project --fabric-environment development test platform generate
 ```
 
 Or run the platform testing notebooks directly in Fabric:
@@ -423,12 +435,22 @@ Configuration-driven data pipelines:
    ```
 
 3. **Deploy to new environment**:
-   ```bash
-   $env:FABRIC_WORKSPACE_REPO_DIR = "dp"
-   $env:FABRIC_ENVIRONMENT = "development"
 
-   ingen_fab deploy deploy
-   ```
+    === "macOS/Linux"
+
+        ```bash
+        export FABRIC_WORKSPACE_REPO_DIR="sample_project"
+        export FABRIC_ENVIRONMENT="staging"
+        ingen_fab deploy deploy
+        ```
+
+    === "Windows"
+
+        ```powershell
+        $env:FABRIC_WORKSPACE_REPO_DIR = "sample_project"
+        $env:FABRIC_ENVIRONMENT = "staging"
+        ingen_fab deploy deploy
+        ```
 
 ## Advanced Usage
 
@@ -436,16 +458,27 @@ Configuration-driven data pipelines:
 
 Use the sample as a template for multiple projects:
 
-```bash
-# Create multiple projects based on the sample
-for project in analytics ml-platform reporting; do
-    cp -r sample_project $project
-    cd $project
-    # Update configuration for specific project
-    vim fabric_workspace_items/config/var_lib.VariableLibrary/valueSets/development.json
-    cd ..
-done
-```
+=== "macOS/Linux"
+
+    ```bash
+    # Create multiple projects based on the sample
+    for project in analytics ml-platform reporting; do
+        cp -r sample_project $project
+        # Update configuration for specific project
+        vim $project/fabric_workspace_items/config/var_lib.VariableLibrary/valueSets/development.json
+    done
+    ```
+
+=== "Windows"
+
+    ```powershell
+    # Create multiple projects based on the sample
+    foreach ($project in "analytics", "ml-platform", "reporting") {
+        Copy-Item -Recurse sample_project $project
+        # Update configuration for specific project
+        code $project\fabric_workspace_items\config\var_lib.VariableLibrary\valueSets\development.json
+    }
+    ```
 
 ### CI/CD Integration
 
@@ -495,24 +528,48 @@ jobs:
 ### Common Issues
 
 1. **Authentication Errors**:
-   ```bash
-   # Check Azure authentication
-   az account show
-   
-   # Or use environment variables
-   export AZURE_TENANT_ID="your-tenant-id"
-   export AZURE_CLIENT_ID="your-client-id"
-   export AZURE_CLIENT_SECRET="your-client-secret"
-   ```
+
+    === "macOS/Linux"
+
+        ```bash
+        # Check Azure authentication
+        az account show
+
+        # Or use environment variables
+        export AZURE_TENANT_ID="your-tenant-id"
+        export AZURE_CLIENT_ID="your-client-id"
+        export AZURE_CLIENT_SECRET="your-client-secret"
+        ```
+
+    === "Windows"
+
+        ```powershell
+        # Check Azure authentication
+        az account show
+
+        # Or use environment variables
+        $env:AZURE_TENANT_ID = "your-tenant-id"
+        $env:AZURE_CLIENT_ID = "your-client-id"
+        $env:AZURE_CLIENT_SECRET = "your-client-secret"
+        ```
 
 2. **Variable Resolution Issues**:
-   ```bash
-   # Verify variable files exist and are valid JSON
-   cat fabric_workspace_items/config/var_lib.VariableLibrary/valueSets/development.json | jq .
-   
-   # Test variable injection (Note: --dry-run option not implemented)
-   # Check variable files manually or use the deploy command directly
-   ```
+
+    === "macOS/Linux"
+
+        ```bash
+        # Verify variable files exist and are valid JSON
+        cat fabric_workspace_items/config/var_lib.VariableLibrary/valueSets/development.json | jq .
+        ```
+
+    === "Windows"
+
+        ```powershell
+        # Verify variable files exist and are valid JSON
+        Get-Content fabric_workspace_items/config/var_lib.VariableLibrary/valueSets/development.json | ConvertFrom-Json
+        ```
+
+    There is no `--dry-run` option: check the value set by hand or run the deploy command directly.
 
 3. **DDL Script Failures**:
    - Check workspace and lakehouse IDs are correct

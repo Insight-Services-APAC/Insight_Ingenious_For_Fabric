@@ -178,30 +178,61 @@ the rest is opted into:
 | Documentation | `docs` | nothing; heuristic checks of docs against code, two are `xfail` | inside the offline tier |
 | End to end | `e2e` | live network access | not in CI |
 
-```bash
-export FABRIC_ENVIRONMENT=local
-export FABRIC_WORKSPACE_REPO_DIR=ingen_fab/sample_project
+=== "macOS/Linux"
 
-# Offline tier: what CI runs on every change (about ten seconds)
-pytest tests/ ingen_fab/python_libs_tests/common ingen_fab/python_libs_tests/python \
-  -m "not spark and not database and not e2e"
+    ```bash
+    export FABRIC_ENVIRONMENT=local
+    export FABRIC_WORKSPACE_REPO_DIR=ingen_fab/sample_project
 
-# Spark tier, from inside the dev container (or anywhere with a JDK 17 on PATH)
-pytest ingen_fab/python_libs_tests/pyspark tests/test_lakehouse_utils.py -m spark
+    # Offline tier: what CI runs on every change (about ten seconds)
+    pytest tests/ ingen_fab/python_libs_tests/common ingen_fab/python_libs_tests/python \
+      -m "not spark and not database and not e2e"
 
-# Database tier: start a PostgreSQL first, then point the library at it
-docker run -e POSTGRES_PASSWORD=postgres -e POSTGRES_DB=local -p 5432:5432 -d postgres:16
-export POSTGRES_HOST=localhost POSTGRES_PORT=5432 POSTGRES_USER=postgres \
-       POSTGRES_PASSWORD=postgres POSTGRES_DATABASE=local
-pytest ingen_fab/python_libs_tests/python -m database
+    # Spark tier, from inside the dev container (or anywhere with a JDK 17 on PATH)
+    pytest ingen_fab/python_libs_tests/pyspark tests/test_lakehouse_utils.py -m spark
 
-# One library's tests through the CLI (resolves test_<lib>_pytest.py)
-ingen_fab test local python warehouse_utils
-ingen_fab test local pyspark lakehouse_utils
+    # Database tier: start a PostgreSQL first, then point the library at it
+    docker run -e POSTGRES_PASSWORD=postgres -e POSTGRES_DB=local -p 5432:5432 -d postgres:16
+    export POSTGRES_HOST=localhost POSTGRES_PORT=5432 POSTGRES_USER=postgres \
+           POSTGRES_PASSWORD=postgres POSTGRES_DATABASE=local
+    pytest ingen_fab/python_libs_tests/python -m database
 
-# Coverage
-pytest --cov=ingen_fab --cov-report=html
-```
+    # One library's tests through the CLI (resolves test_<lib>_pytest.py)
+    ingen_fab test local python warehouse_utils
+    ingen_fab test local pyspark lakehouse_utils
+
+    # Coverage
+    pytest --cov=ingen_fab --cov-report=html
+    ```
+
+=== "Windows"
+
+    ```powershell
+    $env:FABRIC_ENVIRONMENT = "local"
+    $env:FABRIC_WORKSPACE_REPO_DIR = "ingen_fab/sample_project"
+
+    # Offline tier: what CI runs on every change (about ten seconds)
+    pytest tests/ ingen_fab/python_libs_tests/common ingen_fab/python_libs_tests/python -m "not spark and not database and not e2e"
+
+    # Spark tier, from inside the dev container (or anywhere with a JDK 17 on PATH)
+    pytest ingen_fab/python_libs_tests/pyspark tests/test_lakehouse_utils.py -m spark
+
+    # Database tier: start a PostgreSQL first, then point the library at it
+    docker run -e POSTGRES_PASSWORD=postgres -e POSTGRES_DB=local -p 5432:5432 -d postgres:16
+    $env:POSTGRES_HOST = "localhost"
+    $env:POSTGRES_PORT = "5432"
+    $env:POSTGRES_USER = "postgres"
+    $env:POSTGRES_PASSWORD = "postgres"
+    $env:POSTGRES_DATABASE = "local"
+    pytest ingen_fab/python_libs_tests/python -m database
+
+    # One library's tests through the CLI (resolves test_<lib>_pytest.py)
+    ingen_fab test local python warehouse_utils
+    ingen_fab test local pyspark lakehouse_utils
+
+    # Coverage
+    pytest --cov=ingen_fab --cov-report=html
+    ```
 
 `.github/workflows/tests.yml` runs the `lint` (ruff on changed files), `offline` and `spark`
 jobs on every push and pull request and folds them into the `test` status check the branch
