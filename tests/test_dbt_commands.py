@@ -213,6 +213,14 @@ def test_logging_macro_covers_both_adapters_with_the_same_two_tables() -> None:
         and "var('log_warehouse', 'wh_log')" in macro
     )
     assert "USING DELTA" in macro and "IF OBJECT_ID(" in macro
+    # the default store is checked at run time; a missing one falls back to the project's own
+    assert (
+        "SHOW DATABASES LIKE" in macro
+        and "set fallback = target.lakehouse or target.schema" in macro
+    )
+    assert (
+        "FROM sys.databases WHERE name" in macro and "return(target.database)" in macro
+    )
     assert "var('ingen_fab_runner', 'cli')" in macro
     # dbt's Jinja exposes modules.datetime.{date, datetime, time, timedelta, tzinfo} only:
     # `timezone` is not there (a live run failed on it), so timestamps use utcnow()

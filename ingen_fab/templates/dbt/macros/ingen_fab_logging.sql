@@ -15,6 +15,9 @@
     dbt-fabricspark (lakehouse projects): the log lakehouse, var `log_lakehouse` (lh_log)
     dbt-fabric (warehouse projects):      the log warehouse, var `log_warehouse` (wh_log),
                                           schema var `log_schema` (dbo)
+  When the workspace has no store of that name, the run is logged into the project's own
+  lakehouse or warehouse instead, with a line in dbt's output saying so (the fallback the
+  Spark adapter's notebooks had).
   The orchestrator notebook passes both vars; from a machine, set them with --vars or in
   dbt_project.yml. `ingen_fab_runner` names who ran dbt (cli, or notebook/<name>).
 #}
@@ -116,8 +119,21 @@
 {# ---------------------------------------------------------------------------------------- #}
 {# dbt-fabricspark: Delta tables in the log lakehouse                                         #}
 
+{% macro ingen_fab_log_store_spark() %}
+    {#- the log lakehouse (var log_lakehouse, default lh_log) when the workspace has it, else the
+        project's own lakehouse, as the Spark adapter's generated notebooks did -#}
+    {%- set wanted = var('log_lakehouse', 'lh_log') -%}
+    {%- set found = run_query("SHOW DATABASES LIKE '" ~ wanted ~ "'") -%}
+    {%- if found is not none and found.rows | length > 0 -%}
+        {{ return(wanted) }}
+    {%- endif -%}
+    {%- set fallback = target.lakehouse or target.schema -%}
+    {{ log("ingen_fab logging: lakehouse " ~ wanted ~ " not found in this workspace; logging into " ~ fallback, info=True) }}
+    {{ return(fallback) }}
+{% endmacro %}
+
 {% macro ingen_fab_log_run_spark(results) %}
-    {%- set db = var('log_lakehouse', 'lh_log') -%}
+    {%- set db = ingen_fab_log_store_spark() -%}
     {%- set batch = db ~ '.dbt_batch' -%}
     {%- set log_table = db ~ '.dbt_execution_log' -%}
     {% do run_query("CREATE TABLE IF NOT EXISTS " ~ batch ~ " (batch_id STRING, project_name STRING, target_name STRING, target_type STRING, command STRING, selector STRING, runner STRING, started_at TIMESTAMP, ended_at TIMESTAMP, status STRING, total_nodes INT, success_count INT, error_count INT, fail_count INT, skipped_count INT, warn_count INT) USING DELTA") %}
@@ -135,8 +151,20 @@
 {# ---------------------------------------------------------------------------------------- #}
 {# dbt-fabric: tables in the log warehouse                                                    #}
 
+{% macro ingen_fab_log_store_warehouse() %}
+    {#- the log warehouse (var log_warehouse, default wh_log) when the workspace has it, else
+        the project's own warehouse (target.database) -#}
+    {%- set wanted = var('log_warehouse', 'wh_log') -%}
+    {%- set found = run_query("SELECT name FROM sys.databases WHERE name = '" ~ wanted ~ "'") -%}
+    {%- if found is not none and found.rows | length > 0 -%}
+        {{ return(wanted) }}
+    {%- endif -%}
+    {{ log("ingen_fab logging: warehouse " ~ wanted ~ " not found in this workspace; logging into " ~ target.database, info=True) }}
+    {{ return(target.database) }}
+{% endmacro %}
+
 {% macro ingen_fab_log_run_warehouse(results) %}
-    {%- set db = var('log_warehouse', 'wh_log') -%}
+    {%- set db = ingen_fab_log_store_warehouse() -%}
     {%- set schema = var('log_schema', 'dbo') -%}
     {%- set batch = db ~ '.' ~ schema ~ '.dbt_batch' -%}
     {%- set log_table = db ~ '.' ~ schema ~ '.dbt_execution_log' -%}

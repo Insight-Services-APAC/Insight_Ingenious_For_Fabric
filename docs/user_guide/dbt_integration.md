@@ -208,8 +208,10 @@ row). They are the tables the Spark adapter's projects have always had:
 Where they live follows the engine: a `dbt-fabricspark` project writes Delta tables in the
 **log lakehouse** (var `log_lakehouse`, default `lh_log`); a `dbt-fabric` project writes
 tables in the **log warehouse** (var `log_warehouse`, default `wh_log`; schema var
-`log_schema`, default `dbo`), reached by three-part name within the workspace. The tables are
-created on first use. Nothing is written into a data lakehouse or warehouse.
+`log_schema`, default `dbo`), reached by three-part name within the workspace. When the
+workspace has no store of that name, the run is logged into the project's own lakehouse or
+warehouse instead, and dbt's output says so; a dedicated log store is the default, the
+project's own storage the fallback. The tables are created on first use.
 
 The macro is `macros/ingen_fab_logging.sql` in the dbt project, maintained by ingen_fab:
 every `ingen_fab dbt` command refreshes it, and warns when `dbt_project.yml` does not call it.
