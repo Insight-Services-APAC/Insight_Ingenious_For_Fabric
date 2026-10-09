@@ -200,12 +200,6 @@
       "value": ""
     },
     {
-      "name": "wh_gold_warehouse_endpoint",
-      "note": "SQL connection endpoint (host) of the wh_gold warehouse.",
-      "type": "String",
-      "value": ""
-    },
-    {
       "name": "lh_gold_lakehouse_sql_endpoint",
       "note": "SQL analytics endpoint (host) of the lh_gold lakehouse.",
       "type": "String",

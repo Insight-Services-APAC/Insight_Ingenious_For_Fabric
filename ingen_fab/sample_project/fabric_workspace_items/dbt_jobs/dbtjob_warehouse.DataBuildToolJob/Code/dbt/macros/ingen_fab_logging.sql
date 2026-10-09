@@ -113,13 +113,19 @@ batch_id, project_name, target_name, target_type, command, selector, runner, sta
 batch_id, unique_id, resource_type, name, status, message, execution_time, started_at, ended_at, failures
 {%- endmacro %}
 
-{% macro ingen_fab_legacy_table(db_table, expected, sql_columns, rename_to) %}
+{% macro ingen_fab_legacy_table(db_table, expected, sql_columns, rename_to, sql_exists=none) %}
     {#- A table of that name may already exist with another shape: the retired
         dbt-fabricsparknb adapter wrote dbt_batch and dbt_execution_log with its own columns,
         and CREATE TABLE IF NOT EXISTS would keep them, so every insert would fail. When the
         existing columns are not the expected set, the table is renamed (Spark) and the new one
         is created next to it; a warehouse table of the wrong shape stops the run with the
         name to fix, since the fork never wrote warehouses. -#}
+    {#- Spark raises TABLE_OR_VIEW_NOT_FOUND for SHOW COLUMNS on a missing table, so the
+        Spark branch asks SHOW TABLES first; INFORMATION_SCHEMA simply returns no row -#}
+    {%- if sql_exists -%}
+        {%- set exists = run_query(sql_exists) -%}
+        {%- if exists is none or exists.rows | length == 0 -%}{{ return(none) }}{%- endif -%}
+    {%- endif -%}
     {%- set found = run_query(sql_columns) -%}
     {%- if found is not none and found.rows | length > 0 -%}
         {%- set names = [] -%}
@@ -168,8 +174,8 @@ batch_id, unique_id, resource_type, name, status, message, execution_time, start
     {%- set log_table = db ~ '.dbt_execution_log' -%}
     {%- set batch_cols = (ingen_fab_batch_columns() | replace(' ', '')).split(',') -%}
     {%- set node_cols = (ingen_fab_node_columns() | replace(' ', '')).split(',') -%}
-    {{ ingen_fab_legacy_table(batch, batch_cols, "SHOW COLUMNS IN " ~ batch, batch ~ "_v1") }}
-    {{ ingen_fab_legacy_table(log_table, node_cols, "SHOW COLUMNS IN " ~ log_table, log_table ~ "_v1") }}
+    {{ ingen_fab_legacy_table(batch, batch_cols, "SHOW COLUMNS IN " ~ batch, batch ~ "_v1", "SHOW TABLES IN " ~ db ~ " LIKE 'dbt_batch'") }}
+    {{ ingen_fab_legacy_table(log_table, node_cols, "SHOW COLUMNS IN " ~ log_table, log_table ~ "_v1", "SHOW TABLES IN " ~ db ~ " LIKE 'dbt_execution_log'") }}
     {% do run_query("CREATE TABLE IF NOT EXISTS " ~ batch ~ " (batch_id STRING, project_name STRING, target_name STRING, target_type STRING, command STRING, selector STRING, runner STRING, started_at TIMESTAMP, ended_at TIMESTAMP, status STRING, total_nodes INT, success_count INT, error_count INT, fail_count INT, skipped_count INT, warn_count INT) USING DELTA") %}
     {% do run_query("CREATE TABLE IF NOT EXISTS " ~ log_table ~ " (batch_id STRING, unique_id STRING, resource_type STRING, name STRING, status STRING, message STRING, execution_time DOUBLE, started_at TIMESTAMP, ended_at TIMESTAMP, failures INT) USING DELTA") %}
     {%- set rows = ingen_fab_node_rows(results) -%}

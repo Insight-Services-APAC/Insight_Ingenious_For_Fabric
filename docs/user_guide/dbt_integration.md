@@ -388,8 +388,9 @@ Delta tables, `fabric` writes T-SQL tables, any other adapter logs "no log store
 with `log(..., info=True)`: `ingen_fab_log_store_spark` runs `SHOW DATABASES LIKE
 '<log_lakehouse>'` and falls back to `target.lakehouse` (or `target.schema`);
 `ingen_fab_log_store_warehouse` queries `sys.databases` for `<log_warehouse>` and falls back
-to `target.database`. Only single quotes are escaped in those lookups. Before the create, `ingen_fab_legacy_table` reads the existing table's columns (`SHOW COLUMNS`
-on Spark, `INFORMATION_SCHEMA.COLUMNS` on T-SQL): a table whose columns are not the log's,
+to `target.database`. Only single quotes are escaped in those lookups. Before the create, `ingen_fab_legacy_table` checks the table exists (`SHOW TABLES` on Spark,
+where `SHOW COLUMNS` on a missing table raises) and reads its columns (`SHOW COLUMNS` on
+Spark, `INFORMATION_SCHEMA.COLUMNS` on T-SQL): a table whose columns are not the log's,
 as the retired adapter's were, is renamed to `<name>_v1` on Spark or stops the run on T-SQL.
 Tables are created
 with `CREATE TABLE IF NOT EXISTS ... USING DELTA` (Spark: STRING, INT, DOUBLE, TIMESTAMP) or

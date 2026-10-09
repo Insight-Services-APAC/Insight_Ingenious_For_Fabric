@@ -488,10 +488,19 @@ def test_check_name_refuses_a_trailing_newline() -> None:
 
 
 def _macro_module(run_query, logs):
+    """The logging macro as a plain Jinja module with a stub dbt context: run_query and log
+    from the caller, raise_compiler_error and return as exceptions the test can catch."""
     import jinja2
 
     class Compiler(Exception):
         pass
+
+    class Return(Exception):
+        def __init__(self, value):
+            self.value = value
+
+    def raise_(exc):
+        raise exc
 
     env = jinja2.Environment(extensions=["jinja2.ext.do"])
     env.globals.update(
@@ -500,72 +509,65 @@ def _macro_module(run_query, logs):
         exceptions=type(
             "E",
             (),
-            {
-                "raise_compiler_error": staticmethod(
-                    lambda m: (_ for _ in ()).throw(Compiler(m))
-                )
-            },
+            {"raise_compiler_error": staticmethod(lambda m: raise_(Compiler(m)))},
         )(),
     )
-    return env.from_string(
+    env.globals["return"] = lambda value: raise_(Return(value))
+    module = env.from_string(
         dbt_commands.LOGGING_MACRO.read_text(encoding="utf-8")
-    ).module, Compiler
+    ).module
+    return module, Compiler, Return
 
 
 def test_logging_macro_retires_a_legacy_table_before_creating_the_new_one() -> None:
     """The retired adapter left dbt_batch and dbt_execution_log with other columns, which
-    CREATE TABLE IF NOT EXISTS would keep. On Spark a table of another shape is renamed to
-    <name>_v1 and the new one created; a matching table is left alone; the inserts name their
-    columns so a mismatch fails on a column, never on position."""
+    CREATE TABLE IF NOT EXISTS would keep. On Spark the macro asks SHOW TABLES first (SHOW
+    COLUMNS on a missing table raises), renames a table of another shape to <name>_v1 and
+    creates the new one; a matching table is left alone; the inserts name their columns so a
+    mismatch fails on a column, never on position."""
 
     class Found:
         def __init__(self, rows):
             self.rows = rows
 
-    queries, logs = [], []
     legacy = [("batch_id",), ("start_time",), ("status",), ("master_notebook",)]
-    module, _ = _macro_module(lambda sql: queries.append(sql) or Found(legacy), logs)
-    expected = (module.ingen_fab_batch_columns().replace(" ", "")).split(",")
-    module.ingen_fab_legacy_table(
-        "lh_log.dbt_batch",
-        expected,
-        "SHOW COLUMNS IN lh_log.dbt_batch",
-        "lh_log.dbt_batch_v1",
+    EXISTS = "SHOW TABLES IN lh_log LIKE 'dbt_batch'"
+    COLUMNS = "SHOW COLUMNS IN lh_log.dbt_batch"
+    RENAME = "ALTER TABLE lh_log.dbt_batch RENAME TO lh_log.dbt_batch_v1"
+
+    def run(answers):
+        queries, logs = [], []
+        module, Compiler, Return = _macro_module(
+            lambda sql: queries.append(sql) or Found(answers.get(sql, [])), logs
+        )
+        expected = module.ingen_fab_batch_columns().replace(" ", "").split(",")
+        try:
+            module.ingen_fab_legacy_table(
+                "lh_log.dbt_batch", expected, COLUMNS, "lh_log.dbt_batch_v1", EXISTS
+            )
+        except Return:
+            pass
+        return queries, logs, expected
+
+    # a legacy table: SHOW TABLES, SHOW COLUMNS, then the rename
+    queries, logs, expected = run(
+        {EXISTS: [("lh_log", "dbt_batch", False)], COLUMNS: legacy}
     )
-    assert queries == [
-        "SHOW COLUMNS IN lh_log.dbt_batch",
-        "ALTER TABLE lh_log.dbt_batch RENAME TO lh_log.dbt_batch_v1",
-    ]
+    assert queries == [EXISTS, COLUMNS, RENAME]
     assert "renamed to lh_log.dbt_batch_v1" in logs[0]
 
-    queries.clear()
-    module, _ = _macro_module(
-        lambda sql: queries.append(sql) or Found([(c,) for c in expected]), logs
+    # a table of the right shape: nothing renamed
+    queries, _, _ = run(
+        {EXISTS: [("lh_log", "dbt_batch", False)], COLUMNS: [(c,) for c in expected]}
     )
-    module.ingen_fab_legacy_table(
-        "lh_log.dbt_batch",
-        expected,
-        "SHOW COLUMNS IN lh_log.dbt_batch",
-        "lh_log.dbt_batch_v1",
-    )
-    assert queries == [
-        "SHOW COLUMNS IN lh_log.dbt_batch"
-    ]  # same shape: nothing renamed
+    assert queries == [EXISTS, COLUMNS]
 
-    queries.clear()
-    module, _ = _macro_module(lambda sql: queries.append(sql) or Found([]), logs)
-    module.ingen_fab_legacy_table(
-        "lh_log.dbt_batch",
-        expected,
-        "SHOW COLUMNS IN lh_log.dbt_batch",
-        "lh_log.dbt_batch_v1",
-    )
-    assert queries == [
-        "SHOW COLUMNS IN lh_log.dbt_batch"
-    ]  # no table yet: nothing to do
+    # no table yet (a fresh log lakehouse): SHOW TABLES only, SHOW COLUMNS never asked
+    queries, _, _ = run({})
+    assert queries == [EXISTS]
 
     # a warehouse table of another shape stops the run with the table named
-    module, Compiler = _macro_module(lambda sql: Found(legacy), logs)
+    module, Compiler, _ = _macro_module(lambda sql: Found(legacy), [])
     with pytest.raises(Compiler, match="wh_log.dbo.dbt_batch exists with columns"):
         module.ingen_fab_legacy_table(
             "wh_log.dbo.dbt_batch", expected, "SELECT ...", None
@@ -575,6 +577,7 @@ def test_logging_macro_retires_a_legacy_table_before_creating_the_new_one() -> N
     assert macro.count('" (" ~ ingen_fab_batch_columns() ~ ") VALUES "') == 2
     assert macro.count('" (" ~ ingen_fab_node_columns() ~ ") VALUES "') == 2
     assert 'INSERT INTO " ~ batch ~ " VALUES' not in macro
+    assert "SHOW TABLES IN \" ~ db ~ \" LIKE 'dbt_batch'" in macro
     assert module.ingen_fab_node_columns().replace(" ", "").split(",") == [
         "batch_id",
         "unique_id",

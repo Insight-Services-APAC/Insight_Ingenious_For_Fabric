@@ -135,10 +135,6 @@
       "value": "REPLACE_WITH_WH_SILVER_WAREHOUSE_ENDPOINT"
     },
     {
-      "name": "wh_gold_warehouse_endpoint",
-      "value": "REPLACE_WITH_WH_GOLD_SQL_ENDPOINT"
-    },
-    {
       "name": "lh_gold_lakehouse_sql_endpoint",
       "value": "REPLACE_WITH_LH_GOLD_LAKEHOUSE_SQL_ENDPOINT"
     },
