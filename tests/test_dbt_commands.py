@@ -475,3 +475,115 @@ def test_log_store_macros_pick_the_store_or_fall_back(monkeypatch) -> None:
         == "wh_silver"
     )
     assert "wh_log not found" in logs[0]
+
+
+def test_check_name_refuses_a_trailing_newline() -> None:
+    """`$` would let "dp\n" through `match`; the check is a full match, so a name that would
+    end the notebook's header comment is refused."""
+    import typer
+
+    assert dbt_commands.check_name("dp", "x", dbt_commands.PROJECT_NAME) == "dp"
+    with pytest.raises(typer.Exit):
+        dbt_commands.check_name("dp\n", "x", dbt_commands.PROJECT_NAME)
+
+
+def _macro_module(run_query, logs):
+    import jinja2
+
+    class Compiler(Exception):
+        pass
+
+    env = jinja2.Environment(extensions=["jinja2.ext.do"])
+    env.globals.update(
+        run_query=run_query,
+        log=lambda msg, info=False: logs.append(msg),
+        exceptions=type(
+            "E",
+            (),
+            {
+                "raise_compiler_error": staticmethod(
+                    lambda m: (_ for _ in ()).throw(Compiler(m))
+                )
+            },
+        )(),
+    )
+    return env.from_string(
+        dbt_commands.LOGGING_MACRO.read_text(encoding="utf-8")
+    ).module, Compiler
+
+
+def test_logging_macro_retires_a_legacy_table_before_creating_the_new_one() -> None:
+    """The retired adapter left dbt_batch and dbt_execution_log with other columns, which
+    CREATE TABLE IF NOT EXISTS would keep. On Spark a table of another shape is renamed to
+    <name>_v1 and the new one created; a matching table is left alone; the inserts name their
+    columns so a mismatch fails on a column, never on position."""
+
+    class Found:
+        def __init__(self, rows):
+            self.rows = rows
+
+    queries, logs = [], []
+    legacy = [("batch_id",), ("start_time",), ("status",), ("master_notebook",)]
+    module, _ = _macro_module(lambda sql: queries.append(sql) or Found(legacy), logs)
+    expected = (module.ingen_fab_batch_columns().replace(" ", "")).split(",")
+    module.ingen_fab_legacy_table(
+        "lh_log.dbt_batch",
+        expected,
+        "SHOW COLUMNS IN lh_log.dbt_batch",
+        "lh_log.dbt_batch_v1",
+    )
+    assert queries == [
+        "SHOW COLUMNS IN lh_log.dbt_batch",
+        "ALTER TABLE lh_log.dbt_batch RENAME TO lh_log.dbt_batch_v1",
+    ]
+    assert "renamed to lh_log.dbt_batch_v1" in logs[0]
+
+    queries.clear()
+    module, _ = _macro_module(
+        lambda sql: queries.append(sql) or Found([(c,) for c in expected]), logs
+    )
+    module.ingen_fab_legacy_table(
+        "lh_log.dbt_batch",
+        expected,
+        "SHOW COLUMNS IN lh_log.dbt_batch",
+        "lh_log.dbt_batch_v1",
+    )
+    assert queries == [
+        "SHOW COLUMNS IN lh_log.dbt_batch"
+    ]  # same shape: nothing renamed
+
+    queries.clear()
+    module, _ = _macro_module(lambda sql: queries.append(sql) or Found([]), logs)
+    module.ingen_fab_legacy_table(
+        "lh_log.dbt_batch",
+        expected,
+        "SHOW COLUMNS IN lh_log.dbt_batch",
+        "lh_log.dbt_batch_v1",
+    )
+    assert queries == [
+        "SHOW COLUMNS IN lh_log.dbt_batch"
+    ]  # no table yet: nothing to do
+
+    # a warehouse table of another shape stops the run with the table named
+    module, Compiler = _macro_module(lambda sql: Found(legacy), logs)
+    with pytest.raises(Compiler, match="wh_log.dbo.dbt_batch exists with columns"):
+        module.ingen_fab_legacy_table(
+            "wh_log.dbo.dbt_batch", expected, "SELECT ...", None
+        )
+
+    macro = dbt_commands.LOGGING_MACRO.read_text(encoding="utf-8")
+    assert macro.count('" (" ~ ingen_fab_batch_columns() ~ ") VALUES "') == 2
+    assert macro.count('" (" ~ ingen_fab_node_columns() ~ ") VALUES "') == 2
+    assert 'INSERT INTO " ~ batch ~ " VALUES' not in macro
+    assert module.ingen_fab_node_columns().replace(" ", "").split(",") == [
+        "batch_id",
+        "unique_id",
+        "resource_type",
+        "name",
+        "status",
+        "message",
+        "execution_time",
+        "started_at",
+        "ended_at",
+        "failures",
+    ]

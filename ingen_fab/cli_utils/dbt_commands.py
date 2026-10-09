@@ -155,7 +155,7 @@ ITEM_NAME = re.compile(r"^[A-Za-z0-9][A-Za-z0-9 _-]*$")
 
 def check_name(value: str, what: str, pattern: re.Pattern) -> str:
     """Stop with a message when a name could leave its folder or is not a Fabric item name."""
-    if not pattern.match(value or ""):
+    if not pattern.fullmatch(value or ""):
         console.print(
             f"[red]{what} {value!r} is not valid: letters, digits, underscore and hyphen"
             f"{' and space' if pattern is ITEM_NAME else ''}, starting with a letter or digit[/red]"
@@ -334,6 +334,11 @@ def write_orchestrator_notebook(
     check_name(notebook_name, "notebook name", ITEM_NAME)
     if log_warehouse:
         check_name(log_warehouse, "log warehouse", PROJECT_NAME)
+    if any(ord(ch) < 32 for ch in select):
+        # the selector is rendered into the notebook's header comment as well as its code
+        raise profiles.ProfileError(
+            "--select must be one line without control characters"
+        )
     if command not in ORCHESTRATOR_COMMANDS:
         raise profiles.ProfileError(
             f"--command {command!r} is not one the orchestrator runs; choose one of "

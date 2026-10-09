@@ -12,7 +12,7 @@
 
 # MARKDOWN ********************
 
-# ## {{ notebook_name }}: dbt {{ dbt_command }} `{{ dbt_select }}`
+# ## {{ notebook_name }}: dbt {{ dbt_command }} {{ dbt_select | tojson }}
 #
 # A Python notebook (no Spark session of its own) that runs dbt against the project uploaded to
 # the config lakehouse (`ingen_fab deploy upload-dbt-project --dbt-project {{ dbt_project }}`),

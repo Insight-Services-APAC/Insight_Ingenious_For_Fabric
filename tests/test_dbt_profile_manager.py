@@ -729,3 +729,21 @@ def test_compile_notebook_does_not_claim_to_be_logged(tmp_path):
     )
     text = (build_nb / "notebook-content.py").read_text(encoding="utf-8")
     assert "logged by dbt's on-run-end hook" in text and "leaves no row" not in text
+
+
+def test_orchestrator_selector_is_one_line_and_the_header_renders_it_as_json(tmp_path):
+    """A selector with a line break would end the notebook's header comment and turn the rest
+    into code: it is refused at generation. The header renders the selector as a JSON string,
+    like the parameter cell."""
+    _project(tmp_path, extra={"dbt_default_lakehouse": "lh_bronze", **LOG_VARS})
+    with pytest.raises(pm.ProfileError, match="one line"):
+        dbt_commands.write_orchestrator_notebook(
+            _ctx(tmp_path), "dbt_project", "dbtload_nl", "tag:silver\nimport os"
+        )
+    selector = 'config.materialized:"table" path:models\silver'
+    path = dbt_commands.write_orchestrator_notebook(
+        _ctx(tmp_path), "dbt_project", "dbtload_hdr", selector
+    )
+    content = (path / "notebook-content.py").read_text(encoding="utf-8")
+    assert f"# ## dbtload_hdr: dbt build {json.dumps(selector)}" in content
+    assert f"`{selector}`" not in content

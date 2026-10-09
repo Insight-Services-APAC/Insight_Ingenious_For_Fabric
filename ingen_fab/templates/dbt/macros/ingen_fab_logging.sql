@@ -105,6 +105,36 @@
     }) }}
 {% endmacro %}
 
+{% macro ingen_fab_batch_columns() -%}
+batch_id, project_name, target_name, target_type, command, selector, runner, started_at, ended_at, status, total_nodes, success_count, error_count, fail_count, skipped_count, warn_count
+{%- endmacro %}
+
+{% macro ingen_fab_node_columns() -%}
+batch_id, unique_id, resource_type, name, status, message, execution_time, started_at, ended_at, failures
+{%- endmacro %}
+
+{% macro ingen_fab_legacy_table(db_table, expected, sql_columns, rename_to) %}
+    {#- A table of that name may already exist with another shape: the retired
+        dbt-fabricsparknb adapter wrote dbt_batch and dbt_execution_log with its own columns,
+        and CREATE TABLE IF NOT EXISTS would keep them, so every insert would fail. When the
+        existing columns are not the expected set, the table is renamed (Spark) and the new one
+        is created next to it; a warehouse table of the wrong shape stops the run with the
+        name to fix, since the fork never wrote warehouses. -#}
+    {%- set found = run_query(sql_columns) -%}
+    {%- if found is not none and found.rows | length > 0 -%}
+        {%- set names = [] -%}
+        {%- for row in found.rows -%}{%- do names.append(row[0] | string | lower) -%}{%- endfor -%}
+        {%- if names | sort != expected | sort -%}
+            {%- if rename_to -%}
+                {% do run_query("ALTER TABLE " ~ db_table ~ " RENAME TO " ~ rename_to) %}
+                {{ log("ingen_fab logging: " ~ db_table ~ " had another shape (" ~ names | join(', ') ~ "); renamed to " ~ rename_to ~ " and recreated", info=True) }}
+            {%- else -%}
+                {{ exceptions.raise_compiler_error("ingen_fab logging: " ~ db_table ~ " exists with columns (" ~ names | join(', ') ~ ") that are not the log's; rename or drop it before running") }}
+            {%- endif -%}
+        {%- endif -%}
+    {%- endif -%}
+{% endmacro %}
+
 {% macro ingen_fab_node_values(rows, batch_id, ts_type, bs=false) %}
     {%- for r in rows -%}
         ({{ ingen_fab_sql_string(batch_id, bs) }}, {{ ingen_fab_sql_string(r.unique_id, bs) }}, {{ ingen_fab_sql_string(r.resource_type, bs) }}, {{ ingen_fab_sql_string(r.name, bs) }}, {{ ingen_fab_sql_string(r.status, bs) }}, {{ ingen_fab_sql_string(r.message, bs) }}, {{ r.execution_time }}, {{ ingen_fab_timestamp(r.started_at, ts_type) }}, {{ ingen_fab_timestamp(r.ended_at, ts_type) }}, {{ r.failures }}){{ ", " if not loop.last }}
@@ -136,14 +166,18 @@
     {%- set db = ingen_fab_log_store_spark() -%}
     {%- set batch = db ~ '.dbt_batch' -%}
     {%- set log_table = db ~ '.dbt_execution_log' -%}
+    {%- set batch_cols = (ingen_fab_batch_columns() | replace(' ', '')).split(',') -%}
+    {%- set node_cols = (ingen_fab_node_columns() | replace(' ', '')).split(',') -%}
+    {{ ingen_fab_legacy_table(batch, batch_cols, "SHOW COLUMNS IN " ~ batch, batch ~ "_v1") }}
+    {{ ingen_fab_legacy_table(log_table, node_cols, "SHOW COLUMNS IN " ~ log_table, log_table ~ "_v1") }}
     {% do run_query("CREATE TABLE IF NOT EXISTS " ~ batch ~ " (batch_id STRING, project_name STRING, target_name STRING, target_type STRING, command STRING, selector STRING, runner STRING, started_at TIMESTAMP, ended_at TIMESTAMP, status STRING, total_nodes INT, success_count INT, error_count INT, fail_count INT, skipped_count INT, warn_count INT) USING DELTA") %}
     {% do run_query("CREATE TABLE IF NOT EXISTS " ~ log_table ~ " (batch_id STRING, unique_id STRING, resource_type STRING, name STRING, status STRING, message STRING, execution_time DOUBLE, started_at TIMESTAMP, ended_at TIMESTAMP, failures INT) USING DELTA") %}
     {%- set rows = ingen_fab_node_rows(results) -%}
     {%- set b = ingen_fab_batch_row(results) -%}
     {%- for chunk in rows | batch(200) -%}
-        {% do run_query("INSERT INTO " ~ log_table ~ " VALUES " ~ ingen_fab_node_values(chunk, b.batch_id, 'TIMESTAMP', true)) %}
+        {% do run_query("INSERT INTO " ~ log_table ~ " (" ~ ingen_fab_node_columns() ~ ") VALUES " ~ ingen_fab_node_values(chunk, b.batch_id, 'TIMESTAMP', true)) %}
     {%- endfor -%}
-    {% do run_query("INSERT INTO " ~ batch ~ " VALUES " ~ ingen_fab_batch_values(b, 'TIMESTAMP', true)) %}
+    {% do run_query("INSERT INTO " ~ batch ~ " (" ~ ingen_fab_batch_columns() ~ ") VALUES " ~ ingen_fab_batch_values(b, 'TIMESTAMP', true)) %}
     {{ log("ingen_fab logging: " ~ rows | length ~ " node row(s) and the batch row written to " ~ db, info=True) }}
 {% endmacro %}
 
@@ -168,6 +202,10 @@
     {%- set schema = var('log_schema', 'dbo') -%}
     {%- set batch = db ~ '.' ~ schema ~ '.dbt_batch' -%}
     {%- set log_table = db ~ '.' ~ schema ~ '.dbt_execution_log' -%}
+    {%- set batch_cols = (ingen_fab_batch_columns() | replace(' ', '')).split(',') -%}
+    {%- set node_cols = (ingen_fab_node_columns() | replace(' ', '')).split(',') -%}
+    {{ ingen_fab_legacy_table(batch, batch_cols, "SELECT COLUMN_NAME FROM " ~ db ~ ".INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA = '" ~ (schema | replace("'", "''")) ~ "' AND TABLE_NAME = 'dbt_batch'", none) }}
+    {{ ingen_fab_legacy_table(log_table, node_cols, "SELECT COLUMN_NAME FROM " ~ db ~ ".INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA = '" ~ (schema | replace("'", "''")) ~ "' AND TABLE_NAME = 'dbt_execution_log'", none) }}
     {#- VARCHAR(n) counts bytes under the warehouse's UTF-8 collation, so the free-text columns
         are VARCHAR(MAX) and the macro's 4000-character cut cannot overflow them -#}
     {% do run_query("IF OBJECT_ID('" ~ batch ~ "') IS NULL CREATE TABLE " ~ batch ~ " (batch_id VARCHAR(64), project_name VARCHAR(256), target_name VARCHAR(256), target_type VARCHAR(64), command VARCHAR(64), selector VARCHAR(MAX), runner VARCHAR(256), started_at DATETIME2(3), ended_at DATETIME2(3), status VARCHAR(32), total_nodes INT, success_count INT, error_count INT, fail_count INT, skipped_count INT, warn_count INT)") %}
@@ -175,8 +213,8 @@
     {%- set rows = ingen_fab_node_rows(results) -%}
     {%- set b = ingen_fab_batch_row(results) -%}
     {%- for chunk in rows | batch(200) -%}
-        {% do run_query("INSERT INTO " ~ log_table ~ " VALUES " ~ ingen_fab_node_values(chunk, b.batch_id, 'DATETIME2(3)')) %}
+        {% do run_query("INSERT INTO " ~ log_table ~ " (" ~ ingen_fab_node_columns() ~ ") VALUES " ~ ingen_fab_node_values(chunk, b.batch_id, 'DATETIME2(3)')) %}
     {%- endfor -%}
-    {% do run_query("INSERT INTO " ~ batch ~ " VALUES " ~ ingen_fab_batch_values(b, 'DATETIME2(3)')) %}
+    {% do run_query("INSERT INTO " ~ batch ~ " (" ~ ingen_fab_batch_columns() ~ ") VALUES " ~ ingen_fab_batch_values(b, 'DATETIME2(3)')) %}
     {{ log("ingen_fab logging: " ~ rows | length ~ " node row(s) and the batch row written to " ~ db ~ "." ~ schema, info=True) }}
 {% endmacro %}

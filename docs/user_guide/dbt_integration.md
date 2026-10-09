@@ -224,7 +224,10 @@ tables in the **log warehouse** (var `log_warehouse`, default `wh_log`; schema v
 `log_schema`, default `dbo`), reached by three-part name within the workspace. When the
 workspace has no store of that name, the run is logged into the project's own lakehouse or
 warehouse instead, and dbt's output says so; a dedicated log store is the default, the
-project's own storage the fallback. The tables are created on first use.
+project's own storage the fallback. The tables are created on first use. A table of that name
+left by the retired adapter, with other columns, is renamed to `dbt_batch_v1` or
+`dbt_execution_log_v1` in a lakehouse before the new one is created, so its rows stay
+readable; in a warehouse a table of another shape stops the run with its name.
 
 The macro is `macros/ingen_fab_logging.sql` in the dbt project, maintained by ingen_fab:
 `ingen_fab dbt profile`, every `ingen_fab dbt <verb>` and `ingen_fab dbt orchestrator`
@@ -336,8 +339,9 @@ whatever `profiles/` holds (the folder is created if missing); for any other ver
 `ProfileError` ends the command. `--lakehouse` with a hand-written profile only warns. The
 `dbt` executable is looked up next to the running interpreter first, then on `PATH`
 (`dbt_executable`). `check_name` (`PROJECT_NAME`, `ITEM_NAME`) guards the project name on
-`profile`, the verbs and `orchestrator`, and the notebook name and `--log-warehouse`; it is
-not applied by `generate-schema-yml` or `upload-dbt-project`.
+`profile`, the verbs and `orchestrator`, and the notebook name and `--log-warehouse`, as a
+full match (a trailing newline is refused); it is not applied by `generate-schema-yml` or
+`upload-dbt-project`.
 
 **The orchestrator notebook, at generation.** `write_orchestrator_notebook` checks, in
 order: the command is one of `ORCHESTRATOR_COMMANDS`; the project folder holds
@@ -355,8 +359,9 @@ names, `allowed_commands` (rendered into the notebook as `ALLOWED`), the command
 threads, `dbt_vars`, `dbt_target`, `dbt_indirect_selection`, the log lakehouse, the log
 warehouse and `env_variables`. Values used in code are rendered with `tojson`, except
 `variable_library` (inside the f-string of `variable()`) and `dbt_threads` (an int); the
-markdown header renders the names and the selector raw inside comments, and the selector is
-not validated. An existing `.platform` file of the notebook is kept.
+markdown header renders the names raw inside comments (they pass `check_name`) and the
+selector with `tojson`; a selector with a line break or another control character is
+refused at generation. An existing `.platform` file of the notebook is kept.
 
 **The orchestrator notebook, at run time.** `FAILURE_FOLDER` is built before the `try`,
 from `<log lakehouse>_workspace_id` and `_lakehouse_id` read from the deployed Variable
@@ -383,12 +388,17 @@ Delta tables, `fabric` writes T-SQL tables, any other adapter logs "no log store
 with `log(..., info=True)`: `ingen_fab_log_store_spark` runs `SHOW DATABASES LIKE
 '<log_lakehouse>'` and falls back to `target.lakehouse` (or `target.schema`);
 `ingen_fab_log_store_warehouse` queries `sys.databases` for `<log_warehouse>` and falls back
-to `target.database`. Only single quotes are escaped in those lookups. Tables are created
+to `target.database`. Only single quotes are escaped in those lookups. Before the create, `ingen_fab_legacy_table` reads the existing table's columns (`SHOW COLUMNS`
+on Spark, `INFORMATION_SCHEMA.COLUMNS` on T-SQL): a table whose columns are not the log's,
+as the retired adapter's were, is renamed to `<name>_v1` on Spark or stops the run on T-SQL.
+Tables are created
 with `CREATE TABLE IF NOT EXISTS ... USING DELTA` (Spark: STRING, INT, DOUBLE, TIMESTAMP) or
 `IF OBJECT_ID(...) IS NULL CREATE TABLE` (T-SQL: VARCHAR(64), VARCHAR(256), VARCHAR(MAX) for
 free text because VARCHAR(n) counts bytes under UTF-8, INT, FLOAT, DATETIME2(3)). Neither
-statement alters an existing table, so a column change needs a migration of every deployed
-log store; a `log_schema` other than `dbo` is not created by the macro. Rows: node rows are
+statement alters an existing table; a column change in the macro is caught by the same
+column check and leaves the old table as `_v1`. The inserts name their columns
+(`ingen_fab_batch_columns`, `ingen_fab_node_columns`), so a mismatch fails on a column, not
+silently on position; a `log_schema` other than `dbo` is not created by the macro. Rows: node rows are
 inserted in chunks of 200, the batch row last, so a failed node insert leaves no batch row.
 Strings are cut to 4000 characters and escaped by `ingen_fab_sql_string` (quotes doubled;
 backslashes doubled for Spark only); timestamps are formatted to whole seconds and cast per
@@ -458,7 +468,10 @@ Steps for an existing project:
 - keep the folder routing you have: `schema: <lakehouse>` per folder on plain lakehouses,
   `+database: <lakehouse>` plus `+schema: dbo` on schema-enabled ones;
 - replace the master notebook with one orchestrator notebook per selector, upload the project
-  with `ingen_fab deploy upload-dbt-project`, deploy.
+  with `ingen_fab deploy upload-dbt-project`, deploy;
+- the old `dbt_batch` and `dbt_execution_log` in the log lakehouse are renamed to `dbt_batch_v1`
+  and `dbt_execution_log_v1` by the first logged run; drop them when their rows are no longer
+  needed.
 
 Incremental models, snapshots and seeds run as standard dbt materializations; the
 `merge`, `append`, `insert_overwrite`, `microbatch` and `delete+insert` strategies are
