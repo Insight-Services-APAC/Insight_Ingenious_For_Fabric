@@ -73,3 +73,13 @@ sources:
     - name: HappinessIndex
       data_type: int
       description: ''
+  - name: state_provinces
+    description: ''
+  - name: customers
+    description: ''
+  - name: stock_items
+    description: ''
+  - name: orders
+    description: ''
+  - name: order_lines
+    description: ''

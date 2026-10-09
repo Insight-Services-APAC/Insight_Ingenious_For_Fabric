@@ -116,20 +116,39 @@ Ingenious for Fabric is a comprehensive command line tool built with [Typer](htt
 
 **5-Minute Start**: Create and deploy your first project
 
-```bash
-# 1. Create project
-ingen_fab init new --project-name "dp"
+=== "macOS/Linux"
 
-# 2. Set environment
-export FABRIC_WORKSPACE_REPO_DIR="dp"
-export FABRIC_ENVIRONMENT="development"
+    ```bash
+    # 1. Create project
+    ingen_fab init new --project-name "dp"
 
-# 3. Generate notebooks
-ingen_fab ddl compile --generation-mode Warehouse
+    # 2. Set environment
+    export FABRIC_WORKSPACE_REPO_DIR="dp"
+    export FABRIC_ENVIRONMENT="development"
 
-# 4. Deploy
-ingen_fab deploy deploy
-```
+    # 3. Generate notebooks
+    ingen_fab ddl compile --generation-mode Warehouse
+
+    # 4. Deploy (the workspace's capacity must be Active)
+    ingen_fab deploy deploy
+    ```
+
+=== "Windows"
+
+    ```powershell
+    # 1. Create project
+    ingen_fab init new --project-name "dp"
+
+    # 2. Set environment
+    $env:FABRIC_WORKSPACE_REPO_DIR = "dp"
+    $env:FABRIC_ENVIRONMENT = "development"
+
+    # 3. Generate notebooks
+    ingen_fab ddl compile --generation-mode Warehouse
+
+    # 4. Deploy (the workspace's capacity must be Active)
+    ingen_fab deploy deploy
+    ```
 
 **Package Usage**: Add data ingestion capabilities
 

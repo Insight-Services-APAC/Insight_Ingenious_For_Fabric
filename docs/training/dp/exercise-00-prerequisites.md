@@ -66,13 +66,16 @@ pip install git+https://github.com/Insight-Services-APAC/Insight_Ingenious_For_F
 
 ## Step 4: Install the dbt adapter
 
-The dbt integration requires the `dbt-fabricsparknb` adapter, which is a separate install:
+The dbt integration uses Microsoft's `dbt-fabricspark` adapter for lakehouses. Install it into
+the same virtual environment as `ingen_fab` (for warehouses, add `dbt-fabric`):
 
 ```bash
-pip install git+https://github.com/Insight-Services-APAC/APAC-Capability-DAI-DbtFabricSparkNB.git
+pip install "dbt-fabricspark>=1.13,<2"
 ```
 
-This installs `dbt_wrapper` on your PATH, which `ingen_fab dbt exec` uses to run dbt commands locally against your Fabric workspace.
+This puts `dbt` next to the interpreter; `ingen_fab dbt build` (and the other dbt verbs) find
+it there and run it with a profile generated from your value set. (In a checkout of the
+ingen_fab repository, `uv sync --group dbt` installs the same packages.)
 
 ---
 
@@ -80,7 +83,7 @@ This installs `dbt_wrapper` on your PATH, which `ingen_fab dbt exec` uses to run
 
 ```bash
 ingen_fab --help
-dbt_wrapper --help
+dbt --version
 ```
 
 Expected output:
@@ -155,7 +158,7 @@ Before moving to Exercise 1, confirm:
 - [ ] Python 3.12+ installed
 - [ ] Virtual environment created and activated
 - [ ] `ingen_fab --help` returns the command list
-- [ ] `dbt_wrapper --version` returns a version number
+- [ ] `dbt --version` lists the `fabricspark` plugin
 - [ ] `az account show` returns your account details
 - [ ] Fabric workspace exists and you have the Workspace ID noted
 

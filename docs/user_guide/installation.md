@@ -69,7 +69,7 @@ It's recommended to use a virtual environment to avoid conflicts with other pack
     ```powershell
     # Create a virtual environment
     python -m venv fabric-env
-    fabric-env\Scripts\activate
+    fabric-env\Scripts\Activate.ps1
 
     # Install the package (when available in PyPI)
     pip install insight-ingenious-for-fabric
@@ -77,6 +77,11 @@ It's recommended to use a virtual environment to avoid conflicts with other pack
     # Or install from GitHub
     pip install git+https://github.com/Insight-Services-APAC/Insight_Ingenious_For_Fabric.git
     ```
+
+In PowerShell the activation script is `Activate.ps1`; the file named `activate` without an extension is the bash script and does nothing in PowerShell.
+
+!!! note "The command lives in the virtual environment"
+    `ingen_fab` is installed inside the virtual environment and is only on `PATH` while that environment is active. Activate it in every new terminal before running any command; the prompt shows the environment's name in parentheses when it is active. `ingen_fab : The term 'ingen_fab' is not recognized` (PowerShell) or `ingen_fab: command not found` (bash) means the environment is not active, or a different one is.
 
 ### Installing with Optional Dependencies
 
@@ -87,11 +92,12 @@ pip install "insight-ingenious-for-fabric[dbt,dataprep]"
 
 ### Installing dbt adapter
 
-If you are going to develop dbt models, you will need to install Insight's dbt adapter:
+If you are going to develop dbt models, install Microsoft's adapters into the same
+environment: `dbt-fabricspark` for lakehouses, `dbt-fabric` for warehouses (in a checkout of
+this repository, `uv sync --group dbt` installs the lakehouse one):
 
 ```bash
-# Install with dbt support
-pip install git+https://github.com/Insight-Services-APAC/APAC-Capability-DAI-DbtFabricSparkNB.git
+pip install "dbt-fabricspark>=1.13,<2" "dbt-fabric>=1.9,<2"
 ```
 
 ## Environment Setup
@@ -99,14 +105,28 @@ pip install git+https://github.com/Insight-Services-APAC/APAC-Capability-DAI-Dbt
 ### Environment Variables
 
 After installation, configure your environment variables for the CLI:
-```bash
-# Set environment (development, UAT, production)
-$env:FABRIC_ENVIRONMENT = "development"
 
-# Set workspace directory
-$env:FABRIC_WORKSPACE_REPO_DIR = "dp"
-```
-The above assumes your working in a project "dp" in the development environment.
+=== "macOS/Linux"
+
+    ```bash
+    # Set environment (development, UAT, production)
+    export FABRIC_ENVIRONMENT="development"
+
+    # Set workspace directory
+    export FABRIC_WORKSPACE_REPO_DIR="dp"
+    ```
+
+=== "Windows"
+
+    ```powershell
+    # Set environment (development, UAT, production)
+    $env:FABRIC_ENVIRONMENT = "development"
+
+    # Set workspace directory
+    $env:FABRIC_WORKSPACE_REPO_DIR = "dp"
+    ```
+
+The above assumes you are working in a project "dp" in the development environment, from the parent folder of `dp` (the path is relative to the terminal's working directory).
 
 ### Shell Configuration (Optional)
 
@@ -323,7 +343,7 @@ Or Create a virtual environment (recommended)
     ```powershell
     # Create a virtual environment
     python -m venv fabric-env
-    fabric-env\Scripts\activate
+    fabric-env\Scripts\Activate.ps1
 
     # Install the package (when available in PyPI)
     pip install insight-ingenious-for-fabric

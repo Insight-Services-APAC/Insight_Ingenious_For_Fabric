@@ -159,7 +159,7 @@ ingen_fab ddl compile \
 ingen_fab deploy deploy 
 ```
 
-### 5. Create the gold table, build the dbt notebook, and run
+### 5. Create the gold table, build it with dbt, and schedule it
 
 **5a. Create the empty gold table in Fabric**
 
@@ -171,45 +171,30 @@ Step 4 deployed your DDL notebooks to Fabric. Now run them. In your Fabric works
 
 This creates the empty `dim_city_geography` table in `lh_gold`. 
 
-**5b. Build the dbt notebook locally**
+**5b. Build the model with dbt**
 
 ```bash
-ingen_fab dbt exec -- build-local dbt_project --select dim_city_geography
+ingen_fab dbt build -- --select dim_city_geography
 ```
 
-When prompted, select your silver lakehouse (i.e `lh_silver`).
-
-This compiles the gold model against your live Fabric lakehouses and writes a Fabric-native Python notebook to `dbt_project/target/notebooks_fabric_py/`. You should see `PASS=1` in the output.
+dbt reads the three silver tables and writes `lh_gold.dim_city_geography` (the `gold` folder's
+`schema: lh_gold` rule in `dbt_project.yml`). You should see `PASS=1`.
 
 !!! warning "All three silver tables must have data"
-    `build-local` validates the model against live Fabric. If `cities` or `countries` in `lh_silver` are empty (Step 0 not completed), the compilation will still succeed but the dbt run in Step 5d will produce no rows.
+    If `cities` or `countries` in `lh_silver` are empty (Step 0 not completed), the run
+    succeeds but produces no rows.
 
-**5c. Stage and deploy the generated notebook to Fabric**
+**5c. Make it schedulable**
 
 ```bash
-ingen_fab dbt create-notebooks --dbt-project dbt_project
+ingen_fab dbt orchestrator --name dbtload_gold --select "path:models/gold"
+ingen_fab deploy upload-dbt-project --dbt-project dbt_project
 ingen_fab deploy deploy
 ```
 
-**5d. Run the dbt notebook in Fabric**
+**5d. Run the orchestrator notebook in Fabric**
 
-In your Fabric workspace, run the generated notebook:
-
-```
-model.dbt_project.dim_city_geography
-```
-
-This executes the incremental merge joining all three silver tables into `lh_gold.dim_city_geography`. Alternatively, run the master orchestrator notebook `master_dbt_project_notebook` to execute all dbt models.
-
-**5e. Create the warehouse view**
-
-Run the `wh_gold` warehouse orchestrator notebook:
-
-```
-001_Initial_Creation_wh_gold_Warehouses_ddl_scripts
-```
-
-This creates the `DW.vDim_CityGeography` view in `wh_gold`.
+In your Fabric workspace, run `dbtload_gold`.
 
 ## Verification
 
@@ -239,14 +224,6 @@ If any columns show `NULL`, check that:
 1. All three silver tables (`cities`, `state_provinces`, `countries`) have data (Step 0)
 2. The `state_provinces` seed includes StateProvinceIDs matching the cities (1–5)
 3. The `countries` seed includes CountryID 230 (United States)
-
-In `wh_gold`, run:
-
-```sql
-SELECT TOP 10 * FROM DW.vDim_CityGeography
-```
-
-The same 10 rows should appear.
 
 ---
 

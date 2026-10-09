@@ -1,0 +1,2 @@
+dbt-core==1.9.5
+dbt-fabric==1.9.8

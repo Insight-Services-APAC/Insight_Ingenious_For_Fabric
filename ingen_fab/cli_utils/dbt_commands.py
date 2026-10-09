@@ -1,296 +1,423 @@
+"""dbt on Fabric Spark through the native ``dbt-fabricspark`` adapter.
+
+Three things live here: the proxy that runs ``dbt`` with the project's generated profile,
+the orchestrator notebook that runs the same dbt command inside Fabric against the project
+uploaded to the config lakehouse, and the ``schema.yml`` generator from lakehouse metadata.
+"""
+
 import csv
-import json
+import os
 import re
+import shutil
+import subprocess
+import sys
 from pathlib import Path
+from typing import Optional
 
 import typer
 from rich.console import Console
-from rich.panel import Panel
 
-from ingen_fab.cli_utils.dbt_profile_manager import ensure_dbt_profile
+from ingen_fab.cli_utils import dbt_profile_manager as profiles
 from ingen_fab.notebook_utils.notebook_utils import NotebookUtils
 
 console = Console()
 
+DBT_VERBS = (
+    "build",
+    "run",
+    "test",
+    "seed",
+    "snapshot",
+    "compile",
+    "parse",
+    "debug",
+    "docs",
+    "ls",
+    "list",
+    "clean",
+    "deps",
+    "show",
+)
+DEFAULT_VARIABLE_LIBRARY = "var_lib"
+# Logs go to the log lakehouse; this is its name unless the project defines `log_lakehouse`.
+DEFAULT_LOG_LAKEHOUSE = "lh_log"
 
-def create_additional_notebooks(
-    ctx: typer.Context, dbt_project: str, skip_profile_confirmation: bool = False
-) -> None:
-    """Create notebooks in fabric_workspace_items/{dbt_project} from dbt target outputs.
 
-    This scans {workspace}/{dbt_project}/target/notebooks_fabric_py for Python notebooks,
-    reads their contents, and creates Fabric notebooks under
-    {workspace}/fabric_workspace_items/{dbt_project}/ using NotebookUtils.create_notebook_with_platform.
+def dbt_executable() -> Optional[str]:
+    """The ``dbt`` entry point of the environment ingen_fab runs in.
+
+    Looked up next to the running interpreter first (the venv's Scripts/bin folder, which is
+    not on PATH when the interpreter is invoked without activating the venv), then on PATH.
+    The interpreter path is taken as is: in a Linux or macOS venv ``sys.executable`` is a
+    symlink to the base interpreter, and resolving it would look next to the wrong python.
     """
+    for scripts in (Path(sys.executable).parent, Path(sys.executable).resolve().parent):
+        for name in ("dbt.exe", "dbt"):
+            candidate = scripts / name
+            if candidate.is_file():
+                return str(candidate)
+    return shutil.which("dbt")
 
-    # Check and update dbt profile if needed
-    if not ensure_dbt_profile(ctx, ask_confirmation=not skip_profile_confirmation):
-        raise typer.Exit(code=1)
 
-    # Resolve workspace directory from context (set by main callback)
-    workspace_dir = ctx.obj.get("fabric_workspace_repo_dir") if ctx.obj else None
-    if not workspace_dir:
-        console.print("[red]Fabric workspace repo dir not provided.[/red]")
-        raise typer.Exit(code=1)
-
-    workspace_dir = Path(workspace_dir)
-
-    # Source dir containing dbt-generated notebook .py files
-    source_dir = workspace_dir / dbt_project / "target" / "notebooks_fabric_py"
-
-    if not source_dir.exists() or not source_dir.is_dir():
-        console.print(f"[red]Source directory not found:[/red] {source_dir}")
-        raise typer.Exit(code=1)
-
-    # Target directory for Fabric notebooks
-    target_dir = workspace_dir / "fabric_workspace_items" / dbt_project
-    target_dir.mkdir(parents=True, exist_ok=True)
-
-    # Initialize NotebookUtils with workspace root
-    nb_utils = NotebookUtils(
-        fabric_workspace_repo_dir=workspace_dir,
-        output_dir=workspace_dir / "fabric_workspace_items",
-        enable_console=True,
+def dbt_command_line(
+    exe: str,
+    verb: str,
+    dbt_project_dir: Path,
+    profiles_dir: Path,
+    environment: str,
+    args: list[str],
+    generated_profile: bool = True,
+) -> list[str]:
+    """The ``dbt`` command for a verb: explicit project and profiles directories, the
+    environment as target where dbt takes one, then the pass-through arguments. ``dbt docs``
+    is a command group whose subcommand (``generate``, ``serve``) must come before any option,
+    so a leading positional argument is placed right after the verb."""
+    args = list(args)
+    command = [exe, verb]
+    if verb == "docs" and args and not args[0].startswith("-"):
+        command.append(args.pop(0))
+    command += [
+        "--project-dir",
+        str(dbt_project_dir),
+        "--profiles-dir",
+        str(profiles_dir),
+    ]
+    # A generated profile has one target per environment, so the environment is the target
+    # unless the caller chose one (`-- --target laptop`). A hand-written profile names its own
+    # targets and its own default: nothing is injected.
+    caller_chose_target = any(
+        a in ("--target", "-t") or a.startswith("--target=") for a in args
     )
+    if (
+        generated_profile
+        and verb not in ("clean", "deps", "docs")
+        and not caller_chose_target
+    ):
+        command += ["--target", environment]
+    return command + args
 
-    # Load manifest to map model unique_id -> path for folder structure
-    manifest_path = workspace_dir / dbt_project / "target" / "manifest.json"
-    manifest = {}
-    if manifest_path.exists():
-        try:
-            import json
 
-            with manifest_path.open("r", encoding="utf-8") as mf:
-                manifest = json.load(mf)
-        except Exception as e:
-            console.print(
-                f"[yellow]Warning: Could not read manifest.json: {e}[/yellow]"
-            )
+# Verbs that touch no lakehouse: they run even when the value set cannot yet yield a profile
+# (ids still placeholders), for example to fetch packages before any workspace exists.
+OFFLINE_VERBS = ("clean", "deps")
 
-    nodes = manifest.get("nodes", {}) if isinstance(manifest, dict) else {}
+# What the orchestrator notebook may run: the verbs that take a selector (the notebook always
+# passes --select; `dbt parse` does not accept one). The template carries the same set,
+# rendered from here, and refuses anything else at run time.
+ORCHESTRATOR_COMMANDS = ("build", "run", "test", "seed", "snapshot", "compile")
 
-    # Collect .py notebook files
-    notebook_files: list[Path] = sorted(source_dir.glob("*.py"))
-    if not notebook_files:
-        console.print("[yellow]No notebooks found to import.[/yellow]")
-        return
 
-    console.print(
-        Panel.fit(
-            f"Creating notebooks for [bold]{len(notebook_files)}[/bold] dbt items",
-            title=f"DBT Project: {dbt_project}",
-            border_style="cyan",
+# The run-logging macro every project gets: dbt writes dbt_batch and dbt_execution_log into the
+# log store from its on-run-end hook (the tables the Spark adapter's projects always had).
+LOGGING_MACRO = (
+    Path(__file__).resolve().parent.parent
+    / "templates"
+    / "dbt"
+    / "macros"
+    / "ingen_fab_logging.sql"
+)
+LOGGING_HOOK = "{{ ingen_fab_log_run(results) }}"
+
+
+def refresh_logging_macro(dbt_project_dir: Path) -> Path:
+    """Copy the generated logging macro into ``<dbt_project>/macros/`` (overwriting the previous
+    copy) and warn when ``dbt_project.yml`` does not call it from ``on-run-end``."""
+    target = dbt_project_dir / "macros" / LOGGING_MACRO.name
+    target.parent.mkdir(parents=True, exist_ok=True)
+    text = LOGGING_MACRO.read_text(encoding="utf-8")
+    if not target.is_file() or target.read_text(encoding="utf-8") != text:
+        target.write_text(text, encoding="utf-8", newline="\n")
+    if not logging_hook_present(dbt_project_dir):
+        console.print(
+            f"[yellow]{dbt_project_dir.name}/dbt_project.yml has no on-run-end hook calling "
+            f'ingen_fab_log_run: runs are not logged. Add:\n  on-run-end:\n    - "{LOGGING_HOOK}"[/yellow]'
         )
-    )
+    return target
 
-    created = 0
-    for nb_path in notebook_files:
-        try:
-            notebook_name = nb_path.stem  # keep original stem, may include dots
-            with nb_path.open("r", encoding="utf-8") as f:
-                content = f.read()
 
-            # Determine category and destination folder
-            stem = notebook_name
-            dest_root = target_dir
-            category = None
-            model_name_for_group = None
-            if stem.startswith("model."):
-                # Replicate path structure from manifest under models/
-                dest_root = target_dir / "models"
-                category = "model"
-                node = nodes.get(stem, {})
-                rel_path = node.get("path") if isinstance(node, dict) else None
-                if rel_path:
-                    p = Path(rel_path)
-                    parts = list(p.parts)
-                    if "models" in parts:
-                        try:
-                            idx = parts.index("models")
-                            # subdirs under models, excluding the filename
-                            sub = (
-                                Path(*parts[idx + 1 : -1])
-                                if len(parts) > idx + 1
-                                else Path()
-                            )
-                        except ValueError:
-                            sub = p.parent
-                    else:
-                        sub = p.parent
-                    # Append model name folder under the subpath
-                    model_name_for_group = stem.split(".")[-1]
-                    dest_root = dest_root / sub / model_name_for_group
-                else:
-                    # No manifest path; still place under models/<model_name>
-                    model_name_for_group = stem.split(".")[-1]
-                    dest_root = dest_root / model_name_for_group
-            elif stem.startswith("seed."):
-                dest_root = target_dir / "seeds"
-                category = "seed"
-            elif stem.startswith("test."):
-                # Place tests alongside their associated model's folder structure
-                dest_root = target_dir / "models"
-                category = "test"
-                node = nodes.get(stem, {})
-                model_uid = None
-                if isinstance(node, dict):
-                    deps = node.get("depends_on", {})
-                    if isinstance(deps, dict):
-                        for dep_uid in deps.get("nodes", []) or []:
-                            if isinstance(dep_uid, str) and dep_uid.startswith(
-                                "model."
-                            ):
-                                model_uid = dep_uid
-                                break
-                if model_uid and model_uid in nodes:
-                    model_node = nodes[model_uid]
-                    rel_path = (
-                        model_node.get("path") if isinstance(model_node, dict) else None
-                    )
-                    if rel_path:
-                        p = Path(rel_path)
-                        parts = list(p.parts)
-                        if "models" in parts:
-                            try:
-                                idx = parts.index("models")
-                                sub = (
-                                    Path(*parts[idx + 1 : -1])
-                                    if len(parts) > idx + 1
-                                    else Path()
-                                )
-                            except ValueError:
-                                sub = p.parent
-                        else:
-                            sub = p.parent
-                        # Place test under models/<sub>/<model_name>
-                        model_name_for_group = model_uid.split(".")[-1]
-                        dest_root = dest_root / sub / model_name_for_group
-                    else:
-                        # No manifest path; fallback to models/<model_name>
-                        model_name_for_group = model_uid.split(".")[-1]
-                        dest_root = dest_root / model_name_for_group
-                else:
-                    # Fallback: keep alongside models bucket
-                    dest_root = target_dir / "models"
-                    category = "other"
-            elif stem.startswith("snapshot."):
-                # Place snapshots in a proper folder structure like models
-                dest_root = target_dir / "snapshots"
-                category = "snapshot"
-                node = nodes.get(stem, {})
-                rel_path = node.get("path") if isinstance(node, dict) else None
-                if rel_path:
-                    p = Path(rel_path)
-                    parts = list(p.parts)
-                    if "snapshots" in parts:
-                        try:
-                            idx = parts.index("snapshots")
-                            sub = Path(*parts[idx + 1:-1]) if len(parts) > idx + 1 else Path()
-                        except ValueError:
-                            sub = p.parent
-                    else:
-                        sub = p.parent
-                    # Append snapshot name folder under the subpath
-                    snapshot_name = stem.split(".")[-1]
-                    dest_root = dest_root / sub / snapshot_name
-                else:
-                    # No manifest path; still place under snapshots/<snapshot_name>
-                    snapshot_name = stem.split(".")[-1]
-                    dest_root = dest_root / snapshot_name
-            elif stem.startswith("master"):
-                dest_root = target_dir / "masters"
-                category = "master"
-            else:
-                # Fallback: keep alongside models bucket
-                dest_root = target_dir / "models"
-                category = "other"
+def logging_hook_present(dbt_project_dir: Path) -> bool:
+    import yaml
 
-            dest_root.mkdir(parents=True, exist_ok=True)
+    project_file = dbt_project_dir / "dbt_project.yml"
+    if not project_file.is_file():
+        return False
+    data = yaml.safe_load(project_file.read_text(encoding="utf-8")) or {}
+    hooks = data.get("on-run-end") or []
+    if isinstance(hooks, str):
+        hooks = [hooks]
+    return any("ingen_fab_log_run" in str(h) for h in hooks)
 
-            # Build normalized folder name (strip category prefixes) but keep display_name original
-            if category == "model":
-                normalized_base = "model"
-            elif category == "test":
-                # Remove 'test.<project>.' prefix
-                parts = stem.split(".")
-                normalized_base = ".".join(parts[2:]) if len(parts) > 2 else stem
-                # Also remove embedded model name to avoid duplication in the model folder
-                if model_name_for_group:
-                    # Replace _<model_name>_ with _ and clean up edges
-                    normalized_base = normalized_base.replace(
-                        f"_{model_name_for_group}_", "_"
-                    )
-                    if normalized_base.startswith(f"{model_name_for_group}_"):
-                        normalized_base = normalized_base[
-                            len(model_name_for_group) + 1 :
-                        ]
-                    if normalized_base.endswith(f"_{model_name_for_group}"):
-                        normalized_base = normalized_base[
-                            : -len(model_name_for_group) - 1
-                        ]
-                    # Collapse any double underscores
-                    normalized_base = re.sub(r"__+", "_", normalized_base)
-            elif category == "snapshot":
-                parts = stem.split(".")
-                normalized_base = ".".join(parts[2:]) if len(parts) > 2 else stem
-                # Similar cleanup as models for snapshot names
-                if "snapshot_name" in locals():
-                    if normalized_base.startswith(f"{snapshot_name}_"):
-                        normalized_base = normalized_base[len(snapshot_name) + 1:]
-                    if normalized_base.endswith(f"_{snapshot_name}"):
-                        normalized_base = normalized_base[:-len(snapshot_name) - 1]
-                    normalized_base = re.sub(r"__+", "_", normalized_base)
-            elif category == "seed":
-                parts = stem.split(".")
-                normalized_base = ".".join(parts[2:]) if len(parts) > 2 else stem
-            elif category == "master":
-                # Drop potential project token: master_<proj>_<rest> -> master_<rest>
-                normalized_base = re.sub(r"^master_([^_]+)_(.+)$", r"master_\2", stem)
-            else:
-                normalized_base = stem
 
-            # Append _{dbt_project} to folder name
-            notebook_folder_name = f"{normalized_base}_{dbt_project}"
+# Names that become path components and Fabric item names: no separators, no dot segments.
+PROJECT_NAME = re.compile(r"^[A-Za-z0-9][A-Za-z0-9_-]*$")
+ITEM_NAME = re.compile(r"^[A-Za-z0-9][A-Za-z0-9 _-]*$")
 
-            nb_utils.create_notebook_with_platform(
-                notebook_name=notebook_folder_name,
-                rendered_content=content,
-                output_dir=dest_root,
-                display_name=notebook_name,
-            )
-            created += 1
-        except Exception as e:
+
+def check_name(value: str, what: str, pattern: re.Pattern) -> str:
+    """Stop with a message when a name could leave its folder or is not a Fabric item name."""
+    if not pattern.fullmatch(value or ""):
+        console.print(
+            f"[red]{what} {value!r} is not valid: letters, digits, underscore and hyphen"
+            f"{' and space' if pattern is ITEM_NAME else ''}, starting with a letter or digit[/red]"
+        )
+        raise typer.Exit(code=1)
+    return value
+
+
+def hand_written_profile(dbt_project_dir: Path) -> bool:
+    """True when the project carries its own profiles.yml that ingen_fab did not generate
+    (a dbt-fabric warehouse project, for example): never overwrite it."""
+    path = dbt_project_dir / "profiles" / "profiles.yml"
+    if not path.is_file():
+        return False
+    head = path.read_text(encoding="utf-8")[:400]
+    return "Generated by `ingen_fab dbt profile`" not in head
+
+
+def _project_context(ctx: typer.Context) -> tuple[Path, str]:
+    project_path = ctx.obj.get("fabric_workspace_repo_dir") if ctx.obj else None
+    environment = str(ctx.obj.get("fabric_environment")) if ctx.obj else ""
+    if not project_path or not environment:
+        console.print(
+            "[red]Fabric workspace repo dir and environment must be set.[/red]"
+        )
+        raise typer.Exit(code=1)
+    return Path(project_path), environment
+
+
+def _report_skipped(skipped: dict[str, str]) -> None:
+    for env_name, reason in skipped.items():
+        console.print(
+            f"[yellow]environment '{env_name}' left out of the profile: {reason}[/yellow]"
+        )
+
+
+def write_profile(
+    ctx: typer.Context,
+    dbt_project: str,
+    lakehouse: Optional[str] = None,
+    show: bool = True,
+) -> Path:
+    """``ingen_fab dbt profile``: (re)generate ``<dbt_project>/profiles/profiles.yml``."""
+    project_path, environment = _project_context(ctx)
+    check_name(dbt_project, "dbt project", PROJECT_NAME)
+    if hand_written_profile(project_path / dbt_project):
+        console.print(
+            f"[yellow]{dbt_project}/profiles/profiles.yml is hand-written (not generated by "
+            "ingen_fab, for example a dbt-fabric warehouse profile): left as it is.[/yellow]"
+        )
+        refresh_logging_macro(project_path / dbt_project)
+        return project_path / dbt_project / "profiles" / "profiles.yml"
+    skipped: dict[str, str] = {}
+    try:
+        folder = profiles.ensure_profile(
+            project_path, dbt_project, environment, lakehouse=lakehouse, skipped=skipped
+        )
+    except profiles.ProfileError as e:
+        console.print(f"[red]{e}[/red]")
+        raise typer.Exit(code=1)
+    _report_skipped(skipped)
+    refresh_logging_macro(project_path / dbt_project)
+    path = folder / "profiles.yml"
+    console.print(f"[green]✓[/green] Wrote {path}")
+    if show:
+        console.print(path.read_text(encoding="utf-8"))
+    return path
+
+
+def run_dbt(
+    ctx: typer.Context,
+    verb: str,
+    dbt_project: str,
+    args: list[str],
+    lakehouse: Optional[str] = None,
+) -> int:
+    """``ingen_fab dbt <verb> ...``: regenerate the profile, then run ``dbt`` with it.
+
+    The project directory and profiles directory are passed explicitly and the target is
+    the current environment, so plain ``dbt`` behaviour is unchanged otherwise; every extra
+    argument goes through untouched (``--select``, ``--full-refresh``, ...).
+    """
+    project_path, environment = _project_context(ctx)
+    check_name(dbt_project, "dbt project", PROJECT_NAME)
+    dbt_project_dir = project_path / dbt_project
+    if not (dbt_project_dir / "dbt_project.yml").is_file():
+        console.print(
+            f"[red]dbt project not found: {dbt_project_dir / 'dbt_project.yml'}[/red]"
+        )
+        raise typer.Exit(code=1)
+    skipped: dict[str, str] = {}
+    if hand_written_profile(dbt_project_dir):
+        # another adapter's profile (dbt-fabric for a warehouse): the project's own file is
+        # the profile, ingen_fab neither generates nor touches it
+        profiles_dir = dbt_project_dir / "profiles"
+        if lakehouse:
             console.print(
-                f"[yellow]Warning: Failed to create notebook for {nb_path.name}: {e}[/yellow]"
-            )
-
-    # Copy manifest.json to the masters folder
-    if manifest_path.exists():
-        masters_dir = target_dir / "masters"
-        masters_dir.mkdir(parents=True, exist_ok=True)
-        target_manifest_path = masters_dir / "manifest.json"
-        try:
-            import shutil
-            shutil.copy2(manifest_path, target_manifest_path)
-            console.print(
-                f"[green]✓ Copied manifest.json to {target_manifest_path}[/green]"
-            )
-        except Exception as e:
-            console.print(
-                f"[yellow]Warning: Failed to copy manifest.json: {e}[/yellow]"
+                "[yellow]--lakehouse applies to a generated profile only; this project's "
+                "hand-written profile is used as it is[/yellow]"
             )
     else:
-        console.print(
-            f"[yellow]Note: manifest.json not found at {manifest_path}[/yellow]"
-        )
+        try:
+            profiles_dir = profiles.ensure_profile(
+                project_path,
+                dbt_project,
+                environment,
+                lakehouse=lakehouse,
+                skipped=skipped,
+            )
+        except profiles.ProfileError as e:
+            if verb not in OFFLINE_VERBS:
+                console.print(f"[red]{e}[/red]")
+                raise typer.Exit(code=1)
+            # clean and deps touch no lakehouse: run them with whatever profiles folder exists
+            console.print(
+                f"[yellow]profile not generated ({e}); `dbt {verb}` needs none[/yellow]"
+            )
+            profiles_dir = dbt_project_dir / "profiles"
+            profiles_dir.mkdir(parents=True, exist_ok=True)
+    _report_skipped(skipped)
+    refresh_logging_macro(dbt_project_dir)
 
-    console.print(
-        Panel.fit(
-            f"[bold green]✓ Created {created} notebook(s) in[/bold green]\n{target_dir}",
-            title="Completed",
-            border_style="green",
+    exe = dbt_executable()
+    if not exe:
+        console.print(
+            "[red]'dbt' was not found next to this Python interpreter nor on PATH. "
+            "Install the dbt dependency group (uv sync --group dbt).[/red]"
         )
+        raise typer.Exit(code=1)
+
+    command = dbt_command_line(
+        exe,
+        verb,
+        dbt_project_dir,
+        profiles_dir,
+        environment,
+        args,
+        generated_profile=not hand_written_profile(dbt_project_dir),
     )
+    console.print(f"[dim]{' '.join(command)}[/dim]")
+    env = {**os.environ, "DBT_PROFILES_DIR": str(profiles_dir)}
+    result = subprocess.run(command, check=False, env=env)
+    return result.returncode
+
+
+def write_orchestrator_notebook(
+    ctx: typer.Context,
+    dbt_project: str,
+    notebook_name: str,
+    select: str,
+    command: str = "build",
+    config_lakehouse: Optional[str] = None,
+    threads: int = 4,
+    variable_library: str = DEFAULT_VARIABLE_LIBRARY,
+    log_lakehouse: Optional[str] = None,
+    dbt_vars: str = "",
+    target: str = "",
+    env_variables: Optional[dict[str, str]] = None,
+    indirect_selection: str = "",
+    log_warehouse: str = "",
+) -> Path:
+    """``ingen_fab dbt orchestrator``: a Python notebook item that runs ``dbt <command> --select
+    <select>`` inside Fabric against the uploaded project, deployable with ``deploy deploy``.
+
+    The run is logged by dbt's on-run-end hook into the log store (``dbt_batch`` and
+    ``dbt_execution_log``); the log lakehouse is ``log_lakehouse`` if given, else the value
+    set's ``log_lakehouse`` variable, else ``lh_log``, and a failed run's log files are kept
+    there under ``Files/dbt_failures/``. That lakehouse must be declared in the project
+    (``<name>_workspace_id`` and ``<name>_lakehouse_id`` in the Variable Library), because the
+    notebook resolves it there. ``log_warehouse`` names the log store of a dbt-fabric project.
+
+    ``target`` overrides the profile target (default ``<environment>-notebook``, the one
+    ``ingen_fab dbt profile`` writes). ``env_variables`` maps an environment variable for the
+    dbt process to a Variable Library variable, read at run time: a hand-written profile for
+    another adapter can then use ``env_var()``, for example for a warehouse SQL endpoint."""
+    check_name(notebook_name, "notebook name", ITEM_NAME)
+    if log_warehouse:
+        check_name(log_warehouse, "log warehouse", PROJECT_NAME)
+    if any(ord(ch) < 32 for ch in select):
+        # the selector is rendered into the notebook's header comment as well as its code
+        raise profiles.ProfileError(
+            "--select must be one line without control characters"
+        )
+    if command not in ORCHESTRATOR_COMMANDS:
+        raise profiles.ProfileError(
+            f"--command {command!r} is not one the orchestrator runs; choose one of "
+            f"{', '.join(ORCHESTRATOR_COMMANDS)}"
+        )
+    project_path, environment = _project_context(ctx)
+    check_name(dbt_project, "dbt project", PROJECT_NAME)
+    if not (project_path / dbt_project / "dbt_project.yml").is_file():
+        raise profiles.ProfileError(
+            f"dbt project not found: {project_path / dbt_project / 'dbt_project.yml'}"
+        )
+    if dbt_vars:
+        # a bad --vars would fail only inside the Fabric run, twenty seconds in
+        import yaml
+
+        try:
+            parsed = yaml.safe_load(dbt_vars)
+        except yaml.YAMLError as e:
+            raise profiles.ProfileError(f"--vars is not valid YAML or JSON: {e}")
+        if not isinstance(parsed, dict):
+            raise profiles.ProfileError(
+                "--vars must be a mapping, for example '{silver_lakehouse: lh_silver_nb}'"
+            )
+    refresh_logging_macro(project_path / dbt_project)
+    values = profiles.read_value_set(project_path, environment)
+    if config_lakehouse is None:
+        config_lakehouse = values.get("config_lakehouse_name") or "config"
+    log_lakehouse = (
+        log_lakehouse or values.get("log_lakehouse") or DEFAULT_LOG_LAKEHOUSE
+    )
+    missing = [
+        name
+        for name in (f"{log_lakehouse}_workspace_id", f"{log_lakehouse}_lakehouse_id")
+        if name not in values
+    ]
+    if missing:
+        raise profiles.ProfileError(
+            f"log lakehouse '{log_lakehouse}' is not declared in the Variable Library "
+            f"(missing {', '.join(missing)}). Add it to fabric_config/storage_config.yaml and run "
+            "`ingen_fab init storage-config`, or name another one with --log-lakehouse or the "
+            "`log_lakehouse` variable."
+        )
+    unknown = sorted(v for v in (env_variables or {}).values() if v not in values)
+    if unknown:
+        raise profiles.ProfileError(
+            f"--env names Variable Library variable(s) that the '{environment}' value set does not "
+            f"have: {', '.join(unknown)}"
+        )
+    utils = NotebookUtils(
+        templates_dir=Path(__file__).resolve().parent.parent / "templates",
+        fabric_workspace_repo_dir=project_path,
+        output_dir=project_path / "fabric_workspace_items" / "notebooks",
+        enable_console=False,
+    )
+    rendered = utils.render_template(
+        "dbt/orchestrator_notebook.py.jinja",
+        notebook_name=notebook_name,
+        dbt_project=dbt_project,
+        dbt_command=command,
+        allowed_commands=sorted(ORCHESTRATOR_COMMANDS),
+        dbt_select=select,
+        dbt_threads=threads,
+        config_lakehouse_name=config_lakehouse,
+        variable_library=variable_library,
+        log_lakehouse=log_lakehouse,
+        dbt_vars=dbt_vars,
+        dbt_target=target,
+        env_variables=env_variables or {},
+        dbt_indirect_selection=indirect_selection,
+        log_warehouse=log_warehouse,
+    )
+    path = utils.create_notebook_with_platform(
+        notebook_name=notebook_name,
+        rendered_content=rendered,
+        display_name=notebook_name,
+        description=f"dbt {command} --select {select} for {dbt_project}",
+    )
+    console.print(f"[green]✓[/green] Created {path}")
+    return path
 
 
 def convert_tsql_to_spark_type(tsql_type: str) -> str:
@@ -349,7 +476,11 @@ def convert_tsql_to_spark_type(tsql_type: str) -> str:
 
 
 def create_schema_yml_from_metadata(
-    ctx: typer.Context, dbt_project: str, lakehouse: str, layer: str, dbt_type: str, skip_profile_confirmation: bool = False
+    ctx: typer.Context,
+    dbt_project: str,
+    lakehouse: str,
+    layer: str,
+    dbt_type: str,
 ) -> None:
     """Convert cached lakehouse metadata CSV to dbt schema.yml format.
 
@@ -357,11 +488,9 @@ def create_schema_yml_from_metadata(
     Only includes tables from the specified lakehouse.
     dbt_type determines the format: 'source', 'model', or 'snapshot'.
     """
-    console.print(f"Creating [bold]{dbt_type}[/bold] schema.yml for layer [bold]{layer}[/bold] and lakehouse [bold]{lakehouse}[/bold] ")
-
-    # Check and update dbt profile if needed
-    if not ensure_dbt_profile(ctx, ask_confirmation=not skip_profile_confirmation):
-        raise typer.Exit(code=1)
+    console.print(
+        f"Creating [bold]{dbt_type}[/bold] schema.yml for layer [bold]{layer}[/bold] and lakehouse [bold]{lakehouse}[/bold] "
+    )
 
     workspace_dir = ctx.obj.get("fabric_workspace_repo_dir") if ctx.obj else None
     if not workspace_dir:
@@ -401,7 +530,7 @@ def create_schema_yml_from_metadata(
                     continue
 
                 # Exclude tables with schema_name of 'sys' or 'queryinsights'
-                if schema_name in ['sys', 'queryinsights']:
+                if schema_name in ["sys", "queryinsights"]:
                     continue
 
                 if not lakehouse_name or not table_name or not column_name:
@@ -412,28 +541,32 @@ def create_schema_yml_from_metadata(
                 if table_name not in tables:
                     tables[table_name] = []
 
-                tables[table_name].append({
-                    "name": column_name,
-                    "data_type": spark_type,
-                    "description": "",
-                })
+                tables[table_name].append(
+                    {
+                        "name": column_name,
+                        "data_type": spark_type,
+                        "description": "",
+                    }
+                )
 
         # Build dbt schema.yml structure based on dbt_type
         schema_yml = {"version": 2}
         if dbt_type == "source":
-            dbt_sources = [{
-                "name": layer,
-                "description": "",
-                "schema": lakehouse,
-                "tables": [
-                    {
-                        "name": table_name,
-                        "description": "",
-                        "columns": columns,
-                    }
-                    for table_name, columns in tables.items()
-                ],
-            }]
+            dbt_sources = [
+                {
+                    "name": layer,
+                    "description": "",
+                    "schema": lakehouse,
+                    "tables": [
+                        {
+                            "name": table_name,
+                            "description": "",
+                            "columns": columns,
+                        }
+                        for table_name, columns in tables.items()
+                    ],
+                }
+            ]
             schema_yml["sources"] = dbt_sources
         elif dbt_type == "model":
             dbt_models = [
@@ -456,215 +589,25 @@ def create_schema_yml_from_metadata(
             ]
             schema_yml["snapshots"] = dbt_snapshots
         else:
-            console.print(f"[red]Unknown dbt_type: {dbt_type}. Must be 'source', 'model', or 'snapshot'.[/red]")
+            console.print(
+                f"[red]Unknown dbt_type: {dbt_type}. Must be 'source', 'model', or 'snapshot'.[/red]"
+            )
             raise typer.Exit(code=1)
 
         # Write schema.yml as YAML
         import yaml
+
         with schema_yml_path.open("w", encoding="utf-8") as f:
-            yaml.dump(schema_yml, f, sort_keys=False, default_flow_style=False, allow_unicode=True)
+            yaml.dump(
+                schema_yml,
+                f,
+                sort_keys=False,
+                default_flow_style=False,
+                allow_unicode=True,
+            )
 
         console.print(f"[green]✓[/green] Created {schema_yml_path}")
 
     except Exception as e:
         console.print(f"[red]Error creating schema.yml: {e}[/red]")
-        raise typer.Exit(code=1)
-
-
-def convert_metadata_to_dbt_format(
-    ctx: typer.Context,
-    dbt_project: str,
-    metadata_file: Path | None = None,
-    skip_profile_confirmation: bool = False,
-) -> None:
-    """Convert cached lakehouse metadata CSV to dbt metaextracts JSON format.
-
-    Reads from {workspace}/metadata/lakehouse_metadata_all.csv (or custom path) and creates:
-    - {workspace}/{dbt_project}/metaextracts/ListRelations.json
-    - {workspace}/{dbt_project}/metaextracts/ListSchemas.json
-    - {workspace}/{dbt_project}/metaextracts/DescribeRelations.json
-    - {workspace}/{dbt_project}/metaextracts/MetaHashes.json
-    """
-
-    # Check and update dbt profile if needed
-    if not ensure_dbt_profile(ctx, ask_confirmation=not skip_profile_confirmation):
-        raise typer.Exit(code=1)
-
-    workspace_dir = ctx.obj.get("fabric_workspace_repo_dir") if ctx.obj else None
-    if not workspace_dir:
-        console.print("[red]Fabric workspace repo dir not provided.[/red]")
-        raise typer.Exit(code=1)
-
-    workspace_dir = Path(workspace_dir)
-
-    # Source CSV file - use provided path or default
-    if metadata_file is None:
-        metadata_csv = workspace_dir / "metadata" / "lakehouse_metadata_all.csv"
-    else:
-        # If relative path, resolve relative to workspace_dir
-        metadata_csv = metadata_file if metadata_file.is_absolute() else workspace_dir / metadata_file
-    
-    if not metadata_csv.exists():
-        console.print(f"[red]Metadata CSV not found:[/red] {metadata_csv}")
-        console.print(
-            "[yellow]Run 'ingen_fab deploy get-metadata --target lakehouse' first to generate metadata.[/yellow]"
-        )
-        raise typer.Exit(code=1)
-
-    # Target directory for dbt metaextracts (in the dbt_project root, not target)
-    target_dir = workspace_dir / dbt_project / "metaextracts"
-    target_dir.mkdir(parents=True, exist_ok=True)
-
-    console.print(
-        Panel.fit(
-            f"Converting metadata for [bold]{dbt_project}[/bold]",
-            title="DBT Metadata Conversion",
-            border_style="cyan",
-        )
-    )
-
-    # Read CSV and process data
-    relations = []
-    schemas = set()
-    describe_relations = []  # Changed to a list instead of dict
-
-    try:
-        with metadata_csv.open("r", encoding="utf-8") as f:
-            reader = csv.DictReader(f)
-            current_table = None
-            current_workspace_id = None
-            current_lakehouse_id = None
-
-            for row in reader:
-                # schema_name = row.get("schema_name", "").strip()
-                table_name = row.get("table_name", "").strip()
-                workspace_id = row.get("workspace_id", "").strip()
-                lakehouse_id = row.get("lakehouse_id", "").strip()
-                lakehouse_name = row.get("lakehouse_name", "").strip()
-
-                if not lakehouse_name or not table_name:
-                    continue
-
-                schemas.add(lakehouse_name)
-
-                # Build table key using lakehouse_name as namespace
-                table_key = f"{lakehouse_name}.{table_name}"
-
-                # If we've moved to a new table, save the previous one
-                if current_table and current_table != table_key:
-                    # Add relation entry for the previous table
-                    namespace, tbl = current_table.split(".", 1)
-
-                    # Build the information string similar to Spark's DESCRIBE EXTENDED
-                    info_lines = [
-                        "Catalog: spark_catalog",
-                        f"Database: {namespace}",
-                        f"Table: {tbl}",
-                        "Owner: trusted-service-user",
-                        "Created Time: Sat Aug 02 10:38:14 UTC 2025",
-                        "Last Access: UNKNOWN",
-                        "Created By: Spark 3.2.1-SNAPSHOT",
-                        "Type: MANAGED",
-                        "Provider: delta",
-                        "Table Properties: [trident.autodiscovered.table=true]",
-                        f"Location: abfss://{current_workspace_id}@onelake.dfs.fabric.microsoft.com/{current_lakehouse_id}/Tables/{tbl}",
-                        "Serde Library: org.apache.hadoop.hive.serde2.lazy.LazySimpleSerDe",
-                        "InputFormat: org.apache.hadoop.mapred.SequenceFileInputFormat",
-                        "OutputFormat: org.apache.hadoop.hive.ql.io.HiveSequenceFileOutputFormat",
-                        "Partition Provider: Catalog",
-                    ]
-
-                    relation = {
-                        "namespace": namespace,
-                        "tableName": tbl,
-                        "isTemporary": False,
-                        "information": "\n".join(info_lines) + "\n",
-                        "type": "MANAGED",
-                    }
-                    relations.append(relation)
-
-                current_table = table_key
-                current_workspace_id = workspace_id
-                current_lakehouse_id = lakehouse_id
-
-                # Add column information with type conversion
-                tsql_type = row.get("data_type", "")
-                spark_type = convert_tsql_to_spark_type(tsql_type)
-
-                # Each column is now a separate entry with namespace and tableName
-                column_info = {
-                    "col_name": row.get("column_name", ""),
-                    "data_type": spark_type,
-                    "comment": None,
-                    "namespace": lakehouse_name,
-                    "tableName": table_name,
-                }
-                describe_relations.append(column_info)
-
-        # Don't forget the last table's relation entry
-        if current_table:
-            namespace, tbl = current_table.split(".", 1)
-            info_lines = [
-                "Catalog: spark_catalog",
-                f"Database: {namespace}",
-                f"Table: {tbl}",
-                "Owner: trusted-service-user",
-                "Created Time: Sat Aug 02 10:38:14 UTC 2025",
-                "Last Access: UNKNOWN",
-                "Created By: Spark 3.2.1-SNAPSHOT",
-                "Type: MANAGED",
-                "Provider: delta",
-                "Table Properties: [trident.autodiscovered.table=true]",
-                f"Location: abfss://{current_workspace_id}@onelake.dfs.fabric.microsoft.com/{current_lakehouse_id}/Tables/{tbl}",
-                "Serde Library: org.apache.hadoop.hive.serde2.lazy.LazySimpleSerDe",
-                "InputFormat: org.apache.hadoop.mapred.SequenceFileInputFormat",
-                "OutputFormat: org.apache.hadoop.hive.ql.io.HiveSequenceFileOutputFormat",
-                "Partition Provider: Catalog",
-            ]
-
-            relation = {
-                "namespace": namespace,
-                "tableName": tbl,
-                "isTemporary": False,
-                "information": "\n".join(info_lines) + "\n",
-                "type": "MANAGED",
-            }
-            relations.append(relation)
-
-        # Write ListRelations.json
-        list_relations_path = target_dir / "ListRelations.json"
-        with list_relations_path.open("w", encoding="utf-8") as f:
-            json.dump(relations, f, indent=2)
-        console.print(f"[green]✓[/green] Created {list_relations_path}")
-
-        # Write ListSchemas.json
-        list_schemas_path = target_dir / "ListSchemas.json"
-        schemas_list = [{"namespace": s} for s in sorted(schemas)]
-        with list_schemas_path.open("w", encoding="utf-8") as f:
-            json.dump(schemas_list, f, indent=2)
-        console.print(f"[green]✓[/green] Created {list_schemas_path}")
-
-        # Write DescribeRelations.json
-        describe_relations_path = target_dir / "DescribeRelations.json"
-        with describe_relations_path.open("w", encoding="utf-8") as f:
-            json.dump(describe_relations, f, indent=2)
-        console.print(f"[green]✓[/green] Created {describe_relations_path}")
-
-        # Write MetaHashes.json (empty for now)
-        meta_hashes_path = target_dir / "MetaHashes.json"
-        with meta_hashes_path.open("w", encoding="utf-8") as f:
-            json.dump({}, f, indent=2)
-        console.print(f"[green]✓[/green] Created {meta_hashes_path}")
-
-        console.print(
-            Panel.fit(
-                f"[bold green]✓ Metadata conversion complete[/bold green]\n"
-                f"Found {len(relations)} tables across {len(schemas)} schemas",
-                title="Completed",
-                border_style="green",
-            )
-        )
-
-    except Exception as e:
-        console.print(f"[red]Error converting metadata: {e}[/red]")
         raise typer.Exit(code=1)

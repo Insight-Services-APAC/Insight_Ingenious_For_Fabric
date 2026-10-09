@@ -120,9 +120,17 @@ This downloads the definition into `fabric_workspace_items/downloaded/SemanticMo
 
 ### 6. Inspect the downloaded files
 
-```bash
-find fabric_workspace_items/downloaded/SemanticModel/sm_dp_geography.SemanticModel -type f
-```
+=== "macOS/Linux"
+
+    ```bash
+    find fabric_workspace_items/downloaded/SemanticModel/sm_dp_geography.SemanticModel -type f
+    ```
+
+=== "Windows"
+
+    ```powershell
+    Get-ChildItem -Recurse -File fabric_workspace_items\downloaded\SemanticModel\sm_dp_geography.SemanticModel
+    ```
 
 You should see:
 
@@ -164,14 +172,26 @@ Open `.platform` — it contains the item type, display name, and a unique `logi
 
 The `downloaded/` folder is a **staging area** — items left there will cause duplicate-item errors during deployment. Move the item to its final location and remove the staging copy:
 
-```bash
-mkdir -p fabric_workspace_items/SemanticModel
-cp -r fabric_workspace_items/downloaded/SemanticModel/sm_dp_geography.SemanticModel \
-      fabric_workspace_items/SemanticModel/
+=== "macOS/Linux"
 
-# Remove the staging copy to prevent duplicates during deploy
-rm -rf fabric_workspace_items/downloaded/SemanticModel/sm_dp_geography.SemanticModel
-```
+    ```bash
+    mkdir -p fabric_workspace_items/SemanticModel
+    cp -r fabric_workspace_items/downloaded/SemanticModel/sm_dp_geography.SemanticModel \
+          fabric_workspace_items/SemanticModel/
+
+    # Remove the staging copy to prevent duplicates during deploy
+    rm -rf fabric_workspace_items/downloaded/SemanticModel/sm_dp_geography.SemanticModel
+    ```
+
+=== "Windows"
+
+    ```powershell
+    New-Item -ItemType Directory -Force fabric_workspace_items\SemanticModel
+    Copy-Item -Recurse fabric_workspace_items\downloaded\SemanticModel\sm_dp_geography.SemanticModel fabric_workspace_items\SemanticModel\
+
+    # Remove the staging copy to prevent duplicates during deploy
+    Remove-Item -Recurse -Force fabric_workspace_items\downloaded\SemanticModel\sm_dp_geography.SemanticModel
+    ```
 
 !!! warning "Always remove the staging copy"
     `ingen_fab deploy deploy` scans the **entire** `fabric_workspace_items/` directory — including `downloaded/`. If the same item exists in both locations, deployment will fail with `Duplicate logicalId` errors.

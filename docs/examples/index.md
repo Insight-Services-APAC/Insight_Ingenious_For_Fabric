@@ -74,23 +74,45 @@ print("✅ Configuration table created successfully!")
 
 ### Deployment Workflow
 
-```bash
-# Generate notebooks
-ingen_fab ddl compile --output-mode fabric_workspace_repo --generation-mode Lakehouse
+=== "macOS/Linux"
 
-# Test locally (requires FABRIC_ENVIRONMENT=local)
-export FABRIC_ENVIRONMENT=local
-ingen_fab test local python
-ingen_fab test local pyspark
+    ```bash
+    # Generate notebooks
+    ingen_fab ddl compile --output-mode fabric_workspace_repo --generation-mode Lakehouse
 
-# Deploy to development (ensure FABRIC_WORKSPACE_REPO_DIR and FABRIC_ENVIRONMENT are set)
-export FABRIC_WORKSPACE_REPO_DIR="."
-export FABRIC_ENVIRONMENT=development
-ingen_fab deploy deploy
+    # Test locally (requires FABRIC_ENVIRONMENT=local)
+    export FABRIC_ENVIRONMENT=local
+    ingen_fab test local python
+    ingen_fab test local pyspark
 
-# Generate platform tests
-ingen_fab test platform generate
-```
+    # Deploy to development (ensure FABRIC_WORKSPACE_REPO_DIR and FABRIC_ENVIRONMENT are set)
+    export FABRIC_WORKSPACE_REPO_DIR="sample_project"
+    export FABRIC_ENVIRONMENT=development
+    ingen_fab deploy deploy
+
+    # Generate platform tests
+    ingen_fab test platform generate
+    ```
+
+=== "Windows"
+
+    ```powershell
+    # Generate notebooks
+    ingen_fab ddl compile --output-mode fabric_workspace_repo --generation-mode Lakehouse
+
+    # Test locally (requires FABRIC_ENVIRONMENT=local)
+    $env:FABRIC_ENVIRONMENT = "local"
+    ingen_fab test local python
+    ingen_fab test local pyspark
+
+    # Deploy to development (ensure FABRIC_WORKSPACE_REPO_DIR and FABRIC_ENVIRONMENT are set)
+    $env:FABRIC_WORKSPACE_REPO_DIR = "sample_project"
+    $env:FABRIC_ENVIRONMENT = "development"
+    ingen_fab deploy deploy
+
+    # Generate platform tests
+    ingen_fab test platform generate
+    ```
 
 ## Common Patterns
 
@@ -142,20 +164,33 @@ def test_data_processing():
 
 ### Multi-Environment Deployment
 
-```bash
-# Deploy to multiple environments
-for env in development test production; do
-    echo "Deploying to $env..."
-    ingen_fab deploy deploy \
-        --fabric-workspace-repo-dir . \
-        --fabric-environment $env
-    
-    echo "Generating platform tests for $env..."
-    ingen_fab test platform generate \
-        --fabric-workspace-repo-dir . \
-        --fabric-environment $env
-done
-```
+`--fabric-workspace-repo-dir` and `--fabric-environment` are options of `ingen_fab` itself and go before the command group.
+
+=== "macOS/Linux"
+
+    ```bash
+    # Deploy to multiple environments
+    for env in development test production; do
+        echo "Deploying to $env..."
+        ingen_fab --fabric-workspace-repo-dir sample_project --fabric-environment $env deploy deploy
+
+        echo "Generating platform tests for $env..."
+        ingen_fab --fabric-workspace-repo-dir sample_project --fabric-environment $env test platform generate
+    done
+    ```
+
+=== "Windows"
+
+    ```powershell
+    # Deploy to multiple environments
+    foreach ($environment in "development", "test", "production") {
+        "Deploying to $environment..."
+        ingen_fab --fabric-workspace-repo-dir sample_project --fabric-environment $environment deploy deploy
+
+        "Generating platform tests for $environment..."
+        ingen_fab --fabric-workspace-repo-dir sample_project --fabric-environment $environment test platform generate
+    }
+    ```
 
 ### Custom Template Usage
 
@@ -268,20 +303,39 @@ ddl_utils.execute_ddl(sql, f"Create {table_name} with {retention_days} day reten
 
 #### Authentication Problems
 
-```bash
-# Check authentication
-az account show
+=== "macOS/Linux"
 
-# Set environment variables
-export AZURE_TENANT_ID="your-tenant-id"
-export AZURE_CLIENT_ID="your-client-id"
-export AZURE_CLIENT_SECRET="your-client-secret"
-export FABRIC_WORKSPACE_REPO_DIR="."
-export FABRIC_ENVIRONMENT="development"
+    ```bash
+    # Check authentication
+    az account show
 
-# Test deployment
-ingen_fab deploy deploy
-```
+    # Set environment variables
+    export AZURE_TENANT_ID="your-tenant-id"
+    export AZURE_CLIENT_ID="your-client-id"
+    export AZURE_CLIENT_SECRET="your-client-secret"
+    export FABRIC_WORKSPACE_REPO_DIR="sample_project"
+    export FABRIC_ENVIRONMENT="development"
+
+    # Test deployment
+    ingen_fab deploy deploy
+    ```
+
+=== "Windows"
+
+    ```powershell
+    # Check authentication
+    az account show
+
+    # Set environment variables
+    $env:AZURE_TENANT_ID = "your-tenant-id"
+    $env:AZURE_CLIENT_ID = "your-client-id"
+    $env:AZURE_CLIENT_SECRET = "your-client-secret"
+    $env:FABRIC_WORKSPACE_REPO_DIR = "sample_project"
+    $env:FABRIC_ENVIRONMENT = "development"
+
+    # Test deployment
+    ingen_fab deploy deploy
+    ```
 
 #### DDL Script Issues
 
@@ -302,16 +356,31 @@ except Exception as e:
 
 #### Notebook Generation Issues
 
-```bash
-# Check template structure
-find ddl_scripts -name "*.py" -o -name "*.sql" | sort
+=== "macOS/Linux"
 
-# Verify file naming
-ls -la ddl_scripts/Lakehouses/Config/001_Initial_Setup/
+    ```bash
+    # Check template structure
+    find ddl_scripts -name "*.py" -o -name "*.sql" | sort
 
-# Test generation
-ingen_fab ddl compile --output-mode local --generation-mode Lakehouse
-```
+    # Verify file naming
+    ls -la ddl_scripts/Lakehouses/Config/001_Initial_Setup/
+
+    # Test generation
+    ingen_fab ddl compile --output-mode local --generation-mode Lakehouse
+    ```
+
+=== "Windows"
+
+    ```powershell
+    # Check template structure
+    Get-ChildItem -Recurse ddl_scripts -Include *.py, *.sql | Sort-Object FullName
+
+    # Verify file naming
+    Get-ChildItem -Force ddl_scripts\Lakehouses\Config\001_Initial_Setup\
+
+    # Test generation
+    ingen_fab ddl compile --output-mode local --generation-mode Lakehouse
+    ```
 
 ## Integration Examples
 

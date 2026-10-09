@@ -16,7 +16,7 @@ Ingenious Fabric Accelerator is a comprehensive command line tool built with [Ty
   - Synapse synchronization with incremental and snapshot support
   - Extract generation for automated data extraction workflows
   - Synthetic data generation for testing and development
-- **DBT Integration**: Generate Fabric notebooks from dbt models and tests with automatic profile management and intelligent lakehouse selection
+- **DBT Integration**: run dbt on lakehouses and warehouses with Microsoft's adapters, a profile generated from the value set, orchestrator notebooks for runs inside Fabric and a run log in the log store
 - **Metadata Extraction**: Extract schema and table metadata from lakehouses and warehouses via SQL endpoints
 
 ## Requirements
@@ -39,8 +39,8 @@ Install the Ingenious Fabric Accelerator using pip:
     # Or install from GitHub
     pip install git+https://github.com/Insight-Services-APAC/Insight_Ingenious_For_Fabric.git
 
-    # Install DBT Fabric Spark wrapper (If using DBT in Fabric)
-    pip install git+https://github.com/Insight-Services-APAC/APAC-Capability-DAI-DbtFabricSparkNB.git
+    # dbt adapters, if using dbt (Microsoft's; dbt-fabric for warehouses)
+    pip install "dbt-fabricspark>=1.13,<2" "dbt-fabric>=1.9,<2"
     ```
 
 === "Windows"
@@ -52,8 +52,8 @@ Install the Ingenious Fabric Accelerator using pip:
     # Or install from GitHub
     pip install git+https://github.com/Insight-Services-APAC/Insight_Ingenious_For_Fabric.git
 
-    # Install DBT Fabric Spark wrapper (If using DBT in Fabric)
-    pip install git+https://github.com/Insight-Services-APAC/APAC-Capability-DAI-DbtFabricSparkNB.git
+    # dbt adapters, if using dbt (Microsoft's; dbt-fabric for warehouses)
+    pip install "dbt-fabricspark>=1.13,<2" "dbt-fabric>=1.9,<2"
     ```
 
 For complete installation instructions, see our [Installation Guide](docs/user_guide/installation.md).
@@ -144,7 +144,7 @@ ingen_fab --help
 - **`test`** - Test notebooks and Python blocks (local and platform)
 - **`package`** - Compile and run extension packages (e.g., flat file ingestion, synapse sync, extract generation)
 - **`libs`** - Compile and manage Python libraries with variable injection
-- **`dbt`** - Proxy commands to dbt_wrapper and generate notebooks from dbt outputs
+- **`dbt`** - dbt on Fabric with Microsoft's adapters: `dbt-fabricspark` for lakehouses (profile generated from the value set, runs over Livy) and `dbt-fabric` for warehouses (the project's own profile); `dbt build`/`run`/`test` from a machine, an orchestrator notebook for runs inside Fabric, run log in the log lakehouse or log warehouse
 
 ### Common Commands
 
@@ -218,9 +218,10 @@ ingen_fab package extract extract-run --extract-name EXTRACT_NAME --run-type FUL
 # Compile Python libraries with variable injection
 ingen_fab libs compile --target-file path/to/file.py
 
-# Generate notebooks from dbt outputs
-ingen_fab dbt create-notebooks --dbt-project-name my_dbt_project
-ingen_fab dbt convert-metadata --dbt-project-dir ./dbt_project
+# dbt: write the profile from the value set, build the silver layer, create the orchestrator notebook
+ingen_fab dbt profile --dbt-project my_dbt_project
+ingen_fab dbt build -p my_dbt_project -- --select tag:silver
+ingen_fab dbt orchestrator -p my_dbt_project --name dbtload_silver --select +tag:silver
 ```
 
 ## Running the tests

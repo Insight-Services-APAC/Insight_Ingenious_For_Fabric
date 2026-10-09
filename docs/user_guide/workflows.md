@@ -119,22 +119,18 @@ graph TD
     
     ```bash
     # Develop dbt models and snapshots. Update schema.yml files
-   
-    # Extract metadata for lakehouses
+
+    # Sources from lakehouse metadata (optional)
     ingen_fab deploy get-metadata --target lakehouse
+    ingen_fab dbt generate-schema-yml --dbt-project dbt_project --lakehouse lh_bronze --layer bronze --dbt-type source
 
-    # Convert metadata for dbt format (uses default metadata/lakehouse_metadata_all.csv)
-    ingen_fab dbt convert-metadata --dbt-project dbt_project
-    
-    # Or use custom metadata file if needed
-    # ingen_fab dbt convert-metadata --dbt-project dbt_project --metadata-file metadata/custom_export.csv
-    
-    # Build dbt models and masters
-    ingen_fab dbt exec -- stage run build --project-dir dbt_project
-    ingen_fab dbt exec -- stage run post-scripts --project-dir dbt_project
+    # Build over Livy with the profile generated from the value set
+    ingen_fab dbt build -- --select tag:silver
 
-    # Generate dbt notebooks
-    ingen_fab dbt create-notebooks --dbt-project dbt_project
+    # Scheduled runs: upload the project, create the orchestrator notebook, deploy
+    ingen_fab dbt profile
+    ingen_fab deploy upload-dbt-project --dbt-project dbt_project
+    ingen_fab dbt orchestrator --name dbtload_silver --select +tag:silver
     ```
 
     **If developing in Fabric:**
@@ -236,15 +232,30 @@ Note that deploy deploy can be used from Visual Studio Code to deploy to any env
 ### Common Issues and Solutions
 
 1. **Authentication Failures**
-   ```bash
-   # Check Azure CLI authentication
-   az account show
-   
-   # Or use environment variables
-   export AZURE_TENANT_ID="your-tenant-id"
-   export AZURE_CLIENT_ID="your-client-id"
-   export AZURE_CLIENT_SECRET="your-client-secret"
-   ```
+
+    === "macOS/Linux"
+
+        ```bash
+        # Check Azure CLI authentication
+        az account show
+
+        # Or use environment variables
+        export AZURE_TENANT_ID="your-tenant-id"
+        export AZURE_CLIENT_ID="your-client-id"
+        export AZURE_CLIENT_SECRET="your-client-secret"
+        ```
+
+    === "Windows"
+
+        ```powershell
+        # Check Azure CLI authentication
+        az account show
+
+        # Or use environment variables
+        $env:AZURE_TENANT_ID = "your-tenant-id"
+        $env:AZURE_CLIENT_ID = "your-client-id"
+        $env:AZURE_CLIENT_SECRET = "your-client-secret"
+        ```
 
 2. **DDL Script Failures**
 

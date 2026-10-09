@@ -64,8 +64,8 @@ This guide covers best practices for using the Ingenious Fabric Accelerator effe
 ingen_fab ddl compile --output-mode fabric_workspace_repo --generation-mode Warehouse
 ingen_fab ddl compile --output-mode fabric_workspace_repo --generation-mode Lakehouse
 
-# Generate dbt notebooks
-ingen_fab dbt create-notebooks --dbt-project analytics_dbt
+# dbt: one orchestrator notebook per selector, deployed like any other notebook
+ingen_fab dbt orchestrator -p analytics_dbt --name dbtload_gold --select +tag:gold
 ```
 
 ### Deployment

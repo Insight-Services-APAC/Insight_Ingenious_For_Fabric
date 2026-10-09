@@ -4,7 +4,7 @@ Set up environment variables to avoid specifying them on each command:
 
     ```bash
     # Project location
-    export FABRIC_WORKSPACE_REPO_DIR="./sample_project"
+    export FABRIC_WORKSPACE_REPO_DIR="dp"
 
     # Target environment
     export FABRIC_ENVIRONMENT="development"

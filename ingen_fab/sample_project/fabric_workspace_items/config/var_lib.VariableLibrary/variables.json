@@ -19,7 +19,6 @@
       "type": "String",
       "value": ""
     },
-    
     {
       "name": "config_workspace_id",
       "note": "GUID of the workspace containing the configuration lakehouse.",
@@ -113,6 +112,126 @@
     {
       "name": "wh_gold_warehouse_endpoint",
       "note": "SQL analytics endpoint of the wh_gold warehouse (host name only); semantic models read it at deploy time.",
+      "type": "String",
+      "value": ""
+    },
+    {
+      "name": "dbt_default_lakehouse",
+      "note": "Prefix of the lakehouse the dbt profile targets by default; models route to other lakehouses by folder (schema: on plain lakehouses, +database on schema-enabled ones).",
+      "type": "String",
+      "value": "lh_silver"
+    },
+    {
+      "name": "lh_silver_nb_workspace_id",
+      "note": "GUID of the workspace containing lh_silver_nb lakehouse.",
+      "type": "String",
+      "value": ""
+    },
+    {
+      "name": "lh_silver_nb_lakehouse_name",
+      "note": "Name of the lh_silver_nb lakehouse.",
+      "type": "String",
+      "value": ""
+    },
+    {
+      "name": "lh_silver_nb_lakehouse_id",
+      "note": "GUID of the lh_silver_nb lakehouse.",
+      "type": "String",
+      "value": ""
+    },
+    {
+      "name": "lh_gold_nb_workspace_id",
+      "note": "GUID of the workspace containing lh_gold_nb lakehouse.",
+      "type": "String",
+      "value": ""
+    },
+    {
+      "name": "lh_gold_nb_lakehouse_name",
+      "note": "Name of the lh_gold_nb lakehouse.",
+      "type": "String",
+      "value": ""
+    },
+    {
+      "name": "lh_gold_nb_lakehouse_id",
+      "note": "GUID of the lh_gold_nb lakehouse.",
+      "type": "String",
+      "value": ""
+    },
+    {
+      "name": "lh_log_workspace_id",
+      "note": "GUID of the workspace containing lh_log lakehouse.",
+      "type": "String",
+      "value": ""
+    },
+    {
+      "name": "lh_log_lakehouse_name",
+      "note": "Name of the lh_log lakehouse.",
+      "type": "String",
+      "value": ""
+    },
+    {
+      "name": "lh_log_lakehouse_id",
+      "note": "GUID of the lh_log lakehouse.",
+      "type": "String",
+      "value": ""
+    },
+    {
+      "name": "wh_silver_workspace_id",
+      "note": "GUID of the workspace containing wh_silver warehouse.",
+      "type": "String",
+      "value": ""
+    },
+    {
+      "name": "wh_silver_warehouse_name",
+      "note": "Name of the wh_silver warehouse.",
+      "type": "String",
+      "value": ""
+    },
+    {
+      "name": "wh_silver_warehouse_id",
+      "note": "GUID of the wh_silver warehouse.",
+      "type": "String",
+      "value": ""
+    },
+    {
+      "name": "wh_silver_warehouse_endpoint",
+      "note": "SQL connection endpoint (host) of the wh_silver warehouse.",
+      "type": "String",
+      "value": ""
+    },
+    {
+      "name": "lh_gold_lakehouse_sql_endpoint",
+      "note": "SQL analytics endpoint (host) of the lh_gold lakehouse.",
+      "type": "String",
+      "value": ""
+    },
+    {
+      "name": "lh_silver_lakehouse_sql_endpoint",
+      "note": "SQL analytics endpoint (host) of the lh_silver lakehouse.",
+      "type": "String",
+      "value": ""
+    },
+    {
+      "name": "wh_log_workspace_id",
+      "note": "GUID of the workspace containing wh_log warehouse.",
+      "type": "String",
+      "value": ""
+    },
+    {
+      "name": "wh_log_warehouse_name",
+      "note": "Name of the wh_log warehouse.",
+      "type": "String",
+      "value": ""
+    },
+    {
+      "name": "wh_log_warehouse_id",
+      "note": "GUID of the wh_log warehouse.",
+      "type": "String",
+      "value": ""
+    },
+    {
+      "name": "wh_log_warehouse_endpoint",
+      "note": "SQL connection endpoint (host) of the wh_log warehouse.",
       "type": "String",
       "value": ""
     }

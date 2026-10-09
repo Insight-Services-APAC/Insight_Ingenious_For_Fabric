@@ -70,15 +70,29 @@ Three sample YAML files are included under `ingen_fab/project_templates/deployme
 
 The pipeline uses bash conditional logic to switch modes:
 
-```bash
-if [ "$IS_INITIAL" = "true" ]; then
-  export WORKSPACE_MANIFEST_LOCATION="local"
-  export ITEM_TYPES_TO_DEPLOY="VariableLibrary,Lakehouse"
-else
-  export WORKSPACE_MANIFEST_LOCATION="config_lakehouse"
-  export ITEM_TYPES_TO_DEPLOY=""  # Empty = deploy ALL types
-fi
-```
+=== "macOS/Linux"
+
+    ```bash
+    if [ "$IS_INITIAL" = "true" ]; then
+      export WORKSPACE_MANIFEST_LOCATION="local"
+      export ITEM_TYPES_TO_DEPLOY="VariableLibrary,Lakehouse"
+    else
+      export WORKSPACE_MANIFEST_LOCATION="config_lakehouse"
+      export ITEM_TYPES_TO_DEPLOY=""  # Empty = deploy ALL types
+    fi
+    ```
+
+=== "Windows"
+
+    ```powershell
+    if ($env:IS_INITIAL -eq "true") {
+      $env:WORKSPACE_MANIFEST_LOCATION = "local"
+      $env:ITEM_TYPES_TO_DEPLOY = "VariableLibrary,Lakehouse"
+    } else {
+      $env:WORKSPACE_MANIFEST_LOCATION = "config_lakehouse"
+      $env:ITEM_TYPES_TO_DEPLOY = ""  # Empty = deploy ALL types
+    }
+    ```
 
 ingen_fab applies the scope itself before calling fabric-cicd: changed items whose type is
 outside `ITEM_TYPES_TO_DEPLOY` are reported as skipped and keep their manifest status (`new`

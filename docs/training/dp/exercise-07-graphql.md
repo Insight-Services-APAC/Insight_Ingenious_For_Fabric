@@ -189,9 +189,17 @@ This downloads the definition into `fabric_workspace_items/downloaded/GraphQLApi
 
 ### 8. Inspect the downloaded files
 
-```bash
-find fabric_workspace_items/downloaded/GraphQLApi/api_dp_geography.GraphQLApi -type f
-```
+=== "macOS/Linux"
+
+    ```bash
+    find fabric_workspace_items/downloaded/GraphQLApi/api_dp_geography.GraphQLApi -type f
+    ```
+
+=== "Windows"
+
+    ```powershell
+    Get-ChildItem -Recurse -File fabric_workspace_items\downloaded\GraphQLApi\api_dp_geography.GraphQLApi
+    ```
 
 You should see:
 
@@ -273,14 +281,26 @@ Open `graphql-definition.json` — note that it contains hard-coded IDs for the 
 
 The `downloaded/` folder is a **staging area** — items left there will cause duplicate-item errors during deployment. Move the item to its final location and remove the staging copy:
 
-```bash
-mkdir -p fabric_workspace_items/GraphQLApi
-cp -r fabric_workspace_items/downloaded/GraphQLApi/api_dp_geography.GraphQLApi \
-      fabric_workspace_items/GraphQLApi/
+=== "macOS/Linux"
 
-# Remove the staging copy to prevent duplicates during deploy
-rm -rf fabric_workspace_items/downloaded/GraphQLApi/api_dp_geography.GraphQLApi
-```
+    ```bash
+    mkdir -p fabric_workspace_items/GraphQLApi
+    cp -r fabric_workspace_items/downloaded/GraphQLApi/api_dp_geography.GraphQLApi \
+          fabric_workspace_items/GraphQLApi/
+
+    # Remove the staging copy to prevent duplicates during deploy
+    rm -rf fabric_workspace_items/downloaded/GraphQLApi/api_dp_geography.GraphQLApi
+    ```
+
+=== "Windows"
+
+    ```powershell
+    New-Item -ItemType Directory -Force fabric_workspace_items\GraphQLApi
+    Copy-Item -Recurse fabric_workspace_items\downloaded\GraphQLApi\api_dp_geography.GraphQLApi fabric_workspace_items\GraphQLApi\
+
+    # Remove the staging copy to prevent duplicates during deploy
+    Remove-Item -Recurse -Force fabric_workspace_items\downloaded\GraphQLApi\api_dp_geography.GraphQLApi
+    ```
 
 !!! warning "Always remove the staging copy"
     `ingen_fab deploy deploy` scans the **entire** `fabric_workspace_items/` directory — including `downloaded/`. If the same item exists in both locations, deployment will fail with `Duplicate logicalId` errors.
@@ -378,9 +398,18 @@ After deployment, verify `api_dp_geography` still works in the Fabric UI by reru
     **Fix:**
 
     1. Remove any staging copies:
-        ```bash
-        rm -rf fabric_workspace_items/downloaded/GraphQLApi/api_dp_geography.GraphQLApi
-        ```
+
+        === "macOS/Linux"
+
+            ```bash
+            rm -rf fabric_workspace_items/downloaded/GraphQLApi/api_dp_geography.GraphQLApi
+            ```
+
+        === "Windows"
+
+            ```powershell
+            Remove-Item -Recurse -Force fabric_workspace_items\downloaded\GraphQLApi\api_dp_geography.GraphQLApi
+            ```
     2. Assign a unique UUID to each item's `.platform`:
         ```bash
         python3 -c "import uuid; print(uuid.uuid4())"
