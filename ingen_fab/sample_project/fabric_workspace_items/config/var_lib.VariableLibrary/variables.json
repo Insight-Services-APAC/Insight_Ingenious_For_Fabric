@@ -109,6 +109,12 @@
       "note": "GUID of the wh_gold warehouse.",
       "type": "String",
       "value": ""
+    },
+    {
+      "name": "wh_gold_warehouse_endpoint",
+      "note": "SQL analytics endpoint of the wh_gold warehouse (host name only); semantic models read it at deploy time.",
+      "type": "String",
+      "value": ""
     }
   ]
 }

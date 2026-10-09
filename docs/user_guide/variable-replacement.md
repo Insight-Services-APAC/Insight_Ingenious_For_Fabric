@@ -98,34 +98,58 @@ Spark job configurations can use variables in arguments:
 }
 ```
 
+### Semantic Models (.SemanticModel)
+
+Every `*.tmdl` file is substituted, so a model's data source can point at the warehouse of the
+target environment. The sample project's `sm_gold_cities` model is Direct Lake on SQL over
+`wh_gold` and takes the SQL analytics endpoint and the database name from the value set:
+
+```text
+// fabric_workspace_items/semantic_models/sm_gold_cities.SemanticModel/definition/expressions.tmdl
+expression DatabaseQuery =
+		let
+			database = Sql.Database("{{varlib:wh_gold_warehouse_endpoint}}", "{{varlib:wh_gold_warehouse_name}}")
+		in
+			database
+```
+
+Conventions:
+
+- `<warehouse>_warehouse_endpoint` holds the SQL analytics endpoint host name of that
+  warehouse per environment (`ingen_fab init workspace` and `AUTO_UPDATE_ITEM_IDS` maintain
+  the `_id` variables; the endpoint is set once per environment).
+- Tables use `mode: directLake` partitions with `expressionSource: DatabaseQuery`.
+- The item is tracked in the platform manifest like any other; Power BI Desktop's local
+  cache folder (`.pbi/`) is ignored when the item's hash is computed and is not published.
+- A `<model>_semanticmodel_id` variable, when present in the value set, is filled in after
+  deployment (`AUTO_UPDATE_ITEM_IDS=true`).
+
 ### Power BI Reports (.Report)
 
-Power BI report definition files can use variable placeholders for dataset references and connection information:
+A report references its semantic model by relative path, exactly as Power BI Desktop saves a
+PBIP project. Nothing environment-specific goes into the report, so no placeholder is needed:
 
 ```json
 {
   "$schema": "https://developer.microsoft.com/json-schemas/fabric/item/report/definitionProperties/2.0.0/schema.json",
   "version": "4.0",
   "datasetReference": {
-    "byConnection": {
-      "connectionString": "{{varlib:report_connection_string}}"
+    "byPath": {
+      "path": "../../semantic_models/sm_gold_cities.SemanticModel"
     }
   }
 }
 ```
 
-After deployment to production:
-```json
-{
-  "$schema": "https://developer.microsoft.com/json-schemas/fabric/item/report/definitionProperties/2.0.0/schema.json",
-  "version": "4.0",
-  "datasetReference": {
-    "byConnection": {
-      "connectionString": "Data Source=powerbi://api.powerbi.com/v1.0/myorg/Production Workspace;Initial Catalog=sales_semantic_model"
-    }
-  }
-}
-```
+At publish time fabric-cicd resolves that path to the model it has just deployed in the target
+workspace and rewrites the reference to the model's id (`byConnection`), so the report is bound
+to the right model in every environment. The model must be in the same repository, or the
+publish fails with an item-dependency error, and it must already exist in the workspace or be
+published in the same run (`SemanticModel` in the deployment scope when the model is new or
+changed). `definition.pbir` is
+still substituted, so `{{varlib:...}}` placeholders keep working for reports exported with a
+`byConnection` reference (for example a report bound to a model in another workspace). A
+`<report>_report_id` variable, when present, is filled in after deployment like the model id.
 
 ### SQL Files in DDL Scripts
 
@@ -492,6 +516,7 @@ During deployment:
 ## Related Topics
 
 - [Workflows](workflows.md) - Learn about the full development workflow
+- [Semantic Models and Reports](semantic-models-and-reports.md) - Model data source from the value set, report bound to its model by path
 - [DDL Script Organization](ddl-organization.md) - Best practices for organizing DDL scripts
 - [Developer Guide: Variable Replacement](../developer_guide/variable_replacement.md) - Technical details about the variable replacement system
 

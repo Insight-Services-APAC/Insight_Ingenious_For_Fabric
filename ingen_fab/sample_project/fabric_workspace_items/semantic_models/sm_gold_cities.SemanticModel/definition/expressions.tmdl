@@ -1,0 +1,11 @@
+/// Direct Lake on SQL source: the gold warehouse's SQL analytics endpoint and database name
+/// come from the Variable Library value set of the target environment at deploy time.
+expression DatabaseQuery =
+		let
+			database = Sql.Database("{{varlib:wh_gold_warehouse_endpoint}}", "{{varlib:wh_gold_warehouse_name}}")
+		in
+			database
+	lineageTag: dd4240c5-6e57-47fc-a957-612692b18453
+
+	annotation PBI_IncludeFutureArtifacts = False
+

@@ -76,6 +76,10 @@
     {
       "name": "wh_gold_warehouse_id",
       "value": "REPLACE_WITH_LH_GOLD_LAKEHOUSE_GUID"
+    },
+    {
+      "name": "wh_gold_warehouse_endpoint",
+      "value": "REPLACE_WITH_WH_GOLD_SQL_ENDPOINT"
     }
   ]
 }

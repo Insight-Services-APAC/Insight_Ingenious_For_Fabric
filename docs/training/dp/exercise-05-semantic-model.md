@@ -213,6 +213,7 @@ After deployment, verify `sm_dp_geography` still works in the Fabric UI by openi
 - **Direct Lake on SQL** reads data via the Warehouse SQL analytics endpoint, supporting both tables and views
 - **Direct Lake on OneLake** reads Parquet files directly but only supports tables — use this when views are not required
 - **TMDL format** is human-readable and git-friendly — you can edit relationships and measures directly in the `.tmdl` files
+- To make the model portable across environments, replace the warehouse endpoint and database in `expressions.tmdl` with `{{varlib:...}}` placeholders, as described in the user guide [Semantic Models and Reports](../../user_guide/semantic-models-and-reports.md)
 - Semantic models can reference multiple warehouses or lakehouses — edit `model.tmdl` to add additional data sources
 - Part B is optional but **strongly recommended** for production workflows where models need to be promoted across environments
 
