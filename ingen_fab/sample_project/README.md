@@ -202,7 +202,7 @@ the same rows: compare `fct_sales` in `lh_gold`, `lh_gold_nb`, `wh_gold.dbt_note
 | Symptom | Cause | Fix |
 | --- | --- | --- |
 | way 3 fails at the connection (login error, or a server named `REPLACE_WITH_...`) | `wh_silver_warehouse_endpoint` is not in the Variable Library item | fill it, deploy again |
-| way 3 or 4: `Invalid object name 'lh_bronze.dbo.<table>'` right after the DDL run | the SQL analytics endpoint of `lh_bronze` has not yet picked up the new tables | wait a few minutes, or open the endpoint once in the portal, and run again |
+| way 3 or 4: `Invalid object name 'lh_bronze.dbo.<table>'` right after the DDL run | the SQL analytics endpoint of `lh_bronze` has not yet picked up the new tables | refresh the endpoint's metadata, then run again: open the SQL analytics endpoint of `lh_bronze` in the portal and choose **Refresh**, or `POST .../v1/workspaces/<workspace id>/sqlEndpoints/<endpoint id>/refreshMetadata?preview=true` with an empty body; it reports each table as synced in seconds |
 | way 4: the run fails at the connection | the item was deployed while the endpoint was a placeholder and not deployed again | same |
 | the notebook cannot find the project, or `pip_install` finds no `requirements.txt` | `upload-dbt-project` not run for that project | upload |
 | way 2: target `development-notebook` does not exist | the project was uploaded before `dbt profile` ran | `dbt profile`, upload again |
