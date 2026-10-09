@@ -136,7 +136,7 @@
     },
     {
       "name": "wh_gold_warehouse_endpoint",
-      "value": "REPLACE_WITH_WH_GOLD_WAREHOUSE_ENDPOINT"
+      "value": "REPLACE_WITH_WH_GOLD_SQL_ENDPOINT"
     },
     {
       "name": "lh_gold_lakehouse_sql_endpoint",
