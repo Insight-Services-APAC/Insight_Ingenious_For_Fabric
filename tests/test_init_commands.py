@@ -5,6 +5,7 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
+import pytest
 from rich.console import Console
 
 from ingen_fab.cli_utils import init_commands
@@ -129,3 +130,31 @@ def test_default_scaffold_logs_its_runs_like_the_sample(tmp_path: Path) -> None:
     assert macro.read_text(encoding="utf-8") == dbt_commands.LOGGING_MACRO.read_text(
         encoding="utf-8"
     )
+
+
+def test_project_name_must_be_a_plain_identifier(tmp_path: Path, monkeypatch) -> None:
+    """The name goes raw into single-quoted YAML scalars (the dbt profile names) and into the
+    Livy session name, so an apostrophe or a path separator is refused before anything is
+    copied, on both routes (--project-name, and the folder name of FABRIC_WORKSPACE_REPO_DIR);
+    a plain name creates the project."""
+    import typer
+
+    monkeypatch.setattr(init_commands, "Console", lambda: _console(tmp_path))
+    out = tmp_path / "out"
+    out.mkdir()
+    for bad in ("team's_dp", "../outside", "a b", ""):
+        with pytest.raises(typer.Exit):
+            init_commands.init_solution(bad, out)
+        assert not list(out.iterdir()), bad
+    monkeypatch.setenv("FABRIC_WORKSPACE_REPO_DIR", str(out / "team's dp"))
+    with pytest.raises(typer.Exit):
+        init_commands.init_solution(None, out)
+    assert not list(out.iterdir())
+    text = (tmp_path / "console.txt").read_text(encoding="utf-8")
+    assert "the folder name of FABRIC_WORKSPACE_REPO_DIR" in text
+    monkeypatch.delenv("FABRIC_WORKSPACE_REPO_DIR")
+    init_commands.init_solution("plain_dp", out)
+    text = (out / "plain_dp" / "dbt_project" / "dbt_project.yml").read_text(
+        encoding="utf-8"
+    )
+    assert "profile: 'plain_dp'" in text

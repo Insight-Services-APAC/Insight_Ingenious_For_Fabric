@@ -1,5 +1,6 @@
 import json
 import os
+import re
 import shutil
 import uuid
 from pathlib import Path
@@ -11,6 +12,26 @@ from rich.console import Console
 from ingen_fab.cli_utils.console_styles import ConsoleStyles
 from ingen_fab.fabric_api.utils import FabricApiUtils
 from ingen_fab.python_libs.common.utils.path_utils import PathUtils
+
+# The project name becomes a folder, the dbt profile names ({project_name},
+# {project_name}_warehouse, written into YAML scalars) and part of the Livy session name:
+# letters, digits, underscore and hyphen, starting with a letter or digit.
+PROJECT_NAME = re.compile(r"[A-Za-z0-9][A-Za-z0-9_-]*")
+
+
+def check_project_name(
+    project_name: str, console: Console, source: str = "--project-name"
+) -> str:
+    """Stop with a message when the name could not be a folder, a YAML scalar or a profile."""
+    if not PROJECT_NAME.fullmatch(project_name or ""):
+        ConsoleStyles.print_error(
+            console,
+            f"❌ Project name {project_name!r} (from {source}) is not valid: use letters, "
+            "digits, underscore and hyphen, starting with a letter or digit; it names the "
+            "folder, the dbt profiles and the Spark session.",
+        )
+        raise typer.Exit(code=1)
+    return project_name
 
 
 def init_solution(
@@ -31,6 +52,7 @@ def init_solution(
             workspace_path = Path(fabric_workspace_repo_dir)
             project_name = workspace_path.name
             project_path = workspace_path
+            source = "the folder name of FABRIC_WORKSPACE_REPO_DIR"
             ConsoleStyles.print_info(
                 console,
                 f"Using FABRIC_WORKSPACE_REPO_DIR for project: {project_name} at {project_path}",
@@ -48,6 +70,9 @@ def init_solution(
     else:
         # Use the provided project name and path
         project_path = Path(path) / project_name
+        source = "--project-name"
+
+    check_project_name(project_name, console, source)
 
     # Get the templates directory using the new path utilities
     try:
