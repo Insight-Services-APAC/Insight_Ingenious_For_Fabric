@@ -660,6 +660,12 @@ def test_environment_specific_json_files_finds_dbt_jobs_and_ontologies(tmp_path)
     _write(
         tmp_path / "notebooks/n.Notebook/other.json", "{}"
     )  # not an environment-specific kind
+    # a file of the same name outside a dbt job item (an embedded source tree, another item)
+    # is not a job definition and must not be rewritten
+    _write(tmp_path / "notebooks/n.Notebook/src/dbt-content.json", "{}")
+    _write(tmp_path / "dbt-content.json", "{}")
+    # inside the job item, only the root file is the definition; the embedded project is the user's
+    _write(tmp_path / "dbt_jobs/j.DataBuildToolJob/Code/dbt/dbt-content.json", "{}")
     found = pu_module.environment_specific_json_files(tmp_path)
     assert found["dbt job"] == [job]
     assert found["ontology"] == sorted([binding, entity])

@@ -1,5 +1,6 @@
-# The same transformation as dbt_project (bronze cities and countries -> silver -> gold
-# dim_cities), written for the Fabric Warehouse (T-SQL) adapter `dbt-fabric`.
+# The same transformation as dbt_project (seven bronze tables -> seven silver models -> six
+# gold models, 13 models and their tests), written for the Fabric Warehouse (T-SQL) adapter
+# `dbt-fabric`.
 # Used by two examples:
 #   - notebook dbtload_warehouse: a Python notebook runs dbt against this project (uploaded to
 #     the config lakehouse), profile target `notebook`, schema dbt_notebook

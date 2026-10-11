@@ -217,8 +217,15 @@ def environment_specific_json_files(output_dir: Path) -> dict[str, list[Path]]:
         if item.is_dir()
         for f in item.rglob("*.json")
     )
+    # the job definition is the one file at the item root; a file of that name inside the
+    # embedded project (Code/dbt) is the user's and is left alone
+    dbt_job_files = sorted(
+        item / "dbt-content.json"
+        for item in output_dir.rglob("*.DataBuildToolJob")
+        if item.is_dir() and (item / "dbt-content.json").is_file()
+    )
     return {
-        "dbt job": sorted(output_dir.rglob("dbt-content.json")),
+        "dbt job": dbt_job_files,
         "ontology": ontology_files,
     }
 

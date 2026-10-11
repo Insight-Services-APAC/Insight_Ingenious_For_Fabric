@@ -566,6 +566,10 @@ class OneLakeUtils:
             lakehouse_id: ID of the target lakehouse
             directory_path: Local directory path to upload
             target_prefix: Prefix for remote paths (optional)
+            exclude_dirs: Directory names to leave out, matched at the root of ``directory_path``
+                only (``target`` excludes ``<directory_path>/target`` but not ``models/target``);
+                ``__*`` folders are left out at any depth regardless; with ``sync_enabled`` a
+                remote copy of an excluded folder is removed
             max_workers: Number of parallel uploads (default: 8)
             max_retries: Maximum number of retry attempts for failed uploads (default: 3)
             backoff_factor: Exponential backoff factor for retries (default: 0.5)
