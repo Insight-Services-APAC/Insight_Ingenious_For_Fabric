@@ -12,7 +12,7 @@
 
 # MARKDOWN ********************
 
-# ## dbtload_warehouse: dbt build `path:models`
+# ## dbtload_warehouse: dbt build "path:models"
 #
 # A Python notebook (no Spark session of its own) that runs dbt against the project uploaded to
 # the config lakehouse (`ingen_fab deploy upload-dbt-project --dbt-project dbt_warehouse`),
@@ -20,13 +20,13 @@
 # that adapter: dbt-fabricspark opens a Spark (Livy) session on the profile's lakehouse,
 # dbt-fabric runs T-SQL in the warehouse. A Fabric token is fetched in this notebook and passed
 # to dbt as DBT_FABRIC_TOKEN for profiles that use it.
-# The profile target is `notebook`, from the project's own profiles.yml.
+# The profile target is "notebook", from the project's own profiles.yml.
 #
 # Every step runs through Python with a failure check, so a failed install or a failed dbt run
 # fails the notebook job. dbt writes its `target/` and logs to local scratch space.
 # The run is logged by dbt's on-run-end hook (`macros/ingen_fab_logging.sql`): one row in
 # `dbt_batch` and one per model and test in `dbt_execution_log`, in the log lakehouse
-# (`lh_log`) for a dbt-fabricspark project or the log warehouse for a dbt-fabric
+# ("lh_log") for a dbt-fabricspark project or the log warehouse for a dbt-fabric
 # one; a store the workspace lacks falls back to the project's own lakehouse or warehouse.
 # On failure only,
 # the step logs, dbt's own log files and the notebook's error are kept under
@@ -86,6 +86,7 @@ DBT_PROJECT = "dbt_warehouse"
 NOTEBOOK_NAME = "dbtload_warehouse"
 LOG_LAKEHOUSE = "lh_log"
 LOG_WAREHOUSE = ""  # empty: the project's own `log_warehouse` var, else wh_log
+VARIABLE_LIBRARY = "var_lib"  # the Variable Library item of this workspace
 PROJECT_DIR = Path("/lakehouse/default/Files") / DBT_PROJECT
 # one folder per run: the UTC stamp orders them, the short id keeps two runs that start in
 # the same second apart
@@ -101,7 +102,7 @@ ENV_FROM_VARIABLES = {"DBT_WAREHOUSE_ENDPOINT": "wh_silver_warehouse_endpoint"}
 
 def variable(name):
     """A value of the Variable Library deployed with this workspace."""
-    return notebookutils.variableLibrary.get(f"$(/**/var_lib/{name})")  # noqa: F821
+    return notebookutils.variableLibrary.get(f"$(/**/{VARIABLE_LIBRARY}/{name})")  # noqa: F821
 
 
 # The run's record is written by dbt itself: the on-run-end hook (macros/ingen_fab_logging.sql,

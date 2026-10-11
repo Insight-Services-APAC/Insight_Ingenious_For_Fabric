@@ -334,11 +334,12 @@ def write_orchestrator_notebook(
     check_name(notebook_name, "notebook name", ITEM_NAME)
     if log_warehouse:
         check_name(log_warehouse, "log warehouse", PROJECT_NAME)
-    if any(ord(ch) < 32 for ch in select):
-        # the selector is rendered into the notebook's header comment as well as its code
-        raise profiles.ProfileError(
-            "--select must be one line without control characters"
-        )
+    for label, value in (("--select", select), ("--target", target)):
+        if any(ord(ch) < 32 for ch in value):
+            # both are rendered into the notebook's header comment as well as its code
+            raise profiles.ProfileError(
+                f"{label} must be one line without control characters"
+            )
     if command not in ORCHESTRATOR_COMMANDS:
         raise profiles.ProfileError(
             f"--command {command!r} is not one the orchestrator runs; choose one of "

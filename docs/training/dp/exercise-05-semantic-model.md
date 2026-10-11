@@ -29,10 +29,10 @@ Before creating the semantic model, verify that the gold layer infrastructure is
 
 1. In the Fabric UI, navigate to your workspace
 2. Open `lh_gold` Lakehouse:
-   - Confirm the **Tables** section shows `Gold.Dim_Cities` and `Gold.Dim_CityGeography`
+   - Confirm the **Tables** section shows `dim_cities` and `dim_city_geography`
 3. Open `wh_gold` Warehouse:
    - Confirm the **DW** schema contains views `vDim_Cities` and `vDim_CityGeography`
-   - If views are missing, rerun the deployment: `ingen_fab deploy deploy` from your project root
+   - If views are missing, run the `wh_gold` warehouse orchestrator notebook (`00_orchestrator_wh_gold_warehouse_ddl_scripts`), as in Exercise 4 Step 5e; the deployment publishes the notebooks but does not create the views
 
 ### 1. Open the Warehouse and create a semantic model
 

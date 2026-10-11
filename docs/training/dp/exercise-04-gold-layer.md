@@ -196,6 +196,19 @@ ingen_fab deploy deploy
 
 In your Fabric workspace, run `dbtload_gold`.
 
+**5e. Create the warehouse views**
+
+The views in `wh_gold` read `lh_gold` through its SQL analytics endpoint, so they come after the
+gold build. Run the `wh_gold` warehouse orchestrator notebook:
+
+```
+00_orchestrator_wh_gold_warehouse_ddl_scripts
+```
+
+DDL scripts run once: the ones Exercise 1 already ran (the `DW` schema, `DW.vDim_Cities`) are
+skipped unless they failed then, and the `DW.vDim_CityGeography` view you wrote in Step 3 is
+created. Exercise 5 needs both views.
+
 ## Verification
 
 In a Fabric notebook attached to `lh_gold`:

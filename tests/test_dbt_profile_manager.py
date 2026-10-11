@@ -353,7 +353,7 @@ def test_orchestrator_notebook_is_written_as_a_deployable_item(tmp_path):
     assert 'dbt_vars = ""' in content and 'dbt_target = ""' in content
     assert "ENV_FROM_VARIABLES = {}" in content
     assert 'variable("fabric_environment")' in content
-    assert 'variableLibrary.get(f"$(/**/var_lib/{name})")' in content
+    assert 'variableLibrary.get(f"$(/**/{VARIABLE_LIBRARY}/{name})")' in content
     assert 'target = dbt_target or f"{environment}-notebook"' in content
     # install and run go through subprocess with a failure check
     assert (
@@ -740,10 +740,29 @@ def test_orchestrator_selector_is_one_line_and_the_header_renders_it_as_json(tmp
         dbt_commands.write_orchestrator_notebook(
             _ctx(tmp_path), "dbt_project", "dbtload_nl", "tag:silver\nimport os"
         )
-    selector = 'config.materialized:"table" path:models\silver'
+    selector = r'config.materialized:"table" path:models\silver'
     path = dbt_commands.write_orchestrator_notebook(
         _ctx(tmp_path), "dbt_project", "dbtload_hdr", selector
     )
     content = (path / "notebook-content.py").read_text(encoding="utf-8")
     assert f"# ## dbtload_hdr: dbt build {json.dumps(selector)}" in content
     assert f"`{selector}`" not in content
+
+
+def test_orchestrator_target_and_library_name_are_rendered_safely(tmp_path):
+    """The target goes into the header comment and the code: a control character in it is
+    refused, and the header renders it as JSON. The Variable Library name is a JSON string
+    constant, never interpolated raw into the generated Python."""
+    _project(tmp_path, extra={"dbt_default_lakehouse": "lh_bronze", **LOG_VARS})
+    with pytest.raises(pm.ProfileError, match="--target must be one line"):
+        dbt_commands.write_orchestrator_notebook(
+            _ctx(tmp_path), "dbt_project", "dbtload_t", "path:models", target="x\ny"
+        )
+    path = dbt_commands.write_orchestrator_notebook(
+        _ctx(tmp_path), "dbt_project", "dbtload_t", "path:models", target='lap"top'
+    )
+    content = (path / "notebook-content.py").read_text(encoding="utf-8")
+    assert '# The profile target is "lap\\"top", from the project' in content
+    assert 'VARIABLE_LIBRARY = "var_lib"' in content
+    assert 'f"$(/**/{VARIABLE_LIBRARY}/{name})"' in content
+    assert "{{ variable_library }}" not in content
