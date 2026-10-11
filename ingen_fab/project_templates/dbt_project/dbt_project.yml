@@ -7,7 +7,7 @@ version: '1.0.0'
 config-version: 2
 
 # This setting configures which "profile" dbt uses for this project.
-profile: 'if_demo'
+profile: '{project_name}'
 
 # These configurations specify where dbt should look for different types of files.
 # The `model-paths` config, for example, states that models in this project can be
@@ -18,6 +18,14 @@ test-paths: ["tests"]
 seed-paths: ["seeds"]
 macro-paths: ["macros"]
 snapshot-paths: ["snapshots"]
+
+# Every run is logged by dbt itself: one row per run in dbt_batch and one per model and test in
+# dbt_execution_log, in the log lakehouse. The macro lives in macros/ingen_fab_logging.sql and
+# is maintained by ingen_fab (refreshed by every `ingen_fab dbt` command).
+on-run-end:
+  - "{{ ingen_fab_log_run(results) }}"
+vars:
+  log_lakehouse: lh_log
 
 clean-targets:         # directories to be removed by `dbt clean`
   - "target"

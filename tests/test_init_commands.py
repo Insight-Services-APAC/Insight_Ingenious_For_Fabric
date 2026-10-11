@@ -103,3 +103,29 @@ def test_platform_logical_ids_are_regenerated(tmp_path: Path) -> None:
 
     new_id = json.loads(platform.read_text(encoding="utf-8"))["config"]["logicalId"]
     assert new_id != "0f8e688e-6a61-4683-b1f9-79b94fe3b92a" and len(new_id) == 36
+
+
+def test_default_scaffold_logs_its_runs_like_the_sample(tmp_path: Path) -> None:
+    """A project from `init new` without --with-samples carries the run-log hook, the
+    log_lakehouse var and the logging macro, named after the project like the sample, so a
+    plain project is logged from its first run and `ingen_fab dbt` has nothing to warn about."""
+    import shutil
+
+    from ingen_fab.cli_utils import dbt_commands
+    from ingen_fab.python_libs.common.utils.path_utils import PathUtils
+
+    scaffold = PathUtils.get_package_resource_path("project_templates") / "dbt_project"
+    project = tmp_path / "plain_dp"
+    shutil.copytree(scaffold, project / "dbt_project")
+    init_commands._process_template_files(project, "plain_dp", _console(tmp_path))
+
+    dbt_project = project / "dbt_project"
+    text = (dbt_project / "dbt_project.yml").read_text(encoding="utf-8")
+    assert "profile: 'plain_dp'" in text
+    assert "{{ ingen_fab_log_run(results) }}" in text
+    assert "log_lakehouse: lh_log" in text
+    assert dbt_commands.logging_hook_present(dbt_project)
+    macro = dbt_project / "macros" / "ingen_fab_logging.sql"
+    assert macro.read_text(encoding="utf-8") == dbt_commands.LOGGING_MACRO.read_text(
+        encoding="utf-8"
+    )
