@@ -6,7 +6,7 @@ import os
 import shutil
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any, Iterable, Optional
+from typing import Any, Callable, Iterable, Optional
 
 import yaml
 from azure.core.credentials import TokenCredential
@@ -230,7 +230,9 @@ def environment_specific_json_files(output_dir: Path) -> dict[str, list[Path]]:
     }
 
 
-def substitute_variables_in_files(files: Iterable[Path], replace) -> int:
+def substitute_variables_in_files(
+    files: Iterable[Path], replace: Callable[[str], str]
+) -> int:
     """Apply ``replace`` to each file's text and rewrite the files it changes; return how many."""
     changed = 0
     for path in files:

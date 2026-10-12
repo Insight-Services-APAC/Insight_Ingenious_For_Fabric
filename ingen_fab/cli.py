@@ -1303,9 +1303,10 @@ def _dbt_proxy(verb: str):
 
     command.__name__ = f"dbt_{verb}"
     command.__doc__ = (
-        f"Run `dbt {verb}` for the project with the generated profile and the current "
-        f"environment as target. Extra arguments are passed to dbt unchanged, e.g. "
-        f"`ingen_fab dbt {verb} -- --select tag:silver`."
+        f"Run `dbt {verb}` for the project. With a generated profile the current environment "
+        f"is the target unless you pass one; a hand-written profile keeps its own default "
+        f"target. Arguments after `--` go to dbt unchanged, e.g. "
+        f"`ingen_fab dbt {verb} -- --threads 8` (only the options `dbt {verb}` accepts)."
     )
     return command
 

@@ -45,18 +45,20 @@ def collect_upload_files(
     include_extensions: Optional[Iterable[str]] = None,
     exclude_dirs: Iterable[str] = (),
 ) -> list[Path]:
-    """Files under ``dir_path`` to upload: no ``__*`` folder at any depth, no excluded folder
-    name at the root (``target/`` is generated, ``models/target/`` is someone's model folder),
-    and, when ``include_extensions`` is given, only those extensions."""
+    """Files under ``dir_path`` to upload: no ``__*`` folder at any depth, no excluded name
+    at the root, folder or file (``target/`` is generated, ``models/target/`` is someone's
+    model folder; ``.git`` is a file in a worktree or submodule), and, when
+    ``include_extensions`` is given, only those extensions."""
     excluded = set(exclude_dirs)
     files: list[Path] = []
     for file_path in sorted(dir_path.rglob("*")):
         if not file_path.is_file():
             continue
-        parts = file_path.relative_to(dir_path).parts[:-1]
+        rel = file_path.relative_to(dir_path).parts
+        parts = rel[:-1]
         if any(part.startswith("__") for part in parts):
             continue
-        if parts and parts[0] in excluded:
+        if rel[0] in excluded:
             continue
         if include_extensions is not None and not any(
             str(file_path).lower().endswith(ext.lower()) for ext in include_extensions

@@ -139,6 +139,8 @@ def test_upload_keeps_package_files_and_skips_generated_folders(tmp_path: Path) 
     (tmp_path / "models" / "logs" / "b.sql").write_text("select 2", encoding="utf-8")
     (tmp_path / "logs").mkdir()
     (tmp_path / "logs" / "dbt.log").write_text("", encoding="utf-8")
+    # .git is a file, not a folder, in a git worktree or submodule
+    (tmp_path / ".git").write_text("gitdir: ../.git/worktrees/x", encoding="utf-8")
     files = {
         p.relative_to(tmp_path).as_posix()
         for p in collect_upload_files(tmp_path, exclude_dirs=DBT_GENERATED_DIRS)
