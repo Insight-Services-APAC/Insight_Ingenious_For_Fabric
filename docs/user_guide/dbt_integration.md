@@ -364,9 +364,9 @@ whatever `profiles/` holds (the folder is created if missing); for any other ver
 `ProfileError` ends the command. `--lakehouse` with a hand-written profile only warns. The
 `dbt` executable is looked up next to the running interpreter first, then on `PATH`
 (`dbt_executable`). `check_name` (`PROJECT_NAME`, `ITEM_NAME`) guards the project name on
-`profile`, the verbs and `orchestrator`, and the notebook name and `--log-warehouse`, as a
-full match (a trailing newline is refused); it is not applied by `generate-schema-yml` or
-`upload-dbt-project`.
+`profile`, the verbs, `orchestrator` and `deploy upload-dbt-project`, and the notebook name
+and `--log-warehouse`, as a full match (a trailing newline is refused); it is not applied by
+`generate-schema-yml`.
 
 **The orchestrator notebook, at generation.** `write_orchestrator_notebook` checks, in
 order: the command is one of `ORCHESTRATOR_COMMANDS`; the project folder holds
@@ -383,10 +383,9 @@ The template is rendered with: the project, notebook, config lakehouse and Varia
 names, `allowed_commands` (rendered into the notebook as `ALLOWED`), the command, selector,
 threads, `dbt_vars`, `dbt_target`, `dbt_indirect_selection`, the log lakehouse, the log
 warehouse and `env_variables`. Values used in code are rendered with `tojson`, except
-`variable_library` (inside the f-string of `variable()`) and `dbt_threads` (an int); the
-markdown header renders the names raw inside comments (they pass `check_name`) and the
-selector with `tojson`; a selector with a line break or another control character is
-refused at generation. An existing `.platform` file of the notebook is kept.
+`dbt_threads` (an int); the markdown header renders the names raw inside comments (they pass
+`check_name`) and the selector with `tojson`; a selector with a line break or another control
+character is refused at generation. An existing `.platform` file of the notebook is kept.
 
 **The orchestrator notebook, at run time.** `FAILURE_FOLDER` is built before the `try`,
 from `<log lakehouse>_workspace_id` and `_lakehouse_id` read from the deployed Variable
