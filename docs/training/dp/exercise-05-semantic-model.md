@@ -29,10 +29,10 @@ Before creating the semantic model, verify that the gold layer infrastructure is
 
 1. In the Fabric UI, navigate to your workspace
 2. Open `lh_gold` Lakehouse:
-   - Confirm the **Tables** section shows `Gold.Dim_Cities` and `Gold.Dim_CityGeography`
+   - Confirm the **Tables** section shows `dim_cities` and `dim_geography`
 3. Open `wh_gold` Warehouse:
    - Confirm the **DW** schema contains views `vDim_Cities` and `vDim_CityGeography`
-   - If views are missing, rerun the deployment: `ingen_fab deploy deploy` from your project root
+   - If views are missing, run the `wh_gold` warehouse orchestrator notebook (`00_orchestrator_wh_gold_warehouse_ddl_scripts`), as in Exercise 4 Step 5e; the deployment publishes the notebooks but does not create the views
 
 ### 1. Open the Warehouse and create a semantic model
 
@@ -120,9 +120,17 @@ This downloads the definition into `fabric_workspace_items/downloaded/SemanticMo
 
 ### 6. Inspect the downloaded files
 
-```bash
-find fabric_workspace_items/downloaded/SemanticModel/sm_dp_geography.SemanticModel -type f
-```
+=== "macOS/Linux"
+
+    ```bash
+    find fabric_workspace_items/downloaded/SemanticModel/sm_dp_geography.SemanticModel -type f
+    ```
+
+=== "Windows"
+
+    ```powershell
+    Get-ChildItem -Recurse -File fabric_workspace_items\downloaded\SemanticModel\sm_dp_geography.SemanticModel
+    ```
 
 You should see:
 
@@ -164,14 +172,26 @@ Open `.platform` — it contains the item type, display name, and a unique `logi
 
 The `downloaded/` folder is a **staging area** — items left there will cause duplicate-item errors during deployment. Move the item to its final location and remove the staging copy:
 
-```bash
-mkdir -p fabric_workspace_items/SemanticModel
-cp -r fabric_workspace_items/downloaded/SemanticModel/sm_dp_geography.SemanticModel \
-      fabric_workspace_items/SemanticModel/
+=== "macOS/Linux"
 
-# Remove the staging copy to prevent duplicates during deploy
-rm -rf fabric_workspace_items/downloaded/SemanticModel/sm_dp_geography.SemanticModel
-```
+    ```bash
+    mkdir -p fabric_workspace_items/SemanticModel
+    cp -r fabric_workspace_items/downloaded/SemanticModel/sm_dp_geography.SemanticModel \
+          fabric_workspace_items/SemanticModel/
+
+    # Remove the staging copy to prevent duplicates during deploy
+    rm -rf fabric_workspace_items/downloaded/SemanticModel/sm_dp_geography.SemanticModel
+    ```
+
+=== "Windows"
+
+    ```powershell
+    New-Item -ItemType Directory -Force fabric_workspace_items\SemanticModel
+    Copy-Item -Recurse fabric_workspace_items\downloaded\SemanticModel\sm_dp_geography.SemanticModel fabric_workspace_items\SemanticModel\
+
+    # Remove the staging copy to prevent duplicates during deploy
+    Remove-Item -Recurse -Force fabric_workspace_items\downloaded\SemanticModel\sm_dp_geography.SemanticModel
+    ```
 
 !!! warning "Always remove the staging copy"
     `ingen_fab deploy deploy` scans the **entire** `fabric_workspace_items/` directory — including `downloaded/`. If the same item exists in both locations, deployment will fail with `Duplicate logicalId` errors.

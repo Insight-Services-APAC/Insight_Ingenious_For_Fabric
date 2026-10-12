@@ -5,7 +5,7 @@ OneLake utilities for interacting with Microsoft Fabric OneLake storage using Az
 import logging
 import os
 from pathlib import Path
-from typing import Optional
+from typing import Iterable, Optional
 
 from azure.core.credentials import TokenCredential
 from azure.storage.filedatalake import DataLakeServiceClient, FileSystemClient
@@ -33,6 +33,39 @@ logging.getLogger("azure.core.pipeline.policies.http_logging_policy").setLevel(
 )
 logging.getLogger("azure.identity").setLevel(logging.WARNING)
 logging.getLogger("azure.storage").setLevel(logging.WARNING)
+
+
+# Folders dbt writes at run time; never part of a project upload (they also hold binary
+# files such as partial_parse.msgpack that the text uploader cannot read).
+DBT_GENERATED_DIRS = ("target", "logs", "dbt_packages", ".git")
+
+
+def collect_upload_files(
+    dir_path: Path,
+    include_extensions: Optional[Iterable[str]] = None,
+    exclude_dirs: Iterable[str] = (),
+) -> list[Path]:
+    """Files under ``dir_path`` to upload: no ``__*`` folder at any depth, no excluded name
+    at the root, folder or file (``target/`` is generated, ``models/target/`` is someone's
+    model folder; ``.git`` is a file in a worktree or submodule), and, when
+    ``include_extensions`` is given, only those extensions."""
+    excluded = set(exclude_dirs)
+    files: list[Path] = []
+    for file_path in sorted(dir_path.rglob("*")):
+        if not file_path.is_file():
+            continue
+        rel = file_path.relative_to(dir_path).parts
+        parts = rel[:-1]
+        if any(part.startswith("__") for part in parts):
+            continue
+        if rel[0] in excluded:
+            continue
+        if include_extensions is not None and not any(
+            str(file_path).lower().endswith(ext.lower()) for ext in include_extensions
+        ):
+            continue
+        files.append(file_path)
+    return files
 
 
 class OneLakeUtils:
@@ -519,6 +552,7 @@ class OneLakeUtils:
         directory_path: str,
         target_prefix: str = "",
         *,
+        exclude_dirs: Iterable[str] = (),
         service_client: Optional[DataLakeServiceClient] = None,
         file_system_client: Optional[FileSystemClient] = None,
         max_workers: int = 8,
@@ -534,6 +568,10 @@ class OneLakeUtils:
             lakehouse_id: ID of the target lakehouse
             directory_path: Local directory path to upload
             target_prefix: Prefix for remote paths (optional)
+            exclude_dirs: Directory names to leave out, matched at the root of ``directory_path``
+                only (``target`` excludes ``<directory_path>/target`` but not ``models/target``);
+                ``__*`` folders are left out at any depth regardless; with ``sync_enabled`` a
+                remote copy of an excluded folder is removed
             max_workers: Number of parallel uploads (default: 8)
             max_retries: Maximum number of retry attempts for failed uploads (default: 3)
             backoff_factor: Exponential backoff factor for retries (default: 0.5)
@@ -557,20 +595,7 @@ class OneLakeUtils:
             "deletion_failed": 0,
         }
 
-        # Find all files recursively, filtering out __ directories and by extension if specified
-        all_files = []
-        for file_path in dir_path.rglob("*"):
-            if file_path.is_file():
-                path_parts = file_path.relative_to(dir_path).parts
-                if any(part.startswith("__") for part in path_parts):
-                    continue
-                if include_extensions is not None:
-                    if not any(
-                        str(file_path).lower().endswith(ext.lower())
-                        for ext in include_extensions
-                    ):
-                        continue
-                all_files.append(file_path)
+        all_files = collect_upload_files(dir_path, include_extensions, exclude_dirs)
 
         upload_results["total_files"] = len(all_files)
 
@@ -895,6 +920,7 @@ class OneLakeUtils:
             directory_path=str(dbt_project_path),
             target_prefix=f"{dbt_project_name}",
             service_client=self._get_datalake_service_client(),
+            exclude_dirs=DBT_GENERATED_DIRS,
         )
 
     def list_lakehouse_files(

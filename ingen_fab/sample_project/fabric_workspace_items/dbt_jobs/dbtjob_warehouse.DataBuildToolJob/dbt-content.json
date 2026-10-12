@@ -1,0 +1,27 @@
+{
+  "project": {
+    "projectType": "OneLake",
+    "folderPath": "dbt"
+  },
+  "profile": {
+    "profileType": "DataWarehouse",
+    "schema": "dbt_job",
+    "connectionSettings": {
+      "name": "wh_silver",
+      "properties": {
+        "type": "DataWarehouse",
+        "typeProperties": {
+          "workspaceId": "{{varlib:wh_silver_workspace_id}}",
+          "artifactId": "{{varlib:wh_silver_warehouse_id}}",
+          "endPoint": "{{varlib:wh_silver_warehouse_endpoint}}"
+        }
+      }
+    }
+  },
+  "command": {
+    "operation": "build",
+    "arguments": {
+      "threads": 4
+    }
+  }
+}

@@ -66,9 +66,17 @@ The environment-specific values here are the server name and warehouse name.
 
 List the available variables for your current environment:
 
-```bash
-cat fabric_workspace_items/config/var_lib.VariableLibrary/valueSets/development.json
-```
+=== "macOS/Linux"
+
+    ```bash
+    cat fabric_workspace_items/config/var_lib.VariableLibrary/valueSets/development.json
+    ```
+
+=== "Windows"
+
+    ```powershell
+    Get-Content fabric_workspace_items\config\var_lib.VariableLibrary\valueSets\development.json
+    ```
 
 You should see entries like:
 

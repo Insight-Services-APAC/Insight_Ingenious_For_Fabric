@@ -1,0 +1,12 @@
+{
+  "$schema": "https://developer.microsoft.com/json-schemas/fabric/gitIntegration/platformProperties/2.0.0/schema.json",
+  "metadata": {
+    "type": "DataBuildToolJob",
+    "displayName": "dbtjob_warehouse",
+    "description": "dbt build of the warehouse example, run by Fabric's dbt job item"
+  },
+  "config": {
+    "version": "2.0",
+    "logicalId": "a7667468-3738-4c16-bfa0-e1dccb080a9a"
+  }
+}

@@ -1,5 +1,6 @@
 import json
 import os
+import re
 import shutil
 import uuid
 from pathlib import Path
@@ -12,8 +13,33 @@ from ingen_fab.cli_utils.console_styles import ConsoleStyles
 from ingen_fab.fabric_api.utils import FabricApiUtils
 from ingen_fab.python_libs.common.utils.path_utils import PathUtils
 
+# The project name becomes a folder, the dbt profile names ({project_name},
+# {project_name}_warehouse, written into YAML scalars) and part of the Livy session name:
+# letters, digits, underscore and hyphen, starting with a letter or digit.
+PROJECT_NAME = re.compile(r"[A-Za-z0-9][A-Za-z0-9_-]*")
 
-def init_solution(project_name: str | None, path: Path, with_samples: bool = False, with_er_samples: bool = False):
+
+def check_project_name(
+    project_name: str, console: Console, source: str = "--project-name"
+) -> str:
+    """Stop with a message when the name could not be a folder, a YAML scalar or a profile."""
+    if not PROJECT_NAME.fullmatch(project_name or ""):
+        ConsoleStyles.print_error(
+            console,
+            f"❌ Project name {project_name!r} (from {source}) is not valid: use letters, "
+            "digits, underscore and hyphen, starting with a letter or digit; it names the "
+            "folder, the dbt profiles and the Spark session.",
+        )
+        raise typer.Exit(code=1)
+    return project_name
+
+
+def init_solution(
+    project_name: str | None,
+    path: Path,
+    with_samples: bool = False,
+    with_er_samples: bool = False,
+):
     console = Console()
 
     # Determine project name and path
@@ -26,6 +52,7 @@ def init_solution(project_name: str | None, path: Path, with_samples: bool = Fal
             workspace_path = Path(fabric_workspace_repo_dir)
             project_name = workspace_path.name
             project_path = workspace_path
+            source = "the folder name of FABRIC_WORKSPACE_REPO_DIR"
             ConsoleStyles.print_info(
                 console,
                 f"Using FABRIC_WORKSPACE_REPO_DIR for project: {project_name} at {project_path}",
@@ -43,13 +70,17 @@ def init_solution(project_name: str | None, path: Path, with_samples: bool = Fal
     else:
         # Use the provided project name and path
         project_path = Path(path) / project_name
+        source = "--project-name"
+
+    check_project_name(project_name, console, source)
 
     # Get the templates directory using the new path utilities
     try:
         if with_er_samples:
             templates_dir = PathUtils.get_package_resource_path("er_sample_project")
             ConsoleStyles.print_info(
-                console, "Using er_sample_project as template (Enterprise Reporting supply chain / logistics)"
+                console,
+                "Using er_sample_project as template (Enterprise Reporting supply chain / logistics)",
             )
         elif with_samples:
             # Use sample_project as the template source
@@ -98,11 +129,17 @@ def init_solution(project_name: str | None, path: Path, with_samples: bool = Fal
     absolute_project_path = project_path.resolve()
 
     ConsoleStyles.print_info(console, "\nNext steps:")
-    ConsoleStyles.print_info(console, "1. Set environment variables:")
+    ConsoleStyles.print_info(
+        console, "1. Set environment variables (bash, then the PowerShell equivalent):"
+    )
     ConsoleStyles.print_info(
         console, f"   export FABRIC_WORKSPACE_REPO_DIR='{absolute_project_path}'"
     )
     ConsoleStyles.print_info(console, "   export FABRIC_ENVIRONMENT='development'")
+    ConsoleStyles.print_info(
+        console, f'   $env:FABRIC_WORKSPACE_REPO_DIR = "{absolute_project_path}"'
+    )
+    ConsoleStyles.print_info(console, '   $env:FABRIC_ENVIRONMENT = "development"')
     ConsoleStyles.print_info(
         console,
         "2. Update variable values in fabric_workspace_items/config/var_lib.VariableLibrary/valueSets/",
@@ -120,8 +157,16 @@ def init_solution(project_name: str | None, path: Path, with_samples: bool = Fal
         "   ingen_fab ddl compile --output-mode fabric_workspace_repo --generation-mode Lakehouse",
     )
     ConsoleStyles.print_info(console, "5. Deploy to Fabric:")
-    ConsoleStyles.print_info(
-        console, "   ingen_fab deploy deploy --environment development"
+    ConsoleStyles.print_info(console, "   ingen_fab deploy deploy")
+
+
+def _dbt_name_files(project_path: Path) -> list[Path]:
+    """Every dbt_project.yml and profiles.yml in the project, including the copy a dbt job
+    item carries under its Code folder."""
+    return sorted(
+        p
+        for name in ("dbt_project.yml", "profiles.yml")
+        for p in project_path.rglob(name)
     )
 
 
@@ -135,6 +180,19 @@ def _process_template_files(project_path: Path, project_name: str, console: Cons
         content = content.replace("{project_name}", project_name)
         readme_path.write_text(content)
         ConsoleStyles.print_info(console, "  ✓ Processed template: README.md")
+
+    # dbt projects in the template name their profile after the project ({project_name},
+    # {project_name}_warehouse) so that a generated project, its profiles and the Livy session
+    # names (dbt-<profile>-<target>) carry the project's own name
+    for dbt_file in _dbt_name_files(project_path):
+        content = dbt_file.read_text(encoding="utf-8")
+        if "{project_name}" in content:
+            dbt_file.write_text(
+                content.replace("{project_name}", project_name), encoding="utf-8"
+            )
+            ConsoleStyles.print_info(
+                console, f"  ✓ Processed template: {dbt_file.relative_to(project_path)}"
+            )
 
     # Find and process all .platform files
     platform_files = list(project_path.rglob("*.platform"))
@@ -272,9 +330,9 @@ def init_workspace(
         console.print("\n[cyan]Workspace Configuration[/cyan]")
         console.print("────────────────────────")
 
-        is_single_workspace = os.environ.get("IS_SINGLE_WORKSPACE",'')
+        is_single_workspace = os.environ.get("IS_SINGLE_WORKSPACE", "")
 
-        if is_single_workspace == '':
+        if is_single_workspace == "":
             ConsoleStyles.print_info(
                 console,
                 "💡 Environment variable IS_SINGLE_WORKSPACE not set, prompting user.",
@@ -764,14 +822,17 @@ def _check_and_update_artifacts(
                     console, "\n💡 To create missing lakehouses and warehouses, run:"
                 )
                 ConsoleStyles.print_info(
-                    console, f"   ingen_fab deploy deploy --environment {environment}"
+                    console,
+                    f"   ingen_fab --fabric-environment {environment} deploy deploy",
                 )
                 ConsoleStyles.print_info(
-                    console, "💡 Notebooks need to be created manually in Fabric or via DDL compilation"
+                    console,
+                    "💡 Notebooks need to be created manually in Fabric or via DDL compilation",
                 )
             else:
                 ConsoleStyles.print_success(
-                    console, "\n✓ All expected artifacts (lakehouses, warehouses, notebooks) found and configured!"
+                    console,
+                    "\n✓ All expected artifacts (lakehouses, warehouses, notebooks) found and configured!",
                 )
 
     except Exception as e:
@@ -780,7 +841,7 @@ def _check_and_update_artifacts(
 
 def init_storage_config(remove_orphans: bool = False):
     """Initialize lakehouse and warehouse artifacts from storage_config.yaml.
-    
+
     Reads the storage_config.yaml file and creates Fabric artifact folders
     under fabric_workspace_items/lakehouses and fabric_workspace_items/warehouses
     for each lakehouse and warehouse defined.
@@ -791,7 +852,7 @@ def init_storage_config(remove_orphans: bool = False):
             contain stale entries from a previous project template (e.g. --with-samples).
     """
     console = Console()
-    
+
     # Get the fabric_workspace_repo_dir from environment
     fabric_workspace_repo_dir = os.environ.get("FABRIC_WORKSPACE_REPO_DIR")
     if not fabric_workspace_repo_dir:
@@ -804,10 +865,10 @@ def init_storage_config(remove_orphans: bool = False):
             "💡 Please ensure you're in a Fabric workspace project directory.",
         )
         raise typer.Exit(code=1)
-    
+
     workspace_path = Path(fabric_workspace_repo_dir)
     storage_config_path = workspace_path / "fabric_config" / "storage_config.yaml"
-    
+
     # Check if storage_config.yaml exists
     if not storage_config_path.exists():
         ConsoleStyles.print_error(
@@ -815,7 +876,7 @@ def init_storage_config(remove_orphans: bool = False):
             f"❌ storage_config.yaml not found at {storage_config_path}",
         )
         raise typer.Exit(code=1)
-    
+
     # Read storage_config.yaml
     try:
         with open(storage_config_path, "r", encoding="utf-8") as f:
@@ -826,7 +887,7 @@ def init_storage_config(remove_orphans: bool = False):
             f"❌ Failed to read storage_config.yaml: {str(e)}",
         )
         raise typer.Exit(code=1)
-    
+
     # Get template directories
     try:
         templates_base = PathUtils.get_package_resource_path(
@@ -841,22 +902,22 @@ def init_storage_config(remove_orphans: bool = False):
             f"❌ Template directories not found: {e}",
         )
         raise typer.Exit(code=1)
-    
+
     if not lakehouse_template_dir.exists():
         ConsoleStyles.print_error(
             console,
             f"❌ Lakehouse template not found: {lakehouse_template_dir}",
         )
         raise typer.Exit(code=1)
-    
+
     # Extract lakehouse and warehouse names from the storage configuration
     lakehouse_names: list[str] = []
     warehouse_names: list[str] = []
     sqldatabase_names: list[str] = []
-    
+
     # Values to skip
     skip_values = {"none", "DO_NOT_CREATE", ""}
-    
+
     if "storage" in storage_config:
         for storage_item in storage_config["storage"]:
             # Process lakehouses
@@ -864,53 +925,53 @@ def init_storage_config(remove_orphans: bool = False):
                 for key, value in storage_item.items():
                     if key != "lakehouse" and value and value not in skip_values:
                         lakehouse_names.append(value)
-            
+
             # Process warehouses
             if "warehouses" in storage_item:
                 for key, value in storage_item.items():
                     if key != "warehouses" and value and value not in skip_values:
                         warehouse_names.append(value)
-            
+
             # Process SQL databases
             if "sqldatabases" in storage_item:
                 for key, value in storage_item.items():
                     if key != "sqldatabases" and value and value not in skip_values:
                         sqldatabase_names.append(value)
-    
+
     if not lakehouse_names and not warehouse_names and not sqldatabase_names:
         ConsoleStyles.print_warning(
             console,
             "⚠️  No lakehouses, warehouses, or SQL databases found in storage_config.yaml",
         )
         raise typer.Exit(code=0)
-    
+
     if lakehouse_names:
         ConsoleStyles.print_info(
             console,
             f"Found {len(lakehouse_names)} lakehouse(s): {', '.join(lakehouse_names)}",
         )
-    
+
     if warehouse_names:
         ConsoleStyles.print_info(
             console,
             f"Found {len(warehouse_names)} warehouse(s): {', '.join(warehouse_names)}",
         )
-    
+
     if sqldatabase_names:
         ConsoleStyles.print_info(
             console,
             f"Found {len(sqldatabase_names)} SQL database(s): {', '.join(sqldatabase_names)}",
         )
-    
+
     # Process lakehouses
     lakehouse_created = 0
     lakehouse_skipped = 0
-    
+
     if lakehouse_names:
         ConsoleStyles.print_info(console, "\n📦 Processing lakehouses...")
         lakehouses_dir = workspace_path / "fabric_workspace_items" / "lakehouses"
         lakehouses_dir.mkdir(parents=True, exist_ok=True)
-        
+
         for lakehouse_name in lakehouse_names:
             result = _create_artifact_from_template(
                 console=console,
@@ -924,11 +985,11 @@ def init_storage_config(remove_orphans: bool = False):
                 lakehouse_created += 1
             else:
                 lakehouse_skipped += 1
-    
+
     # Process warehouses
     warehouse_created = 0
     warehouse_skipped = 0
-    
+
     if warehouse_names:
         if not warehouse_template_dir.exists():
             ConsoleStyles.print_warning(
@@ -943,7 +1004,7 @@ def init_storage_config(remove_orphans: bool = False):
             ConsoleStyles.print_info(console, "\n🏢 Processing warehouses...")
             warehouses_dir = workspace_path / "fabric_workspace_items" / "warehouses"
             warehouses_dir.mkdir(parents=True, exist_ok=True)
-            
+
             for warehouse_name in warehouse_names:
                 result = _create_artifact_from_template(
                     console=console,
@@ -957,11 +1018,11 @@ def init_storage_config(remove_orphans: bool = False):
                     warehouse_created += 1
                 else:
                     warehouse_skipped += 1
-    
+
     # Process SQL databases
     sqldatabase_created = 0
     sqldatabase_skipped = 0
-    
+
     if sqldatabase_names:
         if not sqldatabase_template_dir.exists():
             ConsoleStyles.print_warning(
@@ -974,9 +1035,11 @@ def init_storage_config(remove_orphans: bool = False):
             )
         else:
             ConsoleStyles.print_info(console, "\n🗄️  Processing SQL databases...")
-            sqldatabases_dir = workspace_path / "fabric_workspace_items" / "sql_databases"
+            sqldatabases_dir = (
+                workspace_path / "fabric_workspace_items" / "sql_databases"
+            )
             sqldatabases_dir.mkdir(parents=True, exist_ok=True)
-            
+
             for sqldatabase_name in sqldatabase_names:
                 result = _create_artifact_from_template(
                     console=console,
@@ -990,7 +1053,7 @@ def init_storage_config(remove_orphans: bool = False):
                     sqldatabase_created += 1
                 else:
                     sqldatabase_skipped += 1
-    
+
     # Update variables.json with lakehouse and warehouse variable definitions
     ConsoleStyles.print_info(console, "\n📝 Updating variable library definitions...")
     updated_variables = _update_variables_json(
@@ -1000,7 +1063,7 @@ def init_storage_config(remove_orphans: bool = False):
         warehouse_names=warehouse_names,
         sqldatabase_names=sqldatabase_names,
     )
-    
+
     # Update valueSet JSON files with lakehouse and warehouse variables
     ConsoleStyles.print_info(console, "\n📝 Updating variable library valueSets...")
     updated_valuesets = _update_valueset_files(
@@ -1011,13 +1074,13 @@ def init_storage_config(remove_orphans: bool = False):
         sqldatabase_names=sqldatabase_names,
         remove_orphans=remove_orphans,
     )
-    
+
     # Print summary
-    ConsoleStyles.print_info(console, "\n" + "="*60)
-    
+    ConsoleStyles.print_info(console, "\n" + "=" * 60)
+
     total_created = lakehouse_created + warehouse_created + sqldatabase_created
     total_skipped = lakehouse_skipped + warehouse_skipped + sqldatabase_skipped
-    
+
     if total_created > 0:
         ConsoleStyles.print_success(
             console,
@@ -1038,25 +1101,25 @@ def init_storage_config(remove_orphans: bool = False):
                 console,
                 f"  • {sqldatabase_created} SQL database(s)",
             )
-    
+
     if total_skipped > 0:
         ConsoleStyles.print_info(
             console,
             f"ℹ Skipped {total_skipped} existing artifact folder(s)",
         )
-    
+
     if updated_variables:
         ConsoleStyles.print_success(
             console,
             "✓ Updated variables.json with new variable definitions",
         )
-    
+
     if updated_valuesets > 0:
         ConsoleStyles.print_success(
             console,
             f"✓ Updated {updated_valuesets} valueSet file(s) with new variables",
         )
-    
+
     ConsoleStyles.print_info(
         console,
         "\n💡 Next steps:",
@@ -1084,7 +1147,7 @@ def _create_artifact_from_template(
     name_placeholder: str,
 ) -> bool:
     """Create a Fabric artifact folder from a template.
-    
+
     Args:
         console: Rich console for output
         artifact_name: Name of the artifact (e.g., "lh_bronze")
@@ -1092,12 +1155,12 @@ def _create_artifact_from_template(
         template_dir: Path to the template directory
         output_dir: Path to the output directory
         name_placeholder: Placeholder string to replace in templates
-        
+
     Returns:
         True if created, False if skipped
     """
     artifact_folder = output_dir / f"{artifact_name}.{artifact_type}"
-    
+
     # Check if folder already exists
     if artifact_folder.exists():
         ConsoleStyles.print_warning(
@@ -1105,31 +1168,31 @@ def _create_artifact_from_template(
             f"  ⚠️  Skipped {artifact_name}: folder already exists",
         )
         return False
-    
+
     # Create the artifact folder
     artifact_folder.mkdir(parents=True, exist_ok=True)
-    
+
     # Generate a unique logical ID for this artifact
     logical_id = str(uuid.uuid4())
-    
+
     # Copy all template files and process them
     for template_file in template_dir.iterdir():
         if template_file.is_file():
             dest_file = artifact_folder / template_file.name
-            
+
             # Read template content
             content = template_file.read_text(encoding="utf-8")
-            
+
             # Replace placeholders
             content = content.replace(name_placeholder, artifact_name)
             content = content.replace(
                 "00000000-0000-0000-0000-000000000000",
                 logical_id,
             )
-            
+
             # Write to destination
             dest_file.write_text(content, encoding="utf-8")
-    
+
     ConsoleStyles.print_success(
         console,
         f"  ✓ Created {artifact_name}.{artifact_type} (ID: {logical_id[:8]}...)",
@@ -1145,14 +1208,14 @@ def _update_variables_json(
     sqldatabase_names: list[str],
 ) -> bool:
     """Update the variables.json file with lakehouse, warehouse, and SQL database variable definitions.
-    
+
     Args:
         console: Rich console for output
         workspace_path: Path to the workspace directory
         lakehouse_names: List of lakehouse names to add
         warehouse_names: List of warehouse names to add
         sqldatabase_names: List of SQL database names to add
-        
+
     Returns:
         True if updated, False otherwise
     """
@@ -1163,34 +1226,34 @@ def _update_variables_json(
         / "var_lib.VariableLibrary"
         / "variables.json"
     )
-    
+
     if not variables_file.exists():
         ConsoleStyles.print_warning(
             console,
             f"  ⚠️  variables.json not found: {variables_file}",
         )
         return False
-    
+
     try:
         # Read the variables.json file
         with open(variables_file, "r", encoding="utf-8") as f:
             variables_data = json.load(f)
-        
+
         if "variables" not in variables_data:
             ConsoleStyles.print_warning(
                 console,
                 "  ⚠️  No 'variables' key found in variables.json",
             )
             return False
-        
+
         variables = variables_data["variables"]
-        
+
         # Get existing variable names to avoid duplicates
         existing_vars = {var["name"] for var in variables}
-        
+
         # Track if we added any variables
         added_vars = []
-        
+
         # Add lakehouse variable definitions
         for lakehouse_name in lakehouse_names:
             vars_to_add = [
@@ -1213,13 +1276,13 @@ def _update_variables_json(
                     "value": "",
                 },
             ]
-            
+
             for var in vars_to_add:
                 if var["name"] not in existing_vars:
                     variables.append(var)
                     added_vars.append(var["name"])
                     existing_vars.add(var["name"])
-        
+
         # Add warehouse variable definitions
         for warehouse_name in warehouse_names:
             vars_to_add = [
@@ -1242,13 +1305,13 @@ def _update_variables_json(
                     "value": "",
                 },
             ]
-            
+
             for var in vars_to_add:
                 if var["name"] not in existing_vars:
                     variables.append(var)
                     added_vars.append(var["name"])
                     existing_vars.add(var["name"])
-        
+
         # Add SQL database variable definitions
         for sqldatabase_name in sqldatabase_names:
             vars_to_add = [
@@ -1271,18 +1334,18 @@ def _update_variables_json(
                     "value": "",
                 },
             ]
-            
+
             for var in vars_to_add:
                 if var["name"] not in existing_vars:
                     variables.append(var)
                     added_vars.append(var["name"])
                     existing_vars.add(var["name"])
-        
+
         # Only write if we added variables
         if added_vars:
             with open(variables_file, "w", encoding="utf-8") as f:
                 json.dump(variables_data, f, indent=2, ensure_ascii=False)
-            
+
             ConsoleStyles.print_success(
                 console,
                 f"  ✓ Added {len(added_vars)} variable definition(s) to variables.json",
@@ -1294,7 +1357,7 @@ def _update_variables_json(
                 "  • variables.json already up to date",
             )
             return False
-    
+
     except json.JSONDecodeError as e:
         ConsoleStyles.print_error(
             console,
@@ -1339,7 +1402,7 @@ def _update_valueset_files(
         / "var_lib.VariableLibrary"
         / "valueSets"
     )
-    
+
     if not valueset_dir.exists():
         ConsoleStyles.print_warning(
             console,
@@ -1361,7 +1424,9 @@ def _update_valueset_files(
             try:
                 with open(variables_file, "r", encoding="utf-8") as f:
                     variables_data = json.load(f)
-                valid_variable_names = {v["name"] for v in variables_data.get("variables", [])}
+                valid_variable_names = {
+                    v["name"] for v in variables_data.get("variables", [])
+                }
             except Exception:
                 pass  # If we can't read variables.json, skip reconciliation
 
@@ -1397,7 +1462,7 @@ def _update_valueset_files(
 
             # Track if we added any variables
             added_vars = []
-            
+
             # Add lakehouse variables
             for lakehouse_name in lakehouse_names:
                 vars_to_add = [
@@ -1414,13 +1479,13 @@ def _update_valueset_files(
                         "value": f"REPLACE_WITH_{lakehouse_name.upper()}_LAKEHOUSE_GUID",
                     },
                 ]
-                
+
                 for var in vars_to_add:
                     if var["name"] not in existing_vars:
                         variable_overrides.append(var)
                         added_vars.append(var["name"])
                         existing_vars.add(var["name"])
-            
+
             # Add warehouse variables
             for warehouse_name in warehouse_names:
                 vars_to_add = [
@@ -1437,13 +1502,13 @@ def _update_valueset_files(
                         "value": f"REPLACE_WITH_{warehouse_name.upper()}_WAREHOUSE_GUID",
                     },
                 ]
-                
+
                 for var in vars_to_add:
                     if var["name"] not in existing_vars:
                         variable_overrides.append(var)
                         added_vars.append(var["name"])
                         existing_vars.add(var["name"])
-            
+
             # Add SQL database variables
             for sqldatabase_name in sqldatabase_names:
                 vars_to_add = [
@@ -1460,7 +1525,7 @@ def _update_valueset_files(
                         "value": f"REPLACE_WITH_{sqldatabase_name.upper()}_SQLDATABASE_GUID",
                     },
                 ]
-                
+
                 for var in vars_to_add:
                     if var["name"] not in existing_vars:
                         variable_overrides.append(var)
@@ -1501,7 +1566,7 @@ def _update_valueset_files(
                     console,
                     f"  • {valueset_file.name} already up to date",
                 )
-        
+
         except json.JSONDecodeError as e:
             ConsoleStyles.print_error(
                 console,
@@ -1512,5 +1577,5 @@ def _update_valueset_files(
                 console,
                 f"  ❌ Failed to update {valueset_file.name}: {str(e)}",
             )
-    
+
     return updated_count

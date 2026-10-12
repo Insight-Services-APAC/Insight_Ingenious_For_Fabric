@@ -3,9 +3,17 @@ storage:
     lh_bronze: lh_bronze
     lh_silver: lh_silver
     lh_gold: lh_gold
+    # targets of the dbt-from-a-notebook example
+    lh_silver_nb: lh_silver_nb
+    lh_gold_nb: lh_gold_nb
+    # the log lakehouse: every new log goes here
+    lh_log: lh_log
 
   - warehouses: local
-    wh_gold: DO_NOT_CREATE
+    wh_silver: wh_silver
+    wh_gold: wh_gold
+    # the log warehouse: dbt's run log for the warehouse projects (dbt_batch, dbt_execution_log)
+    wh_log: wh_log
 
   - sqldatabases: local
     db_config: db_config

@@ -1,14 +1,3 @@
-{{ config(
-        materialized='incremental',
-        unique_key = 'CountryID',
-        incremental_strategy='merge',
-        file_format='delta'
-        ) 
-}}
+{{ config(materialized='incremental', unique_key='CountryID') }}
 
--- CTE to rank CDC records by Id, meta_ExtractedDate, and SYS_CHANGE_VERSION
-WITH source_data AS (
-    select * FROM {{ source('bronze','countries') }} t1
-)
-
-select * from source_data
+select * from {{ source('bronze', 'countries') }}

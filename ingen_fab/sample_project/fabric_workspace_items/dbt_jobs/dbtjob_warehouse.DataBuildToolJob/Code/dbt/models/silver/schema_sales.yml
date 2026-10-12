@@ -1,0 +1,47 @@
+version: 2
+
+models:
+  - name: state_provinces
+    columns:
+      - name: StateProvinceID
+        data_tests: [unique, not_null]
+      - name: CountryID
+        data_tests:
+          - relationships:
+              to: ref('countries')
+              field: CountryID
+  - name: customers
+    columns:
+      - name: CustomerID
+        data_tests: [unique, not_null]
+      - name: DeliveryCityID
+        data_tests:
+          - relationships:
+              to: ref('cities')
+              field: CityID
+      - name: CustomerSegment
+        data_tests:
+          - accepted_values:
+              values: ['Enterprise', 'Mid-market', 'Small']
+  - name: stock_items
+    columns:
+      - name: StockItemID
+        data_tests: [unique, not_null]
+  - name: orders
+    columns:
+      - name: OrderID
+        data_tests: [unique, not_null]
+      - name: CustomerID
+        data_tests:
+          - relationships:
+              to: ref('customers')
+              field: CustomerID
+  - name: order_lines
+    columns:
+      - name: OrderLineID
+        data_tests: [unique, not_null]
+      - name: OrderID
+        data_tests:
+          - relationships:
+              to: ref('orders')
+              field: OrderID

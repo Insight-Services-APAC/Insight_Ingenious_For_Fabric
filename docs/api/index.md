@@ -151,14 +151,27 @@ my_project/
 
 ### CLI Errors
 
-```bash
-# Use --help for command-specific guidance
-ingen_fab ddl compile --help
+=== "macOS/Linux"
 
-# Check environment variables if commands fail
-echo $FABRIC_WORKSPACE_REPO_DIR
-echo $FABRIC_ENVIRONMENT
-```
+    ```bash
+    # Use --help for command-specific guidance
+    ingen_fab ddl compile --help
+
+    # Check environment variables if commands fail
+    echo $FABRIC_WORKSPACE_REPO_DIR
+    echo $FABRIC_ENVIRONMENT
+    ```
+
+=== "Windows"
+
+    ```powershell
+    # Use --help for command-specific guidance
+    ingen_fab ddl compile --help
+
+    # Check environment variables if commands fail
+    $env:FABRIC_WORKSPACE_REPO_DIR
+    $env:FABRIC_ENVIRONMENT
+    ```
 
 ### Python Library Errors
 
@@ -177,19 +190,37 @@ except Exception as e:
 
 ### Local Testing
 
-```bash
-# Set environment for local testing
-export FABRIC_ENVIRONMENT=local
+=== "macOS/Linux"
 
-# Test Python libraries
-ingen_fab test local python
+    ```bash
+    # Set environment for local testing
+    export FABRIC_ENVIRONMENT=local
 
-# Test PySpark libraries  
-ingen_fab test local pyspark
+    # Test Python libraries
+    ingen_fab test local python
 
-# Test common libraries
-ingen_fab test local common
-```
+    # Test PySpark libraries  
+    ingen_fab test local pyspark
+
+    # Test common libraries
+    ingen_fab test local common
+    ```
+
+=== "Windows"
+
+    ```powershell
+    # Set environment for local testing
+    $env:FABRIC_ENVIRONMENT = "local"
+
+    # Test Python libraries
+    ingen_fab test local python
+
+    # Test PySpark libraries  
+    ingen_fab test local pyspark
+
+    # Test common libraries
+    ingen_fab test local common
+    ```
 
 ### Platform Testing
 

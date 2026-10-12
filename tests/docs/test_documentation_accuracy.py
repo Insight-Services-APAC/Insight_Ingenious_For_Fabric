@@ -136,11 +136,17 @@ class TestDocumentationAccuracy:
         assert "dbt_app = typer.Typer()" in cli_source, "DBT app should be defined"
         assert 'name="dbt"' in cli_source, "DBT command group should be registered"
 
-        # Check specific dbt commands
+        # Check specific dbt commands (native dbt-fabricspark flow)
+        assert '@dbt_app.command("profile")' in cli_source, (
+            "dbt profile command should exist"
+        )
+        assert '@dbt_app.command("orchestrator")' in cli_source, (
+            "dbt orchestrator command should exist"
+        )
+        assert '@dbt_app.command("generate-schema-yml")' in cli_source
         assert (
-            '@dbt_app.command("create-notebooks")' in cli_source
-            or '@dbt_app.command(name="create-notebooks")' in cli_source
-        ), "dbt create-notebooks command should exist"
+            "create-notebooks" not in cli_source and "dbt_wrapper" not in cli_source
+        ), "the notebook-generating dbt flow is retired"
 
     def test_sample_project_structure(self):
         """Verify sample_project has expected structure."""

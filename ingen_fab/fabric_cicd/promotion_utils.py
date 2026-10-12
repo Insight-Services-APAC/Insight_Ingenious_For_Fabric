@@ -6,7 +6,7 @@ import os
 import shutil
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any, Iterable, Optional
+from typing import Any, Callable, Iterable, Optional
 
 import yaml
 from azure.core.credentials import TokenCredential
@@ -204,6 +204,44 @@ def unsupported_results(items) -> list[PublishResult]:
             )
         )
     return out
+
+
+def environment_specific_json_files(output_dir: Path) -> dict[str, list[Path]]:
+    """JSON definition files, per item kind, whose connections are environment specific and
+    carry ``{{varlib:...}}`` tokens: a dbt job item's ``dbt-content.json`` (warehouse workspace
+    id, item id, SQL endpoint) and every JSON file of an Ontology item (data bindings and
+    relationship contextualizations name a lakehouse by workspace id and item id)."""
+    ontology_files = sorted(
+        f
+        for item in output_dir.rglob("*.Ontology")
+        if item.is_dir()
+        for f in item.rglob("*.json")
+    )
+    # the job definition is the one file at the item root; a file of that name inside the
+    # embedded project (Code/dbt) is the user's and is left alone
+    dbt_job_files = sorted(
+        item / "dbt-content.json"
+        for item in output_dir.rglob("*.DataBuildToolJob")
+        if item.is_dir() and (item / "dbt-content.json").is_file()
+    )
+    return {
+        "dbt job": dbt_job_files,
+        "ontology": ontology_files,
+    }
+
+
+def substitute_variables_in_files(
+    files: Iterable[Path], replace: Callable[[str], str]
+) -> int:
+    """Apply ``replace`` to each file's text and rewrite the files it changes; return how many."""
+    changed = 0
+    for path in files:
+        content = path.read_text(encoding="utf-8")
+        updated = replace(content)
+        if updated != content:
+            path.write_text(updated, encoding="utf-8")
+            changed += 1
+    return changed
 
 
 @dataclass
@@ -774,6 +812,15 @@ class SyncToFabricEnvironment:
                     old_value = existing_vars[var_name]["value"]
                     existing_vars[var_name]["value"] = item_id
                     updated_vars.append((var_name, old_value, item_id))
+                    # The item's workspace variable ({name}_workspace_id), when it exists and
+                    # still holds a placeholder or nothing, is the workspace deployed to
+                    ws_var = f"{artifact_name}_workspace_id"
+                    ws_value = str(existing_vars.get(ws_var, {}).get("value") or "")
+                    if ws_var in existing_vars and (
+                        not ws_value or "REPLACE_WITH" in ws_value
+                    ):
+                        existing_vars[ws_var]["value"] = workspace_id
+                        updated_vars.append((ws_var, ws_value, workspace_id))
 
             # Step 4: Save if any updates made
             if updated_vars:
@@ -994,6 +1041,21 @@ class SyncToFabricEnvironment:
             ConsoleStyles.print_info(
                 self.console, "No data pipeline files needed variable substitution"
             )
+
+        # dbt job items and Ontology items: their connections (workspace id, item id, SQL
+        # endpoint) differ per environment and come from the value set like everything else
+        for kind, files in environment_specific_json_files(output_dir).items():
+            updated = substitute_variables_in_files(
+                files,
+                lambda content: output_vlu.perform_code_replacements(
+                    content, replace_placeholders=True, inject_code=True
+                ),
+            )
+            if updated > 0:
+                ConsoleStyles.print_success(
+                    self.console,
+                    f"Updated {updated} {kind} files with variable substitution",
+                )
 
         # Process all definition.pbir files in the output directory
         pbir_updated_count = 0

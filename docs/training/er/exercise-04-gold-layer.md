@@ -282,7 +282,7 @@ print(f"✓ fact_shipments: {spark.table('fact_shipments').count()} rows")
 Click **Run all** and verify all cells complete.
 
 !!! tip "Production approach: dbt integration"
-    In a production project, you would write these transformations as **dbt models** and use `ingen_fab dbt create-notebooks` to convert them into deployable Fabric notebooks. This keeps transformation logic version-controlled alongside IngenFab's schema definitions.
+    In a production project, you would write these transformations as **dbt models** and run them with `ingen_fab dbt build`, or from a deployable orchestrator notebook created by `ingen_fab dbt orchestrator`. This keeps transformation logic version-controlled alongside IngenFab's schema definitions.
 
 ## Verification
 

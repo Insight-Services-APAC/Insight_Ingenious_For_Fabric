@@ -91,14 +91,27 @@ utils.write_file("output.json", data)
 
 The utilities respect environment-specific configuration:
 
-```bash
-# Local development
-export NOTEBOOK_ENV=local
-export DB_CONNECTION_STRING=...
+=== "macOS/Linux"
 
-# Fabric runtime (automatically detected)
-export FABRIC_WORKSPACE_ID=...
-```
+    ```bash
+    # Local development
+    export NOTEBOOK_ENV=local
+    export DB_CONNECTION_STRING=...
+
+    # Fabric runtime (automatically detected)
+    export FABRIC_WORKSPACE_ID=...
+    ```
+
+=== "Windows"
+
+    ```powershell
+    # Local development
+    $env:NOTEBOOK_ENV = "local"
+    $env:DB_CONNECTION_STRING = "..."
+
+    # Fabric runtime (automatically detected)
+    $env:FABRIC_WORKSPACE_ID = "..."
+    ```
 
 ### Settings Files
 

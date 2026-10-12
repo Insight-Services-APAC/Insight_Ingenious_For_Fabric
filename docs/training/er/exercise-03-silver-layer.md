@@ -36,7 +36,7 @@ ddl_scripts/Lakehouses/lh_silver/001_Initial_Creation/
 └── 005_silver_regions.py
 ```
 
-When you ran `ingen_fab ddl compile --generation-mode Lakehouse` in Exercise 1, these 5 scripts were packaged into a **single compiled notebook** (`001_Initial_Creation_lh_silver_Lakehouses.Notebook`) with one cell per script. Each cell is wrapped in `du.run_once()` for idempotency — so re-running the notebook never recreates a table that already exists.
+When you ran `ingen_fab ddl compile --generation-mode Lakehouse` in Exercise 1, these 5 scripts were packaged into a **single compiled notebook** (`001_Initial_Creation_lh_silver_Lakehouses`, shown in the workspace as `001_Initial_Creation_lh_silver_Lakehouses_ddl_scripts`) with one cell per script. Each cell is wrapped in `du.run_once()` for idempotency — so re-running the notebook never recreates a table that already exists.
 
 The DDL orchestrator in Exercise 1 ran that notebook, creating the empty silver tables.
 
@@ -230,7 +230,7 @@ write_silver(df_regions.dropDuplicates(["region_id"]), "regions")
 Click **Run all** and verify all four cells complete without errors.
 
 !!! tip "Production approach: dbt integration"
-    In a production project, you would write these transformations as **dbt models** rather than manual notebooks. IngenFab supports this workflow with `ingen_fab dbt create-notebooks` — which converts dbt output into deployable Fabric notebooks. See the [dbt integration guide](../../user_guide/dbt_integration.md) for details.
+    In a production project, you would write these transformations as **dbt models** rather than manual notebooks. IngenFab supports this workflow with `ingen_fab dbt build` (dbt over the Fabric Livy API) and `ingen_fab dbt orchestrator` (the same run as a deployable Fabric notebook). See the [dbt integration guide](../../user_guide/dbt_integration.md) for details.
 
 ## Verification
 

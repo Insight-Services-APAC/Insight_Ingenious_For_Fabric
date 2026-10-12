@@ -1,0 +1,16 @@
+version: 2
+
+# The bronze tables live in the lh_bronze lakehouse; the warehouse reads them through the
+# lakehouse's SQL analytics endpoint with three-part names (same workspace).
+sources:
+  - name: bronze
+    database: lh_bronze
+    schema: dbo
+    tables:
+      - name: cities
+      - name: countries
+      - name: state_provinces
+      - name: customers
+      - name: stock_items
+      - name: orders
+      - name: order_lines

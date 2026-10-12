@@ -1,0 +1,1 @@
+dbt-fabricspark>=1.13,<2

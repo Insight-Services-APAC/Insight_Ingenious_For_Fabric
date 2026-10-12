@@ -37,7 +37,7 @@ Quick setup:
 === "Unix/Linux/macOS"
 
     ```bash
-    export FABRIC_WORKSPACE_REPO_DIR="./sample_project"
+    export FABRIC_WORKSPACE_REPO_DIR="dp"
     export FABRIC_ENVIRONMENT="development"
     # For service principal auth (optional)
     export AZURE_TENANT_ID="<tenant-guid>"

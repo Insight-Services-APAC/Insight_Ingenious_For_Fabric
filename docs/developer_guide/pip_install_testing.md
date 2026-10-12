@@ -19,66 +19,135 @@ The test should be performed in an isolated environment to ensure clean results.
 
 ### 1. Environment Setup
 
-```bash
-# Check if we're already in pip_install_test directory or create it
-if [[ "$(basename "$PWD")" == "pip_install_test" ]]; then
-    echo "✓ Already in pip_install_test directory"
-elif [[ -d "pip_install_test" ]]; then
-    echo "✓ pip_install_test directory exists, entering it"
-    cd pip_install_test
-else
-    echo "Creating pip_install_test directory..."
-    mkdir -p pip_install_test
-    cd pip_install_test
-fi
+=== "macOS/Linux"
 
-# Check if .venv_pip_test is already active
-if [[ "$VIRTUAL_ENV" == *".venv_pip_test"* ]]; then
-    echo "✓ .venv_pip_test is already active"
-else
-    echo "Creating and activating .venv_pip_test using uv..."
-    # Create isolated Python 3.12 virtual environment using uv
-    uv venv .venv_pip_test --python 3.12
-    source .venv_pip_test/bin/activate
-fi
+    ```bash
+    # Check if we're already in pip_install_test directory or create it
+    if [[ "$(basename "$PWD")" == "pip_install_test" ]]; then
+        echo "✓ Already in pip_install_test directory"
+    elif [[ -d "pip_install_test" ]]; then
+        echo "✓ pip_install_test directory exists, entering it"
+        cd pip_install_test
+    else
+        echo "Creating pip_install_test directory..."
+        mkdir -p pip_install_test
+        cd pip_install_test
+    fi
 
-# Verify clean environment
-pip list
-which python
-python --version
-```
+    # Check if .venv_pip_test is already active
+    if [[ "$VIRTUAL_ENV" == *".venv_pip_test"* ]]; then
+        echo "✓ .venv_pip_test is already active"
+    else
+        echo "Creating and activating .venv_pip_test using uv..."
+        # Create isolated Python 3.12 virtual environment using uv
+        uv venv .venv_pip_test --python 3.12
+        source .venv_pip_test/bin/activate
+    fi
+
+    # Verify clean environment
+    pip list
+    which python
+    python --version
+    ```
+
+=== "Windows"
+
+    ```powershell
+    # Check if we're already in pip_install_test directory or create it
+    if ((Split-Path -Leaf (Get-Location).Path) -eq "pip_install_test") {
+        "✓ Already in pip_install_test directory"
+    } elseif (Test-Path -PathType Container "pip_install_test") {
+        "✓ pip_install_test directory exists, entering it"
+        cd pip_install_test
+    } else {
+        "Creating pip_install_test directory..."
+        New-Item -ItemType Directory -Force pip_install_test
+        cd pip_install_test
+    }
+
+    # Check if .venv_pip_test is already active
+    if ("$env:VIRTUAL_ENV" -like "*.venv_pip_test*") {
+        "✓ .venv_pip_test is already active"
+    } else {
+        "Creating and activating .venv_pip_test using uv..."
+        # Create isolated Python 3.12 virtual environment using uv
+        uv venv .venv_pip_test --python 3.12
+        .venv_pip_test\Scripts\Activate.ps1
+    }
+
+    # Verify clean environment
+    pip list
+    Get-Command python
+    python --version
+    ```
 
 ### 2. Test Standard Installation from Source
 
-```bash
-# Copy source to test location
-cp -r /workspaces/ingen_fab test_standard_install
-cd test_standard_install
+=== "macOS/Linux"
 
-# Build and install
-pip install --upgrade pip setuptools wheel
-pip install .
+    ```bash
+    # Copy source to test location
+    cp -r /workspaces/ingen_fab test_standard_install
+    cd test_standard_install
 
-# Verify installation
-pip show insight-ingenious-for-fabric
-pip list | grep insight-ingenious-for-fabric
-```
+    # Build and install
+    pip install --upgrade pip setuptools wheel
+    pip install .
+
+    # Verify installation
+    pip show insight-ingenious-for-fabric
+    pip list | grep insight-ingenious-for-fabric
+    ```
+
+=== "Windows"
+
+    ```powershell
+    # Copy source to test location
+    Copy-Item -Recurse /workspaces/ingen_fab test_standard_install
+    cd test_standard_install
+
+    # Build and install
+    pip install --upgrade pip setuptools wheel
+    pip install .
+
+    # Verify installation
+    pip show insight-ingenious-for-fabric
+    pip list | Select-String insight-ingenious-for-fabric
+    ```
 
 ### 3. Test CLI Entry Point
 
-```bash
-# Test CLI is available
-which ingen_fab
-ingen_fab --help
-ingen_fab --version
+=== "macOS/Linux"
 
-# Test each command group
-ingen_fab init --help
-ingen_fab deploy --help
-ingen_fab ddl --help
-ingen_fab test --help
-ingen_fab notebook --help
-```
+    ```bash
+    # Test CLI is available
+    which ingen_fab
+    ingen_fab --help
+    ingen_fab --version
+
+    # Test each command group
+    ingen_fab init --help
+    ingen_fab deploy --help
+    ingen_fab ddl --help
+    ingen_fab test --help
+    ingen_fab notebook --help
+    ```
+
+=== "Windows"
+
+    ```powershell
+    # Test CLI is available
+    Get-Command ingen_fab
+    ingen_fab --help
+    ingen_fab --version
+
+    # Test each command group
+    ingen_fab init --help
+    ingen_fab deploy --help
+    ingen_fab ddl --help
+    ingen_fab test --help
+    ingen_fab notebook --help
+    ```
 
 ### 4. Test Package Data Inclusion
 
@@ -116,21 +185,41 @@ for path in data_paths:
 
 ### 5. Test Editable Installation
 
-```bash
-# Clean previous installation
-cd ..
-rm -rf test_standard_install
-pip uninstall -y insight-ingenious-for-fabric
+=== "macOS/Linux"
 
-# Test editable install
-cp -r /workspaces/ingen_fab test_editable_install
-cd test_editable_install
-pip install -e .
+    ```bash
+    # Clean previous installation
+    cd ..
+    rm -rf test_standard_install
+    pip uninstall -y insight-ingenious-for-fabric
 
-# Verify editable installation
-pip show insight-ingenious-for-fabric | grep Location
-pip list | grep insight-ingenious-for-fabric
-```
+    # Test editable install
+    cp -r /workspaces/ingen_fab test_editable_install
+    cd test_editable_install
+    pip install -e .
+
+    # Verify editable installation
+    pip show insight-ingenious-for-fabric | grep Location
+    pip list | grep insight-ingenious-for-fabric
+    ```
+
+=== "Windows"
+
+    ```powershell
+    # Clean previous installation
+    cd ..
+    Remove-Item -Recurse -Force test_standard_install
+    pip uninstall -y insight-ingenious-for-fabric
+
+    # Test editable install
+    Copy-Item -Recurse /workspaces/ingen_fab test_editable_install
+    cd test_editable_install
+    pip install -e .
+
+    # Verify editable installation
+    pip show insight-ingenious-for-fabric | Select-String Location
+    pip list | Select-String insight-ingenious-for-fabric
+    ```
 
 ### 6. Test Installation with Extras
 
@@ -157,34 +246,69 @@ python -c "import fabric_cicd; print(fabric_cicd.__version__)"
 
 ### 8. Test Build Artifacts
 
-```bash
-# Build distribution packages
-pip install build
-python -m build
+=== "macOS/Linux"
 
-# Check generated artifacts
-ls -la dist/
-tar -tzf dist/*.tar.gz | head -20
-unzip -l dist/*.whl | head -20
-```
+    ```bash
+    # Build distribution packages
+    pip install build
+    python -m build
+
+    # Check generated artifacts
+    ls -la dist/
+    tar -tzf dist/*.tar.gz | head -20
+    unzip -l dist/*.whl | head -20
+    ```
+
+=== "Windows"
+
+    ```powershell
+    # Build distribution packages
+    pip install build
+    python -m build
+
+    # Check generated artifacts
+    Get-ChildItem -Force dist\
+    tar -tzf (Get-Item dist\*.tar.gz).FullName | Select-Object -First 20
+    python -m zipfile -l (Get-Item dist\*.whl).FullName | Select-Object -First 20
+    ```
 
 ### 9. Functional Tests
 
-```bash
-# Set required environment variables
-export FABRIC_ENVIRONMENT="local"
-export FABRIC_WORKSPACE_REPO_DIR="sample_project"
+=== "macOS/Linux"
 
-# Test basic CLI functionality
-cd sample_project
-ingen_fab ddl compile --help
-ingen_fab test local --help
+    ```bash
+    # Set required environment variables
+    export FABRIC_ENVIRONMENT="local"
+    export FABRIC_WORKSPACE_REPO_DIR="sample_project"
 
-# Test notebook template generation
-mkdir test_output
-ingen_fab ddl compile --output-mode local_file_system --output-path ../test_output --generation-mode Lakehouse
-ls -la ../test_output/
-```
+    # Test basic CLI functionality
+    cd sample_project
+    ingen_fab ddl compile --help
+    ingen_fab test local --help
+
+    # Test notebook template generation
+    mkdir test_output
+    ingen_fab ddl compile --output-mode local_file_system --output-path ../test_output --generation-mode Lakehouse
+    ls -la ../test_output/
+    ```
+
+=== "Windows"
+
+    ```powershell
+    # Set required environment variables
+    $env:FABRIC_ENVIRONMENT = "local"
+    $env:FABRIC_WORKSPACE_REPO_DIR = "sample_project"
+
+    # Test basic CLI functionality
+    cd sample_project
+    ingen_fab ddl compile --help
+    ingen_fab test local --help
+
+    # Test notebook template generation
+    New-Item -ItemType Directory test_output
+    ingen_fab ddl compile --output-mode local_file_system --output-path ../test_output --generation-mode Lakehouse
+    Get-ChildItem -Force ..\test_output\
+    ```
 
 ### 10. Import Tests
 
@@ -236,11 +360,21 @@ except ImportError as e:
 
 ## Cleanup
 
-```bash
-deactivate
-cd ../..
-rm -rf pip_install_test
-```
+=== "macOS/Linux"
+
+    ```bash
+    deactivate
+    cd ../..
+    rm -rf pip_install_test
+    ```
+
+=== "Windows"
+
+    ```powershell
+    deactivate
+    cd ..\..
+    Remove-Item -Recurse -Force pip_install_test
+    ```
 
 ## Automation Script
 

@@ -26,9 +26,17 @@ Each `.tmdl` file uses an indentation-based syntax (similar to YAML) with keywor
 
 Open the top-level model file:
 
-```bash
-cat fabric_workspace_items/SemanticModel/<semantic_model_name>.SemanticModel/definition/model.tmdl
-```
+=== "macOS/Linux"
+
+    ```bash
+    cat fabric_workspace_items/SemanticModel/<semantic_model_name>.SemanticModel/definition/model.tmdl
+    ```
+
+=== "Windows"
+
+    ```powershell
+    Get-Content fabric_workspace_items\SemanticModel\<semantic_model_name>.SemanticModel\definition\model.tmdl
+    ```
 
 You will see something like:
 
@@ -51,9 +59,17 @@ This file rarely needs editing — it is the same across environments.
 
 Open one of the table definitions:
 
-```bash
-cat fabric_workspace_items/SemanticModel/<semantic_model_name>.SemanticModel/definition/tables/vDim_Cities.tmdl
-```
+=== "macOS/Linux"
+
+    ```bash
+    cat fabric_workspace_items/SemanticModel/<semantic_model_name>.SemanticModel/definition/tables/vDim_Cities.tmdl
+    ```
+
+=== "Windows"
+
+    ```powershell
+    Get-Content fabric_workspace_items\SemanticModel\<semantic_model_name>.SemanticModel\definition\tables\vDim_Cities.tmdl
+    ```
 
 A typical table TMDL looks like:
 
@@ -112,9 +128,17 @@ Key sections to note:
 
 The `partition` block references `expressionSource: DatabaseQuery`. This points to a shared expression defined in `expressions.tmdl` (or within the table file itself, depending on model structure).
 
-```bash
-cat fabric_workspace_items/SemanticModel/<semantic_model_name>.SemanticModel/definition/expressions.tmdl
-```
+=== "macOS/Linux"
+
+    ```bash
+    cat fabric_workspace_items/SemanticModel/<semantic_model_name>.SemanticModel/definition/expressions.tmdl
+    ```
+
+=== "Windows"
+
+    ```powershell
+    Get-Content fabric_workspace_items\SemanticModel\<semantic_model_name>.SemanticModel\definition\expressions.tmdl
+    ```
 
 For a **Direct Lake on SQL** model connecting to a Warehouse, you may see:
 
@@ -144,9 +168,17 @@ expression DatabaseQuery =
 
 ### 4. Examine relationships
 
-```bash
-cat fabric_workspace_items/SemanticModel/<semantic_model_name>.SemanticModel/definition/relationships.tmdl
-```
+=== "macOS/Linux"
+
+    ```bash
+    cat fabric_workspace_items/SemanticModel/<semantic_model_name>.SemanticModel/definition/relationships.tmdl
+    ```
+
+=== "Windows"
+
+    ```powershell
+    Get-Content fabric_workspace_items\SemanticModel\<semantic_model_name>.SemanticModel\definition\relationships.tmdl
+    ```
 
 ```tmdl
 relationship 7f2a...

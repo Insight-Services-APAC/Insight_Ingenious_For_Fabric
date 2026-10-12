@@ -829,19 +829,37 @@ PRINT '✅ All schemas created successfully'
 
 ### Debugging Scripts
 
-```bash
-# Review generated notebook content for lh_bronze
-cat fabric_workspace_items/ddl_scripts/Lakehouses/lh_bronze/001_Initial_Creation.Notebook/notebook-content.py
+=== "macOS/Linux"
 
-# Review generated notebook content for wh_gold
-cat fabric_workspace_items/ddl_scripts/Warehouses/wh_gold/001_Initial_Creation.Notebook/notebook-content.py
+    ```bash
+    # Review generated notebook content for lh_bronze
+    cat fabric_workspace_items/ddl_scripts/Lakehouses/lh_bronze/001_Initial_Creation.Notebook/notebook-content.py
 
-# Check for syntax errors (Python)
-python -m py_compile fabric_workspace_items/ddl_scripts/Lakehouses/lh_bronze/001_Initial_Creation.Notebook/notebook-content.py
+    # Review generated notebook content for wh_gold
+    cat fabric_workspace_items/ddl_scripts/Warehouses/wh_gold/001_Initial_Creation.Notebook/notebook-content.py
 
-# Verify variable replacement
-grep "{{" fabric_workspace_items/ddl_scripts/Lakehouses/lh_bronze/001_Initial_Creation.Notebook/notebook-content.py
-```
+    # Check for syntax errors (Python)
+    python -m py_compile fabric_workspace_items/ddl_scripts/Lakehouses/lh_bronze/001_Initial_Creation.Notebook/notebook-content.py
+
+    # Verify variable replacement
+    grep "{{" fabric_workspace_items/ddl_scripts/Lakehouses/lh_bronze/001_Initial_Creation.Notebook/notebook-content.py
+    ```
+
+=== "Windows"
+
+    ```powershell
+    # Review generated notebook content for lh_bronze
+    Get-Content fabric_workspace_items\ddl_scripts\Lakehouses\lh_bronze\001_Initial_Creation.Notebook\notebook-content.py
+
+    # Review generated notebook content for wh_gold
+    Get-Content fabric_workspace_items\ddl_scripts\Warehouses\wh_gold\001_Initial_Creation.Notebook\notebook-content.py
+
+    # Check for syntax errors (Python)
+    python -m py_compile fabric_workspace_items/ddl_scripts/Lakehouses/lh_bronze/001_Initial_Creation.Notebook/notebook-content.py
+
+    # Verify variable replacement
+    Select-String -Pattern "{{" -Path fabric_workspace_items\ddl_scripts\Lakehouses\lh_bronze\001_Initial_Creation.Notebook\notebook-content.py
+    ```
 
 ## Related Topics
 

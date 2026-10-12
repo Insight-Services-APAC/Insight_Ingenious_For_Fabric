@@ -9,35 +9,34 @@ By the end of this exercise you will be able to:
 - Create a gold DDL script to define an enriched dimension table
 - Write a dbt gold model that joins multiple silver tables
 - Understand the purpose of the gold layer in a medallion architecture
-- Deploy and verify the enriched dimension
+- Deploy and verify the enriched dimension, and the warehouse views the next exercises use
 
 ## Prerequisites
 
-- [Exercise 3](exercise-03-silver-transformation.md) completed — `state_provinces` exists in `lh_silver`
-- The sample-project silver models for `cities` and `countries` are present in `dbt_project/models/silver/` (they ship with the project)
+- [Exercise 3](exercise-03-silver-transformation.md) completed — `suppliers` exists in `lh_silver`, and the `dbtload_silver` run built the sample's silver tables (`cities`, `state_provinces`, `countries` among them)
 
 ## Background
 
 The **gold layer** holds analytics-ready data. Where silver tables mirror the source entities, gold tables are **shaped for consumption** — joins are pre-computed, surrogate keys may be added, and column names match the semantic model's expectations.
 
-The DP project currently has `dim_cities` in `lh_gold`, built from silver `cities` only. In this exercise you will create an enriched version — `dim_city_geography` — that joins cities with state/provinces and countries to produce a single, flat dimension.
+The sample project ships six gold models under `dbt_project/models/gold/`, among them `dim_cities` (the city dimension) and `dim_geography` (a city flattened with its state/province and country). In this exercise you add `dim_suppliers` — each supplier with the geography of the city it delivers to — and the warehouse view over `dim_geography` that Exercise 5 needs.
 
 ## Steps
 
-### 0. Populate cities and countries in silver
+### 0. Confirm the silver tables have data
 
-The gold model joins three silver tables: `cities`, `state_provinces`, and `countries`. Exercise 3 populated `state_provinces`, but `cities` and `countries` still only exist in bronze. The silver dbt models for these two tables ship with the sample project — you just need to run both notebooks in Fabric and to confirm data lands.
+The gold model joins four silver tables: `suppliers` (yours), `cities`, `state_provinces` and `countries` (the sample's). Exercise 3's `dbtload_silver` run built all of them. If you skipped 5c and 5d of Exercise 3, build the silver folder now:
 
-These notebooks are:
-- model.dbt_project.cities
-- model.dbt_project.countries
+```bash
+ingen_fab dbt build -- --select path:models/silver
+```
 
-And you can review the data in a notebook attached to `lh_silver` with the below code: 
+And you can review the data in a notebook attached to `lh_silver` with the below code:
 
 ```python
 # In a Fabric notebook attached to lh_silver
+display(spark.read.table("suppliers"))
 display(spark.read.table("cities"))
-display(spark.read.table("countries"))
 ```
 
 ### 1. Create the gold DDL script
@@ -45,7 +44,7 @@ display(spark.read.table("countries"))
 Create a new file:
 
 ```
-ddl_scripts/Lakehouses/lh_gold/001_Initial_Creation/002_lh_gold_dim_city_geography.py
+ddl_scripts/Lakehouses/lh_gold/001_Initial_Creation/002_lh_gold_dim_suppliers.py
 ```
 
 Define the schema for the enriched dimension:
@@ -53,35 +52,32 @@ Define the schema for the enriched dimension:
 ```python
 from pyspark.sql.types import (
     IntegerType,
-    LongType,
     StringType,
     StructField,
     StructType,
-    TimestampType,
 )
 
-# DDL script for creating table 'dim_city_geography' in lakehouse 'lh_gold'
+# DDL script for creating table 'dim_suppliers' in lakehouse 'lh_gold'
 
 schema = StructType(
     [
+        StructField("SupplierID", IntegerType(), True),
+        StructField("SupplierName", StringType(), True),
+        StructField("SupplierCategory", StringType(), True),
         StructField("CityID", IntegerType(), True),
         StructField("CityName", StringType(), True),
-        StructField("StateProvinceID", IntegerType(), True),
         StructField("StateProvinceCode", StringType(), True),
         StructField("StateProvinceName", StringType(), True),
         StructField("SalesTerritory", StringType(), True),
-        StructField("CountryID", IntegerType(), True),
         StructField("CountryName", StringType(), True),
         StructField("Continent", StringType(), True),
-        StructField("Region", StringType(), True),
-        StructField("LatestRecordedPopulation", LongType(), True),
     ]
 )
 
 empty_df = target_lakehouse.spark.createDataFrame([], schema)
 
 target_lakehouse.write_to_table(
-    df=empty_df, table_name="dim_city_geography", schema_name=""
+    df=empty_df, table_name="dim_suppliers", schema_name=""
 )
 ```
 
@@ -90,50 +86,37 @@ target_lakehouse.write_to_table(
 Create a new file:
 
 ```
-dbt_project/models/gold/dim_city_geography.sql
+dbt_project/models/gold/dim_suppliers.sql
 ```
 
-Join the three silver tables:
+Join the four silver tables:
 
 ```sql
-{{ config(
-        materialized='incremental',
-        unique_key = 'CityID',
-        incremental_strategy='merge',
-        file_format='delta'
-        ) 
-}}
+{{ config(materialized='incremental', unique_key='SupplierID') }}
 
-WITH cities AS (
-    SELECT * FROM {{ ref('cities') }}        -- silver cities
-),
-state_provinces AS (
-    SELECT * FROM {{ ref('state_provinces') }}  -- silver state_provinces
-),
-countries AS (
-    SELECT * FROM {{ ref('countries') }}     -- silver countries
-)
-
+-- One row per supplier with the geography of the city it delivers to.
 SELECT
+    s.SupplierID,
+    s.SupplierName,
+    s.SupplierCategory,
     c.CityID,
     c.CityName,
-    sp.StateProvinceID,
     sp.StateProvinceCode,
     sp.StateProvinceName,
     sp.SalesTerritory,
-    co.CountryID,
     co.CountryName,
-    co.Continent,
-    co.Region,
-    c.LatestRecordedPopulation
-FROM cities c
-LEFT JOIN state_provinces sp ON c.StateProvinceID = sp.StateProvinceID
-LEFT JOIN countries co ON sp.CountryID = co.CountryID
+    co.Continent
+FROM {{ ref('suppliers') }} s
+LEFT JOIN {{ ref('cities') }} c ON s.DeliveryCityID = c.CityID
+LEFT JOIN {{ ref('state_provinces') }} sp ON c.StateProvinceID = sp.StateProvinceID
+LEFT JOIN {{ ref('countries') }} co ON sp.CountryID = co.CountryID
 ```
+
+`ref()` resolves the sample's silver models and yours alike: all of them live in `lh_silver`, and the `gold` folder's `+schema` rule in `dbt_project.yml` (a dbt var with the default `lh_gold`) sends this model to `lh_gold`.
 
 ### 3. Add a warehouse view
 
-Create a new SQL file in `ddl_scripts/Warehouses/wh_gold/001_Initial_Creation/`:
+Exercise 5 builds a semantic model over two views in `wh_gold`: `DW.vDim_Cities`, which the sample ships, and `DW.vDim_CityGeography`, which you add now over the sample's `dim_geography`. Create a new SQL file in `ddl_scripts/Warehouses/wh_gold/001_Initial_Creation/`:
 
 ```
 003_wh_gold_create_city_geography_view.sql
@@ -142,111 +125,96 @@ Create a new SQL file in `ddl_scripts/Warehouses/wh_gold/001_Initial_Creation/`:
 ```sql
 CREATE OR ALTER VIEW DW.vDim_CityGeography
 AS
-SELECT * FROM [lh_gold].[dbo].[dim_city_geography]
+SELECT * FROM [lh_gold].[dbo].[dim_geography]
 ```
+
+The warehouse reads the gold lakehouse through its SQL analytics endpoint, as a three-part name, within the same workspace.
 
 ### 4. Compile and deploy
 
 ```bash
-ingen_fab ddl compile \
-    --output-mode fabric_workspace_repo \
-    --generation-mode Lakehouse
-
-ingen_fab ddl compile \
-    --output-mode fabric_workspace_repo \
-    --generation-mode Warehouse
-
-ingen_fab deploy deploy 
+ingen_fab ddl compile --output-mode fabric_workspace_repo --generation-mode Lakehouse
+ingen_fab ddl compile --output-mode fabric_workspace_repo --generation-mode Warehouse
+ingen_fab deploy deploy
 ```
 
-### 5. Create the gold table, build the dbt notebook, and run
+### 5. Create the gold table, build it with dbt, and schedule it
 
 **5a. Create the empty gold table in Fabric**
 
 Step 4 deployed your DDL notebooks to Fabric. Now run them. In your Fabric workspace, run the `lh_gold` orchestrator notebook:
 
 ```
-001_Initial_Creation_lh_gold_Lakehouses_ddl_scripts
+00_orchestrator_lh_gold_lakehouse_ddl_scripts
 ```
 
-This creates the empty `dim_city_geography` table in `lh_gold`. 
+The sample's `001_lh_gold_dim_cities` ran in Exercise 1 and is skipped; your `002_lh_gold_dim_suppliers` cell creates the empty `dim_suppliers` table in `lh_gold`.
 
-**5b. Build the dbt notebook locally**
+**5b. Build the model with dbt**
 
 ```bash
-ingen_fab dbt exec -- build-local dbt_project --select dim_city_geography
+ingen_fab dbt build -- --select dim_suppliers
 ```
 
-When prompted, select your silver lakehouse (i.e `lh_silver`).
+dbt reads the four silver tables and writes `lh_gold.dim_suppliers`. You should see `PASS=1`.
 
-This compiles the gold model against your live Fabric lakehouses and writes a Fabric-native Python notebook to `dbt_project/target/notebooks_fabric_py/`. You should see `PASS=1` in the output.
+!!! warning "All four silver tables must have data"
+    If `cities`, `state_provinces` or `countries` in `lh_silver` are empty (Step 0 not
+    completed), the run succeeds but the geography columns are `NULL`.
 
-!!! warning "All three silver tables must have data"
-    `build-local` validates the model against live Fabric. If `cities` or `countries` in `lh_silver` are empty (Step 0 not completed), the compilation will still succeed but the dbt run in Step 5d will produce no rows.
-
-**5c. Stage and deploy the generated notebook to Fabric**
+**5c. Make it schedulable**
 
 ```bash
-ingen_fab dbt create-notebooks --dbt-project dbt_project
+ingen_fab dbt orchestrator --name dbtload_gold --select "path:models/gold"
+ingen_fab deploy upload-dbt-project --dbt-project dbt_project
 ingen_fab deploy deploy
 ```
 
-**5d. Run the dbt notebook in Fabric**
+`path:models/gold` selects the sample's six gold models and your `dim_suppliers`; every silver table they read exists after Exercise 3.
 
-In your Fabric workspace, run the generated notebook:
+**5d. Run the orchestrator notebook in Fabric**
 
-```
-model.dbt_project.dim_city_geography
-```
+In your Fabric workspace, run `dbtload_gold`.
 
-This executes the incremental merge joining all three silver tables into `lh_gold.dim_city_geography`. Alternatively, run the master orchestrator notebook `master_dbt_project_notebook` to execute all dbt models.
+**5e. Create the warehouse views**
 
-**5e. Create the warehouse view**
-
-Run the `wh_gold` warehouse orchestrator notebook:
+The views in `wh_gold` read `lh_gold` through its SQL analytics endpoint, so they come after the
+gold build. Run the `wh_gold` warehouse orchestrator notebook:
 
 ```
-001_Initial_Creation_wh_gold_Warehouses_ddl_scripts
+00_orchestrator_wh_gold_warehouse_ddl_scripts
 ```
 
-This creates the `DW.vDim_CityGeography` view in `wh_gold`.
+DDL scripts run once: the ones Exercise 1 already ran (the `DW` schema, `DW.vDim_Cities`) are
+skipped unless they failed then, and the `DW.vDim_CityGeography` view you wrote in Step 3 is
+created. Exercise 5 needs both views.
+
+!!! tip "If the view fails with `Invalid object name 'lh_gold.dbo.dim_geography'`"
+    The SQL analytics endpoint of `lh_gold` has not yet picked up the tables the gold build
+    wrote. Open the endpoint in the portal and choose **Refresh**, then run the orchestrator
+    again.
 
 ## Verification
 
 In a Fabric notebook attached to `lh_gold`:
 
 ```python
-display(spark.read.table("dim_city_geography"))
+display(spark.read.table("dim_suppliers"))
 ```
 
-You should see **10 rows** with all columns fully populated. Every city is enriched with state/province and country information:
+You should see **5 rows** with every column populated: each supplier carries its delivery city's state/province and country:
 
-| CityID | CityName | StateProvinceCode | StateProvinceName | SalesTerritory | CountryName | Continent | Region |
-|--------|------------|:-:|-----------|:-----------:|-------------|-----------|--------|
-| 1 | Aaronsburg | AZ | Arizona | Southwest | United States | North America | Americas |
-| 3 | Abanda | AL | Alabama | Southeast | United States | North America | Americas |
-| 4 | Abbeville | CA | California | Far West | United States | North America | Americas |
-| 5 | Abbeville | AK | Alaska | Far West | United States | North America | Americas |
-| 6 | Abbeville | AL | Alabama | Southeast | United States | North America | Americas |
-| 7 | Abbeville | AZ | Arizona | Southwest | United States | North America | Americas |
-| 8 | Abbeville | AR | Arkansas | Southeast | United States | North America | Americas |
-| 9 | Abbotsford | CA | California | Far West | United States | North America | Americas |
-| 10 | Abbott | AK | Alaska | Far West | United States | North America | Americas |
-| 11 | Abbott | AR | Arkansas | Southeast | United States | North America | Americas |
+| SupplierID | SupplierName | SupplierCategory | CityID | CityName | StateProvinceCode | SalesTerritory | CountryName |
+|---|---|---|---|---|---|---|---|
+| 1 | A Datum Corporation | Novelty Goods Supplier | 1 | Aaronsburg | AZ | Southwest | United States |
+| 2 | Contoso, Ltd. | Toy Supplier | 3 | Abanda | AL | Southeast | United States |
+| 3 | Fabrikam, Inc. | Packaging Supplier | 4 | Abbeville | CA | Far West | United States |
+| 4 | Litware, Inc. | Clothing Supplier | 5 | Abbeville | AK | Far West | United States |
+| 5 | Northwind Electric Cars | Courier Services Supplier | 6 | Abbeville | AL | Southeast | United States |
 
-If any columns show `NULL`, check that:
+If the geography columns show `NULL`, check that the silver tables `cities`, `state_provinces` and `countries` have data (Step 0).
 
-1. All three silver tables (`cities`, `state_provinces`, `countries`) have data (Step 0)
-2. The `state_provinces` seed includes StateProvinceIDs matching the cities (1–5)
-3. The `countries` seed includes CountryID 230 (United States)
-
-In `wh_gold`, run:
-
-```sql
-SELECT TOP 10 * FROM DW.vDim_CityGeography
-```
-
-The same 10 rows should appear.
+In `wh_gold`, open the **DW** schema: `vDim_Cities` and `vDim_CityGeography` are there, which is what Exercise 5 checks first.
 
 ---
 

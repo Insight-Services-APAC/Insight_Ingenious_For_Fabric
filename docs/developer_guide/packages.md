@@ -212,11 +212,22 @@ def run(ctx: typer.Context, config_id: str = ""):
 
 ### Step 1: Create Package Structure
 
-```bash
-mkdir -p ingen_fab/packages/my_package/{templates,ddl_scripts}
-touch ingen_fab/packages/my_package/__init__.py
-touch ingen_fab/packages/my_package/my_package.py
-```
+=== "macOS/Linux"
+
+    ```bash
+    mkdir -p ingen_fab/packages/my_package/{templates,ddl_scripts}
+    touch ingen_fab/packages/my_package/__init__.py
+    touch ingen_fab/packages/my_package/my_package.py
+    ```
+
+=== "Windows"
+
+    ```powershell
+    New-Item -ItemType Directory -Force ingen_fab\packages\my_package\templates
+    New-Item -ItemType Directory -Force ingen_fab\packages\my_package\ddl_scripts
+    New-Item -ItemType File ingen_fab\packages\my_package\__init__.py
+    New-Item -ItemType File ingen_fab\packages\my_package\my_package.py
+    ```
 
 ### Step 2: Define Package Module
 

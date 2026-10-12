@@ -1,6 +1,6 @@
 ```text
-Usage: python -m ingen_fab.cli [OPTIONS] COMMAND [ARGS]...
-
+Usage: python -m ingen_fab.cli [OPTIONS] COMMAND [ARGS]...                     
+                                                                                
 ╭─ Options ────────────────────────────────────────────────────────────────────╮
 │ --version                    -v              Show version and exit           │
 │ --fabric-workspace-repo-dir  -fwd      PATH  Directory containing fabric     │
@@ -28,7 +28,8 @@ Usage: python -m ingen_fab.cli [OPTIONS] COMMAND [ARGS]...
 │ notebook   Commands for managing and scanning notebook content.              │
 │ package    Commands for running extension packages.                          │
 │ libs       Commands for compiling and managing Python libraries.             │
-│ dbt        Proxy commands to dbt_wrapper inside the Fabric workspace repo.   │
+│ dbt        dbt on Fabric (lakehouses and warehouses): profile from the value │
+│            set, dbt commands, orchestrator notebook.                         │
 │ extract    Data extraction and package commands (keep compile, extract-run). │
 ╰──────────────────────────────────────────────────────────────────────────────╯
 ```

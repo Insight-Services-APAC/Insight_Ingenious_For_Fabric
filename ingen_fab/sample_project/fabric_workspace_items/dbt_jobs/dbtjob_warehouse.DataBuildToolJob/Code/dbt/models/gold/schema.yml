@@ -1,0 +1,35 @@
+version: 2
+
+models:
+  - name: dim_geography
+    columns:
+      - name: CityID
+        data_tests: [unique, not_null]
+      - name: CountryName
+        data_tests: [not_null]
+  - name: dim_customers
+    columns:
+      - name: CustomerID
+        data_tests: [unique, not_null]
+  - name: dim_stock_items
+    columns:
+      - name: StockItemID
+        data_tests: [unique, not_null]
+  - name: fct_sales
+    columns:
+      - name: OrderLineID
+        data_tests: [unique, not_null]
+      - name: CustomerID
+        data_tests:
+          - relationships:
+              to: ref('dim_customers')
+              field: CustomerID
+      - name: StockItemID
+        data_tests:
+          - relationships:
+              to: ref('dim_stock_items')
+              field: StockItemID
+  - name: agg_sales_country_month
+    columns:
+      - name: Revenue
+        data_tests: [not_null]
