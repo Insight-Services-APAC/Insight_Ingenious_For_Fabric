@@ -205,8 +205,19 @@ def upload_dbt_project_to_config_lakehouse(
     project_path: str,
     console: Console = Console(),
 ):
-    """Uploads a dbt project to the config lakehouse in OneLake with variable injection during upload."""
+    """Uploads a dbt project to the config lakehouse in OneLake with variable injection during upload.
+
+    The run-log macro is refreshed from the template before the files are collected, so the
+    uploaded copy is never older than the installed ingen_fab, whatever ran before.
+    """
     try:
+        from ingen_fab.cli_utils.dbt_commands import refresh_logging_macro
+
+        # the run-log macro (it warns itself when dbt_project.yml does not call it)
+        dbt_project_dir = Path(project_path) / dbt_project_name
+        if (dbt_project_dir / "dbt_project.yml").is_file():
+            refresh_logging_macro(dbt_project_dir)
+
         # Variable injection will be performed automatically during OneLake upload
         # This eliminates redundant processing and improves performance
         onelake_utils = OneLakeUtils(

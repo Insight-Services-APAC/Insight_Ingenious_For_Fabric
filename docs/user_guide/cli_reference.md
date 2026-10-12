@@ -717,7 +717,10 @@ ingen_fab deploy download-artefact -n "My Notebook" -t Notebook -o ./downloads
 
 Upload a dbt project (its files, including `profiles/` and `requirements.txt`, without
 `target/`, `logs/`, `dbt_packages/` and `__pycache__/`) to the config lakehouse's Files, where
-an orchestrator notebook runs it.
+an orchestrator notebook runs it. Before collecting the files it refreshes the project's
+`macros/ingen_fab_logging.sql` from the installed ingen_fab (rewritten only when it differs), so
+the uploaded copy is current. The project name follows the same rule as the `dbt` commands:
+letters, digits, underscore and hyphen.
 
 ```bash
 ingen_fab deploy upload-dbt-project --dbt-project <folder>

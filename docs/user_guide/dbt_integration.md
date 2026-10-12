@@ -236,8 +236,10 @@ branch addresses the log lakehouse by its name alone (`lh_log.dbt_batch`), as a 
 lakehouse: a schema-enabled log lakehouse is not covered.
 
 The macro is `macros/ingen_fab_logging.sql` in the dbt project, maintained by ingen_fab:
-`ingen_fab dbt profile`, every `ingen_fab dbt <verb>` and `ingen_fab dbt orchestrator`
-refresh it, and warn when `dbt_project.yml` does not call it.
+`ingen_fab dbt profile`, every `ingen_fab dbt <verb>`, `ingen_fab dbt orchestrator` and
+`ingen_fab deploy upload-dbt-project` refresh it (the upload before it collects the files, so
+the copy of a dbt project in the config lakehouse is as new as the installed ingen_fab), and
+warn when `dbt_project.yml` does not call it.
 A project enables the log with:
 
 ```yaml
@@ -404,7 +406,8 @@ project's `packages-install-path` reads it). On failure
 notebook's header says it leaves no log row.
 
 **The run log macro.** `refresh_logging_macro` copies the template into
-`<project>/macros/ingen_fab_logging.sql` on every `profile`, verb and `orchestrator` call;
+`<project>/macros/ingen_fab_logging.sql` on every `profile`, verb and `orchestrator` call and
+at the start of `upload-dbt-project`;
 `logging_hook_present` warns when `dbt_project.yml` does not call `ingen_fab_log_run`. The
 hook is guarded by `{% if execute %}` and branches on `target.type`: `fabricspark` writes
 Delta tables, `fabric` writes T-SQL tables, any other adapter logs "no log store for adapter

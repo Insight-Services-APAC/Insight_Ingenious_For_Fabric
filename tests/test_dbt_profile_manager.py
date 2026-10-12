@@ -766,3 +766,42 @@ def test_orchestrator_target_and_library_name_are_rendered_safely(tmp_path):
     assert 'VARIABLE_LIBRARY = "var_lib"' in content
     assert 'f"$(/**/{VARIABLE_LIBRARY}/{name})"' in content
     assert "{{ variable_library }}" not in content
+
+
+def test_upload_refreshes_the_logging_macro_before_collecting_files(
+    tmp_path, monkeypatch
+):
+    """A project uploaded with an old or missing macro copy would run that copy inside Fabric,
+    whatever `ingen_fab dbt orchestrator` wrote locally afterwards: the upload refreshes the
+    macro before the files are collected."""
+    from ingen_fab.cli_utils import deploy_commands
+
+    _project(tmp_path, extra={"dbt_default_lakehouse": "lh_bronze", **LOG_VARS})
+    project = tmp_path / "dbt_project"
+    macro = project / "macros" / "ingen_fab_logging.sql"
+    macro.parent.mkdir(exist_ok=True)
+    macro.write_text("-- stale copy\n", encoding="utf-8")
+    seen = {}
+
+    class FakeOneLake:
+        def __init__(self, environment, project_path, console):
+            pass
+
+        def upload_dbt_project_to_config_lakehouse(
+            self, dbt_project_name, dbt_project_path
+        ):
+            seen["macro_at_upload"] = macro.read_text(encoding="utf-8")
+            return {"failed": [], "successful": []}
+
+    monkeypatch.setattr(deploy_commands, "OneLakeUtils", FakeOneLake)
+    import io
+
+    from rich.console import Console
+
+    console = Console(file=io.StringIO(), force_terminal=False)
+    deploy_commands.upload_dbt_project_to_config_lakehouse(
+        "development", "dbt_project", str(tmp_path), console=console
+    )
+    template = dbt_commands.LOGGING_MACRO.read_text(encoding="utf-8")
+    assert seen["macro_at_upload"] == template
+    assert macro.read_text(encoding="utf-8") == template

@@ -486,7 +486,11 @@ def upload_dbt_project(
         ),
     ],
 ):
-    """Sync a dbt project's files to the Fabric config lakehouse."""
+    """Sync a dbt project's files to the Fabric config lakehouse (refreshing its
+    macros/ingen_fab_logging.sql from the installed ingen_fab first)."""
+    from ingen_fab.cli_utils import dbt_commands
+
+    dbt_commands.check_name(dbt_project, "dbt project", dbt_commands.PROJECT_NAME)
     deploy_commands.upload_dbt_project_to_config_lakehouse(
         environment=ctx.obj["fabric_environment"],
         dbt_project_name=dbt_project,
