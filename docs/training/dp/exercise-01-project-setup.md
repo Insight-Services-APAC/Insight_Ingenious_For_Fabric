@@ -349,7 +349,7 @@ This executes the bronze DDL scripts in order (`001_Initial_Creation`, `002_Chan
 
 ### 11. Run the warehouse orchestrator
 
-Similarly, find **`00_all_warehouses_orchestrator`** in the `ddl_scripts` folder of your Fabric workspace and run it. This creates the `DW` schema and the `vDim_Cities` view in `wh_gold`.
+Similarly, find **`00_all_warehouses_orchestrator_ddl_scripts`** in the `ddl_scripts` folder of your Fabric workspace and run it. This creates the `DW` schema and the `vDim_Cities` view in `wh_gold`.
 
 ## Verification
 

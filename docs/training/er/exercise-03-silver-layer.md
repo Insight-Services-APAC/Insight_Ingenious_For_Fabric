@@ -36,7 +36,7 @@ ddl_scripts/Lakehouses/lh_silver/001_Initial_Creation/
 └── 005_silver_regions.py
 ```
 
-When you ran `ingen_fab ddl compile --generation-mode Lakehouse` in Exercise 1, these 5 scripts were packaged into a **single compiled notebook** (`001_Initial_Creation_lh_silver_Lakehouses.Notebook`) with one cell per script. Each cell is wrapped in `du.run_once()` for idempotency — so re-running the notebook never recreates a table that already exists.
+When you ran `ingen_fab ddl compile --generation-mode Lakehouse` in Exercise 1, these 5 scripts were packaged into a **single compiled notebook** (`001_Initial_Creation_lh_silver_Lakehouses`, shown in the workspace as `001_Initial_Creation_lh_silver_Lakehouses_ddl_scripts`) with one cell per script. Each cell is wrapped in `du.run_once()` for idempotency — so re-running the notebook never recreates a table that already exists.
 
 The DDL orchestrator in Exercise 1 ran that notebook, creating the empty silver tables.
 

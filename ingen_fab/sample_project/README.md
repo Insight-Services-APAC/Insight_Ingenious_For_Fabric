@@ -74,7 +74,7 @@ that holds `ingen_fab` active. Every command below runs from the parent folder o
    connection still pointing at the placeholder endpoint; the second deploy fixes it. `upload-dbt-project` copies the files as
    they are at that moment: after changing models or regenerating the profile, upload again.
 
-3. Run the lakehouse DDL orchestrator notebook `00_all_lakehouses_orchestrator` once: it
+3. Run the lakehouse DDL orchestrator notebook `00_all_lakehouses_orchestrator_ddl_scripts` once: it
    creates the bronze tables and the demo data (seven tables in `lh_bronze`).
 
 ## dbt in Fabric

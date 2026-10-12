@@ -227,16 +227,18 @@ Run these from the parent folder of the project (the folder you ran `ingen_fab i
 
 This generates several types of notebooks:
 
-**Individual DDL Notebooks:**
-- One notebook per DDL script
+**Bundle notebooks:**
+- One notebook per script folder (for example `001_Initial_Creation_lh_bronze_Lakehouses`), with one cell per DDL script
 - Includes error handling and logging
 - Environment-specific variable substitution
 
-**Orchestrator Notebooks:**
-- `00_orchestrator_Config_lakehouse.Notebook` - Runs all lakehouse DDL scripts
-- `00_orchestrator_Config_warehouse.Notebook` - Runs all warehouse DDL scripts
-- `00_all_lakehouses_orchestrator.Notebook` - Master orchestrator for all lakehouses
-- `00_all_warehouses_orchestrator.Notebook` - Master orchestrator for all warehouses
+**Orchestrator notebooks:**
+- `00_orchestrator_lh_bronze_lakehouse`, `00_orchestrator_lh_silver_lakehouse`, `00_orchestrator_lh_gold_lakehouse` - one per lakehouse, running its bundles in order
+- `00_orchestrator_wh_gold_warehouse` - the same for the warehouse
+- `00_all_lakehouses_orchestrator` - master orchestrator for all lakehouses
+- `00_all_warehouses_orchestrator` - master orchestrator for all warehouses
+
+Those are the folder names under `fabric_workspace_items/ddl_scripts/`; in the workspace every one of them is deployed with the suffix `_ddl_scripts` as its display name (`00_all_lakehouses_orchestrator_ddl_scripts`).
 
 ### Step 5: Deploy to Fabric
 
@@ -280,8 +282,8 @@ Navigate to your Fabric workspace and execute the DDL scripts:
 1. **Open your Fabric workspace**
 2. **Navigate to the `ddl_scripts` folder**
 3. **Run the orchestrator notebooks in sequence:**
-   - First: `00_all_warehouses_orchestrator` (if using warehouses)
-   - Then: `00_all_lakehouses_orchestrator` (if using lakehouses)
+   - First: `00_all_lakehouses_orchestrator_ddl_scripts` (the lakehouse tables)
+   - Then: `00_all_warehouses_orchestrator_ddl_scripts` (the warehouse views read `lh_gold` through its SQL analytics endpoint, so they come second)
 
 The orchestrator notebooks will:
 - Execute all DDL scripts in the correct order
@@ -373,7 +375,7 @@ project folder and the environment once; `dp` is whatever name you gave `init ne
 
 Then check each of these, in order:
 
-1. **Bronze is loaded.** Step 6 ran `00_all_lakehouses_orchestrator` and the seven tables
+1. **Bronze is loaded.** Step 6 ran `00_all_lakehouses_orchestrator_ddl_scripts` and the seven tables
    exist in `lh_bronze`.
 2. **The runtime libraries are uploaded.** Step 5 ran `ingen_fab deploy upload-python-libs`;
    the DDL run of Step 6 could not have succeeded without it.

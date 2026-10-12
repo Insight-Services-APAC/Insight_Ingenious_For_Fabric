@@ -274,7 +274,7 @@ ingen_fab deploy upload-python-libs
 
 1. **Navigate to your Fabric workspace** in the Microsoft Fabric portal
 2. **Find the generated notebooks** in the `ddl_scripts` folder
-3. **Run the orchestrator notebook**: `00_all_lakehouses_orchestrator`
+3. **Run the orchestrator notebook**: `00_all_lakehouses_orchestrator_ddl_scripts`
 
 The orchestrator will:
 - Execute all DDL scripts in the correct sequence

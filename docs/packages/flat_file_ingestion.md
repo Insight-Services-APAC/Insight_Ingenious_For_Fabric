@@ -159,7 +159,7 @@ The Flat File Ingestion package requires specific Python libraries to function c
 ### Step 4: Run the DDL Maintenance Notebooks
 After compiling the project DDL, you need to run the DDL maintenance notebooks to create the necessary metadata (config and log tables) in your target lakehouse or warehouse.
 
-To do this you need to log in to your Fabric workspace and run the ``00_all_lakehouses_orchestrator.Notebook` notebook. This orchestrates the creation of config and log tables for all lakehouses which should now include the objects required by the Flat File Ingestion package. After running this notebook, you should see the following tables created in your config lakehouse: 
+To do this you need to log in to your Fabric workspace and run the `00_all_lakehouses_orchestrator_ddl_scripts` notebook. This orchestrates the creation of config and log tables for all lakehouses which should now include the objects required by the Flat File Ingestion package. After running this notebook, you should see the following tables created in your config lakehouse: 
 - `config_flat_file_ingestion`
 - `log_flat_file_ingestion`
 
