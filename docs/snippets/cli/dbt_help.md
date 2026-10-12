@@ -16,62 +16,90 @@ Using Fabric environment: local
 ╭─ Commands ───────────────────────────────────────────────────────────────────╮
 │ profile               Generate <dbt_project>/profiles/profiles.yml from the  │
 │                       Variable Library value sets.                           │
-│ build                 Run `dbt build` for the project with the generated     │
-│                       profile and the current environment as target. Extra   │
-│                       arguments are passed to dbt unchanged, e.g. `ingen_fab │
-│                       dbt build -- --select tag:silver`.                     │
-│ run                   Run `dbt run` for the project with the generated       │
-│                       profile and the current environment as target. Extra   │
-│                       arguments are passed to dbt unchanged, e.g. `ingen_fab │
-│                       dbt run -- --select tag:silver`.                       │
-│ test                  Run `dbt test` for the project with the generated      │
-│                       profile and the current environment as target. Extra   │
-│                       arguments are passed to dbt unchanged, e.g. `ingen_fab │
-│                       dbt test -- --select tag:silver`.                      │
-│ seed                  Run `dbt seed` for the project with the generated      │
-│                       profile and the current environment as target. Extra   │
-│                       arguments are passed to dbt unchanged, e.g. `ingen_fab │
-│                       dbt seed -- --select tag:silver`.                      │
-│ snapshot              Run `dbt snapshot` for the project with the generated  │
-│                       profile and the current environment as target. Extra   │
-│                       arguments are passed to dbt unchanged, e.g. `ingen_fab │
-│                       dbt snapshot -- --select tag:silver`.                  │
-│ compile               Run `dbt compile` for the project with the generated   │
-│                       profile and the current environment as target. Extra   │
-│                       arguments are passed to dbt unchanged, e.g. `ingen_fab │
-│                       dbt compile -- --select tag:silver`.                   │
-│ parse                 Run `dbt parse` for the project with the generated     │
-│                       profile and the current environment as target. Extra   │
-│                       arguments are passed to dbt unchanged, e.g. `ingen_fab │
-│                       dbt parse -- --select tag:silver`.                     │
-│ debug                 Run `dbt debug` for the project with the generated     │
-│                       profile and the current environment as target. Extra   │
-│                       arguments are passed to dbt unchanged, e.g. `ingen_fab │
-│                       dbt debug -- --select tag:silver`.                     │
-│ docs                  Run `dbt docs` for the project with the generated      │
-│                       profile and the current environment as target. Extra   │
-│                       arguments are passed to dbt unchanged, e.g. `ingen_fab │
-│                       dbt docs -- --select tag:silver`.                      │
-│ ls                    Run `dbt ls` for the project with the generated        │
-│                       profile and the current environment as target. Extra   │
-│                       arguments are passed to dbt unchanged, e.g. `ingen_fab │
-│                       dbt ls -- --select tag:silver`.                        │
-│ list                  Run `dbt list` for the project with the generated      │
-│                       profile and the current environment as target. Extra   │
-│                       arguments are passed to dbt unchanged, e.g. `ingen_fab │
-│                       dbt list -- --select tag:silver`.                      │
-│ clean                 Run `dbt clean` for the project with the generated     │
-│                       profile and the current environment as target. Extra   │
-│                       arguments are passed to dbt unchanged, e.g. `ingen_fab │
-│                       dbt clean -- --select tag:silver`.                     │
-│ deps                  Run `dbt deps` for the project with the generated      │
-│                       profile and the current environment as target. Extra   │
-│                       arguments are passed to dbt unchanged, e.g. `ingen_fab │
-│                       dbt deps -- --select tag:silver`.                      │
-│ show                  Run `dbt show` for the project with the generated      │
-│                       profile and the current environment as target. Extra   │
-│                       arguments are passed to dbt unchanged, e.g. `ingen_fab │
-│                       dbt show -- --select tag:silver`.                      │
+│ build                 Run `dbt build` for the project. With a generated      │
+│                       profile the current environment is the target unless   │
+│                       you pass one; a hand-written profile keeps its own     │
+│                       default target. Arguments after `--` go to dbt         │
+│                       unchanged, e.g. `ingen_fab dbt build -- --threads 8`   │
+│                       (only the options `dbt build` accepts).                │
+│ run                   Run `dbt run` for the project. With a generated        │
+│                       profile the current environment is the target unless   │
+│                       you pass one; a hand-written profile keeps its own     │
+│                       default target. Arguments after `--` go to dbt         │
+│                       unchanged, e.g. `ingen_fab dbt run -- --threads 8`     │
+│                       (only the options `dbt run` accepts).                  │
+│ test                  Run `dbt test` for the project. With a generated       │
+│                       profile the current environment is the target unless   │
+│                       you pass one; a hand-written profile keeps its own     │
+│                       default target. Arguments after `--` go to dbt         │
+│                       unchanged, e.g. `ingen_fab dbt test -- --threads 8`    │
+│                       (only the options `dbt test` accepts).                 │
+│ seed                  Run `dbt seed` for the project. With a generated       │
+│                       profile the current environment is the target unless   │
+│                       you pass one; a hand-written profile keeps its own     │
+│                       default target. Arguments after `--` go to dbt         │
+│                       unchanged, e.g. `ingen_fab dbt seed -- --threads 8`    │
+│                       (only the options `dbt seed` accepts).                 │
+│ snapshot              Run `dbt snapshot` for the project. With a generated   │
+│                       profile the current environment is the target unless   │
+│                       you pass one; a hand-written profile keeps its own     │
+│                       default target. Arguments after `--` go to dbt         │
+│                       unchanged, e.g. `ingen_fab dbt snapshot -- --threads   │
+│                       8` (only the options `dbt snapshot` accepts).          │
+│ compile               Run `dbt compile` for the project. With a generated    │
+│                       profile the current environment is the target unless   │
+│                       you pass one; a hand-written profile keeps its own     │
+│                       default target. Arguments after `--` go to dbt         │
+│                       unchanged, e.g. `ingen_fab dbt compile -- --threads 8` │
+│                       (only the options `dbt compile` accepts).              │
+│ parse                 Run `dbt parse` for the project. With a generated      │
+│                       profile the current environment is the target unless   │
+│                       you pass one; a hand-written profile keeps its own     │
+│                       default target. Arguments after `--` go to dbt         │
+│                       unchanged, e.g. `ingen_fab dbt parse -- --threads 8`   │
+│                       (only the options `dbt parse` accepts).                │
+│ debug                 Run `dbt debug` for the project. With a generated      │
+│                       profile the current environment is the target unless   │
+│                       you pass one; a hand-written profile keeps its own     │
+│                       default target. Arguments after `--` go to dbt         │
+│                       unchanged, e.g. `ingen_fab dbt debug -- --threads 8`   │
+│                       (only the options `dbt debug` accepts).                │
+│ docs                  Run `dbt docs` for the project. With a generated       │
+│                       profile the current environment is the target unless   │
+│                       you pass one; a hand-written profile keeps its own     │
+│                       default target. Arguments after `--` go to dbt         │
+│                       unchanged, e.g. `ingen_fab dbt docs -- --threads 8`    │
+│                       (only the options `dbt docs` accepts).                 │
+│ ls                    Run `dbt ls` for the project. With a generated profile │
+│                       the current environment is the target unless you pass  │
+│                       one; a hand-written profile keeps its own default      │
+│                       target. Arguments after `--` go to dbt unchanged, e.g. │
+│                       `ingen_fab dbt ls -- --threads 8` (only the options    │
+│                       `dbt ls` accepts).                                     │
+│ list                  Run `dbt list` for the project. With a generated       │
+│                       profile the current environment is the target unless   │
+│                       you pass one; a hand-written profile keeps its own     │
+│                       default target. Arguments after `--` go to dbt         │
+│                       unchanged, e.g. `ingen_fab dbt list -- --threads 8`    │
+│                       (only the options `dbt list` accepts).                 │
+│ clean                 Run `dbt clean` for the project. With a generated      │
+│                       profile the current environment is the target unless   │
+│                       you pass one; a hand-written profile keeps its own     │
+│                       default target. Arguments after `--` go to dbt         │
+│                       unchanged, e.g. `ingen_fab dbt clean -- --threads 8`   │
+│                       (only the options `dbt clean` accepts).                │
+│ deps                  Run `dbt deps` for the project. With a generated       │
+│                       profile the current environment is the target unless   │
+│                       you pass one; a hand-written profile keeps its own     │
+│                       default target. Arguments after `--` go to dbt         │
+│                       unchanged, e.g. `ingen_fab dbt deps -- --threads 8`    │
+│                       (only the options `dbt deps` accepts).                 │
+│ show                  Run `dbt show` for the project. With a generated       │
+│                       profile the current environment is the target unless   │
+│                       you pass one; a hand-written profile keeps its own     │
+│                       default target. Arguments after `--` go to dbt         │
+│                       unchanged, e.g. `ingen_fab dbt show -- --threads 8`    │
+│                       (only the options `dbt show` accepts).                 │
 │ orchestrator          Create an orchestrator notebook that runs dbt inside   │
 │                       Fabric against the uploaded project.                   │
 │ generate-schema-yml   Convert cached lakehouse metadata to dbt schema.yml    │
