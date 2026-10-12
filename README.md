@@ -220,8 +220,8 @@ ingen_fab libs compile --target-file path/to/file.py
 
 # dbt: write the profile from the value set, build the silver layer, create the orchestrator notebook
 ingen_fab dbt profile --dbt-project my_dbt_project
-ingen_fab dbt build -p my_dbt_project -- --select tag:silver
-ingen_fab dbt orchestrator -p my_dbt_project --name dbtload_silver --select +tag:silver
+ingen_fab dbt build -p my_dbt_project -- --select path:models/silver
+ingen_fab dbt orchestrator -p my_dbt_project --name dbtload_silver --select path:models/silver
 ```
 
 ## Running the tests

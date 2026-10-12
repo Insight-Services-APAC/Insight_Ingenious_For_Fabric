@@ -14,8 +14,8 @@ models: the dbt project is the artefact, and dbt executes the SQL.
 | Step | Command | What it does |
 | --- | --- | --- |
 | Write the profile | `ingen_fab dbt profile` | `<dbt_project>/profiles/profiles.yml` from the value sets, two targets per environment (`<env>` and `<env>-notebook`) |
-| Develop | `ingen_fab dbt build -- --select tag:silver` | runs `dbt build` with that profile, over Livy, as you |
-| Schedule | `ingen_fab dbt orchestrator -n dbtload_silver -s +tag:silver` then `ingen_fab deploy upload-dbt-project` and `ingen_fab deploy deploy` | a notebook item that runs the same command inside Fabric against the uploaded project |
+| Develop | `ingen_fab dbt build -- --select path:models/silver` | runs `dbt build` with that profile, over Livy, as you |
+| Schedule | `ingen_fab dbt orchestrator -n dbtload_silver -s path:models/silver` then `ingen_fab deploy upload-dbt-project` and `ingen_fab deploy deploy` | a notebook item that runs the same command inside Fabric against the uploaded project |
 | Describe sources | `ingen_fab dbt generate-schema-yml` | `schema.yml` from lakehouse metadata |
 
 This page describes how the tool works. To run dbt on the sample project, follow
@@ -144,18 +144,18 @@ Every dbt verb is available as `ingen_fab dbt <verb>`; everything after `--` goe
 unchanged:
 
 ```bash
-ingen_fab dbt build -- --select tag:silver
+ingen_fab dbt build -- --select path:models/silver
 ingen_fab dbt run -- --select state_provinces --full-refresh
 ingen_fab dbt test
 ingen_fab dbt debug
-ingen_fab dbt build -p analytics_models -l lh_gold -- --select tag:gold
+ingen_fab dbt build -p analytics_models -l lh_gold -- --select path:models/gold
 ```
 
 The command regenerates the profile, passes `--project-dir`, `--profiles-dir` and
 `--target <environment>`, and runs `dbt`. `clean` and `deps` touch no lakehouse, so they run
 even while the value set still holds placeholders (the profile is then not generated, with a
-warning). The first statement of a run starts a Livy session
-and the session is closed when dbt exits. `dbt_reuse_session=true` keeps it
+warning). The first statement of a run starts a Livy session;
+the session ends after dbt exits (Livy keeps it idle for about a minute first). `dbt_reuse_session=true` keeps it
 alive for later runs, at the cost of holding capacity between them. Plain `dbt`
 works too once `DBT_PROFILES_DIR` points at `<dbt_project>/profiles`.
 
@@ -167,7 +167,7 @@ config lakehouse and a notebook runs dbt against it.
 1. `ingen_fab dbt profile` (the `profiles/` folder must be current before the upload).
 2. `ingen_fab deploy upload-dbt-project --dbt-project dbt_project` uploads the project,
    including `profiles/` and `requirements.txt`, to the config lakehouse's Files.
-3. `ingen_fab dbt orchestrator --name dbtload_silver --select "+tag:silver"` writes
+3. `ingen_fab dbt orchestrator --name dbtload_silver --select "path:models/silver"` writes
    `fabric_workspace_items/notebooks/dbtload_silver.Notebook`.
 4. `ingen_fab deploy deploy` publishes it. A pipeline activity, or a schedule, runs it.
 
@@ -178,9 +178,13 @@ The notebook attaches the config lakehouse, installs the adapter from the upload
 (`notebookutils` is not available to the dbt child process, so the adapter's
 `fabric_notebook` mode cannot be used there), and runs
 `dbt <command> --select <selector> --target <environment>-notebook`. A project that declares
-packages (`packages.yml` or `dependencies.yml`) gets `dbt deps` first, installed into the
-run's scratch folder: the upload carries no `dbt_packages/`, `target/`, `logs/` or `.git/`,
-only those names at the project root are left out. `dbt_command` and
+packages (`packages.yml` or `dependencies.yml`) gets `dbt deps` first. The notebook sets
+`DBT_PACKAGES_INSTALL_PATH` to the run's scratch folder and the project's `dbt_project.yml`
+reads it (`packages-install-path: "{{ env_var('DBT_PACKAGES_INSTALL_PATH', 'dbt_packages') }}"`,
+in the scaffold and the sample; a project without that key installs into its own folder on
+the config lakehouse). dbt still writes `package-lock.yml` next to `packages.yml`. The upload
+carries no `dbt_packages/`, `target/`, `logs/` or `.git/`, only those names at the project
+root are left out. `dbt_command` and
 `dbt_select` are notebook parameters, so one notebook can serve several pipeline activities.
 Install and run go through Python with a failure check, so a failed install or a failed dbt
 run fails the notebook job. The run itself is logged by dbt, through the hook described in
@@ -227,7 +231,9 @@ warehouse instead, and dbt's output says so; a dedicated log store is the defaul
 project's own storage the fallback. The tables are created on first use. A table of that name
 left by the retired adapter, with other columns, is renamed to `dbt_batch_v1` or
 `dbt_execution_log_v1` in a lakehouse before the new one is created, so its rows stay
-readable; in a warehouse a table of another shape stops the run with its name.
+readable; in a warehouse a table of another shape stops the run with its name. The lakehouse
+branch addresses the log lakehouse by its name alone (`lh_log.dbt_batch`), as a plain
+lakehouse: a schema-enabled log lakehouse is not covered.
 
 The macro is `macros/ingen_fab_logging.sql` in the dbt project, maintained by ingen_fab:
 `ingen_fab dbt profile`, every `ingen_fab dbt <verb>` and `ingen_fab dbt orchestrator`
@@ -260,8 +266,24 @@ profiles for the Spark adapter only; a warehouse profile is written by hand, and
 ships one (`dbt_warehouse/profiles/profiles.yml`) with two targets: `notebook`
 (`authentication: fabricnotebook`, inside a Fabric Python notebook) and `laptop`
 (`authentication: CLI`, your Azure CLI login). The server is not stored: it is
-`{{ env_var('DBT_WAREHOUSE_ENDPOINT') }}`, and the orchestrator exports it from the Variable
-Library with `--env`:
+`{{ env_var('DBT_WAREHOUSE_ENDPOINT') }}`. From a machine with `dbt-fabric` and the ODBC
+driver installed, export it and pick the `laptop` target (the profile's default is `notebook`):
+
+=== "macOS/Linux"
+
+    ```bash
+    export DBT_WAREHOUSE_ENDPOINT="<host>.datawarehouse.fabric.microsoft.com"
+    ingen_fab dbt build -p dbt_warehouse -- --target laptop
+    ```
+
+=== "Windows"
+
+    ```powershell
+    $env:DBT_WAREHOUSE_ENDPOINT = "<host>.datawarehouse.fabric.microsoft.com"
+    ingen_fab dbt build -p dbt_warehouse -- --target laptop
+    ```
+
+In Fabric, the orchestrator exports it from the Variable Library with `--env`:
 
 ```bash
 ingen_fab dbt orchestrator --name dbtload_warehouse --select path:models --dbt-project dbt_warehouse --target notebook --env DBT_WAREHOUSE_ENDPOINT=wh_silver_warehouse_endpoint
@@ -291,10 +313,11 @@ connection. ingen_fab deploys it like any item and substitutes `{{varlib:...}}` 
 }
 ```
 
-Today the item supports the warehouse adapter only and requires a connection at creation; it
-is orchestrated like a notebook (a pipeline activity or a schedule), keeps its own logs and
-lineage inside the item, and its output lives under `Output/<job id>/` in the item's OneLake
-folder. The lakehouse (Spark) path is the orchestrator notebook.
+Today the item supports the warehouse adapter only. It is created with whatever connection
+values the value set holds (placeholders are accepted at creation) and needs the real ones to
+run; it is orchestrated like a notebook (a pipeline activity or a schedule), keeps its own
+logs and lineage inside the item, and its output lives under `Output/<run id>/` in the item's
+OneLake folder. The lakehouse (Spark) path is the orchestrator notebook.
 
 ## Sources from metadata
 
@@ -345,10 +368,10 @@ full match (a trailing newline is refused); it is not applied by `generate-schem
 
 **The orchestrator notebook, at generation.** `write_orchestrator_notebook` checks, in
 order: the command is one of `ORCHESTRATOR_COMMANDS`; the project folder holds
-`dbt_project.yml`; `--vars` parses as YAML into a mapping; each `--env NAME=variable` source
-exists in the current environment's value set; the log lakehouse (option, else the value
-set's `log_lakehouse`, else `lh_log`) is declared, meaning the `<name>_workspace_id` and
-`<name>_lakehouse_id` keys exist (a placeholder value passes). It does not regenerate the
+`dbt_project.yml`; `--vars` parses as YAML into a mapping; the log lakehouse (option, else
+the value set's `log_lakehouse`, else `lh_log`) is declared, meaning the `<name>_workspace_id`
+and `<name>_lakehouse_id` keys exist (a placeholder value passes); each `--env NAME=variable`
+source exists in the current environment's value set. It does not regenerate the
 profile and does not check that the target exists in the uploaded profile; that shows at run
 time. The Variable Library item name is fixed: `DEFAULT_VARIABLE_LIBRARY = "var_lib"` has no
 CLI option, and the profile manager reads
@@ -374,7 +397,8 @@ notebook was generated with `--log-warehouse`; the caller's value wins) and
 `ingen_fab_runner = notebook/<name>` (always set, never the caller's). A `log_lakehouse`
 given in `--vars` therefore redirects the log tables but not the failure folder. `--vars` is
 always passed. `dbt deps` runs first when the project declares `packages.yml` or
-`dependencies.yml`, into `DBT_PACKAGES_INSTALL_PATH` under the run folder. On failure
+`dependencies.yml`, with `DBT_PACKAGES_INSTALL_PATH` pointing under the run folder (the
+project's `packages-install-path` reads it). On failure
 `keep_failure` copies the `*.log` files only (the step logs and dbt's logs) plus
 `notebook_error.log`, one by one; a failed copy is printed and skipped. A `compile`
 notebook's header says it leaves no log row.
@@ -430,7 +454,7 @@ copy with the dbt project nor refreshes its logging macro. Keeping it in step is
 (`validate_with_adapter` imports the adapter): `uv sync --group dev --group dbt`, then
 
 ```bash
-uv run pytest tests/test_dbt_commands.py tests/test_dbt_profile_manager.py tests/test_promotion_utils.py -q
+uv run pytest tests/test_dbt_commands.py tests/test_dbt_profile_manager.py tests/test_promotion_utils.py tests/test_sample_project_consistency.py -q
 ```
 
 Covered: verb registration, the command line and target rules, the hand-written profile
@@ -439,7 +463,9 @@ store resolution and fallback, upload file selection, offline verbs, skipped env
 the missing adapter, the compile header, selector rendering, `--vars` and project
 validation, profile build, lakehouse discovery and choice, adapter validation, the golden
 profile, `run_dbt`, orchestrator notebook rendering and its failure path, `dbt-content.json`
-discovery and substitution. Not covered: the batch status and counts computed by the macro,
+discovery and substitution, and the sample's hand-maintained copies (the five macro copies, the
+warehouse project against the job item's embedded copy, the model SQL between the two projects,
+the two committed notebooks against a fresh render). Not covered: the batch status and counts computed by the macro,
 the vars merge at run time (only the rendered code text is asserted), the `ingen_fab_runner`
 override, the `dbt deps` step, `keep_failure`, sync deletion and substitution on upload, and
 the `sync_environment` wiring of `dbt-content.json`.
@@ -456,7 +482,7 @@ Projects that used `dbt exec`, `create-notebooks` and `convert-metadata` (the In
 | How a model runs on Spark | one generated notebook per model plus a master notebook, from `metaextracts/` | dbt itself, over Livy from your machine, or inside one orchestrator notebook per selector |
 | Commands | `dbt exec`, `dbt create-notebooks`, `dbt convert-metadata` | `ingen_fab dbt <any dbt verb>`, `ingen_fab dbt orchestrator` |
 | Logs | `dbt_batch` and `dbt_execution_log` in the log lakehouse, written by the generated master notebook | the same two tables, written by dbt's `on-run-end` hook, in the log lakehouse or the log warehouse ([The run log](#the-run-log)) |
-| Sessions | long-lived | one per run, named `dbt-<profile>-<target>`, closed when dbt exits (`dbt_reuse_session` keeps it) |
+| Sessions | long-lived | one per run, named `dbt-<profile>-<target>`, ended after dbt exits (`dbt_reuse_session` keeps it) |
 | Warehouses | not covered | `dbt-fabric` project, orchestrator notebook, or the Fabric dbt job item |
 
 Steps for an existing project:
@@ -472,7 +498,9 @@ Steps for an existing project:
   with `ingen_fab deploy upload-dbt-project`, deploy;
 - the old `dbt_batch` and `dbt_execution_log` in the log lakehouse are renamed to `dbt_batch_v1`
   and `dbt_execution_log_v1` by the first logged run; drop them when their rows are no longer
-  needed.
+  needed;
+- `deploy deploy` no longer uploads the fork's `masters/manifest.json` to the lakehouse's
+  `Files/MetaExtracts/`; nothing reads it once the generated notebooks are gone.
 
 Incremental models, snapshots and seeds run as standard dbt materializations; the
 `merge`, `append`, `insert_overwrite`, `microbatch` and `delete+insert` strategies are

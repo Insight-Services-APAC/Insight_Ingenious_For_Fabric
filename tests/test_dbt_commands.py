@@ -358,7 +358,8 @@ def test_logging_macro_renders_safe_values_for_both_dialects() -> None:
         }
     ]
     spark = module.ingen_fab_node_values(rows, "b1", "TIMESTAMP", True)
-    assert "'It''s broken: path C:\\\\temp\\\\'" in spark
+    # Spark: backslashes doubled, the quote escaped as \' (Spark has no '' escape)
+    assert "'It\\'s broken: path C:\\\\temp\\\\'" in spark
     assert "CAST('2026-10-07 03:26:46' AS TIMESTAMP), NULL, 0)" in spark
     tsql = module.ingen_fab_node_values(rows, "b1", "DATETIME2(3)", False)
     assert "'It''s broken: path C:\\temp\\'" in tsql

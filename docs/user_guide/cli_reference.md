@@ -38,7 +38,7 @@ Complete reference for all Ingenious Fabric Accelerator commands, options, and u
 | `init` | Create projects / configure workspace / generate storage artifacts | `ingen_fab init new --project-name MyProj`<br>`ingen_fab init storage-config` |
 | `ddl` | Compile notebooks from DDL scripts and assist in creating ddl scripts | `ingen_fab ddl compile -o fabric_workspace_repo -g Warehouse` |
 | `deploy` | Deploy, upload libs, extract/compare metadata and dwonload artefacts | `ingen_fab deploy get-metadata --target both -f csv -o meta.csv` |
-| `dbt` | dbt on Fabric with Microsoft's adapters: `dbt-fabricspark` for lakehouses (profile from the value set, runs over Livy) and `dbt-fabric` for warehouses (the project's own profile); dbt commands, orchestrator notebook, run log | `ingen_fab dbt build -- --select tag:silver` |
+| `dbt` | dbt on Fabric with Microsoft's adapters: `dbt-fabricspark` for lakehouses (profile from the value set, runs over Livy) and `dbt-fabric` for warehouses (the project's own profile); dbt commands, orchestrator notebook, run log | `ingen_fab dbt build -- --select path:models/silver` |
 
 ## Global Options
 
@@ -747,7 +747,7 @@ project keeps its own hand-written profile, which is never touched. Every dbt ve
 through the same commands; an orchestrator notebook runs the same command inside Fabric; every
 run is logged into the log store. See the [DBT Integration Guide](dbt_integration.md).
 
-Common options on every command:
+Common options of `profile` and the dbt verbs (`orchestrator` and `generate-schema-yml` take `--dbt-project` too, with their own options below):
 
 - `--dbt-project` / `-p`: dbt project directory under the workspace repo (default `dbt_project`)
 - `--lakehouse` / `-l`: default lakehouse prefix for the profile (else `dbt_default_lakehouse` in the value set, else the only lakehouse)
@@ -770,10 +770,10 @@ profile unless the caller gives a target (a hand-written profile uses its own de
 profile. Everything after `--` is passed to dbt unchanged.
 
 ```bash
-ingen_fab dbt build -- --select tag:silver
+ingen_fab dbt build -- --select path:models/silver
 ingen_fab dbt run -- --select state_provinces --full-refresh
 ingen_fab dbt test
-ingen_fab dbt build -l lh_gold -- --select tag:gold
+ingen_fab dbt build -l lh_gold -- --select path:models/gold
 ```
 
 #### `dbt orchestrator`
@@ -890,10 +890,10 @@ The tool uses the following configurations:
     # Replace placeholder GUIDs with your actual workspace and lakehouse IDs
 
     # 5. Develop dbt models; build over Livy, then make the run schedulable in Fabric
-    ingen_fab dbt build -- --select tag:silver
+    ingen_fab dbt build -- --select path:models/silver
     ingen_fab dbt profile
     ingen_fab deploy upload-dbt-project --dbt-project dbt_project
-    ingen_fab dbt orchestrator --name dbtload_silver --select +tag:silver
+    ingen_fab dbt orchestrator --name dbtload_silver --select path:models/silver
 
     # 6. Generate ddl notebooks
     ingen_fab ddl compile --output-mode fabric_workspace_repo --generation-mode Warehouse
@@ -930,10 +930,10 @@ The tool uses the following configurations:
     # Replace placeholder GUIDs with your actual workspace and lakehouse IDs
 
     # 5. Develop dbt models; build over Livy, then make the run schedulable in Fabric
-    ingen_fab dbt build -- --select tag:silver
+    ingen_fab dbt build -- --select path:models/silver
     ingen_fab dbt profile
     ingen_fab deploy upload-dbt-project --dbt-project dbt_project
-    ingen_fab dbt orchestrator --name dbtload_silver --select +tag:silver
+    ingen_fab dbt orchestrator --name dbtload_silver --select path:models/silver
 
     # 6. Generate ddl notebooks
     ingen_fab ddl compile --output-mode fabric_workspace_repo --generation-mode Warehouse

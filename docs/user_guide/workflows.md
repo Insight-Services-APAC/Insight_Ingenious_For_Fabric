@@ -38,7 +38,7 @@ graph TD
     D --> E{Using dbt adapter?}
     E -->|Yes| F[Develop dbt models]
     E -->|No| H
-    F --> G[Generate dbt notebooks]
+    F --> G[Generate the dbt orchestrator notebook]
     G --> H{Developing in Fabric?}
     H -->|Yes| I[Develop Fabric Artefacts in Fabric]
     H -->|No| M
@@ -125,12 +125,12 @@ graph TD
     ingen_fab dbt generate-schema-yml --dbt-project dbt_project --lakehouse lh_bronze --layer bronze --dbt-type source
 
     # Build over Livy with the profile generated from the value set
-    ingen_fab dbt build -- --select tag:silver
+    ingen_fab dbt build -- --select path:models/silver
 
     # Scheduled runs: upload the project, create the orchestrator notebook, deploy
     ingen_fab dbt profile
     ingen_fab deploy upload-dbt-project --dbt-project dbt_project
-    ingen_fab dbt orchestrator --name dbtload_silver --select +tag:silver
+    ingen_fab dbt orchestrator --name dbtload_silver --select path:models/silver
     ```
 
     **If developing in Fabric:**

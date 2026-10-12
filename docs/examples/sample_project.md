@@ -335,8 +335,9 @@ graph LR
 The DDL orchestrator (Step 6) loaded bronze: seven tables under `lh_bronze` (`countries`,
 `state_provinces`, `cities`, `customers`, `stock_items`, `orders`, `order_lines`), plus a
 `countries_backup_<timestamp>` table left by the change script. dbt builds
-silver and gold from them: 13 models and 27 tests, the model SQL written once under
-`dbt_project/models`. The sample runs that one transformation four ways, each into its own
+silver and gold from them: 13 models and 27 tests. The model SQL is written under
+`dbt_project/models`; `dbt_warehouse/models` and the copy inside the dbt job item are kept
+identical to it by hand. The sample runs that one transformation four ways, each into its own
 targets, so you can run them side by side and compare the outputs (they hold identical rows):
 
 | # | Way | What runs where | Writes to | Logs to |
@@ -393,10 +394,10 @@ Then check each of these, in order:
    `wh_silver_warehouse_endpoint`: ways 3 and 4 connect through it, and it is not written
    back. In the workspace open `wh_silver`, choose **Settings** > **SQL endpoint**, and copy
    the SQL connection string, a host name like `<id>.datawarehouse.fabric.microsoft.com`,
-   without a port, into `development.json`. The other endpoint variables
-   (`wh_gold_warehouse_endpoint`, `wh_log_warehouse_endpoint`, the two `lh_..._sql_endpoint`)
-   are read by nothing in the sample; every warehouse of a workspace shares the same host, so
-   the same value can be pasted there. Then deploy again:
+   without a port, into `development.json`. `wh_gold_warehouse_endpoint` is read by the
+   sample's semantic model `sm_gold_cities`, so fill it too; `wh_log_warehouse_endpoint` and
+   the two `lh_..._sql_endpoint` are read by nothing in the sample. Every warehouse of a
+   workspace shares the same host, so the same value serves all of them. Then deploy again:
 
     ```bash
     ingen_fab deploy deploy

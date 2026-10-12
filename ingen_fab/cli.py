@@ -1349,7 +1349,9 @@ def dbt_orchestrator(
     command: Annotated[
         str,
         typer.Option(
-            "--command", "-c", help="dbt command: build, run, test, seed, snapshot"
+            "--command",
+            "-c",
+            help="dbt command: build, run, test, seed, snapshot, compile",
         ),
     ] = "build",
     config_lakehouse: Annotated[

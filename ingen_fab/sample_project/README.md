@@ -15,9 +15,9 @@ with Microsoft's dbt adapters, so you can compare them in your own workspace.
 | `fabric_config/storage_config.yaml` | the lakehouses, warehouses and SQL database the project creates: `lh_bronze`, `lh_silver`, `lh_gold`, `lh_silver_nb`, `lh_gold_nb` (targets of the notebook example), `lh_log` (the lakehouse run log), `wh_silver`, `wh_gold`, `wh_log` (the warehouse run log), `db_config`; the `config` lakehouse comes with the template |
 | `fabric_workspace_items/` | the Variable Library, the lakehouse and warehouse items, the two orchestrator notebooks (`dbtload_lakehouse`, `dbtload_warehouse`) and the Fabric dbt job item (`dbtjob_warehouse`) |
 
-The model SQL exists once, under `dbt_project/models`. `dbt_warehouse/models` and the copy
-inside the dbt job item (`Code/dbt`) are kept identical to it; edit the models under
-`dbt_project` and copy them on.
+The model SQL is written under `dbt_project/models`; `dbt_warehouse/models` and the copy
+inside the dbt job item (`Code/dbt`) are three copies kept identical by hand: edit the models
+under `dbt_project` and copy them on (the test suite checks the copies match).
 
 ## Set it up
 
@@ -36,9 +36,10 @@ that holds `ingen_fab` active. Every command below runs from the parent folder o
    `wh_silver_warehouse_endpoint`, which ways 3 and 4 below connect through. After the first
    deploy, open `wh_silver` in the workspace, choose **Settings** > **SQL endpoint** and copy
    the SQL connection string (a host name like `<id>.datawarehouse.fabric.microsoft.com`, no
-   port) into the value set. The other endpoint variables (`wh_gold_...`, `wh_log_...`, the
-   two `lh_..._sql_endpoint`) are read by nothing in the sample; every warehouse of a
-   workspace shares the same host, so the same value can be pasted there.
+   port) into the value set. `wh_gold_warehouse_endpoint` is read by the sample's semantic
+   model `sm_gold_cities`, so fill it too; `wh_log_warehouse_endpoint` and the two
+   `lh_..._sql_endpoint` are read by nothing in the sample. Every warehouse of a workspace
+   shares the same host, so the same value serves all of them.
 2. Set the environment for the shell (bash, then the PowerShell equivalent):
 
    ```bash
@@ -78,7 +79,7 @@ that holds `ingen_fab` active. Every command below runs from the parent folder o
 
 ## dbt in Fabric
 
-dbt builds silver and gold from bronze: 13 models and 27 tests, the model SQL written once
+dbt builds silver and gold from bronze: 13 models and 27 tests, the model SQL written
 under `dbt_project/models`. The sample runs that one transformation four ways, each into its
 own targets, so you can run them side by side and compare (the outputs hold identical rows):
 

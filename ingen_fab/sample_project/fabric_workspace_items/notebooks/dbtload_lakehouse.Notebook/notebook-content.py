@@ -198,7 +198,8 @@ try:
     run_vars["ingen_fab_runner"] = "notebook/" + NOTEBOOK_NAME
     arguments += ["--vars", json.dumps(run_vars)]
     # Packages are not part of the upload: a project that declares them gets `dbt deps` first,
-    # installed into this run's scratch folder so the uploaded project stays untouched
+    # installed into this run's scratch folder (the project's packages-install-path reads the
+    # variable) so no package lands in the uploaded project; dbt still writes package-lock.yml there
     if any((PROJECT_DIR / name).is_file() for name in ("packages.yml", "dependencies.yml")):
         env["DBT_PACKAGES_INSTALL_PATH"] = str(LOCAL_RUN / "dbt_packages")
         step("dbt_deps", dbt + ["deps"], env=env)

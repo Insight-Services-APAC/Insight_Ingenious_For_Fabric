@@ -180,7 +180,7 @@ project_templates/        # Templates for new project initialization
 - **[`init`](user_guide/cli_reference.md#init)** - Initialize solutions and projects
 - **[`ddl`](user_guide/cli_reference.md#ddl)** - Compile DDL notebooks from templates
 - **[`deploy`](user_guide/cli_reference.md#deploy)** - Deploy to environments and manage workspace items
-- **[`dbt`](user_guide/cli_reference.md#dbt)** - Generate notebooks from dbt outputs and convert metadata
+- **[`dbt`](user_guide/cli_reference.md#dbt)** - dbt on Fabric with Microsoft's adapters: profile from the value set, every dbt verb, the orchestrator notebook
 
 ## Core Concepts
 

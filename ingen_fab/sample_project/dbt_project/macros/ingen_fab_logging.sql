@@ -42,11 +42,16 @@
 
 {% macro ingen_fab_sql_string(value, backslashes=false, max_length=4000) %}
     {#- Spark SQL reads a backslash in a string literal as an escape (a message ending in `\`
-        before the closing quote breaks the statement), T-SQL does not: double it for Spark -#}
+        before the closing quote breaks the statement) and has no '' escape (two adjacent
+        literals are concatenated, dropping the quote): for Spark, double the backslashes and
+        write a quote as \'. T-SQL doubles the quote and reads backslashes as text. -#}
     {%- if value is none -%}NULL{%- else -%}
         {%- set text = (value | string)[:max_length] -%}
-        {%- if backslashes -%}{%- set text = text | replace("\\", "\\\\") -%}{%- endif -%}
-        '{{ text | replace("'", "''") }}'
+        {%- if backslashes -%}
+            '{{ text | replace("\\", "\\\\") | replace("'", "\\'") }}'
+        {%- else -%}
+            '{{ text | replace("'", "''") }}'
+        {%- endif -%}
     {%- endif -%}
 {% endmacro %}
 

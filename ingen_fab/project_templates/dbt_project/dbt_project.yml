@@ -27,6 +27,12 @@ on-run-end:
 vars:
   log_lakehouse: lh_log
 
+# `dbt deps` installs packages where DBT_PACKAGES_INSTALL_PATH points when it is set (the
+# orchestrator notebook sets it to the run's scratch folder, so packages are not installed
+# into the uploaded project; dbt still writes package-lock.yml there); dbt's default folder
+# otherwise.
+packages-install-path: "{{ env_var('DBT_PACKAGES_INSTALL_PATH', 'dbt_packages') }}"
+
 clean-targets:         # directories to be removed by `dbt clean`
   - "target"
   - "dbt_packages"

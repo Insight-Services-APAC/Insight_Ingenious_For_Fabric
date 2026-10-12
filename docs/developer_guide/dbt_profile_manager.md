@@ -82,8 +82,9 @@ and selector rendering.
 
 ## Extending
 
-- A new profile field: add it in `build_target`, extend the golden test, and rely on
-  `validate_with_adapter` to catch a name the adapter does not know.
+- A new profile field: add it in `build_target` and extend the golden test, which is the
+  guard; `validate_with_adapter` accepts unknown field names (the adapter's credentials
+  class ignores them), it catches wrong values of the fields it knows.
 - A different default-lakehouse rule: `choose_default_lakehouse` is the only place.
 - Another authentication mode (for example a service principal with a secret held in a
   Fabric environment): a third branch in `build_target` selected by a value-set variable,

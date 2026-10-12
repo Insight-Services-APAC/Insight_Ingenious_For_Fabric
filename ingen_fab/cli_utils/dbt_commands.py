@@ -1,4 +1,5 @@
-"""dbt on Fabric Spark through the native ``dbt-fabricspark`` adapter.
+"""dbt on Fabric through Microsoft's adapters: ``dbt-fabricspark`` for lakehouses (the profile
+is generated), ``dbt-fabric`` for warehouses (the profile is hand-written).
 
 Three things live here: the proxy that runs ``dbt`` with the project's generated profile,
 the orchestrator notebook that runs the same dbt command inside Fabric against the project
@@ -39,7 +40,7 @@ DBT_VERBS = (
     "show",
 )
 DEFAULT_VARIABLE_LIBRARY = "var_lib"
-# Logs go to the log lakehouse; this is its name unless the project defines `log_lakehouse`.
+# Logs go to the log lakehouse; this is its name unless the value set's `log_lakehouse` names another.
 DEFAULT_LOG_LAKEHOUSE = "lh_log"
 
 
