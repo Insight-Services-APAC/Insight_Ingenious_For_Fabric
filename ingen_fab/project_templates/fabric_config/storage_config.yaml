@@ -3,6 +3,9 @@ storage:
     lh_bronze: lh_bronze
     lh_silver: lh_silver
     lh_gold: lh_gold
+    # the log lakehouse: dbt_project logs every run here (dbt_batch, dbt_execution_log);
+    # `ingen_fab dbt orchestrator` requires it to be declared
+    lh_log: lh_log
 
   - warehouses: local
     wh_gold: DO_NOT_CREATE

@@ -397,7 +397,8 @@ files kept. The `pbi` token is always fetched. dbt is `<python dir>/dbt` if pres
 notebook was generated with `--log-warehouse`; the caller's value wins) and
 `ingen_fab_runner = notebook/<name>` (always set, never the caller's). A `log_lakehouse`
 given in `--vars` therefore redirects the log tables but not the failure folder. `--vars` is
-always passed. `dbt deps` runs first when the project declares `packages.yml` or
+always passed, as flow-style YAML (dbt reads `--vars` as YAML), so a typed scalar the caller
+wrote, a date for instance, reaches dbt as written. `dbt deps` runs first when the project declares `packages.yml` or
 `dependencies.yml`, with `DBT_PACKAGES_INSTALL_PATH` pointing under the run folder (the
 project's `packages-install-path` reads it). On failure
 `keep_failure` copies the `*.log` files only (the step logs and dbt's logs) plus

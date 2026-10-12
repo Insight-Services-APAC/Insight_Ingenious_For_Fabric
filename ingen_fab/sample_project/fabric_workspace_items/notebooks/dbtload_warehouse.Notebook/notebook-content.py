@@ -189,14 +189,16 @@ try:
     if dbt_indirect_selection:
         arguments += ["--indirect-selection", dbt_indirect_selection]
     # dbt vars: the caller's, plus what the logging macro needs (the log store, who ran dbt);
-    # a value the caller gave wins
+    # a value the caller gave wins. Passed back as flow-style YAML, not JSON: `--vars` is YAML
+    # to dbt, and a typed scalar such as a date (`{run_date: 2026-10-12}`) survives the round
+    # trip where json.dumps would raise on it
     import yaml  # installed with dbt
     run_vars = dict(yaml.safe_load(dbt_vars) or {}) if dbt_vars else {}
     run_vars.setdefault("log_lakehouse", LOG_LAKEHOUSE)
     if LOG_WAREHOUSE:
         run_vars.setdefault("log_warehouse", LOG_WAREHOUSE)
     run_vars["ingen_fab_runner"] = "notebook/" + NOTEBOOK_NAME
-    arguments += ["--vars", json.dumps(run_vars)]
+    arguments += ["--vars", yaml.safe_dump(run_vars, default_flow_style=True, width=1_000_000).strip()]
     # Packages are not part of the upload: a project that declares them gets `dbt deps` first,
     # installed into this run's scratch folder (the project's packages-install-path reads the
     # variable) so no package lands in the uploaded project; dbt still writes package-lock.yml there

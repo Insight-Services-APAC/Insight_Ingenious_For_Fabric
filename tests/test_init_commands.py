@@ -130,6 +130,23 @@ def test_default_scaffold_logs_its_runs_like_the_sample(tmp_path: Path) -> None:
     assert macro.read_text(encoding="utf-8") == dbt_commands.LOGGING_MACRO.read_text(
         encoding="utf-8"
     )
+    # and the scaffold declares that lakehouse, so `init storage-config` writes its
+    # `lh_log_workspace_id` / `lh_log_lakehouse_id` variables and `dbt orchestrator` passes
+    import yaml
+
+    storage = yaml.safe_load(
+        (scaffold.parent / "fabric_config" / "storage_config.yaml").read_text(
+            encoding="utf-8"
+        )
+    )
+    lakehouses = [
+        v
+        for item in storage["storage"]
+        if "lakehouse" in item
+        for k, v in item.items()
+        if k != "lakehouse"
+    ]
+    assert "lh_log" in lakehouses
 
 
 def test_project_name_must_be_a_plain_identifier(tmp_path: Path, monkeypatch) -> None:

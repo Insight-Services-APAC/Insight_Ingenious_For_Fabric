@@ -424,7 +424,9 @@ def test_orchestrator_notebook_log_lakehouse_and_vars(tmp_path):
     assert (
         "run_vars = dict(yaml.safe_load(dbt_vars) or {}) if dbt_vars else {}" in content
     )
-    assert 'arguments += ["--vars", json.dumps(run_vars)]' in content
+    assert (
+        'arguments += ["--vars", yaml.safe_dump(run_vars, default_flow_style=True'
+    ) in content
 
 
 def test_orchestrator_notebook_target_and_env_for_another_adapter(tmp_path):

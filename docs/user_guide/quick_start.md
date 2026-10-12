@@ -121,6 +121,7 @@ storage:
     lh_bronze: lh_bronze
     lh_silver: lh_silver
     lh_gold: lh_gold
+    lh_log: lh_log  # the log lakehouse dbt_project writes its run log to; keep it
 
   - warehouses: local
     wh_gold: wh_gold
