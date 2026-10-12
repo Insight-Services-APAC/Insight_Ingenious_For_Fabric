@@ -17,7 +17,7 @@ sample's.
 | `cities`, `state_provinces`, `countries` | Bronze | the geography (sample) |
 | `customers`, `stock_items`, `orders`, `order_lines` | Bronze | the sales data, about 150,000 order lines (sample) |
 | `suppliers` | Bronze | **yours**, Exercise 2 |
-| one model per bronze table | Silver | CDC-processed, current records only (sample; `suppliers` is yours, Exercise 3) |
+| one model per bronze table | Silver | an incremental merge of each bronze table on its key (sample); `suppliers` is yours, Exercise 3, with the CDC filter that keeps current records only |
 | `dim_cities`, `dim_geography`, `dim_customers`, `dim_stock_items`, `fct_sales`, `agg_sales_country_month` | Gold | the sample's dimensions and facts |
 | `dim_suppliers` | Gold | **yours**, Exercise 4: a supplier with the geography of its delivery city |
 | `DW.vDim_Cities` | Warehouse | view over `dim_cities` (sample) |
