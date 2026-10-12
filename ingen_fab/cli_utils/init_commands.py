@@ -129,11 +129,17 @@ def init_solution(
     absolute_project_path = project_path.resolve()
 
     ConsoleStyles.print_info(console, "\nNext steps:")
-    ConsoleStyles.print_info(console, "1. Set environment variables:")
+    ConsoleStyles.print_info(
+        console, "1. Set environment variables (bash, then the PowerShell equivalent):"
+    )
     ConsoleStyles.print_info(
         console, f"   export FABRIC_WORKSPACE_REPO_DIR='{absolute_project_path}'"
     )
     ConsoleStyles.print_info(console, "   export FABRIC_ENVIRONMENT='development'")
+    ConsoleStyles.print_info(
+        console, f'   $env:FABRIC_WORKSPACE_REPO_DIR = "{absolute_project_path}"'
+    )
+    ConsoleStyles.print_info(console, '   $env:FABRIC_ENVIRONMENT = "development"')
     ConsoleStyles.print_info(
         console,
         "2. Update variable values in fabric_workspace_items/config/var_lib.VariableLibrary/valueSets/",
@@ -151,9 +157,7 @@ def init_solution(
         "   ingen_fab ddl compile --output-mode fabric_workspace_repo --generation-mode Lakehouse",
     )
     ConsoleStyles.print_info(console, "5. Deploy to Fabric:")
-    ConsoleStyles.print_info(
-        console, "   ingen_fab deploy deploy --environment development"
-    )
+    ConsoleStyles.print_info(console, "   ingen_fab deploy deploy")
 
 
 def _dbt_name_files(project_path: Path) -> list[Path]:
@@ -818,7 +822,8 @@ def _check_and_update_artifacts(
                     console, "\n💡 To create missing lakehouses and warehouses, run:"
                 )
                 ConsoleStyles.print_info(
-                    console, f"   ingen_fab deploy deploy --environment {environment}"
+                    console,
+                    f"   ingen_fab --fabric-environment {environment} deploy deploy",
                 )
                 ConsoleStyles.print_info(
                     console,

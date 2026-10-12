@@ -5,11 +5,6 @@
 {%- include "shared/notebook/headers/python.py.jinja" %}
 {% endif %}
 
-{{macros.python_cell_with_heading("## � Install Required Packages")}}
-
-# Install pyodbc for warehouse connections (required by all child notebooks)
-%pip install pyodbc
-
 {% include "shared/notebook/environment/library_loader.py.jinja" %}
 
 {{macros.python_cell_with_heading("## �🗂️ Now Load the Custom Python Libraries")}}

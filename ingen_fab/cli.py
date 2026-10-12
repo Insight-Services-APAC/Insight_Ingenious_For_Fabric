@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import os
+import sys
 from pathlib import Path
 from typing import Optional
 
@@ -30,6 +31,15 @@ notebook_generator = lazy_import.lazy_module("ingen_fab.ddl_scripts.notebook_gen
 PathUtils = lazy_import.lazy_callable(
     "ingen_fab.python_libs.common.utils.path_utils.PathUtils"
 )
+
+# A redirected or piped stdout on Windows may not be UTF-8; the status glyphs (✓, ❌)
+# would then raise UnicodeEncodeError inside every message. Replace what cannot be encoded.
+for _stream in (sys.stdout, sys.stderr):
+    if hasattr(_stream, "reconfigure"):
+        try:
+            _stream.reconfigure(errors="replace")
+        except (ValueError, OSError):
+            pass
 
 console = Console()
 console_styles = ConsoleStyles()

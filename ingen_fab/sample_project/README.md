@@ -127,7 +127,8 @@ ingen_fab dbt build --dbt-project dbt_project
 The profile is regenerated, `dbt build` runs with the `development` target, the first
 statement opens a Livy session on the workspace (`dbt-{project_name}-development`, visible in
 the Monitor hub), the models are built and the tests run, the session closes when dbt exits.
-dbt ends with `Done. PASS=40 WARN=0 ERROR=0 SKIP=0 TOTAL=40`.
+dbt ends with `Done. PASS=41 WARN=0 ERROR=0 SKIP=0 NO-OP=0 TOTAL=41`: the 13 models, the
+27 tests and the logging hook (the log row counts the 40 models and tests).
 
 Result: seven tables in `lh_silver`, six in `lh_gold`; one row in `lh_log.dbt_batch` with
 `runner = cli`, and 40 rows for that batch in `lh_log.dbt_execution_log`.
